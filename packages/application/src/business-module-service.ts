@@ -17,7 +17,7 @@ export class BusinessModuleService{
   const previous=await this.repository.get<T>(id);if(!previous||previous.deletedAt)throw new Error("record_not_found");
   if(moduleFor(record)!==id.split(":")[1])throw new Error("module_record_type_mismatch");
   const issues=validateBusinessRecord(record);if(issues.length)throw new Error("validation:"+issues.map(i=>i.field+"."+i.code).join(","));
-  const next={...previous,updatedAt:now,revision:previous.revision+1,data:record};await this.repository.put(next);return next;
+  const businessDate="businessDate"in record?record.businessDate:"startDate"in record?record.startDate:"expiryDate"in record?record.expiryDate:previous.businessDate;const next={...previous,businessDate,updatedAt:now,revision:previous.revision+1,data:record};await this.repository.put(next);return next;
  }
  async archive(id:string,now=new Date().toISOString()){
   const previous=await this.repository.get(id);if(!previous||!id.startsWith("business:"))throw new Error("record_not_found");
