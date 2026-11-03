@@ -1,12 +1,13 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { PluginListenerHandle } from "@capacitor/core";
-import type { DriverStateProjection } from "../../../packages/core/src/commands";
-import type { GpsFix } from "../../../packages/core/src/types";
-import type { DriverEvent, DriverIntent } from "../../../packages/domain/src/driver-workflow";
 import type {
+  DriverEvent,
+  DriverIntent,
+  DriverStateProjection,
   DriverWorkflowRepository,
   EventLocationProvider,
-} from "../../../packages/application/src/driver-workflow-service";
+  GpsFix,
+} from "../../../packages/features/work-shift";
 import { DexieDriverWorkflowRepository } from "../../../packages/storage-browser/src/driver-workflow";
 
 type NativeApi = {
