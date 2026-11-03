@@ -24,6 +24,7 @@ class BackupRecoveryKeyVaultTest {
     @Test fun invalidRecoveryKeyIsRejected() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val vault = BackupRecoveryKeyVault(context)
+        vault.remove()
         try {
             vault.store("not-a-valid-256-bit-key")
             throw AssertionError("Expected invalid key rejection")
