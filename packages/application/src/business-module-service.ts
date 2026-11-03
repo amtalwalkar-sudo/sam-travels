@@ -4,7 +4,7 @@ import{validateBusinessRecord,type BusinessRecord,type BusinessModuleId}from"../
 const moduleFor=(record:BusinessRecord):BusinessModuleId=>record.kind==="trip"?"logbook":record.kind==="finance"?"finance":record.kind==="vehicle"?"vehicle":record.kind==="maintenance"?"maintenance":record.kind==="compliance"?"compliance":record.kind==="loan"?"loans":"admin";
 const prefix=(module:BusinessModuleId)=>"business:"+module+":";
 export class BusinessModuleService{
- constructor(private readonly repository:RecordRepository,private readonly source:"web"|"android"="web",private readonly makeId=()=>crypto.randomUUID()){}
+ constructor(private readonly repository:RecordRepository,private readonly source:"web"|"android"="web",private readonly makeId:()=>string=()=>crypto.randomUUID()){}
  async create<T extends BusinessRecord>(record:T,now=new Date().toISOString()):Promise<RecordEnvelope<T>>{
   const issues=validateBusinessRecord(record);if(issues.length)throw new Error("validation:"+issues.map(i=>i.field+"."+i.code).join(","));
   const module=moduleFor(record),id=prefix(module)+this.makeId();const envelope:RecordEnvelope<T>={id,schemaVersion:1,createdAt:now,updatedAt:now,businessDate:"businessDate"in record?record.businessDate:"startDate"in record?record.startDate:"expiryDate"in record?record.expiryDate:now.slice(0,10),source:this.source,revision:1,data:record};
