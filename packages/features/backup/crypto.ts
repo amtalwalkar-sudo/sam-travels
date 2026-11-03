@@ -76,6 +76,9 @@ const randomBytes = (length: number) => {
   crypto.getRandomValues(result);
   return result;
 };
+export function generateBackupRecoveryKey(): string {
+  return toBase64(randomBytes(32));
+}
 const digest = async (value: Uint8Array) =>
   new Uint8Array(await crypto.subtle.digest("SHA-256", bytes(value)));
 const aadFor = (manifest: BackupManifest) => encoder.encode(JSON.stringify(manifest));
@@ -125,10 +128,12 @@ export async function createEncryptedBackup(input: {
   plaintext: Uint8Array;
   manifest: Omit<BackupManifest, "format" | "plaintextSha256">;
   passphrase: string;
+  recoveryKey?: string;
   argon2id: Argon2idProvider;
 }): Promise<{ backup: BackupPackage; recoveryKey: string }> {
   if (input.passphrase.length < 12) throw new Error("backup_passphrase_too_short");
-  const recoveryBytes = randomBytes(32);
+  const recoveryBytes = input.recoveryKey ? fromBase64(input.recoveryKey) : randomBytes(32);
+  if (recoveryBytes.length !== 32) throw new Error("backup_invalid_recovery_key");
   const salt = randomBytes(16);
   const dekBytes = randomBytes(32);
   const manifest: BackupManifest = {
@@ -152,6 +157,8 @@ export async function createEncryptedBackup(input: {
   ]);
   passphraseKeyBytes.fill(0);
   dekBytes.fill(0);
+  const exportedRecoveryKey = toBase64(recoveryBytes);
+  recoveryBytes.fill(0);
   return {
     backup: {
       manifest,
@@ -166,7 +173,7 @@ export async function createEncryptedBackup(input: {
         recovery: { algorithm: "AES-256-GCM", wrappedDek: recoveryWrapped },
       },
     },
-    recoveryKey: toBase64(recoveryBytes),
+    recoveryKey: exportedRecoveryKey,
   };
 }
 
