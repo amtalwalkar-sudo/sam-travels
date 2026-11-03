@@ -32,6 +32,16 @@ Track explicit lifecycle statuses such as received, pending location, pending pe
 - Persist UTC event instants and local business-date/timezone context. Use Asia/Kolkata for business display where applicable.
 
 
+## Cross-surface command and state synchronization
+
+- PWA and native overlay actions use the same typed domain command schema and transition coordinator. Include command ID, event ID, origin surface, transition instant, expected prior state/revision, schema version, and idempotency key.
+- Maintain one authoritative local state projection with monotonically increasing revision. Do not persist separate PWA and overlay business-state copies.
+- Commit each accepted transition once. After commit, publish a typed local state-change notification to active surfaces; notification delivery is at-least-once and consumers deduplicate by event ID/revision.
+- A surface that was inactive, disconnected, or recreated must query the latest durable revision and rebuild its view; event notifications alone are not sufficient for recovery.
+- Serialize and validate commands against the latest revision. Conflicting stale commands must be rejected or marked needs-attention rather than creating contradictory states.
+- Source/origin metadata is audit information, not a different business rule. A Start Ride initiated from the PWA and the same action initiated from the overlay produce the same domain transition.
+- Live cross-surface propagation is local and offline-capable. Cloud sync is not in the critical path.
+
 ## Repository boundary
 
 Application/domain code depends on repository interfaces, never directly on IndexedDB, Dexie, Room, or Capacitor. Adapters own serialization, transactions, indexes, migrations, and platform-specific details.
