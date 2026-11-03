@@ -51,7 +51,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Add failure-injection, concurrency, migration, and native repository tests.
 - Keep business modules deferred until the driver workflow and recovery acceptance gate passes.
 
-**In progress:** capability ownership and dependency rules are being made enforceable in CI before behaviour-preserving code decomposition. Device validation remains outstanding. Business-module UI is deferred.
+**In progress:** capability ownership and dependency rules are enforceable in CI; web UI state/orchestration has been separated from presentation; native transition policy and transactional store have explicit ownership; browser IndexedDB and Room close/reopen recovery are tested; concurrent PWA/native enqueue is serialized; and Android replay of a completed transition is now explicitly tested to reject a second completion while preserving one event, one projection revision, and one outbox record. CI is green on commit `e3a7f926` (run #125); this new replay-test slice is awaiting its own CI run. Device validation remains outstanding. Business-module UI is deferred.
 
 ## Phase 5 — Business modules (incremental, deferred)
 
