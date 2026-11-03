@@ -1,3 +1,5 @@
+import type { SnapshotManifest } from "../../core/src/backup";
+
 /**
  * backup-encryption-v1 package cryptography.
  *
@@ -21,14 +23,8 @@ export interface Argon2idProvider {
   }): Promise<Uint8Array>;
 }
 
-export interface BackupManifest {
+export interface BackupManifest extends SnapshotManifest {
   format: typeof BACKUP_ENCRYPTION_VERSION;
-  applicationVersion: string;
-  schemaVersion: number;
-  createdAt: string;
-  businessTimezone: string;
-  snapshotRevision: number;
-  recordCounts: Record<string, number>;
   plaintextSha256: string;
 }
 
@@ -126,7 +122,7 @@ function validatePackageShape(pkg: BackupPackage): void {
 
 export async function createEncryptedBackup(input: {
   plaintext: Uint8Array;
-  manifest: Omit<BackupManifest, "format" | "plaintextSha256">;
+  manifest: SnapshotManifest;
   passphrase: string;
   recoveryKey?: string;
   argon2id: Argon2idProvider;
