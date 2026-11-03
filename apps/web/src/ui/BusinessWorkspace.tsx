@@ -1,4 +1,5 @@
 import{useEffect,useMemo,useState,type FormEvent}from"react";
+import{Capacitor}from"@capacitor/core";
 import type{RecordRepository,RecordEnvelope}from"../../../../packages/core/src";
 import{BusinessModuleService}from"../../../../packages/application/src";
 import{calculatePerformance,type BusinessModuleId,type BusinessRecord,type TripRecord,type FinanceRecord}from"../../../../packages/domain/src";
@@ -18,7 +19,7 @@ const blank=(id:BusinessModuleId)=>Object.fromEntries(fields[id].map(f=>[f.name,
 const rupeesToPaise=(value:string)=>{if(!value.trim())return 0;const n=Number(value);if(!Number.isFinite(n)||n<0)throw new Error("Enter a valid amount");return Math.round(n*100)};
 const money=(paise:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(paise/100);
 export function BusinessWorkspace({repository}:{repository:RecordRepository}){
- const service=useMemo(()=>new BusinessModuleService(repository,"web"),[repository]);
+ const service=useMemo(()=>new BusinessModuleService(repository,Capacitor.isNativePlatform()?"android":"web"),[repository]);
  const[selected,setSelected]=useState<ModuleTab>("logbook"),[values,setValues]=useState<Record<string,string>>({}),[rows,setRows]=useState<Array<RecordEnvelope<BusinessRecord>>>([]),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
  const[from,setFrom]=useState(today().slice(0,8)+"01"),[to,setTo]=useState(today());
  useEffect(()=>{if(selected==="performance")return;let live=true;service.list(selected).then(items=>{if(live)setRows(items)}).catch(e=>setMessage(e instanceof Error?e.message:"Unable to load records"));return()=>{live=false}},[selected,service]);
