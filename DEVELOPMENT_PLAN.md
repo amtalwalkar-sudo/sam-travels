@@ -68,8 +68,12 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Implement Dropbox OAuth with least-privilege scopes and secure token storage.
 - Implement consistent versioned snapshots, encrypted backup packages, daily best-effort backup, retry, and retention.
 - Implement user-initiated restore with validation, checkpoint, confirmation, staged replacement, and post-restore verification.
-- Add optional online capabilities only through the network gateway; reverse geocoding remains optional enrichment.
+- Add optional online capabilities only through the network gateway; reverse geocoding remains optional and is not required for the driver-first scope.
 - Verify disabled policy blocks all app-initiated network requests.
+
+**In progress — existing foundations verified:** the app-level Internet Access preference is persisted through the runtime's authoritative repository and defaults to disabled; the shared network gateway rejects operations while disabled; Android has a Keystore-backed credential vault abstraction. CI run #143 passed the architecture gate, web tests/build, Android build/unit tests, and Android emulator instrumentation. These foundations do not constitute a Dropbox backup implementation.
+
+**Not yet implemented / acceptance still required:** Dropbox OAuth authorization and refresh lifecycle; client-side backup-encryption-v1 package generation and recovery-key/passphrase flows; consistent database snapshot/export and import; daily best-effort scheduling, retry and retention; validated checkpoint-protected restore; and end-to-end tests proving offline deferral, auth expiry, ciphertext integrity, and network-gateway enforcement for every Dropbox request. Do not mark Phase 6 complete until these are implemented and tested. Dropbox app registration/client ID and redirect URI configuration must be supplied/configured for live OAuth verification; no credentials or tokens may be committed. Physical-device background scheduling and lifecycle checks remain a separate device-acceptance gate.
 
 **Exit gate:** backup/restore, auth expiry, offline deferral, integrity validation, retention, and network policy enforcement pass.
 
