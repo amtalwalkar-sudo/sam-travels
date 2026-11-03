@@ -29,10 +29,10 @@ class DriverOverlayService:Service(){
  private val main=Handler(Looper.getMainLooper())
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
- private var status:TextView?=null
+ private var status:TextView?=null\n private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").build()}
  override fun onBind(intent:Intent?):IBinder?=null
- override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};main.post{showPanel()};return START_STICKY}
+ override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};if(databaseObserver==null){databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}};db.invalidationTracker.addObserver(databaseObserver!!)};main.post{showPanel()};return START_STICKY}
  private fun showPanel(){
   if(panel!=null)return
   window=getSystemService(WINDOW_SERVICE) as WindowManager
@@ -97,5 +97,5 @@ class DriverOverlayService:Service(){
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
  }
- override fun onDestroy(){panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();super.onDestroy()}
+ override fun onDestroy(){databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();super.onDestroy()}
 }
