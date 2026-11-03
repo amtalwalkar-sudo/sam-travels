@@ -2,6 +2,8 @@
 
 ## Delivered foundation
 
+- Separate platform-neutral domain surface and application record use case package; application services depend on repository interfaces, not storage adapters.
+
 - React, TypeScript, Vite and an installable PWA shell.
 - Capacitor Android project with Kotlin entry point and Room-backed native storage plugin.
 - Browser-only PWA persistence uses Dexie/IndexedDB.
