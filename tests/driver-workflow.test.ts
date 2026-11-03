@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import {beforeEach,describe,expect,it} from "vitest";
 import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
-import {createDriverCommand} from "../packages/application/src/driver-workflow-service";
+import {createDriverCommand} from "../packages/features/work-shift";
 import type {GpsFix} from "../packages/core/src/types";
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
 describe("durable single-driver workflow",()=>{
