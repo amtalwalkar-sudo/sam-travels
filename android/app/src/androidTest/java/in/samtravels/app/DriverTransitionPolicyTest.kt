@@ -1,4 +1,4 @@
-package \`in\`.samtravels.app
+package `in`.samtravels.app
 
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
