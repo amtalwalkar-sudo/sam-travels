@@ -8,7 +8,7 @@ import {
   markBrowserRestoreVerified,
   restoreBrowserSnapshot,
   rollbackBrowserRecoveryCheckpoint,
-} from "../packages/features/backup";
+} from "../packages/storage-browser/src";
 
 describe("browser consistent backup snapshots and recovery checkpoints", () => {
   beforeEach(async () => {
@@ -57,11 +57,7 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
       revision: 2,
       data: { label: "replacement" },
     });
-    const manifest = {
-      ...source.manifest,
-      format: "backup-encryption-v1" as const,
-      plaintextSha256: "validated-by-crypto-before-restore",
-    };
+    const manifest = source.manifest;
     const result = await restoreBrowserSnapshot({ data: source.data, manifest, confirmed: true });
     expect((await browserDatabase.records.get("business-record"))?.data).toEqual({ label: "original" });
     expect(await listBrowserRecoveryCheckpoints()).toEqual([
@@ -94,7 +90,7 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     });
     const result = await restoreBrowserSnapshot({
       data: source.data,
-      manifest: { ...source.manifest, format: "backup-encryption-v1", plaintextSha256: "verified-before-restore" },
+      manifest: source.manifest,
       confirmed: true,
     });
     await rollbackBrowserRecoveryCheckpoint(result.checkpointId);
