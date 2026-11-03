@@ -34,6 +34,11 @@ The initial Room/Dexie adapter stores versioned JSON record envelopes behind one
 - Dropbox OAuth, encrypted package generation, passphrase/recovery-key setup UX, scheduled backup and restore: Phase 6.
 - Signed release, physical-device acceptance and release: Phase 7.
 
-## Phase 2 exit gate
+## Phase 2 exit gate — verified
 
-Both browser and Android builds compile; browser persistence works without native APIs; Android persistence routes through Room; network policy defaults closed; GPS policy and feature registration are covered by automated tests. CI runs web tests/build, Android debug build, and compiles the Android Room instrumentation-test APK. Emulator and physical-device execution are retained for later device-validation work.
+- Browser TypeScript/Vite production build and unit/repository tests pass in GitHub Actions.
+- Capacitor Android debug APK and Android instrumentation-test APK compile with Java 21 / Android SDK 35.
+- Browser-only persistence uses Dexie/IndexedDB; installed Android persistence uses Room through the typed Capacitor bridge.
+- Network policy defaults disabled and is persisted by the selected platform repository.
+- Approved GPS policy, feature registration, application record service, and Dexie repository behavior have automated tests.
+- Room instrumentation test source is included and compiles; execution on emulator/physical hardware remains part of later device validation.
