@@ -1,0 +1,1 @@
+import Dexie,{type Table}from"dexie";import type{RecordEnvelope}from"../../core/src/types";class SamTravelsDatabase extends Dexie{records!:Table<RecordEnvelope<unknown>,string>;constructor(){super("sam-travels-browser");this.version(1).stores({records:"id,updatedAt,schemaVersion,deletedAt"})}}export const browserDatabase=new SamTravelsDatabase();
