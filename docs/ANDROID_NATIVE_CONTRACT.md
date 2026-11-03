@@ -9,7 +9,6 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - The WebView and native overlay are clients of the same Room-backed application/repository boundary. WebView business reads and writes go through typed Capacitor/native APIs; do not maintain a second authoritative Android business database in IndexedDB.
 - IndexedDB is authoritative only for browser-only PWA operation where the native Android runtime is absent.
 - The same domain/application contracts and validation rules apply across Room and IndexedDB adapters.
-- React/PWA owns presentation and user workflows.
 - Capacitor provides a versioned, typed bridge.
 - Kotlin plugins expose narrow capabilities.
 - Android native components perform event-scoped location acquisition and durable journal work without blocking the UI thread.
