@@ -1,6 +1,6 @@
 # Phase 6 — Background Backup Design
 
-Status: design decision for implementation; not an acceptance claim.
+Status: Android WorkManager implementation now present; CI and device acceptance remain outstanding.
 
 ## Goals
 
@@ -17,10 +17,10 @@ Status: design decision for implementation; not an acceptance claim.
 4. At explicit backup setup, the user supplies a recovery key (or establishes one during the first backup). Show it for the user to save externally. A device-protected copy may be retained only as a credential-vault item encrypted by the dedicated Keystore key, so the background worker can create a recovery envelope without asking for a UI-only passphrase. The externally saved recovery key remains the portable recovery path on a replacement device.
 5. The background worker creates a fresh random 256-bit DEK per backup and a fresh AES-GCM nonce per encryption. It wraps the DEK using the retained recovery key.
 6. **Implemented in code:** `backup-encryption-v1` remains unchanged and continues to require both passphrase and recovery envelopes. The explicitly selected `backup-encryption-v2` format supports a recovery-key-only envelope. Creation requires `mode: "recovery-key-only"` and an existing user recovery key; it never silently generates a key the user has not saved. V2 packages are authenticated with the versioned manifest as AES-GCM additional data, parse/serialize through the normal package APIs, and restore only with the recovery key. Passphrase restore fails clearly with `backup_passphrase_not_available`. V1 package parsing and both legacy restore paths remain supported. Argon2id parameters and v1 output are unchanged.
-7. The worker reads Dropbox credentials only through the native Keystore-backed credential vault, refreshes OAuth credentials through the approved PKCE token lifecycle, and checks the persisted Internet Access policy immediately before every network operation. If policy is disabled, credentials are unavailable, the device is locked and key use is disallowed, or connectivity is absent, defer safely.
-8. Use an idempotent upload identity derived from the backup snapshot revision and creation identifier. Upload to a temporary/collision-safe path, verify the remote result, then mark the run successful. Never overwrite the only known-good backup.
+7. **Implemented:** `DailyDropboxBackupWorker` reads OAuth tokens through the same Keystore-backed credential vault used by the foreground plugin, refreshes expired access tokens using the stored refresh token and app key, and checks the Room-backed Internet Access policy before each HTTP request. Missing configuration, credentials, recovery key, or disabled policy defers the run. No token, passphrase, recovery key, or DEK is passed in WorkManager input.
+8. **Implemented:** the worker derives a collision-safe upload path from the snapshot revision and plaintext digest, uses Dropbox add/no-autorename semantics, and verifies the remote object metadata and byte size before marking success. Existing backups are not overwritten.
 9. Apply retention only after a new backup has been verified remotely. Protect the newest known-good backup and any user-protected backup.
-10. Record bounded exponential retry/backoff and distinguish transient failures from authorization, policy-disabled, key-unavailable, and permanent validation failures. A later eligible run must reconcile interrupted/in-progress records.
+10. **Implemented baseline:** WorkManager uses persisted unique periodic 24-hour work plus unique immediate work, connected-network constraints, exponential backoff, a bounded retry count, and native status timestamps/categories. Policy-disabled, missing-key, and missing-auth states defer without uploading. Broader interrupted-run reconciliation, forced refresh after server-side token revocation, retention, and failure-injection coverage remain.
 
 ## PWA behavior
 
@@ -31,7 +31,7 @@ Status: design decision for implementation; not an acceptance claim.
 ## Verification gates
 
 - Unit tests added for v1 passphrase/recovery compatibility, v2 recovery-only serialization/parse/decryption, missing-key rejection, wrong recovery key, and clear passphrase-restore rejection. CI must confirm these tests; nonce uniqueness, broader integrity failure, and malformed-package coverage remain verification items.
-- Android instrumentation: Keystore alias isolation, encrypted secret persistence across process recreation, worker scheduling persistence across reboot simulation where feasible, unique-work idempotency, offline/policy-disabled deferral, token refresh, upload retry, and interrupted-run reconciliation.
+- Android instrumentation still required: Keystore alias isolation, encrypted secret persistence across process recreation, worker scheduling persistence across reboot simulation, unique-work idempotency, offline/policy-disabled deferral, token refresh, upload retry, V2 cross-runtime decryption, and interrupted-run reconciliation.
 - Room instrumentation: consistent snapshot, restore checkpoint creation, interruption at each restore stage, rollback integrity, and verified-checkpoint discard.
-- CI must build the PWA and Android app, run all unit tests, and execute Android emulator instrumentation.
+- CI must build the PWA and Android app, run all unit tests, and execute Android emulator instrumentation. The worker must be validated against the TypeScript V2 parser/decryptor using a shared fixture before it is treated as format-compatible.
 - Real Dropbox OAuth/upload/download and physical-device Doze/reboot/locked-device checks remain manual acceptance gates. CI cannot prove these external/device behaviors.
