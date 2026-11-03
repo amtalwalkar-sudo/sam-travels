@@ -79,6 +79,34 @@ describe("Dropbox OAuth gateway boundary", () => {
     expect(vault.values.get("dropbox.oauth.tokens.v1")).toContain("fresh");
   });
 
+  it("retries transient Dropbox failures and preserves the selected known-good backup during retention", async () => {
+    const policy = new MemoryPolicy();
+    policy.enabled = true;
+    const vault = new MemoryVault();
+    vault.values.set("dropbox.oauth.tokens.v1", JSON.stringify({
+      accessToken: "access",
+      refreshToken: "refresh",
+      expiresAt: Date.now() + 3_600_000,
+    }));
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response("busy", { status: 503 }))
+      .mockResolvedValueOnce(new Response("exists", { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        entries: [
+          { ".tag": "file", name: "old.stbackup", path_display: "/SamTravelsBackups/old.stbackup", server_modified: "2026-11-01T00:00:00Z", size: 100 },
+          { ".tag": "file", name: "keep.stbackup", path_display: "/SamTravelsBackups/keep.stbackup", server_modified: "2026-11-02T00:00:00Z", size: 100 },
+          { ".tag": "file", name: "newest.stbackup", path_display: "/SamTravelsBackups/newest.stbackup", server_modified: "2026-11-03T00:00:00Z", size: 100 },
+        ],
+        has_more: false,
+        cursor: "done",
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    const client = new DropboxBackupClient(policy, vault, "test-client", "samtravels://oauth", fetcher);
+    const deleted = await client.applyRetention(1, ["/SamTravelsBackups/keep.stbackup"]);
+    expect(deleted).toEqual(["/SamTravelsBackups/old.stbackup"]);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
   it("creates a PKCE authorization request only after policy is enabled", async () => {
     const policy = new MemoryPolicy();
     policy.enabled = true;
