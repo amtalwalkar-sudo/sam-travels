@@ -54,20 +54,14 @@ class DriverOverlayService:Service(){
  private fun refresh(message:String?=null){executor.execute{try{val s=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0);main.post{status?.text=message?:("Sam Travels · "+s.optString("state").replace("_"," ")+" · r"+s.optInt("revision"))}}catch(_:Exception){main.post{status?.text="Driver state unavailable"}}}}
  private fun runTransition(event:String){
   status?.text="Saving action · GPS pending"
-  executor.execute{
-   try{
-    val snapshot=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0)
-    val current=snapshot.optString("state")
-    val target=when(event){"shift_start"->if(current=="idle")"shift_active" else null;"shift_end"->if(current=="shift_active")"idle" else null;"trip_start"->if(current=="shift_active")"trip_active" else null;"trip_end","ride_cancel"->if(current=="trip_active"||current=="approach_active")"shift_active" else null;else->null}
-    if(target==null){main.post{status?.text="Action not valid for current state"};return@execute}
-    val pending=db.records().list().any{it.id.startsWith("driver-intent:")&&runCatching{val p=JSONObject(it.json);(p.optString("status")=="pending_location"||p.optString("status")=="needs_attention")&&p.optJSONObject("command")?.optInt("expectedRevision",-1)==snapshot.optInt("revision")}.getOrDefault(false)};if(pending){main.post{status?.text="Another action is awaiting GPS recovery"};return@execute}
-    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
-    val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event).put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",current).put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
-    val intent=JSONObject().put("command",command).put("status","pending_location").put("createdAt",transitionAt).put("updatedAt",transitionAt)
-    db.records().put(StoredRecord("driver-intent:"+id,intent.toString(),1,transitionAt))
-    acquireLocation(id,command,intent)
-   }catch(e:Exception){main.post{status?.text="Not safely queued · "+(e.message?:"storage error")}}
-  }
+  executor.execute{try{
+   val snapshot=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("state","idle").put("revision",0)
+   val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
+   val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event)
+    .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
+    .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
+   val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
+  }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
  private fun acquireLocation(id:String,command:JSONObject,intent:JSONObject){
   try{
@@ -81,21 +75,16 @@ class DriverOverlayService:Service(){
    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper());main.postDelayed(timeout,35_000L)
   }catch(e:Exception){markAttention(id,intent,"location_unavailable")}
  }
- private fun markAttention(id:String,intent:JSONObject,reason:String){intent.put("status","needs_attention").put("reason",reason).put("updatedAt",java.time.Instant.now().toString());db.records().put(StoredRecord("driver-intent:"+id,intent.toString(),1,java.time.Instant.now().toString()));main.post{refresh("Action retained · "+reason)}}
+ private fun markAttention(id:String,intent:JSONObject,reason:String){
+  try{DriverWorkflowStore.markNeedsAttention(db,id,reason)}catch(_:Exception){}
+  main.post{refresh("Action retained · "+reason)}
+ }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
   try{
-   val fixAt=java.time.Instant.ofEpochMilli(location.time);val transition=java.time.Instant.parse(command.getString("transitionAt"))
-   if(location.accuracy>50f||abs(fixAt.toEpochMilli()-transition.toEpochMilli())>30000L){markAttention(id,intent,"gps_not_reliable");return}
-   db.runInTransaction{
-    val snapshot=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0)
-    if(snapshot.optInt("revision")!=command.optInt("expectedRevision")||snapshot.optString("state")!=command.optString("expectedPriorState"))throw IllegalStateException("stale_revision")
-    val next=JSONObject(snapshot.toString()).put("revision",snapshot.optInt("revision")+1).put("state",when(command.optString("eventType")){"shift_start"->"shift_active";"shift_end"->"idle";"trip_start"->"trip_active";else->"shift_active"}).put("lastEventId",id)
-    when(command.optString("eventType")){"shift_start"->next.put("shiftStartedAt",command.getString("transitionAt"));"shift_end"->next.remove("shiftStartedAt");"trip_start"->next.put("tripStartedAt",command.getString("transitionAt"));else->next.remove("tripStartedAt")}
-    val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude).put("horizontalAccuracyM",location.accuracy.toDouble()).put("fixAt",fixAt.toString()).put("provider",location.provider?:"android")
-    val now=java.time.Instant.now().toString();val eventRecord=JSONObject().put("eventId",id).put("command",command).put("gps",gps).put("committedAt",now).put("revision",next.optInt("revision"))
-    intent.put("status","recorded").put("updatedAt",now)
-    db.records().put(StoredRecord("driver-event:"+id,eventRecord.toString(),1,now));db.records().put(StoredRecord("driver-state",JSONObject().put("value",next).toString(),1,now));db.records().put(StoredRecord("driver-intent:"+id,intent.toString(),1,now));db.records().put(StoredRecord("driver-outbox:"+next.optInt("revision"),JSONObject().put("id","driver-state:"+next.optInt("revision")).put("eventId",id).put("revision",next.optInt("revision")).put("delivered",false).put("createdAt",now).toString(),1,now))
-   }
+   val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
+    .put("horizontalAccuracyM",location.accuracy.toDouble()).put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
+    .put("provider",location.provider?:"android")
+   DriverWorkflowStore.complete(db,id,gps)
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
  }
