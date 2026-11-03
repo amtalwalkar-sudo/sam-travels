@@ -83,16 +83,16 @@ Perform these only after Parts A–E work. Keep the phone charged and do not use
 
 ## Part G — daily backup scheduling gate
 
-Daily unattended scheduling is not yet implemented. Do not consider a daily reminder, a foreground retry, or a persisted “backup due” flag equivalent to a background backup.
+Android WorkManager scheduling is implemented in this PR but is not yet accepted on a physical device. Do not treat CI compilation as proof of daily execution. The PWA remains best-effort-on-next-open only.
 
-Before enabling unattended jobs, implementation must provide:
+Before accepting unattended jobs, verify:
 - A durable schedule and retry state that survives process death/reboot.
 - A background-safe encryption key strategy for Android using Keystore, without persisting the user's passphrase.
 - A PWA strategy that works only where the browser supports the required background execution and can safely access the encryption material without persisting a plaintext passphrase.
 - NetworkGateway enforcement, bounded retries, idempotent backup naming/upload, and user-visible last-success/last-failure state.
 - Tests for app termination, reboot, locked vault, revoked Dropbox authorization, offline periods, retry exhaustion, and duplicate job execution.
 
-This gate requires a separately tested implementation slice; it is intentionally not represented as complete by the current foreground backup controls.
+This gate requires CI plus physical-device acceptance. The implementation is present, but Phase 6 remains open until these checks are recorded.
 
 ## What to send back after each manual step
 
