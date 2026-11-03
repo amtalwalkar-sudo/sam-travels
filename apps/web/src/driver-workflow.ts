@@ -20,8 +20,8 @@ type NativeApi={
 };
 const NativeDriver=registerPlugin<NativeApi>("DriverWorkflow");
 export class NativeDriverWorkflowRepository implements DriverWorkflowRepository{
- private listeners=new Set<(s:DriverStateProjection)=>void>();private handle?:PluginListenerHandle;
- constructor(){void NativeDriver.addListener("driverStateChanged",data=>this.listeners.forEach(fn=>fn(data.snapshot))).then(h=>this.handle=h)}
+ private listeners=new Set<(s:DriverStateProjection)=>void>();private handle?:PluginListenerHandle;private disposed=false;
+ constructor(){void NativeDriver.addListener("driverStateChanged",data=>this.listeners.forEach(fn=>fn(data.snapshot))).then(h=>{if(this.disposed)void h.remove();else this.handle=h})}
  async getSnapshot(){return(await NativeDriver.getSnapshot()).snapshot}
  async queueIntent(intent:DriverIntent){return(await NativeDriver.queueIntent({command:intent.command})).intent}
  async reactivateIntent(eventId:string){return(await NativeDriver.retryIntent({eventId})).intent}
@@ -31,7 +31,7 @@ export class NativeDriverWorkflowRepository implements DriverWorkflowRepository{
  markNeedsAttention(eventId:string,reason:string){return NativeDriver.markNeedsAttention({eventId,reason})}
  async listEvents():Promise<DriverEvent[]>{return(await NativeDriver.listEvents()).events}
  subscribe(fn:(s:DriverStateProjection)=>void){this.listeners.add(fn);return()=>this.listeners.delete(fn)}
- dispose(){void this.handle?.remove();this.listeners.clear()}
+ dispose(){this.disposed=true;void this.handle?.remove();this.handle=undefined;this.listeners.clear()}
 }
 export class BrowserEventLocationProvider implements EventLocationProvider{
  capture():Promise<GpsFix>{return new Promise((resolve,reject)=>{

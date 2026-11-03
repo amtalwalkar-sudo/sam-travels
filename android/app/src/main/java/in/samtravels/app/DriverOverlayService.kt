@@ -30,6 +30,7 @@ class DriverOverlayService:Service(){
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
  private var status:TextView?=null
+ private val actionButtons=mutableMapOf<String,Button>()
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").build()}
  override fun onBind(intent:Intent?):IBinder?=null
@@ -45,15 +46,29 @@ class DriverOverlayService:Service(){
   val tripEnd=Button(this).apply{text="End trip";setOnClickListener{runTransition("trip_end")}}
   val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("ride_cancel")}}
   val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
+  actionButtons["shift_start"]=shiftStart;actionButtons["trip_start"]=tripStart;actionButtons["trip_end"]=tripEnd;actionButtons["ride_cancel"]=cancel;actionButtons["shift_end"]=shiftEnd
   listOf(shiftStart,tripStart,tripEnd,cancel,shiftEnd).forEach{root.addView(it)}
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
   try{window.addView(root,params);refresh()}catch(_:Exception){panel=null;stopSelf()}
  }
- private fun refresh(message:String?=null){executor.execute{try{val s=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0);main.post{status?.text=message?:("Sam Travels · "+s.optString("state").replace("_"," ")+" · r"+s.optInt("revision"))}}catch(_:Exception){main.post{status?.text="Driver state unavailable"}}}}
+ private fun refresh(message:String?=null){executor.execute{try{
+  val s=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0)
+  val pending=db.records().list().any{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val item=JSONObject(row.json);item.optString("status")=="pending_location"||item.optString("status")=="needs_attention"}.getOrDefault(false)}
+  val state=s.optString("state")
+  main.post{
+   status?.text=message?:("Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
+   actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
+   actionButtons["trip_start"]?.isEnabled=!pending&&state=="shift_active"
+   actionButtons["trip_end"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
+   actionButtons["ride_cancel"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
+   actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
+  }
+ }catch(_:Exception){main.post{status?.text="Driver state unavailable"}}}}
  private fun runTransition(event:String){
   status?.text="Saving action · GPS pending"
+  main.post{actionButtons.values.forEach{it.isEnabled=false}}
   executor.execute{try{
    val snapshot=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("state","idle").put("revision",0)
    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()

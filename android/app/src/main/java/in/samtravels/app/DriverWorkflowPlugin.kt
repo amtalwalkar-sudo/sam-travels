@@ -26,9 +26,17 @@ class DriverWorkflowPlugin:Plugin(){
  private val executor=Executors.newSingleThreadExecutor()
  private val main=Handler(Looper.getMainLooper())
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").build()}
+ private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
  private fun state():JSONObject=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
  private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
  @PluginMethod fun enableOverlay(call:PluginCall){
+  if(!hasLocationPermission()){requestPermissionForAlias("location",call,"overlayLocationPermissionCallback");return}
+  startOverlay(call)
+ }
+ @PermissionCallback private fun overlayLocationPermissionCallback(call:PluginCall){
+  if(hasLocationPermission())startOverlay(call)else call.reject("Location permission is required for driver events","PERMISSION_DENIED")
+ }
+ private fun startOverlay(call:PluginCall){
   if(!Settings.canDrawOverlays(context)){val settings=Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(settings);call.reject("Grant display-over-other-apps permission, then enable the overlay again","OVERLAY_PERMISSION_REQUIRED");return}
   try{context.startService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to start native driver overlay",e)}
  }
@@ -41,10 +49,10 @@ class DriverWorkflowPlugin:Plugin(){
  }
  @PluginMethod fun listPending(call:PluginCall){executor.execute{try{val arr=JSONArray();db.records().list().filter{it.id.startsWith("driver-intent:")}.forEach{val j=JSONObject(it.json);if(j.optString("status")=="pending_location"||j.optString("status")=="needs_attention")arr.put(j)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
  @PluginMethod fun captureLocation(call:PluginCall){
-  if(getPermissionState("location")!=PermissionState.GRANTED){requestPermissionForAlias("location",call,"locationPermissionCallback");return}
+  if(!hasLocationPermission()){requestPermissionForAlias("location",call,"locationPermissionCallback");return}
   requestOneFix(call)
  }
- @PermissionCallback private fun locationPermissionCallback(call:PluginCall){if(getPermissionState("location")==PermissionState.GRANTED)requestOneFix(call)else call.reject("Location permission denied; intent remains pending","PERMISSION_DENIED")}
+ @PermissionCallback private fun locationPermissionCallback(call:PluginCall){if(hasLocationPermission())requestOneFix(call)else call.reject("Location permission denied; intent remains pending","PERMISSION_DENIED")}
  private fun requestOneFix(call:PluginCall){
   try{
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
