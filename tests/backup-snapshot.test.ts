@@ -7,6 +7,7 @@ import {
   listBrowserRecoveryCheckpoints,
   markBrowserRestoreVerified,
   restoreBrowserSnapshot,
+  rollbackBrowserRecoveryCheckpoint,
 } from "../packages/features/backup";
 
 describe("browser consistent backup snapshots and recovery checkpoints", () => {
@@ -69,6 +70,38 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     await markBrowserRestoreVerified(result.checkpointId);
     await discardVerifiedBrowserCheckpoint(result.checkpointId);
     expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
+  });
+
+  it("can roll back a restored dataset from its retained pre-restore checkpoint", async () => {
+    await browserDatabase.records.put({
+      id: "source",
+      schemaVersion: 1,
+      createdAt: "2026-11-04T00:00:00.000Z",
+      updatedAt: "2026-11-04T00:00:00.000Z",
+      source: "web",
+      revision: 1,
+      data: { label: "pre-restore" },
+    });
+    const source = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.put({
+      id: "source",
+      schemaVersion: 1,
+      createdAt: "2026-11-04T00:00:00.000Z",
+      updatedAt: "2026-11-04T00:01:00.000Z",
+      source: "web",
+      revision: 2,
+      data: { label: "temporary" },
+    });
+    const result = await restoreBrowserSnapshot({
+      data: source.data,
+      manifest: { ...source.manifest, format: "backup-encryption-v1", plaintextSha256: "verified-before-restore" },
+      confirmed: true,
+    });
+    await rollbackBrowserRecoveryCheckpoint(result.checkpointId);
+    expect((await browserDatabase.records.get("source"))?.data).toEqual({ label: "temporary" });
+    expect(await listBrowserRecoveryCheckpoints()).toEqual([
+      expect.objectContaining({ id: result.checkpointId, status: "rollback_complete" }),
+    ]);
   });
 
   it("refuses replacement without confirmation and rejects mismatched record counts", async () => {
