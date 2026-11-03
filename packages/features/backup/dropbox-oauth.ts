@@ -132,10 +132,28 @@ export class DropboxBackupClient {
     return Boolean(await this.vault.get(TOKEN_KEY));
   }
 
-  async disconnect(): Promise<void> {
-    // Local credential removal must remain available while Internet Access is disabled.
+  async disconnect(): Promise<{ revoked: boolean }> {
+    // Always remove local credentials, even offline or while Internet Access is disabled.
+    const stored = await this.vault.get(TOKEN_KEY);
+    let revoked = false;
+    if (stored) {
+      try {
+        await this.gateway.run(async () => {
+          const token = await this.accessToken();
+          const response = await this.fetcher(API_ENDPOINT + "/auth/token/revoke", {
+            method: "POST",
+            headers: { authorization: "Bearer " + token },
+          });
+          if (!response.ok) throw new Error("dropbox_revoke_http_" + response.status);
+          revoked = true;
+        });
+      } catch {
+        // Local sign-out still succeeds; the caller can report that remote revocation was deferred.
+      }
+    }
     await this.vault.remove(TOKEN_KEY);
     await this.vault.remove(PENDING_KEY);
+    return { revoked };
   }
 
   private async ensureBackupFolder(token: string): Promise<void> {
