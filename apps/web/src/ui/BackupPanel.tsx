@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  consumeNativeOAuthCallback,
   createAndUploadBackup,
   discardVerifiedRecoveryCheckpoint,
   listRecoveryCheckpoints,
@@ -41,17 +42,24 @@ export function BackupPanel() {
   }, [clientId, redirectUri]);
 
   useEffect(() => {
+    const handleCallback = (url: string) => {
+      const params = new URL(url).searchParams;
+      const code = params.get("code");
+      const state = params.get("state");
+      if (code && state) {
+        setCallback({ code, state });
+        setMessage("Dropbox returned an authorization code. Unlock the vault and finish connecting.");
+      } else if (params.get("error")) {
+        setMessage("Dropbox authorization was not completed: " + (params.get("error_description") || params.get("error")));
+      }
+    };
     const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const state = params.get("state");
-    if (code && state) {
-      setCallback({ code, state });
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setMessage("Dropbox returned an authorization code. Unlock the vault and finish connecting.");
-    } else if (params.get("error")) {
-      setMessage("Dropbox authorization was not completed: " + (params.get("error_description") || params.get("error")));
+    if (params.has("code") || params.has("error")) {
+      handleCallback(window.location.href);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    void consumeNativeOAuthCallback().then(url => { if (url) handleCallback(url); })
+      .catch(error => setMessage(error instanceof Error ? error.message : "Could not read native Dropbox callback"));
     void refreshCheckpoints();
   }, []);
 
