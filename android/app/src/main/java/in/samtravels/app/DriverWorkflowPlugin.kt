@@ -15,6 +15,7 @@ import androidx.room.Room
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
@@ -40,6 +41,8 @@ class DriverWorkflowPlugin:Plugin(){
    val existing=db.records().get("driver-intent:"+eventId)
    if(existing!=null){val old=JSONObject(existing.json);if(old.optJSONObject("command")?.optString("commandId")!=commandId){call.reject("Duplicate event id conflict");return@execute};val out=JSObject();out.put("intent",old);call.resolve(out);return@execute}
    val snapshot=state();if(command.optInt("expectedRevision",-1)!=snapshot.optInt("revision")||command.optString("expectedPriorState")!=snapshot.optString("state")){call.reject("Stale driver revision");return@execute}
+   val pending=db.records().list().any{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val item=JSONObject(row.json);val c=item.optJSONObject("command");(item.optString("status")=="pending_location"||item.optString("status")=="needs_attention")&&c?.optInt("expectedRevision",-1)==snapshot.optInt("revision")}.getOrDefault(false)}
+   if(pending){call.reject("Another driver action is awaiting location or recovery","COMPETING_TRANSITION_PENDING");return@execute}
    val intent=JSONObject().put("command",command).put("status","pending_location").put("createdAt",java.time.Instant.now().toString()).put("updatedAt",java.time.Instant.now().toString())
    save("driver-intent:"+eventId,intent);val out=JSObject();out.put("intent",intent);call.resolve(out)
   }catch(e:Exception){call.reject("Driver intent enqueue failed",e)}}
