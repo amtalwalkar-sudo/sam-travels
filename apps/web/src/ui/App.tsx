@@ -5,6 +5,7 @@ import type{DriverStateProjection,DriverTransitionCommand}from"../../../../packa
 import{createPlatformRepository}from"../native-store";
 import{createDriverWorkflow,enableNativeOverlay,disableNativeOverlay,nativeOverlayAvailable}from"../driver-workflow";
 import{createDriverCommand,DriverWorkflowService}from"../../../../packages/application/src/driver-workflow-service";
+import{BusinessWorkspace}from"./BusinessWorkspace";
 const features=registerFeatures();
 export function App(){
  const[now,setNow]=useState(Date.now());
@@ -40,5 +41,5 @@ export function App(){
   <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
  </section>
  <section className="section-title"><div><small>YOUR MODULES</small><h2>Workspace</h2></div><span>Foundation · Phase 3</span></section>
- <section className="module-grid">{[...features.values()].map(f=><article className="module" key={f.id}><div className="module-icon">{({"work":"↗","logbook":"▤","finance":"₹","vehicle":"⌁","performance":"▥","admin":"⚙","backup":"⌂"} as Record<string,string>)[f.id]}</div><div><h3>{f.label}</h3><p>{f.id==="backup"?"Recovery controls and backup foundation":"Module contract registered and ready to extend"}</p></div><b>↗</b></article>)}</section><footer>Sam Travels · Local-first by design</footer></main>
+ <section className="module-grid">{[...features.values()].map(f=><article className="module" key={f.id}><div className="module-icon">{({"work":"↗","logbook":"▤","finance":"₹","vehicle":"⌁","performance":"▥","admin":"⚙","backup":"⌂"} as Record<string,string>)[f.id]}</div><div><h3>{f.label}</h3><p>{f.id==="backup"?"Recovery controls and backup foundation":"Module contract registered and ready to extend"}</p></div><b>↗</b></article>)}</section>{repo&&<BusinessWorkspace repository={repo}/>}<footer>Sam Travels · Local-first by design</footer></main>
 }
