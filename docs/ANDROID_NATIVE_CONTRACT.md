@@ -40,6 +40,16 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Surface progress and recoverable errors non-modally; do not freeze the screen, block navigation, or require a repeated swipe while acquisition is pending.
 - If durable intent enqueue itself fails, immediately show a clear actionable error and do not represent the event as safely queued. Preserve the original gesture context for a retry/recovery path where possible.
 
+## Durable state restoration and device interruption
+
+- Room/native journal and the versioned domain repository are the durable source of truth. React component state, WebView memory, service instances, and timer counters are never authoritative.
+- Persist the current business state and every accepted transition locally, including active shift, current ride/approach status, pending GPS/event operations, and event timestamps. Do not rely on an in-memory service surviving.
+- On application launch, WebView recreation, Android process recreation, or device reboot, load and validate durable state before presenting the operational screen. Restore the same active shift/trip/workflow state; do not silently reset to idle or ask the driver to recreate records.
+- Use boot-aware recovery and idempotent journal replay. Re-register eligible pending work after reboot where Android permits. A force-stop or OS restriction may defer execution until the user next opens the app; preserve pending state and explain it rather than dropping it.
+- Commit each transition and its state change atomically in the authoritative local store where possible. Keep an outbox for cross-store reconciliation and retry without duplicate records.
+- Startup recovery and migrations must be non-destructive. If integrity validation fails, preserve original data and present a recovery path rather than clearing the database.
+
+
 ## Background and recovery behavior
 
 - Do not run a persistent location foreground service for continuous GPS; this product does not require continuous tracking.
@@ -61,6 +71,17 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 7. Mark the event reconciled only after the receiving transaction commits.
 8. Replay safely after crashes; duplicates must be idempotently ignored.
 
+## Clock and timer continuity
+
+- Persist transition instants as UTC instants and retain the Asia/Kolkata business-date context.
+- Derive active and completed durations from persisted start/end instants. Never store an incrementing UI counter as the source of truth.
+- Recalculate active timers from the current system wall clock after process restart and device reboot, so elapsed time while the phone was switched off is included.
+- Use monotonic elapsed time only as an in-boot measurement/consistency aid; it resets on reboot and cannot replace persisted wall-clock instants for cross-reboot duration.
+- Detect clock discontinuities using persisted wall-clock/monotonic/boot-session anchors where available. Flag suspicious changes for review; do not silently rewrite historical event timestamps.
+- Network time can corroborate device time when available but must not be required. If the offline device clock is manually changed while powered off, exact elapsed real-world time cannot be guaranteed; surface that uncertainty.
+- Timers must restore from persisted state and update from real elapsed time, including periods when the app was closed or the device was off. Durations over 24 hours must not wrap.
+
+
 ## Bridge contract
 
 - Typed request/response payloads with explicit contract versions.
@@ -71,4 +92,4 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 
 ## Validation
 
-Test on physical Android devices for immediate gesture feedback under slow/cold GPS, offline transitions, GPS unavailable, permission revoke/grant, overlay enabled/disabled, WebView reload, app process kill, device reboot, Doze, and representative OEM battery settings. Verify no continuous location listener/polling exists. Verify all native I/O and location work stay off the main thread. Emulator success alone is insufficient for release claims.
+Test on physical Android devices for immediate gesture feedback under slow/cold GPS, offline transitions, GPS unavailable, permission revoke/grant, overlay enabled/disabled, WebView reload, app process kill, battery exhaustion, shutdown, device reboot, Doze, and representative OEM battery settings. Verify active state and timers restore after reboot and include powered-off elapsed time; test clock changes and flag uncertainty. Verify no continuous location listener/polling exists. Verify all native I/O and location work stay off the main thread. Emulator success alone is insufficient for release claims.
