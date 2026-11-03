@@ -4,18 +4,12 @@ import android.content.Context
 import androidx.room.Room
 import androidx.work.*
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.io.IOException
 import java.net.URLEncoder
-import java.security.MessageDigest
-import java.security.SecureRandom
 import java.time.Instant
-import android.util.Base64
 import java.util.concurrent.TimeUnit
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 internal object BackgroundBackupScheduler {
     private const val PERIODIC_NAME = "sam-travels-daily-dropbox-backup"
@@ -69,7 +63,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             val snapshot = makeSnapshot()
             val plaintext = snapshot.first.toString().toByteArray(Charsets.UTF_8)
             val manifest = snapshot.second
-            val backup = createV2Package(plaintext, manifest, recoveryKey)
+            val backup = NativeBackupV2Package.create(plaintext, manifest, recoveryKey)
             val bytes = backup.toString().toByteArray(Charsets.UTF_8)
             val digest = manifest.getString("plaintextSha256").replace("/", "_").replace("+", "-").take(12)
             val filename = "sam-travels-auto-r${manifest.optInt("snapshotRevision")}-${digest}.stbackup"
@@ -110,6 +104,12 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             return Result.success()
         } catch (error: TransientBackupException) {
             state.edit().putString("last_status", "retrying").putString("last_error", error.message).commit()
+            return if (runAttemptCount < MAX_RETRIES) Result.retry() else {
+                state.edit().putString("last_status", "retry_exhausted").commit()
+                Result.success()
+            }
+        } catch (error: IOException) {
+            state.edit().putString("last_status", "retrying").putString("last_error", "dropbox_io_interrupted").commit()
             return if (runAttemptCount < MAX_RETRIES) Result.retry() else {
                 state.edit().putString("last_status", "retry_exhausted").commit()
                 Result.success()
@@ -167,42 +167,6 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
         return result ?: error("backup_snapshot_unavailable")
     }
 
-    private fun createV2Package(plaintext: ByteArray, sourceManifest: JSONObject, recoveryKey: String): JSONObject {
-        val recoveryBytes = Base64.decode(recoveryKey, Base64.NO_WRAP)
-        require(recoveryBytes.size == 32) { "backup_invalid_recovery_key" }
-        val dek = ByteArray(32).also { SecureRandom().nextBytes(it) }
-        try {
-            val digest = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(plaintext), Base64.NO_WRAP)
-            val manifest = JSONObject(sourceManifest.toString())
-                .put("format", "backup-encryption-v2")
-                .put("plaintextSha256", digest)
-            val aad = manifest.toString().toByteArray(Charsets.UTF_8)
-            val payload = encrypt(dek, plaintext, aad)
-            val wrapped = encrypt(recoveryBytes, dek, aad)
-            return JSONObject()
-                .put("manifest", manifest)
-                .put("payload", JSONObject().put("algorithm", "AES-256-GCM")
-                    .put("nonce", wrappedBase64(payload.first)).put("ciphertext", wrappedBase64(payload.second)))
-                .put("keyEnvelopes", JSONObject().put("recovery", JSONObject()
-                    .put("algorithm", "AES-256-GCM")
-                    .put("wrappedDek", JSONObject().put("algorithm", "AES-256-GCM")
-                        .put("nonce", wrappedBase64(wrapped.first)).put("ciphertext", wrappedBase64(wrapped.second)))))
-        } finally {
-            dek.fill(0)
-            recoveryBytes.fill(0)
-        }
-    }
-
-    private fun encrypt(key: ByteArray, plaintext: ByteArray, aad: ByteArray): Pair<ByteArray, ByteArray> {
-        val nonce = ByteArray(12).also { SecureRandom().nextBytes(it) }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(aad)
-        return nonce to cipher.doFinal(plaintext)
-    }
-
-    private fun wrappedBase64(value: ByteArray): String = Base64.encodeToString(value, Base64.NO_WRAP)
-
     private fun accessToken(clientId: String): String? {
         val stored = credentials.get(TOKEN_KEY) ?: return null
         val tokens = JSONObject(stored)
@@ -216,6 +180,9 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             "https://api.dropboxapi.com/oauth2/token", "POST", form.toByteArray(Charsets.UTF_8),
             mapOf("Content-Type" to "application/x-www-form-urlencoded"),
         )
+        if (response.first == 429 || response.first >= 500) {
+            throw TransientBackupException("dropbox_token_refresh_http_${response.first}")
+        }
         if (response.first != 200) return null
         val refreshed = JSONObject(response.second.toString(Charsets.UTF_8))
         val next = JSONObject().put("accessToken", refreshed.getString("access_token"))
