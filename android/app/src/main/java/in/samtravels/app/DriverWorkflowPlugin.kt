@@ -1,6 +1,6 @@
 package `in`.samtravels.app
 
-import android.Manifest
+import android.Manifest\nimport android.content.Intent\nimport android.net.Uri\nimport android.provider.Settings
 import android.content.Context
 import android.location.Criteria
 import android.location.Location
@@ -24,6 +24,11 @@ class DriverWorkflowPlugin:Plugin(){
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").build()}
  private fun state():JSONObject=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
  private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
+ @PluginMethod fun enableOverlay(call:PluginCall){
+  if(!Settings.canDrawOverlays(context)){val settings=Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(settings);call.reject("Grant display-over-other-apps permission, then enable the overlay again","OVERLAY_PERMISSION_REQUIRED");return}
+  try{context.startService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to start native driver overlay",e)}
+ }
+ @PluginMethod fun disableOverlay(call:PluginCall){try{context.stopService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to stop native driver overlay",e)}}
  @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val out=JSObject();out.put("snapshot",state());call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
  @PluginMethod fun queueIntent(call:PluginCall){
   val command=call.getObject("command");if(command==null){call.reject("Command required");return}
