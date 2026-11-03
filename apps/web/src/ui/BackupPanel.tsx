@@ -7,7 +7,7 @@ import {
   restoreDropboxBackup,
   rollbackRecoveryCheckpoint,
 } from "../backup-runtime";
-import { createDropboxBackupSession, type DropboxBackupSession } from "../backup-service";
+import { createDropboxBackupSession, defaultDropboxRedirectUri, type DropboxBackupSession } from "../backup-service";
 
 type BackupEntry = { name: string; path: string; serverModified: string; size: number };
 type Checkpoint = { id: string; createdAt: string; status: string };
@@ -18,7 +18,7 @@ export function BackupPanel() {
     try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").clientId ?? fallback; } catch { return fallback; }
   });
   const [redirectUri, setRedirectUri] = useState(() => {
-    const fallback = import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? (typeof window === "undefined" ? "" : window.location.origin + window.location.pathname);
+    const fallback = import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? defaultDropboxRedirectUri();
     try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").redirectUri ?? fallback; } catch { return fallback; }
   });
   const [vaultPassphrase, setVaultPassphrase] = useState("");
