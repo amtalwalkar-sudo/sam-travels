@@ -89,7 +89,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 **Still required before Phase 6 can pass its exit gate:**
 
 - Configure the user's Dropbox app key/client ID and registered redirect URI, then verify the real OAuth redirect, authorization, refresh, upload, download, and revocation/error paths. No credentials or tokens may be committed.
-- Implement durable daily best-effort scheduling and retry across process interruption. Android WorkManager and supported PWA scheduling need lifecycle-aware key access; current bounded retries apply to foreground Dropbox API requests, not a persisted scheduled job system.
+- Implement durable daily best-effort scheduling and retry across process interruption. The versioned backup-encryption-v2 recovery-key-only package format is now implemented with v1 compatibility; Android WorkManager still needs the lifecycle-aware worker, persisted scheduling/retry state, and safe integration with the native credential vault and network policy.
 - Add end-to-end Android instrumentation for Room snapshot/restore/checkpoint interruption, plus complete auth-expiry/offline/network-gateway failure-injection coverage.
 - Complete physical-device acceptance for Android background scheduling, app/process interruption, offline deferral, Dropbox OAuth callback, and restore recovery.
 
