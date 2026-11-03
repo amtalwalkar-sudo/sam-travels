@@ -107,3 +107,16 @@ Represent intervals with a start event, optional end event, status, and derived 
 - Verify shift, trip, and pickup approach durations across midnight, WebView reload, process death, and device reboot/recovery.
 - Verify cancellation closes the pickup approach timer and records location at cancellation.
 - Verify India clock formatting and elapsed duration formatting, including durations longer than 24 hours.
+
+## Reliability policy and time-integrity decision gates
+
+The location reliability policy must be named and versioned (for example, a policy identifier plus semantic version) and persist the policy version used with each accepted snapshot. It validates at minimum coordinate range, horizontal accuracy, fix age relative to the transition, provider availability, and permission state. The numeric accuracy/freshness thresholds are intentionally **not guessed in this architecture contract**; they must be selected as explicit product/engineering defaults, exposed as documented configuration where appropriate, and tested on representative physical devices before GPS workflows are considered release-ready. A policy change must not silently relabel historical snapshots.
+
+A fix that arrives after restart is timestamped when actually acquired. It may be accepted as a later recovery fix only with an explicit recovery/degraded-evidence status and user-visible meaning; it must never be represented as proof of the original transition location/time. If the product requires strict event-time proof, the transition remains needs-attention until a compliant fix can be obtained or an auditable manual resolution is made.
+
+Clock integrity:
+- Store the UTC wall-clock instant and Asia/Kolkata business-date context for each transition.
+- Where available, persist monotonic elapsed-time and boot-session anchors alongside wall-clock time to detect discontinuities; do not use monotonic time as a cross-reboot absolute clock.
+- Detect backward/forward jumps, impossible ordering, timezone changes, and discrepancies between event ordering and stored instants.
+- Never silently reorder or rewrite immutable event timestamps. Preserve event sequence/revision separately from wall-clock values.
+- If exact elapsed time cannot be trusted after an offline clock change during power-off, flag uncertainty and require review/correction through an auditable event.
