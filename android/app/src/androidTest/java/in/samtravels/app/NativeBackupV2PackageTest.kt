@@ -1,7 +1,7 @@
 package `in`.samtravels.app
 
-import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,8 +11,9 @@ import java.security.SecureRandom
 @RunWith(AndroidJUnit4::class)
 class NativeBackupV2PackageTest {
     @Test fun nativePackageMatchesSharedTypeScriptRestoreFixture() {
-        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<Context>()
-        val fixture = JSONObject(context.assets.open("native-backup-v2.json").bufferedReader().use { it.readText() })
+        // androidTest assets are packaged in the instrumentation APK, not the target app APK.
+        val testContext = InstrumentationRegistry.getInstrumentation().context
+        val fixture = JSONObject(testContext.assets.open("native-backup-v2.json").bufferedReader().use { it.readText() })
         val plaintext = """{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}"""
             .toByteArray(Charsets.UTF_8)
         val manifest = JSONObject()
