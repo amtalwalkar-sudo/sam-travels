@@ -12,7 +12,7 @@ type NativeApi={
  listPending():Promise<{intents:DriverIntent[]}>;\n listEvents():Promise<{events:DriverEvent[]}>;\n retryIntent(o:{eventId:string}):Promise<{intent:DriverIntent}>;
  captureLocation():Promise<GpsFix>;
  completeIntent(o:{eventId:string;gps:GpsFix}):Promise<{snapshot:DriverStateProjection}>;
- markNeedsAttention(o:{eventId:string;reason:string}):Promise<void>;
+ markNeedsAttention(o:{eventId:string;reason:string}):Promise<void>;\n enableOverlay():Promise<void>; disableOverlay():Promise<void>;
  addListener(event:"driverStateChanged",listener:(data:{snapshot:DriverStateProjection})=>void):Promise<PluginListenerHandle>;
 };
 const NativeDriver=registerPlugin<NativeApi>("DriverWorkflow");
@@ -40,3 +40,7 @@ export async function createDriverWorkflow():Promise<{repository:DriverWorkflowR
  if(Capacitor.isNativePlatform())return{repository:new NativeDriverWorkflowRepository(),location:new NativeEventLocationProvider()};
  return{repository:new DexieDriverWorkflowRepository(),location:new BrowserEventLocationProvider()};
 }
+
+export const nativeOverlayAvailable=()=>Capacitor.isNativePlatform();
+export async function enableNativeOverlay(){if(!Capacitor.isNativePlatform())throw new Error("Native overlay is available in the Android app");await NativeDriver.enableOverlay()}
+export async function disableNativeOverlay(){if(!Capacitor.isNativePlatform())return;await NativeDriver.disableOverlay()}
