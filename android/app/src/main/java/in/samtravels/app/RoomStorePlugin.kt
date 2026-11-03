@@ -1,4 +1,4 @@
-package in.samtravels.app
+package `in`.samtravels.app
 import androidx.room.Room
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
