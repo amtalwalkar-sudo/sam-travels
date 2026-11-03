@@ -1,0 +1,45 @@
+# Phase 2 — Application and Database Foundation
+
+## Delivered foundation
+
+- Separate platform-neutral domain surface and application record use case package; application services depend on repository interfaces, not storage adapters.
+
+- React, TypeScript, Vite and an installable PWA shell.
+- Capacitor Android project with Kotlin entry point and Room-backed native storage plugin.
+- Browser-only PWA persistence uses Dexie/IndexedDB.
+- Installed Android selects the native Room repository through the typed Capacitor `RoomStore` bridge; it does not write business records to IndexedDB.
+- Platform-neutral record envelope, repository interfaces, versioned feature registry and dependency validation.
+- Versioned shared driver transition command, state projection, and Capacitor bridge request/response types for PWA and native surfaces.
+- Persisted app network policy defaults to disabled. NetworkGateway refuses operations until the user explicitly enables access.
+- GPS policy is implemented as a pure, testable validator using approved `gps-event-fix-v1` limits (50 m / 30 s).
+- Backup encryption design is locked in `docs/DROPBOX_BACKUP_CONTRACT.md`; actual backup encryption and transport remain Phase 6.
+
+## Persistence model
+
+The initial Room/Dexie adapter stores versioned JSON record envelopes behind one repository interface. Room schema version is 1. This generic envelope is a persistence foundation; module-specific typed entities and additive migrations are introduced as feature modules arrive. Feature modules must not bypass repository contracts or write one another's records.
+
+## Commands
+
+- `npm install` — install the workspace dependencies.
+- `npm test` — run unit tests.
+- `npm run build` — typecheck and build the PWA.
+- `npm run dev` — run the local PWA.
+- `npm run cap:sync` — build web assets and synchronize Capacitor Android assets.
+- `gradle -p android assembleDebug` — build the Android debug APK with Java 21 and Android SDK installed.
+
+## Boundaries intentionally deferred
+
+- Driver shift/trip state machine, durable GPS acquisition orchestration, overlay UI and cross-surface live synchronization: Phase 3.
+- Business modules and user forms: Phase 4.
+- Full recovery/failure injection and physical-device lifecycle validation: Phase 5.
+- Dropbox OAuth, encrypted package generation, passphrase/recovery-key setup UX, scheduled backup and restore: Phase 6.
+- Signed release, physical-device acceptance and release: Phase 7.
+
+## Phase 2 exit gate — verified
+
+- Browser TypeScript/Vite production build and unit/repository tests pass in GitHub Actions.
+- Capacitor Android debug APK and Android instrumentation-test APK compile with Java 21 / Android SDK 35.
+- Browser-only persistence uses Dexie/IndexedDB; installed Android persistence uses Room through the typed Capacitor bridge.
+- Network policy defaults disabled and is persisted by the selected platform repository.
+- Approved GPS policy, feature registration, application record service, and Dexie repository behavior have automated tests.
+- Room instrumentation test source is included and compiles; execution on emulator/physical hardware remains part of later device validation.
