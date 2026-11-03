@@ -9,11 +9,13 @@ import {
   type GpsFix,
 } from "../packages/features/work-shift";
 
+const transitionAt = new Date().toISOString();
+
 const gps: GpsFix = {
   latitude: 19.076,
   longitude: 72.8777,
   horizontalAccuracyM: 8,
-  fixAt: "2026-11-04T10:00:00.000Z",
+  fixAt: transitionAt,
   provider: "browser-geolocation",
 };
 
@@ -24,7 +26,7 @@ describe("Work/Shift public capability contract", () => {
       "shift_start",
       "pwa",
       "contract-command-1",
-      "2026-11-04T10:00:00.000Z",
+      transitionAt,
     );
 
     expect(validateDriverCommand(command)).toEqual({ ok: true, value: command });
@@ -43,7 +45,7 @@ describe("Work/Shift public capability contract", () => {
       "shift_start",
       "pwa",
       "contract-event-1",
-      "2026-11-04T10:00:00.000Z",
+      transitionAt,
     );
     const intent: DriverIntent = {
       command,
