@@ -13,6 +13,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(BackupPlugin::class.java)
         persistDropboxCallback(intent)
         super.onCreate(savedInstanceState)
+        BackgroundBackupScheduler.schedule(this)
     }
 
     override fun onNewIntent(intent: Intent) {
