@@ -31,6 +31,10 @@ class DriverOverlayService:Service(){
  private var panel:LinearLayout?=null
  private var status:TextView?=null
  private val actionButtons=mutableMapOf<String,Button>()
+ private var recoveryButton:Button?=null
+ @Volatile private var activeLocationEventId:String?=null
+ private var activeLocationListener:LocationListener?=null
+ private var activeLocationTimeout:Runnable?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").build()}
  override fun onBind(intent:Intent?):IBinder?=null
@@ -46,8 +50,10 @@ class DriverOverlayService:Service(){
   val tripEnd=Button(this).apply{text="End trip";setOnClickListener{runTransition("trip_end")}}
   val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("ride_cancel")}}
   val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
+  recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   actionButtons["shift_start"]=shiftStart;actionButtons["trip_start"]=tripStart;actionButtons["trip_end"]=tripEnd;actionButtons["ride_cancel"]=cancel;actionButtons["shift_end"]=shiftEnd
   listOf(shiftStart,tripStart,tripEnd,cancel,shiftEnd).forEach{root.addView(it)}
+  root.addView(recoveryButton)
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
@@ -55,10 +61,12 @@ class DriverOverlayService:Service(){
  }
  private fun refresh(message:String?=null){executor.execute{try{
   val s=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0)
-  val pending=db.records().list().any{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val item=JSONObject(row.json);item.optString("status")=="pending_location"||item.optString("status")=="needs_attention"}.getOrDefault(false)}
+  val pendingRow=db.records().list().firstOrNull{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val item=JSONObject(row.json);item.optString("status")=="pending_location"||item.optString("status")=="needs_attention"}.getOrDefault(false)}
+  val pending=pendingRow!=null
   val state=s.optString("state")
   main.post{
-   status?.text=message?:("Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
+   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else "Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
+   recoveryButton?.isEnabled=pending&&activeLocationEventId==null
    actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
    actionButtons["trip_start"]?.isEnabled=!pending&&state=="shift_active"
    actionButtons["trip_end"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
@@ -66,6 +74,15 @@ class DriverOverlayService:Service(){
    actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
   }
  }catch(_:Exception){main.post{status?.text="Driver state unavailable"}}}}
+ private fun runRecovery(){
+  if(activeLocationEventId!=null)return
+  executor.execute{try{
+   val row=db.records().list().firstOrNull{r->if(!r.id.startsWith("driver-intent:"))false else runCatching{val j=JSONObject(r.json);j.optString("status")=="pending_location"||j.optString("status")=="needs_attention"}.getOrDefault(false)}
+   if(row==null){main.post{refresh("No pending action to recover")};return@execute}
+   val intent=JSONObject(row.json);val command=intent.optJSONObject("command")?:error("pending_command_missing");val id=command.optString("eventId")
+   val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
+  }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
+ }
  private fun runTransition(event:String){
   status?.text="Saving action · GPS pending"
   main.post{actionButtons.values.forEach{it.isEnabled=false}}
@@ -80,15 +97,19 @@ class DriverOverlayService:Service(){
  }
  private fun acquireLocation(id:String,command:JSONObject,intent:JSONObject){
   try{
+   if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
    val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val provider=manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
-   var finished=false;lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};markAttention(id,intent,"location_timeout")}}
-   listener=LocationListener{location:Location->if(!finished){finished=true;main.removeCallbacks(timeout);complete(id,command,intent,location)}}
+   activeLocationEventId=id
+   var finished=false
+   lateinit var listener:LocationListener
+   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;markAttention(id,intent,"location_timeout")}}
+   listener=LocationListener{location:Location->if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;complete(id,command,intent,location)}}
+   activeLocationListener=listener;activeLocationTimeout=timeout
    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper());main.postDelayed(timeout,35_000L)
-  }catch(e:Exception){markAttention(id,intent,"location_unavailable")}
+  }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;markAttention(id,intent,"location_unavailable")}
  }
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   try{DriverWorkflowStore.markNeedsAttention(db,id,reason)}catch(_:Exception){}
@@ -103,5 +124,5 @@ class DriverOverlayService:Service(){
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
  }
- override fun onDestroy(){databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();super.onDestroy()}
+ override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();super.onDestroy()}
 }
