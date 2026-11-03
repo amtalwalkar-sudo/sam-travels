@@ -28,7 +28,15 @@ const manifest = {
 };
 
 describe("backup-encryption-v1", () => {
-  it("derives a 256-bit key with the production Argon2id provider", async () => {\n    const salt = new Uint8Array(16);\n    crypto.getRandomValues(salt);\n    const derived = await new HashWasmArgon2idProvider().deriveKey({ passphrase: "production KDF test", salt, parameters: ARGON2ID_PARAMETERS });\n    expect(derived).toBeInstanceOf(Uint8Array);\n    expect(derived.byteLength).toBe(32);\n  });\n\n  it("round-trips with either independent recovery method", async () => {
+  it("derives a 256-bit key with the production Argon2id provider", async () => {
+    const salt = new Uint8Array(16);
+    crypto.getRandomValues(salt);
+    const derived = await new HashWasmArgon2idProvider().deriveKey({ passphrase: "production KDF test", salt, parameters: ARGON2ID_PARAMETERS });
+    expect(derived).toBeInstanceOf(Uint8Array);
+    expect(derived.byteLength).toBe(32);
+  });
+
+  it("round-trips with either independent recovery method", async () => {
     const plaintext = new TextEncoder().encode('{"records":[1,2,3]}');
     const { backup, recoveryKey } = await createEncryptedBackup({ plaintext, manifest, passphrase: "correct horse battery", argon2id: testKdf });
     const serialized = serializeBackupPackage(backup);
