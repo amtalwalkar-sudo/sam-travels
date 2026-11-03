@@ -22,3 +22,7 @@ The repository is being established in phases. The current foundation branch def
 - A supported Android device for overlay, background, and screen-off validation
 
 Implementation and setup instructions will be added with the application scaffold.
+
+## Architecture contracts
+
+The foundation is governed by the contracts linked from [ARCHITECTURE.md](ARCHITECTURE.md), including local persistence ownership, crash-safe transaction/recovery, event-scoped GPS and time integrity, user-controlled network access, Dropbox backup/recovery, modular feature boundaries, and security/compatibility. The seven-phase sequence and exit gates are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). Phase 1 is documentation/design only; implementation starts after its review and approval.
