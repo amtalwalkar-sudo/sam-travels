@@ -7,12 +7,13 @@ import java.io.IOException
 
 class BackupWorkerResilienceTest {
     @Test fun interruptedUploadUsesBoundedWorkManagerRetryBudget() {
-        val interruptedTransfer: Throwable = IOException("connection reset while writing request body")
-        assertTrue(interruptedTransfer is IOException)
+        val interruptedTransfer = IOException("connection reset while writing request body")
         for (attempt in 0 until BackupWorkerResilience.MAX_RETRIES) {
-            assertTrue(BackupWorkerResilience.shouldRetry(attempt))
+            assertTrue(BackupWorkerResilience.shouldRetryInterruptedTransfer(interruptedTransfer, attempt))
         }
-        assertFalse(BackupWorkerResilience.shouldRetry(BackupWorkerResilience.MAX_RETRIES))
+        assertFalse(BackupWorkerResilience.shouldRetryInterruptedTransfer(
+            interruptedTransfer, BackupWorkerResilience.MAX_RETRIES,
+        ))
     }
 
     @Test fun transientDropboxResponsesAreRetriedButPermanentClientErrorsAreNot() {
