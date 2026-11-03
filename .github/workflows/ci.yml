@@ -29,7 +29,7 @@ jobs:
           java-version: 17
       - run: npm install
       - run: npm run cap:sync
-      - uses: android-actions/setup-android@v3
+      - run: yes | sdkmanager --licenses
       - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
