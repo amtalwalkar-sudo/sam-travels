@@ -12,7 +12,7 @@ internal object BackupWorkerResilience {
 
     fun shouldRetry(runAttemptCount: Int): Boolean = runAttemptCount < MAX_RETRIES
 
-    fun shouldRetryInterruptedTransfer(error: java.io.IOException, runAttemptCount: Int): Boolean =
+    fun shouldRetryInterruptedTransfer(error: Throwable, runAttemptCount: Int): Boolean =
         error is java.io.IOException && shouldRetry(runAttemptCount)
 
     fun isTransientHttpStatus(status: Int): Boolean =
