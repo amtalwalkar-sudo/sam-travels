@@ -49,7 +49,7 @@ for (const absolute of sourceFiles) {
   }
   if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(relative)) continue;
   const from = layer(absolute);
-  const importPattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^"'\n]*?\s+from\s+)?["']([^"']+)["']/g;
+  const importPattern = /\\b(?:import|export)\\s*(?:type\\s+)?(?:[^"'\\n]*?\\bfrom\\s*)?["']([^"']+)["']/g;
   for (const match of content.matchAll(importPattern)) {
     const specifier = match[1];
     const target = targetLayer(specifier, relative);
