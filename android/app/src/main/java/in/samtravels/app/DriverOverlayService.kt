@@ -60,7 +60,7 @@ class DriverOverlayService:Service(){
     val current=snapshot.optString("state")
     val target=when(event){"shift_start"->if(current=="idle")"shift_active" else null;"shift_end"->if(current=="shift_active")"idle" else null;"trip_start"->if(current=="shift_active")"trip_active" else null;"trip_end","ride_cancel"->if(current=="trip_active"||current=="approach_active")"shift_active" else null;else->null}
     if(target==null){main.post{status?.text="Action not valid for current state"};return@execute}
-    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
+    val pending=db.records().list().any{it.id.startsWith("driver-intent:")&&runCatching{val p=JSONObject(it.json);(p.optString("status")=="pending_location"||p.optString("status")=="needs_attention")&&p.optJSONObject("command")?.optInt("expectedRevision",-1)==snapshot.optInt("revision")}.getOrDefault(false)};if(pending){main.post{status?.text="Another action is awaiting GPS recovery"};return@execute}\n    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
     val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event).put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",current).put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
     val intent=JSONObject().put("command",command).put("status","pending_location").put("createdAt",transitionAt).put("updatedAt",transitionAt)
     db.records().put(StoredRecord("driver-intent:"+id,intent.toString(),1,transitionAt))
