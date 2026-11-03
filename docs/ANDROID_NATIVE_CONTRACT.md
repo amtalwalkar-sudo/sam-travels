@@ -7,8 +7,8 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - React/PWA owns presentation and user workflows.
 - Capacitor provides a versioned, typed bridge.
 - Kotlin plugins expose narrow capabilities.
-- Android services own long-running or OS-integrated work permitted by the installed Android version and device policy.
-- Room stores native-critical journal/state that must survive WebView reloads and app process death.
+- Android native components perform event-scoped location acquisition and durable journal work without blocking the UI thread.
+- Room stores native-critical pending intents and events that must survive WebView reloads and app process death.
 
 ## Overlay
 
@@ -16,51 +16,59 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Explain why the permission is needed and provide a clear disabled state when it is denied or revoked.
 - Overlay lifecycle must be independent of a particular WebView instance.
 - Overlay visibility is impossible while the display is physically off; resume/reconcile when the display wakes.
-- The overlay is a separate presentation feature and is not a prerequisite for shift GPS tracking or background services.
+- The overlay is a separate presentation feature and is not a prerequisite for event-based GPS acquisition.
 
-## Location acquisition and shift-scoped background service
+## Event-based location acquisition
 
 - Provide a Capacitor location bridge backed by Android location APIs for native Android operation and browser geolocation for active PWA operation.
+- **Do not implement continuous GPS tracking.** No location polling, subscription, periodic sampling, or background location collection between required user-triggered events, even while a shift is active.
+- Start a bounded, fresh location request only for shift start/end, ride/trip start/end, and ride cancellation. Stop that request after a reliable fix or recoverable failure/timeout.
 - Acquire GPS offline; internet/network assistance may improve time-to-fix but is never mandatory.
-- For required state transitions, continue acquiring until a fix passes the configured accuracy and freshness policy. Do not finalize or acknowledge a transition with an unreliable/missing fix.
+- For each required transition, continue that event's acquisition until a fix passes the configured accuracy and freshness policy. Do not mark the transition complete with unreliable/missing GPS evidence.
 - Store fix timestamp and transition timestamp separately, along with coordinates, horizontal accuracy, and source.
-- Starting a shift must start the native location foreground service and shift-scoped background workers, irrespective of overlay permission, overlay visibility, or overlay running state.
-- Continue shift-scoped location collection while the shift is active, including app background and screen-off periods, subject to granted permissions and Android execution/power policy.
-- Ending the shift must durably capture the end GPS snapshot and transition, then stop shift-scoped continuous tracking/background work.
-- The overlay must not control the lifecycle of location tracking. Disabling or losing overlay permission must not stop GPS collection during an active shift.
-- Do not continuously track when no shift is active, except for the user-initiated GPS fix required to start a shift.
-- Background tracking requires appropriate location permissions, including background-location access where required by the Android version and use case, and a policy-compliant location foreground service with the required persistent notification. Request and explain these permissions before shift start.
-- If permission is denied/revoked, location services are disabled, or Android stops/restricts the service, expose the failure and record a tracking gap when possible. Never claim complete coverage or fabricate coordinates.
-- The screen being off prevents overlay display, not by itself the intended shift-tracking lifecycle. Screen-off execution remains subject to Android foreground-service rules, Doze, OEM restrictions, and user permissions.
-- Use WorkManager for deferrable/retryable work, not as a substitute for continuous GPS sampling.
+- The overlay must not control or gate event-based location acquisition.
+- Request only the location permissions needed for this event-based behavior. If permission is denied/revoked or location services are disabled, expose the blocker and retain the pending event for recovery.
+- Android may restrict background execution. Resume pending event work only where permitted; do not claim guaranteed execution while the app is backgrounded or terminated.
 
-## Background and screen-off behavior
+## Non-blocking driver interaction
 
-- Use a foreground service only for user-noticeable work that qualifies under current Android foreground-service policy, with required notification and declared service type.
-- Use WorkManager for deferrable/retryable jobs, including scheduled backup work.
+- The swipe/gesture handler must synchronously acknowledge receipt in the presentation layer and update the visual state immediately. It must not await GPS, Room, IndexedDB, bridge round-trips, network calls, or reconciliation before rendering feedback.
+- Dispatch the event workflow asynchronously. Capture event intent, stable event ID/idempotency key, and transition timestamp immediately; enqueue durable journal work and GPS acquisition off the main/UI thread.
+- Use a clear state distinction such as `received`, `pending_location`, `pending_persistence`, `recorded`, and `needs_attention`. Never show `recorded` before reliable GPS evidence and the authoritative durable commit exist.
+- Persist pending event intents to Room using background I/O, then perform GPS acquisition and final event commit asynchronously. Keep UI animation/rendering independent from native callbacks and persistence latency.
+- Maintain an ordered, idempotent event queue/state machine. Preserve each gesture's event ID, timestamp, event type, and own GPS request. Rapid consecutive actions must not be dropped, merged, duplicated, or have their GPS snapshots crossed.
+- Surface progress and recoverable errors non-modally; do not freeze the screen, block navigation, or require a repeated swipe while acquisition is pending.
+- If durable intent enqueue itself fails, immediately show a clear actionable error and do not represent the event as safely queued. Preserve the original gesture context for a retry/recovery path where possible.
+
+## Background and recovery behavior
+
+- Do not run a persistent location foreground service for continuous GPS; this product does not require continuous tracking.
+- Use a short-lived, policy-compliant execution mechanism for event-scoped acquisition where required by the Android version. A foreground service and notification must only be used when the specific operation and current Android policy justify them; do not keep one alive between events.
+- Use WorkManager for deferrable/retryable work such as backup and later reconciliation, not as a substitute for immediate event-time GPS acquisition.
 - Use wake locks sparingly, with bounded acquisition and guaranteed release paths.
-- Handle Doze, app standby, process death, reboot, permission revocation, and OEM battery restrictions.
+- Handle Doze, app standby, process death, reboot, permission revocation, and OEM battery restrictions. Persist pending intents so they can be recovered; report when Android prevents immediate completion.
 - Request battery-optimization exemptions only when justified, with an explanation; never imply Android can guarantee uninterrupted execution.
-- Register boot recovery only for supported, policy-compliant use cases. If an active shift is recovered after process/device restart, reconcile the persisted shift state and resume tracking only when permissions and Android policy allow.
+- On restart, reconcile pending event intents and their event status without fabricating a GPS snapshot or creating duplicate transitions.
 
 ## Durable event capture
 
-1. Validate the event and assign a stable event ID/idempotency key.
-2. For a GPS-required transition, acquire and validate the fix before finalizing the transition.
-3. Commit transition, GPS snapshot, and native journal event to Room in a transaction.
-4. Acknowledge success to the bridge only after commit.
-5. Reconcile the journal into web/domain storage asynchronously.
-6. Mark the event reconciled only after the receiving transaction commits.
-7. Replay safely after crashes; duplicates must be idempotently ignored.
+1. On gesture receipt, create a stable event ID/idempotency key and capture the transition timestamp.
+2. Immediately update the UI to a non-blocking pending state; do not wait for GPS.
+3. Enqueue the pending intent durably in Room using background I/O.
+4. Acquire a fresh GPS fix for that event and validate it against the named, versioned reliability policy.
+5. Commit the transition, GPS snapshot, and native journal status to Room in a transaction.
+6. Reconcile the journal into web/domain storage asynchronously.
+7. Mark the event reconciled only after the receiving transaction commits.
+8. Replay safely after crashes; duplicates must be idempotently ignored.
 
 ## Bridge contract
 
 - Typed request/response payloads with explicit contract versions.
 - Explicit capability and permission status.
 - Structured errors (permission denied, unavailable, transient failure, invalid request, persistence failure, location timeout/unavailable).
-- No silent fallback from native durable capture to volatile JavaScript memory.
 - Bridge calls must be safe across WebView recreation and plugin reinitialization.
+- Bridge APIs must expose asynchronous status/events without making the presentation layer await background completion to remain responsive.
 
 ## Validation
 
-Test on physical Android devices across screen on/off, WebView reload, app process kill, device reboot, permission revoke/grant, offline transitions, overlay enabled/disabled, shift start/stop, GPS cold/warm fix, stale/inaccurate fix rejection, and representative OEM battery settings. Emulator success alone is insufficient for release claims.
+Test on physical Android devices for immediate gesture feedback under slow/cold GPS, offline transitions, GPS unavailable, permission revoke/grant, overlay enabled/disabled, WebView reload, app process kill, device reboot, Doze, and representative OEM battery settings. Verify no continuous location listener/polling exists. Verify all native I/O and location work stay off the main thread. Emulator success alone is insufficient for release claims.
