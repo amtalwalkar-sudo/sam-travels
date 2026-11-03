@@ -90,6 +90,7 @@ export function BackupPanel() {
     });
     setSession(next);
     setVaultPassphrase("");
+    if (next.native) await configureNativeBackgroundBackup(clientId.trim(), redirectUri.trim());
     return next;
   }
 
