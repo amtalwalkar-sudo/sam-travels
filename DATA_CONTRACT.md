@@ -14,15 +14,13 @@ Persisted business records should use a common envelope:
 
 Feature-specific fields remain in typed feature entities; avoid a giant untyped catch-all record.
 
-## Transition and GPS snapshot records
+## Transition intent, GPS snapshot, and status
 
-Every shift/trip lifecycle transition is an immutable event with a stable ID, event type, event timestamp, source, schema version, and idempotency key. Required event types include shift start/end, trip start/end, and ride cancellation.
+Every shift/trip lifecycle action begins as an immutable transition intent with a stable event ID, event type, transition timestamp, source, schema version, and idempotency key. Required event types include shift start/end, trip start/end, and ride cancellation.
 
-A GPS snapshot linked to a required transition contains latitude, longitude, horizontal accuracy in metres, fix timestamp, provider/source, and optional sensor fields only when available. Keep transition time distinct from GPS fix time. Validate coordinate ranges, fix age, and accuracy against a named, versioned reliability policy.
+The intent is captured at gesture time and queued immediately. Its GPS snapshot is acquired separately for that event; no continuous GPS tracking or periodic location collection is performed. A GPS snapshot contains latitude, longitude, horizontal accuracy in metres, fix timestamp, provider/source, and optional sensor fields only when available. Keep transition time distinct from GPS fix time. Validate coordinate ranges, fix age, and accuracy against a named, versioned reliability policy.
 
-Do not mark a GPS-required transition complete until a reliable fix and transition event have been committed durably. Pending acquisition is a distinct state, not a successful event. Never silently substitute stale last-known coordinates. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
-
-State intervals reference their start and end transition IDs. Durations are derived from persisted instants, allowing recovery after app restarts; elapsed-time UI counters are never the source of truth. Use `Asia/Kolkata` for live wall-clock presentation and retain UTC instants for audit and ordering.
+Track explicit lifecycle statuses such as received, pending location, pending persistence, recorded, and needs attention. Gesture receipt is not the same as business transition completion. Do not mark a GPS-required transition recorded until a reliable fix and transition event have been committed durably. Never silently substitute stale last-known coordinates. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
 
 ## Repository boundary
 
@@ -30,11 +28,13 @@ Application/domain code depends on repository interfaces, never directly on Inde
 
 ## Durability and acknowledgement
 
-- A record-changing operation resolves successfully only after its authoritative local transaction commits.
-- Native-critical capture is committed to Room before the native bridge acknowledges it.
+- The presentation layer acknowledges the swipe immediately with responsive visual feedback; it does not await GPS, database I/O, network access, or reconciliation.
+- The native event workflow promptly writes a pending intent to Room using background I/O. A pending intent is recoverable and carries its stable event ID and original transition timestamp.
+- A business transition is acknowledged as recorded only after the reliable GPS snapshot and event have committed in the authoritative local transaction.
 - Native journal events carry stable event IDs and idempotency keys; replaying an event must not create duplicate business records.
 - Cross-store operations use an explicit journal/outbox and reconciliation process; do not pretend an IndexedDB + Room operation is one atomic transaction.
 - Failed writes remain visible as failed/pending and are retryable without duplication.
+- Ordered processing must preserve distinct rapid gestures and associate each GPS fix with its originating event; no dropped, merged, or crossed events.
 
 ## Dates, money, and units
 
