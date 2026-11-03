@@ -103,3 +103,7 @@ Room's transaction boundary must cover each accepted Android business transition
 - Minimize collected personal data.
 - Encrypt or protect secrets using platform-appropriate secure storage; never place OAuth tokens in source control or ordinary exported business records.
 - Logs must not expose access tokens, passwords, or unnecessary personal/financial details.
+
+## Transaction, outbox, and recovery guarantees
+
+Follow [docs/TRANSACTION_AND_RECOVERY_CONTRACT.md](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md) for the normative command acceptance boundary, pending-intent and completion transactions, ordered conflict handling, outbox/inbox idempotency, lifecycle statuses, restart recovery sequence, failure windows, and failure-injection tests. In particular, gesture acknowledgement is not durable acceptance; only a committed intent is safely queued, and only a committed completion transaction may be shown as recorded. At-least-once delivery plus idempotency protects business effects; do not claim exactly-once transport.
