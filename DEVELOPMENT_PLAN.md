@@ -24,8 +24,11 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 
 ## Phase 3 — Driver Log Book workflows
 
-- Single-driver shift/work lifecycle.
+- Single-driver shift/work lifecycle with GPS-required start/end transitions.
 - Trip and daily log records, odometer/kilometer capture, and history.
+- GPS snapshots at shift start/end, trip start/end, and ride cancellation; acquire until a reliable fix is available and persist the transition plus snapshot durably before success.
+- Offline GPS acquisition and transition capture; background location only while native overlay operation is confirmed active.
+- Persisted state intervals and restart-safe shift, ride, and pickup-approach timers; live India clock in Asia/Kolkata HH:mm:ss.
 - Offline entry and reconciliation; validate lifecycle across WebView reload and Android process death.
 
 ## Phase 4 — Business modules
