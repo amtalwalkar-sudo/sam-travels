@@ -13,8 +13,14 @@ type BackupEntry = { name: string; path: string; serverModified: string; size: n
 type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
-  const [clientId, setClientId] = useState(import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "");
-  const [redirectUri, setRedirectUri] = useState(import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? (typeof window === "undefined" ? "" : window.location.origin + window.location.pathname));
+  const [clientId, setClientId] = useState(() => {
+    const fallback = import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "";
+    try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").clientId ?? fallback; } catch { return fallback; }
+  });
+  const [redirectUri, setRedirectUri] = useState(() => {
+    const fallback = import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? (typeof window === "undefined" ? "" : window.location.origin + window.location.pathname);
+    try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").redirectUri ?? fallback; } catch { return fallback; }
+  });
   const [vaultPassphrase, setVaultPassphrase] = useState("");
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [recoveryKey, setRecoveryKey] = useState("");
@@ -29,6 +35,10 @@ export function BackupPanel() {
   const [callback, setCallback] = useState<{ code: string; state: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    try { localStorage.setItem("sam-travels.dropbox-config", JSON.stringify({ clientId, redirectUri })); } catch { /* optional non-secret convenience only */ }
+  }, [clientId, redirectUri]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,6 +71,7 @@ export function BackupPanel() {
       browserVaultPassphrase: vaultPassphrase || undefined,
     });
     setSession(next);
+    setVaultPassphrase("");
     return next;
   }
 
@@ -68,6 +79,10 @@ export function BackupPanel() {
     setBusy(true);
     try {
       const next = await openSession();
+      if (await next.client.isConnected()) {
+        await refreshHistory(next);
+        return;
+      }
       const url = await next.client.beginAuthorization();
       window.location.assign(url);
     } catch (error) {
@@ -118,6 +133,7 @@ export function BackupPanel() {
         dropbox: session.client,
       });
       setRecoveryKey(result.recoveryKey);
+      setBackupPassphrase("");
       setMessage("Encrypted backup uploaded. Copy and save the recovery key somewhere outside this app.");
       await refreshHistory(session);
     } catch (error) {
@@ -218,6 +234,8 @@ export function BackupPanel() {
       const result = await session.client.disconnect();
       session.lock();
       setSession(null);
+      setVaultPassphrase("");
+      setBackupPassphrase("");
       setBackups([]);
       setMessage(result.revoked
         ? "Dropbox disconnected and the remote token revoked."
@@ -232,6 +250,8 @@ export function BackupPanel() {
   function lockVault() {
     session?.lock();
     setSession(null);
+    setVaultPassphrase("");
+    setBackupPassphrase("");
     setBackups([]);
     setMessage("Credential vault locked. Unlock it again before Dropbox operations.");
   }
@@ -253,7 +273,7 @@ export function BackupPanel() {
       {callback ? (
         <button className="backup-primary" disabled={busy} onClick={completeConnection}>Finish Dropbox connection</button>
       ) : !session ? (
-        <button className="backup-primary" disabled={busy} onClick={connect}>Connect Dropbox</button>
+        <button className="backup-primary" disabled={busy} onClick={connect}>Unlock / connect Dropbox</button>
       ) : (
         <div className="backup-actions">
           <button className="backup-secondary" disabled={busy} onClick={() => refreshHistory()}>Refresh history</button>
