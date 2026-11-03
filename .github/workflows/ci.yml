@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - run: npm run check:architecture
       - run: npm test
       - run: npm run build
   android:

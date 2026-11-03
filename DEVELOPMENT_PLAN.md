@@ -1,6 +1,6 @@
 # Development Plan
 
-Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Do not begin a later phase until its required outputs and acceptance criteria are reviewed. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
+Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
 
 ## Phase 1 — Architecture and contracts (approved)
 
@@ -14,9 +14,8 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Define event-scoped GPS evidence, versioned reliability policy, time integrity, and timer semantics.
 - Define user-controlled Internet Access gateway, offline defaults, and integration capability registration.
 - Define Dropbox backup/restore, consistent snapshots, checkpoint-before-restore, reset safeguards, and security/compatibility expectations.
-- Lock GPS event-fix v1 at 50 m / 30 s and backup-encryption v1 at AES-256-GCM with passphrase/recovery-key wrapping.
 
-**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User approval is recorded; implementation proceeds to Phase 2.
+**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. User approval is recorded; implementation proceeds to Phase 2.
 
 ## Phase 2 — Application and database foundation (complete)
 
@@ -38,19 +37,21 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Implement Asia/Kolkata clock, persisted UTC transitions, timer derivation, and clock-integrity warnings.
 - Keep all core workflows offline; no continuous GPS tracking.
 
-**Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate in Phase 7; do not claim those are complete from CI compilation alone.
+**Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate; do not claim those are complete from CI compilation alone.
 
-## Phase 4 — Core workflow, persistence, and recovery hardening
+## Phase 4 — Core workflow, persistence, recovery, and modularity hardening
 
+- Audit and reduce oversized or multi-responsibility files; put every capability in its proper owner area.
+- Enforce dependency direction, public capability contracts, source-size limits, and readable source formatting in CI.
+- Keep domain, application, persistence, platform adapters, and presentation independently replaceable.
 - Harden shared driver transitions and ensure the PWA and native overlay use the same authoritative state and atomic command boundary.
 - Verify Room transactions for enqueue, completion, idempotency, conflict rejection, event history, and outbox.
 - Verify Dexie transaction parity for browser-only PWA.
 - Complete startup reconciliation, pending-intent recovery, stale-operation handling, and user-visible recovery states.
-- Validate persistence across WebView recreation, Android process death, force stop/reopen, and reboot.
 - Add failure-injection, concurrency, migration, and native repository tests.
 - Keep business modules deferred until the driver workflow and recovery acceptance gate passes.
 
-**In progress — core hardening:** native enqueue, retry, and completion share one Room transaction boundary used by both the Capacitor bridge and overlay. Browser retry paths now preserve terminal recorded intents, and concurrent enqueue/recovery tests are being expanded. Device validation remains outstanding. Business-module UI is deferred.
+**In progress:** capability ownership and dependency rules are being made enforceable in CI before behaviour-preserving code decomposition. Device validation remains outstanding. Business-module UI is deferred.
 
 ## Phase 5 — Business modules (incremental, deferred)
 
@@ -97,7 +98,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - UI flows have component/browser coverage.
 - Native behavior has Android instrumentation and physical-device coverage where applicable.
 - Offline, duplicate-event, crash, reboot, clock-change, and restore paths are tested.
-- CI is green; no secrets or tokens are committed.
+- Architecture checks, CI, and tests are green; no secrets or tokens are committed.
 - User-facing permissions, limitations, backup state, and recovery state are explicit.
 
 ## Delivery rule
