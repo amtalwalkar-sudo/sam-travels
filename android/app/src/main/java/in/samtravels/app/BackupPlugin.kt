@@ -68,7 +68,7 @@ class BackupPlugin : Plugin() {
                 db.runInTransaction { snapshot = makeSnapshot() }
                 val value = snapshot ?: error("snapshot_unavailable")
                 val manifest = JSONObject()
-                    .put("applicationVersion", BuildConfig.VERSION_NAME)
+                    .put("applicationVersion", context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown")
                     .put("schemaVersion", 1)
                     .put("createdAt", Instant.now().toString())
                     .put("businessTimezone", "Asia/Kolkata")
@@ -86,7 +86,7 @@ class BackupPlugin : Plugin() {
 
     @PluginMethod
     fun restoreSnapshot(call: PluginCall) {
-        val confirmed = call.getBoolean("confirmed", false)
+        val confirmed = call.getBoolean("confirmed") ?: false
         val snapshot = call.getObject("snapshot")
         val manifest = call.getObject("manifest")
         if (!confirmed) {
