@@ -51,9 +51,20 @@ Track explicit lifecycle statuses such as received, pending location, pending pe
 - Optional reverse-geocoding results are enrichment records linked to immutable GPS snapshots. Store provider, lookup time, result, and status separately; never rewrite coordinates, GPS fix time, or transition time.
 - When access is disabled/offline, retain eligible work as pending/deferred and continue all local workflows.
 
-## Repository boundary
+## Repository boundary and authoritative database ownership
 
 Application/domain code depends on repository interfaces, never directly on IndexedDB, Dexie, Room, or Capacitor. Adapters own serialization, transactions, indexes, migrations, and platform-specific details.
+
+The authoritative local database is selected by runtime, not by feature:
+
+- **Browser-only PWA:** IndexedDB (Dexie is the preferred adapter) is authoritative for all local business records and workflow state.
+- **Installed Android app:** Room is authoritative for all local business records, driver workflow state, transition/event journal, pending operations, projections, and recovery metadata.
+- **Android WebView and native overlay:** both are clients of the same Room-backed repository/application boundary. The WebView must use the typed Capacitor bridge for business reads/writes and must not independently commit the same business records to IndexedDB.
+- **Shared domain/application layer:** the same typed entities, validation, use cases, and repository interfaces apply on both platforms. Only the persistence adapter and platform capability implementations differ.
+
+Do not dual-write the same business operation to Room and IndexedDB and then attempt to infer which copy wins. Do not claim cross-database atomicity. Android commits must be transactionally authoritative in Room; browser commits must be transactionally authoritative in IndexedDB. Moving data between environments is an explicit import/export or migration workflow with validation, version checks, and recovery safeguards.
+
+Room's transaction boundary must cover each accepted Android business transition, its event evidence/status, resulting state projection/revision, and durable outbox entries wherever those records share the same database. External notifications and WebView rendering occur after commit and are replayable. IndexedDB uses an equivalent transaction boundary for browser-only operation.
 
 ## Durability and acknowledgement
 
