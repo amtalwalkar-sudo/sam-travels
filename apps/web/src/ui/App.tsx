@@ -1,4 +1,5 @@
 import { nativeOverlayAvailable } from "../driver-workflow";
+import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 
 export function App() {
@@ -74,6 +75,8 @@ export function App() {
         </div>}
         <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
       </section>
+
+      <BackupPanel />
 
       <section className="section-title">
         <div><small>CORE FOUNDATION</small><h2>Built to grow</h2></div>
