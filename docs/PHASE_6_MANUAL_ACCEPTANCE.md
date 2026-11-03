@@ -8,7 +8,7 @@ The PR contains the encrypted backup format, consistent browser/Room snapshots, 
 
 The latest PR CI run on head `0ed52c16e1c0546671847f5ab3b4bc5b71fd3c88` passed both the web and Android jobs, including Android emulator instrumentation. CI uses mocked Dropbox endpoints; it does not validate a real Dropbox app or a physical phone.
 
-**Phase 6 is not yet accepted.** Persistent daily unattended backup scheduling is not implemented. It must not be simulated by storing a backup passphrase in ordinary preferences or by scheduling a worker that cannot safely unlock the backup key. Real Dropbox and physical-device acceptance below are also outstanding.
+**Phase 6 is not yet accepted.** Android WorkManager scheduling and the Keystore-protected recovery-key-only V2 worker are implemented, with a shared native-to-TypeScript interoperability fixture and automated retry/policy tests. These checks establish code-level compatibility and bounded retry behavior only. Real Dropbox and physical-device acceptance below are still outstanding.
 
 ## Part A — configure the Dropbox application once
 
@@ -79,18 +79,21 @@ Perform these only after Parts A–E work. Keep the phone charged and do not use
 3. Repeat authorization after force-stopping Sam Travels before returning from the browser. Confirm the cold-start callback is consumed.
 4. Turn Internet Access off, disconnect Wi-Fi/mobile data, reopen the app, and confirm local driver records and recovery controls remain usable. Re-enable Internet Access and reconnect only when ready.
 5. Start a test restore, then exercise the checkpoint/rollback controls. Do not kill the app during a destructive restore against real data.
+6. Reboot the phone and confirm the unique daily WorkManager job remains scheduled. With Internet Access disabled, confirm the worker defers without a Dropbox request; enable it only when ready to test.
+7. Exercise offline deferral, then restore connectivity and confirm WorkManager retries. Toggle the Android lock screen during a scheduled run and confirm Keystore-protected key access behaves safely (defer/retry rather than upload an unencrypted package).
+8. Enable battery optimization/Doze and observe that execution may be delayed; record actual execution time rather than assuming an exact 24-hour run.
 6. Record Android version, device model, app build/version, the exact step, and the non-secret error text for any failure. Never include access tokens, refresh tokens, passphrases, recovery keys, authorization codes, or full callback URLs.
 
 ## Part G — daily backup scheduling gate
 
-Android WorkManager scheduling is implemented in this PR but is not yet accepted on a physical device. Do not treat CI compilation as proof of daily execution. The PWA remains best-effort-on-next-open only.
+Android WorkManager scheduling is implemented in this PR but is not yet accepted on a physical device. Do not treat CI compilation as proof of daily execution. The PWA remains best-effort-on-next-open only. The native worker uses a stable, user-saved recovery key protected at rest by Android Keystore; it does not require or persist a passphrase.
 
 Before accepting unattended jobs, verify:
-- A durable schedule and retry state that survives process death/reboot.
+- A durable unique schedule and bounded retry state that survives process death/reboot (automated scheduling semantics are implemented; reboot acceptance still requires a physical device).
 - A background-safe encryption key strategy for Android using Keystore, without persisting the user's passphrase.
 - A PWA strategy that works only where the browser supports the required background execution and can safely access the encryption material without persisting a plaintext passphrase.
 - NetworkGateway enforcement, bounded retries, idempotent backup naming/upload, and user-visible last-success/last-failure state.
-- Tests for app termination, reboot, locked vault, revoked Dropbox authorization, offline periods, retry exhaustion, and duplicate job execution.
+- Tests for app termination, reboot, locked-device/Keystore availability, revoked Dropbox authorization, offline periods, retry exhaustion, and duplicate job execution. The shared fixture verifies native V2 output with the TypeScript restore parser; worker resilience tests cover interrupted-I/O retry decisions and re-checking Internet Access after policy revocation.
 
 This gate requires CI plus physical-device acceptance. The implementation is present, but Phase 6 remains open until these checks are recorded.
 
