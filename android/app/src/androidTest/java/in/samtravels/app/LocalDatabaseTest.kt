@@ -15,7 +15,7 @@ class LocalDatabaseTest {
    val record=StoredRecord("test-1","{\"value\":42}",1,"2026-11-03T00:00:00Z")
    db.records().put(record)
    assertEquals(record,db.records().get("test-1"))
-   assertEquals(1,LocalDatabase::class.java.getAnnotation(androidx.room.Database::class.java).version)
+   assertEquals(1,db.openHelper.readableDatabase.version)
   } finally { db.close() }
  }
 }
