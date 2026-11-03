@@ -135,3 +135,7 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 ## Validation
 
 Test on physical Android devices for immediate gesture feedback under slow/cold GPS, offline transitions, GPS unavailable, permission revoke/grant, overlay enabled/disabled, WebView reload, app process kill, battery exhaustion, shutdown, device reboot, Doze, and representative OEM battery settings. Verify active state and timers restore after reboot and include powered-off elapsed time; test clock changes and flag uncertainty. Verify no continuous location listener/polling exists. Verify all native I/O and location work stay off the main thread. Emulator success alone is insufficient for release claims.
+
+## Crash-safe transition transaction and recovery
+
+The native implementation must conform to [the Transaction and Recovery Contract](TRANSACTION_AND_RECOVERY_CONTRACT.md). Room first durably queues each command intent; after the event-scoped GPS fix is validated, one completion transaction commits event/evidence, projection/revision, terminal status, and outbox. A failed completion leaves the prior intent recoverable and must not publish a committed revision. Outbox and bridge delivery are at-least-once and idempotent. Recovery must tolerate every documented crash window, preserve the original transition instant, and never backdate a later GPS fix.
