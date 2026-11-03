@@ -21,7 +21,7 @@ Phase 1 architecture and contracts are approved. Phase 2 establishes the React/T
 - Android Studio and Android SDK for native builds
 - A supported Android device for overlay, background, and screen-off validation
 
-Install dependencies with `npm install`, run checks with `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 17.
+Install dependencies with `npm install`, run checks with `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 21.
 
 ## Architecture contracts
 

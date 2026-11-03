@@ -24,7 +24,7 @@ The initial Room/Dexie adapter stores versioned JSON record envelopes behind one
 - `npm run build` — typecheck and build the PWA.
 - `npm run dev` — run the local PWA.
 - `npm run cap:sync` — build web assets and synchronize Capacitor Android assets.
-- `gradle -p android assembleDebug` — build the Android debug APK with Java 17 and Android SDK installed.
+- `gradle -p android assembleDebug` — build the Android debug APK with Java 21 and Android SDK installed.
 
 ## Boundaries intentionally deferred
 
