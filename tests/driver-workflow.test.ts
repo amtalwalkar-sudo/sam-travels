@@ -22,9 +22,8 @@ describe("durable single-driver workflow",()=>{
   const first=createDriverCommand(state,"shift_start","pwa","cmd-a","2026-11-03T10:00:00.000Z");
   await repo.queueIntent({command:first,status:"pending_location",createdAt:first.transitionAt,updatedAt:first.transitionAt});
   const second=createDriverCommand(state,"shift_start","native_overlay","cmd-b","2026-11-03T10:00:01.000Z");
-  await repo.queueIntent({command:second,status:"pending_location",createdAt:second.transitionAt,updatedAt:second.transitionAt});
+  await expect(repo.queueIntent({command:second,status:"pending_location",createdAt:second.transitionAt,updatedAt:second.transitionAt})).rejects.toThrow("competing_transition_pending");
   await repo.completeIntent(first.eventId,gps,first.transitionAt);
-  await expect(repo.completeIntent(second.eventId,gps,second.transitionAt)).rejects.toThrow("stale_revision");
   expect((await repo.getSnapshot()).revision).toBe(1);
  });
  it("retains failed location intents for recovery without advancing state",async()=>{
