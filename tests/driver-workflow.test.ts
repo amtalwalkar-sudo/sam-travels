@@ -33,4 +33,27 @@ describe("durable single-driver workflow",()=>{
   expect((await repo.listPending())[0].status).toBe("needs_attention");
   expect((await repo.getSnapshot()).revision).toBe(0);
  });
+ it("serializes simultaneous PWA/native enqueue attempts at one revision",async()=>{
+  const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
+  const first=createDriverCommand(state,"shift_start","pwa","race-a","2026-11-03T10:00:00.000Z");
+  const second=createDriverCommand(state,"shift_start","native_overlay","race-b","2026-11-03T10:00:01.000Z");
+  const results=await Promise.allSettled([
+   repo.queueIntent({command:first,status:"pending_location",createdAt:first.transitionAt,updatedAt:first.transitionAt}),
+   repo.queueIntent({command:second,status:"pending_location",createdAt:second.transitionAt,updatedAt:second.transitionAt}),
+  ]);
+  expect(results.filter(x=>x.status==="fulfilled")).toHaveLength(1);
+  expect(results.filter(x=>x.status==="rejected")).toHaveLength(1);
+  expect(await repo.listPending()).toHaveLength(1);
+ });
+ it("never reactivates a recorded event or changes it back to attention",async()=>{
+  const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
+  const command=createDriverCommand(state,"shift_start","pwa","cmd-immutable","2026-11-03T10:00:00.000Z");
+  await repo.queueIntent({command,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt});
+  await repo.completeIntent(command.eventId,gps,command.transitionAt);
+  await expect(repo.reactivateIntent(command.eventId)).rejects.toThrow("intent_not_recoverable");
+  await repo.markNeedsAttention(command.eventId,"late_failure");
+  expect((await repo.getIntent(command.eventId))?.status).toBe("recorded");
+  expect(await repo.listEvents()).toHaveLength(1);
+ });
+
 });

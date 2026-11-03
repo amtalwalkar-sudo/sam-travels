@@ -1,12 +1,11 @@
 import{useEffect,useMemo,useState}from"react";
-import{registerFeatures,NetworkGateway}from"../../../../packages/core/src";
+import{NetworkGateway}from"../../../../packages/core/src";
 import type{RecordRepository,PolicyRepository}from"../../../../packages/core/src";
 import type{DriverStateProjection,DriverTransitionCommand}from"../../../../packages/core/src/commands";
 import{createPlatformRepository}from"../native-store";
 import{createDriverWorkflow,enableNativeOverlay,disableNativeOverlay,nativeOverlayAvailable}from"../driver-workflow";
 import{createDriverCommand,DriverWorkflowService}from"../../../../packages/application/src/driver-workflow-service";
 
-const features=registerFeatures();
 export function App(){
  const[now,setNow]=useState(Date.now());
  const[repo,setRepo]=useState<(RecordRepository&PolicyRepository)|null>(null),[enabled,setEnabled]=useState(false),[error,setError]=useState(""),[ready,setReady]=useState(false);
@@ -26,7 +25,7 @@ export function App(){
  const tripOn=driver?.state==="trip_active"||driver?.state==="approach_active";
  return <main className="shell">
  <header className="topbar"><div className="brand"><div className="brand-mark">ST</div><div><strong>Sam Travels</strong><span>Driver workspace</span></div></div><button className={enabled?"network enabled":"network"} onClick={toggle} disabled={!repo} aria-pressed={enabled}><i/>Internet {enabled?"On":"Off"}</button></header>
- <section className="welcome"><small>SINGLE-DRIVER WORKSPACE</small><h1>Your workday,<br/><em>clearly organised.</em></h1><p>A dependable home for your shift, trip log, business records and performance.</p></section>
+ <section className="welcome"><small>SINGLE-DRIVER WORKSPACE</small><h1>Your workday,<br/><em>clearly organised.</em></h1><p>A dependable home for your shift, trips and driver activity.</p></section>
  <section className="status-card"><div className="status-heading"><div><small>FOUNDATION STATUS</small><h2>{ready?"Local workspace ready":"Opening local workspace…"}</h2></div><span className={ready&&!error?"pill good":"pill"}>{ready&&!error?"LOCAL":"STARTING"}</span></div><p>{error||"Your records stay on this device. Internet access is optional and starts disabled."}</p><div className="status-foot"><span>● Offline-first storage</span><span>{repo?"Persistence connected":"Connecting storage"}</span></div></section>
  <section className="driver-card">
   <div className="driver-head"><div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver?"Restoring state":driver.state.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}</h2></div><span className={driver?"pill good":"pill"}>{driver?"REV "+driver.revision:"LOADING"}</span></div>
@@ -40,6 +39,5 @@ export function App(){
   {nativeOverlayAvailable()&&<div className="overlay-control"><button className="secondary-action" onClick={enableOverlay}>Enable floating controls</button><button className="secondary-action" onClick={disableOverlay}>Disable overlay</button><span>{overlayMessage||"Optional · requires display-over-other-apps permission"}</span></div>}
   <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
  </section>
- <section className="section-title"><div><small>YOUR MODULES</small><h2>Workspace</h2></div><span>Foundation · Phase 3</span></section>
- <section className="module-grid">{[...features.values()].map(f=><article className="module" key={f.id}><div className="module-icon">{({"work":"↗","logbook":"▤","finance":"₹","vehicle":"⌁","performance":"▥","admin":"⚙","backup":"⌂"} as Record<string,string>)[f.id]}</div><div><h3>{f.label}</h3><p>{f.id==="backup"?"Recovery controls and backup foundation":"Module contract registered and ready to extend"}</p></div><b>↗</b></article>)}</section><footer>Sam Travels · Local-first by design</footer></main>
+ <section className="section-title"><div><small>CORE FOUNDATION</small><h2>Built to grow</h2></div><span>Driver-first · Offline-first</span></section><p className="foundation-note">The driver workflow, native overlay, persistence and recovery are the current priority. Business features will be added incrementally after this foundation is validated.</p><footer>Sam Travels · Local-first by design</footer></main>
 }

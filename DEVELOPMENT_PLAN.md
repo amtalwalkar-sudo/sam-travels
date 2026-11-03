@@ -40,27 +40,27 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate in Phase 7; do not claim those are complete from CI compilation alone.
 
-## Phase 4 — Business modules
+## Phase 4 — Core workflow, persistence, and recovery hardening
 
-- Implement Log Book history and records.
-- Implement Finance, loans, EMI schedules, payments, and prepayments.
-- Implement Vehicle, maintenance, and compliance.
-- Implement Performance using domain-owned, independently tested calculations and date-range filters.
-- Implement Admin configuration and backup/recovery controls.
-- Keep modules independently addable and presentation replaceable.
+- Harden shared driver transitions and ensure the PWA and native overlay use the same authoritative state and atomic command boundary.
+- Verify Room transactions for enqueue, completion, idempotency, conflict rejection, event history, and outbox.
+- Verify Dexie transaction parity for browser-only PWA.
+- Complete startup reconciliation, pending-intent recovery, stale-operation handling, and user-visible recovery states.
+- Validate persistence across WebView recreation, Android process death, force stop/reopen, and reboot.
+- Add failure-injection, concurrency, migration, and native repository tests.
+- Keep business modules deferred until the driver workflow and recovery acceptance gate passes.
 
-**In progress — first vertical slice delivered:** shared contracts and validation for Log Book, Finance, Loans, Vehicle, Maintenance, Compliance and Business setup; repository-backed namespaced records; offline PWA/Android forms; paise-based finance values; EMI and reducing-tenure prepayment schedule calculations; date-range Performance summary including cancellation fees. Loan payment history/confirmation UI, complete schedule/prepayment UX, richer module workflows, migration coverage and broader regression/device tests remain open. See [Phase 4 Business Modules](docs/PHASE_4_BUSINESS_MODULES.md).
+**In progress — core hardening:** native enqueue, retry, and completion share one Room transaction boundary used by both the Capacitor bridge and overlay. Browser retry paths now preserve terminal recorded intents, and concurrent enqueue/recovery tests are being expanded. Device validation remains outstanding. Business-module UI is deferred.
 
-## Phase 5 — Recovery and resilience
+## Phase 5 — Business modules (incremental, deferred)
 
-- Complete startup recovery, interrupted-operation handling, and corruption/migration recovery.
-- Validate process death, force-stop deferral, battery exhaustion, shutdown/reboot, Doze, permission revocation, and OEM battery restrictions.
-- Verify recovery checkpoints, data reset safeguards, and user-facing recovery states.
-- Add physical-device failure-injection coverage and operational diagnostics.
+- Add Log Book, Finance, Vehicle, Performance, Admin, and other business capabilities incrementally after the core workflow is accepted.
+- Preserve module isolation, historical dates, offline persistence, and independently tested calculations.
+- Do not broaden product scope without an explicit user-approved feature slice.
 
-**Exit gate:** recoverable states and limitations are explicit; no silent data loss; supported interruption scenarios pass on representative physical Android devices.
+**Exit gate:** each requested module is separately scoped, reviewed, tested, and approved.
 
-## Phase 6 — Internet integrations
+## Phase 6 — Recovery and resilience
 
 - Implement Dropbox OAuth with least-privilege scopes and secure token storage.
 - Implement consistent versioned snapshots, encrypted backup packages, daily best-effort backup, retry, and retention.
@@ -70,15 +70,15 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Exit gate:** backup/restore, auth expiry, offline deferral, integrity validation, retention, and network policy enforcement pass.
 
-## Phase 7 — Reliability validation and release
+## Phase 7 — Internet integrations and release readiness
 
 - Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites.
 - Validate PWA and signed Android release builds on physical devices.
 - Verify permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
-- Resolve release-blocking defects, verify CI, prepare release notes and recovery instructions, and produce the signed Android artifact.
-- Deploy PWA and publish release artifacts only after explicit release approval.
+- Implement optional Internet integrations only through the network gateway.
+- Resolve release blockers and prepare release artifacts only after explicit approval.
 
-**Exit gate:** all required checks green, known platform limitations documented, no unresolved data-integrity blocker, and user approves release.
+**Exit gate:** all required checks green, physical-device acceptance recorded, no unresolved data-integrity blocker, and user approves release.
 
 ## Cross-phase engineering gates
 
