@@ -22,6 +22,7 @@ import {
 
 type RoomSnapshot = { records: unknown[]; snapshotRevision: number; schemaVersion: number };
 type RoomBackupApi = {
+  consumeOAuthCallback(): Promise<{ url?: string }>;
   exportSnapshot(): Promise<{ snapshot: RoomSnapshot; manifest: SnapshotManifest }>;
   restoreSnapshot(input: { snapshot: RoomSnapshot; manifest: BackupManifest; confirmed: boolean }): Promise<{ checkpointId: string; restoredCount: number }>;
   listCheckpoints(): Promise<{ checkpoints: Array<{ id: string; createdAt: string; status: string }> }>;
@@ -32,6 +33,13 @@ type RoomBackupApi = {
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
 
 type RecoverySecret = { passphrase: string } | { recoveryKey: string };
+
+/** Consume a deep-link callback persisted by MainActivity when Android resumes the app. */
+export async function consumeNativeOAuthCallback(): Promise<string | null> {
+  if (!Capacitor.isNativePlatform()) return null;
+  const result = await NativeBackup.consumeOAuthCallback();
+  return result.url ?? null;
+}
 
 function snapshotBytes(snapshot: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(snapshot));
