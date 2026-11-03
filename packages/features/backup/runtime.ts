@@ -2,6 +2,7 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
   createEncryptedBackup,
   decryptBackupWithPassphrase,
+  parseBackupPackage,
   decryptBackupWithRecoveryKey,
   HashWasmArgon2idProvider,
   type BackupManifest,
@@ -101,4 +102,30 @@ export async function markRestoreVerified(checkpointId: string): Promise<void> {
 export async function discardVerifiedRecoveryCheckpoint(checkpointId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) return NativeBackup.discardVerifiedCheckpoint({ checkpointId });
   return discardVerifiedBrowserCheckpoint(checkpointId);
+}
+
+/** User-initiated encrypted upload. The passphrase is never persisted by this operation. */
+export async function createAndUploadBackup(input: {
+  applicationVersion: string;
+  passphrase: string;
+  dropbox: DropboxBackupClient;
+}): Promise<{ filename: string; recoveryKey: string }> {
+  const { backup, recoveryKey } = await createBackupForCurrentRuntime(input);
+  const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
+  const filename = "sam-travels-" + timestamp + "-" + crypto.randomUUID() + ".stbackup";
+  await input.dropbox.uploadEncryptedBackup(backup, filename);
+  return { filename, recoveryKey };
+}
+
+/** Restore always requires a user-supplied recovery secret and explicit confirmation. */
+export async function restoreDropboxBackup(input: {
+  path: string;
+  secret: RecoverySecret;
+  confirmed: boolean;
+  dropbox: DropboxBackupClient;
+}): Promise<{ checkpointId: string; restoredCount: number }> {
+  if (!input.confirmed) throw new Error("backup_restore_confirmation_required");
+  const bytes = await input.dropbox.downloadBackup(input.path);
+  const backup = parseBackupPackage(bytes);
+  return restoreBackupForCurrentRuntime({ backup, secret: input.secret, confirmed: true });
 }
