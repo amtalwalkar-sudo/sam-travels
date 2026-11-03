@@ -46,7 +46,7 @@ export async function createBackupForCurrentRuntime(input: {
       argon2id: new HashWasmArgon2idProvider(),
     });
   }
-  const { data, manifest, plaintext } = await exportBrowserSnapshot(input.applicationVersion);
+  const { manifest, plaintext } = await exportBrowserSnapshot(input.applicationVersion);
   return createEncryptedBackup({
     plaintext,
     manifest,
