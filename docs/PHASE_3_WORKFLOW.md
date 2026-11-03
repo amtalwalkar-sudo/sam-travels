@@ -1,35 +1,24 @@
 # Phase 3 — Shared Driver Workflow and PWA/Native Synchronisation
 
-## Scope
+## Implemented
 
-Deliver one durable single-driver shift/ride workflow shared by the browser PWA and the Android native surface. The PWA and overlay are controllers over one authoritative state, not independent state machines.
+- Versioned single-driver commands preserve command/event IDs, source surface, original transition instant, expected prior state, expected revision, and idempotency key.
+- Domain transition rules cover shift start/end, trip start/end, and cancellation. Illegal or stale commands are rejected.
+- Browser-only PWA persists a driver projection, pending intents, immutable event records, and outbox entries in Dexie.
+- Dexie completion uses one transaction for event evidence, state revision, terminal intent status, and outbox entry. Duplicate completion cannot create a second event.
+- Android uses the same Room-authoritative records table for pending intents, events, state projection, and outbox records. Native enqueue and completion run on a background executor; completion uses a Room transaction.
+- Capacitor exposes typed native snapshot, enqueue, pending recovery, one-shot location capture, completion, event history, and state-change notifications.
+- Browser geolocation and Android LocationManager each perform a single bounded fresh-fix request only after the intent is durably queued. No continuous GPS listener or polling is introduced.
+- Both PWA and native floating overlay controls dispatch the same versioned command shape into the Room journal. Overlay actions work without requiring the WebView to be visible.
+- Overlay requires explicit Android display-over-other-apps permission and can be enabled/disabled from the Android app.
+- PWA refreshes from the authoritative repository and catches up on revision changes; overlay observes Room invalidations. Missed notifications are repaired by reading the current projection.
+- Pending intents survive app restart and can be retried with the original event ID and transition timestamp.
 
-## First implementation slice
+## Automated coverage
 
-- Add a platform-neutral transition planner for shift start/end, ride start/end, and ride cancellation.
-- Require a command ID, original transition instant, and expected state revision.
-- Separate planning from completion: a planned transition is a pending intent, not a completed business event.
-- Require one GPS evidence snapshot for each accepted transition, validated against gps-event-fix-v1 (50 m maximum horizontal accuracy and 30 s maximum age relative to the original transition instant).
-- Reject stale revisions and illegal transitions; never resolve competing actions with last-write-wins.
-- Advance the projection only after compliant evidence is supplied. The authoritative adapter must atomically persist the event and next projection.
+- Browser repository tests cover queue-before-location, atomic completion, stale concurrent commands, duplicate completion, and pending-intent recovery.
+- Existing CI runs TypeScript/unit tests, PWA production build, Capacitor sync, Android debug build, and Android instrumentation APK compilation.
 
-## Remaining Phase 3 work
+## Device validation still required
 
-1. Persist pending intents and immutable event journal entries in Room and Dexie adapters with idempotent replay.
-2. Add native event-scoped GPS acquisition and recoverable pending-fix handling; never use continuous location tracking or silently substitute last-known coordinates.
-3. Add typed Capacitor command/query/subscription APIs and reconcile revisions when either surface attaches or resumes.
-4. Implement native overlay commands against the same Room-backed use cases, including operation when the WebView is paused or absent.
-5. Add deterministic concurrency, duplicate delivery, restart, and offline tests; verify Android bridge behavior on device.
-
-## Safety boundaries
-
-- Immediate UI acknowledgement is not proof of a durable enqueue or recorded event.
-- The caller must durably store the pending intent before requesting GPS.
-- A GPS failure leaves the intent recoverable and the state unchanged.
-- Event GPS acquisition is initiated only by a validated transition; synchronization never starts location acquisition.
-- Room remains the Android authority; Dexie remains the browser-only authority.
-- No business forms, finance, Dropbox, or continuous tracking are pulled into this phase.
-
-## Current status
-
-The pure domain transition planner and unit tests are the first implementation slice. Persistence orchestration, native GPS acquisition, live bridge subscriptions, and overlay integration are not yet complete. Phase 3 is in progress, not complete.
+CI compilation is not physical-device acceptance. Validate Android runtime permission flows, cold GPS accuracy/freshness and timeout behavior, overlay permission grant/revocation, app process death/reboot, WebView recreation, overlay state reconciliation, and rapid conflicting PWA/native actions on supported Android devices. Android OS/OEM restrictions may defer overlay service execution; pending intents remain durable and resume when execution is available. Phase 3 code is implemented; final device acceptance is tracked in Phase 7 and is not claimed here.
