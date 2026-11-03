@@ -71,3 +71,7 @@ The choice is runtime-wide, not feature-specific. Features must not select a dif
 6. Browser-only PWA can create, close, reload, and recover records using IndexedDB without Android dependencies.
 7. Interrupted or failed migrations preserve source data and expose a recoverable state.
 8. Automated architecture checks prevent Android feature code from directly writing business records to IndexedDB or bypassing repository interfaces.
+
+## Crash-safe transaction and replay rules
+
+The authoritative-store transaction and recovery rules are specified in [the Transaction and Recovery Contract](TRANSACTION_AND_RECOVERY_CONTRACT.md). For both adapters, durable intent enqueue is distinct from business completion; a GPS-required transition is recorded only after validated evidence, event, projection/revision, and outbox commit together. Notifications and external effects are post-commit. Duplicate commands and deliveries must be harmless through stable IDs and atomic receiver deduplication. Recovery never clears source data to bypass an error.
