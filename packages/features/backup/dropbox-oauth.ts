@@ -257,4 +257,4 @@ export class DropboxBackupClient {
       if (!response.ok) throw new Error("dropbox_delete_http_" + response.status);
     });
   }
-}}
+}
