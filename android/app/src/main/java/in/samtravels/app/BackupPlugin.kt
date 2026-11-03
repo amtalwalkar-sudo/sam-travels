@@ -218,6 +218,51 @@ class BackupPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun rollbackCheckpoint(call: PluginCall) {
+        val id = call.getString("checkpointId")
+        if (id.isNullOrBlank()) {
+            call.reject("Checkpoint id required")
+            return
+        }
+        executor.execute {
+            try {
+                val checkpointRow = db.records().get(checkpointPrefix + id) ?: error("recovery_checkpoint_missing")
+                val journalRow = db.records().get(journalPrefix + id) ?: error("recovery_journal_missing")
+                val journal = JSONObject(journalRow.json)
+                require(journal.optString("status") == "checkpoint" || journal.optString("status") == "restored_unverified") {
+                    "checkpoint_not_rollback_eligible"
+                }
+                val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
+                db.runInTransaction {
+                    db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
+                    for (index in 0 until oldRecords.length()) {
+                        val record = oldRecords.getJSONObject(index)
+                        db.records().put(
+                            StoredRecord(record.getString("id"), record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt")),
+                        )
+                    }
+                    journal.put("status", "rollback_complete")
+                    saveInternal(journalPrefix + id, journal, Instant.now().toString())
+                }
+                val restored = businessRecords()
+                require(restored.length() == oldRecords.length()) { "checkpoint_rollback_count_mismatch" }
+                val restoredById = (0 until restored.length()).associate {
+                    val record = restored.getJSONObject(it)
+                    record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                }
+                val expectedById = (0 until oldRecords.length()).associate {
+                    val record = oldRecords.getJSONObject(it)
+                    record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                }
+                require(restoredById == expectedById) { "checkpoint_rollback_integrity_mismatch" }
+                call.resolve()
+            } catch (error: Exception) {
+                call.reject("Checkpoint rollback failed; retained checkpoint remains available", error)
+            }
+        }
+    }
+
+    @PluginMethod
     fun markRestoreVerified(call: PluginCall) {
         val id = call.getString("checkpointId")
         if (id.isNullOrBlank()) {
