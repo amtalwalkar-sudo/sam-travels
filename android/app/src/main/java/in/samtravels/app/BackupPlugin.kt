@@ -93,7 +93,7 @@ class BackupPlugin : Plugin() {
             try {
                 val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
                 require(manifest.optInt("schemaVersion", -1) == 1) { "backup_unsupported_schema" }
-                require(manifest.optInt("recordCounts", JSONObject()).optInt("records", -1) == records.length()) {
+                require(manifest.optJSONObject("recordCounts")?.optInt("records", -1) == records.length()) {
                     "backup_record_count_mismatch"
                 }
                 require(records.length() <= 1_000_000) { "backup_record_count_limit" }
