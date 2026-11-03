@@ -25,6 +25,7 @@ export function BackupPanel() {
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [selectedPath, setSelectedPath] = useState("");
   const [restoreConfirmed, setRestoreConfirmed] = useState(false);
+  const [retentionLimit, setRetentionLimit] = useState("7");
   const [callback, setCallback] = useState<{ code: string; state: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -121,6 +122,25 @@ export function BackupPanel() {
       await refreshHistory(session);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Backup upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyRetention() {
+    if (!session) return;
+    const limit = Number(retentionLimit);
+    if (!Number.isSafeInteger(limit) || limit < 1) {
+      setMessage("Keep at least one backup.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const deleted = await session.client.applyRetention(limit, selectedPath ? [selectedPath] : []);
+      setMessage("Retention applied. " + deleted.length + " older backup(s) removed; the selected backup was protected.");
+      await refreshHistory(session);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not apply backup retention");
     } finally {
       setBusy(false);
     }
@@ -260,6 +280,10 @@ export function BackupPanel() {
               {backups.map(item => <option key={item.path} value={item.path}>{item.name} · {new Date(item.serverModified).toLocaleString()}</option>)}
             </select>
           )}
+          <div className="backup-retention">
+            <label>Keep newest backups<input type="number" min="1" max="365" value={retentionLimit} onChange={event => setRetentionLimit(event.target.value)} /></label>
+            <button className="backup-secondary" disabled={busy || backups.length === 0} onClick={applyRetention}>Apply retention</button>
+          </div>
           <div className="backup-config">
             <label>Restore secret type<select value={restoreSecretType} onChange={event => setRestoreSecretType(event.target.value as "passphrase" | "recoveryKey")}><option value="passphrase">Backup passphrase</option><option value="recoveryKey">Recovery key</option></select></label>
             <label>Restore secret<input type="password" value={restoreSecret} onChange={event => setRestoreSecret(event.target.value)} autoComplete="off" placeholder="Enter passphrase or recovery key" /></label>
