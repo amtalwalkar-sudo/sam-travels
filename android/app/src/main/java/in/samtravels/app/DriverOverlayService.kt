@@ -29,7 +29,8 @@ class DriverOverlayService:Service(){
  private val main=Handler(Looper.getMainLooper())
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
- private var status:TextView?=null\n private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
+ private var status:TextView?=null
+ private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").build()}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};if(databaseObserver==null){databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}};db.invalidationTracker.addObserver(databaseObserver!!)};main.post{showPanel()};return START_STICKY}
