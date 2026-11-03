@@ -18,7 +18,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  getIntent(id:string){return intents().get(id)}
  listPending(){return intents().where("status").anyOf("pending_location","needs_attention").toArray()}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
-  const snapshot=await browserDatabase.transaction("rw",states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps);if(!plan.ok)throw new Error(plan.error);const next=plan.value;
+  const snapshot=await browserDatabase.transaction("rw",states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;
    await events().add({eventId:id,command:intent.command,gps,committedAt:now,revision:next.revision});await states().put({id:"driver-state",value:next});
    await intents().put({...intent,status:"recorded",updatedAt:now,reason:undefined});await outbox().put({id:"driver-state:"+next.revision,eventId:id,revision:next.revision,delivered:false,createdAt:now});return next});
   this.listeners.forEach(fn=>fn(snapshot));return snapshot;
