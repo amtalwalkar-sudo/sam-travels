@@ -1,6 +1,5 @@
 import type { CredentialVault } from "../../../packages/core/src/credentials";
-import { ARGON2ID_PARAMETERS } from "../../../packages/features/backup/crypto";
-import { HashWasmArgon2idProvider } from "../../../packages/features/backup/argon2id-provider";
+import { ARGON2ID_PARAMETERS, HashWasmArgon2idProvider } from "../../../packages/features/backup";
 import { browserDatabase } from "../../../packages/storage-browser/src/database";
 
 type VaultRow = { name: string; nonce: string; ciphertext: string; updatedAt: string };
