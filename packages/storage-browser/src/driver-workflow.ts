@@ -14,12 +14,12 @@ const outbox=()=>browserDatabase.table("driverOutbox") as Table<OutboxRow,string
 export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  private listeners=new Set<(s:DriverStateProjection)=>void>();
  async getSnapshot(){return(await states().get("driver-state"))?.value??EMPTY_DRIVER_STATE}
- async queueIntent(intent:DriverIntent){return browserDatabase.transaction("rw",states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){if(old.command.commandId!==intent.command.commandId)throw new Error("duplicate_command_id_conflict");return old}const s=await this.getSnapshot();if(intent.command.expectedRevision!==s.revision||intent.command.expectedPriorState!==s.state)throw new Error("stale_revision");await intents().add(intent,intent.command.eventId);return intent})}
+ async queueIntent(intent:DriverIntent){return browserDatabase.transaction("rw",states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){if(old.command.commandId!==intent.command.commandId)throw new Error("duplicate_command_id_conflict");return old}const s=await this.getSnapshot();if(intent.command.expectedRevision!==s.revision||intent.command.expectedPriorState!==s.state)throw new Error("stale_revision");await intents().add(intent);return intent})}
  getIntent(id:string){return intents().get(id)}
  listPending(){return intents().where("status").anyOf("pending_location","needs_attention").toArray()}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
   const snapshot=await browserDatabase.transaction("rw",states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps);if(!plan.ok)throw new Error(plan.error);const next=plan.value;
-   await events().add({eventId:id,command:intent.command,gps,committedAt:now,revision:next.revision},id);await states().put({id:"driver-state",value:next});
+   await events().add({eventId:id,command:intent.command,gps,committedAt:now,revision:next.revision});await states().put({id:"driver-state",value:next});
    await intents().put({...intent,status:"recorded",updatedAt:now,reason:undefined});await outbox().put({id:"driver-state:"+next.revision,eventId:id,revision:next.revision,delivered:false,createdAt:now});return next});
   this.listeners.forEach(fn=>fn(snapshot));return snapshot;
  }
