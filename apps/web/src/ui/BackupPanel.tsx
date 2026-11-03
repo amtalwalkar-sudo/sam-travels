@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Capacitor } from "@capacitor/core";
 import {
   createAndUploadBackup,
   discardVerifiedRecoveryCheckpoint,
@@ -14,7 +13,6 @@ type BackupEntry = { name: string; path: string; serverModified: string; size: n
 type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
-  const native = Capacitor.isNativePlatform();
   const [clientId, setClientId] = useState(import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "");
   const [redirectUri, setRedirectUri] = useState(import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? (typeof window === "undefined" ? "" : window.location.origin + window.location.pathname));
   const [vaultPassphrase, setVaultPassphrase] = useState("");
@@ -249,7 +247,7 @@ export function BackupPanel() {
       <div className="backup-config">
         <label>Dropbox app key<input value={clientId} onChange={event => setClientId(event.target.value)} autoComplete="off" placeholder="Dropbox app key" /></label>
         <label>Registered redirect URI<input value={redirectUri} onChange={event => setRedirectUri(event.target.value)} autoComplete="url" placeholder="https://your-app.example/backup" /></label>
-        <label>Browser vault passphrase (PWA only)<input type="password" value={vaultPassphrase} onChange={event => setVaultPassphrase(event.target.value)} autoComplete="current-password" placeholder="At least 12 characters for browser vault" /></label>
+        <label>Browser vault passphrase (leave blank on Android)<input type="password" value={vaultPassphrase} onChange={event => setVaultPassphrase(event.target.value)} autoComplete="current-password" placeholder="At least 12 characters for browser vault" /></label>
       </div>
 
       {callback ? (
@@ -259,7 +257,7 @@ export function BackupPanel() {
       ) : (
         <div className="backup-actions">
           <button className="backup-secondary" disabled={busy} onClick={() => refreshHistory()}>Refresh history</button>
-          {!native && <button className="backup-secondary" disabled={busy} onClick={lockVault}>Lock vault</button>}
+          {!session.native && <button className="backup-secondary" disabled={busy} onClick={lockVault}>Lock vault</button>}
           <button className="backup-secondary" disabled={busy} onClick={disconnect}>Disconnect</button>
         </div>
       )}
