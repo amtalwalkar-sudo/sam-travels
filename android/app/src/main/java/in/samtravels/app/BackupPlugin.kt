@@ -25,7 +25,15 @@ class BackupPlugin : Plugin() {
     private fun businessRecords(): JSONArray {
         val rows = db.records().list().filterNot { isInternal(it.id) }
         val result = JSONArray()
-        rows.forEach { result.put(JSONObject(it.json)) }
+        rows.forEach { row ->
+            result.put(
+                JSONObject()
+                    .put("id", row.id)
+                    .put("json", row.json)
+                    .put("schemaVersion", row.schemaVersion)
+                    .put("updatedAt", row.updatedAt),
+            )
+        }
         return result
     }
 
@@ -33,7 +41,8 @@ class BackupPlugin : Plugin() {
         for (index in 0 until records.length()) {
             val row = records.optJSONObject(index) ?: continue
             if (row.optString("id") == "driver-state") {
-                return row.optJSONObject("value")?.optInt("revision", 0) ?: 0
+                val storedJson = runCatching { JSONObject(row.optString("json")) }.getOrNull()
+                return storedJson?.optJSONObject("value")?.optInt("revision", 0) ?: 0
             }
         }
         return 0
@@ -92,7 +101,12 @@ class BackupPlugin : Plugin() {
             var checkpointId: String? = null
             try {
                 val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
-                require(manifest.optInt("schemaVersion", -1) == 1) { "backup_unsupported_schema" }
+                require(manifest.optInt("schemaVersion", -1) == 1 && snapshot.optInt("schemaVersion", -1) == 1) {
+                    "backup_unsupported_schema"
+                }
+                require(manifest.optInt("snapshotRevision", -1) == snapshot.optInt("snapshotRevision", -2)) {
+                    "backup_snapshot_revision_mismatch"
+                }
                 require(manifest.optJSONObject("recordCounts")?.optInt("records", -1) == records.length()) {
                     "backup_record_count_mismatch"
                 }
@@ -103,9 +117,11 @@ class BackupPlugin : Plugin() {
                     val record = records.optJSONObject(index) ?: error("backup_invalid_record")
                     val id = record.optString("id")
                     require(id.isNotBlank() && !isInternal(id) && ids.add(id)) { "backup_duplicate_or_reserved_record_id" }
-                    require(record.optInt("schemaVersion", 0) >= 1 && record.optString("updatedAt").isNotBlank()) {
+                    require(record.optInt("schemaVersion", 0) >= 1 && record.optString("updatedAt").isNotBlank() &&
+                        record.optString("json").isNotBlank()) {
                         "backup_invalid_record_envelope"
                     }
+                    JSONObject(record.getString("json"))
                 }
 
                 val checkpoint = makeSnapshot()
@@ -129,7 +145,7 @@ class BackupPlugin : Plugin() {
                             db.records().put(
                                 StoredRecord(
                                     record.getString("id"),
-                                    record.toString(),
+                                    record.getString("json"),
                                     record.getInt("schemaVersion"),
                                     record.getString("updatedAt"),
                                 ),
@@ -154,7 +170,7 @@ class BackupPlugin : Plugin() {
                         for (index in 0 until oldRecords.length()) {
                             val record = oldRecords.getJSONObject(index)
                             db.records().put(
-                                StoredRecord(record.getString("id"), record.toString(), record.getInt("schemaVersion"), record.getString("updatedAt")),
+                                StoredRecord(record.getString("id"), record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt")),
                             )
                         }
                         saveInternal(
