@@ -165,6 +165,19 @@ export function BackupPanel() {
     }
   }
 
+  async function discardCheckpoint(checkpointId: string) {
+    setBusy(true);
+    try {
+      await discardVerifiedRecoveryCheckpoint(checkpointId);
+      setMessage("Verified recovery checkpoint discarded.");
+      await refreshCheckpoints();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not discard checkpoint");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function rollback(checkpointId: string) {
     setBusy(true);
     try {
@@ -263,7 +276,7 @@ export function BackupPanel() {
           <div><strong>{checkpoint.status.replaceAll("_", " ")}</strong><small>{new Date(checkpoint.createdAt).toLocaleString()}</small></div>
           {(checkpoint.status === "restored_unverified" || checkpoint.status === "checkpoint" || checkpoint.status === "rollback_complete") && (
             <div className="backup-actions">
-              {checkpoint.status === "restored_unverified" && <button className="backup-secondary" disabled={busy} onClick={() => verifyAndDiscard(checkpoint.id)}>Verify and discard checkpoint</button>}{checkpoint.status === "verified" && <button className="backup-secondary" disabled={busy} onClick={() => void discardVerifiedRecoveryCheckpoint(checkpoint.id).then(refreshCheckpoints)}>Discard verified checkpoint</button>}
+              {checkpoint.status === "restored_unverified" && <button className="backup-secondary" disabled={busy} onClick={() => verifyAndDiscard(checkpoint.id)}>Verify and discard checkpoint</button>}{checkpoint.status === "verified" && <button className="backup-secondary" disabled={busy} onClick={() => discardCheckpoint(checkpoint.id)}>Discard verified checkpoint</button>}
               <button className="backup-secondary" disabled={busy} onClick={() => rollback(checkpoint.id)}>Roll back</button>
             </div>
           )}
