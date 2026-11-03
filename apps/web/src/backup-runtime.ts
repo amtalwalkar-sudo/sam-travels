@@ -31,6 +31,8 @@ type RoomBackupApi = {
   rollbackCheckpoint(input: { checkpointId: string }): Promise<void>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
+type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void> };
+const NativeBackupKeyVault = registerPlugin<NativeBackupKeyVaultApi>("BackupKeyVault");
 
 type RecoverySecret = { passphrase: string } | { recoveryKey: string };
 
@@ -127,6 +129,7 @@ export async function createAndUploadBackup(input: {
   dropbox: DropboxBackupClient;
 }): Promise<{ filename: string; recoveryKey: string }> {
   const { backup, recoveryKey } = await createBackupForCurrentRuntime(input);
+  if (Capacitor.isNativePlatform()) await NativeBackupKeyVault.storeRecoveryKey({ recoveryKey });
   const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
   const filename = "sam-travels-" + timestamp + "-" + crypto.randomUUID() + ".stbackup";
   await input.dropbox.uploadEncryptedBackup(backup, filename);
