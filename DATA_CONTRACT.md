@@ -14,6 +14,16 @@ Persisted business records should use a common envelope:
 
 Feature-specific fields remain in typed feature entities; avoid a giant untyped catch-all record.
 
+## Transition and GPS snapshot records
+
+Every shift/trip lifecycle transition is an immutable event with a stable ID, event type, event timestamp, source, schema version, and idempotency key. Required event types include shift start/end, trip start/end, and ride cancellation.
+
+A GPS snapshot linked to a required transition contains latitude, longitude, horizontal accuracy in metres, fix timestamp, provider/source, and optional sensor fields only when available. Keep transition time distinct from GPS fix time. Validate coordinate ranges, fix age, and accuracy against a named, versioned reliability policy.
+
+Do not mark a GPS-required transition complete until a reliable fix and transition event have been committed durably. Pending acquisition is a distinct state, not a successful event. Never silently substitute stale last-known coordinates. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
+
+State intervals reference their start and end transition IDs. Durations are derived from persisted instants, allowing recovery after app restarts; elapsed-time UI counters are never the source of truth. Use `Asia/Kolkata` for live wall-clock presentation and retain UTC instants for audit and ordering.
+
 ## Repository boundary
 
 Application/domain code depends on repository interfaces, never directly on IndexedDB, Dexie, Room, or Capacitor. Adapters own serialization, transactions, indexes, migrations, and platform-specific details.
