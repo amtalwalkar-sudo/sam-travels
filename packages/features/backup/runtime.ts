@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import type { DropboxBackupClient } from "./dropbox-oauth";
 import {
   createEncryptedBackup,
   decryptBackupWithPassphrase,
