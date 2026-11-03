@@ -281,6 +281,7 @@ export function BackupPanel() {
         <span className={session ? "pill good" : "pill"}>{session ? "CONNECTED" : "NOT CONNECTED"}</span>
       </div>
       <p className="backup-intro">Backups are encrypted on this device before upload. Restore creates a local recovery checkpoint before replacing data.</p>
+      <p className="backup-empty">Automatic daily backup is not enabled yet. In the PWA, create backups while the app is open; browser background scheduling is not reliable. Android scheduled backup will be enabled after the recovery-only package format and worker are complete.</p>
 
       <div className="backup-config">
         <label>Dropbox app key<input value={clientId} onChange={event => setClientId(event.target.value)} autoComplete="off" placeholder="Dropbox app key" /></label>
