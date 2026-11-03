@@ -108,7 +108,11 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
         } catch (error: TransientBackupException) {
             return retryOrFinish(error.message ?: "dropbox_transient_failure")
         } catch (error: IOException) {
-            return retryOrFinish("dropbox_io_interrupted")
+            state.edit().putString("last_status", "retrying").putString("last_error", "dropbox_io_interrupted").commit()
+            return if (BackupWorkerResilience.shouldRetryInterruptedTransfer(error, runAttemptCount)) Result.retry() else {
+                state.edit().putString("last_status", "retry_exhausted").commit()
+                Result.success()
+            }
         } catch (error: Exception) {
             state.edit().putString("last_status", "failed")
                 .putString("last_error", error.message ?: "backup_failed").commit()
