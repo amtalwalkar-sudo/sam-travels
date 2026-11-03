@@ -64,4 +64,4 @@ Business-module entry forms are intentionally not part of the active driver work
 - The native overlay and Capacitor workflow plugin open separate Room clients against the same authoritative database with multi-instance invalidation enabled, so committed PWA/overlay changes invalidate the other surface's cached reads.
 - The overlay presents a recovery action for a persisted pending GPS intent after the service or process is restarted. It retries the original event identity and original transition timestamp; it does not create a replacement transition.
 - The overlay owns at most one active event-location request and removes its listener/timeout when the service is destroyed. An interrupted acquisition leaves the durable intent available for recovery.
-- Android instrumentation coverage verifies exact duplicate-command idempotency and rejects a reused event identity with a changed payload.
+- Android instrumentation coverage verifies exact duplicate-command idempotency, rejects a reused event identity with a changed payload, and closes/reopens a file-backed Room database to prove a pending intent survives repository recreation and can be recovered.

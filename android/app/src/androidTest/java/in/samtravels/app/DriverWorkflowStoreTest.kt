@@ -127,4 +127,30 @@ class DriverWorkflowStoreTest {
         assertEquals(1, db.records().list().count { it.id.startsWith("driver-intent:") })
     }
 
+    @Test fun pendingIntentSurvivesRoomReopenAndCanBeRecovered() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "driver-workflow-recovery-test.db"
+        context.deleteDatabase(databaseName)
+        val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        DriverWorkflowStore.queue(first, command("persistent-event"))
+        first.close()
+
+        val reopened = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        try {
+            val persisted = JSONObject(reopened.records().get("driver-intent:persistent-event")!!.json)
+            assertEquals("pending_location", persisted.getString("status"))
+            assertEquals("persistent-event", persisted.getJSONObject("command").getString("eventId"))
+            DriverWorkflowStore.reactivate(reopened, "persistent-event")
+            val next = DriverWorkflowStore.complete(reopened, "persistent-event", gps())
+            assertEquals("shift_active", next.getString("state"))
+            assertEquals("recorded", JSONObject(reopened.records().get("driver-intent:persistent-event")!!.json)
+                .getString("status"))
+        } finally {
+            reopened.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
 }
