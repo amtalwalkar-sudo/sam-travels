@@ -1,18 +1,10 @@
 package `in`.samtravels.app
 import org.json.JSONObject
 import java.time.Instant
-import kotlin.math.abs
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
  private fun snapshot(db:LocalDatabase)=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
  private fun save(db:LocalDatabase,key:String,value:JSONObject,now:String){db.records().put(StoredRecord(key,value.toString(),1,now))}
- private fun target(state:String,event:String):String?=when(event){
-  "shift_start"->if(state=="idle")"shift_active" else null
-  "shift_end"->if(state=="shift_active")"idle" else null
-  "trip_start"->if(state=="shift_active"||state=="approach_active")"trip_active" else null
-  "trip_end","ride_cancel"->if(state=="trip_active"||state=="approach_active")"shift_active" else null
-  else->null
- }
  fun queue(db:LocalDatabase,command:JSONObject):JSONObject{
   var result:JSONObject?=null
   db.runInTransaction{
@@ -25,7 +17,7 @@ object DriverWorkflowStore {
    if(oldRow!=null){val old=JSONObject(oldRow.json);val c=old.optJSONObject("command");require(c!=null&&c.optInt("schemaVersion",-1)==command.optInt("schemaVersion",-2)&&c.optString("eventId")==eventId&&c.optString("commandId")==commandId&&c.optString("idempotencyKey")==idem&&c.optString("eventType")==command.optString("eventType")&&c.optString("transitionAt")==command.optString("transitionAt")&&c.optString("originSurface")==command.optString("originSurface")&&c.optInt("expectedRevision",-1)==command.optInt("expectedRevision",-2)&&c.optString("expectedPriorState")==command.optString("expectedPriorState")){"duplicate_event_id_conflict"};result=old;return@runInTransaction}
    val current=snapshot(db)
    require(command.optInt("expectedRevision",-1)==current.optInt("revision")&&command.optString("expectedPriorState")==current.optString("state")){"stale_revision"}
-   require(target(current.optString("state"),command.optString("eventType"))!=null){"invalid_transition"}
+   require(DriverTransitionPolicy.target(current.optString("state"),command.optString("eventType"))!=null){"invalid_transition"}
    val competing=db.records().list().any{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val i=JSONObject(row.json);val rev=i.optJSONObject("command")?.optInt("expectedRevision",-1);(i.optString("status")=="pending_location"||i.optString("status")=="needs_attention")&&rev==current.optInt("revision")}.getOrDefault(false)}
    require(!competing){"competing_transition_pending"}
    val now=Instant.now().toString();val intent=JSONObject().put("command",command).put("status","pending_location").put("createdAt",now).put("updatedAt",now)
@@ -40,13 +32,8 @@ object DriverWorkflowStore {
    require(intent.optString("status")=="pending_location"){"intent_not_pending"}
    val command=intent.getJSONObject("command");val current=snapshot(db)
    require(command.optInt("expectedRevision",-1)==current.optInt("revision")&&command.optString("expectedPriorState")==current.optString("state")){"stale_revision"}
-   val lat=gps.optDouble("latitude",Double.NaN);val lon=gps.optDouble("longitude",Double.NaN);val accuracy=gps.optDouble("horizontalAccuracyM",Double.NaN)
-   require(lat.isFinite()&&lon.isFinite()&&lat in -90.0..90.0&&lon in -180.0..180.0){"invalid_gps_coordinates"}
-   require(accuracy.isFinite()&&accuracy>=0.0&&accuracy<=50.0){"gps_accuracy_exceeds_50m"}
-   val fixAt=Instant.parse(gps.getString("fixAt"));val transitionAt=Instant.parse(command.getString("transitionAt"))
-   require(fixAt.toEpochMilli()<=Instant.now().toEpochMilli()+5000L){"gps_fix_from_future"}
-   require(abs(fixAt.toEpochMilli()-transitionAt.toEpochMilli())<=30000L){"gps_fix_outside_30s_window"}
-   val event=command.optString("eventType");val nextState=target(current.optString("state"),event)?:error("invalid_transition")
+   DriverTransitionPolicy.validateGpsEvidence(gps,command.getString("transitionAt"))
+   val event=command.optString("eventType");val nextState=DriverTransitionPolicy.target(current.optString("state"),event)?:error("invalid_transition")
    val revision=current.optInt("revision")+1;val next=JSONObject(current.toString()).put("schemaVersion",1).put("revision",revision).put("state",nextState).put("lastEventId",eventId)
    when(event){"shift_start"->next.put("shiftStartedAt",command.getString("transitionAt"));"shift_end"->next.remove("shiftStartedAt");"trip_start"->next.put("tripStartedAt",command.getString("transitionAt"));"trip_end","ride_cancel"->next.remove("tripStartedAt")}
    val now=Instant.now().toString();val eventRecord=JSONObject().put("eventId",eventId).put("command",command).put("gps",gps).put("committedAt",now).put("revision",revision)
