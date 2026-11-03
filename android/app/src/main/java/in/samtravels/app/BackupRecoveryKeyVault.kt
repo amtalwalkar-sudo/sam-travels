@@ -24,14 +24,17 @@ internal class BackupRecoveryKeyVault(context: Context) {
         val raw = try { Base64.decode(recoveryKey, Base64.NO_WRAP) } catch (_: IllegalArgumentException) {
             throw IllegalArgumentException("Invalid backup recovery key encoding")
         }
-        require(raw.size == 32) { "Backup recovery key must contain 256 bits" }
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-        val encrypted = cipher.iv + cipher.doFinal(raw)
-        check(preferences.edit().putString(ENTRY, Base64.encodeToString(encrypted, Base64.NO_WRAP)).commit()) {
-            "Unable to persist encrypted backup recovery key"
+        try {
+            require(raw.size == 32) { "Backup recovery key must contain 256 bits" }
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+            val encrypted = cipher.iv + cipher.doFinal(raw)
+            check(preferences.edit().putString(ENTRY, Base64.encodeToString(encrypted, Base64.NO_WRAP)).commit()) {
+                "Unable to persist encrypted backup recovery key"
+            }
+        } finally {
+            raw.fill(0)
         }
-        raw.fill(0)
     }
 
     fun read(): String? {
