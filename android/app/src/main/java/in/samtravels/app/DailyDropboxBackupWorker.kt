@@ -102,24 +102,26 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             state.edit().putString("last_success", Instant.now().toString())
                 .putString("last_status", "success").remove("last_error").commit()
             return Result.success()
+        } catch (error: InternetAccessDisabledException) {
+            return defer("internet_access_disabled")
         } catch (error: TransientBackupException) {
-            state.edit().putString("last_status", "retrying").putString("last_error", error.message).commit()
-            return if (runAttemptCount < MAX_RETRIES) Result.retry() else {
-                state.edit().putString("last_status", "retry_exhausted").commit()
-                Result.success()
-            }
+            return retryOrFinish(error.message ?: "dropbox_transient_failure")
         } catch (error: IOException) {
-            state.edit().putString("last_status", "retrying").putString("last_error", "dropbox_io_interrupted").commit()
-            return if (runAttemptCount < MAX_RETRIES) Result.retry() else {
-                state.edit().putString("last_status", "retry_exhausted").commit()
-                Result.success()
-            }
+            return retryOrFinish("dropbox_io_interrupted")
         } catch (error: Exception) {
             state.edit().putString("last_status", "failed")
                 .putString("last_error", error.message ?: "backup_failed").commit()
             return Result.success()
         } finally {
             runCatching { db.close() }
+        }
+    }
+
+    private fun retryOrFinish(reason: String): Result {
+        state.edit().putString("last_status", "retrying").putString("last_error", reason).commit()
+        return if (BackupWorkerResilience.shouldRetry(runAttemptCount)) Result.retry() else {
+            state.edit().putString("last_status", "retry_exhausted").commit()
+            Result.success()
         }
     }
 
@@ -174,13 +176,13 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             tokens.optLong("expiresAt") > System.currentTimeMillis() + 60_000) return tokens.getString("accessToken")
         val refresh = tokens.optString("refreshToken")
         if (refresh.isBlank()) return null
-        if (!internetAllowed()) return null
+        BackupWorkerResilience.requireInternetAccess(::internetAllowed)
         val form = "grant_type=refresh_token&refresh_token=" + encode(refresh) + "&client_id=" + encode(clientId)
         val response = request(
             "https://api.dropboxapi.com/oauth2/token", "POST", form.toByteArray(Charsets.UTF_8),
             mapOf("Content-Type" to "application/x-www-form-urlencoded"),
         )
-        if (response.first == 429 || response.first >= 500) {
+        if (BackupWorkerResilience.isTransientHttpStatus(response.first)) {
             throw TransientBackupException("dropbox_token_refresh_http_${response.first}")
         }
         if (response.first != 200) return null
@@ -193,7 +195,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun ensureFolder(token: String) {
-        if (!internetAllowed()) throw PermanentBackupException("internet_access_disabled")
+        BackupWorkerResilience.requireInternetAccess(::internetAllowed)
         val response = request(
             "https://api.dropboxapi.com/2/files/create_folder_v2", "POST",
             JSONObject().put("path", "/SamTravelsBackups").put("autorename", false).toString().toByteArray(Charsets.UTF_8),
@@ -203,7 +205,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun request(url: String, method: String, body: ByteArray, headers: Map<String, String>): Pair<Int, ByteArray> {
-        if (!internetAllowed()) throw PermanentBackupException("internet_access_disabled")
+        BackupWorkerResilience.requireInternetAccess(::internetAllowed)
         val connection = URL(url).openConnection() as HttpURLConnection
         try {
             connection.requestMethod = method
@@ -229,6 +231,5 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
 
     private companion object {
         const val TOKEN_KEY = "dropbox.oauth.tokens.v1"
-        const val MAX_RETRIES = 5
     }
 }
