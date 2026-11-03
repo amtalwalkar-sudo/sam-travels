@@ -24,6 +24,7 @@ function layer(file) {
   if (p.includes("/packages/domain/src/")) return "domain";
   if (p.includes("/packages/application/src/")) return "application";
   if (p.includes("/packages/storage-browser/src/")) return "storage";
+  if (p.includes("/packages/features/")) return "feature";
   if (p.includes("/apps/web/src/ui/")) return "ui";
   return "outer";
 }
@@ -34,6 +35,7 @@ function targetLayer(specifier, fromFile) {
   if (resolved.includes("/packages/domain/src/")) return "domain";
   if (resolved.includes("/packages/application/src/")) return "application";
   if (resolved.includes("/packages/storage-browser/src/")) return "storage";
+  if (resolved.includes("/packages/features/")) return "feature";
   if (resolved.includes("/apps/web/src/")) return "ui";
   return null;
 }
@@ -58,6 +60,8 @@ for (const absolute of sourceFiles) {
       (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
       (from === "application" && ["storage", "ui"].includes(target)) ||
       (from === "storage" && target === "ui") ||
+      ([ "core", "domain", "application", "storage" ].includes(from) && target === "feature") ||
+      (from === "feature" && ["storage", "ui"].includes(target)) ||
       (from === "ui" && target === "storage") ||
       (from === "ui" && /(?:^|\/)node_modules\/(?:dexie|@capacitor\/)/.test(specifier)) ||
       (from === "ui" && /^(?:dexie|@capacitor\/)/.test(specifier));
