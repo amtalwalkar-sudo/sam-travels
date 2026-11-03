@@ -75,3 +75,11 @@ Reliability, data integrity, recoverability, offline usability, accessibility, r
 ## Crash-safe transactions and recovery
 
 All state-changing workflows follow the durable-intent, atomic-completion, and post-commit-outbox boundaries defined in [docs/TRANSACTION_AND_RECOVERY_CONTRACT.md](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md). Gesture feedback is immediate but is not a durability claim; a command is safely queued only after its authoritative local intent commit. GPS-required transitions remain pending until their event-specific evidence and resulting state commit atomically. Replay and delivery are at-least-once and idempotent; no exactly-once transport or silent last-write-wins behavior is assumed.
+
+## GPS evidence, time integrity, and backup safety
+
+Event-scoped GPS and clock semantics are governed by [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md). Numeric fix thresholds must be explicitly selected and versioned before implementation; they are not inferred or silently changed. Backup packages use consistent authoritative snapshots and validated, checkpoint-protected restore as defined in [docs/DROPBOX_BACKUP_CONTRACT.md](docs/DROPBOX_BACKUP_CONTRACT.md).
+
+## Feature and security contracts
+
+Feature registration, extension boundaries, and presentation/domain separation follow [docs/FEATURE_MODULE_CONTRACT.md](docs/FEATURE_MODULE_CONTRACT.md). Data minimization, secrets, import validation, platform permissions, and compatibility follow [docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md](docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md).
