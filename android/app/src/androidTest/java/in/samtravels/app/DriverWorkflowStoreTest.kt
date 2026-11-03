@@ -176,4 +176,39 @@ class DriverWorkflowStoreTest {
             .getString("status"))
     }
 
+
+    @Test fun committedTransitionReplayAfterRoomReopenCannotDuplicateEventOrOutbox() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "driver-workflow-commit-replay-test.db"
+        context.deleteDatabase(databaseName)
+        val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        DriverWorkflowStore.queue(first, command("durable-replay"))
+        val committed = DriverWorkflowStore.complete(first, "durable-replay", gps())
+        assertEquals(1, committed.getInt("revision"))
+        first.close()
+
+        val reopened = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        try {
+            var rejected = false
+            try {
+                DriverWorkflowStore.complete(reopened, "durable-replay", gps())
+            } catch (_: Exception) {
+                rejected = true
+            }
+
+            assertTrue(rejected)
+            assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-event:") })
+            assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-outbox:") })
+            assertEquals(1, JSONObject(reopened.records().get("driver-state")!!.json)
+                .getJSONObject("value").getInt("revision"))
+            assertEquals("recorded", JSONObject(
+                reopened.records().get("driver-intent:durable-replay")!!.json,
+            ).getString("status"))
+        } finally {
+            reopened.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
 }
