@@ -31,13 +31,13 @@ type RoomBackupApi = {
   rollbackCheckpoint(input: { checkpointId: string }): Promise<void>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
-type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void> };
+type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void>; configureBackgroundBackup(input: { clientId: string; redirectUri: string }): Promise<void>; scheduleBackgroundBackup(): Promise<void> };
 const NativeBackupKeyVault = registerPlugin<NativeBackupKeyVaultApi>("BackupKeyVault");
 
 type RecoverySecret = { passphrase: string } | { recoveryKey: string };
 
 /** Consume a deep-link callback persisted by MainActivity when Android resumes the app. */
-export async function consumeNativeOAuthCallback(): Promise<string | null> {
+export async function configureNativeBackgroundBackup(clientId: string, redirectUri: string): Promise<void> {\n  if (!Capacitor.isNativePlatform()) return;\n  await NativeBackupKeyVault.configureBackgroundBackup({ clientId, redirectUri });\n}\n\nexport async function consumeNativeOAuthCallback(): Promise<string | null> {
   if (!Capacitor.isNativePlatform()) return null;
   const result = await NativeBackup.consumeOAuthCallback();
   return result.url ?? null;
