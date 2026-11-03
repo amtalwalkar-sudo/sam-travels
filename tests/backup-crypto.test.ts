@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ARGON2ID_PARAMETERS,
   createEncryptedBackup,
+  generateBackupRecoveryKey,
   decryptBackupWithPassphrase,
   decryptBackupWithRecoveryKey,
   parseBackupPackage,
@@ -34,6 +35,15 @@ describe("backup-encryption-v1", () => {
     const derived = await new HashWasmArgon2idProvider().deriveKey({ passphrase: "production KDF test", salt, parameters: ARGON2ID_PARAMETERS });
     expect(derived).toBeInstanceOf(Uint8Array);
     expect(derived.byteLength).toBe(32);
+  });
+
+  it("reuses one user recovery key across backup generations", async () => {
+    const recoveryKey = generateBackupRecoveryKey();
+    const first = await createEncryptedBackup({ plaintext: new TextEncoder().encode("first"), manifest, passphrase: "correct horse battery", recoveryKey, argon2id: testKdf });
+    const second = await createEncryptedBackup({ plaintext: new TextEncoder().encode("second"), manifest, passphrase: "correct horse battery", recoveryKey, argon2id: testKdf });
+    expect(first.recoveryKey).toBe(recoveryKey);
+    expect(second.recoveryKey).toBe(recoveryKey);
+    expect(new TextDecoder().decode(await decryptBackupWithRecoveryKey(second.backup, recoveryKey))).toBe("second");
   });
 
   it("round-trips with either independent recovery method", async () => {
