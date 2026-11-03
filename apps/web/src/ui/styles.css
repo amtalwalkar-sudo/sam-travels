@@ -40,3 +40,5 @@
 .backup-checkpoint{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid #edf0f2;padding:12px 0}.backup-checkpoint strong,.backup-checkpoint small{display:block}.backup-checkpoint strong{font-size:11px;color:#3d5868;text-transform:capitalize}.backup-checkpoint small{font-size:10px;color:#8a969e;margin-top:4px}
 .backup-message{min-height:16px;color:#47748c;font-size:11px;line-height:1.5;margin:14px 0 0}
 @media(max-width:620px){.backup-panel{padding:17px}.backup-config{grid-template-columns:1fr}.backup-checkpoint{align-items:flex-start;flex-direction:column}.backup-checkpoint .backup-actions{margin-top:0}}
+
+.backup-retention{display:flex;align-items:flex-end;gap:10px;margin:10px 0 14px}.backup-retention label{display:flex;flex-direction:column;gap:6px;font-size:10px;color:#536570;font-weight:650}.backup-retention input{width:110px;border:1px solid #dbe3e8;border-radius:9px;background:#fbfcfd;padding:9px;color:#233744;font:inherit}
