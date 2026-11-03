@@ -9,6 +9,7 @@
 - Browser-only PWA persistence uses Dexie/IndexedDB.
 - Installed Android selects the native Room repository through the typed Capacitor `RoomStore` bridge; it does not write business records to IndexedDB.
 - Platform-neutral record envelope, repository interfaces, versioned feature registry and dependency validation.
+- Versioned shared driver transition command, state projection, and Capacitor bridge request/response types for PWA and native surfaces.
 - Persisted app network policy defaults to disabled. NetworkGateway refuses operations until the user explicitly enables access.
 - GPS policy is implemented as a pure, testable validator using approved `gps-event-fix-v1` limits (50 m / 30 s).
 - Backup encryption design is locked in `docs/DROPBOX_BACKUP_CONTRACT.md`; actual backup encryption and transport remain Phase 6.
