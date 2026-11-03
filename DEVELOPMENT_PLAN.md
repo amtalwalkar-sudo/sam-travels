@@ -49,7 +49,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Implement Admin configuration and backup/recovery controls.
 - Keep modules independently addable and presentation replaceable.
 
-**Exit gate:** module contracts, validations, historical dates, calculations, offline persistence, and regression tests pass without changing stable driver workflow behavior.
+**In progress — first vertical slice delivered:** shared contracts and validation for Log Book, Finance, Loans, Vehicle, Maintenance, Compliance and Business setup; repository-backed namespaced records; offline PWA/Android forms; paise-based finance values; EMI and reducing-tenure prepayment schedule calculations; date-range Performance summary including cancellation fees. Loan payment history/confirmation UI, complete schedule/prepayment UX, richer module workflows, migration coverage and broader regression/device tests remain open. See [Phase 4 Business Modules](docs/PHASE_4_BUSINESS_MODULES.md).
 
 ## Phase 5 — Recovery and resilience
 
