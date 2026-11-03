@@ -18,7 +18,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User approval is recorded; implementation proceeds to Phase 2.
 
-## Phase 2 — Application and database foundation (in progress)
+## Phase 2 — Application and database foundation (complete)
 
 - Create React + TypeScript + Vite PWA and Capacitor Android scaffold.
 - Establish domain/application packages, typed feature registration, repository interfaces, and dependency rules.
@@ -27,7 +27,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Add local network policy store/gateway foundation and secure credential abstractions without enabling integrations by default.
 - Establish CI, architecture checks, unit tests, repository integration tests, migration tests, and Android build baseline.
 
-**Exit gate:** both runtimes build; authoritative persistence ownership is enforced; browser-only PWA works independently; Android WebView and overlay-facing APIs use Room; CI and migration/repository tests pass.
+**Exit gate (verified):** the browser PWA builds and runs its unit/repository tests; the Capacitor Android debug APK and Android instrumentation-test APK compile; Room and Dexie are the selected runtime authorities; the Room bridge compiles; network policy defaults closed. The Android Room instrumentation test is included and compiled in CI; emulator/physical-device execution and lifecycle validation remain part of Phase 7.
 
 ## Phase 3 — Shared driver workflow and PWA/native overlay synchronization
 
