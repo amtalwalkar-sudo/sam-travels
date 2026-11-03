@@ -1,43 +1,86 @@
-import{useEffect,useMemo,useState}from"react";
-import{NetworkGateway}from"../../../../packages/core/src";
-import type{RecordRepository,PolicyRepository}from"../../../../packages/core/src";
-import type{DriverStateProjection,DriverTransitionCommand}from"../../../../packages/core/src/commands";
-import{createPlatformRepository}from"../native-store";
-import{createDriverWorkflow,enableNativeOverlay,disableNativeOverlay,nativeOverlayAvailable}from"../driver-workflow";
-import{createDriverCommand,DriverWorkflowService}from"../../../../packages/application/src/driver-workflow-service";
+import { nativeOverlayAvailable } from "../driver-workflow";
+import { useDriverWorkspace } from "./use-driver-workspace";
 
-export function App(){
- const[now,setNow]=useState(Date.now());
- const[repo,setRepo]=useState<(RecordRepository&PolicyRepository)|null>(null),[enabled,setEnabled]=useState(false),[error,setError]=useState(""),[ready,setReady]=useState(false);
- const[driver,setDriver]=useState<DriverStateProjection|null>(null),[workflow,setWorkflow]=useState<DriverWorkflowService|null>(null),[pending,setPending]=useState<{command:DriverTransitionCommand;status:string;reason?:string}[]>([]),[driverBusy,setDriverBusy]=useState(false),[overlayMessage,setOverlayMessage]=useState(""),[driverMessage,setDriverMessage]=useState("Restoring driver state…");
- useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>window.clearInterval(timer)},[]);
- const gateway=useMemo(()=>repo?new NetworkGateway(repo):null,[repo]);
- useEffect(()=>{let live=true;createPlatformRepository().then(async r=>{if(!live)return;setRepo(r);setEnabled(await r.getNetworkEnabled());setReady(true)}).catch(e=>{if(live){setError(e instanceof Error?e.message:"Local storage unavailable");setReady(true)}});return()=>{live=false}},[]);
- useEffect(()=>{let live=true,unsubscribe:(()=>void)|undefined;createDriverWorkflow().then(async({repository,location})=>{if(!live){(repository as typeof repository & {dispose?:()=>void}).dispose?.();return}const service=new DriverWorkflowService(repository,location);setWorkflow(service);setDriver(await service.snapshot());const pending=await service.pending();setPending(pending);setDriverMessage(pending.length?pending.length+" action(s) awaiting location/recovery":"Driver state is up to date");unsubscribe=service.subscribe(s=>{if(live)setDriver(s)});const syncHandle=window.setInterval(()=>{void service.snapshot().then(s=>{if(live)setDriver(s)});void service.pending().then(items=>{if(live)setPending(items)})},1500);const prior=unsubscribe;unsubscribe=()=>{prior?.();window.clearInterval(syncHandle);(repository as typeof repository & {dispose?:()=>void}).dispose?.()}}).catch(e=>{if(live)setDriverMessage(e instanceof Error?e.message:"Driver workflow unavailable")});return()=>{live=false;unsubscribe?.()}},[]);
- async function enableOverlay(){try{await enableNativeOverlay();setOverlayMessage("Native driver overlay enabled")}catch(e){setOverlayMessage(e instanceof Error?e.message:"Overlay permission required")}}
- async function disableOverlay(){try{await disableNativeOverlay();setOverlayMessage("Native driver overlay disabled")}catch(e){setOverlayMessage(e instanceof Error?e.message:"Unable to disable overlay")}}
- async function retry(eventId:string){if(!workflow||driverBusy)return;setDriverBusy(true);setDriverMessage("Retrying the original pending action…");try{const result=await workflow.retry(eventId);setDriver(result.snapshot);setPending(await workflow.pending());setDriverMessage(result.status==="recorded"?"Recovered action recorded":"Still awaiting a reliable GPS fix · "+(result.reason??"retry later"))}catch(e){setDriverMessage(e instanceof Error?e.message:"Unable to retry pending action")}finally{setDriverBusy(false)}}
- async function toggle(){if(!gateway)return;try{const next=!enabled;await gateway.setEnabled(next);setEnabled(next);setError("")}catch(e){setError(e instanceof Error?e.message:"Unable to save setting")}}
- async function dispatch(eventType:DriverTransitionCommand["eventType"]){if(!workflow||!driver||driverBusy)return;setDriverBusy(true);setDriverMessage("Action received · saving pending intent");try{const command=createDriverCommand(driver,eventType,"pwa",crypto.randomUUID());const result=await workflow.dispatch(command);setDriver(result.snapshot);setPending(await workflow.pending());setDriverMessage(result.status==="recorded"?"Recorded securely on this device":result.reason==="permission_denied"?"Location permission needed · action retained for recovery":result.reason==="location_timeout"?"GPS fix timed out · action retained for retry":"Action needs attention · "+(result.reason??"retry required"))}catch(e){setDriverMessage(e instanceof Error?e.message:"Unable to queue action")}finally{setDriverBusy(false)}}
- const elapsed=(start?:string)=>{if(!start)return "00:00:00";const seconds=Math.max(0,Math.floor((now-Date.parse(start))/1000));const hours=Math.floor(seconds/3600).toString().padStart(2,"0");const minutes=Math.floor(seconds%3600/60).toString().padStart(2,"0");const secs=(seconds%60).toString().padStart(2,"0");return hours+":"+minutes+":"+secs};
- const localClock=new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(now);
- const shiftOn=driver?.state==="shift_active"||driver?.state==="trip_active"||driver?.state==="approach_active";
- const tripOn=driver?.state==="trip_active"||driver?.state==="approach_active";
- return <main className="shell">
- <header className="topbar"><div className="brand"><div className="brand-mark">ST</div><div><strong>Sam Travels</strong><span>Driver workspace</span></div></div><button className={enabled?"network enabled":"network"} onClick={toggle} disabled={!repo} aria-pressed={enabled}><i/>Internet {enabled?"On":"Off"}</button></header>
- <section className="welcome"><small>SINGLE-DRIVER WORKSPACE</small><h1>Your workday,<br/><em>clearly organised.</em></h1><p>A dependable home for your shift, trips and driver activity.</p></section>
- <section className="status-card"><div className="status-heading"><div><small>FOUNDATION STATUS</small><h2>{ready?"Local workspace ready":"Opening local workspace…"}</h2></div><span className={ready&&!error?"pill good":"pill"}>{ready&&!error?"LOCAL":"STARTING"}</span></div><p>{error||"Your records stay on this device. Internet access is optional and starts disabled."}</p><div className="status-foot"><span>● Offline-first storage</span><span>{repo?"Persistence connected":"Connecting storage"}</span></div></section>
- <section className="driver-card">
-  <div className="driver-head"><div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver?"Restoring state":driver.state.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}</h2></div><span className={driver?"pill good":"pill"}>{driver?"REV "+driver.revision:"LOADING"}</span></div>
-  <div className="driver-timers"><div><small>INDIA TIME</small><strong>{localClock}</strong></div><div><small>SHIFT ELAPSED</small><strong>{elapsed(driver?.shiftStartedAt)}</strong></div><div><small>TRIP ELAPSED</small><strong>{elapsed(driver?.tripStartedAt)}</strong></div></div><p className="driver-message" aria-live="polite">{driverMessage}</p>
-  <div className="driver-actions">
-   {!shiftOn&&<button className="primary-action" disabled={!driver||driverBusy||pending.length>0} onClick={()=>dispatch("shift_start")}>Start shift</button>}
-   {shiftOn&&!tripOn&&<><button className="primary-action" disabled={driverBusy||pending.length>0} onClick={()=>dispatch("trip_start")}>Start trip</button><button className="secondary-action" disabled={driverBusy||pending.length>0} onClick={()=>dispatch("shift_end")}>End shift</button></>}
-   {tripOn&&<><button className="primary-action" disabled={driverBusy||pending.length>0} onClick={()=>dispatch("trip_end")}>End trip</button><button className="secondary-action" disabled={driverBusy||pending.length>0} onClick={()=>dispatch("ride_cancel")}>Cancel trip</button></>}
-  </div>
-  {pending.length>0&&<div className="pending-list"><strong>Pending recovery</strong>{pending.map(item=><div className="pending-row" key={item.command.eventId}><span>{item.command.eventType.replaceAll("_"," ")} · {item.status.replaceAll("_"," ")}</span><button disabled={driverBusy} onClick={()=>retry(item.command.eventId)}>Retry GPS</button></div>)}</div>}
-  {nativeOverlayAvailable()&&<div className="overlay-control"><button className="secondary-action" onClick={enableOverlay}>Enable floating controls</button><button className="secondary-action" onClick={disableOverlay}>Disable overlay</button><span>{overlayMessage||"Optional · requires display-over-other-apps permission"}</span></div>}
-  <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
- </section>
- <section className="section-title"><div><small>CORE FOUNDATION</small><h2>Built to grow</h2></div><span>Driver-first · Offline-first</span></section><p className="foundation-note">The driver workflow, native overlay, persistence and recovery are the current priority. Business features will be added incrementally after this foundation is validated.</p><footer>Sam Travels · Local-first by design</footer></main>
+export function App() {
+  const workspace = useDriverWorkspace();
+  const {
+    repo, enabled, error, ready, driver, pending, driverBusy,
+    overlayMessage, driverMessage, shiftOn, tripOn, localClock, elapsed,
+  } = workspace;
+  const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch } = workspace.actions;
+
+  return (
+    <main className="shell">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-mark">ST</div>
+          <div><strong>Sam Travels</strong><span>Driver workspace</span></div>
+        </div>
+        <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
+          <i />Internet {enabled ? "On" : "Off"}
+        </button>
+      </header>
+
+      <section className="welcome">
+        <small>SINGLE-DRIVER WORKSPACE</small>
+        <h1>Your workday,<br /><em>clearly organised.</em></h1>
+        <p>A dependable home for your shift, trips and driver activity.</p>
+      </section>
+
+      <section className="status-card">
+        <div className="status-heading">
+          <div><small>FOUNDATION STATUS</small><h2>{ready ? "Local workspace ready" : "Opening local workspace…"}</h2></div>
+          <span className={ready && !error ? "pill good" : "pill"}>{ready && !error ? "LOCAL" : "STARTING"}</span>
+        </div>
+        <p>{error || "Your records stay on this device. Internet access is optional and starts disabled."}</p>
+        <div className="status-foot">
+          <span>● Offline-first storage</span><span>{repo ? "Persistence connected" : "Connecting storage"}</span>
+        </div>
+      </section>
+
+      <section className="driver-card">
+        <div className="driver-head">
+          <div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver ? "Restoring state" : driver.state.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2></div>
+          <span className={driver ? "pill good" : "pill"}>{driver ? "REV " + driver.revision : "LOADING"}</span>
+        </div>
+        <div className="driver-timers">
+          <div><small>INDIA TIME</small><strong>{localClock}</strong></div>
+          <div><small>SHIFT ELAPSED</small><strong>{elapsed(driver?.shiftStartedAt)}</strong></div>
+          <div><small>TRIP ELAPSED</small><strong>{elapsed(driver?.tripStartedAt)}</strong></div>
+        </div>
+        <p className="driver-message" aria-live="polite">{driverMessage}</p>
+        <div className="driver-actions">
+          {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pending.length > 0} onClick={() => dispatch("shift_start")}>Start shift</button>}
+          {shiftOn && !tripOn && <>
+            <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_start")}>Start trip</button>
+            <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("shift_end")}>End shift</button>
+          </>}
+          {tripOn && <>
+            <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_end")}>End trip</button>
+            <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
+          </>}
+        </div>
+        {pending.length > 0 && <div className="pending-list">
+          <strong>Pending recovery</strong>
+          {pending.map((item) => <div className="pending-row" key={item.command.eventId}>
+            <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}</span>
+            <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>
+          </div>)}
+        </div>}
+        {nativeOverlayAvailable() && <div className="overlay-control">
+          <button className="secondary-action" onClick={enableOverlay}>Enable floating controls</button>
+          <button className="secondary-action" onClick={disableOverlay}>Disable overlay</button>
+          <span>{overlayMessage || "Optional · requires display-over-other-apps permission"}</span>
+        </div>}
+        <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
+      </section>
+
+      <section className="section-title">
+        <div><small>CORE FOUNDATION</small><h2>Built to grow</h2></div>
+        <span>Driver-first · Offline-first</span>
+      </section>
+      <p className="foundation-note">The driver workflow, native overlay, persistence and recovery are the current priority. Business features will be added incrementally after this foundation is validated.</p>
+      <footer>Sam Travels · Local-first by design</footer>
+    </main>
+  );
 }
