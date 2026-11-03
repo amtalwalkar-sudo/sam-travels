@@ -27,6 +27,9 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: BackupManifest): 
       throw new Error("backup_record_count_mismatch:" + name);
     }
   }
+  const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
+  const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
+  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
   const ids = new Set<string>();
   for (const row of data.records) {
     if (!row || typeof row !== "object" || typeof (row as { id?: unknown }).id !== "string") {
