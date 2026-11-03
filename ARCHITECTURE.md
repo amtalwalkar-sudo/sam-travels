@@ -78,7 +78,7 @@ All state-changing workflows follow the durable-intent, atomic-completion, and p
 
 ## GPS evidence, time integrity, and backup safety
 
-Event-scoped GPS and clock semantics are governed by [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md). Numeric fix thresholds must be explicitly selected and versioned before implementation; they are not inferred or silently changed. Backup packages use consistent authoritative snapshots and validated, checkpoint-protected restore as defined in [docs/DROPBOX_BACKUP_CONTRACT.md](docs/DROPBOX_BACKUP_CONTRACT.md).
+Event-scoped GPS and clock semantics are governed by [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md). The approved GPS policy is `gps-event-fix-v1` (50 m maximum horizontal accuracy; 30 s maximum fix age). The approved backup design is `backup-encryption-v1` (client-side AES-256-GCM, per-backup 256-bit DEK, Argon2id passphrase wrapping or independent 256-bit recovery key). Implementations must match the versioned contracts. Backup packages use consistent authoritative snapshots and validated, checkpoint-protected restore as defined in [docs/DROPBOX_BACKUP_CONTRACT.md](docs/DROPBOX_BACKUP_CONTRACT.md).
 
 ## Feature and security contracts
 

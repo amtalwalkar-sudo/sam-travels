@@ -94,7 +94,7 @@ Represent intervals with a start event, optional end event, status, and derived 
 - Verify GPS callbacks, Room writes, and reconciliation never run on or block the UI/main thread.
 - Verify pending intent is durably queued with a stable ID and survives WebView reload/process death; retries do not duplicate events.
 - Verify rapid successive valid actions preserve event order and each receives its own GPS snapshot; no event is dropped or assigned another event's fix.
-- Reject stale and inaccurate fixes; accept only a fix meeting the configured policy.
+- Reject fixes older than 30 seconds or worse than 50 metres under `gps-event-fix-v1`; accept only a fix meeting both limits.
 - Verify the transition remains visibly pending while GPS acquisition is in progress and is not falsely marked complete.
 - Verify offline GPS fix acquisition and transition persistence with no internet connection.
 - Verify permission denial, location disabled, timeout, and persistence failure produce clear non-blocking recoverable states.
@@ -110,7 +110,7 @@ Represent intervals with a start event, optional end event, status, and derived 
 
 ## Reliability policy and time-integrity decision gates
 
-The location reliability policy must be named and versioned (for example, a policy identifier plus semantic version) and persist the policy version used with each accepted snapshot. It validates at minimum coordinate range, horizontal accuracy, fix age relative to the transition, provider availability, and permission state. The numeric accuracy/freshness thresholds are intentionally **not guessed in this architecture contract**; they must be selected as explicit product/engineering defaults, exposed as documented configuration where appropriate, and tested on representative physical devices before GPS workflows are considered release-ready. A policy change must not silently relabel historical snapshots.
+The location reliability policy must be named and versioned (for example, a policy identifier plus semantic version) and persist the policy version used with each accepted snapshot. It validates at minimum coordinate range, horizontal accuracy, fix age relative to the transition, provider availability, and permission state. The approved version-1 policy is **`gps-event-fix-v1`**: horizontal accuracy must be **50 metres or better**, and the GPS fix must be no more than **30 seconds old relative to the original transition timestamp**. Persist the policy version used with each accepted snapshot. These are strict acceptance limits, not a promise that every environment can obtain a qualifying fix. A fix outside either limit is rejected for normal event completion; retain the durable pending intent and enter the recoverable retry/needs-attention path. Never fall back silently to last-known location. A later post-restart fix keeps its real timestamp and is recovery evidence, not proof of the original event-time location. Policy changes require a new version and must not relabel historical snapshots.
 
 A fix that arrives after restart is timestamped when actually acquired. It may be accepted as a later recovery fix only with an explicit recovery/degraded-evidence status and user-visible meaning; it must never be represented as proof of the original transition location/time. If the product requires strict event-time proof, the transition remains needs-attention until a compliant fix can be obtained or an auditable manual resolution is made.
 

@@ -1,8 +1,8 @@
 # Development Plan
 
-Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Do not begin a later phase until its required outputs and acceptance criteria are reviewed. The current pull request is limited to Phase 1 architecture and contract documentation; it does not implement the application.
+Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Do not begin a later phase until its required outputs and acceptance criteria are reviewed. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
 
-## Phase 1 — Architecture and contracts (current)
+## Phase 1 — Architecture and contracts (approved)
 
 **Scope:** documentation and design only.
 
@@ -14,11 +14,11 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Define event-scoped GPS evidence, versioned reliability policy, time integrity, and timer semantics.
 - Define user-controlled Internet Access gateway, offline defaults, and integration capability registration.
 - Define Dropbox backup/restore, consistent snapshots, checkpoint-before-restore, reset safeguards, and security/compatibility expectations.
-- Reconcile all contracts and record unresolved numeric/product choices as explicit gates, not guessed defaults.
+- Lock GPS event-fix v1 at 50 m / 30 s and backup-encryption v1 at AES-256-GCM with passphrase/recovery-key wrapping.
 
-**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User reviews and approves Phase 1 before implementation begins.
+**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User approval is recorded; implementation proceeds to Phase 2.
 
-## Phase 2 — Application and database foundation
+## Phase 2 — Application and database foundation (in progress)
 
 - Create React + TypeScript + Vite PWA and Capacitor Android scaffold.
 - Establish domain/application packages, typed feature registration, repository interfaces, and dependency rules.
