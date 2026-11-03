@@ -22,6 +22,16 @@ The intent is captured at gesture time and queued immediately. Its GPS snapshot 
 
 Track explicit lifecycle statuses such as received, pending location, pending persistence, recorded, and needs attention. Gesture receipt is not the same as business transition completion. Do not mark a GPS-required transition recorded until a reliable fix and transition event have been committed durably. Never silently substitute stale last-known coordinates. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
 
+## Durable state and recovery
+
+- Persist the current domain state as a recoverable projection of immutable, timestamped events. The event journal is authoritative; in-memory UI state is only a cache.
+- Persist active shift state, current trip/approach state, pending transition intents, timer start instants, and event completion/reconciliation status locally before relying on network sync.
+- Startup must reconstruct the last committed business state after WebView reload, app process death, phone shutdown, battery exhaustion, and device reboot. Do not default an active shift/trip to idle because runtime services were restarted.
+- Recovery/replay must be idempotent, ordered, and keyed by stable event IDs. It must not duplicate or omit transitions or create conflicting state.
+- A transition's original event instant is immutable. A GPS fix obtained later after restart keeps its own fix timestamp and must not be represented as a fix from the original transition time.
+- Persist UTC event instants and local business-date/timezone context. Use Asia/Kolkata for business display where applicable.
+
+
 ## Repository boundary
 
 Application/domain code depends on repository interfaces, never directly on IndexedDB, Dexie, Room, or Capacitor. Adapters own serialization, transactions, indexes, migrations, and platform-specific details.
@@ -35,6 +45,14 @@ Application/domain code depends on repository interfaces, never directly on Inde
 - Cross-store operations use an explicit journal/outbox and reconciliation process; do not pretend an IndexedDB + Room operation is one atomic transaction.
 - Failed writes remain visible as failed/pending and are retryable without duplication.
 - Ordered processing must preserve distinct rapid gestures and associate each GPS fix with its originating event; no dropped, merged, or crossed events.
+
+## Time integrity
+
+- Persist event timestamps as unambiguous UTC instants; preserve the business timezone/date used for display and reporting.
+- Compute elapsed durations from persisted start and end instants/current instant, not a periodically incremented counter.
+- Recompute active timers after restart so powered-off time is included. A monotonic clock alone is insufficient across reboot; use wall-clock instants with boot/clock-change diagnostics.
+- If the device's offline wall clock is manually changed while powered off, exact real-world elapsed time cannot be independently established. Record clock-integrity warnings and provide a review/correction path rather than silently altering event history.
+
 
 ## Dates, money, and units
 
