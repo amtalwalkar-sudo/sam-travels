@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
-import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/core/src/commands";
+import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { createPlatformRepository } from "../native-store";
 import {
   createDriverWorkflow,
   disableNativeOverlay,
   enableNativeOverlay,
 } from "../driver-workflow";
-import { createDriverCommand, DriverWorkflowService } from "../../../../packages/application/src/driver-workflow-service";
+import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
 
 export function useDriverWorkspace() {
   const [now, setNow] = useState(Date.now());
