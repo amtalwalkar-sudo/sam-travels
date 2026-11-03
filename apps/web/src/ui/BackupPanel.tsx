@@ -58,9 +58,19 @@ export function BackupPanel() {
       handleCallback(window.location.href);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    void consumeNativeOAuthCallback().then(url => { if (url) handleCallback(url); })
-      .catch(error => setMessage(error instanceof Error ? error.message : "Could not read native Dropbox callback"));
+    const consumeNativeCallback = () => {
+      void consumeNativeOAuthCallback().then(url => { if (url) handleCallback(url); })
+        .catch(error => setMessage(error instanceof Error ? error.message : "Could not read native Dropbox callback"));
+    };
+    const onVisibilityChange = () => { if (document.visibilityState === "visible") consumeNativeCallback(); };
+    window.addEventListener("focus", consumeNativeCallback);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    consumeNativeCallback();
     void refreshCheckpoints();
+    return () => {
+      window.removeEventListener("focus", consumeNativeCallback);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   async function refreshCheckpoints() {
