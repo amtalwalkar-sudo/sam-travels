@@ -139,7 +139,7 @@ export function BackupPanel() {
         confirmed: true,
         dropbox: session.client,
       });
-      setMessage("Restore completed and verified. Recovery checkpoint " + result.checkpointId + " is retained until you verify the workspace.");
+      setMessage("Restore completed. Inspect the workspace, then verify recovery checkpoint " + result.checkpointId + " is retained until you verify the workspace.");
       setRestoreSecret("");
       setRestoreConfirmed(false);
       await refreshCheckpoints();
@@ -263,7 +263,7 @@ export function BackupPanel() {
           <div><strong>{checkpoint.status.replaceAll("_", " ")}</strong><small>{new Date(checkpoint.createdAt).toLocaleString()}</small></div>
           {(checkpoint.status === "restored_unverified" || checkpoint.status === "checkpoint" || checkpoint.status === "rollback_complete") && (
             <div className="backup-actions">
-              {checkpoint.status === "restored_unverified" && <button className="backup-secondary" disabled={busy} onClick={() => verifyAndDiscard(checkpoint.id)}>Mark verified</button>}
+              {checkpoint.status === "restored_unverified" && <button className="backup-secondary" disabled={busy} onClick={() => verifyAndDiscard(checkpoint.id)}>Verify and discard checkpoint</button>}{checkpoint.status === "verified" && <button className="backup-secondary" disabled={busy} onClick={() => void discardVerifiedRecoveryCheckpoint(checkpoint.id).then(refreshCheckpoints)}>Discard verified checkpoint</button>}
               <button className="backup-secondary" disabled={busy} onClick={() => rollback(checkpoint.id)}>Roll back</button>
             </div>
           )}
