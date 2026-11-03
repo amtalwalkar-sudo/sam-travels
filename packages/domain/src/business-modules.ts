@@ -30,11 +30,13 @@ export function calculateMonthlyEmi(principalPaise:number,annualInterestRateBps:
  const raw=monthlyRate===0?principalPaise/tenureMonths:principalPaise*monthlyRate/(1-Math.pow(1+monthlyRate,-tenureMonths));
  return Math.round(raw);
 }
-export function buildLoanSchedule(input:{principalPaise:number;annualInterestRateBps:number;tenureMonths:number;emiPaise?:number}){
+export function buildLoanSchedule(input:{principalPaise:number;annualInterestRateBps:number;tenureMonths:number;emiPaise?:number;prepayments?:Array<{month:number;amountPaise:number}>}){
  const emi=input.emiPaise??calculateMonthlyEmi(input.principalPaise,input.annualInterestRateBps,input.tenureMonths);
  if(!Number.isSafeInteger(emi)||emi<=0)throw new Error("invalid_emi");
- const rate=input.annualInterestRateBps/10000/12;let balance=input.principalPaise;const rows:Array<{month:number;openingPaise:number;interestPaise:number;principalPaise:number;emiPaise:number;closingPaise:number}>=[];
- for(let month=1;month<=input.tenureMonths&&balance>0;month++){const interest=Math.round(balance*rate);const paid=Math.min(emi,balance+interest);const principal=Math.min(balance,paid-interest);const closing=Math.max(0,balance-principal);rows.push({month,openingPaise:balance,interestPaise:interest,principalPaise:principal,emiPaise:paid,closingPaise:closing});balance=closing}
+ for(const payment of input.prepayments??[])if(!Number.isInteger(payment.month)||payment.month<1||payment.month>input.tenureMonths||!Number.isSafeInteger(payment.amountPaise)||payment.amountPaise<=0)throw new Error("invalid_prepayment");
+ const prepayments=new Map<number,number>();for(const payment of input.prepayments??[])prepayments.set(payment.month,(prepayments.get(payment.month)??0)+payment.amountPaise);
+ const rate=input.annualInterestRateBps/10000/12;let balance=input.principalPaise;const rows:Array<{month:number;openingPaise:number;interestPaise:number;principalPaise:number;emiPaise:number;prepaymentPaise:number;closingPaise:number}>=[];
+ for(let month=1;month<=input.tenureMonths&&balance>0;month++){const opening=balance;const interest=Math.round(balance*rate);const paid=Math.min(emi,balance+interest);const principal=Math.min(balance,paid-interest);balance=Math.max(0,balance-principal);const prepayment=Math.min(balance,prepayments.get(month)??0);balance=Math.max(0,balance-prepayment);rows.push({month,openingPaise:opening,interestPaise:interest,principalPaise:principal,emiPaise:paid,prepaymentPaise:prepayment,closingPaise:balance})}
  if(balance>0)throw new Error("emi_does_not_amortize_within_tenure");
  return rows;
 }
