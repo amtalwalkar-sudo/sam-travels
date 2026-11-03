@@ -7,3 +7,5 @@
 .primary-action{background:#18364a;color:#fff}.secondary-action{background:#edf2f5;color:#28495b}
 .primary-action:disabled,.secondary-action:disabled{opacity:.5;cursor:wait}
 .driver-note{display:block;color:#87949d;font-size:11px;line-height:1.55;margin-top:16px}
+
+.pending-list{margin-top:18px;border-top:1px solid #edf0f2;padding-top:14px}.pending-list>strong{font-size:12px;color:#5d6d77}.pending-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #f0f2f4;font-size:12px;color:#6c7a83}.pending-row button{border:1px solid #d8e1e7;background:#f7fafb;color:#31566a;border-radius:9px;padding:8px 11px;font-size:11px;font-weight:700}
