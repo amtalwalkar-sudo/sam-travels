@@ -9,6 +9,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(SecureVaultPlugin::class.java)
+        registerPlugin(BackupKeyVaultPlugin::class.java)
         registerPlugin(BackupPlugin::class.java)
         persistDropboxCallback(intent)
         super.onCreate(savedInstanceState)
