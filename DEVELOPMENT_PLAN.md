@@ -89,3 +89,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 ## Delivery rule
 
 Prefer a complete vertical slice over disconnected screens. Do not merge an unfinished feature merely because the UI renders. Preserve stable contracts and expand them through reviewed, versioned changes.
+
+## Transaction and recovery gate (required in the durable-core phase)
+
+Implement and verify the [Transaction and Recovery Contract](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md) before relying on driver workflows: durable intent acceptance, atomic completion, ordered command conflict handling, transactional outbox/inbox idempotency, explicit pending/recorded/attention statuses, restart recovery, and the listed failure-injection tests. Do not treat UI gesture acknowledgement as a saved record, and do not claim exactly-once transport.
