@@ -229,7 +229,7 @@ class BackupPlugin : Plugin() {
                 val checkpointRow = db.records().get(checkpointPrefix + id) ?: error("recovery_checkpoint_missing")
                 val journalRow = db.records().get(journalPrefix + id) ?: error("recovery_journal_missing")
                 val journal = JSONObject(journalRow.json)
-                require(journal.optString("status") == "checkpoint" || journal.optString("status") == "restored_unverified") {
+                require(journal.optString("status") == "checkpoint" || journal.optString("status") == "restored_unverified" || journal.optString("status") == "rollback_complete") {
                     "checkpoint_not_rollback_eligible"
                 }
                 val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
