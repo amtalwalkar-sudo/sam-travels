@@ -20,8 +20,9 @@ object DriverWorkflowStore {
    require(command.optInt("schemaVersion",-1)==1&&eventId.isNotBlank()&&commandId.isNotBlank()&&idem.isNotBlank()){"invalid_command_identity"}
    Instant.parse(command.getString("transitionAt"));require(command.optInt("expectedRevision",-1)>=0){"invalid_revision"}
    require(command.optString("eventType") in setOf("shift_start","shift_end","trip_start","trip_end","ride_cancel")){"invalid_event_type"}
+   require(command.optString("originSurface") in setOf("pwa","native_overlay")){"invalid_command_surface"}
    val key="driver-intent:$eventId";val oldRow=db.records().get(key)
-   if(oldRow!=null){val old=JSONObject(oldRow.json);val c=old.optJSONObject("command");require(c!=null&&c.optString("commandId")==commandId&&c.optString("idempotencyKey")==idem){"duplicate_event_id_conflict"};result=old;return@runInTransaction}
+   if(oldRow!=null){val old=JSONObject(oldRow.json);val c=old.optJSONObject("command");require(c!=null&&c.optString("commandId")==commandId&&c.optString("idempotencyKey")==idem&&c.optString("eventType")==command.optString("eventType")&&c.optString("transitionAt")==command.optString("transitionAt")&&c.optString("originSurface")==command.optString("originSurface")&&c.optInt("expectedRevision",-1)==command.optInt("expectedRevision",-2)&&c.optString("expectedPriorState")==command.optString("expectedPriorState")){"duplicate_event_id_conflict"};result=old;return@runInTransaction}
    val current=snapshot(db)
    require(command.optInt("expectedRevision",-1)==current.optInt("revision")&&command.optString("expectedPriorState")==current.optString("state")){"stale_revision"}
    require(target(current.optString("state"),command.optString("eventType"))!=null){"invalid_transition"}
@@ -43,6 +44,7 @@ object DriverWorkflowStore {
    require(lat.isFinite()&&lon.isFinite()&&lat in -90.0..90.0&&lon in -180.0..180.0){"invalid_gps_coordinates"}
    require(accuracy.isFinite()&&accuracy>=0.0&&accuracy<=50.0){"gps_accuracy_exceeds_50m"}
    val fixAt=Instant.parse(gps.getString("fixAt"));val transitionAt=Instant.parse(command.getString("transitionAt"))
+   require(fixAt.toEpochMilli()<=Instant.now().toEpochMilli()+5000L){"gps_fix_from_future"}
    require(abs(fixAt.toEpochMilli()-transitionAt.toEpochMilli())<=30000L){"gps_fix_outside_30s_window"}
    val event=command.optString("eventType");val nextState=target(current.optString("state"),event)?:error("invalid_transition")
    val revision=current.optInt("revision")+1;val next=JSONObject(current.toString()).put("schemaVersion",1).put("revision",revision).put("state",nextState).put("lastEventId",eventId)

@@ -56,4 +56,13 @@ describe("durable single-driver workflow",()=>{
   expect(await repo.listEvents()).toHaveLength(1);
  });
 
+ it("rejects reuse of an event identity with a changed command payload",async()=>{
+  const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
+  const command=createDriverCommand(state,"shift_start","pwa","same-id","2026-11-03T10:00:00.000Z");
+  await repo.queueIntent({command,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt});
+  const changed={...command,eventType:"shift_end" as const};
+  await expect(repo.queueIntent({command:changed,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt}))
+   .rejects.toThrow("duplicate_command_id_conflict");
+ });
+
 });
