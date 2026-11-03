@@ -27,6 +27,9 @@ Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance
 - Writes must have explicit IDs, timestamps, schema versions, and idempotency keys where replay is possible.
 - A success acknowledgement must only follow durable persistence at the responsible layer; presentation may acknowledge gesture receipt immediately while showing the business event as pending until durable completion.
 - Native event capture must survive WebView reload/process death and reconcile idempotently into the web data model.
+- The durable local state, not UI memory or service lifetime, is authoritative. Restore the active shift, trip/approach state, and pending operations after app/process/device restart.
+- Persist timestamped state transitions and derive timers from persisted instants so elapsed time includes app downtime and time while the phone is powered off; never resume from an in-memory counter.
+- Detect suspicious system-clock changes and flag uncertain elapsed-time calculations rather than silently corrupting history. Offline operation must not depend on network time.
 - Conflicts and partial failures must be visible and recoverable; never silently discard records.
 - Store dates as explicit local business dates plus unambiguous timestamps where needed. Do not infer historical form dates from the current date.
 - Shift/trip/cancellation transitions require event-specific reliable GPS evidence and durable event persistence; no continuous tracking. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
