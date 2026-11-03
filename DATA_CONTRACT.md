@@ -42,6 +42,15 @@ Track explicit lifecycle statuses such as received, pending location, pending pe
 - Source/origin metadata is audit information, not a different business rule. A Start Ride initiated from the PWA and the same action initiated from the overlay produce the same domain transition.
 - Live cross-surface propagation is local and offline-capable. Cloud sync is not in the critical path.
 
+
+## Internet access policy and optional enrichment
+
+- Persist a versioned app-level network policy (enabled/disabled) locally; it is user-controlled, survives restart/reboot, and is shared across PWA/native surfaces.
+- Every app-initiated network operation must be mediated by the network capability gateway. Include capability identifier, purpose, request status, attempt time, and recoverable outcome where relevant.
+- Keep network connectivity status distinct from the user's policy choice and from service authentication status.
+- Optional reverse-geocoding results are enrichment records linked to immutable GPS snapshots. Store provider, lookup time, result, and status separately; never rewrite coordinates, GPS fix time, or transition time.
+- When access is disabled/offline, retain eligible work as pending/deferred and continue all local workflows.
+
 ## Repository boundary
 
 Application/domain code depends on repository interfaces, never directly on IndexedDB, Dexie, Room, or Capacitor. Adapters own serialization, transactions, indexes, migrations, and platform-specific details.
