@@ -23,6 +23,17 @@ describe("Dropbox OAuth gateway boundary", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("allows local disconnect while offline without making an OAuth request", async () => {
+    const vault = new MemoryVault();
+    vault.values.set("dropbox.oauth.tokens.v1", JSON.stringify({ accessToken: "access", refreshToken: "refresh", expiresAt: Date.now() + 60_000 }));
+    const fetcher = vi.fn();
+    const client = new DropboxBackupClient(new MemoryPolicy(), vault, "test-client", "samtravels://oauth", fetcher);
+    const result = await client.disconnect();
+    expect(result.revoked).toBe(false);
+    expect(await client.isConnected()).toBe(false);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("validates OAuth state and stores the refresh token in the secure vault", async () => {
     const policy = new MemoryPolicy();
     policy.enabled = true;
