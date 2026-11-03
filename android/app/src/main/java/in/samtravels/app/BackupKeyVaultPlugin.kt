@@ -32,6 +32,34 @@ class BackupKeyVaultPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun configureBackgroundBackup(call: PluginCall) {
+        val clientId = call.getString("clientId")?.trim()
+        val redirectUri = call.getString("redirectUri")?.trim()
+        if (clientId.isNullOrBlank() || redirectUri.isNullOrBlank()) {
+            call.reject("Dropbox app key and redirect URI are required")
+            return
+        }
+        try {
+            context.getSharedPreferences("sam_travels_dropbox_config", android.content.Context.MODE_PRIVATE)
+                .edit().putString("client_id", clientId).putString("redirect_uri", redirectUri).commit()
+            BackgroundBackupScheduler.runSoon(context)
+            call.resolve()
+        } catch (error: Exception) {
+            call.reject("Could not configure scheduled Dropbox backup", error)
+        }
+    }
+
+    @PluginMethod
+    fun scheduleBackgroundBackup(call: PluginCall) {
+        try {
+            BackgroundBackupScheduler.runSoon(context)
+            call.resolve()
+        } catch (error: Exception) {
+            call.reject("Could not schedule Dropbox backup", error)
+        }
+    }
+
+    @PluginMethod
     fun removeRecoveryKey(call: PluginCall) {
         try {
             BackupRecoveryKeyVault(context).remove()
