@@ -9,7 +9,7 @@ export type LoanRecord={kind:"loan";lender:string;principalPaise:number;annualIn
 export type AdminRecord={kind:"admin";businessName:string;currency:"INR";businessTimeZone:"Asia/Kolkata"};
 export type BusinessRecord=TripRecord|FinanceRecord|VehicleRecord|MaintenanceRecord|ComplianceRecord|LoanRecord|AdminRecord;
 export type ValidationIssue={field:string;code:"required"|"invalid_date"|"invalid_number"|"negative"|"invalid_range"|"invalid_format"};
-const datePattern=/^\\d{4}-\\d{2}-\\d{2}$/;
+const datePattern=/^\d{4}-\d{2}-\d{2}$/;
 export function isBusinessDate(value:string){if(!datePattern.test(value))return false;const d=new Date(value+"T00:00:00Z");return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value}
 function required(value:string){return value.trim().length>0}
 function nonNegative(value:number){return Number.isSafeInteger(value)&&value>=0}
