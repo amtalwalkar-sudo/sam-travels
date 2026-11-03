@@ -9,7 +9,7 @@ import{DexieDriverWorkflowRepository}from"../../../packages/storage-browser/src/
 type NativeApi={
  getSnapshot():Promise<{snapshot:DriverStateProjection}>;
  queueIntent(o:{command:DriverIntent["command"]}):Promise<{intent:DriverIntent}>;
- listPending():Promise<{intents:DriverIntent[]}>;
+ listPending():Promise<{intents:DriverIntent[]}>;\n listEvents():Promise<{events:DriverEvent[]}>;
  captureLocation():Promise<GpsFix>;
  completeIntent(o:{eventId:string;gps:GpsFix}):Promise<{snapshot:DriverStateProjection}>;
  markNeedsAttention(o:{eventId:string;reason:string}):Promise<void>;
@@ -25,7 +25,7 @@ export class NativeDriverWorkflowRepository implements DriverWorkflowRepository{
  async listPending(){return(await NativeDriver.listPending()).intents}
  async completeIntent(eventId:string,gps:GpsFix){return(await NativeDriver.completeIntent({eventId,gps})).snapshot}
  markNeedsAttention(eventId:string,reason:string){return NativeDriver.markNeedsAttention({eventId,reason})}
- async listEvents():Promise<DriverEvent[]>{return[]}
+ async listEvents():Promise<DriverEvent[]>{return(await NativeDriver.listEvents()).events}
  subscribe(fn:(s:DriverStateProjection)=>void){this.listeners.add(fn);return()=>this.listeners.delete(fn)}
  dispose(){void this.handle?.remove();this.listeners.clear()}
 }
