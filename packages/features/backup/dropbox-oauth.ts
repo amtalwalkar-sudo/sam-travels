@@ -184,6 +184,7 @@ export class DropboxBackupClient {
   async listBackups(): Promise<Array<{ name: string; path: string; serverModified: string; size: number }>> {
     return this.gateway.run(async () => {
       const token = await this.accessToken();
+      await this.ensureBackupFolder(token);
       let url = API_ENDPOINT + "/files/list_folder";
       let body: Record<string, unknown> = { path: "/SamTravelsBackups", recursive: false, include_deleted: false };
       const entries: Array<{ name: string; path_display: string; server_modified: string; size: number; ".tag": string }> = [];
@@ -204,8 +205,26 @@ export class DropboxBackupClient {
         body = { cursor: page.cursor };
       }
       return entries.filter(entry => entry[".tag"] === "file" && entry.name.endsWith(".stbackup"))
-        .map(entry => ({ name: entry.name, path: entry.path_display, serverModified: entry.server_modified, size: entry.size }));
+        .map(entry => ({ name: entry.name, path: entry.path_display, serverModified: entry.server_modified, size: entry.size }))
+        .sort((left, right) => right.serverModified.localeCompare(left.serverModified));
     });
+  }
+
+
+  async applyRetention(maximumBackups: number, protectedPaths: string[] = []): Promise<string[]> {
+    if (!Number.isSafeInteger(maximumBackups) || maximumBackups < 1) throw new Error("dropbox_retention_limit_invalid");
+    const backups = await this.listBackups();
+    const protectedSet = new Set(protectedPaths);
+    const retained = new Set(backups.slice(0, maximumBackups).map(item => item.path));
+    for (const path of protectedSet) retained.add(path);
+    const deleted: string[] = [];
+    for (const backup of backups) {
+      if (!retained.has(backup.path)) {
+        await this.deleteBackup(backup.path);
+        deleted.push(backup.path);
+      }
+    }
+    return deleted;
   }
 
   async deleteBackup(path: string): Promise<void> {
