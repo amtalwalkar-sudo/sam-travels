@@ -48,6 +48,11 @@ The PWA driver screen and native Android overlay are synchronized views/controll
 - Both surfaces show immediate pending feedback and then the same durable completion/error status. Timers and current shift/ride state derive from shared persisted timestamps.
 - GPS remains event-scoped: the accepted transition owns one location request; synchronization itself never starts location tracking.
 
+
+## User-controlled internet access
+
+Sam Travels is local-first. Core driver workflows, local records, calculations, timers, recovery, and PWA/native overlay synchronization must work without internet. A dedicated Internet icon sits beside the GPS icon in the header and controls the app's persisted network-access policy. This is an in-app capability toggle, not an Android runtime permission prompt. All app-initiated network traffic must pass through a shared policy gateway; no feature may bypass it. The policy is disabled until the user explicitly enables it and is shared by PWA and native surfaces. Dropbox backup/restore and optional future services (such as reverse geocoding) use this gateway. See [docs/NETWORK_ACCESS_CONTRACT.md](docs/NETWORK_ACCESS_CONTRACT.md).
+
 ## Platform strategy
 
 The web application is a PWA. Capacitor packages the same application for Android. Capacitor is a required foundation, not a later optional wrapper. Android-specific capabilities are implemented in Kotlin plugins/services with typed bridge contracts. See [docs/ANDROID_NATIVE_CONTRACT.md](docs/ANDROID_NATIVE_CONTRACT.md).
