@@ -1,0 +1,1 @@
+export interface CredentialVault{get(name:string):Promise<string|undefined>;set(name:string,value:string):Promise<void>;remove(name:string):Promise<void>}export class CredentialVaultUnavailableError extends Error{constructor(){super("Secure credential storage is unavailable on this platform.");this.name="CredentialVaultUnavailableError"}}
