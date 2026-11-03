@@ -1,6 +1,10 @@
 package `in`.samtravels.app
 
 import android.app.Service
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
@@ -36,9 +40,27 @@ class DriverOverlayService:Service(){
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
+ private val notificationChannelId="sam_travels_driver_controls"
+ private val notificationId=7301
+ private fun enterForeground(){
+  if(Build.VERSION.SDK_INT>=26){
+   val manager=getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+   manager.createNotificationChannel(NotificationChannel(notificationChannelId,"Driver controls",NotificationManager.IMPORTANCE_LOW))
+   val notification=Notification.Builder(this,notificationChannelId)
+    .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+    .setContentTitle("Sam Travels driver controls")
+    .setContentText("Floating controls active · GPS only when you start an action")
+    .setCategory(Notification.CATEGORY_SERVICE).setOngoing(true).build()
+   if(Build.VERSION.SDK_INT>=34)startForeground(notificationId,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)else startForeground(notificationId,notification)
+  }else{
+   @Suppress("DEPRECATION")
+   val notification=Notification.Builder(this).setSmallIcon(android.R.drawable.ic_menu_mylocation).setContentTitle("Sam Travels driver controls").setContentText("GPS only when you start an action").setOngoing(true).build()
+   startForeground(notificationId,notification)
+  }
+ }
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").enableMultiInstanceInvalidation().build()}
  override fun onBind(intent:Intent?):IBinder?=null
- override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};if(databaseObserver==null){databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}};db.invalidationTracker.addObserver(databaseObserver!!)};main.post{showPanel()};return START_STICKY}
+ override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY};if(databaseObserver==null){databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}};db.invalidationTracker.addObserver(databaseObserver!!)};main.post{showPanel()};return START_STICKY}
  private fun showPanel(){
   if(panel!=null)return
   window=getSystemService(WINDOW_SERVICE) as WindowManager
@@ -124,5 +146,5 @@ class DriverOverlayService:Service(){
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();super.onDestroy()}
+ override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else @Suppress("DEPRECATION") stopForeground(true);super.onDestroy()}
 }
