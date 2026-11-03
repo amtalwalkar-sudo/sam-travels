@@ -23,7 +23,7 @@ class NativeBackupV2PackageTest {
             .put("snapshotRevision", 7)
             .put("recordCounts", JSONObject().put("records", 1))
         val deterministicRandom = object : SecureRandom() {
-            private val bytes = (33..64).map(Int::toByte) + (1..24).map(Int::toByte)
+            private val bytes = (33..64).map { it.toByte() } + (1..24).map { it.toByte() }
             private var offset = 0
             override fun nextBytes(target: ByteArray) {
                 require(offset + target.size <= bytes.size)
