@@ -143,3 +143,29 @@ export async function discardVerifiedBrowserCheckpoint(checkpointId: string): Pr
 export async function listBrowserRecoveryCheckpoints(): Promise<Array<Pick<Checkpoint, "id" | "createdAt" | "status">>> {
   return (await checkpointTable().toArray()).map(({ id, createdAt, status }) => ({ id, createdAt, status }));
 }
+
+export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): Promise<void> {
+  const checkpoint = await checkpointTable().get(checkpointId);
+  if (!checkpoint || (checkpoint.status !== "checkpoint" && checkpoint.status !== "restored_unverified")) {
+    throw new Error("backup_checkpoint_not_rollback_eligible");
+  }
+  const tables = liveTables();
+  await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
+    for (let index = 0; index < tables.length; index += 1) {
+      await tables[index].clear();
+      const rows = checkpoint.snapshot[TABLE_NAMES[index]];
+      if (rows.length) await tables[index].bulkPut(rows);
+    }
+    await checkpointTable().put({ ...checkpoint, status: "rollback_complete" });
+  });
+  const restored = await browserDatabase.transaction("r", tables, async () => ({
+    records: await tables[0].toArray(),
+    driverState: await tables[1].toArray(),
+    driverIntents: await tables[2].toArray(),
+    driverEvents: await tables[3].toArray(),
+    driverOutbox: await tables[4].toArray(),
+  })) as BrowserSnapshotData;
+  if (JSON.stringify(restored) !== JSON.stringify(checkpoint.snapshot)) {
+    throw new Error("backup_checkpoint_rollback_verification_failed");
+  }
+}
