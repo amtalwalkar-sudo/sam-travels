@@ -37,7 +37,7 @@ Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance
 - User-entered records must be usable offline.
 - Writes must have explicit IDs, timestamps, schema versions, and idempotency keys where replay is possible.
 - A success acknowledgement must only follow durable persistence at the responsible layer; presentation may acknowledge gesture receipt immediately while showing the business event as pending until durable completion.
-- Native event capture must survive WebView reload/process death and reconcile idempotently into the web data model.
+- Native event capture must survive WebView reload/process death and reconcile idempotently into the authoritative application state in Room on Android; browser-only operation uses IndexedDB.
 - The durable local state, not UI memory or service lifetime, is authoritative. Restore the active shift, trip/approach state, and pending operations after app/process/device restart.
 - Persist timestamped state transitions and derive timers from persisted instants so elapsed time includes app downtime and time while the phone is powered off; never resume from an in-memory counter.
 - Detect suspicious system-clock changes and flag uncertain elapsed-time calculations rather than silently corrupting history. Offline operation must not depend on network time.
