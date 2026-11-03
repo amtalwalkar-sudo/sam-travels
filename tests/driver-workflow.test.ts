@@ -33,6 +33,24 @@ describe("durable single-driver workflow",()=>{
   expect((await repo.listPending())[0].status).toBe("needs_attention");
   expect((await repo.getSnapshot()).revision).toBe(0);
  });
+ it("restores a pending intent after the IndexedDB connection is closed and reopened",async()=>{
+  const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
+  const command=createDriverCommand(state,"shift_start","pwa","cmd-reopen","2026-11-03T10:00:00.000Z");
+  await repo.queueIntent({command,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt});
+  await repo.markNeedsAttention(command.eventId,"permission_denied");
+  browserDatabase.close();
+  await browserDatabase.open();
+
+  const recoveredRepository=new DexieDriverWorkflowRepository();
+  const recovered=await recoveredRepository.getIntent(command.eventId);
+  expect(recovered?.status).toBe("needs_attention");
+  expect((await recoveredRepository.getSnapshot()).revision).toBe(0);
+  await recoveredRepository.reactivateIntent(command.eventId);
+  const next=await recoveredRepository.completeIntent(command.eventId,gps,command.transitionAt);
+  expect(next.state).toBe("shift_active");
+  expect(next.revision).toBe(1);
+  expect((await recoveredRepository.getIntent(command.eventId))?.status).toBe("recorded");
+ });
  it("serializes simultaneous PWA/native enqueue attempts at one revision",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
   const first=createDriverCommand(state,"shift_start","pwa","race-a","2026-11-03T10:00:00.000Z");
@@ -55,14 +73,11 @@ describe("durable single-driver workflow",()=>{
   expect((await repo.getIntent(command.eventId))?.status).toBe("recorded");
   expect(await repo.listEvents()).toHaveLength(1);
  });
-
  it("rejects reuse of an event identity with a changed command payload",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
   const command=createDriverCommand(state,"shift_start","pwa","same-id","2026-11-03T10:00:00.000Z");
   await repo.queueIntent({command,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt});
   const changed={...command,eventType:"shift_end" as const};
-  await expect(repo.queueIntent({command:changed,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt}))
-   .rejects.toThrow("duplicate_command_id_conflict");
+  await expect(repo.queueIntent({command:changed,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt})).rejects.toThrow("duplicate_command_id_conflict");
  });
-
 });
