@@ -9,7 +9,7 @@ import{DexieDriverWorkflowRepository}from"../../../packages/storage-browser/src/
 type NativeApi={
  getSnapshot():Promise<{snapshot:DriverStateProjection}>;
  queueIntent(o:{command:DriverIntent["command"]}):Promise<{intent:DriverIntent}>;
- listPending():Promise<{intents:DriverIntent[]}>;\n listEvents():Promise<{events:DriverEvent[]}>;
+ listPending():Promise<{intents:DriverIntent[]}>;\n listEvents():Promise<{events:DriverEvent[]}>;\n retryIntent(o:{eventId:string}):Promise<{intent:DriverIntent}>;
  captureLocation():Promise<GpsFix>;
  completeIntent(o:{eventId:string;gps:GpsFix}):Promise<{snapshot:DriverStateProjection}>;
  markNeedsAttention(o:{eventId:string;reason:string}):Promise<void>;
@@ -21,7 +21,7 @@ export class NativeDriverWorkflowRepository implements DriverWorkflowRepository{
  constructor(){void NativeDriver.addListener("driverStateChanged",data=>this.listeners.forEach(fn=>fn(data.snapshot))).then(h=>this.handle=h)}
  async getSnapshot(){return(await NativeDriver.getSnapshot()).snapshot}
  async queueIntent(intent:DriverIntent){return(await NativeDriver.queueIntent({command:intent.command})).intent}
- async getIntent(eventId:string){return(await NativeDriver.listPending()).intents.find(i=>i.command.eventId===eventId)}
+ async reactivateIntent(eventId:string){return(await NativeDriver.retryIntent({eventId})).intent}\n async getIntent(eventId:string){return(await NativeDriver.listPending()).intents.find(i=>i.command.eventId===eventId)}
  async listPending(){return(await NativeDriver.listPending()).intents}
  async completeIntent(eventId:string,gps:GpsFix){return(await NativeDriver.completeIntent({eventId,gps})).snapshot}
  markNeedsAttention(eventId:string,reason:string){return NativeDriver.markNeedsAttention({eventId,reason})}
