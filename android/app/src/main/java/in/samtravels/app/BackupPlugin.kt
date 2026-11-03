@@ -120,7 +120,8 @@ class BackupPlugin : Plugin() {
                         record.optString("json").isNotBlank()) {
                         "backup_invalid_record_envelope"
                     }
-                    JSONObject(record.getString("json"))
+                    val payload = JSONObject(record.getString("json"))
+                    if (payload.has("id")) require(payload.optString("id") == id) { "backup_record_identity_mismatch" }
                 }
 
                 val checkpoint = makeSnapshot()
