@@ -8,7 +8,7 @@ const API_ENDPOINT = "https://api.dropboxapi.com/2";
 const CONTENT_ENDPOINT = "https://content.dropboxapi.com/2";
 const TOKEN_KEY = "dropbox.oauth.tokens.v1";
 const PENDING_KEY = "dropbox.oauth.pending.v1";
-const SCOPES = ["account_info.read", "files.content.read", "files.content.write"];
+const SCOPES = ["account_info.read", "files.metadata.read", "files.content.read", "files.content.write"];
 
 type TokenSet = { accessToken: string; refreshToken: string; expiresAt: number };
 type PendingAuthorization = { state: string; verifier: string };
