@@ -56,6 +56,27 @@ describe("backup-encryption-v1", () => {
     expect(ARGON2ID_PARAMETERS.memoryKiB).toBe(65536);
   });
 
+
+  it("creates a versioned recovery-key-only package without weakening legacy v1", async () => {
+    const recoveryKey = generateBackupRecoveryKey();
+    const plaintext = new TextEncoder().encode('{"background":"safe"}');
+    const { backup } = await createEncryptedBackup({
+      plaintext, manifest, mode: "recovery-key-only", recoveryKey,
+    });
+    expect(backup.manifest.format).toBe("backup-encryption-v2");
+    expect(backup.keyEnvelopes.passphrase).toBeUndefined();
+    const parsed = parseBackupPackage(serializeBackupPackage(backup));
+    expect(new TextDecoder().decode(await decryptBackupWithRecoveryKey(parsed, recoveryKey))).toBe(new TextDecoder().decode(plaintext));
+    await expect(decryptBackupWithRecoveryKey(parsed, generateBackupRecoveryKey())).rejects.toBeTruthy();
+    await expect(decryptBackupWithPassphrase(parsed, "any passphrase", testKdf)).rejects.toThrow("backup_passphrase_not_available");
+  });
+
+  it("requires an explicitly supplied recovery key for unattended packages", async () => {
+    await expect(createEncryptedBackup({
+      plaintext: new TextEncoder().encode("no implicit key"), manifest, mode: "recovery-key-only",
+    })).rejects.toThrow("backup_recovery_key_required");
+  });
+
   it("rejects wrong passphrases and tampered authenticated payloads", async () => {
     const { backup } = await createEncryptedBackup({ plaintext: new TextEncoder().encode("sensitive"), manifest, passphrase: "correct horse battery", argon2id: testKdf });
     await expect(decryptBackupWithPassphrase(backup, "incorrect passphrase", testKdf)).rejects.toBeTruthy();
