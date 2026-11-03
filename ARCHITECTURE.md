@@ -9,11 +9,22 @@ Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/op
 1. **Presentation** — React components, navigation, forms, and responsive layouts. Presentation must not own business calculations or persistence rules.
 2. **Application** — use cases and workflows coordinating domain operations.
 3. **Domain** — typed entities, invariants, calculations, and feature contracts. No React, browser storage, or Android dependencies.
-4. **Persistence** — versioned repositories and migrations. Browser/PWA records use IndexedDB (Dexie is the preferred adapter); native-critical pending intents/events are durably journaled by Android (Room).
+4. **Persistence** — versioned repositories and migrations. The browser PWA uses IndexedDB (Dexie is the preferred adapter) as its local authority. The installed Android application uses Room as the sole local authority for **all** business records, driver state, event journals, and pending operations; IndexedDB must not become a competing Android business-data store.
 5. **Platform adapters** — Capacitor plugins and Kotlin services for Android-only capabilities.
 6. **Integrations** — Dropbox OAuth and backup transport behind an integration contract.
 
 Dependencies point inward. Domain and application layers must not import UI, Dexie, Capacitor, Android, or Dropbox SDK details.
+
+## Local persistence ownership
+
+- There is one authoritative local database per runtime: IndexedDB for a browser-only PWA session, and Room for the installed Android application.
+- On Android, the PWA/WebView and native overlay are two clients of the same Room-backed application state. The WebView accesses it through versioned Capacitor/native repository capabilities; it must not independently commit business records to IndexedDB and later attempt dual-write reconciliation.
+- In a browser without the native Android runtime, the same domain/application contracts are implemented by the IndexedDB adapter.
+- Repository interfaces and use cases are shared; persistence adapters are platform-specific. Domain logic must not branch on database technology.
+- Android business writes, driver transitions, projections, and recovery journals commit through Room transactions. Browser PWA writes commit through IndexedDB transactions.
+- Do not describe Room and IndexedDB as one atomic store. Do not use best-effort dual writes as a consistency strategy. Any import/export or migration between runtimes is an explicit, validated workflow.
+- The authoritative database owns record IDs, revisions, schema versions, migration state, and durable outbox/inbox state for its runtime. UI memory and replicated surface state are disposable projections.
+- A platform must not report a write as durable until its authoritative repository confirms the commit. Pending native work must remain recoverable in Room even when the WebView is absent.
 
 ## Feature modularity
 
@@ -55,7 +66,7 @@ Sam Travels is local-first. Core driver workflows, local records, calculations, 
 
 ## Platform strategy
 
-The web application is a PWA. Capacitor packages the same application for Android. Capacitor is a required foundation, not a later optional wrapper. Android-specific capabilities are implemented in Kotlin plugins/services with typed bridge contracts. See [docs/ANDROID_NATIVE_CONTRACT.md](docs/ANDROID_NATIVE_CONTRACT.md).
+The web application is a PWA. Capacitor packages the same application for Android. Capacitor is a required foundation, not a later optional wrapper. Android-specific capabilities are implemented in Kotlin plugins/services with typed bridge contracts. See [docs/ANDROID_NATIVE_CONTRACT.md](docs/ANDROID_NATIVE_CONTRACT.md) and [docs/LOCAL_PERSISTENCE_CONTRACT.md](docs/LOCAL_PERSISTENCE_CONTRACT.md).
 
 ## Quality attributes
 
