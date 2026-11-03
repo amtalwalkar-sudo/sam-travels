@@ -14,6 +14,7 @@ import {
   listBrowserRecoveryCheckpoints,
   markBrowserRestoreVerified,
   discardVerifiedBrowserCheckpoint,
+  rollbackBrowserRecoveryCheckpoint,
   type BrowserSnapshotData,
 } from "./browser-snapshot";
 
@@ -24,6 +25,7 @@ type RoomBackupApi = {
   listCheckpoints(): Promise<{ checkpoints: Array<{ id: string; createdAt: string; status: string }> }>;
   markRestoreVerified(input: { checkpointId: string }): Promise<void>;
   discardVerifiedCheckpoint(input: { checkpointId: string }): Promise<void>;
+  rollbackCheckpoint(input: { checkpointId: string }): Promise<void>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
 
@@ -132,4 +134,9 @@ export async function restoreDropboxBackup(input: {
   const bytes = await input.dropbox.downloadBackup(input.path);
   const backup = parseBackupPackage(bytes);
   return restoreBackupForCurrentRuntime({ backup, secret: input.secret, confirmed: true });
+}
+
+export async function rollbackRecoveryCheckpoint(checkpointId: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) return NativeBackup.rollbackCheckpoint({ checkpointId });
+  return rollbackBrowserRecoveryCheckpoint(checkpointId);
 }
