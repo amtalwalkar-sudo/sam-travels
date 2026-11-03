@@ -40,6 +40,23 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Surface progress and recoverable errors non-modally; do not freeze the screen, block navigation, or require a repeated swipe while acquisition is pending.
 - If durable intent enqueue itself fails, immediately show a clear actionable error and do not represent the event as safely queued. Preserve the original gesture context for a retry/recovery path where possible.
 
+## Shared PWA and native overlay driver state
+
+- The PWA driver controls and native Android overlay are two presentation surfaces for one driver workflow, not independent applications or separate state machines.
+- A driver action initiated in either surface must enter the same versioned application/domain transition command pipeline and update the same durable local state. Do not implement separate PWA-only and overlay-only start/end/cancel business logic.
+- A PWA action (for example, Start Ride) must be reflected by the overlay; an overlay action (for example, End Ride or Cancel Ride) must be reflected by the PWA main screen. Apply the same rule to shift start/end and all shared driver lifecycle actions.
+- Propagate committed state changes to every currently active surface in real time through a typed, versioned event/state subscription. The Capacitor bridge must support bidirectional communication: PWA-to-native commands and native-to-PWA state/event notifications. The overlay must also observe changes originating in the PWA/WebView.
+- The overlay must remain able to issue driver actions when the WebView is paused, recreated, or not currently visible. It must submit through the same domain transition contract and durable journal, not create a parallel record.
+- Both surfaces render from the shared state projection and its revision. On opening/resuming, each surface must fetch/reconcile the latest durable revision before enabling actions; do not rely only on events that may have been missed while a surface was inactive.
+- Give each command a stable command/event ID, origin surface (pwa or native_overlay), transition timestamp, expected prior state/revision, and idempotency key. Preserve the originating event's identity through GPS acquisition, persistence, and propagation.
+- A command is acknowledged visually immediately as received/pending, without waiting for GPS or storage I/O. Both surfaces show consistent pending/completed/needs-attention status; neither may claim the business transition is recorded until the shared durable transition and required GPS evidence are committed.
+- Persist the transition and resulting state revision once in the authoritative local journal/repository. Notify the other surface only after the durable commit; retries and duplicate notifications must be idempotent.
+- Serialize state-changing commands through one ordered transition coordinator. Validate each command against the latest committed state/revision. If near-simultaneous actions conflict (for example, End Ride and Cancel Ride), accept at most one valid transition, reject/stale-mark the other with a clear explanation, and never let surfaces display contradictory final states.
+- Do not use network/cloud sync as the mechanism between the PWA and overlay on the same device. Local native event/state delivery must work offline; Dropbox/cloud services are for backup and external recovery, not live control synchronization.
+- If one surface is disconnected or misses a notification, it must catch up from the durable state revision on reconnect/resume. Show a subtle stale/syncing status while reconciling, then render the latest state.
+- Timer displays on both surfaces derive from the same persisted transition instants and must agree, including after either surface is recreated or the phone reboots.
+- GPS remains event-triggered only. Cross-surface state propagation must not start continuous GPS or create extra location requests; the single accepted transition owns its one event-scoped GPS acquisition.
+
 ## Durable state restoration and device interruption
 
 - Room/native journal and the versioned domain repository are the durable source of truth. React component state, WebView memory, service instances, and timer counters are never authoritative.
