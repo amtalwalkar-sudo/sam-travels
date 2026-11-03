@@ -2,7 +2,7 @@ import type { DriverStateProjection, DriverTransitionCommand } from "../../core/
 import type { GpsFix } from "../../core/src/types";
 import { validateDriverCommand, validateDriverCompletion, type DriverEvent, type DriverIntent } from "../../domain/src/driver-workflow";
 export interface DriverWorkflowRepository {
- getSnapshot():Promise<DriverStateProjection>; queueIntent(intent:DriverIntent):Promise<DriverIntent>; getIntent(eventId:string):Promise<DriverIntent|undefined>;
+ getSnapshot():Promise<DriverStateProjection>; queueIntent(intent:DriverIntent):Promise<DriverIntent>; getIntent(eventId:string):Promise<DriverIntent|undefined>; reactivateIntent(eventId:string):Promise<DriverIntent>;
  listPending():Promise<DriverIntent[]>; completeIntent(eventId:string,gps:GpsFix,now?:string):Promise<DriverStateProjection>;
  markNeedsAttention(eventId:string,reason:string):Promise<void>; listEvents():Promise<DriverEvent[]>;
  subscribe(listener:(snapshot:DriverStateProjection)=>void):()=>void;
@@ -12,6 +12,11 @@ export class DriverWorkflowService{
  constructor(private readonly repository:DriverWorkflowRepository,private readonly location:EventLocationProvider){}
  snapshot(){return this.repository.getSnapshot()} pending(){return this.repository.listPending()} events(){return this.repository.listEvents()}
  subscribe(listener:(snapshot:DriverStateProjection)=>void){return this.repository.subscribe(listener)}
+ async retry(eventId:string):Promise<{status:"recorded"|"needs_attention";snapshot:DriverStateProjection;reason?:string}>{
+  const intent=await this.repository.reactivateIntent(eventId);
+  try{const gps=await this.location.capture();const snapshot=await this.snapshot();const plan=validateDriverCompletion(snapshot,intent,gps);if(!plan.ok)throw new Error(plan.error);return{status:"recorded",snapshot:await this.repository.completeIntent(eventId,gps)}}
+  catch(error){const reason=error instanceof Error?error.message:"location_unavailable";await this.repository.markNeedsAttention(eventId,reason);return{status:"needs_attention",snapshot:await this.snapshot(),reason}}
+ }
  async dispatch(command:DriverTransitionCommand):Promise<{status:"pending_location"|"recorded"|"needs_attention";snapshot:DriverStateProjection;reason?:string}>{
   const checked=validateDriverCommand(command);if(!checked.ok)throw new Error(checked.error);
   const before=await this.repository.getSnapshot();if(command.expectedRevision!==before.revision||command.expectedPriorState!==before.state)throw new Error("stale_revision");
