@@ -8,7 +8,7 @@ const API_ENDPOINT = "https://api.dropboxapi.com/2";
 const CONTENT_ENDPOINT = "https://content.dropboxapi.com/2";
 const TOKEN_KEY = "dropbox.oauth.tokens.v1";
 const PENDING_KEY = "dropbox.oauth.pending.v1";
-const SCOPES = ["account_info.read", "files.metadata.read", "files.content.read", "files.content.write"];
+const SCOPES = ["files.metadata.read", "files.content.read", "files.content.write"];
 
 type TokenSet = { accessToken: string; refreshToken: string; expiresAt: number };
 type PendingAuthorization = { state: string; verifier: string };
@@ -129,20 +129,29 @@ export class DropboxBackupClient {
   }
 
   async isConnected(): Promise<boolean> {
-    return this.gateway.run(async () => Boolean(await this.vault.get(TOKEN_KEY)));
+    return Boolean(await this.vault.get(TOKEN_KEY));
   }
 
   async disconnect(): Promise<void> {
-    await this.gateway.run(async () => {
-      await this.vault.remove(TOKEN_KEY);
-      await this.vault.remove(PENDING_KEY);
+    // Local credential removal must remain available while Internet Access is disabled.
+    await this.vault.remove(TOKEN_KEY);
+    await this.vault.remove(PENDING_KEY);
+  }
+
+  private async ensureBackupFolder(token: string): Promise<void> {
+    const response = await this.fetcher(API_ENDPOINT + "/files/create_folder_v2", {
+      method: "POST",
+      headers: { authorization: "Bearer " + token, "content-type": "application/json" },
+      body: JSON.stringify({ path: "/SamTravelsBackups", autorename: false }),
     });
+    if (!response.ok && response.status !== 409) throw new Error("dropbox_folder_create_http_" + response.status);
   }
 
   async uploadEncryptedBackup(pkg: BackupPackage, filename: string): Promise<void> {
     if (!/^[A-Za-z0-9._-]{1,120}\.stbackup$/.test(filename)) throw new Error("dropbox_backup_filename_invalid");
     await this.gateway.run(async () => {
       const token = await this.accessToken();
+      await this.ensureBackupFolder(token);
       const response = await this.fetcher(CONTENT_ENDPOINT + "/files/upload", {
         method: "POST",
         headers: {
@@ -175,14 +184,40 @@ export class DropboxBackupClient {
   async listBackups(): Promise<Array<{ name: string; path: string; serverModified: string; size: number }>> {
     return this.gateway.run(async () => {
       const token = await this.accessToken();
-      const response = await this.fetcher(API_ENDPOINT + "/files/list_folder", {
-        method: "POST",
-        headers: { authorization: "Bearer " + token, "content-type": "application/json" },
-        body: JSON.stringify({ path: "/SamTravelsBackups", recursive: false, include_deleted: false }),
-      });
-      const result = await responseJson<{ entries: Array<{ name: string; path_display: string; server_modified: string; size: number; ".tag": string }> }>(response);
-      return result.entries.filter(entry => entry[".tag"] === "file" && entry.name.endsWith(".stbackup"))
+      let url = API_ENDPOINT + "/files/list_folder";
+      let body: Record<string, unknown> = { path: "/SamTravelsBackups", recursive: false, include_deleted: false };
+      const entries: Array<{ name: string; path_display: string; server_modified: string; size: number; ".tag": string }> = [];
+      while (true) {
+        const response = await this.fetcher(url, {
+          method: "POST",
+          headers: { authorization: "Bearer " + token, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const page = await responseJson<{
+          entries: Array<{ name: string; path_display: string; server_modified: string; size: number; ".tag": string }>;
+          has_more: boolean;
+          cursor: string;
+        }>(response);
+        entries.push(...page.entries);
+        if (!page.has_more) break;
+        url = API_ENDPOINT + "/files/list_folder/continue";
+        body = { cursor: page.cursor };
+      }
+      return entries.filter(entry => entry[".tag"] === "file" && entry.name.endsWith(".stbackup"))
         .map(entry => ({ name: entry.name, path: entry.path_display, serverModified: entry.server_modified, size: entry.size }));
     });
   }
-}
+
+  async deleteBackup(path: string): Promise<void> {
+    if (!path.startsWith("/SamTravelsBackups/") || path.includes("..")) throw new Error("dropbox_backup_path_invalid");
+    await this.gateway.run(async () => {
+      const token = await this.accessToken();
+      const response = await this.fetcher(API_ENDPOINT + "/files/delete_v2", {
+        method: "POST",
+        headers: { authorization: "Bearer " + token, "content-type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+      if (!response.ok) throw new Error("dropbox_delete_http_" + response.status);
+    });
+  }
+}}
