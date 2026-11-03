@@ -36,4 +36,4 @@ The initial Room/Dexie adapter stores versioned JSON record envelopes behind one
 
 ## Phase 2 exit gate
 
-Both browser and Android builds compile; browser persistence works without native APIs; Android persistence routes through Room; network policy defaults closed; GPS policy and feature registration are covered by automated tests. CI runs web checks and Android debug build.
+Both browser and Android builds compile; browser persistence works without native APIs; Android persistence routes through Room; network policy defaults closed; GPS policy and feature registration are covered by automated tests. CI runs web tests/build, Android debug build, and the Room instrumentation repository test on an API 35 emulator.
