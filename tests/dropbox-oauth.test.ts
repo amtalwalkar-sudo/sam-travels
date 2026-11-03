@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DropboxBackupClient } from "../packages/features/backup/dropbox-oauth";
+import { DropboxBackupClient } from "../packages/features/backup";
 import type { CredentialVault } from "../packages/core/src/credentials";
 import type { PolicyRepository } from "../packages/core/src/repositories";
 
