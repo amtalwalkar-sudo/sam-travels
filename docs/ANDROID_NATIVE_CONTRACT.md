@@ -5,6 +5,11 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 ## Responsibilities
 
 - React/PWA owns presentation and user workflows.
+- **Room is the authoritative local database for the installed Android application**, covering all business records and workflow state—not only native-critical pending events.
+- The WebView and native overlay are clients of the same Room-backed application/repository boundary. WebView business reads and writes go through typed Capacitor/native APIs; do not maintain a second authoritative Android business database in IndexedDB.
+- IndexedDB is authoritative only for browser-only PWA operation where the native Android runtime is absent.
+- The same domain/application contracts and validation rules apply across Room and IndexedDB adapters.
+- React/PWA owns presentation and user workflows.
 - Capacitor provides a versioned, typed bridge.
 - Kotlin plugins expose narrow capabilities.
 - Android native components perform event-scoped location acquisition and durable journal work without blocking the UI thread.
@@ -87,6 +92,16 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Handle Doze, app standby, process death, reboot, permission revocation, and OEM battery restrictions. Persist pending intents so they can be recovered; report when Android prevents immediate completion.
 - Request battery-optimization exemptions only when justified, with an explanation; never imply Android can guarantee uninterrupted execution.
 - On restart, reconcile pending event intents and their event status without fabricating a GPS snapshot or creating duplicate transitions.
+
+## Android database ownership and transaction boundary
+
+- Room stores the complete installed-app business dataset: shifts, trips/log book, finance, vehicle, maintenance, compliance, performance source records, admin settings, driver state projections, immutable transition events, pending GPS work, and recovery/outbox metadata.
+- The overlay and WebView must call the same application use cases and Room-backed repositories. They must not keep separate writable business-state copies.
+- A business transition's Room transaction commits the accepted event/evidence/status and resulting authoritative state revision together wherever technically possible. Publish notifications to the other surface only after commit.
+- External side effects (bridge notifications, optional network requests, Dropbox transport) are not part of a Room transaction. Represent required follow-up work with durable outbox entries committed alongside the business change, then process them idempotently.
+- IndexedDB is used as the authoritative adapter only in browser-only mode. On Android, it may hold disposable presentation/cache data only if explicitly documented; it must never be used as a second business source of truth or as a required recovery dependency.
+- Never attempt an implicit dual write to Room and IndexedDB. Import/export between browser and Android is a separately validated user/data migration workflow.
+- Database migrations are versioned, transactional where supported, repeatable-safe, and tested from supported prior versions. Preserve source data and a recoverable checkpoint on failure; never silently reset the database.
 
 ## Durable event capture
 
