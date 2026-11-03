@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   consumeNativeOAuthCallback,
+  configureNativeBackgroundBackup,
   createAndUploadBackup,
   discardVerifiedRecoveryCheckpoint,
   listRecoveryCheckpoints,
