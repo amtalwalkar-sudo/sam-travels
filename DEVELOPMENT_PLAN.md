@@ -38,7 +38,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Implement Asia/Kolkata clock, persisted UTC transitions, timer derivation, and clock-integrity warnings.
 - Keep all core workflows offline; no continuous GPS tracking.
 
-**Exit gate:** both surfaces operate the same workflow; five GPS event types are verified; restart/reboot recovery, failure injection, offline operation, timer continuity, and physical-device responsiveness pass.
+**Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate in Phase 7; do not claim those are complete from CI compilation alone.
 
 ## Phase 4 — Business modules
 
