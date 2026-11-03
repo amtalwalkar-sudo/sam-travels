@@ -11,7 +11,7 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
-import java.util.Base64
+import android.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -168,11 +168,11 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun createV2Package(plaintext: ByteArray, sourceManifest: JSONObject, recoveryKey: String): JSONObject {
-        val recoveryBytes = Base64.getDecoder().decode(recoveryKey)
+        val recoveryBytes = Base64.decode(recoveryKey, Base64.NO_WRAP)
         require(recoveryBytes.size == 32) { "backup_invalid_recovery_key" }
         val dek = ByteArray(32).also { SecureRandom().nextBytes(it) }
         try {
-            val digest = Base64.getEncoder().encodeToString(MessageDigest.getInstance("SHA-256").digest(plaintext))
+            val digest = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(plaintext), Base64.NO_WRAP)
             val manifest = JSONObject(sourceManifest.toString())
                 .put("format", "backup-encryption-v2")
                 .put("plaintextSha256", digest)
@@ -201,7 +201,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
         return nonce to cipher.doFinal(plaintext)
     }
 
-    private fun wrappedBase64(value: ByteArray): String = Base64.getEncoder().encodeToString(value)
+    private fun wrappedBase64(value: ByteArray): String = Base64.encodeToString(value, Base64.NO_WRAP)
 
     private fun accessToken(clientId: String): String? {
         val stored = credentials.get(TOKEN_KEY) ?: return null
