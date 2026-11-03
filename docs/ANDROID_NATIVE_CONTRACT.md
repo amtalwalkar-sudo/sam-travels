@@ -16,18 +16,23 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Explain why the permission is needed and provide a clear disabled state when it is denied or revoked.
 - Overlay lifecycle must be independent of a particular WebView instance.
 - Overlay visibility is impossible while the display is physically off; resume/reconcile when the display wakes.
-- Do not claim the overlay is active until native state confirms it.
+- The overlay is a separate presentation feature and is not a prerequisite for shift GPS tracking or background services.
 
-## Location acquisition and background boundary
+## Location acquisition and shift-scoped background service
 
 - Provide a Capacitor location bridge backed by Android location APIs for native Android operation and browser geolocation for active PWA operation.
 - Acquire GPS offline; internet/network assistance may improve time-to-fix but is never mandatory.
 - For required state transitions, continue acquiring until a fix passes the configured accuracy and freshness policy. Do not finalize or acknowledge a transition with an unreliable/missing fix.
 - Store fix timestamp and transition timestamp separately, along with coordinates, horizontal accuracy, and source.
-- Background location collection is allowed only while the native overlay feature is enabled and native code confirms its overlay/service is running with valid permissions.
-- Stop background location collection when the overlay is stopped/disabled or required permissions are lost. No hidden background tracking outside that boundary.
-- A screen-off display cannot show the overlay. Screen-off native work remains subject to Android foreground-service rules, runtime permissions, Doze, and OEM restrictions; never promise uninterrupted operation.
-- Request location permissions in context and explain foreground/background use. Handle approximate-only permission, precise permission denial, location-services disabled, revocation, and provider failures explicitly.
+- Starting a shift must start the native location foreground service and shift-scoped background workers, irrespective of overlay permission, overlay visibility, or overlay running state.
+- Continue shift-scoped location collection while the shift is active, including app background and screen-off periods, subject to granted permissions and Android execution/power policy.
+- Ending the shift must durably capture the end GPS snapshot and transition, then stop shift-scoped continuous tracking/background work.
+- The overlay must not control the lifecycle of location tracking. Disabling or losing overlay permission must not stop GPS collection during an active shift.
+- Do not continuously track when no shift is active, except for the user-initiated GPS fix required to start a shift.
+- Background tracking requires appropriate location permissions, including background-location access where required by the Android version and use case, and a policy-compliant location foreground service with the required persistent notification. Request and explain these permissions before shift start.
+- If permission is denied/revoked, location services are disabled, or Android stops/restricts the service, expose the failure and record a tracking gap when possible. Never claim complete coverage or fabricate coordinates.
+- The screen being off prevents overlay display, not by itself the intended shift-tracking lifecycle. Screen-off execution remains subject to Android foreground-service rules, Doze, OEM restrictions, and user permissions.
+- Use WorkManager for deferrable/retryable work, not as a substitute for continuous GPS sampling.
 
 ## Background and screen-off behavior
 
@@ -36,7 +41,7 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Use wake locks sparingly, with bounded acquisition and guaranteed release paths.
 - Handle Doze, app standby, process death, reboot, permission revocation, and OEM battery restrictions.
 - Request battery-optimization exemptions only when justified, with an explanation; never imply Android can guarantee uninterrupted execution.
-- Register boot recovery only for supported, policy-compliant use cases.
+- Register boot recovery only for supported, policy-compliant use cases. If an active shift is recovered after process/device restart, reconcile the persisted shift state and resume tracking only when permissions and Android policy allow.
 
 ## Durable event capture
 
@@ -58,4 +63,4 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 
 ## Validation
 
-Test on physical Android devices across screen on/off, WebView reload, app process kill, device reboot, permission revoke/grant, offline transitions, overlay active/inactive, GPS cold/warm fix, stale/inaccurate fix rejection, and representative OEM battery settings. Emulator success alone is insufficient for release claims.
+Test on physical Android devices across screen on/off, WebView reload, app process kill, device reboot, permission revoke/grant, offline transitions, overlay enabled/disabled, shift start/stop, GPS cold/warm fix, stale/inaccurate fix rejection, and representative OEM battery settings. Emulator success alone is insufficient for release claims.
