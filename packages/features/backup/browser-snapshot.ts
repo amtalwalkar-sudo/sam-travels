@@ -146,7 +146,7 @@ export async function listBrowserRecoveryCheckpoints(): Promise<Array<Pick<Check
 
 export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): Promise<void> {
   const checkpoint = await checkpointTable().get(checkpointId);
-  if (!checkpoint || (checkpoint.status !== "checkpoint" && checkpoint.status !== "restored_unverified")) {
+  if (!checkpoint || (checkpoint.status !== "checkpoint" && checkpoint.status !== "restored_unverified" && checkpoint.status !== "rollback_complete")) {
     throw new Error("backup_checkpoint_not_rollback_eligible");
   }
   const tables = liveTables();
