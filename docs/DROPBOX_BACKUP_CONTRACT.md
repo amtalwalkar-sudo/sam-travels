@@ -52,3 +52,13 @@ A failed or interrupted restore must leave either the previous data or a recover
 ## Reset
 
 Data reset is a separate, clearly labeled destructive workflow. Require confirmation, create/retain recovery safeguards, clear business data, and reset application preferences to defaults as specified by product decisions. Never conflate reset with restore.
+
+## Snapshot consistency and package hardening
+
+- Create a consistent snapshot from the authoritative database at a defined revision/transaction boundary. Do not copy tables independently while writes are in progress and call the result consistent.
+- Record the snapshot revision/watermark, app version, schema version, creation instant, business timezone/context, record counts, attachment inventory, and per-file/package checksums in the manifest.
+- Use a staged package build: snapshot, serialize, checksum, validate locally, then upload. A failed upload must not mark the backup successful.
+- Encrypt backup contents using a documented, versioned encryption design before remote storage; key handling and recovery must be designed so the user can actually restore. Do not claim encryption until implemented and tested.
+- Validate remote download size, manifest, checksums, supported schema, and attachment completeness before restore staging.
+- Retention must never delete the only known-good backup or the current recovery checkpoint. Retention policy and minimum protected versions must be explicit.
+- Backup scheduling is best effort and depends on the app-level Internet Access policy, OAuth, connectivity, and OS scheduler. A missed schedule is reported and retried at the next eligible opportunity, not promised at an exact time.
