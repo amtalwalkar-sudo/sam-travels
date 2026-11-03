@@ -71,3 +71,7 @@ The web application is a PWA. Capacitor packages the same application for Androi
 ## Quality attributes
 
 Reliability, data integrity, recoverability, offline usability, accessibility, responsive mobile-first UX, observability, and testability take priority over premature feature breadth.
+
+## Crash-safe transactions and recovery
+
+All state-changing workflows follow the durable-intent, atomic-completion, and post-commit-outbox boundaries defined in [docs/TRANSACTION_AND_RECOVERY_CONTRACT.md](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md). Gesture feedback is immediate but is not a durability claim; a command is safely queued only after its authoritative local intent commit. GPS-required transitions remain pending until their event-specific evidence and resulting state commit atomically. Replay and delivery are at-least-once and idempotent; no exactly-once transport or silent last-write-wins behavior is assumed.
