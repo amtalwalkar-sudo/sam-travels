@@ -1,95 +1,105 @@
 # Development Plan
 
-Work is delivered in small, reviewable phases. Keep each phase buildable and testable; do not bypass existing gates to make a feature appear complete.
+Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Do not begin a later phase until its required outputs and acceptance criteria are reviewed. The current pull request is limited to Phase 1 architecture and contract documentation; it does not implement the application.
 
-## Phase 0 — Foundation contracts
+## Phase 1 — Architecture and contracts (current)
 
-- Establish product scope, modular architecture, data contracts, native Android contract, and Dropbox backup/recovery contract.
-- Confirm repository state and protect the default branch through pull-request review.
-- Add the web/Capacitor scaffold and baseline CI in the next implementation phase.
+**Scope:** documentation and design only.
 
-## Phase 1 — Application shell
+- Confirm single-driver product boundary and seven-phase delivery model.
+- Define layered architecture, modular/add-on feature contracts, and UI/form/business-logic separation.
+- Define runtime-wide local persistence ownership: Room for installed Android; IndexedDB for browser-only PWA.
+- Define typed command/state contracts for PWA and native overlay.
+- Define durable intent, atomic completion, outbox/inbox, idempotency, crash recovery, and failure-injection expectations.
+- Define event-scoped GPS evidence, versioned reliability policy, time integrity, and timer semantics.
+- Define user-controlled Internet Access gateway, offline defaults, and integration capability registration.
+- Define Dropbox backup/restore, consistent snapshots, checkpoint-before-restore, reset safeguards, and security/compatibility expectations.
+- Reconcile all contracts and record unresolved numeric/product choices as explicit gates, not guessed defaults.
 
-- React + TypeScript + Vite PWA.
-- Capacitor Android project from the beginning.
-- Navigation and responsive application shell with feature registration boundaries.
-- Define shared driver command/state subscription contracts for the PWA and native overlay.
-- Environment/configuration validation and typed platform capability detection.
+**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User reviews and approves Phase 1 before implementation begins.
 
-## Phase 2 — Durable core
+## Phase 2 — Application and database foundation
 
-- Domain types, repository interfaces, IndexedDB implementation, migrations, and export/import primitives.
-- Native Room journal and Capacitor bridge for pending transition intents and durable event records.
-- One ordered transition coordinator and bidirectional, offline-capable PWA/overlay state propagation with revision catch-up.
-- Startup recovery, idempotent replay, and corruption/partial-write handling.
-- Persisted active-state restoration after app/process/device restart, including pending operations and clock-integrity diagnostics.
-- Automated unit, integration, browser, and Android instrumentation tests.
+- Create React + TypeScript + Vite PWA and Capacitor Android scaffold.
+- Establish domain/application packages, typed feature registration, repository interfaces, and dependency rules.
+- Implement browser IndexedDB and Android Room adapters with versioned migrations.
+- Implement typed Capacitor bridge and shared state/command contracts.
+- Add local network policy store/gateway foundation and secure credential abstractions without enabling integrations by default.
+- Establish CI, architecture checks, unit tests, repository integration tests, migration tests, and Android build baseline.
 
-## Phase 3 — Driver Log Book workflows
+**Exit gate:** both runtimes build; authoritative persistence ownership is enforced; browser-only PWA works independently; Android WebView and overlay-facing APIs use Room; CI and migration/repository tests pass.
 
-- Single-driver shift/work lifecycle with GPS-required start/end transitions.
-- Trip and daily log records, odometer/kilometer capture, and history.
-- Event-based GPS snapshots at shift start/end, trip start/end, and ride cancellation; no continuous tracking or periodic location collection.
-- Immediate, non-blocking swipe feedback; enqueue each event intent promptly and acquire its own GPS fix asynchronously. Keep pending/completed status explicit and preserve rapid event order.
-- Offline GPS acquisition and durable transition capture without waiting on network services.
-- Persisted state intervals and restart-safe shift, ride, and pickup-approach timers; live India clock in Asia/Kolkata HH:mm:ss.
-- Timers include real elapsed time while the app is closed and the phone is powered off; recompute from persisted timestamps after reboot and flag suspicious device-clock changes.
-- Offline entry and reconciliation; validate lifecycle across WebView reload, Android process death, shutdown, and device reboot.
-- Verify every shift/trip/cancellation action works from either surface and immediately synchronizes to the other without refresh or cloud connectivity.
+## Phase 3 — Shared driver workflow and PWA/native overlay synchronization
+
+- Implement single-driver shift, ride/trip, approach, cancellation, and completion state machine.
+- Implement immediate gesture feedback, durable intent enqueue, event-scoped GPS acquisition, and atomic completion.
+- Implement event IDs, ordering, conflict rejection, idempotent replay, transactional outbox/inbox, and revision catch-up.
+- Synchronize PWA and native overlay locally without refresh or internet.
+- Implement Asia/Kolkata clock, persisted UTC transitions, timer derivation, and clock-integrity warnings.
+- Keep all core workflows offline; no continuous GPS tracking.
+
+**Exit gate:** both surfaces operate the same workflow; five GPS event types are verified; restart/reboot recovery, failure injection, offline operation, timer continuity, and physical-device responsiveness pass.
 
 ## Phase 4 — Business modules
 
-- Finance and loan/EMI records.
-- Vehicle, maintenance, and compliance records.
-- Performance views based on domain-owned calculations.
-- Admin configuration and backup/recovery controls.
+- Implement Log Book history and records.
+- Implement Finance, loans, EMI schedules, payments, and prepayments.
+- Implement Vehicle, maintenance, and compliance.
+- Implement Performance using domain-owned, independently tested calculations and date-range filters.
+- Implement Admin configuration and backup/recovery controls.
+- Keep modules independently addable and presentation replaceable.
 
-## Phase 5 — Android resilience
+**Exit gate:** module contracts, validations, historical dates, calculations, offline persistence, and regression tests pass without changing stable driver workflow behavior.
 
-- Overlay permission flow and native overlay lifecycle, independent of event-based GPS.
-- Android-compliant execution/recovery for short-lived event-scoped location acquisition.
-- Durable state restoration and pending-operation recovery after process death, battery exhaustion, shutdown, and reboot.
-- Screen-off, process-death, and device-restart recovery where Android policy permits.
-- OEM battery-management validation and clear degraded-state UX.
+## Phase 5 — Recovery and resilience
 
-## Phase 6 — Dropbox backup and release
+- Complete startup recovery, interrupted-operation handling, and corruption/migration recovery.
+- Validate process death, force-stop deferral, battery exhaustion, shutdown/reboot, Doze, permission revocation, and OEM battery restrictions.
+- Verify recovery checkpoints, data reset safeguards, and user-facing recovery states.
+- Add physical-device failure-injection coverage and operational diagnostics.
 
-- OAuth connection, scheduled daily backup, retry and retention.
-- Restore checkpoint and confirmed restore flow.
-- Release signing, Android artifact generation, PWA deployment, and release checklist.
+**Exit gate:** recoverable states and limitations are explicit; no silent data loss; supported interruption scenarios pass on representative physical Android devices.
 
+## Phase 6 — Internet integrations
 
-## Network access control foundation
+- Implement Dropbox OAuth with least-privilege scopes and secure token storage.
+- Implement consistent versioned snapshots, encrypted backup packages, daily best-effort backup, retry, and retention.
+- Implement user-initiated restore with validation, checkpoint, confirmation, staged replacement, and post-restore verification.
+- Add optional online capabilities only through the network gateway; reverse geocoding remains optional enrichment.
+- Verify disabled policy blocks all app-initiated network requests.
 
-- Add the persisted app-level Internet Access policy and shared gateway before integrating online services.
-- Add the header Internet icon beside GPS status on PWA/native surfaces; show policy state separately from device connectivity and service authentication.
-- Default to disabled until explicitly enabled. Keep the choice synchronized locally and persistent across restart/reboot.
-- Route Dropbox backup/restore and future optional services (including reverse geocoding) through the gateway.
-- Test that all core workflows remain fully usable with policy disabled and with the device offline.
+**Exit gate:** backup/restore, auth expiry, offline deferral, integrity validation, retention, and network policy enforcement pass.
 
-## Persistence ownership gate (required before feature modules)
+## Phase 7 — Reliability validation and release
 
-- Browser-only PWA: IndexedDB is the sole authoritative local business database.
-- Installed Android app: Room is the sole authoritative local business database for the entire app, including records entered through the WebView and actions from the native overlay.
-- Both runtimes implement the same domain/application repository contracts with platform-specific adapters.
-- On Android, the WebView accesses business data through the typed Capacitor bridge; no dual-write or competing IndexedDB business store is permitted.
-- Each authoritative write has a documented transaction boundary, revision/idempotency behavior, migration path, and recovery behavior.
-- Prove the boundary with tests: PWA and overlay observe the same committed Android state; killing/recreating the WebView does not lose or fork records; a failed Room transaction does not publish a committed state; replayed outbox/notifications do not duplicate records.
+- Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites.
+- Validate PWA and signed Android release builds on physical devices.
+- Verify permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
+- Resolve release-blocking defects, verify CI, prepare release notes and recovery instructions, and produce the signed Android artifact.
+- Deploy PWA and publish release artifacts only after explicit release approval.
+
+**Exit gate:** all required checks green, known platform limitations documented, no unresolved data-integrity blocker, and user approves release.
+
+## Cross-phase engineering gates
+
+- **Persistence ownership:** Room is the sole Android business database; IndexedDB is authoritative only in browser-only PWA. No dual writes.
+- **Transaction/recovery:** follow [Transaction and Recovery Contract](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md); gesture feedback is not durable acceptance and transport is at-least-once/idempotent.
+- **GPS/time:** follow [GPS Evidence and State Timing Contract](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md); no continuous tracking; thresholds are explicit/versioned; later fixes are never backdated.
+- **Network:** follow [Internet Access Control Contract](docs/NETWORK_ACCESS_CONTRACT.md); master policy defaults disabled and all requests pass through the gateway.
+- **Backup:** follow [Dropbox Backup and Recovery Contract](docs/DROPBOX_BACKUP_CONTRACT.md); consistent snapshot, validation, checkpoint-before-restore, and explicit confirmation.
+- **Modularity/security:** follow [Feature Module Contract](docs/FEATURE_MODULE_CONTRACT.md) and [Security, Privacy, and Compatibility Contract](docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md).
+- **Single-driver scope:** do not introduce multi-driver or fleet features without a new approved scope decision.
 
 ## Definition of done
 
-- Acceptance criteria and failure cases are documented.
+- Acceptance criteria and failure cases are documented before implementation.
 - Domain logic has unit tests; persistence has migration/recovery tests.
-- UI flows have component or browser coverage.
-- Native behavior has Android instrumentation/device coverage where applicable.
-- Offline, process-death, duplicate-event, reboot, clock-change, and restore paths are tested.
+- UI flows have component/browser coverage.
+- Native behavior has Android instrumentation and physical-device coverage where applicable.
+- Offline, duplicate-event, crash, reboot, clock-change, and restore paths are tested.
 - CI is green; no secrets or tokens are committed.
 - User-facing permissions, limitations, backup state, and recovery state are explicit.
 
 ## Delivery rule
 
-Prefer a complete vertical slice over disconnected screens. Do not merge an unfinished feature merely because the UI renders. Preserve stable contracts and expand them through reviewed, versioned changes.
-
-## Transaction and recovery gate (required in the durable-core phase)
-
-Implement and verify the [Transaction and Recovery Contract](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md) before relying on driver workflows: durable intent acceptance, atomic completion, ordered command conflict handling, transactional outbox/inbox idempotency, explicit pending/recorded/attention statuses, restart recovery, and the listed failure-injection tests. Do not treat UI gesture acknowledgement as a saved record, and do not claim exactly-once transport.
+Prefer complete vertical slices over disconnected screens. Do not merge unfinished features merely because the UI renders. Preserve stable contracts and expand them through reviewed, versioned changes.
