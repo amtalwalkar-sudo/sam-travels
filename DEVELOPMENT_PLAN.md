@@ -67,6 +67,15 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Route Dropbox backup/restore and future optional services (including reverse geocoding) through the gateway.
 - Test that all core workflows remain fully usable with policy disabled and with the device offline.
 
+## Persistence ownership gate (required before feature modules)
+
+- Browser-only PWA: IndexedDB is the sole authoritative local business database.
+- Installed Android app: Room is the sole authoritative local business database for the entire app, including records entered through the WebView and actions from the native overlay.
+- Both runtimes implement the same domain/application repository contracts with platform-specific adapters.
+- On Android, the WebView accesses business data through the typed Capacitor bridge; no dual-write or competing IndexedDB business store is permitted.
+- Each authoritative write has a documented transaction boundary, revision/idempotency behavior, migration path, and recovery behavior.
+- Prove the boundary with tests: PWA and overlay observe the same committed Android state; killing/recreating the WebView does not lose or fork records; a failed Room transaction does not publish a committed state; replayed outbox/notifications do not duplicate records.
+
 ## Definition of done
 
 - Acceptance criteria and failure cases are documented.
