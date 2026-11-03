@@ -37,6 +37,7 @@ function snapshotBytes(snapshot: unknown): Uint8Array {
 export async function createBackupForCurrentRuntime(input: {
   applicationVersion: string;
   passphrase: string;
+  recoveryKey?: string;
 }): Promise<{ backup: BackupPackage; recoveryKey: string }> {
   if (Capacitor.isNativePlatform()) {
     const { snapshot, manifest } = await NativeBackup.exportSnapshot();
@@ -44,6 +45,7 @@ export async function createBackupForCurrentRuntime(input: {
       plaintext: snapshotBytes(snapshot),
       manifest,
       passphrase: input.passphrase,
+      recoveryKey: input.recoveryKey,
       argon2id: new HashWasmArgon2idProvider(),
     });
   }
@@ -52,6 +54,7 @@ export async function createBackupForCurrentRuntime(input: {
     plaintext,
     manifest,
     passphrase: input.passphrase,
+    recoveryKey: input.recoveryKey,
     argon2id: new HashWasmArgon2idProvider(),
   });
 }
@@ -108,6 +111,7 @@ export async function discardVerifiedRecoveryCheckpoint(checkpointId: string): P
 export async function createAndUploadBackup(input: {
   applicationVersion: string;
   passphrase: string;
+  recoveryKey?: string;
   dropbox: DropboxBackupClient;
 }): Promise<{ filename: string; recoveryKey: string }> {
   const { backup, recoveryKey } = await createBackupForCurrentRuntime(input);
