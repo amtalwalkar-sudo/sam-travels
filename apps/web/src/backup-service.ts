@@ -30,3 +30,9 @@ export async function createDropboxBackupSession(configuration: {
     },
   };
 }
+
+/** Use the registered custom-scheme callback in Android and the current origin/path in PWA. */
+export function defaultDropboxRedirectUri(): string {
+  if (Capacitor.isNativePlatform()) return "samtravels://oauth";
+  return typeof window === "undefined" ? "" : window.location.origin + window.location.pathname;
+}
