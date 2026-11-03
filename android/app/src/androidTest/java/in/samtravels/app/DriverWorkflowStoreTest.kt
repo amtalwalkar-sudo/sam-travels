@@ -112,4 +112,19 @@ class DriverWorkflowStoreTest {
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-terminal")!!.json)
             .getString("status"))
     }
+    @Test fun duplicateCommandIsIdempotentButChangedPayloadIsRejected() {
+        val original = command("same-event")
+        val first = DriverWorkflowStore.queue(db, original)
+        val duplicate = DriverWorkflowStore.queue(db, command("same-event"))
+        assertEquals(first.getString("status"), duplicate.getString("status"))
+        assertEquals(first.getJSONObject("command").getString("commandId"),
+            duplicate.getJSONObject("command").getString("commandId"))
+
+        var rejected = false
+        try { DriverWorkflowStore.queue(db, command("same-event", "trip_start")) }
+        catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+        assertEquals(1, db.records().list().count { it.id.startsWith("driver-intent:") })
+    }
+
 }

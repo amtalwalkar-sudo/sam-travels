@@ -58,3 +58,10 @@ Business-module entry forms are intentionally not part of the active driver work
 - Pending operations remain visible after process restart and can be retried without changing their original transition instant.
 - Browser-only PWA continues to use Dexie transactions for the equivalent atomic boundary.
 - Device acceptance (permissions, GPS, overlay lifecycle, process death, reboot, and WebView recreation) remains a physical-device gate and is not inferred from CI compilation.
+
+## Overlay restart and cross-surface recovery hardening
+
+- The native overlay and Capacitor workflow plugin open separate Room clients against the same authoritative database with multi-instance invalidation enabled, so committed PWA/overlay changes invalidate the other surface's cached reads.
+- The overlay presents a recovery action for a persisted pending GPS intent after the service or process is restarted. It retries the original event identity and original transition timestamp; it does not create a replacement transition.
+- The overlay owns at most one active event-location request and removes its listener/timeout when the service is destroyed. An interrupted acquisition leaves the durable intent available for recovery.
+- Android instrumentation coverage verifies exact duplicate-command idempotency and rejects a reused event identity with a changed payload.
