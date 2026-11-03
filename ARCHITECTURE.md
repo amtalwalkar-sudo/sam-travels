@@ -36,6 +36,18 @@ Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance
 - Driver gestures and presentation updates must remain responsive while GPS acquisition, persistence, and reconciliation run asynchronously off the UI/main thread.
 - State durations are derived from persisted transition timestamps, not volatile UI counters. The live clock is displayed in `Asia/Kolkata` (`HH:mm:ss`).
 
+## One shared driver workflow across PWA and Android overlay
+
+The PWA driver screen and native Android overlay are synchronized views/controllers over one local domain state. They are not separate state machines.
+
+- Both surfaces dispatch the same application transition commands and observe the same durable state projection/revision.
+- A transition from either surface is persisted once, then propagated locally to the other surface through the typed Capacitor/native event bridge. This must work offline and must not depend on Dropbox or cloud round-trips.
+- The native overlay can operate when the WebView is paused or absent; it writes through the same domain contract and native durable journal rather than maintaining a separate business state.
+- Each surface reconciles the latest durable revision on attach/resume to recover missed notifications.
+- One ordered coordinator validates commands against the latest state, handles duplicate IDs idempotently, and resolves conflicting near-simultaneous actions so only a valid transition becomes final.
+- Both surfaces show immediate pending feedback and then the same durable completion/error status. Timers and current shift/ride state derive from shared persisted timestamps.
+- GPS remains event-scoped: the accepted transition owns one location request; synchronization itself never starts location tracking.
+
 ## Platform strategy
 
 The web application is a PWA. Capacitor packages the same application for Android. Capacitor is a required foundation, not a later optional wrapper. Android-specific capabilities are implemented in Kotlin plugins/services with typed bridge contracts. See [docs/ANDROID_NATIVE_CONTRACT.md](docs/ANDROID_NATIVE_CONTRACT.md).
