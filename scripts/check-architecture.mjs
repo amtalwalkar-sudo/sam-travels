@@ -30,7 +30,8 @@ function layer(file) {
 }
 
 function targetLayer(specifier, fromFile) {
-  const resolved = "/" + path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier)).replace(/^\\/+/, "");
+  const normalized = path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier));
+  const resolved = normalized.startsWith("/") ? normalized : `/${normalized}`;
   if (resolved.includes("/packages/core/src/")) return "core";
   if (resolved.includes("/packages/domain/src/")) return "domain";
   if (resolved.includes("/packages/application/src/")) return "application";
