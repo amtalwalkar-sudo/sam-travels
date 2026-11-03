@@ -20,6 +20,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Domain types, repository interfaces, IndexedDB implementation, migrations, and export/import primitives.
 - Native Room journal and Capacitor bridge for pending transition intents and durable event records.
 - Startup recovery, idempotent replay, and corruption/partial-write handling.
+- Persisted active-state restoration after app/process/device restart, including pending operations and clock-integrity diagnostics.
 - Automated unit, integration, browser, and Android instrumentation tests.
 
 ## Phase 3 — Driver Log Book workflows
@@ -30,7 +31,8 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Immediate, non-blocking swipe feedback; enqueue each event intent promptly and acquire its own GPS fix asynchronously. Keep pending/completed status explicit and preserve rapid event order.
 - Offline GPS acquisition and durable transition capture without waiting on network services.
 - Persisted state intervals and restart-safe shift, ride, and pickup-approach timers; live India clock in Asia/Kolkata HH:mm:ss.
-- Offline entry and reconciliation; validate lifecycle across WebView reload and Android process death.
+- Timers include real elapsed time while the app is closed and the phone is powered off; recompute from persisted timestamps after reboot and flag suspicious device-clock changes.
+- Offline entry and reconciliation; validate lifecycle across WebView reload, Android process death, shutdown, and device reboot.
 
 ## Phase 4 — Business modules
 
@@ -43,6 +45,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 
 - Overlay permission flow and native overlay lifecycle, independent of event-based GPS.
 - Android-compliant execution/recovery for short-lived event-scoped location acquisition.
+- Durable state restoration and pending-operation recovery after process death, battery exhaustion, shutdown, and reboot.
 - Screen-off, process-death, and device-restart recovery where Android policy permits.
 - OEM battery-management validation and clear degraded-state UX.
 
@@ -58,7 +61,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Domain logic has unit tests; persistence has migration/recovery tests.
 - UI flows have component or browser coverage.
 - Native behavior has Android instrumentation/device coverage where applicable.
-- Offline, process-death, duplicate-event, and restore paths are tested.
+- Offline, process-death, duplicate-event, reboot, clock-change, and restore paths are tested.
 - CI is green; no secrets or tokens are committed.
 - User-facing permissions, limitations, backup state, and recovery state are explicit.
 
