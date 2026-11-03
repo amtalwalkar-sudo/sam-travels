@@ -18,7 +18,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 ## Phase 2 — Durable core
 
 - Domain types, repository interfaces, IndexedDB implementation, migrations, and export/import primitives.
-- Native Room journal and Capacitor bridge for durable platform events.
+- Native Room journal and Capacitor bridge for pending transition intents and durable event records.
 - Startup recovery, idempotent replay, and corruption/partial-write handling.
 - Automated unit, integration, browser, and Android instrumentation tests.
 
@@ -26,8 +26,9 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 
 - Single-driver shift/work lifecycle with GPS-required start/end transitions.
 - Trip and daily log records, odometer/kilometer capture, and history.
-- GPS snapshots at shift start/end, trip start/end, and ride cancellation; acquire until a reliable fix is available and persist the transition plus snapshot durably before success.
-- Offline GPS acquisition and transition capture; background location only while native overlay operation is confirmed active.
+- Event-based GPS snapshots at shift start/end, trip start/end, and ride cancellation; no continuous tracking or periodic location collection.
+- Immediate, non-blocking swipe feedback; enqueue each event intent promptly and acquire its own GPS fix asynchronously. Keep pending/completed status explicit and preserve rapid event order.
+- Offline GPS acquisition and durable transition capture without waiting on network services.
 - Persisted state intervals and restart-safe shift, ride, and pickup-approach timers; live India clock in Asia/Kolkata HH:mm:ss.
 - Offline entry and reconciliation; validate lifecycle across WebView reload and Android process death.
 
@@ -40,9 +41,9 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 
 ## Phase 5 — Android resilience
 
-- Overlay permission flow and native overlay lifecycle.
-- Foreground/background service behavior within current Android policy.
-- Screen-off and device-restart recovery.
+- Overlay permission flow and native overlay lifecycle, independent of event-based GPS.
+- Android-compliant execution/recovery for short-lived event-scoped location acquisition.
+- Screen-off, process-death, and device-restart recovery where Android policy permits.
 - OEM battery-management validation and clear degraded-state UX.
 
 ## Phase 6 — Dropbox backup and release
