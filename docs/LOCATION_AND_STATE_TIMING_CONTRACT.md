@@ -46,6 +46,17 @@ Each transition intent has its own stable event ID and event timestamp. Store th
 - Handle process death and device restart by recovering pending event intents from durable storage and resuming/reconciling them when permitted. Android may restrict execution; never claim unconditional background execution.
 - If the OS or permissions prevent acquisition, preserve the pending event and record the failure/reason when possible. Never invent interpolated GPS points or pretend a snapshot was captured.
 
+## State continuity and restart recovery
+
+- The persisted business state is authoritative; in-memory React state, view state, timers, and Android service instances are disposable caches only.
+- Persist every accepted domain transition and its pending/completed status locally. On app launch, WebView recreation, process restart, or device reboot, reconstruct the current state from the durable event journal/repositories before enabling conflicting actions.
+- Restore whether the shift is active, whether a ride is in accepted/approach/in-progress/cancelled/completed state, any pending transition/GPS acquisition, and any other in-progress workflow. Do not reset an active shift or trip merely because the app or phone restarted.
+- Recovery must be idempotent. Replaying events must not duplicate trips, shifts, payments, or interval boundaries. If data stores disagree, reconcile using stable event IDs/revisions and expose unresolved conflicts instead of guessing.
+- Persist pending writes/outbox entries before relying on background sync. Network loss must not erase or roll back committed local work.
+- Create and validate schema migrations and recovery checkpoints; never silently clear or replace data after a startup/migration failure. If recovery is incomplete, show a clear recoverable state and preserve the underlying records.
+- On restart, calculate elapsed time from persisted event instants and current time, not from a saved counter or the time the app last ran.
+
+
 ## State durations and timers
 
 Maintain event-driven state intervals rather than relying on a UI interval as the source of truth. Persist state-entered and state-exited timestamps; calculate duration from those timestamps so app restarts, WebView reloads, and process death do not reset elapsed time.
@@ -55,6 +66,15 @@ Required duration measures:
 - Ride duration: trip start to trip end; while active, show elapsed time.
 - Pickup approach duration: entering the going-to-pickup state (ride accepted/approach begins) until pickup/trip start, or until ride cancellation if cancelled first.
 - Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue trip duration unless a new trip-start event is explicitly created.
+
+Timer continuity rules:
+- The authoritative elapsed duration is the difference between the persisted start instant and the current instant, or between persisted start and end instants for a closed interval. Never increment a counter as the source of truth.
+- A timer must include time spent while the app is backgrounded, the process is dead, or the phone is powered off. Example: a shift started at 08:00 and phone restarted at 12:30 must resume at approximately 04:30:00 elapsed, not at 00:00 or 03:00.
+- Persist UTC instants for all transition times. Use the device's current wall-clock instant to recalculate elapsed duration after reboot; monotonic clocks are useful within one boot session but cannot alone account for time across reboot.
+- Detect suspicious system-clock changes or time inconsistencies using stored clock/boot anchors where available. If the device clock appears to have moved materially backwards/forwards, flag the timer/time-integrity issue and provide a controlled correction/review path.
+- When network time is available, use it as a corroborating clock reference, not a dependency for offline operation. If the device is offline and its clock was manually changed while powered off, exact real-world elapsed time cannot be independently known; surface uncertainty rather than fabricate precision.
+- Refresh timers from the current instant when the app resumes. Timer calculation must not depend on GPS or internet.
+
 
 Represent intervals with a start event, optional end event, status, and derived duration. Do not overwrite historical intervals when correcting a transition; use an auditable correction/reversal event. Timers are derived from persisted timestamps and do not require GPS to run.
 
@@ -79,6 +99,11 @@ Represent intervals with a start event, optional end event, status, and derived 
 - Verify offline GPS fix acquisition and transition persistence with no internet connection.
 - Verify permission denial, location disabled, timeout, and persistence failure produce clear non-blocking recoverable states.
 - Verify overlay enabled/disabled state does not affect event-based GPS acquisition.
+- Verify pending event recovery after process kill, battery exhaustion, shutdown, and reboot; preserve original event timestamp and never invent an event-time GPS fix.
+- Verify active shift, ride, pickup approach, and pending workflows restore to the correct state after reboot.
+- Verify timers include elapsed time while app is closed and phone is powered off; test normal reboot and simulated clock changes.
+- Verify clock rollback/forward anomalies are flagged and do not silently corrupt historical durations.
+
 - Verify shift, trip, and pickup approach durations across midnight, WebView reload, process death, and device reboot/recovery.
 - Verify cancellation closes the pickup approach timer and records location at cancellation.
 - Verify India clock formatting and elapsed duration formatting, including durations longer than 24 hours.
