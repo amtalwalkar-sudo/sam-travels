@@ -40,3 +40,21 @@ Business-module entry forms are intentionally not part of the active driver work
 - Pending operations remain visible after process restart and can be retried without changing their original transition instant.
 - Browser-only PWA continues to use Dexie transactions for the equivalent atomic boundary.
 - Device acceptance (permissions, GPS, overlay lifecycle, process death, reboot, and WebView recreation) remains a physical-device gate and is not inferred from CI compilation.
+
+## Core-foundation hardening update
+
+Native Android enqueue, retry, and completion share one Room transaction boundary through `DriverWorkflowStore`. The overlay no longer owns a separate transition/commit algorithm. Competing PWA and overlay commands are checked and inserted under the same Room transaction; event evidence, projection, terminal intent status, and outbox are committed together. Recovery cannot reactivate an already-recorded intent.
+
+Business-module entry forms are intentionally not part of the active driver workspace while the core workflow is being stabilized. Future business modules remain an extension point and are not part of the current acceptance gate.
+
+## Core acceptance gate
+
+- One Room transaction owns native enqueue and completion across PWA and overlay.
+- Duplicate event identity is idempotent only when command and idempotency identities match.
+- Competing commands at the same revision cannot both queue.
+- Only recoverable pending intents can be reactivated; recorded intents are immutable.
+- Both surfaces read the same Room projection and revision.
+- Every completed transition writes event evidence, projection, terminal intent status, and outbox in one transaction.
+- Pending operations remain visible after process restart and can be retried without changing their original transition instant.
+- Browser-only PWA continues to use Dexie transactions for the equivalent atomic boundary.
+- Device acceptance (permissions, GPS, overlay lifecycle, process death, reboot, and WebView recreation) remains a physical-device gate and is not inferred from CI compilation.
