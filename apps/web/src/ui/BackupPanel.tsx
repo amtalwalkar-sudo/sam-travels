@@ -298,10 +298,10 @@ export function BackupPanel() {
       {checkpoints.length === 0 ? <p className="backup-empty">No pending recovery checkpoints.</p> : checkpoints.map(checkpoint => (
         <div className="backup-checkpoint" key={checkpoint.id}>
           <div><strong>{checkpoint.status.replaceAll("_", " ")}</strong><small>{new Date(checkpoint.createdAt).toLocaleString()}</small></div>
-          {(checkpoint.status === "restored_unverified" || checkpoint.status === "checkpoint" || checkpoint.status === "rollback_complete") && (
+          {(checkpoint.status === "restored_unverified" || checkpoint.status === "checkpoint" || checkpoint.status === "rollback_complete" || checkpoint.status === "verified") && (
             <div className="backup-actions">
               {checkpoint.status === "restored_unverified" && <button className="backup-secondary" disabled={busy} onClick={() => verifyAndDiscard(checkpoint.id)}>Verify and discard checkpoint</button>}{checkpoint.status === "verified" && <button className="backup-secondary" disabled={busy} onClick={() => discardCheckpoint(checkpoint.id)}>Discard verified checkpoint</button>}
-              <button className="backup-secondary" disabled={busy} onClick={() => rollback(checkpoint.id)}>Roll back</button>
+              {checkpoint.status !== "verified" && <button className="backup-secondary" disabled={busy} onClick={() => rollback(checkpoint.id)}>Roll back</button>}
             </div>
           )}
         </div>
