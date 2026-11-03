@@ -9,7 +9,7 @@ describe("native backup-encryption-v2 interoperability", () => {
     const plaintext = await decryptBackupWithRecoveryKey(parsed, fixture.recoveryKey);
 
     expect(new TextDecoder().decode(plaintext)).toBe(
-      """{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}""",
+      `{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}`,
     );
     expect(parsed.manifest.format).toBe("backup-encryption-v2");
     expect(parsed.keyEnvelopes.passphrase).toBeUndefined();
