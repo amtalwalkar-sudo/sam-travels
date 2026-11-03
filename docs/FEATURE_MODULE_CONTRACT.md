@@ -73,3 +73,7 @@ Forms are replaceable presentation adapters. They use shared typed field/value c
 - Add a calculation without changing existing stable module wiring.
 - Verify modules cannot directly write another module's tables or bypass repositories/network gateway.
 - Verify every module remains usable offline and has explicit recovery/migration tests.
+- Verify a queued driver intent and its revision/state preconditions survive browser IndexedDB close/reopen and Android Room close/reopen; verify recovery records it exactly once.
+- Verify native overlay and PWA command races cannot commit two events for one expected revision.
+- On a physical Android device, test app process interruption while awaiting GPS, service restart, permission denial/regrant, GPS timeout/retry, offline launch, and device reboot. These lifecycle checks are a release acceptance gate; emulator CI alone does not establish them.
+- Verify committed event, state projection, intent terminal status, and outbox record are atomic and consistent after interruption/relaunch.
