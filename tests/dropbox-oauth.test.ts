@@ -23,6 +23,51 @@ describe("Dropbox OAuth gateway boundary", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("validates OAuth state and stores the refresh token in the secure vault", async () => {
+    const policy = new MemoryPolicy();
+    policy.enabled = true;
+    const vault = new MemoryVault();
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      access_token: "access",
+      refresh_token: "refresh",
+      expires_in: 3600,
+      token_type: "bearer",
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    const client = new DropboxBackupClient(policy, vault, "test-client", "samtravels://oauth", fetcher);
+    const authorization = new URL(await client.beginAuthorization());
+    const state = authorization.searchParams.get("state")!;
+    await expect(client.completeAuthorization("code", "wrong-state")).rejects.toThrow("dropbox_oauth_state_mismatch");
+    expect(fetcher).not.toHaveBeenCalled();
+    await client.completeAuthorization("code", state);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(await client.isConnected()).toBe(true);
+    expect(vault.values.has("dropbox.oauth.tokens.v1")).toBe(true);
+    expect(vault.values.has("dropbox.oauth.pending.v1")).toBe(false);
+  });
+
+  it("refreshes expired access tokens before listing and paginates history", async () => {
+    const policy = new MemoryPolicy();
+    policy.enabled = true;
+    const vault = new MemoryVault();
+    vault.values.set("dropbox.oauth.tokens.v1", JSON.stringify({
+      accessToken: "expired",
+      refreshToken: "refresh",
+      expiresAt: 0,
+    }));
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "fresh", expires_in: 3600, token_type: "bearer" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entries: [], has_more: true, cursor: "next" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ entries: [{ ".tag": "file", name: "backup.stbackup", path_display: "/SamTravelsBackups/backup.stbackup", server_modified: "2026-11-04T00:00:00Z", size: 100 }], has_more: false, cursor: "done" }), { status: 200 }));
+    const client = new DropboxBackupClient(policy, vault, "test-client", "samtravels://oauth", fetcher);
+    const backups = await client.listBackups();
+    expect(backups).toHaveLength(1);
+    expect(backups[0].name).toBe("backup.stbackup");
+    expect(fetcher).toHaveBeenCalledTimes(4);
+    expect(fetcher.mock.calls[0][0]).toBe("https://api.dropboxapi.com/oauth2/token");
+    expect(vault.values.get("dropbox.oauth.tokens.v1")).toContain("fresh");
+  });
+
   it("creates a PKCE authorization request only after policy is enabled", async () => {
     const policy = new MemoryPolicy();
     policy.enabled = true;
