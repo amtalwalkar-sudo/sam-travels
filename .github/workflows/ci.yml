@@ -30,7 +30,8 @@ jobs:
       - run: npm install
       - run: npm run cap:sync
       - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.11.1
-      - run: gradle -p android assembleDebug
+      - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest
