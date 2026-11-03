@@ -1,0 +1,245 @@
+package `in`.samtravels.app
+
+import androidx.room.Room
+import com.getcapacitor.*
+import com.getcapacitor.annotation.CapacitorPlugin
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.Executors
+
+@CapacitorPlugin(name = "Backup")
+class BackupPlugin : Plugin() {
+    private val executor = Executors.newSingleThreadExecutor()
+    private val db by lazy {
+        Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
+            .enableMultiInstanceInvalidation()
+            .build()
+    }
+
+    private val checkpointPrefix = "__sam_travels_recovery_checkpoint__:"
+    private val journalPrefix = "__sam_travels_recovery_journal__:"
+    private fun isInternal(id: String) = id.startsWith(checkpointPrefix) || id.startsWith(journalPrefix)
+
+    private fun businessRecords(): JSONArray {
+        val rows = db.records().list().filterNot { isInternal(it.id) }
+        val result = JSONArray()
+        rows.forEach { result.put(JSONObject(it.json)) }
+        return result
+    }
+
+    private fun snapshotRevision(records: JSONArray): Int {
+        for (index in 0 until records.length()) {
+            val row = records.optJSONObject(index) ?: continue
+            if (row.optString("id") == "driver-state") {
+                return row.optJSONObject("value")?.optInt("revision", 0) ?: 0
+            }
+        }
+        return 0
+    }
+
+    private fun makeSnapshot(): JSONObject {
+        val records = businessRecords()
+        return JSONObject()
+            .put("records", records)
+            .put("snapshotRevision", snapshotRevision(records))
+            .put("schemaVersion", 1)
+    }
+
+    private fun saveInternal(id: String, value: JSONObject, now: String) {
+        db.records().put(StoredRecord(id, value.toString(), 1, now))
+    }
+
+    @PluginMethod
+    fun exportSnapshot(call: PluginCall) {
+        executor.execute {
+            try {
+                var snapshot: JSONObject? = null
+                db.runInTransaction { snapshot = makeSnapshot() }
+                val value = snapshot ?: error("snapshot_unavailable")
+                val manifest = JSONObject()
+                    .put("applicationVersion", BuildConfig.VERSION_NAME)
+                    .put("schemaVersion", 1)
+                    .put("createdAt", Instant.now().toString())
+                    .put("businessTimezone", "Asia/Kolkata")
+                    .put("snapshotRevision", value.optInt("snapshotRevision"))
+                    .put("recordCounts", JSONObject().put("records", value.getJSONArray("records").length()))
+                val out = JSObject()
+                out.put("snapshot", value)
+                out.put("manifest", manifest)
+                call.resolve(out)
+            } catch (error: Exception) {
+                call.reject("Consistent Room snapshot failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun restoreSnapshot(call: PluginCall) {
+        val confirmed = call.getBoolean("confirmed", false)
+        val snapshot = call.getObject("snapshot")
+        val manifest = call.getObject("manifest")
+        if (!confirmed) {
+            call.reject("Explicit restore confirmation is required", "RESTORE_CONFIRMATION_REQUIRED")
+            return
+        }
+        if (snapshot == null || manifest == null) {
+            call.reject("Validated snapshot and manifest are required")
+            return
+        }
+        executor.execute {
+            var checkpointId: String? = null
+            try {
+                val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
+                require(manifest.optInt("schemaVersion", -1) == 1) { "backup_unsupported_schema" }
+                require(manifest.optInt("recordCounts", JSONObject()).optInt("records", -1) == records.length()) {
+                    "backup_record_count_mismatch"
+                }
+                require(records.length() <= 1_000_000) { "backup_record_count_limit" }
+
+                val ids = HashSet<String>()
+                for (index in 0 until records.length()) {
+                    val record = records.optJSONObject(index) ?: error("backup_invalid_record")
+                    val id = record.optString("id")
+                    require(id.isNotBlank() && !isInternal(id) && ids.add(id)) { "backup_duplicate_or_reserved_record_id" }
+                    require(record.optInt("schemaVersion", 0) >= 1 && record.optString("updatedAt").isNotBlank()) {
+                        "backup_invalid_record_envelope"
+                    }
+                }
+
+                val checkpoint = makeSnapshot()
+                val now = Instant.now().toString()
+                val id = UUID.randomUUID().toString()
+                checkpointId = id
+                db.runInTransaction {
+                    saveInternal(checkpointPrefix + id, checkpoint, now)
+                    saveInternal(
+                        journalPrefix + id,
+                        JSONObject().put("id", id).put("createdAt", now).put("status", "checkpoint"),
+                        now,
+                    )
+                }
+
+                try {
+                    db.runInTransaction {
+                        db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
+                        for (index in 0 until records.length()) {
+                            val record = records.getJSONObject(index)
+                            db.records().put(
+                                StoredRecord(
+                                    record.getString("id"),
+                                    record.toString(),
+                                    record.getInt("schemaVersion"),
+                                    record.getString("updatedAt"),
+                                ),
+                            )
+                        }
+                        saveInternal(
+                            journalPrefix + id,
+                            JSONObject().put("id", id).put("createdAt", now).put("status", "restored_unverified"),
+                            now,
+                        )
+                    }
+
+                    val restored = businessRecords()
+                    require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
+                    val restoredIds = (0 until restored.length()).map { restored.getJSONObject(it).getString("id") }.toSet()
+                    require(restoredIds == ids) { "backup_post_restore_identity_mismatch" }
+                } catch (restoreError: Exception) {
+                    val old = JSONObject(db.records().get(checkpointPrefix + id)?.json ?: error("recovery_checkpoint_missing"))
+                    val oldRecords = old.getJSONArray("records")
+                    db.runInTransaction {
+                        db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
+                        for (index in 0 until oldRecords.length()) {
+                            val record = oldRecords.getJSONObject(index)
+                            db.records().put(
+                                StoredRecord(record.getString("id"), record.toString(), record.getInt("schemaVersion"), record.getString("updatedAt")),
+                            )
+                        }
+                        saveInternal(
+                            journalPrefix + id,
+                            JSONObject().put("id", id).put("createdAt", now).put("status", "rollback_complete"),
+                            now,
+                        )
+                    }
+                    throw restoreError
+                }
+
+                val out = JSObject()
+                out.put("checkpointId", id)
+                out.put("restoredCount", records.length())
+                call.resolve(out)
+            } catch (error: Exception) {
+                call.reject("Restore failed; source data or recovery checkpoint was preserved: " + (error.message ?: "unknown failure"), "RESTORE_FAILED", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun listCheckpoints(call: PluginCall) {
+        executor.execute {
+            try {
+                val result = JSONArray()
+                db.records().list().filter { it.id.startsWith(journalPrefix) }.forEach {
+                    val row = JSONObject(it.json)
+                    result.put(row)
+                }
+                val out = JSObject()
+                out.put("checkpoints", result)
+                call.resolve(out)
+            } catch (error: Exception) {
+                call.reject("Recovery checkpoint listing failed", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun markRestoreVerified(call: PluginCall) {
+        val id = call.getString("checkpointId")
+        if (id.isNullOrBlank()) {
+            call.reject("Checkpoint id required")
+            return
+        }
+        executor.execute {
+            try {
+                db.runInTransaction {
+                    val key = journalPrefix + id
+                    val row = db.records().get(key) ?: error("recovery_checkpoint_missing")
+                    val journal = JSONObject(row.json)
+                    require(journal.optString("status") == "restored_unverified") { "restore_not_pending_verification" }
+                    journal.put("status", "verified")
+                    saveInternal(key, journal, Instant.now().toString())
+                }
+                call.resolve()
+            } catch (error: Exception) {
+                call.reject("Unable to verify restored data", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun discardVerifiedCheckpoint(call: PluginCall) {
+        val id = call.getString("checkpointId")
+        if (id.isNullOrBlank()) {
+            call.reject("Checkpoint id required")
+            return
+        }
+        executor.execute {
+            try {
+                db.runInTransaction {
+                    val key = journalPrefix + id
+                    val row = db.records().get(key) ?: error("recovery_checkpoint_missing")
+                    require(JSONObject(row.json).optString("status") == "verified") {
+                        "checkpoint_must_be_verified_before_discard"
+                    }
+                    db.records().remove(checkpointPrefix + id)
+                    db.records().remove(key)
+                }
+                call.resolve()
+            } catch (error: Exception) {
+                call.reject("Recovery checkpoint cannot be discarded yet", error)
+            }
+        }
+    }
+}
