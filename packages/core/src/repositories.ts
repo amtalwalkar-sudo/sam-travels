@@ -1,0 +1,1 @@
+import type {RecordEnvelope} from "./types";export interface RecordRepository{get<T>(id:string):Promise<RecordEnvelope<T>|undefined>;put<T>(record:RecordEnvelope<T>):Promise<void>;list<T>():Promise<Array<RecordEnvelope<T>>>;remove(id:string):Promise<void>}export interface PolicyRepository{getNetworkEnabled():Promise<boolean>;setNetworkEnabled(enabled:boolean):Promise<void>}
