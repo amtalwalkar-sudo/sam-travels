@@ -58,6 +58,15 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Restore checkpoint and confirmed restore flow.
 - Release signing, Android artifact generation, PWA deployment, and release checklist.
 
+
+## Network access control foundation
+
+- Add the persisted app-level Internet Access policy and shared gateway before integrating online services.
+- Add the header Internet icon beside GPS status on PWA/native surfaces; show policy state separately from device connectivity and service authentication.
+- Default to disabled until explicitly enabled. Keep the choice synchronized locally and persistent across restart/reboot.
+- Route Dropbox backup/restore and future optional services (including reverse geocoding) through the gateway.
+- Test that all core workflows remain fully usable with policy disabled and with the device offline.
+
 ## Definition of done
 
 - Acceptance criteria and failure cases are documented.
