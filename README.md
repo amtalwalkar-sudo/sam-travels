@@ -13,7 +13,7 @@ Sam Travels is a single-driver Driver Log Book and business operations PWA, with
 
 ## Project status
 
-Phase 1 architecture and contracts are approved. Phase 2 establishes the React/TypeScript PWA, Capacitor Android shell, browser IndexedDB and native Room persistence, typed feature contracts, and network policy foundation. See [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+Phase 1 architecture and contracts are approved. Phase 2 foundation and Phase 3 shared driver workflow are implemented on the open Phase 3 pull request; physical-device acceptance remains outstanding. Phase 4 business modules have started with shared domain contracts, offline record entry, loan calculation foundations and date-range performance summaries. Phase 4 is in progress, not complete. See [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
 ## Requirements
 
