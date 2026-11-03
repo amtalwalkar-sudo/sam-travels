@@ -2,7 +2,7 @@ name: Sam Travels CI
 on:
   pull_request:
   push:
-    branches: [main, foundation/native-android-architecture]
+    branches: [main, foundation/native-android-architecture, 'phase-*/*']
 concurrency:
   group: sam-travels-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
