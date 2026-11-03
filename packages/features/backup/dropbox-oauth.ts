@@ -140,7 +140,7 @@ export class DropboxBackupClient {
       try {
         await this.gateway.run(async () => {
           const token = await this.accessToken();
-          const response = await this.fetcher(API_ENDPOINT + "/auth/token/revoke", {
+          const response = await this.fetchDropbox(API_ENDPOINT + "/auth/token/revoke", {
             method: "POST",
             headers: { authorization: "Bearer " + token },
           });
@@ -156,8 +156,26 @@ export class DropboxBackupClient {
     return { revoked };
   }
 
+  private async fetchDropbox(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const response = await this.fetcher(input, init);
+        if (![429, 500, 502, 503, 504].includes(response.status) || attempt === 2) return response;
+        const retryAfter = Number(response.headers.get("retry-after") ?? 0);
+        const delay = retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : 250 * (2 ** attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } catch (error) {
+        lastError = error;
+        if (attempt === 2) throw error;
+        await new Promise(resolve => setTimeout(resolve, 250 * (2 ** attempt)));
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("dropbox_request_failed");
+  }
+
   private async ensureBackupFolder(token: string): Promise<void> {
-    const response = await this.fetcher(API_ENDPOINT + "/files/create_folder_v2", {
+    const response = await this.fetchDropbox(API_ENDPOINT + "/files/create_folder_v2", {
       method: "POST",
       headers: { authorization: "Bearer " + token, "content-type": "application/json" },
       body: JSON.stringify({ path: "/SamTravelsBackups", autorename: false }),
@@ -170,7 +188,7 @@ export class DropboxBackupClient {
     await this.gateway.run(async () => {
       const token = await this.accessToken();
       await this.ensureBackupFolder(token);
-      const response = await this.fetcher(CONTENT_ENDPOINT + "/files/upload", {
+      const response = await this.fetchDropbox(CONTENT_ENDPOINT + "/files/upload", {
         method: "POST",
         headers: {
           authorization: "Bearer " + token,
@@ -187,7 +205,7 @@ export class DropboxBackupClient {
     if (!path.startsWith("/SamTravelsBackups/") || path.includes("..")) throw new Error("dropbox_backup_path_invalid");
     return this.gateway.run(async () => {
       const token = await this.accessToken();
-      const response = await this.fetcher(CONTENT_ENDPOINT + "/files/download", {
+      const response = await this.fetchDropbox(CONTENT_ENDPOINT + "/files/download", {
         method: "POST",
         headers: {
           authorization: "Bearer " + token,
@@ -207,7 +225,7 @@ export class DropboxBackupClient {
       let body: Record<string, unknown> = { path: "/SamTravelsBackups", recursive: false, include_deleted: false };
       const entries: Array<{ name: string; path_display: string; server_modified: string; size: number; ".tag": string }> = [];
       while (true) {
-        const response = await this.fetcher(url, {
+        const response = await this.fetchDropbox(url, {
           method: "POST",
           headers: { authorization: "Bearer " + token, "content-type": "application/json" },
           body: JSON.stringify(body),
@@ -249,7 +267,7 @@ export class DropboxBackupClient {
     if (!path.startsWith("/SamTravelsBackups/") || path.includes("..")) throw new Error("dropbox_backup_path_invalid");
     await this.gateway.run(async () => {
       const token = await this.accessToken();
-      const response = await this.fetcher(API_ENDPOINT + "/files/delete_v2", {
+      const response = await this.fetchDropbox(API_ENDPOINT + "/files/delete_v2", {
         method: "POST",
         headers: { authorization: "Bearer " + token, "content-type": "application/json" },
         body: JSON.stringify({ path }),
