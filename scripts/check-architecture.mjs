@@ -57,7 +57,9 @@ for (const absolute of sourceFiles) {
     const specifier = match[1];
     const target = targetLayer(specifier, relative);
     const resolvedImport = path.posix.normalize(path.posix.join(path.posix.dirname(relative), specifier));
-    const isWorkShiftImplementationImport = /(?:^|\\/)packages\\/(?:application\\/src\\/driver-workflow-service|domain\\/src\\/driver-workflow)(?:\\.[^/]+)?$/.test(resolvedImport);
+    const isWorkShiftImplementationImport =
+      resolvedImport.endsWith("packages/application/src/driver-workflow-service") ||
+      resolvedImport.endsWith("packages/domain/src/driver-workflow");
     const ownsWorkShiftImplementation =
       relative.startsWith("packages/application/") ||
       relative.startsWith("packages/domain/") ||
