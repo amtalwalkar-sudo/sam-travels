@@ -1,1 +1,0 @@
-import type {CapacitorConfig} from "@capacitor/cli";const config:CapacitorConfig={appId:"in.samtravels.app",appName:"Sam Travels",webDir:"dist"};export default config;
