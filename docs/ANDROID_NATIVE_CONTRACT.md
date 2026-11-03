@@ -57,6 +57,17 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Timer displays on both surfaces derive from the same persisted transition instants and must agree, including after either surface is recreated or the phone reboots.
 - GPS remains event-triggered only. Cross-surface state propagation must not start continuous GPS or create extra location requests; the single accepted transition owns its one event-scoped GPS acquisition.
 
+
+## Header internet access control
+
+- Display an Internet icon immediately beside the GPS icon in the PWA header and native Android-facing header/status surface.
+- Tapping it exposes the persisted app-level Internet Access toggle and a clear status: policy disabled, device offline, connecting/working, or service/authentication error.
+- This is not an Android runtime permission request. Android's `INTERNET` permission is normally declared in the manifest and granted at install time; the in-app toggle controls whether Sam Travels initiates network requests.
+- PWA and native surfaces use one shared persisted policy and propagate changes locally/offline. The choice survives app restart and device reboot.
+- All native and web network clients must consult the same versioned policy gateway. No direct SDK/client/network call may bypass it.
+- Turning access off prevents new optional requests and safely defers eligible work; it must not interrupt local driver actions or discard records. Distinguish app policy from actual network connectivity and Dropbox authentication.
+- Keep the shell and core workflows available offline; remote assets and optional services must not be startup dependencies.
+
 ## Durable state restoration and device interruption
 
 - Room/native journal and the versioned domain repository are the durable source of truth. React component state, WebView memory, service instances, and timer counters are never authoritative.
