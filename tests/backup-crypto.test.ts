@@ -7,7 +7,7 @@ import {
   parseBackupPackage,
   serializeBackupPackage,
   type Argon2idProvider,
-} from "../packages/features/backup/crypto";
+} from "../packages/features/backup";
 
 const testKdf: Argon2idProvider = {
   async deriveKey({ passphrase, salt, parameters }) {
