@@ -63,6 +63,7 @@ for (const absolute of sourceFiles) {
     const ownsWorkShiftImplementation =
       relative.startsWith("packages/application/") ||
       relative.startsWith("packages/domain/") ||
+      relative.startsWith("packages/storage-browser/") ||
       relative.startsWith("packages/features/work-shift/");
     if (isWorkShiftImplementationImport && !ownsWorkShiftImplementation) {
       failures.push(`${relative}: import Work/Shift internals through the public packages/features/work-shift entry point, not "${specifier}"`);
