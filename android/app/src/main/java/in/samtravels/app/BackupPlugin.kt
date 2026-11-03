@@ -98,7 +98,6 @@ class BackupPlugin : Plugin() {
             return
         }
         executor.execute {
-            var checkpointId: String? = null
             try {
                 val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
                 require(manifest.optInt("schemaVersion", -1) == 1 && snapshot.optInt("schemaVersion", -1) == 1) {
@@ -127,7 +126,6 @@ class BackupPlugin : Plugin() {
                 val checkpoint = makeSnapshot()
                 val now = Instant.now().toString()
                 val id = UUID.randomUUID().toString()
-                checkpointId = id
                 db.runInTransaction {
                     saveInternal(checkpointPrefix + id, checkpoint, now)
                     saveInternal(
@@ -160,8 +158,17 @@ class BackupPlugin : Plugin() {
 
                     val restored = businessRecords()
                     require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
-                    val restoredIds = (0 until restored.length()).map { restored.getJSONObject(it).getString("id") }.toSet()
-                    require(restoredIds == ids) { "backup_post_restore_identity_mismatch" }
+                    val restoredById = (0 until restored.length()).associate {
+                        val record = restored.getJSONObject(it)
+                        record.getString("id") to record.toString()
+                    }
+                    val expectedById = (0 until records.length()).associate {
+                        val record = records.getJSONObject(it)
+                        record.getString("id") to record.toString()
+                    }
+                    require(restoredById == expectedById && restoredById.keys == ids) {
+                        "backup_post_restore_integrity_mismatch"
+                    }
                 } catch (restoreError: Exception) {
                     val old = JSONObject(db.records().get(checkpointPrefix + id)?.json ?: error("recovery_checkpoint_missing"))
                     val oldRecords = old.getJSONArray("records")
