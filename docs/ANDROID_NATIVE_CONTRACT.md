@@ -1,0 +1,49 @@
+# Native Android Contract
+
+Capacitor and the native Android layer are mandatory parts of the Sam Travels foundation. Browser/PWA code must not simulate guarantees that only Android can provide.
+
+## Responsibilities
+
+- React/PWA owns presentation and user workflows.
+- Capacitor provides a versioned, typed bridge.
+- Kotlin plugins expose narrow capabilities.
+- Android services own long-running or OS-integrated work that is permitted by the installed Android version and device policy.
+- Room stores native-critical journal/state that must survive WebView reloads and app process death.
+
+## Overlay
+
+- Use a native Android overlay; request `SYSTEM_ALERT_WINDOW` only when the user enables the feature.
+- Explain why the permission is needed and provide a clear disabled state when it is denied or revoked.
+- Overlay lifecycle must be independent of a particular WebView instance.
+- Overlay visibility is impossible while the display is physically off; resume/reconcile when the display wakes.
+- Do not claim the overlay is active until native state confirms it.
+
+## Background and screen-off behavior
+
+- Use a foreground service only for user-noticeable work that qualifies under current Android foreground-service policy, with the required notification and declared service type.
+- Use WorkManager for deferrable/retryable jobs, including scheduled backup work.
+- Use wake locks sparingly, with bounded acquisition and guaranteed release paths.
+- Handle Doze, app standby, process death, reboot, permission revocation, and OEM battery restrictions.
+- Request battery-optimization exemptions only when justified, with an explanation; never imply Android can guarantee uninterrupted execution.
+- Register boot recovery only for supported, policy-compliant use cases.
+
+## Durable event capture
+
+1. Validate the event and assign a stable event ID/idempotency key.
+2. Commit it to Room in a transaction.
+3. Acknowledge success to the bridge only after commit.
+4. Reconcile the journal into web/domain storage asynchronously.
+5. Mark the event reconciled only after the receiving transaction commits.
+6. Replay safely after crashes; duplicates must be idempotently ignored.
+
+## Bridge contract
+
+- Typed request/response payloads with explicit contract versions.
+- Explicit capability and permission status.
+- Structured errors (permission denied, unavailable, transient failure, invalid request, persistence failure).
+- No silent fallback from native durable capture to volatile JavaScript memory.
+- Bridge calls must be safe across WebView recreation and plugin reinitialization.
+
+## Validation
+
+Test on physical Android devices across screen on/off, WebView reload, app process kill, device reboot, permission revoke/grant, offline transitions, and representative OEM battery settings. Emulator success alone is insufficient for release claims.
