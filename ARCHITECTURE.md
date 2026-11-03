@@ -29,6 +29,8 @@ Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance
 - Native event capture must survive WebView reload/process death and reconcile idempotently into the web data model.
 - Conflicts and partial failures must be visible and recoverable; never silently discard records.
 - Store dates as explicit local business dates plus unambiguous timestamps where needed. Do not infer historical form dates from the current date.
+- Shift/trip/cancellation transitions require reliable GPS evidence and durable event persistence; see [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
+- State durations are derived from persisted transition timestamps, not volatile UI counters. The live clock is displayed in `Asia/Kolkata` (`HH:mm:ss`).
 
 ## Platform strategy
 
