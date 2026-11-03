@@ -9,7 +9,7 @@ Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/op
 1. **Presentation** — React components, navigation, forms, and responsive layouts. Presentation must not own business calculations or persistence rules.
 2. **Application** — use cases and workflows coordinating domain operations.
 3. **Domain** — typed entities, invariants, calculations, and feature contracts. No React, browser storage, or Android dependencies.
-4. **Persistence** — versioned repositories and migrations. Browser/PWA records use IndexedDB (Dexie is the preferred adapter); native-critical events are durably journaled by Android (Room).
+4. **Persistence** — versioned repositories and migrations. Browser/PWA records use IndexedDB (Dexie is the preferred adapter); native-critical pending intents/events are durably journaled by Android (Room).
 5. **Platform adapters** — Capacitor plugins and Kotlin services for Android-only capabilities.
 6. **Integrations** — Dropbox OAuth and backup transport behind an integration contract.
 
@@ -25,11 +25,12 @@ Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance
 
 - User-entered records must be usable offline.
 - Writes must have explicit IDs, timestamps, schema versions, and idempotency keys where replay is possible.
-- A success acknowledgement must only follow durable persistence at the responsible layer.
+- A success acknowledgement must only follow durable persistence at the responsible layer; presentation may acknowledge gesture receipt immediately while showing the business event as pending until durable completion.
 - Native event capture must survive WebView reload/process death and reconcile idempotently into the web data model.
 - Conflicts and partial failures must be visible and recoverable; never silently discard records.
 - Store dates as explicit local business dates plus unambiguous timestamps where needed. Do not infer historical form dates from the current date.
-- Shift/trip/cancellation transitions require reliable GPS evidence and durable event persistence; see [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
+- Shift/trip/cancellation transitions require event-specific reliable GPS evidence and durable event persistence; no continuous tracking. See [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md).
+- Driver gestures and presentation updates must remain responsive while GPS acquisition, persistence, and reconciliation run asynchronously off the UI/main thread.
 - State durations are derived from persisted transition timestamps, not volatile UI counters. The live clock is displayed in `Asia/Kolkata` (`HH:mm:ss`).
 
 ## Platform strategy
