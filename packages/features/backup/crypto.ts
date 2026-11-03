@@ -8,6 +8,7 @@ import type { SnapshotManifest } from "../../core/src/backup";
  * device-keystore fallback. Dropbox must only ever receive BackupPackage.
  */
 export const BACKUP_ENCRYPTION_VERSION = "backup-encryption-v1" as const;
+export const BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION = "backup-encryption-v2" as const;
 export const ARGON2ID_PARAMETERS = {
   memoryKiB: 65_536,
   iterations: 3,
@@ -24,7 +25,7 @@ export interface Argon2idProvider {
 }
 
 export interface BackupManifest extends SnapshotManifest {
-  format: typeof BACKUP_ENCRYPTION_VERSION;
+  format: typeof BACKUP_ENCRYPTION_VERSION | typeof BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION;
   plaintextSha256: string;
 }
 
@@ -42,7 +43,7 @@ export interface BackupPackage {
     ciphertext: string;
   };
   keyEnvelopes: {
-    passphrase: {
+    passphrase?: {
       kdf: "Argon2id";
       salt: string;
       parameters: typeof ARGON2ID_PARAMETERS;
@@ -97,7 +98,7 @@ const decrypt = async (key: CryptoKey, wrapped: WrappedKey, aad: Uint8Array) =>
   ));
 
 function validateManifest(manifest: BackupManifest): void {
-  if (manifest.format !== BACKUP_ENCRYPTION_VERSION) throw new Error("backup_unsupported_format");
+  if (manifest.format !== BACKUP_ENCRYPTION_VERSION && manifest.format !== BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION) throw new Error("backup_unsupported_format");
   if (!Number.isSafeInteger(manifest.schemaVersion) || manifest.schemaVersion < 1) throw new Error("backup_invalid_schema");
   if (!Number.isSafeInteger(manifest.snapshotRevision) || manifest.snapshotRevision < 0) throw new Error("backup_invalid_revision");
   if (!Number.isFinite(Date.parse(manifest.createdAt)) || !manifest.applicationVersion || !manifest.businessTimezone) {
@@ -110,72 +111,71 @@ function validateManifest(manifest: BackupManifest): void {
 
 function validatePackageShape(pkg: BackupPackage): void {
   validateManifest(pkg.manifest);
-  if (pkg.payload?.algorithm !== "AES-256-GCM" || pkg.keyEnvelopes?.passphrase?.kdf !== "Argon2id" ||
-      pkg.keyEnvelopes?.recovery?.algorithm !== "AES-256-GCM") throw new Error("backup_invalid_envelope");
-  if (pkg.keyEnvelopes.passphrase.parameters.memoryKiB !== ARGON2ID_PARAMETERS.memoryKiB ||
-      pkg.keyEnvelopes.passphrase.parameters.iterations !== ARGON2ID_PARAMETERS.iterations ||
-      pkg.keyEnvelopes.passphrase.parameters.parallelism !== ARGON2ID_PARAMETERS.parallelism ||
-      pkg.keyEnvelopes.passphrase.parameters.hashLength !== ARGON2ID_PARAMETERS.hashLength) {
-    throw new Error("backup_unsupported_kdf_parameters");
+  if (pkg.payload?.algorithm !== "AES-256-GCM" || pkg.keyEnvelopes?.recovery?.algorithm !== "AES-256-GCM") throw new Error("backup_invalid_envelope");
+  const passphraseEnvelope = pkg.keyEnvelopes?.passphrase;
+  if (pkg.manifest.format === BACKUP_ENCRYPTION_VERSION && !passphraseEnvelope) throw new Error("backup_invalid_envelope");
+  if (passphraseEnvelope) {
+    if (passphraseEnvelope.kdf !== "Argon2id") throw new Error("backup_invalid_envelope");
+    if (passphraseEnvelope.parameters.memoryKiB !== ARGON2ID_PARAMETERS.memoryKiB ||
+        passphraseEnvelope.parameters.iterations !== ARGON2ID_PARAMETERS.iterations ||
+        passphraseEnvelope.parameters.parallelism !== ARGON2ID_PARAMETERS.parallelism ||
+        passphraseEnvelope.parameters.hashLength !== ARGON2ID_PARAMETERS.hashLength) throw new Error("backup_unsupported_kdf_parameters");
   }
+  if (pkg.manifest.format === BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION && passphraseEnvelope) throw new Error("backup_invalid_recovery_only_envelope");
 }
 
 export async function createEncryptedBackup(input: {
   plaintext: Uint8Array;
   manifest: SnapshotManifest;
-  passphrase: string;
+  passphrase?: string;
   recoveryKey?: string;
-  argon2id: Argon2idProvider;
+  mode?: "standard" | "recovery-key-only";
+  argon2id?: Argon2idProvider;
 }): Promise<{ backup: BackupPackage; recoveryKey: string }> {
-  if (input.passphrase.length < 12) throw new Error("backup_passphrase_too_short");
+  const recoveryOnly = input.mode === "recovery-key-only";
+  if (!recoveryOnly && (!input.passphrase || input.passphrase.length < 12 || !input.argon2id)) throw new Error("backup_passphrase_too_short");
+  if (recoveryOnly && !input.recoveryKey) throw new Error("backup_recovery_key_required");
   const recoveryBytes = input.recoveryKey ? fromBase64(input.recoveryKey) : randomBytes(32);
   if (recoveryBytes.length !== 32) throw new Error("backup_invalid_recovery_key");
   const salt = randomBytes(16);
   const dekBytes = randomBytes(32);
   const manifest: BackupManifest = {
     ...input.manifest,
-    format: BACKUP_ENCRYPTION_VERSION,
+    format: recoveryOnly ? BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION : BACKUP_ENCRYPTION_VERSION,
     plaintextSha256: toBase64(await digest(input.plaintext)),
   };
   validateManifest(manifest);
   const aad = aadFor(manifest);
-  const [passphraseKeyBytes, recoveryKey] = await Promise.all([
-    input.argon2id.deriveKey({ passphrase: input.passphrase, salt, parameters: ARGON2ID_PARAMETERS }),
-    importAesKey(recoveryBytes),
-  ]);
-  if (passphraseKeyBytes.length !== 32) throw new Error("backup_argon2id_invalid_key_length");
-  const passphraseKey = await importAesKey(passphraseKeyBytes);
+  const recoveryKey = await importAesKey(recoveryBytes);
   const dek = await importAesKey(dekBytes);
-  const [payload, passphraseWrapped, recoveryWrapped] = await Promise.all([
-    encrypt(dek, input.plaintext, aad),
-    encrypt(passphraseKey, dekBytes, aad),
-    encrypt(recoveryKey, dekBytes, aad),
-  ]);
-  passphraseKeyBytes.fill(0);
-  dekBytes.fill(0);
-  const exportedRecoveryKey = toBase64(recoveryBytes);
-  recoveryBytes.fill(0);
-  return {
-    backup: {
-      manifest,
-      payload,
-      keyEnvelopes: {
-        passphrase: {
-          kdf: "Argon2id",
-          salt: toBase64(salt),
-          parameters: ARGON2ID_PARAMETERS,
-          wrappedDek: passphraseWrapped,
-        },
-        recovery: { algorithm: "AES-256-GCM", wrappedDek: recoveryWrapped },
-      },
-    },
-    recoveryKey: exportedRecoveryKey,
-  };
+  let passphraseKeyBytes: Uint8Array | undefined;
+  try {
+    const [payload, recoveryWrapped, passphraseWrapped] = await Promise.all([
+      encrypt(dek, input.plaintext, aad),
+      encrypt(recoveryKey, dekBytes, aad),
+      recoveryOnly ? Promise.resolve(undefined) : (async () => {
+        passphraseKeyBytes = await input.argon2id!.deriveKey({ passphrase: input.passphrase!, salt, parameters: ARGON2ID_PARAMETERS });
+        if (passphraseKeyBytes.length !== 32) throw new Error("backup_argon2id_invalid_key_length");
+        return encrypt(await importAesKey(passphraseKeyBytes), dekBytes, aad);
+      })(),
+    ]);
+    const keyEnvelopes: BackupPackage["keyEnvelopes"] = {
+      recovery: { algorithm: "AES-256-GCM", wrappedDek: recoveryWrapped },
+    };
+    if (passphraseWrapped) keyEnvelopes.passphrase = {
+      kdf: "Argon2id", salt: toBase64(salt), parameters: ARGON2ID_PARAMETERS, wrappedDek: passphraseWrapped,
+    };
+    return { backup: { manifest, payload, keyEnvelopes }, recoveryKey: toBase64(recoveryBytes) };
+  } finally {
+    passphraseKeyBytes?.fill(0);
+    dekBytes.fill(0);
+    recoveryBytes.fill(0);
+  }
 }
 
-async function decryptWithKey(pkg: BackupPackage, key: CryptoKey): Promise<Uint8Array> {
+async function decryptWithKey(pkg: BackupPackage, key: CryptoKey, wrappedDek: WrappedKey): Promise<Uint8Array> {
   const aad = aadFor(pkg.manifest);
-  const dekBytes = await decrypt(key, pkg.keyEnvelopes.passphrase.wrappedDek, aad);
+  const dekBytes = await decrypt(key, wrappedDek, aad);
   try {
     const dek = await importAesKey(dekBytes);
     const plaintext = await crypto.subtle.decrypt(
@@ -198,14 +198,16 @@ export async function decryptBackupWithPassphrase(
   argon2id: Argon2idProvider,
 ): Promise<Uint8Array> {
   validatePackageShape(pkg);
+  const envelope = pkg.keyEnvelopes.passphrase;
+  if (!envelope) throw new Error("backup_passphrase_not_available");
   const keyBytes = await argon2id.deriveKey({
     passphrase,
-    salt: fromBase64(pkg.keyEnvelopes.passphrase.salt),
-    parameters: ARGON2ID_PARAMETERS,
+    salt: fromBase64(envelope.salt),
+    parameters: envelope.parameters,
   });
   if (keyBytes.length !== 32) throw new Error("backup_argon2id_invalid_key_length");
   try {
-    return await decryptWithKey(pkg, await importAesKey(keyBytes));
+    return await decryptWithKey(pkg, await importAesKey(keyBytes), envelope.wrappedDek);
   } finally {
     keyBytes.fill(0);
   }
