@@ -155,4 +155,25 @@ class DriverWorkflowStoreTest {
         }
     }
 
+    @Test fun replayedCompletionCannotDuplicateEventProjectionOrOutbox() {
+        DriverWorkflowStore.queue(db, command("event-replay"))
+        val first = DriverWorkflowStore.complete(db, "event-replay", gps())
+        assertEquals(1, first.getInt("revision"))
+
+        var rejected = false
+        try {
+            DriverWorkflowStore.complete(db, "event-replay", gps())
+        } catch (_: Exception) {
+            rejected = true
+        }
+
+        assertTrue(rejected)
+        assertEquals(1, db.records().list().count { it.id.startsWith("driver-event:") })
+        assertEquals(1, db.records().list().count { it.id.startsWith("driver-outbox:") })
+        assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
+            .getJSONObject("value").getInt("revision"))
+        assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-replay")!!.json)
+            .getString("status"))
+    }
+
 }
