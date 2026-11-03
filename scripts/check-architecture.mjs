@@ -56,6 +56,15 @@ for (const absolute of sourceFiles) {
   for (const match of content.matchAll(importPattern)) {
     const specifier = match[1];
     const target = targetLayer(specifier, relative);
+    const resolvedImport = path.posix.normalize(path.posix.join(path.posix.dirname(relative), specifier));
+    const isWorkShiftImplementationImport = /\\/packages\\/(?:application\\/src\\/driver-workflow-service|domain\\/src\\/driver-workflow)(?:\\.[^/]+)?$/.test(resolvedImport);
+    const ownsWorkShiftImplementation =
+      relative.startsWith("packages/application/") ||
+      relative.startsWith("packages/domain/") ||
+      relative.startsWith("packages/features/work-shift/");
+    if (isWorkShiftImplementationImport && !ownsWorkShiftImplementation) {
+      failures.push(`${relative}: import Work/Shift internals through the public packages/features/work-shift entry point, not "${specifier}"`);
+    }
     const forbidden =
       (from === "core" && ["domain", "application", "storage", "ui"].includes(target)) ||
       (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
