@@ -13,12 +13,14 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - React + TypeScript + Vite PWA.
 - Capacitor Android project from the beginning.
 - Navigation and responsive application shell with feature registration boundaries.
+- Define shared driver command/state subscription contracts for the PWA and native overlay.
 - Environment/configuration validation and typed platform capability detection.
 
 ## Phase 2 — Durable core
 
 - Domain types, repository interfaces, IndexedDB implementation, migrations, and export/import primitives.
 - Native Room journal and Capacitor bridge for pending transition intents and durable event records.
+- One ordered transition coordinator and bidirectional, offline-capable PWA/overlay state propagation with revision catch-up.
 - Startup recovery, idempotent replay, and corruption/partial-write handling.
 - Persisted active-state restoration after app/process/device restart, including pending operations and clock-integrity diagnostics.
 - Automated unit, integration, browser, and Android instrumentation tests.
@@ -33,6 +35,7 @@ Work is delivered in small, reviewable phases. Keep each phase buildable and tes
 - Persisted state intervals and restart-safe shift, ride, and pickup-approach timers; live India clock in Asia/Kolkata HH:mm:ss.
 - Timers include real elapsed time while the app is closed and the phone is powered off; recompute from persisted timestamps after reboot and flag suspicious device-clock changes.
 - Offline entry and reconciliation; validate lifecycle across WebView reload, Android process death, shutdown, and device reboot.
+- Verify every shift/trip/cancellation action works from either surface and immediately synchronizes to the other without refresh or cloud connectivity.
 
 ## Phase 4 — Business modules
 
