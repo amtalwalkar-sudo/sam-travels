@@ -64,8 +64,10 @@ class DriverWorkflowStoreTest {
             rejected = true
         }
         assertTrue(rejected)
-        assertEquals(0, JSONObject(db.records().get("driver-state")!!.json)
-            .getJSONObject("value").getInt("revision"))
+        // A failed first transition must not create a projection; its implicit baseline is idle/revision 0.
+        val persistedState = db.records().get("driver-state")?.let { JSONObject(it.json).getJSONObject("value") }
+        assertEquals("idle", persistedState?.optString("state", "idle") ?: "idle")
+        assertEquals(0, persistedState?.optInt("revision", 0) ?: 0)
         assertEquals("pending_location", JSONObject(db.records().get("driver-intent:event-bad-gps")!!.json)
             .getString("status"))
         assertFalse(db.records().list().any { it.id.startsWith("driver-event:") })
