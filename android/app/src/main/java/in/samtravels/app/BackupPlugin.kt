@@ -61,6 +61,20 @@ class BackupPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun consumeOAuthCallback(call: PluginCall) {
+        try {
+            val preferences = context.getSharedPreferences("sam_travels_oauth", android.content.Context.MODE_PRIVATE)
+            val callback = preferences.getString("pending_callback_url", null)
+            preferences.edit().remove("pending_callback_url").apply()
+            val out = JSObject()
+            if (callback != null) out.put("url", callback)
+            call.resolve(out)
+        } catch (error: Exception) {
+            call.reject("Unable to read Dropbox OAuth callback", error)
+        }
+    }
+
+    @PluginMethod
     fun exportSnapshot(call: PluginCall) {
         executor.execute {
             try {
