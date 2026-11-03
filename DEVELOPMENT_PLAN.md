@@ -78,7 +78,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Added consistent browser IndexedDB snapshots in one read transaction across records, driver state, intents, events, and outbox. Browser restore validates schema/counts/revision, creates a durable checkpoint before replacement, performs a single replacement transaction, verifies the restored state, supports rollback, and retains the checkpoint until explicit verification and discard.
 - Added an Android Room backup bridge that snapshots the authoritative Room records in a transaction, creates a separate durable recovery checkpoint before replacement, validates the imported record envelope/count/schema/revision, replaces data transactionally, verifies restored record contents, supports rollback after interruption, and retains the checkpoint until explicit verification/discard.
 - Added a cross-runtime backup/restore orchestration API. Added Dropbox OAuth 2.0 PKCE with least-privilege file scopes, state validation, refresh-token lifecycle, Android Keystore-backed credential storage, and a shared NetworkGateway boundary. Encrypted package upload/download, paginated backup history, and configurable retention operations are implemented in the Dropbox client. Local disconnect/status remain available while Internet Access is disabled.
-- The Dropbox client factory deliberately requires native secure credential storage; browser-only PWA Dropbox OAuth is not enabled because the current browser credential-vault implementation is unavailable. No token or recovery secret is stored in ordinary business records.
+- Added a passphrase-encrypted browser credential vault using Argon2id and AES-256-GCM, with a verifier for wrong-passphrase detection. OAuth tokens remain encrypted in a dedicated IndexedDB vault table, excluded from business snapshots and backup packages. The Dropbox client factory now supports Android Keystore storage and the unlocked browser vault. No token or recovery secret is stored in ordinary business records.
 
 **Still required before Phase 6 can pass its exit gate:**
 
@@ -86,7 +86,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Configure the user's Dropbox app key/client ID and redirect URI, then verify the real OAuth redirect, authorization, refresh, upload, download, and revocation/error paths. No credentials or tokens may be committed.
 - Implement durable daily best-effort scheduling and retry/backoff. Android WorkManager and supported PWA scheduling need lifecycle-aware execution; the current Dropbox upload/retention methods are callable operations, not a scheduled job system.
 - Add end-to-end Android instrumentation for Room snapshot/restore/checkpoint interruption and browser tests for checkpoint rollback, plus complete auth-expiry/offline/network-gateway failure-injection coverage.
-- Decide/implement an appropriate protected credential mechanism for browser-only PWA before enabling Dropbox there.
+- Add a user-facing browser-vault unlock/lock flow and ensure its passphrase is never persisted.
 - Complete physical-device acceptance for Android background scheduling, app/process interruption, offline deferral, and restore recovery.
 
 Do not mark Phase 6 complete until these remaining items are implemented and tested. Existing CI run #143 verified the earlier core foundation only; backup/recovery code requires its own complete green CI run.
