@@ -2,7 +2,8 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
-  BROWSER_BACKUP_PARTICIPANTS,\n  assertBrowserBackupTableCoverage,
+  BROWSER_BACKUP_PARTICIPANTS,
+  assertBrowserBackupTableCoverage,
   discardVerifiedBrowserCheckpoint,
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
