@@ -93,8 +93,8 @@ The dedicated `architecture` CI job must check:
 - Domain/core/application isolation from UI, persistence, and platform SDKs.
 - UI isolation from direct storage access and platform plugins.
 - No duplicate authoritative business stores or bypass of repository/network-gateway contracts where statically detectable.
-- Contract/unit tests covering the domain transition and compatibility rules.
-- Database migrations, backup compatibility, recovery/failure-injection, and Android instrumentation suites remain separate required test/build checks.
+- The required `web` job runs the domain transition, compatibility, recovery, and browser unit tests.
+- The required `android` job runs Room migration, backup/recovery, and Android instrumentation suites.
 
 Required pull-request checks for `main` are:
 - `architecture`
