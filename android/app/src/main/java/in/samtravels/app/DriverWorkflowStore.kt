@@ -143,6 +143,10 @@ object DriverWorkflowStore {
                     .put("id", "driver-state:$revision")
                     .put("eventId", eventId)
                     .put("revision", revision)
+                    .put("integrationId", "logbook.work-driver-events.v1")
+                    .put("contractVersion", 1)
+                    .put("eventName", "work.driver-event-committed")
+                    .put("payloadVersion", 1)
                     .put("delivered", false)
                     .put("createdAt", now),
                 now,
