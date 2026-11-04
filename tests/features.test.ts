@@ -150,6 +150,14 @@ describe("runtime feature registry", () => {
     expect(opened).toBe(false);
   });
 
+  it("exposes a runtime-immutable feature registry", () => {
+    const registry = registerFeatures();
+    expect(Object.isFrozen(registry)).toBe(true);
+    expect((registry as unknown as { set?: unknown }).set).toBeUndefined();
+    expect((registry as unknown as { delete?: unknown }).delete).toBeUndefined();
+    expect(registry.has("work")).toBe(true);
+  });
+
   it("returns immutable registration metadata", () => {
     const registry = registerFeatures();
     expect(() => (registry.get("work")!.dependencies as string[]).push("admin")).toThrow();
