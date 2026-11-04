@@ -98,3 +98,5 @@ button{font:inherit}
 .trip-history-empty,.trip-history-error{font-size:12px;line-height:1.55;color:#71808a;padding:12px 0}.trip-history-error{color:#a13c3c}.trip-history-id{display:block;margin-top:12px;overflow-wrap:anywhere}
 
 .pending-expired{font-size:10px;color:#a13c3c;max-width:150px;text-align:right;line-height:1.35}
+
+.trip-history-note{font-size:10px;color:#8a6b4a;margin:8px 0 0}
