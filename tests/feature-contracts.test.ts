@@ -93,7 +93,7 @@ describe("versioned feature integration contracts", () => {
 
 describe("versioned calculation contracts", () => {
   const features = registerFeatures();
-  const calculation: CalculationContract<{ distanceKm: number; fuelLitres: number }, number> = {
+  const calculation: CalculationContract<{ distanceKm: number; fuelLitres: number; businessDate: string }, number> = {
     id: "test-fuel-efficiency",
     ownerFeatureId: "performance",
     version: 1,
