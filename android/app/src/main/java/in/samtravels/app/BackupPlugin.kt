@@ -1,8 +1,6 @@
 package `in`.samtravels.app
 
 import androidx.room.Room
-import androidx.room.Database
-import androidx.room.Entity
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONArray
@@ -25,22 +23,9 @@ class BackupPlugin : Plugin() {
     private val journalPrefix = "__sam_travels_recovery_journal__:"
     private fun isInternal(id: String) = id.startsWith(checkpointPrefix) || id.startsWith(journalPrefix)
 
-    private fun assertRoomBackupCoverage() {
-        val database = LocalDatabase::class.java.getAnnotation(Database::class.java)
-            ?: error("backup_room_schema_unavailable")
-        val tables = database.entities.mapNotNull { entity ->
-            entity.java.getAnnotation(Entity::class.java)?.tableName
-        }.toSet()
-        // Android stores all feature-owned business records in the single records
-        // table. A future Room entity must be registered in the backup design
-        // before it can silently escape the snapshot.
-        require(tables == setOf("records") && tables.size == database.entities.size) {
-            "backup_room_table_registration_mismatch"
-        }
-    }
 
     private fun businessRecords(): JSONArray {
-        assertRoomBackupCoverage()
+        NativeBackupCoverage.assertRoomSchemaCovered()
         val rows = db.records().list().filterNot { isInternal(it.id) }
         val result = JSONArray()
         rows.forEach { row ->
