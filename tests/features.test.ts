@@ -33,8 +33,18 @@ describe("runtime feature registry", () => {
 
   it("rejects duplicate module identifiers", () => {
     expect(() => registerFeatures([{
-      id: "admin", label: "Admin v2", contractVersion: 2, dependencies: [],
+      id: "admin", label: "Admin v2", dataPolicy: "non-persistent", contractVersion: 2, dependencies: [],
     }])).toThrow("Duplicate feature registration: admin");
+  });
+
+  it("rejects a persistent feature that omits its persistence contract", () => {
+    expect(() => registerFeatures([{
+      id: "unbacked-feature",
+      label: "Unbacked",
+      dataPolicy: "persistent",
+      contractVersion: 1,
+      dependencies: [],
+    }])).toThrow("Persistent feature is missing its persistence contract");
   });
 
   it("supports a future add-on without changing the initial registry", () => {
@@ -68,12 +78,12 @@ describe("runtime feature registry", () => {
 
   it("rejects missing dependencies and incompatible dependency contracts", () => {
     expect(() => registerFeatures([{
-      id: "custom-a", label: "A", contractVersion: 1, dependencies: ["missing-feature"],
+      id: "custom-a", label: "A", dataPolicy: "non-persistent", contractVersion: 1, dependencies: ["missing-feature"],
     }])).toThrow("Missing dependency missing-feature");
 
     expect(() => registerFeatures([
       { id: "custom-a", label: "A", contractVersion: 1, dependencies: [] },
-      { id: "custom-b", label: "B", contractVersion: 1, dependencies: [{ id: "custom-a", contractVersion: 2 }] },
+      { id: "custom-b", label: "B", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [{ id: "custom-a", contractVersion: 2 }] },
     ])).toThrow("Incompatible dependency contract");
   });
 
