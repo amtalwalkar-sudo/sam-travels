@@ -15,7 +15,7 @@ Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/op
 
 Dependencies point inward. Domain and application layers must not import UI, Dexie, Capacitor, Android, or Dropbox SDK details.
 
-## Capability ownership and file-size discipline
+## Automated architecture enforcement\n\nExecutable source-boundary, public feature-entry, dependency-cycle, and source-size rules are defined in [docs/ARCHITECTURE_ENFORCEMENT.md](docs/ARCHITECTURE_ENFORCEMENT.md) and run by the required architecture CI job. Static checks do not replace runtime registration, backup completeness, failure-injection, or physical-device acceptance.\n\n## Capability ownership and file-size discipline
 
 A capability owns its domain rules, application use cases, ports, persistence adapter, platform adapter (when needed), presentation adapter, and focused tests. Keep those parts adjacent to their capability rather than placing unrelated responsibilities in shared utilities or a universal service.
 

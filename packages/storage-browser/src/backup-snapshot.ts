@@ -1,6 +1,7 @@
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
+import { registerFeatures } from "../../core/src/features";
 
 export interface BrowserSnapshotData {
   records: unknown[];
@@ -15,9 +16,48 @@ type Checkpoint = {
   status: "checkpoint" | "restored_unverified" | "verified" | "rollback_complete";
   snapshot: BrowserSnapshotData;
 };
-const TABLE_NAMES = ["records", "driverState", "driverIntents", "driverEvents", "driverOutbox"] as const;
-const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
+export type BrowserSnapshotTable = keyof BrowserSnapshotData;
 
+export type BrowserBackupParticipant = {
+  id: string;
+  featureId: string | "platform";
+  schemaVersion: number;
+  tableNames: BrowserSnapshotTable[];
+};
+
+/** One authoritative mapping from registered feature obligations to browser tables. */
+export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = Object.freeze([
+  { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
+  {
+    id: "work-driver-state",
+    featureId: "work",
+    schemaVersion: 1,
+    tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+  },
+]);
+
+function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
+  const registry = registerFeatures();
+  const featureParticipants = [...registry.values()]
+    .filter(feature => feature.persistence?.backup.required)
+    .map(feature => {
+      const participantId = feature.persistence!.backup.participantId;
+      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === participantId);
+      if (!participant || participant.featureId !== feature.id) {
+        throw new Error("backup_feature_registration_mismatch:" + feature.id + ":" + participantId);
+      }
+      return participant;
+    });
+  const platformParticipants = BROWSER_BACKUP_PARTICIPANTS.filter(item => item.featureId === "platform");
+  const resolved = [...platformParticipants, ...featureParticipants];
+  const ids = resolved.map(item => item.id);
+  if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
+  return resolved;
+}
+
+const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
+  .flatMap(participant => participant.tableNames);
+const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
  * Recovery checkpoints and local credential-vault material are intentionally
@@ -43,7 +83,7 @@ function liveTables() {
   return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
 
-function rowKey(table: typeof TABLE_NAMES[number], row: unknown): string {
+function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
   if (table === "driverIntents") {
@@ -74,7 +114,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
   if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
-  const primaryKeys: Record<typeof TABLE_NAMES[number], (row: Record<string, unknown>) => string> = {
+  const primaryKeys: Record<BrowserSnapshotTable, (row: Record<string, unknown>) => string> = {
     records: row => String(row.id ?? ""),
     driverState: row => String(row.id ?? ""),
     driverIntents: row => String((row.command as Record<string, unknown> | undefined)?.eventId ?? ""),
