@@ -44,71 +44,16 @@ function featureTarget(file) {
 }
 
 function isPublicFeatureEntry(resolved) {
-  const normalized = normalize(resolved).replace(/\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "").replace(/\/$/, "");
-  return /\/packages\/features\/[^/]+(?:\/index)?$/.test(normalized);
+  const normalized = normalize(resolved).replace(/\\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "").replace(/\\/$/, "");
+  const parts = normalized.split("/");
+  return parts[0] === "packages" && parts[1] === "features" &&
+    parts.length === 3 || parts[0] === "packages" && parts[1] === "features" &&
+    parts.length === 4 && parts[3] === "index";
 }
 
 function targetLayer(resolved) {
-  const p = "/" + normalize(resolved).replace(/^\\/+/, "");
+  const p = "/" + normalize(resolved);
   if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/")) return "ui";
-  return null;
-}mport { readFile, readdir, stat } from "node:fs/promises";
-import path from "node:path";
-
-const root = process.cwd();
-const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
-const ignoredDirectories = new Set(["node_modules", ".git", "dist", "build", ".gradle", "coverage"]);
-const maxLines = 400;
-const maxBytes = 24 * 1024;
-const failures = [];
-const sourceFiles = [];
-const importsByFeature = new Map();
-
-const normalize = (value) => value.split(path.sep).join("/");
-
-async function walk(directory) {
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
-    const absolute = path.join(directory, entry.name);
-    if (entry.isDirectory()) await walk(absolute);
-    else if (sourceExtensions.has(path.extname(entry.name))) sourceFiles.push(absolute);
-  }
-}
-
-function layer(file) {
-  const p = normalize(file);
-  if (p.startsWith("packages/core/src/")) return "core";
-  if (p.startsWith("packages/domain/src/")) return "domain";
-  if (p.startsWith("packages/application/src/")) return "application";
-  if (p.startsWith("packages/storage-browser/src/") || p.startsWith("packages/storage-android/src/")) return "storage";
-  if (p.startsWith("packages/features/")) return "feature";
-  if (p.startsWith("apps/web/src/ui/") || p.startsWith("apps/web/src/components/")) return "ui";
-  if (p.startsWith("apps/web/src/")) return "web-app";
-  return "outer";
-}
-
-function featureName(file) {
-  const match = normalize(file).match(/^packages\/features\/([^/]+)\//);
-  return match?.[1] ?? null;
-}
-
-function featureTarget(file) {
-  const match = normalize(file).match(/(?:^|\/)packages\/features\/([^/]+)(?:\/|$)/);
-  return match?.[1] ?? null;
-}
-
-function isPublicFeatureEntry(resolved) {
-  const normalized = normalize(resolved).replace(/\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "").replace(/\/$/, "");
-  return /\/packages\/features\/[^/]+(?:\/index)?$/.test(normalized);
-}
-
-function targetLayer(resolved) {
-  if (resolved.includes("/packages/core/src/")) return "core";
   if (p.includes("/packages/domain/src/")) return "domain";
   if (p.includes("/packages/application/src/")) return "application";
   if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
