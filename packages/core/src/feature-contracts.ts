@@ -1,3 +1,4 @@
+import { createReadonlyRegistry } from "./readonly-registry";
 import type { FeatureDefinition, FeatureId } from "./features";
 
 export type FeatureIntegrationContract = {
@@ -76,7 +77,7 @@ export function registerFeatureIntegrations(
     }
     registry.set(contract.id, Object.freeze({ ...contract }));
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
 /** Register versioned, pure domain calculations and execute their regression fixtures immediately. */
@@ -121,7 +122,7 @@ export function registerCalculations<Input, Output>(
     }
     registry.set(contract.id, Object.freeze({ ...contract }));
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
 /** Apply a declared decimal rounding policy without changing the source formula. */
