@@ -35,3 +35,6 @@ Optional capabilities/reliability:
 - Android emulator CI verifies the native bridge compiles and the application builds.
 - Instrumented tests cover readiness policy decisions and API-level applicability.
 - Physical device acceptance remains a separate deferred gate across Xiaomi/Redmi, Samsung, Pixel, and other OEM/Android combinations. Emulator CI does not prove OEM settings navigation or battery behavior.
+
+
+CI verification is required before this contract is considered implementation-complete.
