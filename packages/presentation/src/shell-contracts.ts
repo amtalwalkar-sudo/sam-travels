@@ -95,7 +95,7 @@ export function definePresentationForm(
     version: definition.version,
     fields: Object.freeze(definition.fields.map(field => Object.freeze({
       ...field,
-      options: field.options ? Object.freeze(field.options.map(option => Object.freeze({ ...option }))) : undefined,
+      options: field.options ? Object.freeze(field.options.map((option: Readonly<{ value: string; label: string }>) => Object.freeze({ ...option }))) : undefined,
     }))),
   });
 }
