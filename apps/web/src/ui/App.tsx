@@ -55,7 +55,7 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
 
   return (
     <section className="empty-screen" aria-labelledby="screen-title">
-      <div className="empty-screen-icon"><NavigationIcon name={navigation.find((item) => item.label === screen)!.icon} /></div>
+      <div className="empty-screen-icon"><NavigationIcon name={navigation.find((item) => item.screen === screen)!.icon} /></div>
       <p>{descriptions[screen]}</p>
       <span>This section will be developed in a later phase.</span>
     </section>
