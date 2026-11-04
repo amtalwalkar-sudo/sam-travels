@@ -75,5 +75,13 @@ describe("production Log Book runtime registrations", () => {
       received.push(message.eventId);
     });
     expect(received).toEqual(["work-event-001"]);
+    await expect(dispatchCommittedWorkEvent(runtime, {
+      ...event,
+      gps: { ...event.gps, latitude: 999 },
+    }, () => undefined)).rejects.toThrow("Invalid feature integration payload");
+    await expect(dispatchCommittedWorkEvent(runtime, {
+      ...event,
+      command: { ...event.command, eventId: "different-event-id" },
+    }, () => undefined)).rejects.toThrow("Invalid feature integration payload");
   });
 });
