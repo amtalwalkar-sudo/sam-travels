@@ -261,7 +261,7 @@ export type FeatureMigrationTransaction<Context> = {
  * Handler availability and migration ordering are validated before the adapter
  * is allowed to begin writes; adapter rollback handles injected/runtime failures.
  */
-export function runFeatureMigrationsAtomically<Context>(
+export async function runFeatureMigrationsAtomically<Context>(
   feature: FeatureDefinition,
   currentVersion: number,
   handlers: Readonly<Record<string, FeatureMigrationHandler<Context>>>,
