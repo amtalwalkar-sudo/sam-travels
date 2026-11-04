@@ -78,9 +78,8 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             val filename = "sam-travels-auto-r${manifest.optInt("snapshotRevision")}-${digest}.stbackup"
             val path = "/SamTravelsBackups/" + filename
 
-            uploadToken = ensureFolder(token, clientId)
+            var uploadToken = ensureFolder(token, clientId)
             if (!internetAllowed()) return defer("internet_access_disabled")
-            var uploadToken = token
             var upload = request(
                 "https://content.dropboxapi.com/2/files/upload",
                 "POST",
