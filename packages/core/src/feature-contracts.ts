@@ -76,7 +76,7 @@ export function registerFeatureIntegrations(
  * fixtures immediately. UI and persistence code consume this contract; neither
  * owns or reimplements the formula.
  */
-export function registerCalculations(
+export function registerCalculations<Input, Output>(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
   contracts: CalculationContract<Input, Output>[],
 ): ReadonlyMap<string, CalculationContract<Input, Output>> {
