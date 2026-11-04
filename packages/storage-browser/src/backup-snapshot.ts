@@ -1,6 +1,7 @@
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
+import { registerFeatures } from "../../core/src/features";
 
 export interface BrowserSnapshotData {
   records: unknown[];
@@ -15,8 +16,43 @@ type Checkpoint = {
   status: "checkpoint" | "restored_unverified" | "verified" | "rollback_complete";
   snapshot: BrowserSnapshotData;
 };
-const TABLE_NAMES = ["records", "driverState", "driverIntents", "driverEvents", "driverOutbox"] as const;
+export type BrowserSnapshotTable = keyof BrowserSnapshotData;
+
+export type BrowserBackupParticipant = {
+  id: string;
+  featureId: string | "platform";
+  schemaVersion: number;
+  tableNames: BrowserSnapshotTable[];
+};
+
+/** One authoritative mapping from registered feature obligations to browser tables. */
+export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = Object.freeze([
+  { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
+  {
+    id: "work-driver-state",
+    featureId: "work",
+    schemaVersion: 1,
+    tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+  },
+]);
+
+const TABLE_NAMES: BrowserSnapshotTable[] = BROWSER_BACKUP_PARTICIPANTS.flatMap(participant => participant.tableNames);
 const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
+
+function assertFeatureBackupParticipantCoverage(): void {
+  const registry = registerFeatures();
+  const declared = new Set(BROWSER_BACKUP_PARTICIPANTS.map(participant => participant.id));
+  const missing = [...registry.values()]
+    .filter(feature => feature.persistence?.backup.required)
+    .filter(feature => !declared.has(feature.persistence!.backup.participantId))
+    .map(feature => feature.id + ":" + feature.persistence!.backup.participantId);
+  const duplicateIds = BROWSER_BACKUP_PARTICIPANTS
+    .map(participant => participant.id)
+    .filter((id, index, all) => all.indexOf(id) !== index);
+  if (missing.length || duplicateIds.length) {
+    throw new Error("backup_feature_registration_mismatch:" + [...missing, ...duplicateIds].join(","));
+  }
+}
 
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
@@ -26,6 +62,7 @@ const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentia
 export function assertBrowserBackupTableCoverage(
   actualTableNames: string[] = browserDatabase.tables.map(table => table.name),
 ): void {
+  assertFeatureBackupParticipantCoverage();
   const registered = new Set<string>([...TABLE_NAMES, ...EXCLUDED_TABLE_NAMES]);
   const actual = new Set(actualTableNames);
   const missing = [...registered].filter(name => !actual.has(name));
@@ -43,7 +80,7 @@ function liveTables() {
   return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
 
-function rowKey(table: typeof TABLE_NAMES[number], row: unknown): string {
+function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
   if (table === "driverIntents") {
@@ -74,7 +111,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
   if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
-  const primaryKeys: Record<typeof TABLE_NAMES[number], (row: Record<string, unknown>) => string> = {
+  const primaryKeys: Record<BrowserSnapshotTable, (row: Record<string, unknown>) => string> = {
     records: row => String(row.id ?? ""),
     driverState: row => String(row.id ?? ""),
     driverIntents: row => String((row.command as Record<string, unknown> | undefined)?.eventId ?? ""),
