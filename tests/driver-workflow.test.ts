@@ -16,7 +16,9 @@ describe("durable single-driver workflow",()=>{
   expect(await repo.listEvents()).toHaveLength(1);expect((await repo.getIntent(command.eventId))?.status).toBe("recorded");
   await expect(repo.completeIntent(command.eventId,gps,command.transitionAt)).rejects.toThrow();
   expect((await repo.getSnapshot()).revision).toBe(1);
-  expect(await browserDatabase.table("driverOutbox").toArray()).toHaveLength(1);
+  const outbox=await browserDatabase.table("driverOutbox").toArray();
+  expect(outbox).toHaveLength(1);
+  expect(outbox[0]).toMatchObject({integrationId:"logbook.work-driver-events.v1",contractVersion:1,eventName:"work.driver-event-committed",payloadVersion:1,delivered:false});
  });
  it("rejects stale competing commands rather than last-write-wins",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
