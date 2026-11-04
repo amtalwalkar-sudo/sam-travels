@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isWithinGpsRecoveryWindow } from "../packages/features/work-shift";
+import { createDriverCommand, DriverWorkflowService, EMPTY_DRIVER_STATE, isWithinGpsRecoveryWindow, type DriverWorkflowRepository } from "../packages/features/work-shift";
+import { vi } from "vitest";
 
 describe("driver GPS recovery window", () => {
   const transition = Date.parse("2026-11-04T10:00:00.000Z");
