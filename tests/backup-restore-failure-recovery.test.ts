@@ -13,66 +13,33 @@ describe("backup restore failure recovery", () => {
     await browserDatabase.open();
   });
 
-  it("rolls back current data and retains a recovery checkpoint when post-restore verification fails", async () => {
+  it("rejects malformed feature rows before replacing current data", async () => {
     const timestamp = "2026-11-04T00:00:00.000Z";
-    await browserDatabase.records.bulkPut([
-      {
-        id: "alpha",
-        schemaVersion: 1,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        source: "web",
-        revision: 1,
-        data: { label: "backup-alpha" },
-      },
-      {
-        id: "zeta",
-        schemaVersion: 1,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        source: "web",
-        revision: 1,
-        data: { label: "backup-zeta" },
-      },
-    ]);
-
+    await browserDatabase.records.put({
+      id: "current-business-data",
+      schemaVersion: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      source: "web",
+      revision: 9,
+      data: { label: "must-survive" },
+    });
     const source = await exportBrowserSnapshot("0.1.0");
-    const deliberatelyReordered = {
+    const malformed = {
       ...source.data,
-      records: [...source.data.records].reverse(),
+      driverOutbox: [{ delivered: false, revision: 1, eventId: "missing-primary-key" }],
     };
 
-    await browserDatabase.records.bulkPut([
-      {
-        id: "alpha",
-        schemaVersion: 1,
-        createdAt: timestamp,
-        updatedAt: "2026-11-04T00:01:00.000Z",
-        source: "web",
-        revision: 2,
-        data: { label: "current-alpha" },
-      },
-      {
-        id: "zeta",
-        schemaVersion: 1,
-        createdAt: timestamp,
-        updatedAt: "2026-11-04T00:01:00.000Z",
-        source: "web",
-        revision: 2,
-        data: { label: "current-zeta" },
-      },
-    ]);
-
     await expect(restoreBrowserSnapshot({
-      data: deliberatelyReordered,
+      data: malformed,
       manifest: source.manifest,
       confirmed: true,
-    })).rejects.toThrow("backup_post_restore_verification_failed");
+    })).rejects.toThrow("backup_invalid_or_duplicate_row_id:driverOutbox");
 
-    expect((await browserDatabase.records.get("alpha"))?.data).toEqual({ label: "current-alpha" });
-    expect((await browserDatabase.records.get("zeta"))?.data).toEqual({ label: "current-zeta" });
-    expect(await listBrowserRecoveryCheckpoints()).toEqual([
-      expect.objectContaining({ status: "rollback_complete" }),
-    ]);
+    expect((await browserDatabase.records.get("current-business-data"))?.data).toEqual({
+      label: "must-survive",
+    });
+    expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
   });
+
 });
