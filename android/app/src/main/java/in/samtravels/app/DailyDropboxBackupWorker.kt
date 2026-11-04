@@ -72,17 +72,36 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
 
             ensureFolder(token)
             if (!internetAllowed()) return defer("internet_access_disabled")
-            val upload = request(
+            var uploadToken = token
+            var upload = request(
                 "https://content.dropboxapi.com/2/files/upload",
                 "POST",
                 bytes,
                 mapOf(
-                    "Authorization" to "Bearer $token",
+                    "Authorization" to "Bearer $uploadToken",
                     "Content-Type" to "application/octet-stream",
                     "Dropbox-API-Arg" to JSONObject()
                         .put("path", path).put("mode", "add").put("autorename", false).put("mute", true).toString(),
                 ),
             )
+            // Dropbox can revoke an access token before its locally stored expiry.
+            // Force one refresh and replay the idempotent add/no-autorename upload.
+            if (BackupWorkerResilience.shouldForceTokenRefresh(upload.first)) {
+                uploadToken = accessToken(clientId, forceRefresh = true)
+                    ?: return defer("dropbox_reauthentication_required")
+                if (!internetAllowed()) return defer("internet_access_disabled")
+                upload = request(
+                    "https://content.dropboxapi.com/2/files/upload",
+                    "POST",
+                    bytes,
+                    mapOf(
+                        "Authorization" to "Bearer $uploadToken",
+                        "Content-Type" to "application/octet-stream",
+                        "Dropbox-API-Arg" to JSONObject()
+                            .put("path", path).put("mode", "add").put("autorename", false).put("mute", true).toString(),
+                    ),
+                )
+            }
             if (upload.first == 401) throw TransientBackupException("dropbox_token_rejected")
             if (upload.first != 200 && upload.first != 409) {
                 if (upload.first == 429 || upload.first >= 500) throw TransientBackupException("dropbox_upload_http_${upload.first}")
@@ -174,10 +193,10 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
         return result ?: error("backup_snapshot_unavailable")
     }
 
-    private fun accessToken(clientId: String): String? {
+    private fun accessToken(clientId: String, forceRefresh: Boolean = false): String? {
         val stored = credentials.get(TOKEN_KEY) ?: return null
         val tokens = JSONObject(stored)
-        if (tokens.optString("accessToken").isNotBlank() &&
+        if (!forceRefresh && tokens.optString("accessToken").isNotBlank() &&
             tokens.optLong("expiresAt") > System.currentTimeMillis() + 60_000) return tokens.getString("accessToken")
         val refresh = tokens.optString("refreshToken")
         if (refresh.isBlank()) return null
