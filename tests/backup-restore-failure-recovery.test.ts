@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
   exportBrowserSnapshot,
@@ -57,13 +57,29 @@ describe("backup restore failure recovery", () => {
       source: "web", revision: 2, data: { label: "current" },
     });
 
-    const write = vi.spyOn(browserDatabase.records, "bulkPut").mockImplementationOnce(async () => {
-      throw new Error("simulated_restore_interruption");
-    });
-    await expect(restoreBrowserSnapshot({
-      data: source.data, manifest: source.manifest, confirmed: true,
-    })).rejects.toThrow("simulated_restore_interruption");
-    write.mockRestore();
+    // Inject a failure after the restore callback has written all replacement
+    // tables but before IndexedDB can commit its transaction.
+    const database = browserDatabase as unknown as { transaction: (...args: any[]) => any };
+    const originalTransaction = database.transaction;
+    let injected = false;
+    database.transaction = function (...args: any[]) {
+      if (args[0] === "rw" && !injected) {
+        injected = true;
+        const scope = args[2];
+        args[2] = async (...scopeArgs: any[]) => {
+          await scope(...scopeArgs);
+          throw new Error("simulated_restore_interruption");
+        };
+      }
+      return originalTransaction.apply(this, args);
+    };
+    try {
+      await expect(restoreBrowserSnapshot({
+        data: source.data, manifest: source.manifest, confirmed: true,
+      })).rejects.toThrow("simulated_restore_interruption");
+    } finally {
+      database.transaction = originalTransaction;
+    }
 
     expect((await browserDatabase.records.get("business-record"))?.data).toEqual({ label: "current" });
     expect(await listBrowserRecoveryCheckpoints()).toEqual([
