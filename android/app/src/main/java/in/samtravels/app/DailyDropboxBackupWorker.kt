@@ -51,6 +51,14 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     private val state = applicationContext.getSharedPreferences("sam_travels_background_backup", Context.MODE_PRIVATE)
 
     override fun doWork(): Result {
+        val previousStatus = state.getString("last_status", null)
+        if (BackupWorkerResilience.shouldReconcileInterruptedRun(previousStatus)) {
+            state.edit().putString("last_interrupted_at", Instant.now().toString())
+                .putString("last_status", "interrupted_reconciled")
+                .putString("last_error", "previous_backup_run_interrupted").commit()
+        }
+        state.edit().putString("last_attempt", Instant.now().toString())
+            .putString("last_status", "running").remove("last_error").commit()
         try {
             val config = applicationContext.getSharedPreferences("sam_travels_dropbox_config", Context.MODE_PRIVATE)
             val clientId = config.getString("client_id", null)?.takeIf { it.isNotBlank() }
