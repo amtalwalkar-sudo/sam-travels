@@ -80,4 +80,44 @@ internal object NativeBackupCoverage {
             "backup_room_table_registration_mismatch"
         }
     }
+    /** Export through the discovered participant adapter and tag every row with its owner. */
+    fun exportBusinessRecords(
+        database: LocalDatabase,
+        isInternal: (String) -> Boolean,
+    ): JSONArray {
+        assertRoomSchemaCovered(database)
+        val participants = discoverParticipants()
+        require(participants.size == 1 && participants.single().adapterId == "stored-records-json-v1") {
+            "backup_room_snapshot_adapter_unavailable"
+        }
+        val participantId = participants.single().id
+        val result = JSONArray()
+        database.records().list().filterNot { isInternal(it.id) }.forEach { row ->
+            result.put(JSONObject()
+                .put("id", row.id)
+                .put("json", row.json)
+                .put("schemaVersion", row.schemaVersion)
+                .put("updatedAt", row.updatedAt)
+                .put("participantId", participantId))
+        }
+        return result
+    }
+
+    /** Accept legacy V1 rows without owner tags only while the database has one participant. */
+    fun validateBusinessRecords(records: JSONArray) {
+        val participants = discoverParticipants()
+        require(participants.isNotEmpty()) { "backup_no_room_participants" }
+        val participantIds = participants.map { it.id }.toSet()
+        for (index in 0 until records.length()) {
+            val row = records.optJSONObject(index) ?: error("backup_invalid_record")
+            val participantId = row.optString("participantId").ifBlank {
+                require(participants.size == 1) { "backup_record_participant_missing" }
+                participants.single().id
+            }
+            require(participantIds.contains(participantId)) {
+                "backup_unknown_participant:" + participantId
+            }
+        }
+    }
+
 }
