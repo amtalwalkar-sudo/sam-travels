@@ -59,7 +59,7 @@ class DriverOverlayService:Service(){
    startForeground(notificationId,notification)
   }
  }
- private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2).enableMultiInstanceInvalidation() .addMigrations(LocalDatabase.MIGRATION_1_2).build()}
+ private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2).enableMultiInstanceInvalidation().build()}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
