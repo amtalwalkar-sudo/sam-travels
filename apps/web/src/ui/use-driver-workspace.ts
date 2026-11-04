@@ -9,6 +9,7 @@ import {
   enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { dispatchCommittedWorkEvent, initializeApplicationRuntimeRegistry, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 
 export function useDriverWorkspace() {
   const [now, setNow] = useState(Date.now());
@@ -59,9 +60,16 @@ export function useDriverWorkspace() {
           return;
         }
 
-        const service = new DriverWorkflowService(repository, location);
+        const runtime = initializeApplicationRuntimeRegistry();
+        const service = new DriverWorkflowService(repository, location, async (event) => {
+          await dispatchCommittedWorkEvent(runtime, event, async () => {
+            rebuildTripHistoryProjection(await repository.listEvents());
+          });
+        });
         setWorkflow(service);
         setDriver(await service.snapshot());
+        rebuildTripHistoryProjection(await service.events());
+        await service.replayCommittedEvents();
         const pendingItems = await service.reconcilePending();
         setPending(pendingItems);
         setDriverMessage(
@@ -75,6 +83,7 @@ export function useDriverWorkspace() {
         });
 
         const syncHandle = window.setInterval(() => {
+          void service.replayCommittedEvents();
           void service.snapshot().then((snapshot) => {
             if (live) setDriver(snapshot);
           });
