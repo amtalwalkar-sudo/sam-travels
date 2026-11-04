@@ -1,6 +1,6 @@
 # Phase 6 — Background Backup Design
 
-Status: Android WorkManager implementation now present; CI and device acceptance remain outstanding.
+Status: Android WorkManager implementation and automated resilience gates are green in CI; real-account and physical-device acceptance remain outstanding by user deferral.
 
 ## Goals
 
@@ -30,8 +30,7 @@ Status: Android WorkManager implementation now present; CI and device acceptance
 
 ## Verification gates
 
-- Unit tests added for v1 passphrase/recovery compatibility, v2 recovery-only serialization/parse/decryption, missing-key rejection, wrong recovery key, and clear passphrase-restore rejection. CI must confirm these tests; nonce uniqueness, broader integrity failure, and malformed-package coverage remain verification items.
-- Android instrumentation still required: Keystore alias isolation, encrypted secret persistence across process recreation, worker scheduling persistence across reboot simulation, unique-work idempotency, offline/policy-disabled deferral, token refresh, upload retry, V2 cross-runtime decryption, and interrupted-run reconciliation.
-- Room instrumentation: consistent snapshot, restore checkpoint creation, interruption at each restore stage, rollback integrity, and verified-checkpoint discard.
-- CI must build the PWA and Android app, run all unit tests, and execute Android emulator instrumentation. The worker must be validated against the TypeScript V2 parser/decryptor using a shared fixture before it is treated as format-compatible.
-- Real Dropbox OAuth/upload/download and physical-device Doze/reboot/locked-device checks remain manual acceptance gates. CI cannot prove these external/device behaviors.
+- CI run [#301](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41833914640) on head `b2d14e9bf7448ec91c4861f05420518accc87175` is green for web tests/build, Android debug/unit/instrumentation tasks, and unsigned release assembly.
+- Automated tests cover encrypted V1/V2 package paths, recovery-key restoration and cross-runtime native V2 fixture decryption, OAuth policy/state/token-refresh behavior, retry and retention decisions, interrupted-run reconciliation decisions, Room transactional rollback under injected replacement failure, and recovery-key vault persistence across vault recreation.
+- The Android worker uses bounded WorkManager retries, status reconciliation for stale `running` attempts, policy checks before requests, and Keystore-backed recovery material. CI validates compilation and automated test scenarios, but it is not proof of scheduling execution through real process death, reboot, Doze, or locked-device states.
+- Remaining manual acceptance: real Dropbox OAuth/upload/download/revocation and physical-device Doze/reboot/locked-device checks, plus owner walkthrough of restore/rollback with disposable data. These remain deferred; CI cannot prove external/device behavior.
