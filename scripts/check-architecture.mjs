@@ -44,11 +44,15 @@ function featureTarget(file) {
 }
 
 function isPublicFeatureEntry(resolved) {
-  const normalized = normalize(resolved).replace(/\\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "").replace(/\\/$/, "");
+  const value = normalize(resolved);
+  const extension = path.posix.extname(value);
+  const withoutExtension = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(extension)
+    ? value.slice(0, -extension.length)
+    : value;
+  const normalized = withoutExtension.endsWith("/") ? withoutExtension.slice(0, -1) : withoutExtension;
   const parts = normalized.split("/");
   return parts[0] === "packages" && parts[1] === "features" &&
-    parts.length === 3 || parts[0] === "packages" && parts[1] === "features" &&
-    parts.length === 4 && parts[3] === "index";
+    (parts.length === 3 || (parts.length === 4 && parts[3] === "index"));
 }
 
 function targetLayer(resolved) {
