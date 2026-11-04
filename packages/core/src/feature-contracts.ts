@@ -120,7 +120,11 @@ export function registerCalculations<Input, Output>(
         throw new Error("Calculation regression failed: " + contract.id + ":" + testCase.name);
       }
     }
-    registry.set(contract.id, Object.freeze({ ...contract }));
+    registry.set(contract.id, Object.freeze({
+      ...contract,
+      rounding: Object.freeze({ ...contract.rounding }),
+      regressionCases: Object.freeze(contract.regressionCases.map(testCase => Object.freeze({ ...testCase }))) as CalculationRegressionCase<Input, Output>[],
+    }));
   }
   return createReadonlyRegistry(registry);
 }
@@ -223,12 +227,15 @@ export function executeRegisteredCalculation<Input, Output>(
   registry: ReadonlyMap<string, CalculationContract<any, any>>,
   calculationId: string,
   input: Input,
-  expected: { version: number; inputSchemaVersion: number },
+  expected: { version: number; inputSchemaVersion: number; outputSchemaVersion: number },
 ): CalculationExecutionResult<Output> {
   const contract = registry.get(calculationId);
   if (!contract) throw new Error("Unknown calculation: " + calculationId);
   if (contract.inputSchemaVersion !== expected.inputSchemaVersion) {
     throw new Error("Incompatible calculation input schema: " + calculationId);
+  }
+  if (contract.outputSchemaVersion !== expected.outputSchemaVersion) {
+    throw new Error("Incompatible calculation output schema: " + calculationId);
   }
   const typedContract = contract as CalculationContract<Input, Output>;
   const value = runCalculation(typedContract, input, expected.version);
