@@ -96,3 +96,5 @@ button{font:inherit}
 .trip-history-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
 .trip-history-times>div{display:grid;gap:5px}.trip-history-times small,.trip-history-id{font-size:9px;letter-spacing:.04em;color:#87949d}.trip-history-times span{font-size:12px;color:#425966}
 .trip-history-empty,.trip-history-error{font-size:12px;line-height:1.55;color:#71808a;padding:12px 0}.trip-history-error{color:#a13c3c}.trip-history-id{display:block;margin-top:12px;overflow-wrap:anywhere}
+
+.pending-expired{font-size:10px;color:#a13c3c;max-width:150px;text-align:right;line-height:1.35}
