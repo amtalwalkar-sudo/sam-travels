@@ -17,6 +17,8 @@ class BackupWorkerResilienceTest {
     }
 
     @Test fun transientDropboxResponsesAreRetriedButPermanentClientErrorsAreNot() {
+        assertTrue(BackupWorkerResilience.shouldForceTokenRefresh(401))
+        assertFalse(BackupWorkerResilience.shouldForceTokenRefresh(403))
         assertTrue(BackupWorkerResilience.isTransientHttpStatus(401))
         assertTrue(BackupWorkerResilience.isTransientHttpStatus(429))
         assertTrue(BackupWorkerResilience.isTransientHttpStatus(503))
