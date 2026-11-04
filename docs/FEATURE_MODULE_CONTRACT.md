@@ -84,11 +84,13 @@ The backup coordinator discovers participants through the validated registry. Ea
 
 Restore validates all required participants and dependencies before replacement, creates a recovery checkpoint, requires explicit confirmation, stages and validates the complete dataset, and commits or rolls back recoverably. Unknown required features, incompatible schemas, missing attachments, or broken relationships fail closed. Existing backup encryption formats remain compatible.
 
-This is a required architecture contract; it does not assert that the current backup code already performs registry-driven discovery. Verify the actual snapshot and restore implementation before claiming completeness.
+The browser PWA now resolves its snapshot table set from the validated feature registry and its storage-adapter participant declarations; it fails closed for missing, orphaned, duplicate, or unclassified participants/tables. Existing checkpoint, confirmation, transactional restore, verification, and rollback behavior remains in place. The Android Room backup path has not yet been migrated to this participant registry, so cross-runtime registry-driven backup completeness is not yet claimed.
 
 ## Calculation ownership and integrations
 
 Each calculation has one owning capability and a versioned contract recording its formula, units, precision/rounding, input sources, period semantics, inclusion/exclusion rules, missing-data behavior, output meaning, effective-date policy, and regression fixtures.
+
+The runtime now provides versioned calculation and integration registries, deterministic rounding helpers, and mandatory calculation regression fixtures. No production Finance/Performance calculation or cross-feature event subscription is registered yet; these contracts must be populated when those business modules are implemented. Test fixtures prove the registry behavior, not product calculations.
 
 New feature data affects an existing calculation only through an explicitly approved, versioned integration contract. It must identify consumed data, mapping, timing/effective date, missing/disabled-feature behavior, and expected output effects. Until that integration is approved and tested, existing calculation behavior remains unchanged.
 
