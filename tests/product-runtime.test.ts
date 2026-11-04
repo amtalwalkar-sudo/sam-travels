@@ -50,7 +50,7 @@ describe("production Log Book runtime registrations", () => {
       eventId: "work-event-001",
       committedAt: "2026-11-04T12:00:00.000Z",
       revision: 1,
-      gps: { latitude: 19.076, longitude: 72.8777, accuracy: 8, capturedAt: "2026-11-04T12:00:00.000Z" },
+      gps: { latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: "2026-11-04T12:00:00.000Z", provider: "test" },
       command: {
         schemaVersion: 1,
         commandId: "work-event-001",
