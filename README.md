@@ -13,7 +13,7 @@ Sam Travels is a single-driver Driver Log Book and business operations PWA, with
 
 ## Project status
 
-Phase 1 architecture and contracts are approved. Phase 2 foundation and Phase 3 shared driver workflow are implemented on the open core-foundation pull request. Current priority is hardening the single-driver workflow, PWA/native Android overlay synchronization, Room/Dexie persistence, and interruption recovery. Business modules are deferred until the core acceptance gate passes. Physical-device acceptance remains outstanding. See [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
+Core foundation and shared driver workflow have been merged to main. The PWA/Capacitor lifecycle, bridge, runtime capability, security, compatibility, and platform acceptance rules are documented in the architecture contracts. Their implementation status is not implied by the documentation. Physical-device acceptance and live Dropbox acceptance remain separate release gates. See [ARCHITECTURE.md](ARCHITECTURE.md) and [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md).
 
 ## Requirements
 
@@ -25,4 +25,4 @@ Install dependencies with `npm install`, run checks with `npm test` and `npm run
 
 ## Architecture contracts
 
-The foundation is governed by the contracts linked from [ARCHITECTURE.md](ARCHITECTURE.md), including local persistence ownership, crash-safe transaction/recovery, event-scoped GPS and time integrity, user-controlled network access, Dropbox backup/recovery, modular feature boundaries, and security/compatibility. The seven-phase sequence and exit gates are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). GPS policy v1 is 50 m / 30 s. Backup encryption v1 is AES-256-GCM with passphrase or recovery-key access; full backup workflows are scheduled for Phase 6.
+The foundation is governed by the contracts linked from [ARCHITECTURE.md](ARCHITECTURE.md), including local persistence ownership, crash-safe transaction/recovery, event-scoped GPS and time integrity, user-controlled network access, Dropbox backup/recovery, modular feature boundaries, PWA lifecycle, runtime capability detection, Capacitor bridge compatibility, application lifecycle, WebView security, and platform acceptance. The seven-phase sequence and exit gates are in [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md). GPS policy v1 is 50 m / 30 s. Backup encryption v1 is AES-256-GCM with passphrase or recovery-key access; full backup workflows are scheduled for Phase 6.

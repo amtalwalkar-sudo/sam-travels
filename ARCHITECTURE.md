@@ -104,6 +104,22 @@ Sam Travels is local-first. Core driver workflows, local records, calculations, 
 
 The web application is a PWA. Capacitor packages the same application for Android. Capacitor is a required foundation, not a later optional wrapper. Android-specific capabilities are implemented in Kotlin plugins/services with typed bridge contracts. See [docs/ANDROID_NATIVE_CONTRACT.md](docs/ANDROID_NATIVE_CONTRACT.md) and [docs/LOCAL_PERSISTENCE_CONTRACT.md](docs/LOCAL_PERSISTENCE_CONTRACT.md).
 
+## PWA, runtime, and lifecycle contracts
+
+The PWA delivery lifecycle, application startup/resume sequencing, runtime capability selection, and Capacitor bridge behavior are governed by:
+
+- [PWA Lifecycle Contract](docs/PWA_LIFECYCLE_CONTRACT.md)
+- [Runtime Capability and Capacitor Bridge Contract](docs/RUNTIME_CAPABILITY_AND_BRIDGE_CONTRACT.md)
+- [Application Lifecycle and Startup Contract](docs/APPLICATION_LIFECYCLE_CONTRACT.md)
+
+These contracts supplement the persistence, transaction/recovery, native Android, and network contracts above. They do not introduce a second source of truth or relax existing durability requirements. In particular, an installed Android runtime with an unavailable Room/native bridge must fail into a recoverable blocked state; it must never silently fall back to IndexedDB for business records.
+
+## WebView security, release compatibility, and acceptance
+
+WebView security boundaries and compatibility across application, web asset, native build, bridge, persisted schema, domain/event, and backup versions are governed by [WebView Security and Release Compatibility](docs/WEBVIEW_SECURITY_AND_RELEASE_COMPATIBILITY_CONTRACT.md).
+
+The layered CI, emulator, physical-device, and external-integration release gates are governed by [PWA and Capacitor Platform Acceptance](docs/PLATFORM_ACCEPTANCE_CONTRACT.md). A green CI run does not by itself establish physical-device or live Dropbox acceptance.
+
 ## Quality attributes
 
 Reliability, data integrity, recoverability, offline usability, accessibility, responsive mobile-first UX, observability, and testability take priority over premature feature breadth.
