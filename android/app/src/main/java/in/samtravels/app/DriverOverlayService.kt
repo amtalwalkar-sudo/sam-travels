@@ -87,9 +87,7 @@ class DriverOverlayService:Service(){
     val intent=JSONObject(row.json)
     val command=intent.optJSONObject("command")?:error("pending_command_missing")
     val id=command.optString("eventId")
-    val transitionAt=java.time.Instant.parse(command.getString("transitionAt"))
-    val ageMs=kotlin.math.abs(java.time.Duration.between(transitionAt,java.time.Instant.now()).toMillis())
-    if(ageMs>30_000L){
+    if(!DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))){
      DriverWorkflowStore.markNeedsAttention(db,id,"gps_recovery_window_expired")
      main.post{refresh("Action retained · GPS evidence window expired; review required")}
      return@execute
