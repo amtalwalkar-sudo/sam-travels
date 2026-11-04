@@ -130,8 +130,8 @@ describe("versioned calculation contracts", () => {
     rounding: { mode: "half-up", decimalPlaces: 2 },
     calculate: input => input.left + input.right,
     regressionCases: [
-      { name: "normal-trip", input: { left: 1, right: 2, businessDate: "2026-11-04" }, expected: 3 },
-      { name: "fractional-result", input: { left: 1.25, right: 2.25, businessDate: "2026-11-04" }, expected: 3.5 },
+      { name: "small-integers", input: { left: 1, right: 2, businessDate: "2026-11-04" }, expected: 3 },
+      { name: "fractional-values", input: { left: 1.25, right: 2.25, businessDate: "2026-11-04" }, expected: 3.5 },
     ],
   };
 
