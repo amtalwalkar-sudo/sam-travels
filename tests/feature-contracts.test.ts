@@ -201,6 +201,49 @@ describe("versioned calculation contracts", () => {
     }, { version: 1, inputSchemaVersion: 1, outputSchemaVersion: 2 })).toThrow("Incompatible calculation output schema");
   });
 
+  it("isolates calculation inputs and registered regression fixtures from mutation", () => {
+    const fixtureInput = { left: 1, right: 2, businessDate: "2026-11-04" };
+    const contract = {
+      ...calculation,
+      regressionCases: [{ name: "isolated-fixture", input: fixtureInput, expected: 3 }],
+    };
+    const registry = registerCalculations(features, [contract]);
+    fixtureInput.left = 100;
+    const registeredFixture = registry.get(calculation.id)!.regressionCases[0];
+    expect(registeredFixture.input.left).toBe(1);
+    expect(Object.isFrozen(registeredFixture.input)).toBe(true);
+
+    const callerInput = { left: 4, right: 5, businessDate: "2026-11-04" };
+    const mutatingCalculation = {
+      ...calculation,
+      calculate(input: typeof callerInput) {
+        input.left = 500;
+        return input.left + input.right;
+      },
+    };
+    expect(() => runCalculation(mutatingCalculation, callerInput, 1)).toThrow();
+    expect(callerInput.left).toBe(4);
+  });
+
+  it("rejects cyclic or non-data calculation fixtures during registration", () => {
+    const cyclic: { left: number; right: number; businessDate: string; self?: unknown } = {
+      left: 1, right: 2, businessDate: "2026-11-04",
+    };
+    cyclic.self = cyclic;
+    expect(() => registerCalculations(features, [{
+      ...calculation,
+      regressionCases: [{ name: "cyclic", input: cyclic, expected: 3 }],
+    }])).toThrow("Calculation data cannot contain cycles");
+    expect(() => registerCalculations(features, [{
+      ...calculation,
+      regressionCases: [{
+        name: "non-finite",
+        input: { left: Number.NaN, right: 2, businessDate: "2026-11-04" },
+        expected: 3,
+      }],
+    }])).toThrow("Calculation data must contain finite numbers");
+  });
+
   it("applies deterministic half-up and half-even decimal rounding", () => {
     expect(applyCalculationRounding(2.25, { mode: "half-up", decimalPlaces: 1 })).toBe(2.3);
     expect(applyCalculationRounding(2.25, { mode: "half-even", decimalPlaces: 1 })).toBe(2.2);
