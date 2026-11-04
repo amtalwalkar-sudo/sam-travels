@@ -41,7 +41,7 @@ function stableSerialize(value: unknown): string {
       JSON.stringify(key) + ":" + stableSerialize(object[key]),
     ).join(",") + "}";
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? "undefined";
 }
 
 /** Validate explicit producer/consumer contracts against the runtime feature graph. */
@@ -52,7 +52,7 @@ export function registerFeatureIntegrations(
   const registry = new Map<string, FeatureIntegrationContract>();
   for (const contract of contracts) {
     if (registry.has(contract.id)) throw new Error("Duplicate integration contract: " + contract.id);
-    if (!contract.id || !contract.eventName || contract.version < 1 || contract.payloadVersion < 1) {
+    if (!contract.id || !contract.eventName || !Number.isSafeInteger(contract.version) || contract.version < 1 || !Number.isSafeInteger(contract.payloadVersion) || contract.payloadVersion < 1) {
       throw new Error("Invalid integration contract: " + contract.id);
     }
     const producer = features.get(contract.producerFeatureId);
@@ -91,7 +91,7 @@ export function registerCalculations<Input, Output>(
       contract.outputSchemaVersion < 1 ||
       !contract.unit ||
       !contract.effectiveDateField ||
-      !Number.isInteger(contract.rounding.decimalPlaces) ||
+      !["none", "half-up", "half-even", "floor", "ceil"].includes(contract.rounding.mode) ||\n      !Number.isInteger(contract.rounding.decimalPlaces) ||
       contract.rounding.decimalPlaces < 0 ||
       contract.rounding.decimalPlaces > 12 ||
       contract.regressionCases.length === 0
@@ -107,4 +107,27 @@ export function registerCalculations<Input, Output>(
     registry.set(contract.id, Object.freeze({ ...contract }));
   }
   return registry;
+}
+
+/** Apply a declared decimal rounding policy without changing the source formula. */
+export function applyCalculationRounding(value: number, policy: CalculationRounding): number {
+  if (!Number.isFinite(value)) throw new Error("Calculation output must be finite");
+  if (policy.mode === "none") return value;
+  const scale = 10 ** policy.decimalPlaces;
+  const scaled = value * scale;
+  let rounded: number;
+  if (policy.mode === "floor") rounded = Math.floor(scaled);
+  else if (policy.mode === "ceil") rounded = Math.ceil(scaled);
+  else {
+    const sign = Math.sign(scaled) || 1;
+    const absolute = Math.abs(scaled);
+    const lower = Math.floor(absolute);
+    const fraction = absolute - lower;
+    const tie = Math.abs(fraction - 0.5) <= Number.EPSILON * Math.max(1, absolute) * 2;
+    const increment = policy.mode === "half-up"
+      ? fraction >= 0.5
+      : fraction > 0.5 || (tie && lower % 2 !== 0);
+    rounded = sign * (lower + (increment ? 1 : 0));
+  }
+  return rounded / scale;
 }
