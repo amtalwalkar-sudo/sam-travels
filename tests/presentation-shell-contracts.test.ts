@@ -44,7 +44,7 @@ describe("framework-neutral presentation shell contract", () => {
     expect(() => defineApplicationShell({
       id: "missing-initial",
       version: 1,
-      initialScreen: "Settings",
+      initialScreen: "Settings" as typeof navigation[number]["screen"],
       navigation,
     })).toThrow("Initial shell screen is not registered");
   });
