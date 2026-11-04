@@ -121,11 +121,13 @@ class DriverOverlayService:Service(){
  }
  private fun refresh(message:String?=null){executor.execute{try{
   val s=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("state","idle").put("revision",0)
-  val pendingRow=db.records().list().firstOrNull{row->if(!row.id.startsWith("driver-intent:"))false else runCatching{val item=JSONObject(row.json);item.optString("status")=="pending_location"||item.optString("status")=="needs_attention"}.getOrDefault(false)}
+  val intents=db.records().list().filter{row->row.id.startsWith("driver-intent:")}
+  val pendingRow=intents.firstOrNull{row->runCatching{val item=JSONObject(row.json);item.optString("status")=="pending_location"||(item.optString("status")=="needs_attention"&&item.optString("reason")!="gps_recovery_window_expired")}.getOrDefault(false)}
+  val expiredPending=intents.any{row->runCatching{JSONObject(row.json).optString("reason")=="gps_recovery_window_expired"}.getOrDefault(false)}
   val pending=pendingRow!=null
   val state=s.optString("state")
   main.post{
-   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else "Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
+   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)"GPS evidence window expired · new action can be recorded" else "Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
    recoveryButton?.isEnabled=pending&&activeLocationEventId==null
    actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
    actionButtons["trip_start"]?.isEnabled=!pending&&state=="shift_active"
@@ -137,7 +139,7 @@ class DriverOverlayService:Service(){
  private fun runRecovery(){
   if(activeLocationEventId!=null)return
   executor.execute{try{
-   val row=db.records().list().firstOrNull{r->if(!r.id.startsWith("driver-intent:"))false else runCatching{val j=JSONObject(r.json);j.optString("status")=="pending_location"||j.optString("status")=="needs_attention"}.getOrDefault(false)}
+   val row=db.records().list().firstOrNull{r->if(!r.id.startsWith("driver-intent:"))false else runCatching{val j=JSONObject(r.json);j.optString("status")=="pending_location"||(j.optString("status")=="needs_attention"&&j.optString("reason")!="gps_recovery_window_expired")}.getOrDefault(false)}
    if(row==null){main.post{refresh("No pending action to recover")};return@execute}
    val intent=JSONObject(row.json);val command=intent.optJSONObject("command")?:error("pending_command_missing");val id=command.optString("eventId")
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
