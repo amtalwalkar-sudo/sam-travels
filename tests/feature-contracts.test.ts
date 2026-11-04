@@ -180,6 +180,8 @@ describe("runtime registry bootstrap", () => {
     expect(runtime.features.size).toBe(7);
     expect(runtime.startupOrder[0].id).toBe("work");
     expect(runtime.integrations.size).toBe(0);
+    expect([...runtime.backupParticipants.keys()]).toEqual(["work-driver-state"]);
+    expect(runtime.backupParticipants.get("work-driver-state")).toMatchObject({ featureId: "work", snapshotVersion: 1, required: true });
     expect(runtime.calculations.size).toBe(0);
   });
 });
