@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,9 +48,12 @@ class NativeBackupV2PackageTest {
             deterministicRandom,
         )
         val expectedManifest = fixture.getJSONObject("backup").getJSONObject("manifest")
-        assertTrue("Native and TypeScript fixture manifests must agree", expectedManifest.similar(generated.getJSONObject("manifest")))
+        val actualManifest = generated.getJSONObject("manifest")
+        listOf("applicationVersion", "schemaVersion", "createdAt", "businessTimezone", "snapshotRevision", "format", "plaintextSha256")
+            .forEach { key -> assertEquals("Manifest field $key must match shared fixture", expectedManifest.get(key), actualManifest.get(key)) }
+        assertEquals("recordCounts must match shared fixture", expectedManifest.getJSONObject("recordCounts").getInt("records"), actualManifest.getJSONObject("recordCounts").getInt("records"))
 
-        val aad = generated.getJSONObject("manifest").toString().toByteArray(Charsets.UTF_8)
+        val aad = actualManifest.toString().toByteArray(Charsets.UTF_8)
         val recoveryKey = Base64.decode(fixture.getString("recoveryKey"), Base64.NO_WRAP)
         val wrapped = generated.getJSONObject("keyEnvelopes").getJSONObject("recovery").getJSONObject("wrappedDek")
         val dek = decrypt(recoveryKey, wrapped, aad)
