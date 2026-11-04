@@ -20,12 +20,12 @@ async function walk(directory) {
 
 function layer(file) {
   const p = file.split(path.sep).join("/");
-  if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/storage-browser/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/ui/")) return "ui";
+  if (p.startsWith("packages/core/src/")) return "core";
+  if (p.startsWith("packages/domain/src/")) return "domain";
+  if (p.startsWith("packages/application/src/")) return "application";
+  if (p.startsWith("packages/storage-browser/src/")) return "storage";
+  if (p.startsWith("packages/features/")) return "feature";
+  if (p.startsWith("apps/web/src/ui/")) return "ui";
   return "outer";
 }
 
