@@ -8,6 +8,8 @@ export type FeatureIntegrationContract = {
   consumerFeatureId: FeatureId;
   eventName: string;
   payloadVersion: number;
+  /** Runtime payload guard for data crossing the feature boundary. */
+  validatePayload(payload: unknown): boolean;
 };
 
 export type CalculationRounding = {
@@ -94,7 +96,7 @@ export function registerFeatureIntegrations(
   const registry = new Map<string, FeatureIntegrationContract>();
   for (const contract of contracts) {
     if (registry.has(contract.id)) throw new Error("Duplicate integration contract: " + contract.id);
-    if (!contract.id || !contract.eventName || !Number.isSafeInteger(contract.version) || contract.version < 1 || !Number.isSafeInteger(contract.payloadVersion) || contract.payloadVersion < 1) {
+    if (!contract.id?.trim() || !contract.eventName?.trim() || typeof contract.validatePayload !== "function" || !Number.isSafeInteger(contract.version) || contract.version < 1 || !Number.isSafeInteger(contract.payloadVersion) || contract.payloadVersion < 1) {
       throw new Error("Invalid integration contract: " + contract.id);
     }
     const producer = features.get(contract.producerFeatureId);
@@ -220,6 +222,9 @@ export async function dispatchFeatureIntegration<Payload>(
   }
   if (!message.eventId || !Number.isFinite(Date.parse(message.occurredAt))) {
     throw new Error("Invalid feature integration message envelope: " + message.integrationId);
+  }
+  if (!contract.validatePayload(message.payload)) {
+    throw new Error("Invalid feature integration payload: " + contract.id);
   }
   const handler = handlers[contract.id];
   if (!handler) throw new Error("Missing feature integration handler: " + contract.id);
