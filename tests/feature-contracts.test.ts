@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { registerFeatures } from "../packages/core/src/features";\nimport { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
+import { registerFeatures } from "../packages/core/src/features";
+import { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
 import {
-  applyCalculationRounding,\n  dispatchFeatureIntegration,\n  runCalculation,\n  registerCalculations,
+  applyCalculationRounding,
+  dispatchFeatureIntegration,
+  runCalculation,
+  registerCalculations,
   registerFeatureIntegrations,
   type CalculationContract,
   type FeatureIntegrationContract,
