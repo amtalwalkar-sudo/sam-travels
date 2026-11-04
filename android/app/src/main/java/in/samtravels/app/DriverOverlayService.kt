@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
@@ -39,6 +40,7 @@ class DriverOverlayService:Service(){
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
+ private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  @Volatile private var startupRecoveryChecked=false
  private val notificationChannelId="sam_travels_driver_controls"
@@ -170,14 +172,17 @@ class DriverOverlayService:Service(){
    val provider=manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
    activeLocationEventId=id
+   val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
+   gpsWakeLock=powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:DriverGps").apply{setReferenceCounted(false);acquire(40_000L)}
    var finished=false
    lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;markAttention(id,intent,"location_timeout")}}
-   listener=LocationListener{location:Location->if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;complete(id,command,intent,location)}}
+   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_timeout")}}
+   listener=LocationListener{location:Location->if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();complete(id,command,intent,location)}}
    activeLocationListener=listener;activeLocationTimeout=timeout
    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper());main.postDelayed(timeout,35_000L)
-  }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;markAttention(id,intent,"location_unavailable")}
+  }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
+ private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
   val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
@@ -193,5 +198,5 @@ class DriverOverlayService:Service(){
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
+ override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
 }
