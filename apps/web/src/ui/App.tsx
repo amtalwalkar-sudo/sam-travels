@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { nativeOverlayAvailable } from "../driver-workflow";
+import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -66,6 +67,7 @@ export function App() {
 
   return (
     <main className="shell">
+      <DeviceReadinessPrompt />
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">ST</div>
