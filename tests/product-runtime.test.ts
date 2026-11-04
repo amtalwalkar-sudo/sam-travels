@@ -7,7 +7,7 @@ import {
   TRIP_DURATION_CALCULATION,
 } from "../packages/features/logbook";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
-import { runCalculation } from "../packages/core/src/feature-contracts";
+import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
 
 describe("production Log Book runtime registrations", () => {
   it("boots the application with its real versioned integration and calculation contracts", () => {
@@ -36,12 +36,19 @@ describe("production Log Book runtime registrations", () => {
 
   it("runs the registered calculation version with mandatory regression fixtures", () => {
     const runtime = initializeApplicationRuntimeRegistry();
-    const contract = runtime.calculations.get(TRIP_DURATION_CALCULATION.id)!;
-    expect(runCalculation(contract, {
+    const result = executeRegisteredCalculation(runtime.calculations, TRIP_DURATION_CALCULATION.id, {
       businessDate: "2026-11-04",
       startedAt: "2026-11-04T10:00:00.000Z",
       endedAt: "2026-11-04T10:01:12.600Z",
-    }, 1)).toBe(1.21);
+    }, { version: 1, inputSchemaVersion: 1 });
+    expect(result).toMatchObject({
+      ownerFeatureId: "logbook",
+      version: 1,
+      outputSchemaVersion: 1,
+      effectiveDate: "2026-11-04",
+      unit: "minutes",
+      value: 1.21,
+    });
   });
 
   it("dispatches committed Work events through the registered Log Book integration", async () => {
