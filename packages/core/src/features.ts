@@ -1,1 +1,187 @@
-export type FeatureId="work"|"logbook"|"finance"|"vehicle"|"performance"|"admin"|"backup";export type FeatureDefinition={id:FeatureId;label:string;version:number;dependencies:FeatureId[]};const initial:FeatureDefinition[]=[{id:"work",label:"Work",version:1,dependencies:[]},{id:"logbook",label:"Log Book",version:1,dependencies:["work"]},{id:"finance",label:"Finance",version:1,dependencies:[]},{id:"vehicle",label:"Vehicle",version:1,dependencies:[]},{id:"performance",label:"Performance",version:1,dependencies:["work","logbook","finance"]},{id:"admin",label:"Admin",version:1,dependencies:[]},{id:"backup",label:"Backup & Recovery",version:1,dependencies:[]}];export function registerFeatures(additional:FeatureDefinition[]=[]){const registry=new Map<FeatureId,FeatureDefinition>();for(const feature of [...initial,...additional]){if(registry.has(feature.id))throw new Error("Duplicate feature registration: "+feature.id);registry.set(feature.id,Object.freeze({...feature,dependencies:[...feature.dependencies]}))}for(const feature of registry.values())for(const dependency of feature.dependencies)if(!registry.has(dependency))throw new Error("Missing dependency "+dependency+" for "+feature.id);return registry}
+export type FeatureId =
+  | "work"
+  | "logbook"
+  | "finance"
+  | "vehicle"
+  | "performance"
+  | "admin"
+  | "backup";
+
+export type FeatureDependency = FeatureId | {
+  id: FeatureId;
+  contractVersion: number;
+};
+
+export type FeatureMigration = {
+  fromVersion: number;
+  toVersion: number;
+  id: string;
+};
+
+export type PersistentFeatureContract = {
+  schemaVersion: number;
+  migrations: FeatureMigration[];
+  backup: {
+    participantId: string;
+    snapshotVersion: number;
+    required: true;
+  };
+  restore: {
+    validatorId: string;
+    required: true;
+  };
+  lifecycle: {
+    disableRetainsData: true;
+    removalRequiresMigration: true;
+  };
+};
+
+export type FeatureDefinition = {
+  id: FeatureId;
+  label: string;
+  contractVersion: number;
+  dependencies: FeatureDependency[];
+  persistence?: PersistentFeatureContract;
+};
+
+const initial: FeatureDefinition[] = [
+  {
+    id: "work",
+    label: "Work",
+    contractVersion: 1,
+    dependencies: [],
+    persistence: {
+      schemaVersion: 1,
+      migrations: [],
+      backup: { participantId: "work-driver-state", snapshotVersion: 1, required: true },
+      restore: { validatorId: "work-driver-state-v1", required: true },
+      lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
+    },
+  },
+  { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: ["work"] },
+  { id: "finance", label: "Finance", contractVersion: 1, dependencies: [] },
+  { id: "vehicle", label: "Vehicle", contractVersion: 1, dependencies: [] },
+  { id: "performance", label: "Performance", contractVersion: 1, dependencies: ["work", "logbook", "finance"] },
+  { id: "admin", label: "Admin", contractVersion: 1, dependencies: [] },
+  { id: "backup", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
+];
+
+function dependencyId(dependency: FeatureDependency): FeatureId {
+  return typeof dependency === "string" ? dependency : dependency.id;
+}
+
+function validatePersistentContract(feature: FeatureDefinition): void {
+  const contract = feature.persistence;
+  if (!contract) return;
+  if (!Number.isSafeInteger(contract.schemaVersion) || contract.schemaVersion < 1) {
+    throw new Error("Invalid schema version for feature: " + feature.id);
+  }
+  if (!contract.backup?.required || !contract.backup.participantId || contract.backup.snapshotVersion < 1) {
+    throw new Error("Missing required backup participant for feature: " + feature.id);
+  }
+  if (!contract.restore?.required || !contract.restore.validatorId) {
+    throw new Error("Missing required restore validator for feature: " + feature.id);
+  }
+  if (contract.lifecycle?.disableRetainsData !== true || contract.lifecycle?.removalRequiresMigration !== true) {
+    throw new Error("Unsafe lifecycle contract for feature: " + feature.id);
+  }
+
+  const migrations = [...contract.migrations].sort((a, b) => a.fromVersion - b.fromVersion);
+  let expectedVersion = 1;
+  for (const migration of migrations) {
+    if (
+      !migration.id ||
+      migration.fromVersion !== expectedVersion ||
+      migration.toVersion !== migration.fromVersion + 1 ||
+      migration.toVersion > contract.schemaVersion
+    ) {
+      throw new Error("Invalid migration chain for feature: " + feature.id);
+    }
+    expectedVersion = migration.toVersion;
+  }
+  if (expectedVersion !== contract.schemaVersion) {
+    throw new Error("Incomplete migration chain for feature: " + feature.id);
+  }
+}
+
+function assertAcyclic(registry: Map<FeatureId, FeatureDefinition>): void {
+  const visiting = new Set<FeatureId>();
+  const visited = new Set<FeatureId>();
+  const visit = (id: FeatureId): void => {
+    if (visiting.has(id)) throw new Error("Feature dependency cycle: " + id);
+    if (visited.has(id)) return;
+    visiting.add(id);
+    const feature = registry.get(id)!;
+    for (const dependency of feature.dependencies) visit(dependencyId(dependency));
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const id of registry.keys()) visit(id);
+}
+
+/**
+ * Build and validate the runtime feature catalogue before feature writes are enabled.
+ * Persistent features fail closed unless backup, restore, lifecycle, and migration
+ * metadata form a complete contract.
+ */
+export function registerFeatures(additional: FeatureDefinition[] = []): ReadonlyMap<FeatureId, FeatureDefinition> {
+  const registry = new Map<FeatureId, FeatureDefinition>();
+  for (const source of [...initial, ...additional]) {
+    if (registry.has(source.id)) throw new Error("Duplicate feature registration: " + source.id);
+    if (!source.label.trim() || !Number.isSafeInteger(source.contractVersion) || source.contractVersion < 1) {
+      throw new Error("Invalid feature contract: " + source.id);
+    }
+    validatePersistentContract(source);
+    const feature: FeatureDefinition = Object.freeze({
+      ...source,
+      dependencies: Object.freeze([...source.dependencies]),
+      persistence: source.persistence ? Object.freeze({
+        ...source.persistence,
+        migrations: Object.freeze(source.persistence.migrations.map(migration => Object.freeze({ ...migration }))),
+        backup: Object.freeze({ ...source.persistence.backup }),
+        restore: Object.freeze({ ...source.persistence.restore }),
+        lifecycle: Object.freeze({ ...source.persistence.lifecycle }),
+      }) : undefined,
+    });
+    registry.set(feature.id, feature);
+  }
+
+  for (const feature of registry.values()) {
+    for (const dependency of feature.dependencies) {
+      const id = dependencyId(dependency);
+      const target = registry.get(id);
+      if (!target) throw new Error("Missing dependency " + id + " for " + feature.id);
+      if (typeof dependency !== "string" && target.contractVersion !== dependency.contractVersion) {
+        throw new Error("Incompatible dependency contract " + id + " for " + feature.id);
+      }
+      if (id === feature.id) throw new Error("Feature cannot depend on itself: " + id);
+    }
+  }
+  assertAcyclic(registry);
+
+  const participants = new Set<string>();
+  for (const feature of registry.values()) {
+    const id = feature.persistence?.backup.participantId;
+    if (id && participants.has(id)) throw new Error("Duplicate backup participant: " + id);
+    if (id) participants.add(id);
+  }
+  return registry;
+}
+
+/** Stable dependency-first order for startup and migration coordination. */
+export function resolveFeatureStartupOrder(
+  registry: ReadonlyMap<FeatureId, FeatureDefinition> = registerFeatures(),
+): FeatureDefinition[] {
+  const ordered: FeatureDefinition[] = [];
+  const visited = new Set<FeatureId>();
+  const visit = (id: FeatureId) => {
+    if (visited.has(id)) return;
+    const feature = registry.get(id);
+    if (!feature) throw new Error("Unknown feature: " + id);
+    for (const dependency of feature.dependencies) visit(dependencyId(dependency));
+    visited.add(id);
+    ordered.push(feature);
+  };
+  for (const id of registry.keys()) visit(id);
+  return ordered;
+}
