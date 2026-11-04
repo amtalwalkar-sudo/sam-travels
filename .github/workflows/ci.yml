@@ -9,6 +9,16 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Enforce architecture boundaries
+        run: npm run check:architecture
   web:
     runs-on: ubuntu-latest
     steps:
@@ -17,7 +27,6 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run check:architecture
       - run: npm test
       - run: npm run build
   android:
