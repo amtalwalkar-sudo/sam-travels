@@ -140,8 +140,13 @@ internal object NativeBackupCoverage {
 
     private fun participantId(row: JSONObject, participants: List<SnapshotParticipant>): String {
         val id = row.optString("participantId").ifBlank {
-            require(participants.size == 1) { "backup_record_participant_missing" }
-            participants.single().id
+            // Pre-participant snapshots contained only generic platform records.
+            // The newly introduced feature-owned tables did not exist in that format.
+            if (participants.any { it.id == "platform-records" }) "platform-records"
+            else {
+                require(participants.size == 1) { "backup_record_participant_missing" }
+                participants.single().id
+            }
         }
         require(participants.any { it.id == id }) { "backup_unknown_participant:" + id }
         return id
