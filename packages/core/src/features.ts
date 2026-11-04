@@ -162,7 +162,7 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
     validatePersistentContract(source);
     const feature: FeatureDefinition = Object.freeze({
       ...source,
-      dependencies: Object.freeze([...source.dependencies]) as FeatureDependency[],
+      dependencies: Object.freeze(source.dependencies.map(dependency => typeof dependency === "string" ? dependency : Object.freeze({ ...dependency }))) as FeatureDependency[],
       persistence: source.persistence ? Object.freeze({
         ...source.persistence,
         migrations: Object.freeze(source.persistence.migrations.map(migration => Object.freeze({ ...migration }))) as FeatureMigration[],
