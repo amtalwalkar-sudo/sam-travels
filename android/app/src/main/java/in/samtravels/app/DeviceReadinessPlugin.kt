@@ -45,11 +45,13 @@ class DeviceReadinessPlugin : Plugin() {
                 val power = context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager
                 items.put(item("battery_optimization", "Battery restrictions", "Review battery restrictions if your phone stops floating controls in the background.", power.isIgnoringBatteryOptimizations(context.packageName), false))
             }
-            call.resolve(JSObject().put("items", items)
-                .put("manufacturer", Build.MANUFACTURER ?: "Android")
-                .put("model", Build.MODEL ?: "Android device")
-                .put("androidVersion", Build.VERSION.SDK_INT)
-                .put("hasAnyLocationPermission", fine || coarse))
+            val result = JSObject()
+            result.put("items", items)
+            result.put("manufacturer", Build.MANUFACTURER ?: "Android")
+            result.put("model", Build.MODEL ?: "Android device")
+            result.put("androidVersion", Build.VERSION.SDK_INT)
+            result.put("hasAnyLocationPermission", fine || coarse)
+            call.resolve(result)
         } catch (error: Exception) {
             call.reject("Unable to check Android device readiness", error)
         }
@@ -77,11 +79,17 @@ class DeviceReadinessPlugin : Plugin() {
         }
         try {
             launch(preferred)
-            call.resolve(JSObject().put("opened", true).put("usedFallback", false))
+            val result = JSObject()
+            result.put("opened", true)
+            result.put("usedFallback", false)
+            call.resolve(result)
         } catch (_: Exception) {
             try {
                 launch(appDetails)
-                call.resolve(JSObject().put("opened", true).put("usedFallback", true))
+                val result = JSObject()
+                result.put("opened", true)
+                result.put("usedFallback", true)
+                call.resolve(result)
             } catch (_: Exception) {
                 try {
                     launch(Intent(Settings.ACTION_SETTINGS))
