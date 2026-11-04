@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTripHistory } from "../packages/domain/src/trip-history";
-import type { DriverEvent } from "../packages/domain/src/driver-workflow";
+import { buildTripHistory, type DriverEvent } from "../packages/features/work-shift";
 
 const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string): DriverEvent => ({
   eventId: id,
