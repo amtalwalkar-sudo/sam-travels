@@ -109,7 +109,7 @@ export function DeviceReadinessPrompt() {
             )}
             <div className="device-readiness-footer">
               <span>Settings are verified when you return.</span>
-              <button type="button" onClick={() => { dismissed.current = true; setOpen(false); }}>Continue in limited mode</button>
+              <button type="button" onClick={() => { dismissed.current = true; setOpen(false); }}>Continue to app</button>
             </div>
           </section>
         </div>

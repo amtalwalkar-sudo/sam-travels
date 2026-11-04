@@ -27,7 +27,7 @@ Optional capabilities/reliability:
 - Automatically open the pop-up only for missing essential prerequisites; optional settings remain reviewable in the same pop-up.
 - Each missing row opens its corresponding Android settings destination with a safe fallback.
 - Recheck after returning. Close the automatic setup pop-up when essential prerequisites are satisfied.
-- The driver may dismiss the pop-up and continue in limited mode. Existing records and navigation remain accessible.
+- The driver may dismiss the pop-up and continue to the app. Existing records and navigation remain accessible.
 - Never interpret opening a settings page as proof that a setting was enabled.
 - Do not introduce continuous GPS or request background location solely for startup readiness.
 

@@ -19,7 +19,7 @@ class DeviceReadinessPlugin : Plugin() {
     @PluginMethod
     fun getStatus(call: PluginCall) {
         try {
-            val fine = granted(Manifest.permission.ACCESS_FINE_LOCATION)
+            val fine = DeviceReadinessPolicy.isPreciseLocationReady(granted(Manifest.permission.ACCESS_FINE_LOCATION))
             val coarse = granted(Manifest.permission.ACCESS_COARSE_LOCATION)
             val manager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
             val locationEnabled = DeviceReadinessPolicy.isLocationEnabled(

@@ -119,3 +119,8 @@ Event-scoped GPS and clock semantics are governed by [docs/LOCATION_AND_STATE_TI
 ## Feature and security contracts
 
 Feature registration, extension boundaries, persistent-feature lifecycle, complete business backup/restore participation, calculation ownership, and explicit cross-feature integrations follow [docs/FEATURE_MODULE_CONTRACT.md](docs/FEATURE_MODULE_CONTRACT.md) and [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). Every persistent feature must register its schema, migrations, dependencies, and backup/restore participation; hiding or disabling preserves records, while permanent deletion is explicit and dependency-checked. New feature data cannot change an existing calculation without an approved, versioned integration and regression coverage. Data minimization, secrets, import validation, platform permissions, and compatibility follow [docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md](docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md).
+
+
+## Android device readiness
+
+The adaptive Android startup/resume permission and settings flow is governed by [docs/ANDROID_DEVICE_READINESS_CONTRACT.md](docs/ANDROID_DEVICE_READINESS_CONTRACT.md). It uses standard Android capabilities with safe settings fallbacks and keeps OEM-specific battery/autostart guidance advisory.
