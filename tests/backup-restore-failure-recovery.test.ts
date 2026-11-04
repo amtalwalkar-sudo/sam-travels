@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
   exportBrowserSnapshot,
@@ -42,4 +42,29 @@ describe("backup restore failure recovery", () => {
     expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
   });
 
+  it("rolls back to the pre-restore snapshot when a table write is interrupted", async () => {
+    const timestamp = "2026-11-04T00:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "business-record", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1, data: { label: "backup" },
+    });
+    const source = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.put({
+      id: "business-record", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 2, data: { label: "current" },
+    });
+
+    const write = vi.spyOn(browserDatabase.records, "bulkPut").mockImplementationOnce(async () => {
+      throw new Error("simulated_restore_interruption");
+    });
+    await expect(restoreBrowserSnapshot({
+      data: source.data, manifest: source.manifest, confirmed: true,
+    })).rejects.toThrow("simulated_restore_interruption");
+    write.mockRestore();
+
+    expect((await browserDatabase.records.get("business-record"))?.data).toEqual({ label: "current" });
+    expect(await listBrowserRecoveryCheckpoints()).toEqual([
+      expect.objectContaining({ status: "rollback_complete" }),
+    ]);
+  });
 });
