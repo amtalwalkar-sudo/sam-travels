@@ -68,9 +68,28 @@ for (const absolute of sourceFiles) {
     if (isWorkShiftImplementationImport && !ownsWorkShiftImplementation) {
       failures.push(`${relative}: import Work/Shift internals through the public packages/features/work-shift entry point, not "${specifier}"`);
     }
+    const isPlatformOrUiImport =
+      specifier === "react" ||
+      specifier.startsWith("react/") ||
+      specifier === "react-dom" ||
+      specifier.startsWith("react-dom/") ||
+      specifier === "dexie" ||
+      specifier.startsWith("dexie/") ||
+      specifier.startsWith("@capacitor/") ||
+      specifier.startsWith("androidx.") ||
+      specifier.startsWith("android.") ||
+      specifier.startsWith("java.") ||
+      specifier.startsWith("org.json") ||
+      specifier.startsWith("com.dropbox.");
     const forbiddenExternal =
-      (["core", "domain", "application"].includes(from) && /^(?:react|react-dom|dexie|@capacitor\\/|androidx\\.|android\\.|java\\.|org\\.json|com\\.dropbox\\.)/.test(specifier)) ||
-      (from === "storage" && /^(?:react|react-dom|@capacitor\\/)/.test(specifier));
+      (["core", "domain", "application"].includes(from) && isPlatformOrUiImport) ||
+      (from === "storage" && (
+        specifier === "react" ||
+        specifier.startsWith("react/") ||
+        specifier === "react-dom" ||
+        specifier.startsWith("react-dom/") ||
+        specifier.startsWith("@capacitor/")
+      ));
     if (forbiddenExternal) {
       failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
     }
