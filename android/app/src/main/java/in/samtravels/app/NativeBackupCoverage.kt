@@ -1,5 +1,8 @@
 package `in`.samtravels.app
 
+import org.json.JSONArray
+import org.json.JSONObject
+
 /**
  * Native participants are discovered from Room's declared entity inventory.
  * Each entity owns its participant metadata; actual SQLite tables are compared
