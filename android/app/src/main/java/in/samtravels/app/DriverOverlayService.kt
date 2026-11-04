@@ -142,6 +142,11 @@ class DriverOverlayService:Service(){
    val row=db.records().list().firstOrNull{r->if(!r.id.startsWith("driver-intent:"))false else runCatching{val j=JSONObject(r.json);j.optString("status")=="pending_location"||(j.optString("status")=="needs_attention"&&j.optString("reason")!="gps_recovery_window_expired")}.getOrDefault(false)}
    if(row==null){main.post{refresh("No pending action to recover")};return@execute}
    val intent=JSONObject(row.json);val command=intent.optJSONObject("command")?:error("pending_command_missing");val id=command.optString("eventId")
+   if(!DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))){
+    DriverWorkflowStore.markNeedsAttention(db,id,"gps_recovery_window_expired")
+    main.post{refresh("GPS evidence window expired · reissue the action when ready")}
+    return@execute
+   }
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
@@ -174,8 +179,10 @@ class DriverOverlayService:Service(){
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;markAttention(id,intent,"location_unavailable")}
  }
  private fun markAttention(id:String,intent:JSONObject,reason:String){
-  try{DriverWorkflowStore.markNeedsAttention(db,id,reason)}catch(_:Exception){}
-  main.post{refresh("Action retained · "+reason)}
+  val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
+  val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
+  try{DriverWorkflowStore.markNeedsAttention(db,id,effectiveReason)}catch(_:Exception){}
+  main.post{refresh("Action retained · "+effectiveReason)}
  }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
   try{
