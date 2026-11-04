@@ -14,12 +14,33 @@ class MainActivity : BridgeActivity() {
         persistDropboxCallback(intent)
         super.onCreate(savedInstanceState)
         BackgroundBackupScheduler.schedule(this)
+        resumeEnabledOverlayFromForeground()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         persistDropboxCallback(intent)
+    }
+
+    /**
+     * If Android deferred overlay restart at boot because background location
+     * permission is unavailable, reopening the app in the foreground safely
+     * resumes the user's previously enabled overlay.
+     */
+    private fun resumeEnabledOverlayFromForeground() {
+        val preferences = getSharedPreferences("sam_travels_driver_overlay", MODE_PRIVATE)
+        if (!preferences.getBoolean("overlay_enabled", false) || !android.provider.Settings.canDrawOverlays(this)) return
+        val hasLocation = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!hasLocation) return
+        try {
+            val service = Intent(this, DriverOverlayService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(service) else startService(service)
+            preferences.edit().putBoolean("boot_resume_deferred", false).commit()
+        } catch (_: Exception) {
+            preferences.edit().putBoolean("boot_resume_deferred", true).commit()
+        }
     }
 
     private fun persistDropboxCallback(intent: Intent?) {
