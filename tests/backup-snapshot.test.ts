@@ -46,6 +46,32 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     expect(new TextDecoder().decode(snapshot.plaintext)).toContain('"value":"before"');
   });
 
+  it("restores equivalent snapshots even when serialized row order differs", async () => {
+    const timestamp = "2026-11-04T00:00:00.000Z";
+    await browserDatabase.records.bulkPut(["alpha", "zeta"].map(id => ({
+      id,
+      schemaVersion: 1,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      source: "web",
+      revision: 1,
+      data: { id },
+    })));
+    const source = await exportBrowserSnapshot("0.1.0");
+    const reordered = { ...source.data, records: [...source.data.records].reverse() };
+
+    const result = await restoreBrowserSnapshot({
+      data: reordered,
+      manifest: source.manifest,
+      confirmed: true,
+    });
+
+    expect((await browserDatabase.records.toArray()).map(row => row.id)).toEqual(["alpha", "zeta"]);
+    expect(await listBrowserRecoveryCheckpoints()).toEqual([
+      expect.objectContaining({ id: result.checkpointId, status: "restored_unverified" }),
+    ]);
+  });
+
   it("checkpoints before replacement, verifies restored data, and retains the checkpoint until explicit verification", async () => {
     await browserDatabase.records.put({
       id: "business-record",
