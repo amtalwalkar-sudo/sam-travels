@@ -51,10 +51,10 @@ const initial: FeatureDefinition[] = [
       lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
     },
   },
-  { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: ["work"] },
+  { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
   { id: "finance", label: "Finance", contractVersion: 1, dependencies: [] },
   { id: "vehicle", label: "Vehicle", contractVersion: 1, dependencies: [] },
-  { id: "performance", label: "Performance", contractVersion: 1, dependencies: ["work", "logbook", "finance"] },
+  { id: "performance", label: "Performance", contractVersion: 1, dependencies: [\n    { id: "work", contractVersion: 1 },\n    { id: "logbook", contractVersion: 1 },\n    { id: "finance", contractVersion: 1 },\n  ] },
   { id: "admin", label: "Admin", contractVersion: 1, dependencies: [] },
   { id: "backup", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
 ];
@@ -69,7 +69,7 @@ function validatePersistentContract(feature: FeatureDefinition): void {
   if (!Number.isSafeInteger(contract.schemaVersion) || contract.schemaVersion < 1) {
     throw new Error("Invalid schema version for feature: " + feature.id);
   }
-  if (!contract.backup?.required || !contract.backup.participantId || contract.backup.snapshotVersion < 1) {
+  if (!Array.isArray(contract.migrations)) {\n    throw new Error("Invalid migration list for feature: " + feature.id);\n  }\n  if (!contract.backup?.required || !contract.backup.participantId || !Number.isSafeInteger(contract.backup.snapshotVersion) || contract.backup.snapshotVersion < 1) {
     throw new Error("Missing required backup participant for feature: " + feature.id);
   }
   if (!contract.restore?.required || !contract.restore.validatorId) {
@@ -127,10 +127,10 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
     validatePersistentContract(source);
     const feature: FeatureDefinition = Object.freeze({
       ...source,
-      dependencies: Object.freeze([...source.dependencies]),
+      dependencies: Object.freeze([...source.dependencies]) as FeatureDependency[],
       persistence: source.persistence ? Object.freeze({
         ...source.persistence,
-        migrations: Object.freeze(source.persistence.migrations.map(migration => Object.freeze({ ...migration }))),
+        migrations: Object.freeze(source.persistence.migrations.map(migration => Object.freeze({ ...migration }))) as FeatureMigration[],
         backup: Object.freeze({ ...source.persistence.backup }),
         restore: Object.freeze({ ...source.persistence.restore }),
         lifecycle: Object.freeze({ ...source.persistence.lifecycle }),
