@@ -1,11 +1,12 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { initializeRuntimeRegistry } from "../../../packages/core/src/runtime-registry";
+import { initializeApplicationRuntimeRegistry } from "../../../packages/features/logbook";
 import { App } from "./ui/App";
 import "./ui/styles.css";
 
-// Fail closed on invalid feature, integration, or calculation contracts before mounting UI.
-initializeRuntimeRegistry();
+// Register and validate the built-in product feature integrations/calculations
+// before mounting UI. Invalid contracts prevent application startup.
+initializeApplicationRuntimeRegistry();
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
