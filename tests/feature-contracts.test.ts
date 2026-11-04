@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { registerFeatures } from "../packages/core/src/features";
+import { registerFeatures } from "../packages/core/src/features";\nimport { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
 import {
   applyCalculationRounding,\n  registerCalculations,
   registerFeatureIntegrations,
@@ -90,5 +90,15 @@ describe("versioned calculation contracts", () => {
       ...calculation,
       ownerFeatureId: "missing-feature",
     }])).toThrow("Invalid calculation contract");
+  });
+});
+
+describe("runtime registry bootstrap", () => {
+  it("validates and exposes feature, integration, and calculation registries together", () => {
+    const runtime = initializeRuntimeRegistry();
+    expect(runtime.features.size).toBe(7);
+    expect(runtime.startupOrder[0].id).toBe("work");
+    expect(runtime.integrations.size).toBe(0);
+    expect(runtime.calculations.size).toBe(0);
   });
 });
