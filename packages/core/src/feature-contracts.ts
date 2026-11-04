@@ -131,3 +131,49 @@ export function applyCalculationRounding(value: number, policy: CalculationRound
   }
   return rounded / scale;
 }
+
+export type FeatureIntegrationMessage<Payload> = {
+  integrationId: string;
+  contractVersion: number;
+  payloadVersion: number;
+  eventId: string;
+  occurredAt: string;
+  payload: Payload;
+};
+
+export type FeatureIntegrationHandler<Payload> =
+  (message: FeatureIntegrationMessage<Payload>) => void | Promise<void>;
+
+/** Deliver only messages that match the registered integration and payload versions. */
+export async function dispatchFeatureIntegration<Payload>(
+  registry: ReadonlyMap<string, FeatureIntegrationContract>,
+  message: FeatureIntegrationMessage<Payload>,
+  handlers: Readonly<Record<string, FeatureIntegrationHandler<Payload>>>,
+): Promise<void> {
+  const contract = registry.get(message.integrationId);
+  if (!contract) throw new Error("Unknown feature integration: " + message.integrationId);
+  if (
+    message.contractVersion !== contract.version ||
+    message.payloadVersion !== contract.payloadVersion
+  ) {
+    throw new Error("Incompatible feature integration message: " + message.integrationId);
+  }
+  if (!message.eventId || !Number.isFinite(Date.parse(message.occurredAt))) {
+    throw new Error("Invalid feature integration message envelope: " + message.integrationId);
+  }
+  const handler = handlers[contract.id];
+  if (!handler) throw new Error("Missing feature integration handler: " + contract.id);
+  await handler(message);
+}
+
+/** Execute a registered calculation only when the caller requests its exact version. */
+export function runCalculation<Input, Output>(
+  contract: CalculationContract<Input, Output>,
+  input: Input,
+  expectedVersion: number,
+): Output {
+  if (contract.version !== expectedVersion) {
+    throw new Error("Incompatible calculation version: " + contract.id);
+  }
+  return contract.calculate(input);
+}
