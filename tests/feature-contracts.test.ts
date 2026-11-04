@@ -157,6 +157,21 @@ describe("versioned calculation contracts", () => {
       .toThrow("Incompatible calculation version");
   });
 
+  it("exposes runtime-immutable calculation and integration registries", () => {
+    const integration: FeatureIntegrationContract = {
+      id: "fixture.integration.v1", version: 1, producerFeatureId: "work",
+      consumerFeatureId: "logbook", eventName: "fixture.event", payloadVersion: 1,
+    };
+    const integrationRegistry = registerFeatureIntegrations(features, [integration]);
+    const calculationRegistry = registerCalculations(features, [calculation]);
+    expect(Object.isFrozen(integrationRegistry)).toBe(true);
+    expect(Object.isFrozen(calculationRegistry)).toBe(true);
+    expect((integrationRegistry as unknown as { set?: unknown }).set).toBeUndefined();
+    expect((calculationRegistry as unknown as { clear?: unknown }).clear).toBeUndefined();
+    expect(Object.isFrozen(calculationRegistry.get(calculation.id)!.rounding)).toBe(true);
+    expect(Object.isFrozen(calculationRegistry.get(calculation.id)!.regressionCases)).toBe(true);
+  });
+
   it("executes by registered id and returns version/effective-date provenance", () => {
     const runtime = initializeRuntimeRegistry({ integrations: [], calculations: [calculation] });
     const result = executeRegisteredCalculation(
