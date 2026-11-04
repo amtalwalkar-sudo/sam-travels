@@ -1,7 +1,7 @@
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
-import { registerFeatures } from "../../core/src/features";
+import { registerFeatures, registerBackupParticipants } from "../../core/src/features";
 
 export interface BrowserSnapshotData {
   records: unknown[];
@@ -37,14 +37,18 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
 ]);
 
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
-  const registry = registerFeatures();
-  const featureParticipants = [...registry.values()]
-    .filter(feature => feature.persistence?.backup.required)
-    .map(feature => {
-      const participantId = feature.persistence!.backup.participantId;
-      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === participantId);
-      if (!participant || participant.featureId !== feature.id) {
-        throw new Error("backup_feature_registration_mismatch:" + feature.id + ":" + participantId);
+  const features = registerFeatures();
+  const discovered = registerBackupParticipants(features);
+  const featureParticipants = [...discovered.values()]
+    .filter(contract => contract.required)
+    .map(contract => {
+      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === contract.id);
+      if (
+        !participant ||
+        participant.featureId !== contract.featureId ||
+        participant.schemaVersion !== contract.snapshotVersion
+      ) {
+        throw new Error("backup_feature_registration_mismatch:" + contract.featureId + ":" + contract.id);
       }
       return participant;
     });
