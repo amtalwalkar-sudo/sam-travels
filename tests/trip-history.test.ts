@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildTripHistory, type DriverEvent } from "../packages/features/work-shift";
 
-const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string): DriverEvent => ({
+const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string, expectedPriorState = "trip_active"): DriverEvent => ({
   eventId: id,
   command: {
     schemaVersion: 1,
@@ -10,7 +10,7 @@ const event = (id: string, revision: number, eventType: DriverEvent["command"]["
     eventType,
     originSurface: "native_overlay",
     transitionAt: at,
-    expectedPriorState: "trip_active",
+    expectedPriorState,
     expectedRevision: revision - 1,
     idempotencyKey: id,
   },
@@ -47,4 +47,15 @@ describe("durable trip history projection", () => {
     ]);
     expect(trips.map((trip) => trip.status).sort()).toEqual(["active", "needs_attention"]);
   });
+  it("shows a cancellation from approach as a cancelled ride without inventing a trip start", () => {
+    expect(buildTripHistory([
+      event("cancel-before-start", 1, "ride_cancel", "2026-11-04T09:20:00.000Z", "approach_active"),
+    ])).toMatchObject([{
+      id: "cancelled-before-start:cancel-before-start",
+      status: "cancelled",
+      reason: "cancelled_before_trip_start",
+      endedAt: "2026-11-04T09:20:00.000Z",
+    }]);
+  });
+
 });
