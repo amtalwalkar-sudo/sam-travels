@@ -29,6 +29,7 @@ export type DriverEventPublisher = (event: DriverEvent) => Promise<void>;
 
 export class DriverWorkflowService {
   private readonly pendingIntegrationEventIds = new Set<string>();
+  private readonly deliveredIntegrationEventIds = new Set<string>();
 
   constructor(
     private readonly repository: DriverWorkflowRepository,
@@ -63,6 +64,7 @@ export class DriverWorkflowService {
     const events = await this.repository.listEvents();
     let delivered = 0;
     for (const event of events) {
+      if (this.deliveredIntegrationEventIds.has(event.eventId)) continue;
       if (await this.publishCommittedEvent(event)) delivered += 1;
     }
     return { delivered, pending: this.pendingIntegrationEventIds.size };
@@ -84,10 +86,11 @@ export class DriverWorkflowService {
   }
 
   private async publishCommittedEvent(event: DriverEvent): Promise<boolean> {
-    if (!this.publishEvent) return true;
+    if (!this.publishEvent || this.deliveredIntegrationEventIds.has(event.eventId)) return true;
     try {
       await this.publishEvent(event);
       this.pendingIntegrationEventIds.delete(event.eventId);
+      this.deliveredIntegrationEventIds.add(event.eventId);
       return true;
     } catch {
       // The source event is already durable. Keep its ID for retry and never
