@@ -12,6 +12,8 @@ import {
 } from "./feature-contracts";
 
 export type RuntimeContractDefinitions = {
+  /** Add-on definitions are validated together with the stable built-in catalogue. */
+  features?: FeatureDefinition[];
   integrations: FeatureIntegrationContract[];
   calculations: CalculationContract<any, any>[];
 };
@@ -27,7 +29,9 @@ export type RuntimeRegistry = {
 export function initializeRuntimeRegistry(
   definitions: RuntimeContractDefinitions = { integrations: [], calculations: [] },
 ): RuntimeRegistry {
-  const features = registerFeatures();
+  // Build every registry locally. A failure in any contract prevents a partial
+  // runtime catalogue from being returned to the application bootstrap.
+  const features = registerFeatures(definitions.features ?? []);
   const startupOrder = resolveFeatureStartupOrder(features);
   const integrations = registerFeatureIntegrations(features, definitions.integrations);
   const calculations = registerCalculations(features, definitions.calculations);
