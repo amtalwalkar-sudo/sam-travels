@@ -92,6 +92,11 @@ function liveTables() {
   return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
 
+async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<BrowserSnapshotData> {
+  const entries = await Promise.all(tables.map(async table => [table.name, await table.toArray()] as const));
+  return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
+}
+
 function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
@@ -163,13 +168,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   plaintext: Uint8Array;
 }> {
   const tables = liveTables();
-  const data = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
@@ -192,13 +191,7 @@ export async function restoreBrowserSnapshot(input: {
   validateSnapshot(input.data, input.manifest);
 
   const tables = liveTables();
-  const current = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const current = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
 
   const checkpointId = crypto.randomUUID();
   const checkpoint: Checkpoint = {
@@ -219,13 +212,7 @@ export async function restoreBrowserSnapshot(input: {
       await checkpointTable().put({ ...checkpoint, status: "restored_unverified" });
     });
 
-    const verified = await browserDatabase.transaction("r", tables, async () => ({
-      records: await tables[0].toArray(),
-      driverState: await tables[1].toArray(),
-      driverIntents: await tables[2].toArray(),
-      driverEvents: await tables[3].toArray(),
-      driverOutbox: await tables[4].toArray(),
-    })) as BrowserSnapshotData;
+    const verified = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
     if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
@@ -278,13 +265,7 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
     }
     await checkpointTable().put({ ...checkpoint, status: "rollback_complete" });
   });
-  const restored = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const restored = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   if (!snapshotsEqual(restored, checkpoint.snapshot)) {
     throw new Error("backup_checkpoint_rollback_verification_failed");
   }
