@@ -33,20 +33,21 @@ class LocalDatabaseMigrationTest {
     }
 
     @Test
-    fun versionOneDataSurvivesTheVersionTwoIndexMigration() {
+    fun versionOneDataSurvivesBothRoomMigrations() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "room-migration-v1-to-v2.db"
         createVersionOneDatabase(context, name)
 
         val migrated = Room.databaseBuilder(context, LocalDatabase::class.java, name)
-            .addMigrations(LocalDatabase.MIGRATION_1_2)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {
             val row = migrated.records().get("legacy-driver-state")
             assertNotNull(row)
             assertEquals("{\"state\":\"shift_active\"}", row!!.json)
-            assertEquals(2, migrated.openHelper.readableDatabase.version)
+            assertEquals(3, migrated.openHelper.readableDatabase.version)
+            migrated.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE type='table' AND name='logbook_events'").use { cursor -> assertEquals(true, cursor.moveToFirst()) }
             migrated.openHelper.readableDatabase.query(
                 "SELECT name FROM sqlite_master WHERE type='index' AND name='index_records_updatedAt'",
             ).use { cursor -> assertEquals(true, cursor.moveToFirst()) }
@@ -69,7 +70,7 @@ class LocalDatabaseMigrationTest {
         }
 
         val broken = Room.databaseBuilder(context, LocalDatabase::class.java, name)
-            .addMigrations(injectedFailure)
+            .addMigrations(injectedFailure, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {

@@ -26,7 +26,7 @@ import kotlin.math.abs
 class DriverWorkflowPlugin:Plugin(){
  private val executor=Executors.newSingleThreadExecutor()
  private val main=Handler(Looper.getMainLooper())
- private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2).enableMultiInstanceInvalidation().build()}
+ private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
  private fun state():JSONObject=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
  private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
@@ -97,7 +97,7 @@ class DriverWorkflowPlugin:Plugin(){
   executor.execute{try{val intent=DriverWorkflowStore.reactivate(db,id);val out=JSObject();out.put("intent",intent);call.resolve(out)}
    catch(e:Exception){call.reject("Unable to resume pending intent: "+(e.message?:"unknown failure"),"INTENT_RECOVERY_FAILED",e)}}
  }
- @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{val arr=JSONArray();db.records().list().filter{it.id.startsWith("driver-event:")}.sortedBy{it.updatedAt}.forEach{arr.put(JSONObject(it.json))};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
+ @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{val arr=JSONArray();db.logBookEvents().list().forEach{arr.put(JSONObject(it.json))};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
  @PluginMethod fun markNeedsAttention(call:PluginCall){
   val id=call.getString("eventId");val reason=call.getString("reason")?:"location_unavailable"
   if(id.isNullOrBlank()){call.reject("Event id required");return}
