@@ -129,7 +129,8 @@ class DriverOverlayService:Service(){
   val pending=pendingRow!=null
   val state=s.optString("state")
   main.post{
-   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)"GPS evidence window expired · new action can be recorded" else "Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision"))
+   val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
+   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
    recoveryButton?.isEnabled=pending&&activeLocationEventId==null
    actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
    actionButtons["trip_start"]?.isEnabled=!pending&&state=="shift_active"
