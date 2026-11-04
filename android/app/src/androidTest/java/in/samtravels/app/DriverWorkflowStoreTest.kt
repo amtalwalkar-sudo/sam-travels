@@ -30,7 +30,7 @@ class DriverWorkflowStoreTest {
         .put("eventId", id)
         .put("eventType", event)
         .put("originSurface", "native_overlay")
-        .put("transitionAt", "2026-11-03T10:00:00.000Z")
+        .put("transitionAt", java.time.Instant.now().toString())
         .put("expectedPriorState", "idle")
         .put("expectedRevision", 0)
         .put("idempotencyKey", id)
@@ -39,7 +39,7 @@ class DriverWorkflowStoreTest {
         .put("latitude", 19.076)
         .put("longitude", 72.8777)
         .put("horizontalAccuracyM", accuracy)
-        .put("fixAt", "2026-11-03T10:00:00.000Z")
+        .put("fixAt", java.time.Instant.now().toString())
         .put("provider", "android-test")
 
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
