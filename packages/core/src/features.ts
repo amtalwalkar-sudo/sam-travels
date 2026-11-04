@@ -195,6 +195,35 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
   return registry;
 }
 
+export type BackupParticipantDefinition = {
+  id: string;
+  featureId: FeatureId;
+  snapshotVersion: number;
+  restoreValidatorId: string;
+  required: true;
+};
+
+/** Discover every required backup participant directly from persistent feature contracts. */
+export function registerBackupParticipants(
+  features: ReadonlyMap<FeatureId, FeatureDefinition>,
+): ReadonlyMap<string, BackupParticipantDefinition> {
+  const registry = new Map<string, BackupParticipantDefinition>();
+  for (const feature of features.values()) {
+    const persistence = feature.persistence;
+    if (!persistence) continue;
+    const id = persistence.backup.participantId;
+    if (registry.has(id)) throw new Error("Duplicate backup participant: " + id);
+    registry.set(id, Object.freeze({
+      id,
+      featureId: feature.id,
+      snapshotVersion: persistence.backup.snapshotVersion,
+      restoreValidatorId: persistence.restore.validatorId,
+      required: true,
+    }));
+  }
+  return registry;
+}
+
 /** Stable dependency-first order for startup and migration coordination. */
 export function resolveFeatureStartupOrder(
   registry: ReadonlyMap<FeatureId, FeatureDefinition> = registerFeatures(),
