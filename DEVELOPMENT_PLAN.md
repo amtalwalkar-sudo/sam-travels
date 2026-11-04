@@ -97,8 +97,8 @@ Do not mark Phase 6 complete until these remaining items are implemented and tes
 
 ## Phase 7 — Internet integrations and release readiness
 
-- Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites.
-- Validate PWA and signed Android release builds on physical devices.
+- Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites. CI now additionally assembles the Android release variant (unsigned build validation).
+- Validate PWA and signed Android release builds on physical devices; signed artifact generation requires owner-controlled signing credentials and explicit release approval.
 - Verify permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
 - Implement optional Internet integrations only through the network gateway.
 - Resolve release blockers and prepare release artifacts only after explicit approval.
