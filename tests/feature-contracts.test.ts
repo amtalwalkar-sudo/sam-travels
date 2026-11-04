@@ -191,7 +191,7 @@ describe("versioned calculation contracts", () => {
       value: 3.5,
     });
     expect(() => executeRegisteredCalculation(runtime.calculations, "missing", {}, {
-      version: 1, inputSchemaVersion: 1,
+      version: 1, inputSchemaVersion: 1, outputSchemaVersion: 1,
     })).toThrow("Unknown calculation");
     expect(() => executeRegisteredCalculation(runtime.calculations, calculation.id, {
       left: 1, right: 2, businessDate: "2026-11-04",
