@@ -14,6 +14,10 @@ class MainActivity : BridgeActivity() {
         persistDropboxCallback(intent)
         super.onCreate(savedInstanceState)
         BackgroundBackupScheduler.schedule(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
         resumeEnabledOverlayFromForeground()
     }
 
