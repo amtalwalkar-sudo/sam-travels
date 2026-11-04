@@ -107,6 +107,26 @@ for (const absolute of sourceFiles) {
   }
 }
 
+const foundationContract = await readFile(path.join(root, "docs/ARCHITECTURE_FOUNDATION_CONTRACT.md"), "utf8");
+const featureContract = await readFile(path.join(root, "docs/FEATURE_MODULE_CONTRACT.md"), "utf8");
+const requiredFoundationSections = [
+  "## 7. Feature registration, lifecycle, and dependency contracts",
+  "## 8. Complete business backup and restore participation",
+  "## 9. Calculation ownership and feature integration contracts",
+];
+for (const section of requiredFoundationSections) {
+  if (!foundationContract.includes(section)) failures.push(`docs/ARCHITECTURE_FOUNDATION_CONTRACT.md: missing required section "${section}"`);
+}
+const requiredFeatureContractSections = [
+  "## Mandatory persistent-feature registry",
+  "## Feature lifecycle and data retention",
+  "## Complete backup and restore participation",
+  "## Calculation ownership and integrations",
+];
+for (const section of requiredFeatureContractSections) {
+  if (!featureContract.includes(section)) failures.push(`docs/FEATURE_MODULE_CONTRACT.md: missing required section "${section}"`);
+}
+
 if (failures.length) {
   console.error("Architecture gate failed:");
   for (const failure of failures) console.error(` - ${failure}`);
