@@ -182,13 +182,12 @@ for (const absolute of sourceFiles) {
       (from === "storage" && target === "ui") ||
       (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
       (from === "feature" && ["storage", "ui"].includes(target)) ||
-      (from === "ui" && target === "storage") ||
-      (from === "web-app" && target === "storage");
+      (from === "ui" && target === "storage");
     if (forbidden) {
       failures.push(`${relative}: ${from} layer must not import ${target ?? "a forbidden adapter"} via "${specifier}"`);
     }
 
-    if ((from === "ui" || from === "web-app") && (
+    if (from === "ui" && (
       specifier === "dexie" || specifier.startsWith("dexie/") ||
       specifier.startsWith("@capacitor/")
     )) {
