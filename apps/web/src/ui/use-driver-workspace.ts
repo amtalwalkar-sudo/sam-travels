@@ -62,7 +62,7 @@ export function useDriverWorkspace() {
         const service = new DriverWorkflowService(repository, location);
         setWorkflow(service);
         setDriver(await service.snapshot());
-        const pendingItems = await service.pending();
+        const pendingItems = await service.reconcilePending();
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
@@ -78,7 +78,7 @@ export function useDriverWorkspace() {
           void service.snapshot().then((snapshot) => {
             if (live) setDriver(snapshot);
           });
-          void service.pending().then((items) => {
+          void service.reconcilePending().then((items) => {
             if (live) setPending(items);
           });
         }, 1500);
