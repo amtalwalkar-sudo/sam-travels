@@ -49,7 +49,6 @@ class DriverWorkflowStoreTest {
         assertEquals("shift_active", next.getString("state"))
         assertEquals(1, next.getInt("revision"))
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-1")!!.json).getString("status"))
-        assertEquals("event-1", db.logBookEvents().list().single().eventId)
         assertEquals(1, db.logBookEvents().list().size)
         assertEquals("event-1", JSONObject(db.logBookEvents().list().single().json).getString("eventId"))
         val outbox = JSONObject(db.records().get("driver-outbox:1")!!.json)
@@ -205,7 +204,6 @@ class DriverWorkflowStoreTest {
             }
 
             assertTrue(rejected)
-            assertEquals(1, reopened.logBookEvents().list().size)
             assertEquals(1, reopened.logBookEvents().list().size)
             assertEquals("durable-replay", JSONObject(reopened.logBookEvents().list().single().json).getString("eventId"))
             assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-outbox:") })

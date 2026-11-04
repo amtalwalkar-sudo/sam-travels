@@ -161,7 +161,11 @@ internal object NativeBackupCoverage {
             val row = records.optJSONObject(index) ?: error("backup_invalid_record")
             val owner = participantId(row, participants)
             require(seen.add(owner + ":" + row.optString("id"))) { "backup_duplicate_participant_record_id" }
-            adapter(byId.getValue(owner)).validate(row)
+            val participant = byId.getValue(owner)
+            require(row.optInt("schemaVersion", 0) == participant.snapshotVersion) {
+                "backup_participant_snapshot_version_mismatch:" + owner
+            }
+            adapter(participant).validate(row)
         }
     }
 
