@@ -35,6 +35,39 @@ export type CalculationContract<Input, Output> = {
   regressionCases: CalculationRegressionCase<Input, Output>[];
 };
 
+/**
+ * Calculation inputs, outputs, and regression fixtures are data, not mutable
+ * application state. Copy JSON-shaped values and freeze the copy before
+ * handing them to calculation code. Reject cycles and non-data values.
+ */
+function cloneFrozenCalculationData<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Calculation data must contain finite numbers");
+    return value;
+  }
+  if (typeof value !== "object") throw new Error("Calculation data must be JSON-compatible");
+  const source = value as object;
+  if (seen.has(source)) throw new Error("Calculation data cannot contain cycles");
+  seen.add(source);
+  let copy: object;
+  if (Array.isArray(value)) {
+    copy = value.map(item => cloneFrozenCalculationData(item, seen));
+  } else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error("Calculation data must contain only plain objects and arrays");
+    }
+    const record: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      record[key] = cloneFrozenCalculationData(item, seen);
+    }
+    copy = record;
+  }
+  seen.delete(source);
+  return Object.freeze(copy) as T;
+}
+
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) return "[" + value.map(stableSerialize).join(",") + "]";
   if (value && typeof value === "object") {
@@ -109,7 +142,8 @@ export function registerCalculations<Input, Output>(
       if (!validIsoBusinessDate((testCase.input as Record<string, unknown>)[contract.effectiveDateField])) {
         throw new Error("Calculation regression case has invalid effective date: " + contract.id + ":" + testCase.name);
       }
-      const actual = contract.calculate(testCase.input);
+      const immutableInput = cloneFrozenCalculationData(testCase.input);
+      const actual = cloneFrozenCalculationData(contract.calculate(immutableInput));
       const expected = typeof testCase.expected === "number"
         ? applyCalculationRounding(testCase.expected, contract.rounding)
         : testCase.expected;
@@ -123,7 +157,11 @@ export function registerCalculations<Input, Output>(
     registry.set(contract.id, Object.freeze({
       ...contract,
       rounding: Object.freeze({ ...contract.rounding }),
-      regressionCases: Object.freeze(contract.regressionCases.map(testCase => Object.freeze({ ...testCase }))) as CalculationRegressionCase<Input, Output>[],
+      regressionCases: Object.freeze(contract.regressionCases.map(testCase => Object.freeze({
+        name: testCase.name,
+        input: cloneFrozenCalculationData(testCase.input),
+        expected: cloneFrozenCalculationData(testCase.expected),
+      }))) as CalculationRegressionCase<Input, Output>[],
     }));
   }
   return createReadonlyRegistry(registry);
@@ -200,10 +238,12 @@ export function runCalculation<Input, Output>(
   if (!validIsoBusinessDate((input as Record<string, unknown>)[contract.effectiveDateField])) {
     throw new Error("Invalid calculation effective date: " + contract.id);
   }
-  const result = contract.calculate(input);
-  return (typeof result === "number"
+  const immutableInput = cloneFrozenCalculationData(input);
+  const result = contract.calculate(immutableInput);
+  const normalized = typeof result === "number"
     ? applyCalculationRounding(result, contract.rounding)
-    : result) as Output;
+    : result;
+  return cloneFrozenCalculationData(normalized) as Output;
 }
 
 
