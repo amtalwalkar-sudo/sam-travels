@@ -17,6 +17,7 @@ class NativeBackupCoverageTest {
             .build()
         try {
             NativeBackupCoverage.assertRoomSchemaCovered(database)
+            assertEquals(setOf("platform-records"), NativeBackupCoverage.registeredParticipantIds())
             val cursor = database.openHelper.readableDatabase.query(
                 "SELECT name FROM sqlite_master WHERE type='table' " +
                     "AND name NOT IN ('room_master_table', 'android_metadata') " +
