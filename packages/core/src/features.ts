@@ -51,16 +51,16 @@ const initial: FeatureDefinition[] = [
       lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
     },
   },
-  { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
-  { id: "finance", label: "Finance", contractVersion: 1, dependencies: [] },
-  { id: "vehicle", label: "Vehicle", contractVersion: 1, dependencies: [] },
-  { id: "performance", label: "Performance", contractVersion: 1, dependencies: [
+  { id: "logbook", dataPolicy: "non-persistent", label: "Log Book", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
+  { id: "finance", dataPolicy: "non-persistent", label: "Finance", contractVersion: 1, dependencies: [] },
+  { id: "vehicle", dataPolicy: "non-persistent", label: "Vehicle", contractVersion: 1, dependencies: [] },
+  { id: "performance", dataPolicy: "non-persistent", label: "Performance", contractVersion: 1, dependencies: [
     { id: "work", contractVersion: 1 },
     { id: "logbook", contractVersion: 1 },
     { id: "finance", contractVersion: 1 },
   ] },
-  { id: "admin", label: "Admin", contractVersion: 1, dependencies: [] },
-  { id: "backup", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
+  { id: "admin", dataPolicy: "non-persistent", label: "Admin", contractVersion: 1, dependencies: [] },
+  { id: "backup", dataPolicy: "non-persistent", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
 ];
 
 function dependencyId(dependency: FeatureDependency): FeatureId {
@@ -69,7 +69,7 @@ function dependencyId(dependency: FeatureDependency): FeatureId {
 
 function validatePersistentContract(feature: FeatureDefinition): void {
   const contract = feature.persistence;
-  if (!contract) return;
+  if (feature.dataPolicy === "persistent" && !contract) {\n    throw new Error("Persistent feature is missing its persistence contract: " + feature.id);\n  }\n  if (feature.dataPolicy === "non-persistent" && contract) {\n    throw new Error("Non-persistent feature cannot declare a persistence contract: " + feature.id);\n  }\n  if (!contract) return;
   if (!Number.isSafeInteger(contract.schemaVersion) || contract.schemaVersion < 1) {
     throw new Error("Invalid schema version for feature: " + feature.id);
   }
@@ -128,7 +128,7 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
   const registry = new Map<FeatureId, FeatureDefinition>();
   for (const source of [...initial, ...additional]) {
     if (registry.has(source.id)) throw new Error("Duplicate feature registration: " + source.id);
-    if (!source.label.trim() || !Number.isSafeInteger(source.contractVersion) || source.contractVersion < 1) {
+    if (!["persistent", "non-persistent"].includes(source.dataPolicy) || !source.label.trim() || !Number.isSafeInteger(source.contractVersion) || source.contractVersion < 1) {
       throw new Error("Invalid feature contract: " + source.id);
     }
     validatePersistentContract(source);
