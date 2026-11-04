@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { nativeOverlayAvailable } from "../driver-workflow";
 import { BackupPanel } from "./BackupPanel";
+import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
 
 type Screen = "Drive" | "Timeline" | "Performance" | "Admin";
@@ -133,7 +134,10 @@ export function App() {
 
             <BackupPanel />
         </div>
-        {activeScreen !== "Drive" && (
+        {activeScreen === "Timeline" && (
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /></section>
+        )}
+        {(activeScreen === "Performance" || activeScreen === "Admin") && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /></section>
         )}
       </div>
