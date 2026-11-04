@@ -15,6 +15,8 @@ internal object BackupWorkerResilience {
     fun shouldRetryInterruptedTransfer(error: Throwable, runAttemptCount: Int): Boolean =
         error is java.io.IOException && shouldRetry(runAttemptCount)
 
+    fun shouldReconcileInterruptedRun(previousStatus: String?): Boolean = previousStatus == "running"
+
     fun shouldForceTokenRefresh(status: Int): Boolean = status == 401
 
     fun isTransientHttpStatus(status: Int): Boolean =
