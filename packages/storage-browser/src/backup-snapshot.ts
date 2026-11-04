@@ -16,7 +16,51 @@ type Checkpoint = {
   snapshot: BrowserSnapshotData;
 };
 const TABLE_NAMES = ["records", "driverState", "driverIntents", "driverEvents", "driverOutbox"] as const;
-const liveTables = () => TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
+const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
+
+/**
+ * Fail closed when a Dexie table is added without an explicit backup policy.
+ * Recovery checkpoints and local credential-vault material are intentionally
+ * excluded; every business table must be in TABLE_NAMES.
+ */
+export function assertBrowserBackupTableCoverage(
+  actualTableNames: string[] = browserDatabase.tables.map(table => table.name),
+): void {
+  const registered = new Set<string>([...TABLE_NAMES, ...EXCLUDED_TABLE_NAMES]);
+  const actual = new Set(actualTableNames);
+  const missing = [...registered].filter(name => !actual.has(name));
+  const unclassified = [...actual].filter(name => !registered.has(name));
+  if (missing.length || unclassified.length || actual.size !== actualTableNames.length) {
+    throw new Error(
+      "backup_table_registration_mismatch:" +
+      [...missing.map(name => "missing:" + name), ...unclassified.map(name => "unclassified:" + name)].join(","),
+    );
+  }
+}
+
+function liveTables() {
+  assertBrowserBackupTableCoverage();
+  return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
+}
+
+function rowKey(table: typeof TABLE_NAMES[number], row: unknown): string {
+  if (!row || typeof row !== "object") return JSON.stringify(row);
+  const value = row as Record<string, unknown>;
+  if (table === "driverIntents") {
+    const command = value.command as Record<string, unknown> | undefined;
+    return String(command?.eventId ?? "");
+  }
+  return String(value.id ?? value.eventId ?? "");
+}
+
+function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): boolean {
+  return TABLE_NAMES.every(name => {
+    const canonical = (rows: unknown[]) => [...rows]
+      .sort((a, b) => rowKey(name, a).localeCompare(rowKey(name, b)))
+      .map(row => JSON.stringify(row));
+    return JSON.stringify(canonical(left[name])) === JSON.stringify(canonical(right[name]));
+  });
+}
 const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Table<Checkpoint, string>;
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
@@ -30,6 +74,22 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
   if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
+  const primaryKeys: Record<typeof TABLE_NAMES[number], (row: Record<string, unknown>) => string> = {
+    records: row => String(row.id ?? ""),
+    driverState: row => String(row.id ?? ""),
+    driverIntents: row => String((row.command as Record<string, unknown> | undefined)?.eventId ?? ""),
+    driverEvents: row => String(row.eventId ?? ""),
+    driverOutbox: row => String(row.id ?? ""),
+  };
+  for (const name of TABLE_NAMES) {
+    const ids = new Set<string>();
+    for (const row of data[name]) {
+      if (!row || typeof row !== "object") throw new Error("backup_invalid_row:" + name);
+      const id = primaryKeys[name](row as Record<string, unknown>);
+      if (!id || ids.has(id)) throw new Error("backup_invalid_or_duplicate_row_id:" + name);
+      ids.add(id);
+    }
+  }
   const ids = new Set<string>();
   for (const row of data.records) {
     if (!row || typeof row !== "object" || typeof (row as { id?: unknown }).id !== "string") {
@@ -109,7 +169,7 @@ export async function restoreBrowserSnapshot(input: {
       driverEvents: await tables[3].toArray(),
       driverOutbox: await tables[4].toArray(),
     })) as BrowserSnapshotData;
-    if (JSON.stringify(verified) !== JSON.stringify(input.data)) throw new Error("backup_post_restore_verification_failed");
+    if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
       restoredCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, verified[name].length])),
@@ -168,7 +228,7 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
     driverEvents: await tables[3].toArray(),
     driverOutbox: await tables[4].toArray(),
   })) as BrowserSnapshotData;
-  if (JSON.stringify(restored) !== JSON.stringify(checkpoint.snapshot)) {
+  if (!snapshotsEqual(restored, checkpoint.snapshot)) {
     throw new Error("backup_checkpoint_rollback_verification_failed");
   }
 }
