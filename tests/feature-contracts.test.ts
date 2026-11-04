@@ -3,6 +3,7 @@ import { registerFeatures } from "../packages/core/src/features";
 import { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
 import {
   applyCalculationRounding,
+  executeRegisteredCalculation,
   dispatchFeatureIntegration,
   runCalculation,
   registerCalculations,
@@ -93,19 +94,19 @@ describe("versioned feature integration contracts", () => {
 
 describe("versioned calculation contracts", () => {
   const features = registerFeatures();
-  const calculation: CalculationContract<{ distanceKm: number; fuelLitres: number; businessDate: string }, number> = {
-    id: "test-fuel-efficiency",
+  const calculation: CalculationContract<{ left: number; right: number; businessDate: string }, number> = {
+    id: "test-fixture.sum.v1",
     ownerFeatureId: "performance",
     version: 1,
     inputSchemaVersion: 1,
     outputSchemaVersion: 1,
-    unit: "km/L",
+    unit: "fixture-units",
     effectiveDateField: "businessDate",
     rounding: { mode: "half-up", decimalPlaces: 2 },
-    calculate: input => input.distanceKm / input.fuelLitres,
+    calculate: input => input.left + input.right,
     regressionCases: [
-      { name: "normal-trip", input: { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, expected: 12 },
-      { name: "fractional-result", input: { distanceKm: 100, fuelLitres: 8, businessDate: "2026-11-04" }, expected: 12.5 },
+      { name: "normal-trip", input: { left: 1, right: 2, businessDate: "2026-11-04" }, expected: 3 },
+      { name: "fractional-result", input: { left: 1.25, right: 2.25, businessDate: "2026-11-04" }, expected: 3.5 },
     ],
   };
 
@@ -126,9 +127,35 @@ describe("versioned calculation contracts", () => {
   });
 
   it("executes only the requested registered calculation version", () => {
-    expect(runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, 1)).toBe(12);
-    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, 2))
+    expect(runCalculation(calculation, { left: 1, right: 2, businessDate: "2026-11-04" }, 1)).toBe(3);
+    expect(() => runCalculation(calculation, { left: 1, right: 2, businessDate: "2026-11-04" }, 2))
       .toThrow("Incompatible calculation version");
+  });
+
+  it("executes by registered id and returns version/effective-date provenance", () => {
+    const runtime = initializeRuntimeRegistry({ integrations: [], calculations: [calculation] });
+    const result = executeRegisteredCalculation(
+      runtime.calculations,
+      calculation.id,
+      { left: 1.25, right: 2.25, businessDate: "2026-11-04" },
+      { version: 1, inputSchemaVersion: 1 },
+    );
+    expect(result).toEqual({
+      calculationId: calculation.id,
+      ownerFeatureId: "performance",
+      version: 1,
+      inputSchemaVersion: 1,
+      outputSchemaVersion: 1,
+      effectiveDate: "2026-11-04",
+      unit: "fixture-units",
+      value: 3.5,
+    });
+    expect(() => executeRegisteredCalculation(runtime.calculations, "missing", {}, {
+      version: 1, inputSchemaVersion: 1,
+    })).toThrow("Unknown calculation");
+    expect(() => executeRegisteredCalculation(runtime.calculations, calculation.id, {
+      left: 1, right: 2, businessDate: "2026-11-04",
+    }, { version: 1, inputSchemaVersion: 2 })).toThrow("Incompatible calculation input schema");
   });
 
   it("applies deterministic half-up and half-even decimal rounding", () => {
@@ -140,14 +167,14 @@ describe("versioned calculation contracts", () => {
   });
 
   it("rejects missing or invalid effective dates and rounds numeric outputs at execution", () => {
-    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-02-30" }, 1))
+    expect(() => runCalculation(calculation, { left: 1, right: 2, businessDate: "2026-02-30" }, 1))
       .toThrow("Invalid calculation effective date");
     expect(() => registerCalculations(features, [{
       ...calculation,
-      regressionCases: [{ name: "bad-date", input: { distanceKm: 10, fuelLitres: 1, businessDate: "not-a-date" }, expected: 10 }],
+      regressionCases: [{ name: "bad-date", input: { left: 1, right: 2, businessDate: "not-a-date" }, expected: 10 }],
     }])).toThrow("invalid effective date");
     const fractional = { ...calculation, calculate: () => 12.345 };
-    expect(runCalculation(fractional, { distanceKm: 1, fuelLitres: 1, businessDate: "2026-11-04" }, 1)).toBe(12.35);
+    expect(runCalculation(fractional, { left: 1, right: 1, businessDate: "2026-11-04" }, 1)).toBe(12.35);
   });
 
   it("rejects calculations owned by an unregistered feature", () => {
