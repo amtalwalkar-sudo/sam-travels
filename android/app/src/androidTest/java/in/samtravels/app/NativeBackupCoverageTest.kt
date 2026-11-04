@@ -27,6 +27,35 @@ class NativeBackupCoverageTest {
         }
     }
 
+    @Test fun snapshotExportUsesDiscoveredParticipantIdentityAndRestoreRejectsUnknownOwners() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            database.records().put(StoredRecord(
+                "record-1",
+                """{"id":"record-1","value":"sample"}""",
+                1,
+                "2026-11-04T00:00:00.000Z",
+            ))
+            val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
+            assertEquals("platform-records", exported.getJSONObject(0).getString("participantId"))
+            NativeBackupCoverage.validateBusinessRecords(exported)
+
+            val unknownOwner = org.json.JSONArray().put(
+                org.json.JSONObject(exported.getJSONObject(0).toString())
+                    .put("participantId", "unregistered-feature"),
+            )
+            val failure = runCatching {
+                NativeBackupCoverage.validateBusinessRecords(unknownOwner)
+            }.exceptionOrNull()
+            assertEquals("backup_unknown_participant:unregistered-feature", failure?.message)
+        } finally {
+            database.close()
+        }
+    }
+
     @Test fun failsClosedWhenARoomEntityHasNoParticipantContract() {
         val failure = runCatching {
             NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java))
