@@ -30,7 +30,7 @@ Status: Android WorkManager implementation and automated resilience gates are gr
 
 ## Verification gates
 
-- CI run [#301](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41833914640) on head `b2d14e9bf7448ec91c4861f05420518accc87175` is green for web tests/build, Android debug/unit/instrumentation tasks, and unsigned release assembly.
+- CI run [#308](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41835374476) on head `b0e70d45db3becb8e53f8b756503e9da7fa25c25` is green for web tests/build, Android debug/unit/instrumentation tasks, and unsigned release assembly.
 - Automated tests cover encrypted V1/V2 package paths, recovery-key restoration and cross-runtime native V2 fixture decryption, OAuth policy/state/token-refresh behavior, retry and retention decisions, interrupted-run reconciliation decisions, Room transactional rollback under injected replacement failure, and recovery-key vault persistence across vault recreation.
 - The Android worker uses bounded WorkManager retries, status reconciliation for stale `running` attempts, policy checks before requests, and Keystore-backed recovery material. CI validates compilation and automated test scenarios, but it is not proof of scheduling execution through real process death, reboot, Doze, or locked-device states.
 - Remaining manual acceptance: real Dropbox OAuth/upload/download/revocation and physical-device Doze/reboot/locked-device checks, plus owner walkthrough of restore/rollback with disposable data. These remain deferred; CI cannot prove external/device behavior.
