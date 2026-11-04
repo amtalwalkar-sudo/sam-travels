@@ -13,6 +13,14 @@ export class DriverWorkflowService{
  snapshot(){return this.repository.getSnapshot()} pending(){return this.repository.listPending()} events(){return this.repository.listEvents()}
  subscribe(listener:(snapshot:DriverStateProjection)=>void){return this.repository.subscribe(listener)}
  async retry(eventId:string):Promise<{status:"recorded"|"needs_attention";snapshot:DriverStateProjection;reason?:string}>{
+  const existing=await this.repository.getIntent(eventId);
+  if(!existing)throw new Error("intent_missing");
+  const transitionMs=Date.parse(existing.command.transitionAt);
+  if(!Number.isFinite(transitionMs)||Math.abs(Date.now()-transitionMs)>30_000){
+   const reason="gps_recovery_window_expired";
+   await this.repository.markNeedsAttention(eventId,reason);
+   return{status:"needs_attention",snapshot:await this.snapshot(),reason};
+  }
   const intent=await this.repository.reactivateIntent(eventId);
   try{const gps=await this.location.capture();const snapshot=await this.snapshot();const plan=validateDriverCompletion(snapshot,intent,gps);if(!plan.ok)throw new Error(plan.error);return{status:"recorded",snapshot:await this.repository.completeIntent(eventId,gps)}}
   catch(error){const reason=error instanceof Error?error.message:"location_unavailable";await this.repository.markNeedsAttention(eventId,reason);return{status:"needs_attention",snapshot:await this.snapshot(),reason}}
