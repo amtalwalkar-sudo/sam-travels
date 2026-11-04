@@ -24,21 +24,8 @@ class BackupPlugin : Plugin() {
     private fun isInternal(id: String) = id.startsWith(checkpointPrefix) || id.startsWith(journalPrefix)
 
 
-    private fun businessRecords(): JSONArray {
-        NativeBackupCoverage.assertRoomSchemaCovered(db)
-        val rows = db.records().list().filterNot { isInternal(it.id) }
-        val result = JSONArray()
-        rows.forEach { row ->
-            result.put(
-                JSONObject()
-                    .put("id", row.id)
-                    .put("json", row.json)
-                    .put("schemaVersion", row.schemaVersion)
-                    .put("updatedAt", row.updatedAt),
-            )
-        }
-        return result
-    }
+    private fun businessRecords(): JSONArray =
+        NativeBackupCoverage.exportBusinessRecords(db, ::isInternal)
 
     private fun snapshotRevision(records: JSONArray): Int {
         for (index in 0 until records.length()) {
@@ -117,6 +104,7 @@ class BackupPlugin : Plugin() {
         executor.execute {
             try {
                 val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
+                NativeBackupCoverage.validateBusinessRecords(records)
                 require(manifest.optInt("schemaVersion", -1) == 1 && snapshot.optInt("schemaVersion", -1) == 1) {
                     "backup_unsupported_schema"
                 }
