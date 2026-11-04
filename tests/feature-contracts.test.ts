@@ -45,6 +45,7 @@ describe("versioned feature integration contracts", () => {
       integrationId: integration.id,
       contractVersion: 1,
       payloadVersion: 1,
+      eventName: integration.eventName,
       eventId: "event-1",
       occurredAt: "2026-11-04T12:00:00.000Z",
       payload: { revision: 3 },
@@ -59,6 +60,18 @@ describe("versioned feature integration contracts", () => {
     }, {
       [integration.id]: () => undefined,
     })).rejects.toThrow("Incompatible feature integration message");
+  });
+
+  it("rejects messages for a different event name", async () => {
+    const integration: FeatureIntegrationContract = {
+      id: "performance.work-events.v1", version: 1, producerFeatureId: "work",
+      consumerFeatureId: "performance", eventName: "work.event-committed", payloadVersion: 1,
+    };
+    const registry = registerFeatureIntegrations(features, [integration]);
+    await expect(dispatchFeatureIntegration(registry, {
+      integrationId: integration.id, contractVersion: 1, eventName: "work.event-deleted",
+      payloadVersion: 1, eventId: "event-2", occurredAt: "2026-11-04T12:00:00.000Z", payload: {},
+    }, { [integration.id]: () => undefined })).rejects.toThrow("Incompatible feature integration message");
   });
 
   it("rejects duplicate or unregistered integration contracts", () => {
@@ -91,8 +104,8 @@ describe("versioned calculation contracts", () => {
     rounding: { mode: "half-up", decimalPlaces: 2 },
     calculate: input => input.distanceKm / input.fuelLitres,
     regressionCases: [
-      { name: "normal-trip", input: { distanceKm: 120, fuelLitres: 10 }, expected: 12 },
-      { name: "fractional-result", input: { distanceKm: 100, fuelLitres: 8 }, expected: 12.5 },
+      { name: "normal-trip", input: { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, expected: 12 },
+      { name: "fractional-result", input: { distanceKm: 100, fuelLitres: 8, businessDate: "2026-11-04" }, expected: 12.5 },
     ],
   };
 
@@ -113,8 +126,8 @@ describe("versioned calculation contracts", () => {
   });
 
   it("executes only the requested registered calculation version", () => {
-    expect(runCalculation(calculation, { distanceKm: 120, fuelLitres: 10 }, 1)).toBe(12);
-    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10 }, 2))
+    expect(runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, 1)).toBe(12);
+    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-11-04" }, 2))
       .toThrow("Incompatible calculation version");
   });
 
@@ -124,6 +137,17 @@ describe("versioned calculation contracts", () => {
     expect(applyCalculationRounding(-2.25, { mode: "half-up", decimalPlaces: 1 })).toBe(-2.3);
     expect(applyCalculationRounding(2.251, { mode: "floor", decimalPlaces: 1 })).toBe(2.2);
     expect(applyCalculationRounding(2.251, { mode: "ceil", decimalPlaces: 1 })).toBe(2.3);
+  });
+
+  it("rejects missing or invalid effective dates and rounds numeric outputs at execution", () => {
+    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10, businessDate: "2026-02-30" }, 1))
+      .toThrow("Invalid calculation effective date");
+    expect(() => registerCalculations(features, [{
+      ...calculation,
+      regressionCases: [{ name: "bad-date", input: { distanceKm: 10, fuelLitres: 1, businessDate: "not-a-date" }, expected: 10 }],
+    }])).toThrow("invalid effective date");
+    const fractional = { ...calculation, calculate: () => 12.345 };
+    expect(runCalculation(fractional, { distanceKm: 1, fuelLitres: 1, businessDate: "2026-11-04" }, 1)).toBe(12.35);
   });
 
   it("rejects calculations owned by an unregistered feature", () => {
