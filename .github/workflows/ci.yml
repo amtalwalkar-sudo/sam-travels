@@ -28,7 +28,7 @@ jobs:
           node-version: 22
       - run: npm install
       - name: Gate offline workflow and backup reliability regressions
-        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/native-backup-v2-interoperability.test.ts
+        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
       - name: Run complete web regression suite
         run: npm test
       - run: npm run build

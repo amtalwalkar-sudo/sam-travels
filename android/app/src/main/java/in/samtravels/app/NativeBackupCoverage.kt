@@ -144,6 +144,31 @@ internal object NativeBackupCoverage {
     private fun adapter(participant: SnapshotParticipant) =
         snapshotAdapters[participant.adapterId] ?: error("backup_room_snapshot_adapter_missing:" + participant.adapterId)
 
+    fun participantManifest(): JSONArray {
+        val result = JSONArray()
+        discoverParticipants().sortedBy { it.id }.forEach { participant ->
+            result.put(JSONObject()
+                .put("id", participant.id)
+                .put("featureId", participant.featureId)
+                .put("snapshotVersion", participant.snapshotVersion)
+                .put("adapterId", participant.adapterId)
+                .put("restoreValidatorId", participant.id + "-v1"))
+        }
+        return result
+    }
+
+    fun validateParticipantManifest(incoming: JSONArray?) {
+        if (incoming == null) return // Legacy native snapshot lacked participant inventory.
+        val expected = participantManifest()
+        fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            listOf(item.getString("id"), item.getString("featureId"),
+                item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
+                item.getString("restoreValidatorId")).joinToString("|")
+        }.sorted()
+        require(canonical(incoming) == canonical(expected)) { "backup_participant_manifest_mismatch" }
+    }
+
     fun registeredParticipantIds(): Set<String> = discoverParticipants().map { it.id }.toSet()
 
     fun assertRoomSchemaCovered(database: LocalDatabase) {
@@ -181,14 +206,41 @@ internal object NativeBackupCoverage {
         return id
     }
 
-    fun validateBusinessRecords(records: JSONArray) {
+    /** Convert pre-manifest snapshots from the old shared-records owner model. */
+    fun normalizeLegacyRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            val originalId = row.optString("id")
+            when {
+                originalId.startsWith("driver-event:") -> {
+                    row.put("id", originalId.removePrefix("driver-event:"))
+                    row.put("participantId", "logbook-events")
+                }
+                isWorkRecord(originalId) -> row.put("participantId", "work-driver-state")
+                row.optString("participantId") == "logbook-events" -> Unit
+                else -> row.put("participantId", "platform-records")
+            }
+            result.put(row)
+        }
+        return result
+    }
+
+    fun validateBusinessRecords(records: JSONArray, requireExplicitOwnerTags: Boolean = false) {
         val participants = discoverParticipants()
         require(participants.isNotEmpty()) { "backup_no_room_participants" }
         val byId = participants.associateBy { it.id }
         val seen = mutableSetOf<String>()
         for (index in 0 until records.length()) {
             val row = records.optJSONObject(index) ?: error("backup_invalid_record")
+            require(!requireExplicitOwnerTags || row.has("participantId")) { "backup_record_participant_missing" }
             val owner = participantId(row, participants)
+            if (row.has("participantId")) {
+                when (owner) {
+                    "platform-records" -> require(!isWorkRecord(row.optString("id")) && !isInternalRecord(row.optString("id"))) { "backup_platform_record_owner_mismatch" }
+                    "work-driver-state" -> require(isWorkRecord(row.optString("id"))) { "backup_work_record_owner_mismatch" }
+                }
+            }
             require(seen.add(owner + ":" + row.optString("id"))) { "backup_duplicate_participant_record_id" }
             val participant = byId.getValue(owner)
             require(row.optInt("schemaVersion", 0) == participant.snapshotVersion) {
@@ -200,6 +252,7 @@ internal object NativeBackupCoverage {
 
     /** Caller owns the surrounding Room transaction. */
     fun replaceBusinessRecords(database: LocalDatabase, records: JSONArray) {
+        validateBusinessRecords(records)
         val participants = discoverParticipants()
         val byId = participants.associateBy { it.id }
         participants.forEach { adapter(it).clear(database) }

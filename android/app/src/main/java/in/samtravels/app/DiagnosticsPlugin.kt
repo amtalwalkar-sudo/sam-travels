@@ -12,7 +12,9 @@ class DiagnosticsPlugin : Plugin() {
             out.put("entries", LocalDiagnostics.export(context))
             call.resolve(out)
         } catch (_: Exception) {
-            call.resolve(JSObject().put("entries", org.json.JSONArray()))
+            val out = JSObject()
+            out.put("entries", org.json.JSONArray())
+            call.resolve(out)
         }
     }
 }

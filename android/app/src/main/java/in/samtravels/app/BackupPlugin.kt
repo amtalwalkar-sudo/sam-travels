@@ -44,6 +44,7 @@ class BackupPlugin : Plugin() {
             .put("records", records)
             .put("snapshotRevision", snapshotRevision(records))
             .put("schemaVersion", 1)
+            .put("participants", NativeBackupCoverage.participantManifest())
     }
 
     private fun saveInternal(id: String, value: JSONObject, now: String) {
@@ -78,6 +79,7 @@ class BackupPlugin : Plugin() {
                     .put("businessTimezone", "Asia/Kolkata")
                     .put("snapshotRevision", value.optInt("snapshotRevision"))
                     .put("recordCounts", JSONObject().put("records", value.getJSONArray("records").length()))
+                    .put("participants", NativeBackupCoverage.participantManifest())
                 val out = JSObject()
                 out.put("snapshot", value)
                 out.put("manifest", manifest)
@@ -104,8 +106,12 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
-                val records = snapshot.optJSONArray("records") ?: error("backup_records_missing")
-                NativeBackupCoverage.validateBusinessRecords(records)
+                val rawRecords = snapshot.optJSONArray("records") ?: error("backup_records_missing")
+                NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"))
+                NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"))
+                val records = if (snapshot.optJSONArray("participants") == null)
+                    NativeBackupCoverage.normalizeLegacyRecords(rawRecords) else rawRecords
+                NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
                 require(manifest.optInt("schemaVersion", -1) == 1 && snapshot.optInt("schemaVersion", -1) == 1) {
                     "backup_unsupported_schema"
                 }
@@ -121,7 +127,7 @@ class BackupPlugin : Plugin() {
                 for (index in 0 until records.length()) {
                     val record = records.optJSONObject(index) ?: error("backup_invalid_record")
                     val id = record.optString("id")
-                    require(id.isNotBlank() && !isInternal(id) && ids.add(id)) { "backup_duplicate_or_reserved_record_id" }
+                    require(id.isNotBlank() && !isInternal(id) && ids.add(record.optString("participantId") + ":" + id)) { "backup_duplicate_or_reserved_record_id" }
                     require(record.optInt("schemaVersion", 0) >= 1 && record.optString("updatedAt").isNotBlank() &&
                         record.optString("json").isNotBlank()) {
                         "backup_invalid_record_envelope"
@@ -156,11 +162,11 @@ class BackupPlugin : Plugin() {
                     require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
                     val restoredById = (0 until restored.length()).associate {
                         val record = restored.getJSONObject(it)
-                        record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                        record.getString("participantId") + ":" + record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
                     }
                     val expectedById = (0 until records.length()).associate {
                         val record = records.getJSONObject(it)
-                        record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                        record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
                     }
                     require(restoredById == expectedById && restoredById.keys == ids) {
                         "backup_post_restore_integrity_mismatch"
@@ -233,11 +239,11 @@ class BackupPlugin : Plugin() {
                 require(restored.length() == oldRecords.length()) { "checkpoint_rollback_count_mismatch" }
                 val restoredById = (0 until restored.length()).associate {
                     val record = restored.getJSONObject(it)
-                    record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                    record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
                 }
                 val expectedById = (0 until oldRecords.length()).associate {
                     val record = oldRecords.getJSONObject(it)
-                    record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                    record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
                 }
                 require(restoredById == expectedById) { "checkpoint_rollback_integrity_mismatch" }
                 call.resolve()

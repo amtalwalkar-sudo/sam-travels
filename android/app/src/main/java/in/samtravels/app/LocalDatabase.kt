@@ -116,6 +116,13 @@ abstract class LocalDatabase : RoomDatabase() {
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_logbook_events_updatedAt` ON `logbook_events` (`updatedAt`)",
                 )
+                // Move legacy Work event rows into their new Log Book-owned table atomically.
+                database.execSQL(
+                    "INSERT OR IGNORE INTO `logbook_events` (`eventId`, `json`, `schemaVersion`, `updatedAt`) " +
+                        "SELECT substr(`id`, length('driver-event:') + 1), `json`, `schemaVersion`, `updatedAt` " +
+                        "FROM `records` WHERE `id` LIKE 'driver-event:%'",
+                )
+                database.execSQL("DELETE FROM `records` WHERE `id` LIKE 'driver-event:%'")
             }
         }
     }

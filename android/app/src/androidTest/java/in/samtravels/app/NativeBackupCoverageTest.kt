@@ -40,7 +40,7 @@ class NativeBackupCoverageTest {
             database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            assertEquals(4, exported.length())
+            assertEquals(5, exported.length())
             assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"),
                 (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
             NativeBackupCoverage.validateBusinessRecords(exported)
@@ -59,6 +59,44 @@ class NativeBackupCoverageTest {
             assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
         } finally { database.close() }
+    }
+
+    @Test fun convertsLegacySharedRecordsToCurrentFeatureOwnershipBeforeRestore() {
+        val legacy = JSONArray()
+            .put(JSONObject().put("id", "driver-state")
+                .put("json", """{"value":{"revision":1,"state":"shift_active"}}""")
+                .put("schemaVersion", 1).put("updatedAt", "now"))
+            .put(JSONObject().put("id", "driver-event:event-legacy")
+                .put("json", """{"eventId":"event-legacy","kind":"trip_completed"}""")
+                .put("schemaVersion", 1).put("updatedAt", "now"))
+            .put(JSONObject().put("id", "platform-record")
+                .put("json", """{"id":"platform-record","value":1}""")
+                .put("schemaVersion", 1).put("updatedAt", "now"))
+            .put(JSONObject().put("id", "event-already-logbook")
+                .put("json", """{"eventId":"event-already-logbook","kind":"trip_completed"}""")
+                .put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "logbook-events"))
+        val normalized = NativeBackupCoverage.normalizeLegacyRecords(legacy)
+        assertEquals("work-driver-state", normalized.getJSONObject(0).getString("participantId"))
+        assertEquals("event-legacy", normalized.getJSONObject(1).getString("id"))
+        assertEquals("logbook-events", normalized.getJSONObject(1).getString("participantId"))
+        assertEquals("platform-records", normalized.getJSONObject(2).getString("participantId"))
+        assertEquals("event-already-logbook", normalized.getJSONObject(3).getString("id"))
+        assertEquals("logbook-events", normalized.getJSONObject(3).getString("participantId"))
+        NativeBackupCoverage.validateBusinessRecords(normalized, requireExplicitOwnerTags = true)
+    }
+
+    @Test fun nativeParticipantManifestIsVersionedAndOwnershipSpecific() {
+        val manifest = NativeBackupCoverage.participantManifest()
+        assertEquals(3, manifest.length())
+        NativeBackupCoverage.validateParticipantManifest(manifest)
+        val changed = JSONArray()
+        for (index in 0 until manifest.length()) {
+            val row = JSONObject(manifest.getJSONObject(index).toString())
+            if (row.getString("id") == "work-driver-state") row.put("featureId", "platform")
+            changed.put(row)
+        }
+        assertEquals("backup_participant_manifest_mismatch",
+            runCatching { NativeBackupCoverage.validateParticipantManifest(changed) }.exceptionOrNull()?.message)
     }
 
     @Test fun rejectsParticipantSnapshotVersionMismatch() {

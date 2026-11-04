@@ -8,27 +8,30 @@ export type BrowserDiagnosticInput = {
 };
 
 const MAX_ENTRIES = 300;
-const MAX_FIELD_LENGTH = 64;
 const APP_VERSION = "web";
 const SCHEMA_VERSION = 5;
+const SUBSYSTEMS = new Set(["storage", "workflow", "recovery", "backup"]);
+const OPERATIONS = new Set(["repository_startup", "workflow_startup", "retry_pending_action", "dispatch_transition", "queue_intent", "complete_intent", "retry_intent", "export_snapshot", "restore_snapshot"]);
+const FAILURE_CATEGORIES = new Set(["storage", "workflow", "recovery", "backup", "permission", "location"]);
+const RECOVERY_RESULTS = new Set(["startup_blocked", "retry_required", "retry_failed", "operation_failed", "export_failed", "restore_failed", "rolled_back"]);
 
-function safeToken(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_.:-]/g, "_").slice(0, MAX_FIELD_LENGTH) || "unknown";
+function safeToken(value: string, allowed: Set<string>): string {
+  return allowed.has(value) ? value : "unknown";
 }
 
-/** Bounded local failure telemetry only: no user payloads, GPS, names, or auto-upload. */
+/** Bounded local failure telemetry: enum allowlists, no business payload/GPS, no upload. */
 export async function recordBrowserDiagnostic(input: BrowserDiagnosticInput): Promise<void> {
   try {
     const timestamp = new Date().toISOString();
-    const id = timestamp + ":" + safeToken(input.subsystem) + ":" + safeToken(input.operation) + ":" + crypto.randomUUID();
+    const id = timestamp + ":" + safeToken(input.subsystem, SUBSYSTEMS) + ":" + safeToken(input.operation, OPERATIONS) + ":" + crypto.randomUUID();
     await browserDatabase.diagnostics.add({
       id,
       timestamp,
-      subsystem: safeToken(input.subsystem),
-      operation: safeToken(input.operation),
+      subsystem: safeToken(input.subsystem, SUBSYSTEMS),
+      operation: safeToken(input.operation, OPERATIONS),
       outcome: "failure",
-      failureCategory: safeToken(input.failureCategory),
-      recoveryResult: safeToken(input.recoveryResult),
+      failureCategory: safeToken(input.failureCategory, FAILURE_CATEGORIES),
+      recoveryResult: safeToken(input.recoveryResult, RECOVERY_RESULTS),
       appVersion: APP_VERSION,
       schemaVersion: SCHEMA_VERSION,
     });
@@ -43,7 +46,6 @@ export async function recordBrowserDiagnostic(input: BrowserDiagnosticInput): Pr
   }
 }
 
-/** Explicitly invoked by a local diagnostics UI/export flow; returns sanitized metadata only. */
 export async function exportBrowserDiagnostics(): Promise<Array<{
   timestamp: string; subsystem: string; operation: string; outcome: string;
   failureCategory: string; recoveryResult: string; appVersion: string; schemaVersion: number;

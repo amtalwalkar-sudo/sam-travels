@@ -41,7 +41,7 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const features = registerFeatures();
   const discovered = registerBackupParticipants(features);
   const featureParticipants = [...discovered.values()]
-    .filter(contract => contract.required)
+    .filter(contract => contract.required && contract.featureId !== "platform")
     .map(contract => {
       const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === contract.id);
       if (
@@ -66,7 +66,7 @@ const PARTICIPANT_MANIFEST = requiredFeatureParticipants.map(({ id, featureId, s
 }));
 const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
   .flatMap(participant => participant.tableNames);
-const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
+const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta", "diagnostics"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
  * Recovery checkpoints and local credential-vault material are intentionally

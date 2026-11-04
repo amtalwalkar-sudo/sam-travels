@@ -10,13 +10,13 @@ describe("bounded privacy-safe local diagnostics", () => {
       await recordBrowserDiagnostic({
         subsystem: "recovery",
         operation: "restore_snapshot",
-        failureCategory: "failure",
+        failureCategory: "backup",
         recoveryResult: "rolled_back",
       });
     }
     const rows = await exportBrowserDiagnostics();
     expect(rows.length).toBeLessThanOrEqual(300);
-    expect(rows.every(row => row.outcome === "failure" && row.schemaVersion === 5)).toBe(true);
+    expect(rows.every(row => row.outcome === "failure" && row.schemaVersion === 5 && row.failureCategory === "backup")).toBe(true);
     expect(JSON.stringify(rows)).not.toMatch(/latitude|longitude|payload|businessName|userName/i);
   });
 
@@ -28,8 +28,8 @@ describe("bounded privacy-safe local diagnostics", () => {
       recoveryResult: "retry failed",
     });
     const [row] = await exportBrowserDiagnostics();
-    expect(row.subsystem).not.toContain(" ");
-    expect(row.operation).not.toContain(" ");
-    expect(row.operation).not.toContain("private");
+    expect(row.subsystem).toBe("unknown");
+    expect(row.operation).toBe("unknown");
+    expect(row.failureCategory).toBe("unknown");
   });
 });

@@ -31,8 +31,9 @@ class LocalDiagnosticsTest {
         context.getSharedPreferences("sam_travels_local_diagnostics", Context.MODE_PRIVATE).edit().clear().commit()
         LocalDiagnostics.record(context, "coordinates 19.076,72.877", "restore private payload", "failure", "retry failed")
         val entry = LocalDiagnostics.export(context).getJSONObject(0)
-        assertFalse(entry.getString("subsystem").contains(" "))
-        assertFalse(entry.getString("operation").contains("private"))
+        assertEquals("unknown", entry.getString("subsystem"))
+        assertEquals("unknown", entry.getString("operation"))
+        assertEquals("unknown", entry.getString("failureCategory"))
         context.getSharedPreferences("sam_travels_local_diagnostics", Context.MODE_PRIVATE).edit().clear().commit()
     }
 }
