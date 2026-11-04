@@ -48,7 +48,6 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   return (
     <section className="empty-screen" aria-labelledby="screen-title">
       <div className="empty-screen-icon"><NavigationIcon name={navigation.find((item) => item.label === screen)!.icon} /></div>
-      <h2 id="screen-title">{screen}</h2>
       <p>{descriptions[screen]}</p>
       <span>This section will be developed in a later phase.</span>
     </section>
@@ -76,9 +75,8 @@ export function App() {
         </button>
       </header>
 
-      <div className="screen-scroll" key={activeScreen}>
-        {activeScreen === "Drive" ? (
-          <>
+      <div className="screen-scroll">
+        <div hidden={activeScreen !== "Drive"}>
             <section className="screen-heading">
               <small>YOUR WORKSPACE</small>
               <h1>Drive</h1>
@@ -134,8 +132,8 @@ export function App() {
             </section>
 
             <BackupPanel />
-          </>
-        ) : (
+        </div>
+        {activeScreen !== "Drive" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /></section>
         )}
       </div>
