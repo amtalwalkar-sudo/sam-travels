@@ -50,6 +50,8 @@ class DriverWorkflowStoreTest {
         assertEquals(1, next.getInt("revision"))
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-1")!!.json).getString("status"))
         assertTrue(db.records().get("driver-event:event-1") != null)
+        assertEquals(1, db.logBookEvents().list().size)
+        assertEquals("event-1", JSONObject(db.logBookEvents().list().single().json).getString("eventId"))
         val outbox = JSONObject(db.records().get("driver-outbox:1")!!.json)
         assertEquals("logbook.work-driver-events.v1", outbox.getString("integrationId"))
         assertEquals(1, outbox.getInt("contractVersion"))
@@ -204,6 +206,8 @@ class DriverWorkflowStoreTest {
 
             assertTrue(rejected)
             assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-event:") })
+            assertEquals(1, reopened.logBookEvents().list().size)
+            assertEquals("durable-replay", JSONObject(reopened.logBookEvents().list().single().json).getString("eventId"))
             assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-outbox:") })
             assertEquals(1, JSONObject(reopened.records().get("driver-state")!!.json)
                 .getJSONObject("value").getInt("revision"))

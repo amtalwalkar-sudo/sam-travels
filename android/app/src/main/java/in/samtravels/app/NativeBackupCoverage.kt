@@ -133,7 +133,7 @@ internal object NativeBackupCoverage {
         assertRoomSchemaCovered(database)
         val result = JSONArray()
         discoverParticipants().forEach { participant ->
-            adapter(participant).export(database, participant.id, isInternal).forEach(result::put)
+            adapter(participant).export(database, participant.id, isInternal).forEach { row -> result.put(row) }
         }
         return result
     }
