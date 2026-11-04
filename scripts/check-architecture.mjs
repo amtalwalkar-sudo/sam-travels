@@ -68,6 +68,12 @@ for (const absolute of sourceFiles) {
     if (isWorkShiftImplementationImport && !ownsWorkShiftImplementation) {
       failures.push(`${relative}: import Work/Shift internals through the public packages/features/work-shift entry point, not "${specifier}"`);
     }
+    const forbiddenExternal =
+      (["core", "domain", "application"].includes(from) && /^(?:react|react-dom|dexie|@capacitor\\/|androidx\\.|android\\.|java\\.|org\\.json|com\\.dropbox\\.)/.test(specifier)) ||
+      (from === "storage" && /^(?:react|react-dom|@capacitor\\/)/.test(specifier));
+    if (forbiddenExternal) {
+      failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
+    }
     const forbidden =
       (from === "core" && ["domain", "application", "storage", "ui"].includes(target)) ||
       (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
