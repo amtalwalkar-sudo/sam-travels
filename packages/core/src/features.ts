@@ -249,3 +249,45 @@ export async function runFeatureMigrations<Context>(
   for (const step of steps) await step(context);
   return contract.schemaVersion;
 }
+
+
+export type FeatureMigrationTransaction<Context> = {
+  /** The adapter must commit only when operation resolves and roll back on rejection. */
+  run<Result>(operation: (context: Context) => Promise<Result>): Promise<Result>;
+};
+
+/**
+ * Execute a feature migration inside the authoritative store's transaction.
+ * Handler availability and migration ordering are validated before the adapter
+ * is allowed to begin writes; adapter rollback handles injected/runtime failures.
+ */
+export function runFeatureMigrationsAtomically<Context>(
+  feature: FeatureDefinition,
+  currentVersion: number,
+  handlers: Readonly<Record<string, FeatureMigrationHandler<Context>>>,
+  transaction: FeatureMigrationTransaction<Context>,
+): Promise<number> {
+  const contract = feature.persistence;
+  if (!contract) {
+    if (currentVersion !== 0) throw new Error("Non-persistent feature has a schema version: " + feature.id);
+    return Promise.resolve(0);
+  }
+  if (!Number.isSafeInteger(currentVersion) || currentVersion < 1 || currentVersion > contract.schemaVersion) {
+    throw new Error("Unsupported current schema version for feature: " + feature.id);
+  }
+  let expectedVersion = currentVersion;
+  for (const migration of [...contract.migrations].sort((a, b) => a.fromVersion - b.fromVersion)) {
+    if (migration.fromVersion < currentVersion) continue;
+    if (migration.fromVersion !== expectedVersion || migration.toVersion !== expectedVersion + 1) {
+      throw new Error("Incomplete migration chain for feature: " + feature.id);
+    }
+    if (!handlers[migration.id]) {
+      throw new Error("Missing migration handler " + migration.id + " for feature: " + feature.id);
+    }
+    expectedVersion = migration.toVersion;
+  }
+  if (expectedVersion !== contract.schemaVersion) {
+    throw new Error("Incomplete migration chain for feature: " + feature.id);
+  }
+  return transaction.run(context => runFeatureMigrations(feature, currentVersion, handlers, context));
+}
