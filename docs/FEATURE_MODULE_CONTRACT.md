@@ -53,6 +53,50 @@ Every module must:
 7. Preserve records through migrations, restore, and recovery; never silently clear or rewrite history.
 8. Supply domain, repository, migration, UI, offline, and failure-path tests appropriate to the module.
 
+## Mandatory persistent-feature registry
+
+Every feature that persists business data must have exactly one explicit registration. No persistent feature is exempt. Registration is a typed, versioned contract and must declare:
+- Stable feature ID and public application entry point.
+- Owned entities/repositories and schema version.
+- Migration sequence from all supported prior versions.
+- Required/optional dependencies and public integration contracts.
+- Backup snapshot/export participation and required attachment/reference inventory.
+- Restore compatibility, validation, and recovery participation.
+- Lifecycle and deletion policy.
+- Registration, migration, dependency, backup, restore, and failure-path tests.
+
+A feature with missing or invalid registration must not be enabled for persistent writes. Duplicate IDs, missing dependencies, unsupported versions, absent migrations, or missing backup/restore declarations fail closed. The registry is metadata and coordination, not a replacement for feature-owned persistence or domain invariants.
+
+## Feature lifecycle and data retention
+
+- Hiding, disabling, or unregistering a feature's presentation never deletes or mutates its records.
+- Disabled feature records remain included in normal business backups and are available to migration, restore, and recovery.
+- Permanent deletion is a distinct, explicitly confirmed domain/application operation.
+- Before deletion, resolve required dependents and reject the operation until dependencies are safely removed or migrated.
+- Deletion has a defined scope, audit/recovery safeguards, and interruption/retry tests.
+- Removing or replacing feature code requires a versioned data migration/retention plan; UI removal is never a deletion instruction.
+
+## Complete backup and restore participation
+
+Normal business backup includes all registered persistent business features and their required dependencies. Do not expose a user-facing omission option that can create an incomplete business backup.
+
+The backup coordinator discovers participants through the validated registry. Each participant supplies versioned snapshot/export and restore-validation contracts, including relationships and attachments required to reconstruct its data. Do not rely on a separate manually maintained table allowlist that can drift.
+
+Restore validates all required participants and dependencies before replacement, creates a recovery checkpoint, requires explicit confirmation, stages and validates the complete dataset, and commits or rolls back recoverably. Unknown required features, incompatible schemas, missing attachments, or broken relationships fail closed. Existing backup encryption formats remain compatible.
+
+This is a required architecture contract; it does not assert that the current backup code already performs registry-driven discovery. Verify the actual snapshot and restore implementation before claiming completeness.
+
+## Calculation ownership and integrations
+
+Each calculation has one owning capability and a versioned contract recording its formula, units, precision/rounding, input sources, period semantics, inclusion/exclusion rules, missing-data behavior, output meaning, effective-date policy, and regression fixtures.
+
+New feature data affects an existing calculation only through an explicitly approved, versioned integration contract. It must identify consumed data, mapping, timing/effective date, missing/disabled-feature behavior, and expected output effects. Until that integration is approved and tested, existing calculation behavior remains unchanged.
+
+Calculations are owned by domain/application services, not forms or presentation components. Cross-feature inputs flow through public application contracts or published events, never direct reads/writes of another feature's private tables. Preserve actual values separately from estimates and schedules. Changes to historical calculation rules require an explicit, reviewed recalculation/migration policy.
+
+Before implementing a new feature that affects existing metrics, inventory the current calculations, formulas, inputs, and consumers and add regression fixtures for unchanged behavior and approved changes.
+
+
 ## Forms and presentation
 
 Forms are replaceable presentation adapters. They use shared typed field/value contracts and module validation/application services. Do not embed database writes or business calculations in form components. Input formatting, accessibility, responsive layout, and validation feedback belong to presentation; authoritative validation belongs to the domain/application boundary.
