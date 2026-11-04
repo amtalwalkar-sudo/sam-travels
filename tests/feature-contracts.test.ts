@@ -159,6 +159,22 @@ describe("versioned calculation contracts", () => {
 });
 
 describe("runtime registry bootstrap", () => {
+  it("validates add-on feature registration together with all runtime contracts", () => {
+    const runtime = initializeRuntimeRegistry({
+      features: [{ id: "custom-addon", label: "Custom Add-on", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] }],
+      integrations: [], calculations: [],
+    });
+    expect(runtime.features.has("custom-addon")).toBe(true);
+    expect(runtime.startupOrder.at(-1)?.id).toBe("custom-addon");
+  });
+
+  it("fails bootstrap without exposing a partial registry when an add-on is invalid", () => {
+    expect(() => initializeRuntimeRegistry({
+      features: [{ id: "broken-addon", label: "Broken", dataPolicy: "persistent", contractVersion: 1, dependencies: [] }],
+      integrations: [], calculations: [],
+    })).toThrow("Persistent feature is missing its persistence contract");
+  });
+
   it("validates and exposes feature, integration, and calculation registries together", () => {
     const runtime = initializeRuntimeRegistry();
     expect(runtime.features.size).toBe(7);
