@@ -85,15 +85,17 @@ Implemented capabilities:
 
 Do not mark Phase 6 fully accepted until those external/device checks are completed and recorded. Reverse geocoding remains optional and outside this phase's required scope.
 
-## Phase 7 — Internet integrations and release readiness
+## Phase 7 — Automated release candidate and post-merge acceptance
 
-- Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites. CI now additionally assembles the Android release variant (unsigned build validation).
-- Validate PWA and signed Android release builds on physical devices; signed artifact generation requires owner-controlled signing credentials and explicit release approval.
-- Verify permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
-- Implement optional Internet integrations only through the network gateway.
-- Resolve release blockers and prepare release artifacts only after explicit approval.
+- Run full unit, integration, browser, architecture, migration, security, failure-injection, and Android emulator instrumentation suites before merge.
+- Assemble the unsigned Android release APK in CI. After the PR is merged, the push-to-main workflow publishes the APK as the `sam-travels-release-apk` GitHub Actions artifact.
+- Verify the main-branch workflow succeeded and the APK artifact is present and downloadable before asking for physical-phone testing.
+- Physical-device acceptance follows artifact publication, not precedes PR merge: validate permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
+- Real Dropbox account/OAuth acceptance remains separately deferred by user decision; no credentials or tokens are committed.
+- Signed production distribution remains a separate owner-controlled step requiring signing credentials and explicit release approval.
 
-**Exit gate:** all required checks green, physical-device acceptance recorded, no unresolved data-integrity blocker, and user approves release.
+**Pre-merge exit gate:** required automated checks green, no unresolved automated data-integrity blocker, and PR ready to merge.
+**Post-merge exit gate:** main-branch APK artifact verified; physical-device and Dropbox acceptance are recorded only when the user later performs those deferred checks.
 
 ## Cross-phase engineering gates
 
