@@ -93,7 +93,10 @@ class DeviceReadinessPlugin : Plugin() {
             } catch (_: Exception) {
                 try {
                     launch(Intent(Settings.ACTION_SETTINGS))
-                    call.resolve(JSObject().put("opened", true).put("usedFallback", true))
+                    val result = JSObject()
+                    result.put("opened", true)
+                    result.put("usedFallback", true)
+                    call.resolve(result)
                 } catch (error: Exception) {
                     call.reject("Android could not open the requested settings screen", error)
                 }
