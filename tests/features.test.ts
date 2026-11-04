@@ -82,15 +82,15 @@ describe("runtime feature registry", () => {
     }])).toThrow("Missing dependency missing-feature");
 
     expect(() => registerFeatures([
-      { id: "custom-a", label: "A", contractVersion: 1, dependencies: [] },
+      { id: "custom-a", label: "A", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
       { id: "custom-b", label: "B", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [{ id: "custom-a", contractVersion: 2 }] },
     ])).toThrow("Incompatible dependency contract");
   });
 
   it("rejects cycles and duplicate backup participants", () => {
     expect(() => registerFeatures([
-      { id: "custom-a", label: "A", contractVersion: 1, dependencies: ["custom-b"] },
-      { id: "custom-b", label: "B", contractVersion: 1, dependencies: ["custom-a"] },
+      { id: "custom-a", label: "A", dataPolicy: "non-persistent", contractVersion: 1, dependencies: ["custom-b"] },
+      { id: "custom-b", label: "B", dataPolicy: "non-persistent", contractVersion: 1, dependencies: ["custom-a"] },
     ])).toThrow("Feature dependency cycle");
 
     const first = persistentFeature({ id: "custom-a" });
