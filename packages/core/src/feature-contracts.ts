@@ -200,3 +200,49 @@ export function runCalculation<Input, Output>(
     ? applyCalculationRounding(result, contract.rounding)
     : result) as Output;
 }
+
+
+export type CalculationExecutionResult<Output = unknown> = Readonly<{
+  calculationId: string;
+  ownerFeatureId: FeatureId;
+  version: number;
+  inputSchemaVersion: number;
+  outputSchemaVersion: number;
+  effectiveDate: string;
+  unit: string;
+  value: Output;
+}>;
+
+/**
+ * Execute a calculation by its registered identity, not by a UI-held function.
+ * The result carries the exact rule/schema versions and effective date so
+ * callers can retain provenance without duplicating formula logic.
+ */
+export function executeRegisteredCalculation<Input, Output>(
+  registry: ReadonlyMap<string, CalculationContract<any, any>>,
+  calculationId: string,
+  input: Input,
+  expected: { version: number; inputSchemaVersion: number },
+): CalculationExecutionResult<Output> {
+  const contract = registry.get(calculationId);
+  if (!contract) throw new Error("Unknown calculation: " + calculationId);
+  if (contract.inputSchemaVersion !== expected.inputSchemaVersion) {
+    throw new Error("Incompatible calculation input schema: " + calculationId);
+  }
+  const typedContract = contract as CalculationContract<Input, Output>;
+  const value = runCalculation(typedContract, input, expected.version);
+  const effectiveDate = (input as Record<string, unknown>)[contract.effectiveDateField];
+  if (typeof effectiveDate !== "string") {
+    throw new Error("Invalid calculation effective date: " + calculationId);
+  }
+  return Object.freeze({
+    calculationId: contract.id,
+    ownerFeatureId: contract.ownerFeatureId,
+    version: contract.version,
+    inputSchemaVersion: contract.inputSchemaVersion,
+    outputSchemaVersion: contract.outputSchemaVersion,
+    effectiveDate,
+    unit: contract.unit,
+    value,
+  });
+}
