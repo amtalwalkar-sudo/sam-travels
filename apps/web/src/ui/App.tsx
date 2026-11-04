@@ -1,19 +1,25 @@
 import { useState } from "react";
+import { defineApplicationShell } from "../../../../packages/presentation/src/shell-contracts";
 import { nativeOverlayAvailable } from "../driver-workflow";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
 
-type Screen = "Drive" | "Timeline" | "Performance" | "Admin";
-type IconName = "drive" | "timeline" | "performance" | "admin";
-
-const navigation: { label: Screen; icon: IconName }[] = [
-  { label: "Drive", icon: "drive" },
-  { label: "Timeline", icon: "timeline" },
-  { label: "Performance", icon: "performance" },
-  { label: "Admin", icon: "admin" },
-];
+const shellDefinition = defineApplicationShell({
+  id: "sam-travels.primary-shell",
+  version: 1,
+  initialScreen: "Drive",
+  navigation: [
+    { screen: "Drive", label: "Drive", icon: "drive" },
+    { screen: "Timeline", label: "Timeline", icon: "timeline" },
+    { screen: "Performance", label: "Performance", icon: "performance" },
+    { screen: "Admin", label: "Admin", icon: "admin" },
+  ] as const,
+});
+type Screen = typeof shellDefinition.navigation[number]["screen"];
+type IconName = typeof shellDefinition.navigation[number]["icon"];
+const navigation = shellDefinition.navigation;
 
 function NavigationIcon({ name }: { name: IconName }) {
   const shared = {
@@ -57,7 +63,7 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
 }
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState<Screen>("Drive");
+  const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace();
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
@@ -151,8 +157,8 @@ export function App() {
         {navigation.map((item) => (
           <button
             key={item.label}
-            className={activeScreen === item.label ? "bottom-navigation-item active" : "bottom-navigation-item"}
-            onClick={() => setActiveScreen(item.label)}
+            className={activeScreen === item.screen ? "bottom-navigation-item active" : "bottom-navigation-item"}
+            onClick={() => setActiveScreen(item.screen)}
             aria-current={activeScreen === item.label ? "page" : undefined}
           >
             <NavigationIcon name={item.icon} />
