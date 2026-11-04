@@ -78,9 +78,9 @@ export function registerFeatureIntegrations(
  */
 export function registerCalculations(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
-  contracts: CalculationContract<unknown, unknown>[],
-): ReadonlyMap<string, CalculationContract<unknown, unknown>> {
-  const registry = new Map<string, CalculationContract<unknown, unknown>>();
+  contracts: CalculationContract<Input, Output>[],
+): ReadonlyMap<string, CalculationContract<Input, Output>> {
+  const registry = new Map<string, CalculationContract<Input, Output>>();
   for (const contract of contracts) {
     if (registry.has(contract.id)) throw new Error("Duplicate calculation contract: " + contract.id);
     if (
