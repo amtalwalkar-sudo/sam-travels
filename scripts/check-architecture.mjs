@@ -166,7 +166,7 @@ for (const absolute of sourceFiles) {
       specifier.startsWith("@capacitor/") ||
       /^(?:androidx\.|android\.|java\.|javax\.|org\.json|com\.dropbox\.)/.test(specifier);
 
-    if (["core", "domain", "application"].includes(from) && platformOrUiImport) {
+    if (["core", "domain", "application", "presentation"].includes(from) && platformOrUiImport) {
       failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
     }
     if (from === "storage" && (
