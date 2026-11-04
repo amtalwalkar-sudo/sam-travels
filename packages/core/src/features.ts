@@ -1,11 +1,4 @@
-export type FeatureId =
-  | "work"
-  | "logbook"
-  | "finance"
-  | "vehicle"
-  | "performance"
-  | "admin"
-  | "backup";
+export type FeatureId = string;
 
 export type FeatureDependency = FeatureId | {
   id: FeatureId;
