@@ -40,7 +40,7 @@ describe("production Log Book runtime registrations", () => {
       businessDate: "2026-11-04",
       startedAt: "2026-11-04T10:00:00.000Z",
       endedAt: "2026-11-04T10:01:12.600Z",
-    }, { version: 1, inputSchemaVersion: 1 });
+    }, { version: 1, inputSchemaVersion: 1, outputSchemaVersion: 1 });
     expect(result).toMatchObject({
       ownerFeatureId: "logbook",
       version: 1,
