@@ -50,11 +50,11 @@ function isPublicFeatureEntry(resolved) {
 
 function targetLayer(resolved) {
   if (resolved.includes("/packages/core/src/")) return "core";
-  if (resolved.includes("/packages/domain/src/")) return "domain";
-  if (resolved.includes("/packages/application/src/")) return "application";
-  if (resolved.includes("/packages/storage-browser/src/") || resolved.includes("/packages/storage-android/src/")) return "storage";
-  if (resolved.includes("/packages/features/")) return "feature";
-  if (resolved.includes("/apps/web/src/")) return "ui";
+  if (p.includes("/packages/domain/src/")) return "domain";
+  if (p.includes("/packages/application/src/")) return "application";
+  if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
+  if (p.includes("/packages/features/")) return "feature";
+  if (p.includes("/apps/web/src/")) return "ui";
   return null;
 }
 
