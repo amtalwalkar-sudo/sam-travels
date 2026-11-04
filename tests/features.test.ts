@@ -3,6 +3,7 @@ import {
   registerFeatures,
   resolveFeatureStartupOrder,
   runFeatureMigrations,
+  runFeatureMigrationsAtomically,
   type FeatureDefinition,
 } from "../packages/core/src/features";
 
@@ -110,6 +111,43 @@ describe("runtime feature registry", () => {
 
     await expect(runFeatureMigrations(feature, 1, {}, {})).rejects.toThrow("Missing migration handler");
     expect(order).toEqual(["1-to-2"]);
+  });
+
+  it("rolls back partially applied migrations when a later step fails", async () => {
+    const feature = persistentFeature();
+    const state = { value: "before" };
+    const transaction = {
+      async run<T>(operation: (context: typeof state) => Promise<T>): Promise<T> {
+        const checkpoint = { ...state };
+        try {
+          return await operation(state);
+        } catch (error) {
+          Object.assign(state, checkpoint);
+          throw error;
+        }
+      },
+    };
+    await expect(runFeatureMigrationsAtomically(feature, 1, {
+      "custom-ledger-1-2": context => {
+        context.value = "partially-migrated";
+        throw new Error("injected_migration_interruption");
+      },
+    }, transaction)).rejects.toThrow("injected_migration_interruption");
+    expect(state.value).toBe("before");
+  });
+
+  it("preflights all migration handlers before opening the transaction", async () => {
+    const feature = persistentFeature();
+    let opened = false;
+    const transaction = {
+      async run<T>(operation: (context: {}) => Promise<T>): Promise<T> {
+        opened = true;
+        return operation({});
+      },
+    };
+    await expect(runFeatureMigrationsAtomically(feature, 1, {}, transaction))
+      .rejects.toThrow("Missing migration handler");
+    expect(opened).toBe(false);
   });
 
   it("returns immutable registration metadata", () => {
