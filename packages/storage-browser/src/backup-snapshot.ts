@@ -32,8 +32,9 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
     id: "work-driver-state",
     featureId: "work",
     schemaVersion: 1,
-    tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+    tableNames: ["driverState", "driverIntents", "driverOutbox"],
   },
+  { id: "logbook-events", featureId: "logbook", schemaVersion: 1, tableNames: ["driverEvents"] },
 ]);
 
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
@@ -59,6 +60,10 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   return resolved;
 }
 
+const requiredFeatureParticipants = [...registerBackupParticipants(registerFeatures()).values()];
+const PARTICIPANT_MANIFEST = requiredFeatureParticipants.map(({ id, featureId, snapshotVersion, restoreValidatorId }) => ({
+  id, featureId, snapshotVersion, restoreValidatorId,
+}));
 const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
   .flatMap(participant => participant.tableNames);
 const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
@@ -109,6 +114,13 @@ const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Tabl
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   if (manifest.schemaVersion !== 1) throw new Error("backup_unsupported_schema");
+  if (manifest.participants) {
+    const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
+      items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
+    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(PARTICIPANT_MANIFEST))) {
+      throw new Error("backup_participant_manifest_mismatch");
+    }
+  }
   for (const name of TABLE_NAMES) {
     const rows = data[name];
     if (!Array.isArray(rows) || rows.length !== manifest.recordCounts[name]) {
@@ -166,6 +178,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
     recordCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, data[name].length])),
+    participants: PARTICIPANT_MANIFEST,
   };
   return { data, manifest, plaintext: new TextEncoder().encode(JSON.stringify(data)) };
 }

@@ -41,12 +41,13 @@ export type FeatureDefinition = {
 };
 
 const initial: FeatureDefinition[] = [
+  { id: "platform", label: "Platform Runtime", dataPolicy: "persistent", contractVersion: 1, dependencies: [], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "platform-records", snapshotVersion: 1, required: true }, restore: { validatorId: "platform-records-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
   {
     id: "work",
     label: "Work",
     dataPolicy: "persistent",
     contractVersion: 1,
-    dependencies: [],
+    dependencies: [{ id: "platform", contractVersion: 1 }],
     persistence: {
       schemaVersion: 1,
       migrations: [],
@@ -55,7 +56,7 @@ const initial: FeatureDefinition[] = [
       lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
     },
   },
-  { id: "logbook", label: "Log Book", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
+  { id: "logbook", label: "Log Book", dataPolicy: "persistent", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "logbook-events", snapshotVersion: 1, required: true }, restore: { validatorId: "logbook-events-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
   { id: "finance", label: "Finance", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
   { id: "vehicle", label: "Vehicle", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
   {

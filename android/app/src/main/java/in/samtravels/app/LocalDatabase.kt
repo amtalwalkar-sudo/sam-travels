@@ -13,6 +13,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Versioned metadata used by the native snapshot adapter registry. */
+@Repeatable
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class NativeBackupParticipant(
@@ -24,6 +25,13 @@ annotation class NativeBackupParticipant(
 )
 
 @Entity(tableName = "records", indices = [Index(value = ["updatedAt"])])
+@NativeBackupParticipant(
+    id = "work-driver-state",
+    featureId = "work",
+    roomTable = "records",
+    snapshotVersion = 1,
+    adapterId = "work-driver-records-json-v1",
+)
 @NativeBackupParticipant(
     id = "platform-records",
     featureId = "platform",

@@ -20,9 +20,9 @@ class NativeBackupCoverageTest {
         try {
             NativeBackupCoverage.assertRoomSchemaCovered(database)
             val participants = NativeBackupCoverage.discoverParticipants()
-            assertEquals(setOf("platform-records", "logbook-events"), participants.map { it.id }.toSet())
+            assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"), participants.map { it.id }.toSet())
             assertEquals(setOf("records", "logbook_events"), participants.map { it.roomTable }.toSet())
-            assertEquals(setOf("platform-records", "logbook-events"), NativeBackupCoverage.registeredParticipantIds())
+            assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"), NativeBackupCoverage.registeredParticipantIds())
         } finally { database.close() }
     }
 
@@ -32,21 +32,43 @@ class NativeBackupCoverageTest {
             .allowMainThreadQueries().build()
         try {
             database.records().put(StoredRecord("platform-1", """{"id":"platform-1","value":"sample"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-state", """{"value":{"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-state", """{"value":{"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            assertEquals(2, exported.length())
-            assertEquals(setOf("platform-records", "logbook-events"),
+            assertEquals(4, exported.length())
+            assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"),
                 (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
             NativeBackupCoverage.validateBusinessRecords(exported)
 
             NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
             assertTrue(database.records().get("platform-1") == null)
+            assertTrue(database.records().get("driver-state") == null)
+            assertTrue(database.records().get("driver-intent:event-1") == null)
+            assertTrue(database.records().get("driver-outbox:1") == null)
             assertTrue(database.logBookEvents().list().isEmpty())
             NativeBackupCoverage.replaceBusinessRecords(database, exported)
             assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getString("value"))
+            assertEquals("shift_active", JSONObject(database.records().get("driver-state")!!.json).getJSONObject("value").getString("state"))
+            assertEquals("event-1", JSONObject(database.records().get("driver-intent:event-1")!!.json).getString("eventId"))
+            assertEquals("event-1", JSONObject(database.records().get("driver-outbox:1")!!.json).getString("eventId"))
             assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
         } finally { database.close() }
+    }
+
+    @Test fun rejectsParticipantSnapshotVersionMismatch() {
+        val valid = JSONArray().put(JSONObject().put("id", "platform-row")
+            .put("json", """{"id":"platform-row","value":1}""")
+            .put("schemaVersion", 1).put("updatedAt", "now")
+            .put("participantId", "platform-records"))
+        val altered = valid.getJSONObject(0).put("schemaVersion", 2)
+        val failure = runCatching { NativeBackupCoverage.validateBusinessRecords(valid) }.exceptionOrNull()
+        assertEquals("backup_participant_snapshot_version_mismatch:platform-records", failure?.message)
     }
 
     @Test fun rejectsUnknownParticipantAndDuplicateRows() {

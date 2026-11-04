@@ -199,6 +199,29 @@ for (const absolute of sourceFiles) {
   }
 }
 
+// Android/Kotlin rules supplement TypeScript dependency direction checks.
+const kotlinSources = sourceFiles.filter(file => file.endsWith(".kt") || file.endsWith(".java"));
+for (const absolute of kotlinSources) {
+  const relative = normalize(path.relative(root, absolute));
+  const content = await readFile(absolute, "utf8");
+  if (relative.startsWith("android/app/src/main/")) {
+    if (/^\s*@(Entity|Dao|Database)\b/m.test(content) && !relative.endsWith("/LocalDatabase.kt")) {
+      failures.push(relative + ": Room declarations must be centralized in LocalDatabase.kt");
+    }
+    if (/^\s*@PluginMethod\b/m.test(content) && !relative.endsWith("Plugin.kt")) {
+      failures.push(relative + ": Capacitor bridge methods must be isolated in *Plugin.kt adapters");
+    }
+    if (/Class\.forName\s*\(|java\.lang\.reflect|DexClassLoader/.test(content)) {
+      failures.push(relative + ": reflection/dynamic loading bypasses static architecture enforcement");
+    }
+  }
+  if (/^packages\/(core|domain|application|presentation)\/src\//.test(relative) &&
+      (/^\s*import\s+(?:android\.|androidx\.|com\.getcapacitor\.|java\.io\.)/m.test(content) ||
+       /\b(?:androidx\.room|android\.content\.|android\.location\.|com\.getcapacitor\.|java\.io\.)/.test(content))) {
+    failures.push(relative + ": platform-neutral Kotlin may not reference Android, Room, Capacitor, or Java I/O");
+  }
+}
+
 for (const cycle of detectCycles(featureGraph)) {
   failures.push(`feature dependency cycle detected: ${cycle}`);
 }
@@ -249,5 +272,5 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   const dependencyCount = [...featureGraph.values()].reduce((sum, edges) => sum + edges.size, 0);
-  console.log(`Architecture gate passed: ${sourceFiles.length} source files checked; dependency direction, public feature boundaries (${featureGraph.size} feature packages / ${dependencyCount} declared edges), cycle checks, and source-size limits are within policy.`);
+  console.log(`Architecture gate passed: ${sourceFiles.length} source files checked; dependency direction, public feature boundaries (${featureGraph.size} feature packages / ${dependencyCount} declared edges), Android/Kotlin adapter boundaries, cycle checks, and source-size limits are within policy.`);
 }

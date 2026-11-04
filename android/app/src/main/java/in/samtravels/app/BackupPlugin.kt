@@ -83,6 +83,7 @@ class BackupPlugin : Plugin() {
                 out.put("manifest", manifest)
                 call.resolve(out)
             } catch (error: Exception) {
+                LocalDiagnostics.record(context, "backup", "export_snapshot", "backup", "export_failed")
                 call.reject("Consistent Room snapshot failed", error)
             }
         }
@@ -183,6 +184,7 @@ class BackupPlugin : Plugin() {
                 out.put("restoredCount", records.length())
                 call.resolve(out)
             } catch (error: Exception) {
+                LocalDiagnostics.record(context, "recovery", "restore_snapshot", "backup", "restore_failed")
                 call.reject("Restore failed; source data or recovery checkpoint was preserved: " + (error.message ?: "unknown failure"), "RESTORE_FAILED", error)
             }
         }

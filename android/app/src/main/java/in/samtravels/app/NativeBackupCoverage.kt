@@ -31,7 +31,7 @@ internal object NativeBackupCoverage {
         override val adapterId = "stored-records-json-v1"
         override val entityType = StoredRecord::class.java
         override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
-            database.records().list().filterNot { isInternal(it.id) }.map { row ->
+            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) }.map { row ->
                 JSONObject().put("id", row.id).put("json", row.json)
                     .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
                     .put("participantId", participantId)
@@ -47,14 +47,42 @@ internal object NativeBackupCoverage {
             }
         }
         override fun clear(database: LocalDatabase) {
-            database.records().list().filterNot { it.id.startsWith("__sam_travels_recovery_checkpoint__:") ||
-                it.id.startsWith("__sam_travels_recovery_journal__:") }.forEach { database.records().remove(it.id) }
+            database.records().list().filterNot { isInternalRecord(it.id) || isWorkRecord(it.id) }
+                .forEach { database.records().remove(it.id) }
         }
         override fun restore(database: LocalDatabase, row: JSONObject) {
             database.records().put(StoredRecord(row.getString("id"), row.getString("json"),
                 row.getInt("schemaVersion"), row.getString("updatedAt")))
         }
     }
+
+    private object WorkDriverRecordsAdapter : SnapshotAdapter {
+        override val adapterId = "work-driver-records-json-v1"
+        override val entityType = StoredRecord::class.java
+        override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
+            database.records().list().filter { !isInternal(it.id) && isWorkRecord(it.id) }.map { row ->
+                JSONObject().put("id", row.id).put("json", row.json)
+                    .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
+                    .put("participantId", participantId)
+            }
+        override fun validate(row: JSONObject) {
+            StoredRecordsAdapter.validate(row)
+            require(isWorkRecord(row.optString("id"))) { "backup_work_record_owner_mismatch" }
+        }
+        override fun clear(database: LocalDatabase) {
+            database.records().list().filter { isWorkRecord(it.id) }.forEach { database.records().remove(it.id) }
+        }
+        override fun restore(database: LocalDatabase, row: JSONObject) {
+            require(isWorkRecord(row.optString("id"))) { "backup_work_record_owner_mismatch" }
+            StoredRecordsAdapter.restore(database, row)
+        }
+    }
+
+    private fun isWorkRecord(id: String): Boolean =
+        id == "driver-state" || id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
+
+    private fun isInternalRecord(id: String): Boolean =
+        id.startsWith("__sam_travels_recovery_checkpoint__:") || id.startsWith("__sam_travels_recovery_journal__:")
 
     /** Log Book owns a separate durable Room table, written with the Work event transaction. */
     private object LogBookEventsAdapter : SnapshotAdapter {
@@ -84,7 +112,7 @@ internal object NativeBackupCoverage {
     }
 
     private val snapshotAdapters: Map<String, SnapshotAdapter> = listOf(
-        StoredRecordsAdapter, LogBookEventsAdapter,
+        StoredRecordsAdapter, WorkDriverRecordsAdapter, LogBookEventsAdapter,
     ).associateBy { it.adapterId }
 
     fun discoverParticipants(): List<SnapshotParticipant> = discoverEntityTypes(LocalDatabase.backupEntityTypes)
@@ -92,23 +120,24 @@ internal object NativeBackupCoverage {
         discoverEntityTypes(entityTypes)
 
     private fun discoverEntityTypes(entityTypes: List<Class<*>>): List<SnapshotParticipant> {
-        val participants = entityTypes.map { entityType ->
-            val contract = entityType.getAnnotation(NativeBackupParticipant::class.java)
-                ?: error("backup_room_entity_missing_participant:" + entityType.name)
-            require(contract.id.isNotBlank() && contract.featureId.isNotBlank() &&
-                contract.roomTable.isNotBlank() && contract.snapshotVersion >= 1) {
-                "backup_room_participant_contract_invalid:" + entityType.name
+        val participants = entityTypes.flatMap { entityType ->
+            val contracts = entityType.getAnnotationsByType(NativeBackupParticipant::class.java)
+            require(contracts.isNotEmpty()) { "backup_room_entity_missing_participant:" + entityType.name }
+            contracts.map { contract ->
+                require(contract.id.isNotBlank() && contract.featureId.isNotBlank() &&
+                    contract.roomTable.isNotBlank() && contract.snapshotVersion >= 1) {
+                    "backup_room_participant_contract_invalid:" + entityType.name
+                }
+                val adapter = snapshotAdapters[contract.adapterId]
+                    ?: error("backup_room_snapshot_adapter_missing:" + contract.adapterId)
+                require(adapter.entityType == entityType) {
+                    "backup_room_snapshot_adapter_entity_mismatch:" + contract.id
+                }
+                SnapshotParticipant(contract.id, contract.featureId, contract.snapshotVersion,
+                    contract.adapterId, entityType, contract.roomTable)
             }
-            val adapter = snapshotAdapters[contract.adapterId]
-                ?: error("backup_room_snapshot_adapter_missing:" + contract.adapterId)
-            require(adapter.entityType == entityType) {
-                "backup_room_snapshot_adapter_entity_mismatch:" + contract.id
-            }
-            SnapshotParticipant(contract.id, contract.featureId, contract.snapshotVersion,
-                contract.adapterId, entityType, contract.roomTable)
         }
         require(participants.map { it.id }.distinct().size == participants.size) { "backup_duplicate_participant_id" }
-        require(participants.map { it.roomTable }.distinct().size == participants.size) { "backup_duplicate_table_participant" }
         return participants
     }
 

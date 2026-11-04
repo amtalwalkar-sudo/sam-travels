@@ -2,3 +2,4 @@ import type{RecordEnvelope}from"../../core/src/types";import type{PolicyReposito
 export * from "./driver-workflow";
 
 export * from "./backup-snapshot";
+\nexport * from "./local-diagnostics";\n

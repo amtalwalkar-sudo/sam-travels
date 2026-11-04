@@ -149,6 +149,18 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     ]);
   });
 
+  it("rejects backup participant ownership or snapshot-version drift", async () => {
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    const altered = {
+      ...snapshot.manifest,
+      participants: snapshot.manifest.participants?.map(item =>
+        item.id === "logbook-events" ? { ...item, snapshotVersion: item.snapshotVersion + 1 } : item),
+    };
+    await expect(restoreBrowserSnapshot({ data: snapshot.data, manifest: altered, confirmed: true }))
+      .rejects.toThrow("backup_participant_manifest_mismatch");
+    expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
+  });
+
   it("refuses replacement without confirmation and rejects mismatched record counts", async () => {
     await expect(restoreBrowserSnapshot({
       data: { records: [], driverState: [], driverIntents: [], driverEvents: [], driverOutbox: [] },
