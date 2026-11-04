@@ -16,6 +16,12 @@ class BackupWorkerResilienceTest {
         ))
     }
 
+    @Test fun staleRunningStateIsReconciledAsInterruptedButTerminalStatesAreNot() {
+        assertTrue(BackupWorkerResilience.shouldReconcileInterruptedRun("running"))
+        assertFalse(BackupWorkerResilience.shouldReconcileInterruptedRun("success"))
+        assertFalse(BackupWorkerResilience.shouldReconcileInterruptedRun("deferred"))
+    }
+
     @Test fun transientDropboxResponsesAreRetriedButPermanentClientErrorsAreNot() {
         assertTrue(BackupWorkerResilience.shouldForceTokenRefresh(401))
         assertFalse(BackupWorkerResilience.shouldForceTokenRefresh(403))
