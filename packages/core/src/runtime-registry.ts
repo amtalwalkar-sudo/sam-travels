@@ -22,7 +22,7 @@ export type RuntimeContractDefinitions = {
 
 export type RuntimeRegistry = {
   features: ReadonlyMap<FeatureId, FeatureDefinition>;
-  startupOrder: FeatureDefinition[];
+  startupOrder: readonly FeatureDefinition[];
   integrations: ReadonlyMap<string, FeatureIntegrationContract>;
   backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
   calculations: ReadonlyMap<string, CalculationContract<any, any>>;
@@ -39,5 +39,5 @@ export function initializeRuntimeRegistry(
   const backupParticipants = registerBackupParticipants(features);
   const integrations = registerFeatureIntegrations(features, definitions.integrations);
   const calculations = registerCalculations(features, definitions.calculations);
-  return Object.freeze({ features, startupOrder, backupParticipants, integrations, calculations });
+  return Object.freeze({ features, startupOrder: Object.freeze(startupOrder), backupParticipants, integrations, calculations });
 }
