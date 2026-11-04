@@ -109,12 +109,12 @@ export function App() {
               <div className="driver-actions">
                 {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_start")}>Start shift</button>}
                 {shiftOn && !tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_start")}>Start trip</button>
-                  <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("shift_end")}>End shift</button>
+                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_start")}>Start trip</button>
+                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_end")}>End shift</button>
                 </>}
                 {tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_end")}>End trip</button>
-                  <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
+                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_end")}>End trip</button>
+                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
                 </>}
               </div>
               {pending.length > 0 && <div className="pending-list">
