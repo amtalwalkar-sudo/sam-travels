@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
-  assertBrowserBackupTableCoverage,
+  BROWSER_BACKUP_PARTICIPANTS,\n  assertBrowserBackupTableCoverage,
   discardVerifiedBrowserCheckpoint,
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
@@ -12,6 +12,19 @@ import {
 } from "../packages/storage-browser/src";
 
 describe("browser consistent backup snapshots and recovery checkpoints", () => {
+  it("derives the browser snapshot participant set from registered feature obligations", () => {
+    expect(BROWSER_BACKUP_PARTICIPANTS).toEqual([
+      { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
+      {
+        id: "work-driver-state",
+        featureId: "work",
+        schemaVersion: 1,
+        tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+      },
+    ]);
+    expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
+  });
+
   it("requires every Dexie table to have an explicit backup or internal-exclusion policy", () => {
     expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
     expect(() => assertBrowserBackupTableCoverage([
