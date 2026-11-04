@@ -169,6 +169,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun makeSnapshot(): Pair<JSONObject, JSONObject> {
+        NativeBackupCoverage.assertRoomSchemaCovered()
         var result: Pair<JSONObject, JSONObject>? = null
         db.runInTransaction {
             val records = org.json.JSONArray()
