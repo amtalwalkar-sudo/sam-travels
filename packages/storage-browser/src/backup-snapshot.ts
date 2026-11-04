@@ -36,24 +36,28 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
   },
 ]);
 
-const TABLE_NAMES: BrowserSnapshotTable[] = BROWSER_BACKUP_PARTICIPANTS.flatMap(participant => participant.tableNames);
-const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
-
-function assertFeatureBackupParticipantCoverage(): void {
+function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const registry = registerFeatures();
-  const declared = new Set(BROWSER_BACKUP_PARTICIPANTS.map(participant => participant.id));
-  const missing = [...registry.values()]
+  const featureParticipants = [...registry.values()]
     .filter(feature => feature.persistence?.backup.required)
-    .filter(feature => !declared.has(feature.persistence!.backup.participantId))
-    .map(feature => feature.id + ":" + feature.persistence!.backup.participantId);
-  const duplicateIds = BROWSER_BACKUP_PARTICIPANTS
-    .map(participant => participant.id)
-    .filter((id, index, all) => all.indexOf(id) !== index);
-  if (missing.length || duplicateIds.length) {
-    throw new Error("backup_feature_registration_mismatch:" + [...missing, ...duplicateIds].join(","));
-  }
+    .map(feature => {
+      const participantId = feature.persistence!.backup.participantId;
+      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === participantId);
+      if (!participant || participant.featureId !== feature.id) {
+        throw new Error("backup_feature_registration_mismatch:" + feature.id + ":" + participantId);
+      }
+      return participant;
+    });
+  const platformParticipants = BROWSER_BACKUP_PARTICIPANTS.filter(item => item.featureId === "platform");
+  const resolved = [...platformParticipants, ...featureParticipants];
+  const ids = resolved.map(item => item.id);
+  if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
+  return resolved;
 }
 
+const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
+  .flatMap(participant => participant.tableNames);
+const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
  * Recovery checkpoints and local credential-vault material are intentionally
@@ -62,7 +66,6 @@ function assertFeatureBackupParticipantCoverage(): void {
 export function assertBrowserBackupTableCoverage(
   actualTableNames: string[] = browserDatabase.tables.map(table => table.name),
 ): void {
-  assertFeatureBackupParticipantCoverage();
   const registered = new Set<string>([...TABLE_NAMES, ...EXCLUDED_TABLE_NAMES]);
   const actual = new Set(actualTableNames);
   const missing = [...registered].filter(name => !actual.has(name));
