@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defineApplicationShell } from "../packages/presentation/src/shell-contracts";
+import { defineApplicationShell, definePresentationForm, type FormSubmissionPort } from "../packages/presentation/src/shell-contracts";
 
 const navigation = [
   { screen: "Drive", label: "Drive", icon: "drive" },
@@ -46,5 +46,59 @@ describe("framework-neutral presentation shell contract", () => {
       initialScreen: "Settings",
       navigation,
     })).toThrow("Initial shell screen is not registered");
+  });
+});
+
+
+describe("presentation form contracts", () => {
+  it("allows form layouts to change while retaining the same application submission port", async () => {
+    const compact = definePresentationForm({
+      id: "work-note",
+      version: 1,
+      fields: [{ id: "note", label: "Note", kind: "text", required: true }],
+    });
+    const expanded = definePresentationForm({
+      id: "work-note",
+      version: 2,
+      fields: [
+        { id: "note", label: "Note", kind: "text", required: true },
+        { id: "recordedOn", label: "Recorded on", kind: "date" },
+      ],
+    });
+    const received: string[] = [];
+    const applicationPort: FormSubmissionPort<{ accepted: boolean }> = {
+      async submit(submission) {
+        received.push(submission.formId + ":" + submission.formVersion);
+        return { accepted: true };
+      },
+    };
+
+    await expect(applicationPort.submit({
+      formId: compact.id,
+      formVersion: compact.version,
+      values: { note: "test" },
+    })).resolves.toEqual({ accepted: true });
+    await expect(applicationPort.submit({
+      formId: expanded.id,
+      formVersion: expanded.version,
+      values: { note: "test", recordedOn: "2026-11-05" },
+    })).resolves.toEqual({ accepted: true });
+    expect(received).toEqual(["work-note:1", "work-note:2"]);
+  });
+
+  it("rejects duplicate fields and incomplete select definitions", () => {
+    expect(() => definePresentationForm({
+      id: "duplicate-fields",
+      version: 1,
+      fields: [
+        { id: "date", label: "Date", kind: "date" },
+        { id: "date", label: "Other date", kind: "date" },
+      ],
+    })).toThrow("Duplicate presentation form field");
+    expect(() => definePresentationForm({
+      id: "empty-select",
+      version: 1,
+      fields: [{ id: "type", label: "Type", kind: "select" }],
+    })).toThrow("Select form field requires options");
   });
 });
