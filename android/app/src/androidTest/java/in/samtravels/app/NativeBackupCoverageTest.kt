@@ -3,81 +3,81 @@ package `in`.samtravels.app
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
-    @Test fun discoversDeclaredRoomEntitiesAndCoversEveryPhysicalTable() {
+    @Test fun discoversTwoFeatureOwnedRoomEntitiesAndCoversEveryPhysicalTable() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+            .allowMainThreadQueries().build()
         try {
             NativeBackupCoverage.assertRoomSchemaCovered(database)
             val participants = NativeBackupCoverage.discoverParticipants()
-            assertEquals(setOf("platform-records"), participants.map { it.id }.toSet())
-            assertEquals(setOf("records"), participants.map { it.roomTable }.toSet())
-            assertEquals("stored-records-json-v1", participants.single().adapterId)
-            assertEquals(setOf("platform-records"), NativeBackupCoverage.registeredParticipantIds())
-        } finally {
-            database.close()
-        }
+            assertEquals(setOf("platform-records", "logbook-events"), participants.map { it.id }.toSet())
+            assertEquals(setOf("records", "logbook_events"), participants.map { it.roomTable }.toSet())
+            assertEquals(setOf("platform-records", "logbook-events"), NativeBackupCoverage.registeredParticipantIds())
+        } finally { database.close() }
     }
 
-    @Test fun snapshotExportUsesDiscoveredParticipantIdentityAndRestoreRejectsUnknownOwners() {
+    @Test fun executableAdaptersExportValidateAndRestoreBothFeatureTables() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
-            .allowMainThreadQueries()
-            .build()
+            .allowMainThreadQueries().build()
         try {
-            database.records().put(StoredRecord(
-                "record-1",
-                """{"id":"record-1","value":"sample"}""",
-                1,
-                "2026-11-04T00:00:00.000Z",
-            ))
+            database.records().put(StoredRecord("platform-1", """{"id":"platform-1","value":"sample"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            assertEquals("platform-records", exported.getJSONObject(0).getString("participantId"))
+            assertEquals(2, exported.length())
+            assertEquals(setOf("platform-records", "logbook-events"),
+                (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
             NativeBackupCoverage.validateBusinessRecords(exported)
 
-            val unknownOwner = org.json.JSONArray().put(
-                org.json.JSONObject(exported.getJSONObject(0).toString())
-                    .put("participantId", "unregistered-feature"),
-            )
-            val failure = runCatching {
-                NativeBackupCoverage.validateBusinessRecords(unknownOwner)
-            }.exceptionOrNull()
-            assertEquals("backup_unknown_participant:unregistered-feature", failure?.message)
-        } finally {
-            database.close()
-        }
+            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            assertTrue(database.records().get("platform-1") == null)
+            assertTrue(database.logBookEvents().list().isEmpty())
+            NativeBackupCoverage.replaceBusinessRecords(database, exported)
+            assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getString("value"))
+            assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
+            NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
+        } finally { database.close() }
+    }
+
+    @Test fun rejectsUnknownParticipantAndDuplicateRows() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val unknown = JSONArray().put(JSONObject().put("id", "x").put("json", """{"id":"x"}""")
+                .put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "unknown"))
+            val failure = runCatching { NativeBackupCoverage.validateBusinessRecords(unknown) }.exceptionOrNull()
+            assertEquals("backup_unknown_participant:unknown", failure?.message)
+
+            val duplicate = JSONArray()
+                .put(JSONObject().put("id", "x").put("json", """{"id":"x"}""").put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "platform-records"))
+                .put(JSONObject().put("id", "x").put("json", """{"id":"x"}""").put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "platform-records"))
+            assertEquals("backup_duplicate_participant_record_id",
+                runCatching { NativeBackupCoverage.validateBusinessRecords(duplicate) }.exceptionOrNull()?.message)
+        } finally { database.close() }
     }
 
     @Test fun failsClosedWhenARoomEntityHasNoParticipantContract() {
-        val failure = runCatching {
-            NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java))
-        }.exceptionOrNull()
-        assertEquals(true, failure?.message?.startsWith("backup_room_entity_missing_participant:"))
+        val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java)) }.exceptionOrNull()
+        assertTrue(failure?.message?.startsWith("backup_room_entity_missing_participant:") == true)
     }
 
     @Test fun failsClosedWhenParticipantHasNoExecutableSnapshotAdapter() {
-        val failure = runCatching {
-            NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnsupportedAdapterEntity::class.java))
-        }.exceptionOrNull()
+        val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnsupportedAdapterEntity::class.java)) }.exceptionOrNull()
         assertEquals("backup_room_snapshot_adapter_missing:unimplemented-adapter", failure?.message)
     }
 
     class UnregisteredRoomEntity
-
-    @NativeBackupParticipant(
-        id = "future-feature",
-        featureId = "future-feature",
-        roomTable = "future_records",
-        snapshotVersion = 1,
-        adapterId = "unimplemented-adapter",
-    )
+    @NativeBackupParticipant(id = "future-feature", featureId = "future-feature", roomTable = "future_records", snapshotVersion = 1, adapterId = "unimplemented-adapter")
     class UnsupportedAdapterEntity
 }

@@ -134,6 +134,7 @@ object DriverWorkflowStore {
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
             save(db, "driver-event:$eventId", eventRecord, now)
+            db.logBookEvents().put(LogBookEventRecord(eventId, eventRecord.toString(), 1, now))
             save(db, "driver-state", JSONObject().put("value", next), now)
             save(db, key, intent, now)
             save(

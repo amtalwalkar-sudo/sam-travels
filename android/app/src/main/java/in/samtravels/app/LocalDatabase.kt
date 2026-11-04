@@ -38,6 +38,33 @@ data class StoredRecord(
     val updatedAt: String,
 )
 
+@Entity(tableName = "logbook_events", indices = [Index(value = ["updatedAt"])])
+@NativeBackupParticipant(
+    id = "logbook-events",
+    featureId = "logbook",
+    roomTable = "logbook_events",
+    snapshotVersion = 1,
+    adapterId = "logbook-events-json-v1",
+)
+data class LogBookEventRecord(
+    @PrimaryKey val eventId: String,
+    val json: String,
+    val schemaVersion: Int,
+    val updatedAt: String,
+)
+
+@Dao
+interface LogBookEventDao {
+    @Query("SELECT * FROM logbook_events ORDER BY updatedAt, eventId")
+    fun list(): List<LogBookEventRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun put(record: LogBookEventRecord)
+
+    @Query("DELETE FROM logbook_events")
+    fun clear()
+}
+
 @Dao
 interface RecordDao {
     @Query("SELECT * FROM records WHERE id = :id LIMIT 1")
@@ -53,9 +80,10 @@ interface RecordDao {
     fun remove(id: String)
 }
 
-@Database(entities = [StoredRecord::class], version = 2, exportSchema = true)
+@Database(entities = [StoredRecord::class, LogBookEventRecord::class], version = 3, exportSchema = true)
 abstract class LocalDatabase : RoomDatabase() {
     abstract fun records(): RecordDao
+    abstract fun logBookEvents(): LogBookEventDao
 
     companion object {
         /**
@@ -63,12 +91,22 @@ abstract class LocalDatabase : RoomDatabase() {
          * Runtime sqlite_master coverage fails if a Room table is added but not
          * enrolled here, so new persisted tables cannot silently escape backups.
          */
-        val backupEntityTypes: List<Class<*>> = listOf(StoredRecord::class.java)
+        val backupEntityTypes: List<Class<*>> = listOf(StoredRecord::class.java, LogBookEventRecord::class.java)
 
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_records_updatedAt` ON `records` (`updatedAt`)",
+                )
+            }
+        }
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `logbook_events` (`eventId` TEXT NOT NULL, `json` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`eventId`))",
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_logbook_events_updatedAt` ON `logbook_events` (`updatedAt`)",
                 )
             }
         }

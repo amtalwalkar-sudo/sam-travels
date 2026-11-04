@@ -14,7 +14,7 @@ class BackupPlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
     private val db by lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
-            .addMigrations(LocalDatabase.MIGRATION_1_2)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
     }
@@ -143,18 +143,7 @@ class BackupPlugin : Plugin() {
 
                 try {
                     db.runInTransaction {
-                        db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
-                        for (index in 0 until records.length()) {
-                            val record = records.getJSONObject(index)
-                            db.records().put(
-                                StoredRecord(
-                                    record.getString("id"),
-                                    record.getString("json"),
-                                    record.getInt("schemaVersion"),
-                                    record.getString("updatedAt"),
-                                ),
-                            )
-                        }
+                        NativeBackupCoverage.replaceBusinessRecords(db, records)
                         saveInternal(
                             journalPrefix + id,
                             JSONObject().put("id", id).put("createdAt", now).put("status", "restored_unverified"),
@@ -179,13 +168,7 @@ class BackupPlugin : Plugin() {
                     val old = JSONObject(db.records().get(checkpointPrefix + id)?.json ?: error("recovery_checkpoint_missing"))
                     val oldRecords = old.getJSONArray("records")
                     db.runInTransaction {
-                        db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
-                        for (index in 0 until oldRecords.length()) {
-                            val record = oldRecords.getJSONObject(index)
-                            db.records().put(
-                                StoredRecord(record.getString("id"), record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt")),
-                            )
-                        }
+                        NativeBackupCoverage.replaceBusinessRecords(db, oldRecords)
                         saveInternal(
                             journalPrefix + id,
                             JSONObject().put("id", id).put("createdAt", now).put("status", "rollback_complete"),
@@ -240,13 +223,7 @@ class BackupPlugin : Plugin() {
                 }
                 val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
                 db.runInTransaction {
-                    db.records().list().filterNot { isInternal(it.id) }.forEach { db.records().remove(it.id) }
-                    for (index in 0 until oldRecords.length()) {
-                        val record = oldRecords.getJSONObject(index)
-                        db.records().put(
-                            StoredRecord(record.getString("id"), record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt")),
-                        )
-                    }
+                    NativeBackupCoverage.replaceBusinessRecords(db, oldRecords)
                     journal.put("status", "rollback_complete")
                     saveInternal(journalPrefix + id, journal, Instant.now().toString())
                 }
