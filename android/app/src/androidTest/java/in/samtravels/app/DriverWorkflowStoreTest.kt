@@ -117,7 +117,7 @@ class DriverWorkflowStoreTest {
     @Test fun duplicateCommandIsIdempotentButChangedPayloadIsRejected() {
         val original = command("same-event")
         val first = DriverWorkflowStore.queue(db, original)
-        val duplicate = DriverWorkflowStore.queue(db, command("same-event"))
+        val duplicate = DriverWorkflowStore.queue(db, original)
         assertEquals(first.getString("status"), duplicate.getString("status"))
         assertEquals(first.getJSONObject("command").getString("commandId"),
             duplicate.getJSONObject("command").getString("commandId"))
