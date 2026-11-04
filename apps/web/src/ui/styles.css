@@ -84,3 +84,19 @@ button{font:inherit}
 .empty-screen>span{margin-top:15px;color:#96a1a8;font-size:10px}
 @media(max-width:380px){.screen-scroll{padding-right:13px;padding-left:13px}.topbar{padding-right:13px;padding-left:13px}.bottom-navigation{padding-right:5px;padding-left:5px}.bottom-navigation-item span{font-size:9px}.driver-timers{gap:5px}.driver-timers>div{padding:9px 6px}.driver-timers strong{font-size:12px}}
 @media(min-width:561px){.shell{border-right:1px solid #e4e9ec;border-left:1px solid #e4e9ec}.bottom-navigation{border-right:1px solid #e4e9ec;border-left:1px solid #e4e9ec}}
+
+.trip-history{margin-top:18px;background:#fff;border:1px solid #dfe7ec;border-radius:18px;padding:20px;box-shadow:0 8px 28px rgba(23,49,65,.04)}
+.trip-history-heading,.trip-history-item-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.trip-history-heading h2{font-size:20px;margin:7px 0}.trip-history-heading>span{font-size:11px;color:#81909a}
+.trip-history-list{display:grid;gap:10px;margin-top:14px}
+.trip-history-item{border:1px solid #e8edf0;border-radius:13px;padding:14px}
+.trip-history-item-top strong{font-size:13px;color:#304754}
+.trip-history-status{font-size:10px;text-transform:capitalize;border-radius:99px;padding:6px 9px;background:#f0f2f4;color:#5f6e77}
+.trip-history-status.completed{background:#e9f7ef;color:#21764e}.trip-history-status.cancelled{background:#fff2e8;color:#985b2d}.trip-history-status.active{background:#eaf2f8;color:#315c76}.trip-history-status.needs_attention{background:#fff0f0;color:#a13c3c}
+.trip-history-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:13px}
+.trip-history-times>div{display:grid;gap:5px}.trip-history-times small,.trip-history-id{font-size:9px;letter-spacing:.04em;color:#87949d}.trip-history-times span{font-size:12px;color:#425966}
+.trip-history-empty,.trip-history-error{font-size:12px;line-height:1.55;color:#71808a;padding:12px 0}.trip-history-error{color:#a13c3c}.trip-history-id{display:block;margin-top:12px;overflow-wrap:anywhere}
+
+.pending-expired{font-size:10px;color:#a13c3c;max-width:150px;text-align:right;line-height:1.35}
+
+.trip-history-note{font-size:10px;color:#8a6b4a;margin:8px 0 0}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { nativeOverlayAvailable } from "../driver-workflow";
 import { BackupPanel } from "./BackupPanel";
+import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
 
 type Screen = "Drive" | "Timeline" | "Performance" | "Admin";
@@ -58,7 +59,7 @@ export function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>("Drive");
   const workspace = useDriverWorkspace();
   const {
-    repo, enabled, error, ready, driver, pending, driverBusy,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     overlayMessage, driverMessage, shiftOn, tripOn, localClock, elapsed,
   } = workspace;
   const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch } = workspace.actions;
@@ -106,21 +107,23 @@ export function App() {
               </div>
               <p className="driver-message" aria-live="polite">{driverMessage}</p>
               <div className="driver-actions">
-                {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pending.length > 0} onClick={() => dispatch("shift_start")}>Start shift</button>}
+                {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_start")}>Start shift</button>}
                 {shiftOn && !tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_start")}>Start trip</button>
-                  <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("shift_end")}>End shift</button>
+                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_start")}>Start trip</button>
+                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_end")}>End shift</button>
                 </>}
                 {tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_end")}>End trip</button>
-                  <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
+                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_end")}>End trip</button>
+                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
                 </>}
               </div>
               {pending.length > 0 && <div className="pending-list">
                 <strong>Pending recovery</strong>
                 {pending.map((item) => <div className="pending-row" key={item.command.eventId}>
-                  <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}</span>
-                  <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>
+                  <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}{item.reason === "gps_recovery_window_expired" ? " · GPS window expired" : ""}</span>
+                  {item.reason === "gps_recovery_window_expired"
+                    ? <small className="pending-expired">Reissue as a new action when ready</small>
+                    : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
               </div>}
               {nativeOverlayAvailable() && <div className="overlay-control">
@@ -133,7 +136,10 @@ export function App() {
 
             <BackupPanel />
         </div>
-        {activeScreen !== "Drive" && (
+        {activeScreen === "Timeline" && (
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /></section>
+        )}
+        {(activeScreen === "Performance" || activeScreen === "Admin") && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /></section>
         )}
       </div>

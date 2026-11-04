@@ -71,7 +71,7 @@ object DriverWorkflowStore {
                         val item = JSONObject(row.json)
                         val revision = item.optJSONObject("command")?.optInt("expectedRevision", -1)
                         (item.optString("status") == "pending_location" ||
-                            item.optString("status") == "needs_attention") &&
+                            (item.optString("status") == "needs_attention" && item.optString("reason") != "gps_recovery_window_expired")) &&
                             revision == current.optInt("revision")
                     }.getOrDefault(false)
                 }
@@ -99,6 +99,7 @@ object DriverWorkflowStore {
             require(intent.optString("status") == "pending_location") { "intent_not_pending" }
 
             val command = intent.getJSONObject("command")
+            require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))) { "gps_recovery_window_expired" }
             val current = snapshot(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&

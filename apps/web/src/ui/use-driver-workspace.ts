@@ -62,7 +62,7 @@ export function useDriverWorkspace() {
         const service = new DriverWorkflowService(repository, location);
         setWorkflow(service);
         setDriver(await service.snapshot());
-        const pendingItems = await service.pending();
+        const pendingItems = await service.reconcilePending();
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
@@ -78,7 +78,7 @@ export function useDriverWorkspace() {
           void service.snapshot().then((snapshot) => {
             if (live) setDriver(snapshot);
           });
-          void service.pending().then((items) => {
+          void service.reconcilePending().then((items) => {
             if (live) setPending(items);
           });
         }, 1500);
@@ -129,6 +129,8 @@ export function useDriverWorkspace() {
       setDriverMessage(
         result.status === "recorded"
           ? "Recovered action recorded"
+          : result.reason === "gps_recovery_window_expired"
+          ? "GPS evidence window expired · reissue the action when ready"
           : "Still awaiting a reliable GPS fix · " + (result.reason ?? "retry later"),
       );
     } catch (cause) {
@@ -193,9 +195,10 @@ export function useDriverWorkspace() {
   }).format(now);
   const shiftOn = driver?.state === "shift_active" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const tripOn = driver?.state === "trip_active" || driver?.state === "approach_active";
+  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
   return {
-    repo, enabled, error, ready, driver, pending, driverBusy, overlayMessage, driverMessage,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
     shiftOn, tripOn, localClock, elapsed,
     actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch },
   };

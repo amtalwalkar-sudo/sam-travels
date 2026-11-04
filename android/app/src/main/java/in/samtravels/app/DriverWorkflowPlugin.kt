@@ -11,6 +11,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import androidx.room.Room
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
@@ -25,7 +26,7 @@ import kotlin.math.abs
 class DriverWorkflowPlugin:Plugin(){
  private val executor=Executors.newSingleThreadExecutor()
  private val main=Handler(Looper.getMainLooper())
- private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").enableMultiInstanceInvalidation().build()}
+ private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2).enableMultiInstanceInvalidation().build()}
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
  private fun state():JSONObject=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
  private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
@@ -38,9 +39,17 @@ class DriverWorkflowPlugin:Plugin(){
  }
  private fun startOverlay(call:PluginCall){
   if(!Settings.canDrawOverlays(context)){val settings=Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(settings);call.reject("Grant display-over-other-apps permission, then enable the overlay again","OVERLAY_PERMISSION_REQUIRED");return}
-  try{if(android.os.Build.VERSION.SDK_INT>=26)context.startForegroundService(Intent(context,DriverOverlayService::class.java))else context.startService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to start native driver overlay",e)}
+  val preferences=context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE)
+  try{
+   if(android.os.Build.VERSION.SDK_INT>=26)context.startForegroundService(Intent(context,DriverOverlayService::class.java))else context.startService(Intent(context,DriverOverlayService::class.java))
+   preferences.edit().putBoolean("overlay_enabled",true).putBoolean("boot_resume_deferred",false).commit()
+   call.resolve()
+  }catch(e:Exception){
+   preferences.edit().putBoolean("overlay_enabled",false).commit()
+   call.reject("Unable to start native driver overlay",e)
+  }
  }
- @PluginMethod fun disableOverlay(call:PluginCall){try{context.stopService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to stop native driver overlay",e)}}
+ @PluginMethod fun disableOverlay(call:PluginCall){try{context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE).edit().putBoolean("overlay_enabled",false).putBoolean("boot_resume_deferred",false).commit();context.stopService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to stop native driver overlay",e)}}
  @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val out=JSObject();out.put("snapshot",state());call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
  @PluginMethod fun queueIntent(call:PluginCall){
   val command=call.getObject("command");if(command==null){call.reject("Command required");return}
@@ -58,14 +67,21 @@ class DriverWorkflowPlugin:Plugin(){
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE;powerRequirement=Criteria.POWER_LOW}
    val provider=manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
+   val wakeLock=(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(40_000L)}
+   fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
    var finished=false
    lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};call.reject("Location request timed out; intent remains pending","LOCATION_TIMEOUT")}}
+   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();call.reject("Location request timed out; intent remains pending","LOCATION_TIMEOUT")}}
    listener=LocationListener{location:Location->
-    if(!finished){finished=true;main.removeCallbacks(timeout);val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude);out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString());out.put("provider",location.provider?:"android");call.resolve(out)}
+    if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude);out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString());out.put("provider",location.provider?:"android");call.resolve(out)}
    }
-   manager.requestSingleUpdate(provider,listener,Looper.getMainLooper())
-   main.postDelayed(timeout,35_000L)
+   try{
+    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper())
+    main.postDelayed(timeout,35_000L)
+   }catch(error:Exception){
+    finished=true;releaseWakeLock();throw error
+   }
   }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
  }
  @PluginMethod fun completeIntent(call:PluginCall){

@@ -14,6 +14,7 @@ class BackupPlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
     private val db by lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
+            .addMigrations(LocalDatabase.MIGRATION_1_2)
             .enableMultiInstanceInvalidation()
             .build()
     }
