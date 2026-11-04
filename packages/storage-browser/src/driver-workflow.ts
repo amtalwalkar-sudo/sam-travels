@@ -6,7 +6,7 @@ import { EMPTY_DRIVER_STATE,validateDriverCompletion } from "../../domain/src/dr
 import type { DriverWorkflowRepository } from "../../application/src/driver-workflow-service";
 import { browserDatabase } from "./database";
 type SnapshotRow={id:"driver-state";value:DriverStateProjection};
-type OutboxRow={id:string;eventId:string;revision:number;delivered:boolean;createdAt:string};
+type OutboxRow={id:string;eventId:string;revision:number;integrationId:string;contractVersion:number;eventName:string;payloadVersion:number;delivered:boolean;createdAt:string};
 const states=()=>browserDatabase.table("driverState") as Table<SnapshotRow,string>;
 const intents=()=>browserDatabase.table("driverIntents") as Table<DriverIntent,string>;
 const events=()=>browserDatabase.table("driverEvents") as Table<DriverEvent,string>;
@@ -21,7 +21,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
   const snapshot=await browserDatabase.transaction("rw",states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;
    await events().add({eventId:id,command:intent.command,gps,committedAt:now,revision:next.revision});await states().put({id:"driver-state",value:next});
-   await intents().put({...intent,status:"recorded",updatedAt:now,reason:undefined});await outbox().put({id:"driver-state:"+next.revision,eventId:id,revision:next.revision,delivered:false,createdAt:now});return next});
+   await intents().put({...intent,status:"recorded",updatedAt:now,reason:undefined});await outbox().put({id:"driver-state:"+next.revision,eventId:id,revision:next.revision,integrationId:"logbook.work-driver-events.v1",contractVersion:1,eventName:"work.driver-event-committed",payloadVersion:1,delivered:false,createdAt:now});return next});
   this.listeners.forEach(fn=>fn(snapshot));return snapshot;
  }
  async markNeedsAttention(id:string,reason:string){await browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(i&&i.status!=="recorded"){await intents().put({...i,status:"needs_attention",reason,updatedAt:new Date().toISOString()})}})}
