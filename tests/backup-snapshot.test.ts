@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
+  assertBrowserBackupTableCoverage,
   discardVerifiedBrowserCheckpoint,
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
@@ -11,6 +12,14 @@ import {
 } from "../packages/storage-browser/src";
 
 describe("browser consistent backup snapshots and recovery checkpoints", () => {
+  it("requires every Dexie table to have an explicit backup or internal-exclusion policy", () => {
+    expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
+    expect(() => assertBrowserBackupTableCoverage([
+      ...browserDatabase.tables.map(table => table.name),
+      "new-business-feature",
+    ])).toThrow("backup_table_registration_mismatch:unclassified:new-business-feature");
+  });
+
   beforeEach(async () => {
     await browserDatabase.delete();
     await browserDatabase.open();
