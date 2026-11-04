@@ -1,0 +1,161 @@
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import type { PluginListenerHandle } from "@capacitor/core";
+import type {
+  DriverEvent,
+  DriverIntent,
+  DriverStateProjection,
+  DriverWorkflowRepository,
+  EventLocationProvider,
+  GpsFix,
+} from "../../../packages/features/work-shift";
+import { DexieDriverWorkflowRepository } from "../../../packages/storage-browser/src/driver-workflow";
+
+type NativeApi = {
+  getSnapshot(): Promise<{ snapshot: DriverStateProjection }>;
+  queueIntent(options: { command: DriverIntent["command"] }): Promise<{ intent: DriverIntent }>;
+  listPending(): Promise<{ intents: DriverIntent[] }>;
+  listEvents(): Promise<{ events: DriverEvent[] }>;
+  retryIntent(options: { eventId: string }): Promise<{ intent: DriverIntent }>;
+  captureLocation(): Promise<GpsFix>;
+  completeIntent(options: { eventId: string; gps: GpsFix }): Promise<{ snapshot: DriverStateProjection }>;
+  markNeedsAttention(options: { eventId: string; reason: string }): Promise<void>;
+  enableOverlay(): Promise<void>;
+  disableOverlay(): Promise<void>;
+  addListener(
+    event: "driverStateChanged",
+    listener: (data: { snapshot: DriverStateProjection }) => void,
+  ): Promise<PluginListenerHandle>;
+};
+
+const NativeDriver = registerPlugin<NativeApi>("DriverWorkflow");
+
+export class NativeDriverWorkflowRepository implements DriverWorkflowRepository {
+  private readonly listeners = new Set<(snapshot: DriverStateProjection) => void>();
+  private handle?: PluginListenerHandle;
+  private disposed = false;
+
+  constructor() {
+    void NativeDriver.addListener("driverStateChanged", (data) => {
+      this.listeners.forEach((listener) => listener(data.snapshot));
+    }).then((handle) => {
+      if (this.disposed) void handle.remove();
+      else this.handle = handle;
+    });
+  }
+
+  async getSnapshot() {
+    return (await NativeDriver.getSnapshot()).snapshot;
+  }
+
+  async queueIntent(intent: DriverIntent) {
+    return (await NativeDriver.queueIntent({ command: intent.command })).intent;
+  }
+
+  async reactivateIntent(eventId: string) {
+    return (await NativeDriver.retryIntent({ eventId })).intent;
+  }
+
+  async getIntent(eventId: string) {
+    return (await NativeDriver.listPending()).intents.find(
+      (intent) => intent.command.eventId === eventId,
+    );
+  }
+
+  async listPending() {
+    return (await NativeDriver.listPending()).intents;
+  }
+
+  async completeIntent(eventId: string, gps: GpsFix) {
+    return (await NativeDriver.completeIntent({ eventId, gps })).snapshot;
+  }
+
+  markNeedsAttention(eventId: string, reason: string) {
+    return NativeDriver.markNeedsAttention({ eventId, reason });
+  }
+
+  async listEvents(): Promise<DriverEvent[]> {
+    return (await NativeDriver.listEvents()).events;
+  }
+
+  subscribe(listener: (snapshot: DriverStateProjection) => void) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  dispose() {
+    this.disposed = true;
+    void this.handle?.remove();
+    this.handle = undefined;
+    this.listeners.clear();
+  }
+}
+
+export class BrowserEventLocationProvider implements EventLocationProvider {
+  capture(): Promise<GpsFix> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("location_unavailable"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            horizontalAccuracyM: position.coords.accuracy,
+            fixAt: new Date(position.timestamp).toISOString(),
+            provider: "browser-geolocation",
+          }),
+        (error) =>
+          reject(
+            new Error(
+              error.code === 1
+                ? "permission_denied"
+                : error.code === 3
+                  ? "location_timeout"
+                  : "location_unavailable",
+            ),
+          ),
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 35_000 },
+      );
+    });
+  }
+}
+
+export class NativeEventLocationProvider implements EventLocationProvider {
+  capture() {
+    return NativeDriver.captureLocation();
+  }
+}
+
+export async function createDriverWorkflow(): Promise<{
+  repository: DriverWorkflowRepository;
+  location: EventLocationProvider;
+}> {
+  if (Capacitor.isNativePlatform()) {
+    return {
+      repository: new NativeDriverWorkflowRepository(),
+      location: new NativeEventLocationProvider(),
+    };
+  }
+
+  return {
+    repository: new DexieDriverWorkflowRepository(),
+    location: new BrowserEventLocationProvider(),
+  };
+}
+
+export const nativeOverlayAvailable = () => Capacitor.isNativePlatform();
+
+export async function enableNativeOverlay() {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error("Native overlay is available in the Android app");
+  }
+  await NativeDriver.enableOverlay();
+}
+
+export async function disableNativeOverlay() {
+  if (!Capacitor.isNativePlatform()) return;
+  await NativeDriver.disableOverlay();
+}

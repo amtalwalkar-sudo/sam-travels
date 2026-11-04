@@ -15,6 +15,39 @@ Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/op
 
 Dependencies point inward. Domain and application layers must not import UI, Dexie, Capacitor, Android, or Dropbox SDK details.
 
+## Capability ownership and file-size discipline
+
+A capability owns its domain rules, application use cases, ports, persistence adapter, platform adapter (when needed), presentation adapter, and focused tests. Keep those parts adjacent to their capability rather than placing unrelated responsibilities in shared utilities or a universal service.
+
+The preferred capability shape is:
+
+```text
+packages/features/<capability>/
+  domain/          # entities, invariants, pure calculations
+  application/     # use cases and orchestration
+  ports/           # repository and platform capability interfaces
+  adapters/        # persistence and integration implementations
+  presentation/    # capability-owned UI, when applicable
+  tests/           # focused domain/application/adapter tests
+```
+
+The shared `core` package is limited to genuinely cross-capability primitives and stable contracts. It must not become a home for feature-specific rules. The current driver workflow packages may be migrated into this shape in small, behaviour-preserving slices; do not perform a risky mass move solely to match a directory diagram.
+
+Files should have one cohesive reason to change. Split files when they combine distinct responsibilities, and keep modules small enough to understand and test in isolation. The automated architecture gate currently rejects source files over 400 lines or 24 KB; a justified exception must be split or explicitly reviewed rather than silently bypassing the gate. Avoid minifying code: readable formatting is part of maintainability.
+
+## Dependency rules
+
+- Dependencies point from outer layers toward inner contracts; inner layers never import outer layers.
+- Domain code may depend on shared core types and other domain primitives only.
+- Application code may depend on domain and core contracts, never a concrete persistence, UI, or platform adapter.
+- Persistence adapters implement application/domain ports; they do not own business invariants.
+- Web UI talks to application use cases and presentation/platform adapters. It must not access Dexie tables or Capacitor plugins directly.
+- Kotlin Android services and plugins are platform adapters. They call the authoritative repository/use-case boundary and do not create a second driver state machine.
+- Cross-capability communication uses explicit typed application contracts/events. Direct imports of another capability's private implementation or tables are prohibited.
+- Avoid circular dependencies, service locators with unrestricted access, giant catch-all files, and duplicate implementations of the same business rule.
+
+These rules are checked in CI by `npm run check:architecture`. The guard is intentionally deterministic and local; it checks source size and known layer import boundaries without trying to infer all semantics from naming.
+
 ## Local persistence ownership
 
 - There is one authoritative local database per runtime: IndexedDB for a browser-only PWA session, and Room for the installed Android application.
@@ -58,7 +91,6 @@ The PWA driver screen and native Android overlay are synchronized views/controll
 - One ordered coordinator validates commands against the latest state, handles duplicate IDs idempotently, and resolves conflicting near-simultaneous actions so only a valid transition becomes final.
 - Both surfaces show immediate pending feedback and then the same durable completion/error status. Timers and current shift/ride state derive from shared persisted timestamps.
 - GPS remains event-scoped: the accepted transition owns one location request; synchronization itself never starts location tracking.
-
 
 ## User-controlled internet access
 

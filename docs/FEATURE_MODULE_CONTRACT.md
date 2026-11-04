@@ -2,7 +2,7 @@
 
 ## Purpose and product boundary
 
-Sam Travels is a single-driver Driver Log Book + ERP. Modules represent the owner's work, vehicle, records, and business operations. Do not add fleet dispatch, driver rosters, driver assignment, or multi-driver tenancy without an explicit product-scope decision.
+Sam Travels is a single-driver Driver Log Book + ERP. Modules represent the owner's work, vehicle, trips, records, and business operations. Do not add fleet dispatch, driver rosters, driver assignment, or multi-driver tenancy without an explicit product-scope decision.
 
 ## Module boundaries
 
@@ -21,6 +21,12 @@ Initial feature areas:
 
 These are product areas, not permission to build a generic fleet platform.
 
+## Capability ownership
+
+A capability is the unit of ownership and change. Its domain rules, use cases, repository/platform ports, adapters, presentation, and tests must be identifiable without searching through unrelated global files. Prefer the `packages/features/<capability>/` structure documented in [ARCHITECTURE.md](../ARCHITECTURE.md). Keep the current driver workflow stable while moving it incrementally; a directory migration is not a reason to rewrite working behaviour.
+
+The capability's public entry point is its only supported cross-capability import surface. Internal files remain private implementation details. Shared core contains only concepts that are truly common and stable; it must not accumulate capability-specific logic.
+
 ## Add-on and change-isolation rules
 
 - A new module or calculation must be registerable without rewriting stable modules.
@@ -31,6 +37,9 @@ These are product areas, not permission to build a generic fleet platform.
 - Feature registration is explicit and typed; module dependencies are declared and checked. Avoid hidden global registries with unrestricted access.
 - A module may add optional capabilities but cannot silently change another module's data, permissions, network behavior, or lifecycle state.
 - Cross-module workflows use an application coordinator with explicit transaction boundaries and compensating/recovery behavior where a single database transaction cannot cover the workflow.
+- No capability may import another capability's private UI, tables, persistence adapter, or platform implementation.
+- No catch-all file may own unrelated capabilities. Split files by cohesive responsibility; avoid minified source and giant components/services/repositories.
+- Keep source files at or below 400 lines and 24 KB. Exceptions require an explicit reviewed architecture decision and should be temporary.
 
 ## Shared platform contracts
 
@@ -64,3 +73,7 @@ Forms are replaceable presentation adapters. They use shared typed field/value c
 - Add a calculation without changing existing stable module wiring.
 - Verify modules cannot directly write another module's tables or bypass repositories/network gateway.
 - Verify every module remains usable offline and has explicit recovery/migration tests.
+- Verify a queued driver intent and its revision/state preconditions survive browser IndexedDB close/reopen and Android Room close/reopen; verify recovery records it exactly once.
+- Verify native overlay and PWA command races cannot commit two events for one expected revision.
+- On a physical Android device, test app process interruption while awaiting GPS, service restart, permission denial/regrant, GPS timeout/retry, offline launch, and device reboot. These lifecycle checks are a release acceptance gate; emulator CI alone does not establish them.
+- Verify committed event, state projection, intent terminal status, and outbox record are atomic and consistent after interruption/relaunch.

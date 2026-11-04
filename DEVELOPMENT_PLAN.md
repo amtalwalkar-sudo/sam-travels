@@ -1,6 +1,6 @@
 # Development Plan
 
-Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Do not begin a later phase until its required outputs and acceptance criteria are reviewed. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
+Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
 
 ## Phase 1 — Architecture and contracts (approved)
 
@@ -14,9 +14,8 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Define event-scoped GPS evidence, versioned reliability policy, time integrity, and timer semantics.
 - Define user-controlled Internet Access gateway, offline defaults, and integration capability registration.
 - Define Dropbox backup/restore, consistent snapshots, checkpoint-before-restore, reset safeguards, and security/compatibility expectations.
-- Lock GPS event-fix v1 at 50 m / 30 s and backup-encryption v1 at AES-256-GCM with passphrase/recovery-key wrapping.
 
-**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. No contradictory phase plan or duplicate ownership rule remains. User approval is recorded; implementation proceeds to Phase 2.
+**Exit gate:** contracts agree on source of truth, transaction boundaries, command/event identity, offline behavior, GPS event boundaries, clock semantics, network policy, backup/restore safety, security, migration, and module compatibility. User approval is recorded; implementation proceeds to Phase 2.
 
 ## Phase 2 — Application and database foundation (complete)
 
@@ -38,47 +37,65 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Implement Asia/Kolkata clock, persisted UTC transitions, timer derivation, and clock-integrity warnings.
 - Keep all core workflows offline; no continuous GPS tracking.
 
-**Exit gate:** both surfaces operate the same workflow; five GPS event types are verified; restart/reboot recovery, failure injection, offline operation, timer continuity, and physical-device responsiveness pass.
+**Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate; do not claim those are complete from CI compilation alone.
 
-## Phase 4 — Business modules
+## Phase 4 — Core workflow, persistence, recovery, and modularity hardening
 
-- Implement Log Book history and records.
-- Implement Finance, loans, EMI schedules, payments, and prepayments.
-- Implement Vehicle, maintenance, and compliance.
-- Implement Performance using domain-owned, independently tested calculations and date-range filters.
-- Implement Admin configuration and backup/recovery controls.
-- Keep modules independently addable and presentation replaceable.
+- Audit and reduce oversized or multi-responsibility files; put every capability in its proper owner area.
+- Enforce dependency direction, public capability contracts, source-size limits, and readable source formatting in CI.
+- Keep domain, application, persistence, platform adapters, and presentation independently replaceable.
+- Harden shared driver transitions and ensure the PWA and native overlay use the same authoritative state and atomic command boundary.
+- Verify Room transactions for enqueue, completion, idempotency, conflict rejection, event history, and outbox.
+- Verify Dexie transaction parity for browser-only PWA.
+- Complete startup reconciliation, pending-intent recovery, stale-operation handling, and user-visible recovery states.
+- Add failure-injection, concurrency, migration, and native repository tests.
+- Keep business modules deferred until the driver workflow and recovery acceptance gate passes.
 
-**Exit gate:** module contracts, validations, historical dates, calculations, offline persistence, and regression tests pass without changing stable driver workflow behavior.
+**Automated CI gate passed; physical-device acceptance outstanding:** capability ownership and dependency rules are enforceable in CI; web UI state/orchestration has been separated from presentation; native transition policy and transactional store have explicit ownership; browser IndexedDB and Room close/reopen recovery are tested; concurrent PWA/native enqueue is serialized; and Android replay of a completed transition is tested both in-process and after durable Room reopen. Run #135 on commit `3ce16e5` completed successfully: web checks/build and Android build, unit tests, and emulator instrumentation all passed. Physical-device validation remains outstanding for permission changes, GPS retry, overlay/service restart, process interruption, offline relaunch, and reboot. Do not mark Phase 4 accepted until those device checks are recorded.
 
-## Phase 5 — Recovery and resilience
+## Phase 5 — Business modules (incremental, deferred)
 
-- Complete startup recovery, interrupted-operation handling, and corruption/migration recovery.
-- Validate process death, force-stop deferral, battery exhaustion, shutdown/reboot, Doze, permission revocation, and OEM battery restrictions.
-- Verify recovery checkpoints, data reset safeguards, and user-facing recovery states.
-- Add physical-device failure-injection coverage and operational diagnostics.
+- Add Log Book, Finance, Vehicle, Performance, Admin, and other business capabilities incrementally after the core workflow is accepted.
+- Preserve module isolation, historical dates, offline persistence, and independently tested calculations.
+- Do not broaden product scope without an explicit user-approved feature slice.
 
-**Exit gate:** recoverable states and limitations are explicit; no silent data loss; supported interruption scenarios pass on representative physical Android devices.
+**Approved Phase 5 slice complete — Work/Shift capability modularity:** introduced `packages/features/work-shift/index.ts` as the public capability contract; routed the existing Work/Shift UI, platform adapter types, and contract tests through that entry point; and extended the architecture gate to enforce dependency direction, prohibit feature dependencies on UI/storage adapters, and reject external consumers that bypass the public Work/Shift entry point to import its domain/application implementation directly. Added `tests/work-shift-contract.test.ts` to exercise command creation, transition policy, and completion validation through the public entry point. This is a behaviour-preserving architecture/test completion only. No new screens, workflows, calculations, business records, or business-module functionality were added, in accordance with the narrowed driver-workflow-first scope. Log Book, Finance, Vehicle, Performance, Admin, and other business modules remain intentionally deferred until separately approved; this does not claim those modules are implemented.
 
-## Phase 6 — Internet integrations
+**Exit gate:** each requested module is separately scoped, reviewed, tested, and approved.
 
-- Implement Dropbox OAuth with least-privilege scopes and secure token storage.
-- Implement consistent versioned snapshots, encrypted backup packages, daily best-effort backup, retry, and retention.
-- Implement user-initiated restore with validation, checkpoint, confirmation, staged replacement, and post-restore verification.
-- Add optional online capabilities only through the network gateway; reverse geocoding remains optional enrichment.
-- Verify disabled policy blocks all app-initiated network requests.
+## Phase 6 — Recovery and resilience
 
-**Exit gate:** backup/restore, auth expiry, offline deferral, integrity validation, retention, and network policy enforcement pass.
+**Automated engineering slice complete; external/device acceptance intentionally deferred.**
 
-## Phase 7 — Reliability validation and release
+Implemented capabilities:
+- Dropbox OAuth 2.0 Authorization Code + PKCE, least-privilege app-folder scopes, state validation, refresh-token lifecycle and revocation when online. Credentials are stored in Android Keystore-backed storage or the passphrase-encrypted browser vault; secrets are excluded from business records, snapshots, package contents, WorkManager inputs, and logs.
+- Consistent versioned browser IndexedDB and Android Room snapshots; AES-256-GCM encrypted backup packages with authenticated manifest metadata, integrity validation, fresh DEK/nonce per package, Argon2id passphrase protection for V1, and recovery-key-only V2 support. V1 restore compatibility is retained.
+- Restore flow with validation, explicit confirmation, durable checkpoint-before-replacement, staged transactional replacement, verification, rollback, and checkpoint retention until user verification/discard.
+- Dropbox upload/download/history, refresh, bounded transient retry/backoff, collision-safe upload identity, remote metadata/size verification, retention with protection of the selected known-good backup, and NetworkGateway/Internet Access policy enforcement.
+- Android daily best-effort WorkManager schedule with connected-network constraint, unique periodic/immediate jobs, bounded retry, policy re-check before requests, Keystore-protected recovery key, run status, interrupted-run reconciliation, and collision-safe V2 upload.
+- Cross-runtime native V2 package fixture verified by the TypeScript parser/decryptor. Automated test coverage includes OAuth policy/state/token refresh, retry and retention decisions, interrupted-run status reconciliation, Room restore transaction rollback under injected failure, and secure recovery-key vault persistence.
+- Android release variant and Android emulator instrumentation included in the automated CI gate.
 
-- Run full unit, integration, browser, migration, security, failure-injection, and Android instrumentation suites.
-- Validate PWA and signed Android release builds on physical devices.
-- Verify permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
-- Resolve release-blocking defects, verify CI, prepare release notes and recovery instructions, and produce the signed Android artifact.
-- Deploy PWA and publish release artifacts only after explicit release approval.
+**Automated verification:** CI run [#308](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41835374476), head `b0e70d45db3becb8e53f8b756503e9da7fa25c25`, completed successfully. Web architecture checks, tests and production build passed; Android Capacitor sync, debug/unit/instrumentation test tasks and unsigned release assembly passed. This proves automated build/test status only.
 
-**Exit gate:** all required checks green, known platform limitations documented, no unresolved data-integrity blocker, and user approves release.
+**Acceptance still pending by explicit user deferral:**
+- Real Dropbox app/client ID setup and account-backed OAuth redirect, authorization, refresh, upload/download and revocation acceptance. No credentials or tokens are to be committed.
+- Physical Android acceptance of background execution across Doze, reboot, locked-device/Keystore availability, app/process interruption, offline deferral/retry, OAuth callbacks and restore recovery.
+- User acceptance of the backup/restore experience with disposable data, including a real restore/rollback run.
+
+Do not mark Phase 6 fully accepted until those external/device checks are completed and recorded. Reverse geocoding remains optional and outside this phase's required scope.
+
+## Phase 7 — Automated release candidate and post-merge acceptance
+
+- Run full unit, integration, browser, architecture, migration, security, failure-injection, and Android emulator instrumentation suites before merge.
+- Assemble the unsigned Android release APK in CI. After the PR is merged, the push-to-main workflow publishes the APK as the `sam-travels-release-apk` GitHub Actions artifact.
+- Verify the main-branch workflow succeeded and the APK artifact is present and downloadable before asking for physical-phone testing.
+- Physical-device acceptance follows artifact publication, not precedes PR merge: validate permission flows, offline behavior, overlay lifecycle, event-based GPS, recovery, backup/restore, and clock integrity.
+- Real Dropbox account/OAuth acceptance remains separately deferred by user decision; no credentials or tokens are committed.
+- Signed production distribution remains a separate owner-controlled step requiring signing credentials and explicit release approval.
+
+**Pre-merge exit gate:** required automated checks green, no unresolved automated data-integrity blocker, and PR ready to merge.
+**Post-merge exit gate:** main-branch APK artifact verified; physical-device and Dropbox acceptance are recorded only when the user later performs those deferred checks.
 
 ## Cross-phase engineering gates
 
@@ -97,7 +114,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - UI flows have component/browser coverage.
 - Native behavior has Android instrumentation and physical-device coverage where applicable.
 - Offline, duplicate-event, crash, reboot, clock-change, and restore paths are tested.
-- CI is green; no secrets or tokens are committed.
+- Architecture checks, CI, and tests are green; no secrets or tokens are committed.
 - User-facing permissions, limitations, backup state, and recovery state are explicit.
 
 ## Delivery rule

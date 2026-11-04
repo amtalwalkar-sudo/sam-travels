@@ -2,7 +2,10 @@ name: Sam Travels CI
 on:
   pull_request:
   push:
-    branches: [main, foundation/native-android-architecture]
+    branches: [main, foundation/native-android-architecture, 'phase-*/*']
+concurrency:
+  group: sam-travels-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -14,6 +17,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - run: npm run check:architecture
       - run: npm test
       - run: npm run build
   android:
@@ -37,4 +41,28 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.11.1
-      - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest
+      - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest assembleRelease
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run Android Room and driver workflow instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: gradle -p android connectedDebugAndroidTest
+      - name: Publish unsigned release APK from merged main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sam-travels-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
