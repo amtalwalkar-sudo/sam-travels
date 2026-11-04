@@ -26,6 +26,8 @@ class LocalDatabaseMigrationTest {
             "INSERT INTO `records` (`id`, `json`, `schemaVersion`, `updatedAt`) " +
                 "VALUES ('legacy-driver-state', '{\"state\":\"shift_active\"}', 1, '2026-11-04T10:00:00Z')",
         )
+        legacy.execSQL("CREATE TABLE IF NOT EXISTS `room_master_table` (id INTEGER PRIMARY KEY, identity_hash TEXT)")
+        legacy.execSQL("INSERT OR REPLACE INTO `room_master_table` (id, identity_hash) VALUES(42, 'legacy-v1-hash')")
         legacy.version = 1
         legacy.close()
     }
@@ -92,6 +94,10 @@ class LocalDatabaseMigrationTest {
             raw.rawQuery("SELECT json FROM records WHERE id='legacy-driver-state'", null).use { cursor ->
                 assertEquals(true, cursor.moveToFirst())
                 assertEquals("{\"state\":\"shift_active\"}", cursor.getString(0))
+            }
+            raw.rawQuery("SELECT identity_hash FROM room_master_table WHERE id=42", null).use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                assertEquals("legacy-v1-hash", cursor.getString(0))
             }
         } finally {
             raw.close()
