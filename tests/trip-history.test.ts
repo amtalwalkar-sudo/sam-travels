@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildTripHistory, type DriverEvent } from "../packages/features/work-shift";
 
-const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string, expectedPriorState = "trip_active"): DriverEvent => ({
+const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string, expectedPriorState: DriverEvent["command"]["expectedPriorState"] = "trip_active"): DriverEvent => ({
   eventId: id,
   command: {
     schemaVersion: 1,
