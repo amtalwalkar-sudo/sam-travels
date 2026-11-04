@@ -91,7 +91,8 @@ export function registerCalculations<Input, Output>(
       contract.outputSchemaVersion < 1 ||
       !contract.unit ||
       !contract.effectiveDateField ||
-      !["none", "half-up", "half-even", "floor", "ceil"].includes(contract.rounding.mode) ||\n      !Number.isInteger(contract.rounding.decimalPlaces) ||
+      !["none", "half-up", "half-even", "floor", "ceil"].includes(contract.rounding.mode) ||
+      !Number.isInteger(contract.rounding.decimalPlaces) ||
       contract.rounding.decimalPlaces < 0 ||
       contract.rounding.decimalPlaces > 12 ||
       contract.regressionCases.length === 0
