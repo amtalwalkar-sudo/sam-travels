@@ -71,7 +71,7 @@ object DriverWorkflowStore {
                         val item = JSONObject(row.json)
                         val revision = item.optJSONObject("command")?.optInt("expectedRevision", -1)
                         (item.optString("status") == "pending_location" ||
-                            item.optString("status") == "needs_attention") &&
+                            (item.optString("status") == "needs_attention" && item.optString("reason") != "gps_recovery_window_expired")) &&
                             revision == current.optInt("revision")
                     }.getOrDefault(false)
                 }
