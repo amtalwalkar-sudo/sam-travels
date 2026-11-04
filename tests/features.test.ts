@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   registerFeatures,
   resolveFeatureStartupOrder,
+  runFeatureMigrations,
   type FeatureDefinition,
 } from "../packages/core/src/features";
 
@@ -85,6 +86,19 @@ describe("runtime feature registry", () => {
     const first = persistentFeature({ id: "custom-a" });
     const second = persistentFeature({ id: "custom-b" });
     expect(() => registerFeatures([first, second])).toThrow("Duplicate backup participant");
+  });
+
+  it("runs migrations in order and resolves every handler before executing", async () => {
+    const feature = persistentFeature();
+    const order: string[] = [];
+    const result = await runFeatureMigrations(feature, 1, {
+      "custom-ledger-1-2": () => { order.push("1-to-2"); },
+    }, {});
+    expect(result).toBe(2);
+    expect(order).toEqual(["1-to-2"]);
+
+    await expect(runFeatureMigrations(feature, 1, {}, {})).rejects.toThrow("Missing migration handler");
+    expect(order).toEqual(["1-to-2"]);
   });
 
   it("returns immutable registration metadata", () => {
