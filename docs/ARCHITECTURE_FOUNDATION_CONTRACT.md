@@ -105,7 +105,72 @@ Repository branch protection/rulesets must require all three checks and must not
 
 Exceptions require a reviewed, documented reason, an owner, and an expiry/removal condition. Do not add broad suppressions or silently weaken a rule to make CI green.
 
-## 7. Local diagnostics and support export
+## 7. Feature registration, lifecycle, and dependency contracts
+
+Every persistent feature must be registered before its persistence or user-facing feature is enabled. There are no exceptions for persistent business data. The registry is the authoritative catalogue of feature capabilities and their durable-data obligations; it is not a second business-data store.
+
+Each registration must declare:
+- Stable feature ID and contract version.
+- Owning domain/application public entry point and repository boundary.
+- Persisted entity/schema identifiers and current schema version.
+- Ordered migration path from every supported prior version, including validation and rollback/failure behavior.
+- Required and optional feature dependencies, with dependency version/range and declared integration contract.
+- Backup participation, including all business records, required references, attachment ownership, serialization/version metadata, and restore validation.
+- Restore participation, including compatibility checks, relationship/invariant validation, and recovery behavior.
+- Feature lifecycle policy and tests for registration, migration, dependency resolution, backup, restore, and failure paths.
+
+Registration must be deterministic and validated at startup/build time as appropriate. Duplicate IDs, missing required dependencies, incompatible contract versions, missing migrations, or missing backup/restore declarations fail closed. A feature must not become available for writes until its registration and required migrations have succeeded. Registry metadata must not be used to bypass feature-owned repositories or invariants.
+
+### Feature lifecycle and deletion
+
+- Enabled, disabled, and hidden are presentation/availability states; changing among them never deletes, truncates, archives over, or rewrites feature records.
+- Disabling a feature must leave its data readable to backup, restore, migration, and recovery services.
+- Permanent deletion is a separate explicit destructive operation, not an effect of unregistering a feature or removing its UI.
+- Before deletion, resolve and display dependent features and records, reject deletion while required dependents remain, and require explicit confirmation of the exact deletion scope.
+- Deletion must run through the owning feature's domain/application operation, preserve audit/recovery safeguards, and have tests for dependency rejection, interruption, and recoverability.
+- Feature replacement/removal requires a versioned migration/export plan for retained data. Uninstalling code or hiding navigation is never a data-retention policy.
+
+## 8. Complete business backup and restore participation
+
+A normal business backup includes every registered persistent business feature and its required dependencies. Users must not be offered a way to accidentally omit a feature or relationship required to interpret or use the remaining business data.
+
+- The backup coordinator discovers participants from the validated feature registry; avoid a second manually maintained table allowlist that can drift.
+- Every registered participant contributes a versioned snapshot/export contract, required references, attachment inventory, and restore validator.
+- Snapshot creation uses the authoritative database's consistent snapshot/transaction boundary. Room is authoritative on installed Android; IndexedDB is authoritative in browser-only PWA operation.
+- The package manifest records participant IDs, contract/schema versions, migration compatibility, record counts, relationship/reference metadata, and checksums.
+- Optional non-business material may be excluded only when it is explicitly classified as non-business and is not required to interpret or restore included records. Diagnostics, credentials, ephemeral caches, and secrets remain excluded.
+- Restore validates the package and every participant/dependency before replacing data, creates the internal recovery checkpoint, requires explicit user confirmation, stages and validates the complete dataset, and commits or rolls back as one recoverable operation.
+- Unknown required participants, unsupported versions, missing dependencies, missing attachments, or failed invariants fail closed before replacement. Preserve source package and checkpoint.
+- Preserve existing backup-encryption-v1 and backup-encryption-v2 readers. Feature registration does not justify changing either encryption format.
+- Tests must prove that adding a registered persistent feature includes it in normal backup and restore without editing a separate allowlist; missing/invalid registration must block backup/restore rather than silently omit records.
+
+This contract defines required behavior. It does not claim that the current backup implementation already discovers participants from a registry. The implementation audit must verify whether current snapshot serialization uses a whole-database snapshot or explicit table/record allowlists, and must document any attachment/reference limitations before claiming automatic completeness.
+
+## 9. Calculation ownership and feature integration contracts
+
+Every business calculation has one owning domain/application capability and an explicit, versioned calculation contract. Presentation, forms, reports, and other features call that contract; they do not reimplement formulas.
+
+A calculation contract records:
+- Stable calculation ID, owner, contract/rule version, and effective-date policy.
+- Formula and units, rounding/precision policy, currency treatment where applicable.
+- Required and optional inputs, source feature/field, identity and time period semantics.
+- Inclusion and exclusion rules, null/missing-data behavior, and validation.
+- Output shape and meaning, including whether values are actual, estimated, scheduled, or derived.
+- Historical-result policy and an explicit migration/recalculation policy when rules change.
+- Golden examples, boundary cases, and regression tests.
+
+New feature data may affect an existing calculation only through an explicitly approved, versioned integration contract. That contract names the source feature, consumed fields/events, mapping and timing rules, treatment of missing/disabled data, effective date, and expected effect on outputs. A new feature must not silently change existing calculations or historical results. Existing calculation behavior remains unchanged until the integration and its tests are approved.
+
+- Cross-feature reads use public application queries/contracts or published domain events, never another feature's private tables or persistence adapters.
+- The source feature owns validation and meaning of its data; the calculation owner owns the formula and decides whether/how to consume it.
+- Keep actual transactions distinct from planned schedules, estimates, and calculated expectations.
+- Calculation changes require before/after regression fixtures and explicit review of affected consumers.
+- Where historical outputs are stored, identify the rule version and inputs needed to explain/reproduce them; never silently overwrite history.
+- CI must check calculation contract coverage and run the associated regression suite. Static architecture checks must reject direct cross-feature persistence access where detectable.
+
+The first implementation task is an inventory of existing calculations and their actual inputs/consumers, followed by an audit of backup snapshot and restore code. Do not invent formulas or infer that an existing metric consumes a new feature merely because the concepts are related.
+
+## 10. Local diagnostics and support export
 
 Diagnostics are local-first and are not business records.
 
@@ -126,8 +191,9 @@ At the time this contract was prepared:
 - Data ownership, transaction boundaries, durable driver intents, replay/idempotency, versioned Room migration, Android platform boundaries, and V1/V2 backup compatibility are already documented and have implementation/tests in the current foundation.
 - Shift/trip transitions, trip-history projection, backup/restore safety, and pending native driver actions have existing implementation and automated coverage.
 - Payment/settlement and loan repayment workflows are not present in the repository yet. Their state machines are a required future Finance design/implementation gate, not a claim of completed functionality.
-- The existing architecture checker covers source-size limits and selected TypeScript import boundaries, but its coverage is narrower than this contract; the dedicated CI job and stronger boundary checks are required.
+- The existing architecture checker covers source-size limits and selected TypeScript import boundaries, but it does not yet validate a runtime Feature Registry, complete backup participant discovery, calculation contracts, or cross-feature integration declarations. Those checks must be introduced with the registry/inventory implementation; documentation alone is not enforcement.
 - The repository has privacy principles but not a complete structured local diagnostics recorder/export capability. The implementation must be introduced with the first supported diagnostic integration slice.
+- Feature registry, automatic participant discovery, and calculation-contract enforcement are architectural requirements, not claims that those runtime capabilities already exist. Audit the current persistence/backup/calculation implementations before selecting implementation scope.
 - GitHub required-check configuration is external repository administration. A workflow job is necessary but does not itself configure branch protection.
 
 ## Change and verification policy
