@@ -69,7 +69,7 @@ Business-module entry forms are intentionally not part of the active driver work
 
 ## Android lifecycle and pending-event reconciliation hardening
 
-- The driver overlay remains a user-enabled Android foreground service with a persistent notification and the location foreground-service type. Screen-off operation relies on this foreground-service boundary; GPS is still requested only for a driver action.
+- The driver overlay remains a user-enabled Android foreground service with a persistent notification and the location foreground-service type. Screen-off operation relies on this foreground-service boundary and a bounded partial wake lock held only during an event GPS request (40-second safety timeout); GPS is still requested only for a driver action.
 - `START_STICKY` service recreation reopens the same Room database and scans for a durable `pending_location` intent. If the original event-time GPS evidence window is still open, the service retries that same event ID and original transition instant. It never creates a replacement action.
 - The approved GPS policy remains strict: the fix must be no more than 50 metres horizontal accuracy and within 30 seconds of the original transition instant. If process death or GPS interruption outlasts that evidence window, the intent is retained and marked `needs_attention` with `gps_recovery_window_expired`; a later fix is never attached to an old gesture.
 - The PWA reconciles pending intents on initial load and while active. Expired intents are moved to an explicit needs-attention state; pending and recorded events remain durable in Room/IndexedDB.
