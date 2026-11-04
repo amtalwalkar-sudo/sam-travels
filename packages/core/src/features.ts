@@ -1,3 +1,4 @@
+import { createReadonlyRegistry } from "./readonly-registry";
 export type FeatureId = string;
 export type FeatureDataPolicy = "persistent" | "non-persistent";
 
@@ -192,7 +193,7 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
     if (id && participants.has(id)) throw new Error("Duplicate backup participant: " + id);
     if (id) participants.add(id);
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
 export type BackupParticipantDefinition = {
@@ -221,7 +222,7 @@ export function registerBackupParticipants(
       required: true,
     }));
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
 /** Stable dependency-first order for startup and migration coordination. */
