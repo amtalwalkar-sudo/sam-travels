@@ -78,7 +78,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
             val filename = "sam-travels-auto-r${manifest.optInt("snapshotRevision")}-${digest}.stbackup"
             val path = "/SamTravelsBackups/" + filename
 
-            ensureFolder(token)
+            uploadToken = ensureFolder(token, clientId)
             if (!internetAllowed()) return defer("internet_access_disabled")
             var uploadToken = token
             var upload = request(
@@ -226,14 +226,24 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
         return next.getString("accessToken")
     }
 
-    private fun ensureFolder(token: String) {
+    private fun ensureFolder(token: String, clientId: String): String {
         BackupWorkerResilience.requireInternetAccess(::internetAllowed)
-        val response = request(
-            "https://api.dropboxapi.com/2/files/create_folder_v2", "POST",
-            JSONObject().put("path", "/SamTravelsBackups").put("autorename", false).toString().toByteArray(Charsets.UTF_8),
-            mapOf("Authorization" to "Bearer $token", "Content-Type" to "application/json"),
+        val body = JSONObject().put("path", "/SamTravelsBackups").put("autorename", false)
+            .toString().toByteArray(Charsets.UTF_8)
+        fun create(accessToken: String) = request(
+            "https://api.dropboxapi.com/2/files/create_folder_v2", "POST", body,
+            mapOf("Authorization" to "Bearer $accessToken", "Content-Type" to "application/json"),
         )
+        var activeToken = token
+        var response = create(activeToken)
+        if (BackupWorkerResilience.shouldForceTokenRefresh(response.first)) {
+            activeToken = accessToken(clientId, forceRefresh = true)
+                ?: throw PermanentBackupException("dropbox_reauthentication_required")
+            BackupWorkerResilience.requireInternetAccess(::internetAllowed)
+            response = create(activeToken)
+        }
         if (response.first != 200 && response.first != 409) throw TransientBackupException("dropbox_folder_create_http_${response.first}")
+        return activeToken
     }
 
     private fun request(url: String, method: String, body: ByteArray, headers: Map<String, String>): Pair<Int, ByteArray> {
