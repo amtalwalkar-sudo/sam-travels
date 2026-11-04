@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { registerFeatures } from "../packages/core/src/features";
 import {
-  registerCalculations,
+  applyCalculationRounding,\n  registerCalculations,
   registerFeatureIntegrations,
   type CalculationContract,
   type FeatureIntegrationContract,
@@ -75,6 +75,14 @@ describe("versioned calculation contracts", () => {
       ...calculation,
       regressionCases: [],
     }])).toThrow("Invalid calculation contract");
+  });
+
+  it("applies deterministic half-up and half-even decimal rounding", () => {
+    expect(applyCalculationRounding(2.25, { mode: "half-up", decimalPlaces: 1 })).toBe(2.3);
+    expect(applyCalculationRounding(2.25, { mode: "half-even", decimalPlaces: 1 })).toBe(2.2);
+    expect(applyCalculationRounding(-2.25, { mode: "half-up", decimalPlaces: 1 })).toBe(-2.3);
+    expect(applyCalculationRounding(2.251, { mode: "floor", decimalPlaces: 1 })).toBe(2.2);
+    expect(applyCalculationRounding(2.251, { mode: "ceil", decimalPlaces: 1 })).toBe(2.3);
   });
 
   it("rejects calculations owned by an unregistered feature", () => {
