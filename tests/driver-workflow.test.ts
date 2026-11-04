@@ -81,4 +81,15 @@ describe("durable single-driver workflow",()=>{
   const changed={...command,eventType:"shift_end" as const};
   await expect(repo.queueIntent({command:changed,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt})).rejects.toThrow("duplicate_command_id_conflict");
  });
+ it("does not let an expired pending event block a newly issued action",async()=>{
+  const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot();
+  const expired=createDriverCommand(state,"shift_start","pwa","cmd-expired","2026-11-03T10:00:00.000Z");
+  await repo.queueIntent({command:expired,status:"pending_location",createdAt:expired.transitionAt,updatedAt:expired.transitionAt});
+  await repo.markNeedsAttention(expired.eventId,"gps_recovery_window_expired");
+  const replacement=createDriverCommand(state,"shift_start","pwa","cmd-replacement",new Date().toISOString());
+  const queued=await repo.queueIntent({command:replacement,status:"pending_location",createdAt:replacement.transitionAt,updatedAt:replacement.transitionAt});
+  expect(queued.command.eventId).toBe("cmd-replacement");
+  expect((await repo.getIntent(expired.eventId))?.reason).toBe("gps_recovery_window_expired");
+ });
+
 });
