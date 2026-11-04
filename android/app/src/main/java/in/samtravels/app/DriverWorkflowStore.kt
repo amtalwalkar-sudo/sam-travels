@@ -99,6 +99,10 @@ object DriverWorkflowStore {
             require(intent.optString("status") == "pending_location") { "intent_not_pending" }
 
             val command = intent.getJSONObject("command")
+            val transitionAt = Instant.parse(command.getString("transitionAt"))
+            require(kotlin.math.abs(java.time.Duration.between(transitionAt, Instant.now()).toMillis()) <= 30_000L) {
+                "gps_recovery_window_expired"
+            }
             val current = snapshot(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
