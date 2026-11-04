@@ -59,6 +59,10 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 - The authoritative database owns record IDs, revisions, schema versions, migration state, and durable outbox/inbox state for its runtime. UI memory and replicated surface state are disposable projections.
 - A platform must not report a write as durable until its authoritative repository confirms the commit. Pending native work must remain recoverable in Room even when the WebView is absent.
 
+## Consolidated architecture foundation contract
+
+The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them.
+
 ## Feature modularity
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
