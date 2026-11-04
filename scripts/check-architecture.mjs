@@ -178,13 +178,13 @@ for (const absolute of sourceFiles) {
     }
 
     const forbidden =
-      (from === "core" && ["domain", "application", "storage", "ui", "feature"].includes(target)) ||
-      (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
+      (from === "core" && ["domain", "application", "storage", "ui", "feature", "presentation"].includes(target)) ||
+      (from === "domain" && ["application", "storage", "ui", "presentation"].includes(target)) ||
       (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
       (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
-      (from === "storage" && target === "ui") ||
+      (from === "storage" && ["ui", "presentation"].includes(target)) ||
       (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
-      (from === "feature" && ["storage", "ui"].includes(target)) ||
+      (from === "feature" && ["storage", "ui", "presentation"].includes(target)) ||
       (from === "ui" && target === "storage");
     if (forbidden) {
       failures.push(`${relative}: ${from} layer must not import ${target ?? "a forbidden adapter"} via "${specifier}"`);
