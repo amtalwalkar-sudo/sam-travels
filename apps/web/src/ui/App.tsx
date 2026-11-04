@@ -59,7 +59,7 @@ export function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>("Drive");
   const workspace = useDriverWorkspace();
   const {
-    repo, enabled, error, ready, driver, pending, driverBusy,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     overlayMessage, driverMessage, shiftOn, tripOn, localClock, elapsed,
   } = workspace;
   const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch } = workspace.actions;
@@ -107,7 +107,7 @@ export function App() {
               </div>
               <p className="driver-message" aria-live="polite">{driverMessage}</p>
               <div className="driver-actions">
-                {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pending.length > 0} onClick={() => dispatch("shift_start")}>Start shift</button>}
+                {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_start")}>Start shift</button>}
                 {shiftOn && !tripOn && <>
                   <button className="primary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("trip_start")}>Start trip</button>
                   <button className="secondary-action" disabled={driverBusy || pending.length > 0} onClick={() => dispatch("shift_end")}>End shift</button>
@@ -120,8 +120,10 @@ export function App() {
               {pending.length > 0 && <div className="pending-list">
                 <strong>Pending recovery</strong>
                 {pending.map((item) => <div className="pending-row" key={item.command.eventId}>
-                  <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}</span>
-                  <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>
+                  <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}{item.reason === "gps_recovery_window_expired" ? " · GPS window expired" : ""}</span>
+                  {item.reason === "gps_recovery_window_expired"
+                    ? <small className="pending-expired">Reissue as a new action when ready</small>
+                    : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
               </div>}
               {nativeOverlayAvailable() && <div className="overlay-control">
