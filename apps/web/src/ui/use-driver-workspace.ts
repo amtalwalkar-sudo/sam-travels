@@ -9,7 +9,7 @@ import {
   enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
-import { dispatchCommittedWorkEvent, initializeApplicationRuntimeRegistry, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
+import { dispatchCommittedWorkEvent, getApplicationRuntimeRegistry, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 
 export function useDriverWorkspace() {
   const [now, setNow] = useState(Date.now());
@@ -60,7 +60,7 @@ export function useDriverWorkspace() {
           return;
         }
 
-        const runtime = initializeApplicationRuntimeRegistry();
+        const runtime = getApplicationRuntimeRegistry();
         const service = new DriverWorkflowService(repository, location, async (event) => {
           await dispatchCommittedWorkEvent(runtime, event, async () => {
             rebuildTripHistoryProjection(await repository.listEvents());

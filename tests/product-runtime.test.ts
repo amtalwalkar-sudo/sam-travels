@@ -3,6 +3,7 @@ import {
   calculateTripDurationMinutes,
   dispatchCommittedWorkEvent,
   initializeApplicationRuntimeRegistry,
+  getApplicationRuntimeRegistry,
   LOGBOOK_WORK_EVENT_INTEGRATION,
   TRIP_DURATION_CALCULATION,
 } from "../packages/features/logbook";
@@ -10,6 +11,15 @@ import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
 
 describe("production Log Book runtime registrations", () => {
+  it("shares one immutable application registry across startup and feature consumers", () => {
+    const first = getApplicationRuntimeRegistry();
+    const second = getApplicationRuntimeRegistry();
+    expect(first).toBe(second);
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(first.integrations.get(LOGBOOK_WORK_EVENT_INTEGRATION.id)).toBeDefined();
+    expect(first.calculations.get(TRIP_DURATION_CALCULATION.id)).toBeDefined();
+  });
+
   it("boots the application with its real versioned integration and calculation contracts", () => {
     const runtime = initializeApplicationRuntimeRegistry();
     expect(runtime.integrations.get(LOGBOOK_WORK_EVENT_INTEGRATION.id)).toMatchObject({

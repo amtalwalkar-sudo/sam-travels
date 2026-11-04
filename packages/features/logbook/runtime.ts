@@ -104,6 +104,20 @@ export function initializeApplicationRuntimeRegistry(): RuntimeRegistry {
 }
 
 /**
+ * Return the one validated registry used by the running application.
+ * Construction is lazy so the web entry point can fail closed before mounting,
+ * while feature consumers share the exact same immutable registry instance.
+ */
+let applicationRuntimeRegistry: RuntimeRegistry | undefined;
+
+export function getApplicationRuntimeRegistry(): RuntimeRegistry {
+  if (!applicationRuntimeRegistry) {
+    applicationRuntimeRegistry = initializeApplicationRuntimeRegistry();
+  }
+  return applicationRuntimeRegistry;
+}
+
+/**
  * Dispatch a committed Work event through the registered Log Book contract.
  * The caller supplies the consumer port; the durable Work event log remains
  * the source of truth and can be replayed if a consumer is temporarily absent.
