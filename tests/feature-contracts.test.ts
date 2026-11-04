@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { registerFeatures } from "../packages/core/src/features";\nimport { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
 import {
-  applyCalculationRounding,\n  registerCalculations,
+  applyCalculationRounding,\n  dispatchFeatureIntegration,\n  runCalculation,\n  registerCalculations,
   registerFeatureIntegrations,
   type CalculationContract,
   type FeatureIntegrationContract,
@@ -24,6 +24,37 @@ describe("versioned feature integration contracts", () => {
       ...integration,
       consumerFeatureId: "admin",
     }])).toThrow("Integration consumer must declare producer dependency");
+  });
+
+  it("dispatches only messages matching the registered integration versions", async () => {
+    const integration: FeatureIntegrationContract = {
+      id: "performance.work-events.v1",
+      version: 1,
+      producerFeatureId: "work",
+      consumerFeatureId: "performance",
+      eventName: "work.event-committed",
+      payloadVersion: 1,
+    };
+    const registry = registerFeatureIntegrations(features, [integration]);
+    const received: string[] = [];
+    const message = {
+      integrationId: integration.id,
+      contractVersion: 1,
+      payloadVersion: 1,
+      eventId: "event-1",
+      occurredAt: "2026-11-04T12:00:00.000Z",
+      payload: { revision: 3 },
+    };
+    await dispatchFeatureIntegration(registry, message, {
+      [integration.id]: value => { received.push(value.eventId); },
+    });
+    expect(received).toEqual(["event-1"]);
+    await expect(dispatchFeatureIntegration(registry, {
+      ...message,
+      payloadVersion: 2,
+    }, {
+      [integration.id]: () => undefined,
+    })).rejects.toThrow("Incompatible feature integration message");
   });
 
   it("rejects duplicate or unregistered integration contracts", () => {
@@ -75,6 +106,12 @@ describe("versioned calculation contracts", () => {
       ...calculation,
       regressionCases: [],
     }])).toThrow("Invalid calculation contract");
+  });
+
+  it("executes only the requested registered calculation version", () => {
+    expect(runCalculation(calculation, { distanceKm: 120, fuelLitres: 10 }, 1)).toBe(12);
+    expect(() => runCalculation(calculation, { distanceKm: 120, fuelLitres: 10 }, 2))
+      .toThrow("Incompatible calculation version");
   });
 
   it("applies deterministic half-up and half-even decimal rounding", () => {
