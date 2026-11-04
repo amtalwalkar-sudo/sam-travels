@@ -27,6 +27,7 @@ export type CalculationContract<Input, Output> = {
   inputSchemaVersion: number;
   outputSchemaVersion: number;
   unit: string;
+  /** Direct input property containing the ISO business-effective date (YYYY-MM-DD). */
   effectiveDateField: string;
   rounding: CalculationRounding;
   calculate(input: Input): Output;
@@ -42,6 +43,13 @@ function stableSerialize(value: unknown): string {
     ).join(",") + "}";
   }
   return JSON.stringify(value) ?? "undefined";
+}
+
+function validIsoBusinessDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 /** Validate explicit producer/consumer contracts against the runtime feature graph. */
@@ -71,11 +79,7 @@ export function registerFeatureIntegrations(
   return registry;
 }
 
-/**
- * Register versioned, pure domain calculations and execute their regression
- * fixtures immediately. UI and persistence code consume this contract; neither
- * owns or reimplements the formula.
- */
+/** Register versioned, pure domain calculations and execute their regression fixtures immediately. */
 export function registerCalculations<Input, Output>(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
   contracts: CalculationContract<Input, Output>[],
@@ -86,22 +90,32 @@ export function registerCalculations<Input, Output>(
     if (
       !contract.id ||
       !features.has(contract.ownerFeatureId) ||
-      contract.version < 1 ||
-      contract.inputSchemaVersion < 1 ||
-      contract.outputSchemaVersion < 1 ||
+      !Number.isSafeInteger(contract.version) || contract.version < 1 ||
+      !Number.isSafeInteger(contract.inputSchemaVersion) || contract.inputSchemaVersion < 1 ||
+      !Number.isSafeInteger(contract.outputSchemaVersion) || contract.outputSchemaVersion < 1 ||
       !contract.unit ||
       !contract.effectiveDateField ||
       !["none", "half-up", "half-even", "floor", "ceil"].includes(contract.rounding.mode) ||
       !Number.isInteger(contract.rounding.decimalPlaces) ||
       contract.rounding.decimalPlaces < 0 ||
       contract.rounding.decimalPlaces > 12 ||
+      !Array.isArray(contract.regressionCases) ||
       contract.regressionCases.length === 0
     ) {
       throw new Error("Invalid calculation contract: " + contract.id);
     }
     for (const testCase of contract.regressionCases) {
+      if (!validIsoBusinessDate((testCase.input as Record<string, unknown>)[contract.effectiveDateField])) {
+        throw new Error("Calculation regression case has invalid effective date: " + contract.id + ":" + testCase.name);
+      }
       const actual = contract.calculate(testCase.input);
-      if (stableSerialize(actual) !== stableSerialize(testCase.expected)) {
+      const expected = typeof testCase.expected === "number"
+        ? applyCalculationRounding(testCase.expected, contract.rounding)
+        : testCase.expected;
+      const normalized = typeof actual === "number"
+        ? applyCalculationRounding(actual, contract.rounding)
+        : actual;
+      if (stableSerialize(normalized) !== stableSerialize(expected)) {
         throw new Error("Calculation regression failed: " + contract.id + ":" + testCase.name);
       }
     }
@@ -136,6 +150,7 @@ export function applyCalculationRounding(value: number, policy: CalculationRound
 export type FeatureIntegrationMessage<Payload> = {
   integrationId: string;
   contractVersion: number;
+  eventName: string;
   payloadVersion: number;
   eventId: string;
   occurredAt: string;
@@ -155,7 +170,8 @@ export async function dispatchFeatureIntegration<Payload>(
   if (!contract) throw new Error("Unknown feature integration: " + message.integrationId);
   if (
     message.contractVersion !== contract.version ||
-    message.payloadVersion !== contract.payloadVersion
+    message.payloadVersion !== contract.payloadVersion ||
+    message.eventName !== contract.eventName
   ) {
     throw new Error("Incompatible feature integration message: " + message.integrationId);
   }
@@ -167,7 +183,7 @@ export async function dispatchFeatureIntegration<Payload>(
   await handler(message);
 }
 
-/** Execute a registered calculation only when the caller requests its exact version. */
+/** Execute the exact calculation version and apply its declared date and rounding policy. */
 export function runCalculation<Input, Output>(
   contract: CalculationContract<Input, Output>,
   input: Input,
@@ -176,5 +192,11 @@ export function runCalculation<Input, Output>(
   if (contract.version !== expectedVersion) {
     throw new Error("Incompatible calculation version: " + contract.id);
   }
-  return contract.calculate(input);
+  if (!validIsoBusinessDate((input as Record<string, unknown>)[contract.effectiveDateField])) {
+    throw new Error("Invalid calculation effective date: " + contract.id);
+  }
+  const result = contract.calculate(input);
+  return (typeof result === "number"
+    ? applyCalculationRounding(result, contract.rounding)
+    : result) as Output;
 }
