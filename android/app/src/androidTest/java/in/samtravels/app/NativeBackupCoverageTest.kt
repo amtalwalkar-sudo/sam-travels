@@ -5,7 +5,10 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import androidx.test.ext.junit.runners.AndroidJUnit4
 
+@RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
     @Test fun everyPhysicalRoomTableIsCoveredByManualAndScheduledSnapshots() {
         val context = ApplicationProvider.getApplicationContext<Context>()
