@@ -54,7 +54,11 @@ const initial: FeatureDefinition[] = [
   { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
   { id: "finance", label: "Finance", contractVersion: 1, dependencies: [] },
   { id: "vehicle", label: "Vehicle", contractVersion: 1, dependencies: [] },
-  { id: "performance", label: "Performance", contractVersion: 1, dependencies: [\n    { id: "work", contractVersion: 1 },\n    { id: "logbook", contractVersion: 1 },\n    { id: "finance", contractVersion: 1 },\n  ] },
+  { id: "performance", label: "Performance", contractVersion: 1, dependencies: [
+    { id: "work", contractVersion: 1 },
+    { id: "logbook", contractVersion: 1 },
+    { id: "finance", contractVersion: 1 },
+  ] },
   { id: "admin", label: "Admin", contractVersion: 1, dependencies: [] },
   { id: "backup", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
 ];
@@ -69,7 +73,10 @@ function validatePersistentContract(feature: FeatureDefinition): void {
   if (!Number.isSafeInteger(contract.schemaVersion) || contract.schemaVersion < 1) {
     throw new Error("Invalid schema version for feature: " + feature.id);
   }
-  if (!Array.isArray(contract.migrations)) {\n    throw new Error("Invalid migration list for feature: " + feature.id);\n  }\n  if (!contract.backup?.required || !contract.backup.participantId || !Number.isSafeInteger(contract.backup.snapshotVersion) || contract.backup.snapshotVersion < 1) {
+  if (!Array.isArray(contract.migrations)) {
+    throw new Error("Invalid migration list for feature: " + feature.id);
+  }
+  if (!contract.backup?.required || !contract.backup.participantId || !Number.isSafeInteger(contract.backup.snapshotVersion) || contract.backup.snapshotVersion < 1) {
     throw new Error("Missing required backup participant for feature: " + feature.id);
   }
   if (!contract.restore?.required || !contract.restore.validatorId) {
