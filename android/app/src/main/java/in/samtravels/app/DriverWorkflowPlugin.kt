@@ -11,6 +11,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import androidx.room.Room
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
@@ -66,14 +67,21 @@ class DriverWorkflowPlugin:Plugin(){
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE;powerRequirement=Criteria.POWER_LOW}
    val provider=manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
+   val wakeLock=(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(40_000L)}
+   fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
    var finished=false
    lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};call.reject("Location request timed out; intent remains pending","LOCATION_TIMEOUT")}}
+   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();call.reject("Location request timed out; intent remains pending","LOCATION_TIMEOUT")}}
    listener=LocationListener{location:Location->
-    if(!finished){finished=true;main.removeCallbacks(timeout);val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude);out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString());out.put("provider",location.provider?:"android");call.resolve(out)}
+    if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude);out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString());out.put("provider",location.provider?:"android");call.resolve(out)}
    }
-   manager.requestSingleUpdate(provider,listener,Looper.getMainLooper())
-   main.postDelayed(timeout,35_000L)
+   try{
+    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper())
+    main.postDelayed(timeout,35_000L)
+   }catch(error:Exception){
+    finished=true;releaseWakeLock();throw error
+   }
   }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
  }
  @PluginMethod fun completeIntent(call:PluginCall){
