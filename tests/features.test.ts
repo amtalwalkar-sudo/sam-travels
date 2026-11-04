@@ -19,6 +19,7 @@ const persistentFeature = (overrides: Partial<FeatureDefinition> = {}): FeatureD
     lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
   },
   ...overrides,
+  dataPolicy: overrides.dataPolicy ?? "persistent",
 });
 
 describe("runtime feature registry", () => {
