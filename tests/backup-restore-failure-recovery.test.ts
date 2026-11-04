@@ -32,7 +32,10 @@ describe("backup restore failure recovery", () => {
 
     await expect(restoreBrowserSnapshot({
       data: malformed,
-      manifest: source.manifest,
+      manifest: {
+        ...source.manifest,
+        recordCounts: { ...source.manifest.recordCounts, driverOutbox: 1 },
+      },
       confirmed: true,
     })).rejects.toThrow("backup_invalid_or_duplicate_row_id:driverOutbox");
 
