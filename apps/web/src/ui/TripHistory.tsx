@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import type { DriverEvent } from "../../../../packages/domain/src/driver-workflow";
-import { buildTripHistory, type TripHistoryRecord } from "../../../../packages/domain/src/trip-history";
+import { buildTripHistory, type DriverEvent, type TripHistoryRecord } from "../../../../packages/features/work-shift";
 import { createDriverWorkflow } from "../driver-workflow";
 
 const time = (value?: string) => value
