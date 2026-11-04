@@ -163,7 +163,7 @@ describe("versioned calculation contracts", () => {
       runtime.calculations,
       calculation.id,
       { left: 1.25, right: 2.25, businessDate: "2026-11-04" },
-      { version: 1, inputSchemaVersion: 1 },
+      { version: 1, inputSchemaVersion: 1, outputSchemaVersion: 1 },
     );
     expect(result).toEqual({
       calculationId: calculation.id,
@@ -180,7 +180,10 @@ describe("versioned calculation contracts", () => {
     })).toThrow("Unknown calculation");
     expect(() => executeRegisteredCalculation(runtime.calculations, calculation.id, {
       left: 1, right: 2, businessDate: "2026-11-04",
-    }, { version: 1, inputSchemaVersion: 2 })).toThrow("Incompatible calculation input schema");
+    }, { version: 1, inputSchemaVersion: 2, outputSchemaVersion: 1 })).toThrow("Incompatible calculation input schema");
+    expect(() => executeRegisteredCalculation(runtime.calculations, calculation.id, {
+      left: 1, right: 2, businessDate: "2026-11-04",
+    }, { version: 1, inputSchemaVersion: 1, outputSchemaVersion: 2 })).toThrow("Incompatible calculation output schema");
   });
 
   it("applies deterministic half-up and half-even decimal rounding", () => {
