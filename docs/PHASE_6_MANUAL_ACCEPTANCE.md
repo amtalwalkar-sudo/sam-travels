@@ -6,9 +6,9 @@ This guide is for the owner of the Sam Travels Dropbox app and the person valida
 
 The PR contains the encrypted backup format, consistent browser/Room snapshots, checkpointed restore and rollback, Dropbox OAuth 2.0 Authorization Code + PKCE, token refresh, Android Keystore storage, browser encrypted credential vault, network-policy gateway, upload/download/history, retry/backoff, and retention.
 
-The latest PR CI run on head `0ed52c16e1c0546671847f5ab3b4bc5b71fd3c88` passed both the web and Android jobs, including Android emulator instrumentation. CI uses mocked Dropbox endpoints; it does not validate a real Dropbox app or a physical phone.
+The latest verified PR CI run is [#301](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41833914640) on head `b2d14e9bf7448ec91c4861f05420518accc87175`; web and Android jobs passed, including Android emulator instrumentation and unsigned release assembly. CI uses mocked Dropbox endpoints; it does not validate a real Dropbox app or a physical phone.
 
-**Phase 6 is not yet accepted.** Android WorkManager scheduling and the Keystore-protected recovery-key-only V2 worker are implemented, with a shared native-to-TypeScript interoperability fixture and automated retry/policy tests. These checks establish code-level compatibility and bounded retry behavior only. Real Dropbox and physical-device acceptance below are still outstanding.
+**Phase 6 automated engineering gates are green; final acceptance remains open by user deferral.** Android WorkManager scheduling and the Keystore-protected recovery-key-only V2 worker are implemented, with a shared native-to-TypeScript interoperability fixture and automated retry/policy/reconciliation tests. These checks establish code-level compatibility and bounded retry behavior only. Real Dropbox and physical-device acceptance below are still outstanding.
 
 ## Part A — configure the Dropbox application once
 
