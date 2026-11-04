@@ -40,6 +40,7 @@ class DriverOverlayService:Service(){
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
+ @Volatile private var startupRecoveryChecked=false
  private val notificationChannelId="sam_travels_driver_controls"
  private val notificationId=7301
  private fun enterForeground(){
@@ -60,7 +61,46 @@ class DriverOverlayService:Service(){
  }
  private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2).enableMultiInstanceInvalidation() .addMigrations(LocalDatabase.MIGRATION_1_2).build()}
  override fun onBind(intent:Intent?):IBinder?=null
- override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY};try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY};if(databaseObserver==null){databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}};db.invalidationTracker.addObserver(databaseObserver!!)};main.post{showPanel()};return START_STICKY}
+ override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
+  if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
+  try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY}
+  if(databaseObserver==null){
+   databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
+   db.invalidationTracker.addObserver(databaseObserver!!)
+  }
+  main.post{showPanel();recoverPendingAfterServiceStart()}
+  return START_STICKY
+ }
+ /**
+  * START_STICKY can recreate this service after process death. Resume only an
+  * intent whose original event-time GPS evidence window is still open. Older
+  * intents remain durable and visible for review; they are never backdated.
+  */
+ private fun recoverPendingAfterServiceStart(){
+  if(startupRecoveryChecked)return
+  startupRecoveryChecked=true
+  executor.execute{
+   try{
+    val row=db.records().list().firstOrNull{r->
+     r.id.startsWith("driver-intent:")&&runCatching{JSONObject(r.json).optString("status")=="pending_location"}.getOrDefault(false)
+    }?:return@execute
+    val intent=JSONObject(row.json)
+    val command=intent.optJSONObject("command")?:error("pending_command_missing")
+    val id=command.optString("eventId")
+    val transitionAt=java.time.Instant.parse(command.getString("transitionAt"))
+    val ageMs=kotlin.math.abs(java.time.Duration.between(transitionAt,java.time.Instant.now()).toMillis())
+    if(ageMs>30_000L){
+     DriverWorkflowStore.markNeedsAttention(db,id,"gps_recovery_window_expired")
+     main.post{refresh("Action retained · GPS evidence window expired; review required")}
+     return@execute
+    }
+    val resumed=DriverWorkflowStore.reactivate(db,id)
+    main.post{acquireLocation(id,command,resumed)}
+   }catch(error:Exception){
+    main.post{refresh("Pending action retained · "+(error.message?:"recovery deferred"))}
+   }
+  }
+ }
  private fun showPanel(){
   if(panel!=null)return
   window=getSystemService(WINDOW_SERVICE) as WindowManager
