@@ -63,6 +63,31 @@ describe("versioned feature integration contracts", () => {
     })).rejects.toThrow("Incompatible feature integration message");
   });
 
+  it("can replay a committed integration after a transient consumer failure", async () => {
+    const integration: FeatureIntegrationContract = {
+      id: "logbook.work-events.v1", version: 1, producerFeatureId: "work",
+      consumerFeatureId: "logbook", eventName: "work.event-committed", payloadVersion: 1,
+    };
+    const registry = registerFeatureIntegrations(features, [integration]);
+    const message = {
+      integrationId: integration.id, contractVersion: 1, payloadVersion: 1,
+      eventName: integration.eventName, eventId: "durable-event-1",
+      occurredAt: "2026-11-05T10:00:00.000Z", payload: { revision: 4 },
+    };
+    let attempts = 0;
+    const handler = async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("injected_consumer_interruption");
+    };
+    await expect(dispatchFeatureIntegration(registry, message, {
+      [integration.id]: handler,
+    })).rejects.toThrow("injected_consumer_interruption");
+    await expect(dispatchFeatureIntegration(registry, message, {
+      [integration.id]: handler,
+    })).resolves.toBeUndefined();
+    expect(attempts).toBe(2);
+  });
+
   it("rejects messages for a different event name", async () => {
     const integration: FeatureIntegrationContract = {
       id: "performance.work-events.v1", version: 1, producerFeatureId: "work",
