@@ -18,26 +18,24 @@ class DriverOverlayBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val preferences = context.getSharedPreferences("sam_travels_driver_overlay", Context.MODE_PRIVATE)
-        if (!preferences.getBoolean("overlay_enabled", false)) return
-        if (!Settings.canDrawOverlays(context)) {
-            preferences.edit().putBoolean("boot_resume_deferred", true).commit()
-            return
-        }
-
         val hasForegroundLocation =
             context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!hasForegroundLocation) {
-            preferences.edit().putBoolean("boot_resume_deferred", true).commit()
-            return
-        }
-
         // Android 10+ requires background location permission to start a location
         // foreground service from BOOT_COMPLETED. Never bypass this OS boundary.
         val hasBackgroundLocation = Build.VERSION.SDK_INT < 29 ||
             context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!hasBackgroundLocation) {
-            preferences.edit().putBoolean("boot_resume_deferred", true).commit()
+        val allowed = OverlayBootRestartPolicy.shouldStart(
+            Build.VERSION.SDK_INT,
+            preferences.getBoolean("overlay_enabled", false),
+            Settings.canDrawOverlays(context),
+            hasForegroundLocation,
+            hasBackgroundLocation,
+        )
+        if (!allowed) {
+            if (preferences.getBoolean("overlay_enabled", false)) {
+                preferences.edit().putBoolean("boot_resume_deferred", true).commit()
+            }
             return
         }
 
