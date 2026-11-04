@@ -12,6 +12,7 @@ export {
 export type {
   DriverWorkflowRepository,
   EventLocationProvider,
+  DriverEventPublisher,
 } from "../../application/src/driver-workflow-service";
 
 export {
