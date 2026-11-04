@@ -4,6 +4,15 @@ import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
 import {createDriverCommand,DriverWorkflowService} from "../packages/features/work-shift";
 import type {GpsFix} from "../packages/core/src/types";
+import {
+ dispatchCommittedWorkEvent,
+ initializeApplicationRuntimeRegistry,
+ rebuildTripHistoryProjection,
+ readTripHistoryProjection,
+ TRIP_DURATION_CALCULATION,
+} from "../packages/features/logbook";
+import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
+
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
 describe("durable single-driver workflow",()=>{
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open()});
@@ -110,6 +119,63 @@ describe("durable single-driver workflow",()=>{
   expect((await repo.getSnapshot()).revision).toBe(1);
   expect((await service.retryPendingIntegrations()).pending).toBe(0);
   expect(delivered).toEqual(["cmd-publish"]);
+ });
+
+
+ it("proves Work-to-Log Book calculation and projection recovery across a database restart",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const runtime=initializeApplicationRuntimeRegistry();
+  let captureAt="2026-11-03T10:00:00.000Z";
+  const delivered:string[]=[];
+  const service=new DriverWorkflowService(repo,{capture:async()=>({...gps,fixAt:captureAt})},async event=>{
+   await dispatchCommittedWorkEvent(runtime,event,async message=>{
+    delivered.push(message.eventId);
+    rebuildTripHistoryProjection(await repo.listEvents());
+   });
+  });
+  const transitions=[
+   {type:"shift_start" as const,at:"2026-11-03T10:00:00.000Z"},
+   {type:"trip_start" as const,at:"2026-11-03T10:05:00.000Z"},
+   {type:"trip_end" as const,at:"2026-11-03T10:35:30.000Z"},
+  ];
+  for(const transition of transitions){
+   captureAt=transition.at;
+   const snapshot=await repo.getSnapshot();
+   const command=createDriverCommand(snapshot,transition.type,"pwa","e2e-"+transition.type,transition.at);
+   const result=await service.dispatch(command);
+   expect(result.status).toBe("recorded");
+   expect(result.integrationPending).toBe(false);
+  }
+  expect(delivered).toEqual(["e2e-shift_start","e2e-trip_start","e2e-trip_end"]);
+  expect(readTripHistoryProjection()).toMatchObject([{status:"completed",startedAt:"2026-11-03T10:05:00.000Z",endedAt:"2026-11-03T10:35:30.000Z"}]);
+
+  const duration=executeRegisteredCalculation(runtime.calculations,TRIP_DURATION_CALCULATION.id,{
+   businessDate:"2026-11-03",
+   startedAt:readTripHistoryProjection()[0].startedAt!,
+   endedAt:readTripHistoryProjection()[0].endedAt!,
+  },{version:1,inputSchemaVersion:1,outputSchemaVersion:1});
+  expect(duration.value).toBe(30.5);
+
+  browserDatabase.close();
+  await browserDatabase.open();
+  const recoveredRepository=new DexieDriverWorkflowRepository();
+  const recoveredEvents=await recoveredRepository.listEvents();
+  expect(recoveredEvents).toHaveLength(3);
+  rebuildTripHistoryProjection(recoveredEvents);
+  expect(readTripHistoryProjection()).toMatchObject([{status:"completed",startedAt:"2026-11-03T10:05:00.000Z",endedAt:"2026-11-03T10:35:30.000Z"}]);
+
+  const replayed:string[]=[];
+  const recoveredService=new DriverWorkflowService(recoveredRepository,{capture:async()=>({...gps,fixAt:captureAt})},async event=>{
+   await dispatchCommittedWorkEvent(runtime,event,async message=>{
+    replayed.push(message.eventId);
+    rebuildTripHistoryProjection(await recoveredRepository.listEvents());
+   });
+  });
+  const replay=await recoveredService.replayCommittedEvents();
+  expect(replay).toEqual({delivered:3,pending:0});
+  expect(replayed).toEqual(["e2e-shift_start","e2e-trip_start","e2e-trip_end"]);
+  expect(readTripHistoryProjection()).toHaveLength(1);
+  expect(readTripHistoryProjection()[0].status).toBe("completed");
  });
 
 
