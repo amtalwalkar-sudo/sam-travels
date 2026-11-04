@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Capacitor, registerPlugin } from "@capacitor/core";
-
-type ReadinessItem = { id: string; title: string; description: string; granted: boolean; required: boolean };
-type DeviceReadinessApi = {
-  getStatus(): Promise<{ items: ReadinessItem[]; manufacturer: string; model: string; androidVersion: number }>;
-  openSetting(options: { setting: string }): Promise<{ opened: boolean; usedFallback: boolean }>;
-};
-const DeviceReadiness = registerPlugin<DeviceReadinessApi>("DeviceReadiness");
+import { getDeviceReadinessStatus, isAndroidRuntime, openDeviceReadinessSetting, type ReadinessItem } from "../platform/device-readiness";
 
 export function DeviceReadinessPrompt() {
   const [items, setItems] = useState<ReadinessItem[]>([]);
@@ -19,9 +12,9 @@ export function DeviceReadinessPrompt() {
   const autoOpened = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (Capacitor.getPlatform() !== "android") return;
+    if (!isAndroidRuntime()) return;
     try {
-      const status = await DeviceReadiness.getStatus();
+      const status = await getDeviceReadinessStatus();
       setItems(status.items);
       setDeviceLabel([status.manufacturer, status.model].filter(Boolean).join(" "));
       const missingRequired = status.items.some((item) => item.required && !item.granted);
@@ -54,7 +47,7 @@ export function DeviceReadinessPrompt() {
   const openPhoneSetting = async (item: ReadinessItem) => {
     setMessage("");
     try {
-      await DeviceReadiness.openSetting({ setting: item.id });
+      await openDeviceReadinessSetting(item.id);
     } catch {
       setMessage("Could not open that settings page. In Android Settings, open Apps and select Sam Travels.");
     }
