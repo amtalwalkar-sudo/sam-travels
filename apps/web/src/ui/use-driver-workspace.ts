@@ -193,9 +193,10 @@ export function useDriverWorkspace() {
   }).format(now);
   const shiftOn = driver?.state === "shift_active" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const tripOn = driver?.state === "trip_active" || driver?.state === "approach_active";
+  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
   return {
-    repo, enabled, error, ready, driver, pending, driverBusy, overlayMessage, driverMessage,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
     shiftOn, tripOn, localClock, elapsed,
     actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch },
   };
