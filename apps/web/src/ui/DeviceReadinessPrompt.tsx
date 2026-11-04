@@ -33,7 +33,7 @@ export function DeviceReadinessPrompt() {
   }, []);
 
   useEffect(() => {
-    if (Capacitor.getPlatform() !== "android") return;
+    if (!isAndroidRuntime()) return;
     void refresh();
     const onResume = () => { if (document.visibilityState === "visible") void refresh(); };
     window.addEventListener("focus", onResume);
@@ -53,7 +53,7 @@ export function DeviceReadinessPrompt() {
     }
   };
 
-  if (Capacitor.getPlatform() !== "android") return null;
+  if (!isAndroidRuntime()) return null;
   const missing = items.filter((item) => !item.granted);
   const requiredMissing = missing.filter((item) => item.required);
   const recommendedMissing = missing.filter((item) => !item.required);
