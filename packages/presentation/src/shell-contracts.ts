@@ -69,17 +69,6 @@ export type PresentationFormDefinition = Readonly<{
   fields: readonly FormFieldDefinition[];
 }>;
 
-export type FormSubmission = Readonly<{
-  formId: string;
-  formVersion: number;
-  values: Readonly<Record<string, unknown>>;
-}>;
-
-/** Application-owned command boundary; presentation code never persists records itself. */
-export type FormSubmissionPort<Result = unknown> = {
-  submit(submission: FormSubmission): Promise<Result>;
-};
-
 /** Define a reusable form shape without embedding domain rules or persistence. */
 export function definePresentationForm(
   definition: PresentationFormDefinition,
