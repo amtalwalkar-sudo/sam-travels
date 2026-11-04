@@ -77,7 +77,7 @@ export function TripHistory() {
               <div><small>STARTED</small><span>{time(trip.startedAt)}</span></div>
               <div><small>{trip.endedAt ? "ENDED" : "LAST STATUS"}</small><span>{trip.endedAt ? time(trip.endedAt) : trip.status === "active" ? "In progress" : "Review required"}</span></div>
             </div>
-            {trip.reason && <p className="trip-history-error">History integrity: {trip.reason.replaceAll("_", " ")}</p>}
+            {trip.reason && <p className={trip.status === "needs_attention" ? "trip-history-error" : "trip-history-note"}>{trip.status === "needs_attention" ? "History integrity: " : ""}{trip.reason.replaceAll("_", " ")}</p>}
             <small className="trip-history-id">Trip reference · {trip.startEventId ?? trip.endEventId}</small>
           </article>
         ))}
