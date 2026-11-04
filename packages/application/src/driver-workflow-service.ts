@@ -14,7 +14,7 @@ export class DriverWorkflowService{
  async reconcilePending(nowMs=Date.now()){
   const pending=await this.repository.listPending();
   for(const intent of pending){
-   if(!isWithinGpsRecoveryWindow(intent.command.transitionAt,nowMs)){
+   if(!isWithinGpsRecoveryWindow(intent.command.transitionAt,nowMs)&&!(intent.status==="needs_attention"&&intent.reason==="gps_recovery_window_expired")){
     await this.repository.markNeedsAttention(intent.command.eventId,"gps_recovery_window_expired");
    }
   }
