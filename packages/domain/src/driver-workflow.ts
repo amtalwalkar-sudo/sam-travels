@@ -6,6 +6,11 @@ export type DriverIntent = { command: DriverTransitionCommand; status: DriverInt
 export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number };
 export type DriverTransitionError = "invalid_command" | "stale_revision" | "invalid_transition" | "duplicate_command" | "gps_required" | "gps_invalid" | "intent_missing";
 export type DriverResult<T> = { ok: true; value: T } | { ok: false; error: DriverTransitionError };
+export const GPS_RECOVERY_WINDOW_MS = 30_000;
+export function isWithinGpsRecoveryWindow(transitionAt: string, nowMs = Date.now()): boolean {
+ const transitionMs = Date.parse(transitionAt);
+ return Number.isFinite(transitionMs) && Math.abs(nowMs - transitionMs) <= GPS_RECOVERY_WINDOW_MS;
+}
 export const EMPTY_DRIVER_STATE: DriverStateProjection = { schemaVersion: 1, revision: 0, state: "idle" };
 export function validateDriverCommand(command: DriverTransitionCommand): DriverResult<DriverTransitionCommand> {
  if (command.schemaVersion!==1 || !command.commandId.trim() || !command.eventId.trim() || !command.idempotencyKey.trim() || !Number.isInteger(command.expectedRevision) || !Number.isFinite(Date.parse(command.transitionAt)) || !["shift_start","shift_end","trip_start","trip_end","ride_cancel"].includes(command.eventType) || !["pwa","native_overlay"].includes(command.originSurface)) return {ok:false,error:"invalid_command"};
