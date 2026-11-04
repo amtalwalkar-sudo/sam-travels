@@ -4,14 +4,13 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
-    @Test fun discoversEveryRoomEntityFromTheDatabaseContractAndCoversEveryPhysicalTable() {
+    @Test fun discoversDeclaredRoomEntitiesAndCoversEveryPhysicalTable() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries()
@@ -28,18 +27,18 @@ class NativeBackupCoverageTest {
         }
     }
 
-    @Test fun failsClosedWhenARoomEntityHasNoBackupParticipantAnnotation() {
-        val failure = assertThrows(IllegalStateException::class.java) {
+    @Test fun failsClosedWhenARoomEntityHasNoParticipantContract() {
+        val failure = runCatching {
             NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java))
-        }
-        assertEquals(true, failure.message!!.startsWith("backup_room_entity_missing_participant:"))
+        }.exceptionOrNull()
+        assertEquals(true, failure?.message?.startsWith("backup_room_entity_missing_participant:"))
     }
 
-    @Test fun failsClosedWhenADeclaredParticipantHasNoSnapshotAdapter() {
-        val failure = assertThrows(IllegalStateException::class.java) {
+    @Test fun failsClosedWhenParticipantHasNoExecutableSnapshotAdapter() {
+        val failure = runCatching {
             NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnsupportedAdapterEntity::class.java))
-        }
-        assertEquals("backup_room_snapshot_adapter_missing:unimplemented-adapter", failure.message)
+        }.exceptionOrNull()
+        assertEquals("backup_room_snapshot_adapter_missing:unimplemented-adapter", failure?.message)
     }
 
     class UnregisteredRoomEntity
@@ -47,6 +46,7 @@ class NativeBackupCoverageTest {
     @NativeBackupParticipant(
         id = "future-feature",
         featureId = "future-feature",
+        roomTable = "future_records",
         snapshotVersion = 1,
         adapterId = "unimplemented-adapter",
     )

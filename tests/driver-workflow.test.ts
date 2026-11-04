@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import {beforeEach,describe,expect,it} from "vitest";
 import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
-import {createDriverCommand} from "../packages/features/work-shift";
+import {createDriverCommand,DriverWorkflowService} from "../packages/features/work-shift";
 import type {GpsFix} from "../packages/core/src/types";
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
 describe("durable single-driver workflow",()=>{
@@ -93,5 +93,24 @@ describe("durable single-driver workflow",()=>{
   expect(queued.command.eventId).toBe("cmd-replacement");
   expect((await repo.getIntent(expired.eventId))?.reason).toBe("gps_recovery_window_expired");
  });
+
+ it("automatically publishes committed Work events and retries failed consumer delivery",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","pwa","cmd-publish",transitionAt);
+  const delivered:string[]=[];
+  let failFirst=true;
+  const service=new DriverWorkflowService(repo,{capture:async()=>({...gps,fixAt:transitionAt})},async event=>{
+   if(failFirst){failFirst=false;throw new Error("consumer_temporarily_unavailable")}
+   delivered.push(event.eventId);
+  });
+  const result=await service.dispatch(command);
+  expect(result.status).toBe("recorded");
+  expect(result.integrationPending).toBe(true);
+  expect((await repo.getSnapshot()).revision).toBe(1);
+  expect((await service.retryPendingIntegrations()).pending).toBe(0);
+  expect(delivered).toEqual(["cmd-publish"]);
+ });
+
 
 });

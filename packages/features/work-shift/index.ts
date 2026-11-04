@@ -1,10 +1,4 @@
-/**
- * Public Work/Shift capability contract.
- *
- * Consumers depend on this entry point instead of reaching into the
- * capability's domain and application implementation files. Platform
- * persistence adapters remain implementation details of their runtime.
- */
+/** Public Work/Shift capability contract. */
 export {
   DriverWorkflowService,
   createDriverCommand,
