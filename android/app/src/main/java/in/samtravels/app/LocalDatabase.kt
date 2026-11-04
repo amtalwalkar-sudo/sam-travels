@@ -12,7 +12,26 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/**
+ * Room entity metadata is the source for native backup participant discovery.
+ * A Room entity without this annotation fails closed during backup and tests.
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class NativeBackupParticipant(
+    val id: String,
+    val featureId: String,
+    val snapshotVersion: Int,
+    val adapterId: String,
+)
+
 @Entity(tableName = "records", indices = [Index(value = ["updatedAt"])])
+@NativeBackupParticipant(
+    id = "platform-records",
+    featureId = "platform",
+    snapshotVersion = 1,
+    adapterId = "stored-records-json-v1",
+)
 data class StoredRecord(
     @PrimaryKey val id: String,
     val json: String,
