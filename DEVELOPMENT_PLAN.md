@@ -65,35 +65,25 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 ## Phase 6 — Recovery and resilience
 
-- Implement Dropbox OAuth with least-privilege scopes and secure token storage.
-- Implement consistent versioned snapshots, encrypted backup packages, daily best-effort backup, retry, and retention.
-- Implement user-initiated restore with validation, checkpoint, confirmation, staged replacement, and post-restore verification.
-- Add optional online capabilities only through the network gateway; reverse geocoding remains optional and is not required for the driver-first scope.
-- Verify disabled policy blocks all app-initiated network requests.
+**Automated engineering slice complete; external/device acceptance intentionally deferred.**
 
-**Implementation in progress — recovery vertical slice now present in code:**
+Implemented capabilities:
+- Dropbox OAuth 2.0 Authorization Code + PKCE, least-privilege app-folder scopes, state validation, refresh-token lifecycle and revocation when online. Credentials are stored in Android Keystore-backed storage or the passphrase-encrypted browser vault; secrets are excluded from business records, snapshots, package contents, WorkManager inputs, and logs.
+- Consistent versioned browser IndexedDB and Android Room snapshots; AES-256-GCM encrypted backup packages with authenticated manifest metadata, integrity validation, fresh DEK/nonce per package, Argon2id passphrase protection for V1, and recovery-key-only V2 support. V1 restore compatibility is retained.
+- Restore flow with validation, explicit confirmation, durable checkpoint-before-replacement, staged transactional replacement, verification, rollback, and checkpoint retention until user verification/discard.
+- Dropbox upload/download/history, refresh, bounded transient retry/backoff, collision-safe upload identity, remote metadata/size verification, retention with protection of the selected known-good backup, and NetworkGateway/Internet Access policy enforcement.
+- Android daily best-effort WorkManager schedule with connected-network constraint, unique periodic/immediate jobs, bounded retry, policy re-check before requests, Keystore-protected recovery key, run status, interrupted-run reconciliation, and collision-safe V2 upload.
+- Cross-runtime native V2 package fixture verified by the TypeScript parser/decryptor. Automated test coverage includes OAuth policy/state/token refresh, retry and retention decisions, interrupted-run status reconciliation, Room restore transaction rollback under injected failure, and secure recovery-key vault persistence.
+- Android release variant and Android emulator instrumentation included in the automated CI gate.
 
-- Added the packages/features/backup public capability with backup-encryption-v1: AES-256-GCM payload encryption, a fresh 256-bit DEK and 96-bit nonce per backup, authenticated manifest metadata, SHA-256 plaintext integrity validation, Argon2id v1.3 via the bundled hash-wasm WebAssembly implementation (64 MiB, 3 iterations, parallelism 1), and independent passphrase/recovery-key DEK envelopes. A stable user recovery key can be reused across backup generations; the app must show/save it at initial setup/rotation and must not log or upload it.
-- Added production encrypted package parsing/serialization and tests for the production Argon2id provider, both recovery paths, stable recovery-key reuse, wrong passphrases, and authenticated tampering.
-- Added consistent browser IndexedDB snapshots in one read transaction across records, driver state, intents, events, and outbox. Browser restore validates schema/counts/revision, creates a durable checkpoint before replacement, performs a single replacement transaction, verifies the restored state, supports rollback, and retains the checkpoint until explicit verification and discard.
-- Added an Android Room backup bridge that snapshots the authoritative Room records in a transaction, creates a separate durable recovery checkpoint before replacement, validates the imported record envelope/count/schema/revision, replaces data transactionally, verifies restored record contents, supports rollback after interruption, and retains the checkpoint until explicit verification/discard.
-- Registered the native `samtravels://oauth` callback intent, persisted cold-start/warm-start callbacks in native preferences, exposed one-time callback consumption to the PWA layer, and added regression coverage for callback forwarding. Added `docs/DROPBOX_SETUP.md` with the exact scopes, PWA/native redirect configuration, and real-account acceptance steps.
-- Added a cross-runtime backup/restore orchestration API and user-facing backup panel in the driver workspace: Dropbox app key/redirect configuration, vault unlock/lock, OAuth connect/finish, manual encrypted upload, backup history, restore secret/confirmation, checkpoint verification/rollback, and configurable retention with a protected selected backup.
-- Added Dropbox OAuth 2.0 PKCE with least-privilege file scopes, state validation, refresh-token lifecycle, token revocation when online, Android Keystore-backed credential storage, a passphrase-encrypted browser credential vault, and a shared NetworkGateway boundary. Encrypted package upload/download, paginated history, bounded transient retry/backoff, and configurable retention operations are implemented. Local disconnect/status remain available while Internet Access is disabled.
-- Added a passphrase-encrypted browser credential vault using Argon2id and AES-256-GCM, with a verifier for wrong-passphrase detection. OAuth tokens remain encrypted in a dedicated IndexedDB vault table, excluded from business snapshots and backup packages. The Dropbox client factory now supports Android Keystore storage and the unlocked browser vault. No token or recovery secret is stored in ordinary business records.
+**Automated verification:** CI run [#301](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41833914640), head `b2d14e9bf7448ec91c4861f05420518accc87175`, completed successfully. Web architecture checks, tests and production build passed; Android Capacitor sync, debug/unit/instrumentation test tasks and unsigned release assembly passed. This proves automated build/test status only.
 
-**Background backup design:** [Phase 6 Background Backup Design](docs/PHASE_6_BACKGROUND_BACKUP_DESIGN.md) records the safe Android WorkManager/Keystore design, PWA limitations, package compatibility requirement, and verification gates. This is a design decision only; it does not claim background scheduling has been implemented.
+**Acceptance still pending by explicit user deferral:**
+- Real Dropbox app/client ID setup and account-backed OAuth redirect, authorization, refresh, upload/download and revocation acceptance. No credentials or tokens are to be committed.
+- Physical Android acceptance of background execution across Doze, reboot, locked-device/Keystore availability, app/process interruption, offline deferral/retry, OAuth callbacks and restore recovery.
+- User acceptance of the backup/restore experience with disposable data, including a real restore/rollback run.
 
-**Manual setup and acceptance guide:** follow [Phase 6 Manual Setup and Acceptance](docs/PHASE_6_MANUAL_ACCEPTANCE.md) in order. It covers the one-time Dropbox app configuration, Android connection, first encrypted backup, retention, restore/rollback, physical-device checks, and the daily-scheduling gate. The latest PR CI run on head `0ed52c16e1c0546671847f5ab3b4bc5b71fd3c88` passed both web and Android jobs, including emulator instrumentation; this validates the current automated suite only, not a real Dropbox account or physical device. The manual guide is the acceptance record to complete with the user.
-
-**Still required before Phase 6 can pass its exit gate:**
-
-- Configure the user's Dropbox app key/client ID and registered redirect URI, then verify the real OAuth redirect, authorization, refresh, upload, download, and revocation/error paths. No credentials or tokens may be committed.
-- Implement durable daily best-effort scheduling and retry across process interruption. The versioned backup-encryption-v2 recovery-key-only package format is implemented with v1 compatibility. An Android `DailyDropboxBackupWorker` now creates the same V2 AES-256-GCM package natively from a consistent Room snapshot, reads the recovery key from the dedicated Keystore vault, reads/refreshes Dropbox OAuth credentials through the shared Keystore credential vault, and checks the persisted Room Internet Access policy before each HTTP request. Unique periodic 24-hour WorkManager scheduling, connected-network constraints, immediate scheduling after native Dropbox configuration/first successful manual backup, bounded retry/backoff, collision-safe upload identity, remote metadata/size verification, and local attempt status are wired. This is an implementation slice only: CI, V2 cross-runtime fixture verification, failure-injection, interrupted-run reconciliation, retention, and physical-device Doze/reboot/locked-device acceptance remain.
-- Add end-to-end Android instrumentation for Room snapshot/restore/checkpoint interruption, plus complete auth-expiry/offline/network-gateway failure-injection coverage.
-- Complete physical-device acceptance for Android background scheduling, app/process interruption, offline deferral, Dropbox OAuth callback, and restore recovery.
-
-Do not mark Phase 6 complete until these remaining items are implemented and tested. Existing CI run #143 verified the earlier core foundation only; backup/recovery code requires its own complete green CI run.
+Do not mark Phase 6 fully accepted until those external/device checks are completed and recorded. Reverse geocoding remains optional and outside this phase's required scope.
 
 ## Phase 7 — Internet integrations and release readiness
 
