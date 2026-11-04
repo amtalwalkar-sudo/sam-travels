@@ -26,6 +26,7 @@ function layer(file) {
   if (p.startsWith("packages/core/src/")) return "core";
   if (p.startsWith("packages/domain/src/")) return "domain";
   if (p.startsWith("packages/application/src/")) return "application";
+  if (p.startsWith("packages/presentation/src/")) return "presentation";
   if (p.startsWith("packages/storage-browser/src/") || p.startsWith("packages/storage-android/src/")) return "storage";
   if (p.startsWith("packages/features/")) return "feature";
   if (p.startsWith("apps/web/src/ui/") || p.startsWith("apps/web/src/components/")) return "ui";
@@ -60,6 +61,7 @@ function targetLayer(resolved) {
   if (p.includes("/packages/core/src/")) return "core";
   if (p.includes("/packages/domain/src/")) return "domain";
   if (p.includes("/packages/application/src/")) return "application";
+  if (p.includes("/packages/presentation/src/")) return "presentation";
   if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
   if (p.includes("/packages/features/")) return "feature";
   if (p.includes("/apps/web/src/")) return "ui";
@@ -178,7 +180,8 @@ for (const absolute of sourceFiles) {
     const forbidden =
       (from === "core" && ["domain", "application", "storage", "ui", "feature"].includes(target)) ||
       (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
-      (from === "application" && ["storage", "ui"].includes(target)) ||
+      (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
+      (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
       (from === "storage" && target === "ui") ||
       (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
       (from === "feature" && ["storage", "ui"].includes(target)) ||
