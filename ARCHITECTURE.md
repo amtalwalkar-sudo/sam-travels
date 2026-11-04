@@ -59,6 +59,10 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 - The authoritative database owns record IDs, revisions, schema versions, migration state, and durable outbox/inbox state for its runtime. UI memory and replicated surface state are disposable projections.
 - A platform must not report a write as durable until its authoritative repository confirms the commit. Pending native work must remain recoverable in Room even when the WebView is absent.
 
+## Consolidated architecture foundation contract
+
+The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
+
 ## Feature modularity
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
@@ -114,4 +118,9 @@ Event-scoped GPS and clock semantics are governed by [docs/LOCATION_AND_STATE_TI
 
 ## Feature and security contracts
 
-Feature registration, extension boundaries, and presentation/domain separation follow [docs/FEATURE_MODULE_CONTRACT.md](docs/FEATURE_MODULE_CONTRACT.md). Data minimization, secrets, import validation, platform permissions, and compatibility follow [docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md](docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md).
+Feature registration, extension boundaries, persistent-feature lifecycle, complete business backup/restore participation, calculation ownership, and explicit cross-feature integrations follow [docs/FEATURE_MODULE_CONTRACT.md](docs/FEATURE_MODULE_CONTRACT.md) and [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). Every persistent feature must register its schema, migrations, dependencies, and backup/restore participation; hiding or disabling preserves records, while permanent deletion is explicit and dependency-checked. New feature data cannot change an existing calculation without an approved, versioned integration and regression coverage. Data minimization, secrets, import validation, platform permissions, and compatibility follow [docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md](docs/SECURITY_AND_COMPATIBILITY_CONTRACT.md).
+
+
+## Android device readiness
+
+The adaptive Android startup/resume permission and settings flow is governed by [docs/ANDROID_DEVICE_READINESS_CONTRACT.md](docs/ANDROID_DEVICE_READINESS_CONTRACT.md). It uses standard Android capabilities with safe settings fallbacks and keeps OEM-specific battery/autostart guidance advisory.

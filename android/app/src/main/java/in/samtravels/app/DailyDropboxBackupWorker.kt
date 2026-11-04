@@ -120,7 +120,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
                 "https://api.dropboxapi.com/2/files/get_metadata",
                 "POST",
                 JSONObject().put("path", path).toString().toByteArray(Charsets.UTF_8),
-                mapOf("Authorization" to "Bearer $token", "Content-Type" to "application/json"),
+                mapOf("Authorization" to "Bearer $uploadToken", "Content-Type" to "application/json"),
             )
             if (metadata.first != 200) throw TransientBackupException("dropbox_upload_verification_failed")
             val remote = JSONObject(metadata.second.toString(Charsets.UTF_8))
@@ -169,6 +169,7 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun makeSnapshot(): Pair<JSONObject, JSONObject> {
+        NativeBackupCoverage.assertRoomSchemaCovered(db)
         var result: Pair<JSONObject, JSONObject>? = null
         db.runInTransaction {
             val records = org.json.JSONArray()

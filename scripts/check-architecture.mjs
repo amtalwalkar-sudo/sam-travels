@@ -20,12 +20,12 @@ async function walk(directory) {
 
 function layer(file) {
   const p = file.split(path.sep).join("/");
-  if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/storage-browser/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/ui/")) return "ui";
+  if (p.startsWith("packages/core/src/")) return "core";
+  if (p.startsWith("packages/domain/src/")) return "domain";
+  if (p.startsWith("packages/application/src/")) return "application";
+  if (p.startsWith("packages/storage-browser/src/")) return "storage";
+  if (p.startsWith("packages/features/")) return "feature";
+  if (p.startsWith("apps/web/src/ui/")) return "ui";
   return "outer";
 }
 
@@ -68,6 +68,31 @@ for (const absolute of sourceFiles) {
     if (isWorkShiftImplementationImport && !ownsWorkShiftImplementation) {
       failures.push(`${relative}: import Work/Shift internals through the public packages/features/work-shift entry point, not "${specifier}"`);
     }
+    const isPlatformOrUiImport =
+      specifier === "react" ||
+      specifier.startsWith("react/") ||
+      specifier === "react-dom" ||
+      specifier.startsWith("react-dom/") ||
+      specifier === "dexie" ||
+      specifier.startsWith("dexie/") ||
+      specifier.startsWith("@capacitor/") ||
+      specifier.startsWith("androidx.") ||
+      specifier.startsWith("android.") ||
+      specifier.startsWith("java.") ||
+      specifier.startsWith("org.json") ||
+      specifier.startsWith("com.dropbox.");
+    const forbiddenExternal =
+      (["core", "domain", "application"].includes(from) && isPlatformOrUiImport) ||
+      (from === "storage" && (
+        specifier === "react" ||
+        specifier.startsWith("react/") ||
+        specifier === "react-dom" ||
+        specifier.startsWith("react-dom/") ||
+        specifier.startsWith("@capacitor/")
+      ));
+    if (forbiddenExternal) {
+      failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
+    }
     const forbidden =
       (from === "core" && ["domain", "application", "storage", "ui"].includes(target)) ||
       (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
@@ -80,6 +105,26 @@ for (const absolute of sourceFiles) {
       (from === "ui" && /^(?:dexie|@capacitor\/)/.test(specifier));
     if (forbidden) failures.push(`${relative}: ${from} layer must not import ${target ?? "platform dependency"} via "${specifier}"`);
   }
+}
+
+const foundationContract = await readFile(path.join(root, "docs/ARCHITECTURE_FOUNDATION_CONTRACT.md"), "utf8");
+const featureContract = await readFile(path.join(root, "docs/FEATURE_MODULE_CONTRACT.md"), "utf8");
+const requiredFoundationSections = [
+  "## 7. Feature registration, lifecycle, and dependency contracts",
+  "## 8. Complete business backup and restore participation",
+  "## 9. Calculation ownership and feature integration contracts",
+];
+for (const section of requiredFoundationSections) {
+  if (!foundationContract.includes(section)) failures.push(`docs/ARCHITECTURE_FOUNDATION_CONTRACT.md: missing required section "${section}"`);
+}
+const requiredFeatureContractSections = [
+  "## Mandatory persistent-feature registry",
+  "## Feature lifecycle and data retention",
+  "## Complete backup and restore participation",
+  "## Calculation ownership and integrations",
+];
+for (const section of requiredFeatureContractSections) {
+  if (!featureContract.includes(section)) failures.push(`docs/FEATURE_MODULE_CONTRACT.md: missing required section "${section}"`);
 }
 
 if (failures.length) {

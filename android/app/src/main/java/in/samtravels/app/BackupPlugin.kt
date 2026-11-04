@@ -23,7 +23,9 @@ class BackupPlugin : Plugin() {
     private val journalPrefix = "__sam_travels_recovery_journal__:"
     private fun isInternal(id: String) = id.startsWith(checkpointPrefix) || id.startsWith(journalPrefix)
 
+
     private fun businessRecords(): JSONArray {
+        NativeBackupCoverage.assertRoomSchemaCovered(db)
         val rows = db.records().list().filterNot { isInternal(it.id) }
         val result = JSONArray()
         rows.forEach { row ->

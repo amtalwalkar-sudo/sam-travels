@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { nativeOverlayAvailable } from "../driver-workflow";
+import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -66,6 +67,7 @@ export function App() {
 
   return (
     <main className="shell">
+      <DeviceReadinessPrompt />
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">ST</div>
@@ -132,6 +134,7 @@ export function App() {
                 <span>{overlayMessage || "Optional · requires display-over-other-apps permission"}</span>
               </div>}
               <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
+              <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
             </section>
 
             <BackupPanel />

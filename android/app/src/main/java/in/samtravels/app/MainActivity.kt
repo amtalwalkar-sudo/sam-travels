@@ -8,6 +8,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
+        registerPlugin(DeviceReadinessPlugin::class.java)
         registerPlugin(SecureVaultPlugin::class.java)
         registerPlugin(BackupKeyVaultPlugin::class.java)
         registerPlugin(BackupPlugin::class.java)
