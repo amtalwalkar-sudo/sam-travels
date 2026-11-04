@@ -76,7 +76,7 @@ Implemented capabilities:
 - Cross-runtime native V2 package fixture verified by the TypeScript parser/decryptor. Automated test coverage includes OAuth policy/state/token refresh, retry and retention decisions, interrupted-run status reconciliation, Room restore transaction rollback under injected failure, and secure recovery-key vault persistence.
 - Android release variant and Android emulator instrumentation included in the automated CI gate.
 
-**Automated verification:** CI run [#301](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41833914640), head `b2d14e9bf7448ec91c4861f05420518accc87175`, completed successfully. Web architecture checks, tests and production build passed; Android Capacitor sync, debug/unit/instrumentation test tasks and unsigned release assembly passed. This proves automated build/test status only.
+**Automated verification:** CI run [#308](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41835374476), head `b0e70d45db3becb8e53f8b756503e9da7fa25c25`, completed successfully. Web architecture checks, tests and production build passed; Android Capacitor sync, debug/unit/instrumentation test tasks and unsigned release assembly passed. This proves automated build/test status only.
 
 **Acceptance still pending by explicit user deferral:**
 - Real Dropbox app/client ID setup and account-backed OAuth redirect, authorization, refresh, upload/download and revocation acceptance. No credentials or tokens are to be committed.
