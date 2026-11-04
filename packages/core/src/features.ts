@@ -178,3 +178,40 @@ export function resolveFeatureStartupOrder(
   for (const id of registry.keys()) visit(id);
   return ordered;
 }
+
+export type FeatureMigrationHandler<Context> = (context: Context) => void | Promise<void>;
+
+/** Run a complete, ordered feature migration chain; resolve all handlers before writes begin. */
+export async function runFeatureMigrations<Context>(
+  feature: FeatureDefinition,
+  currentVersion: number,
+  handlers: Readonly<Record<string, FeatureMigrationHandler<Context>>>,
+  context: Context,
+): Promise<number> {
+  const contract = feature.persistence;
+  if (!contract) {
+    if (currentVersion !== 0) throw new Error("Non-persistent feature has a schema version: " + feature.id);
+    return 0;
+  }
+  if (!Number.isSafeInteger(currentVersion) || currentVersion < 1 || currentVersion > contract.schemaVersion) {
+    throw new Error("Unsupported current schema version for feature: " + feature.id);
+  }
+  const pending = contract.migrations
+    .filter(migration => migration.fromVersion >= currentVersion)
+    .sort((left, right) => left.fromVersion - right.fromVersion);
+  let expectedVersion = currentVersion;
+  const steps = pending.map(migration => {
+    if (migration.fromVersion !== expectedVersion || migration.toVersion !== expectedVersion + 1) {
+      throw new Error("Incomplete migration chain for feature: " + feature.id);
+    }
+    const handler = handlers[migration.id];
+    if (!handler) throw new Error("Missing migration handler " + migration.id + " for feature: " + feature.id);
+    expectedVersion = migration.toVersion;
+    return handler;
+  });
+  if (expectedVersion !== contract.schemaVersion) {
+    throw new Error("Incomplete migration chain for feature: " + feature.id);
+  }
+  for (const step of steps) await step(context);
+  return contract.schemaVersion;
+}
