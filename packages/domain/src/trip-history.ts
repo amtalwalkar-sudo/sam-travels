@@ -48,13 +48,14 @@ export function buildTripHistory(events: readonly DriverEvent[]): TripHistoryRec
 
     if (kind !== "trip_end" && kind !== "ride_cancel") continue;
     if (!active) {
+      const cancelledBeforeTripStart = kind === "ride_cancel" && event.command.expectedPriorState === "approach_active";
       trips.push({
-        id: "unmatched:" + event.eventId,
+        id: (cancelledBeforeTripStart ? "cancelled-before-start:" : "unmatched:") + event.eventId,
         endEventId: event.eventId,
         endedAt: event.command.transitionAt,
         endGps: event.gps,
-        status: "needs_attention",
-        reason: "trip_close_without_start",
+        status: cancelledBeforeTripStart ? "cancelled" : "needs_attention",
+        reason: cancelledBeforeTripStart ? "cancelled_before_trip_start" : "trip_close_without_start",
       });
       continue;
     }
