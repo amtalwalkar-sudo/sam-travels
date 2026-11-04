@@ -223,6 +223,26 @@ for (const section of requiredFeatureContractSections) {
   if (!featureContract.includes(section)) failures.push(`docs/FEATURE_MODULE_CONTRACT.md: missing required section "${section}"`);
 }
 
+// The application must validate one shared runtime registry before mounting UI.
+const applicationEntry = await readFile(path.join(root, "apps/web/src/main.tsx"), "utf8");
+const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-driver-workspace.ts"), "utf8");
+const registryCall = applicationEntry.indexOf("getApplicationRuntimeRegistry();");
+const uiMount = applicationEntry.indexOf("createRoot(");
+if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) {
+  failures.push("apps/web/src/main.tsx: the validated application runtime registry must be initialized before UI mounting");
+}
+if (!workspaceConsumer.includes("getApplicationRuntimeRegistry()")) {
+  failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application registry singleton");
+}
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/")) continue;
+  const content = await readFile(absolute, "utf8");
+  if (content.includes("initializeApplicationRuntimeRegistry(")) {
+    failures.push(relative + ": application consumers must use the shared runtime registry, not create independent registries");
+  }
+}
+
 if (failures.length) {
   console.error("Architecture gate failed:");
   for (const failure of failures) console.error(` - ${failure}`);
