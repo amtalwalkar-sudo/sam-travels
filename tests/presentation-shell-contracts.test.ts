@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { defineApplicationShell, definePresentationForm, type FormSubmissionPort } from "../packages/presentation/src/shell-contracts";
+import { defineApplicationShell, definePresentationForm } from "../packages/presentation/src/shell-contracts";
+import type { FormSubmissionPort } from "../packages/application/src/form-submission-port";
 
 const navigation = [
   { screen: "Drive", label: "Drive", icon: "drive" },
