@@ -65,3 +65,13 @@ Business-module entry forms are intentionally not part of the active driver work
 - The overlay presents a recovery action for a persisted pending GPS intent after the service or process is restarted. It retries the original event identity and original transition timestamp; it does not create a replacement transition.
 - The overlay owns at most one active event-location request and removes its listener/timeout when the service is destroyed. An interrupted acquisition leaves the durable intent available for recovery.
 - Android instrumentation coverage verifies exact duplicate-command idempotency, rejects a reused event identity with a changed payload, and closes/reopens a file-backed Room database to prove a pending intent survives repository recreation and can be recovered.
+
+
+## Android lifecycle and pending-event reconciliation hardening
+
+- The driver overlay remains a user-enabled Android foreground service with a persistent notification and the location foreground-service type. Screen-off operation relies on this foreground-service boundary; GPS is still requested only for a driver action.
+- `START_STICKY` service recreation reopens the same Room database and scans for a durable `pending_location` intent. If the original event-time GPS evidence window is still open, the service retries that same event ID and original transition instant. It never creates a replacement action.
+- The approved GPS policy remains strict: the fix must be no more than 50 metres horizontal accuracy and within 30 seconds of the original transition instant. If process death or GPS interruption outlasts that evidence window, the intent is retained and marked `needs_attention` with `gps_recovery_window_expired`; a later fix is never attached to an old gesture.
+- The PWA reconciles pending intents on initial load and while active. Expired intents are moved to an explicit needs-attention state; pending and recorded events remain durable in Room/IndexedDB.
+- The app records whether the user explicitly enabled the overlay. A boot receiver attempts restart only when overlay permission and the Android location permissions required for a background location foreground service are available. On Android 10+, this includes `ACCESS_BACKGROUND_LOCATION`. If Android does not permit the boot-time start, it records a deferred restart; opening the app in the foreground resumes the previously enabled overlay and reconciles pending events.
+- Android force-stop, revoked permissions, OEM battery restrictions, and OS policy can still defer background execution. The application must retain pending work and reconcile it on the next permitted execution; no CI result can override these OS boundaries.
