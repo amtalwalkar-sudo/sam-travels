@@ -23,6 +23,7 @@ describe("versioned feature integration contracts", () => {
       consumerFeatureId: "performance",
       eventName: "work.event-committed",
       payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     expect(registerFeatureIntegrations(features, [integration]).get(integration.id)).toEqual(integration);
     expect(() => registerFeatureIntegrations(features, [{
@@ -39,6 +40,7 @@ describe("versioned feature integration contracts", () => {
       consumerFeatureId: "performance",
       eventName: "work.event-committed",
       payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     const registry = registerFeatureIntegrations(features, [integration]);
     const received: string[] = [];
@@ -57,6 +59,12 @@ describe("versioned feature integration contracts", () => {
     expect(received).toEqual(["event-1"]);
     await expect(dispatchFeatureIntegration(registry, {
       ...message,
+      payload: "not-an-object",
+    }, {
+      [integration.id]: () => undefined,
+    })).rejects.toThrow("Invalid feature integration payload");
+    await expect(dispatchFeatureIntegration(registry, {
+      ...message,
       payloadVersion: 2,
     }, {
       [integration.id]: () => undefined,
@@ -67,6 +75,7 @@ describe("versioned feature integration contracts", () => {
     const integration: FeatureIntegrationContract = {
       id: "logbook.work-events.v1", version: 1, producerFeatureId: "work",
       consumerFeatureId: "logbook", eventName: "work.event-committed", payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     const registry = registerFeatureIntegrations(features, [integration]);
     const message = {
@@ -92,6 +101,7 @@ describe("versioned feature integration contracts", () => {
     const integration: FeatureIntegrationContract = {
       id: "performance.work-events.v1", version: 1, producerFeatureId: "work",
       consumerFeatureId: "performance", eventName: "work.event-committed", payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     const registry = registerFeatureIntegrations(features, [integration]);
     await expect(dispatchFeatureIntegration(registry, {
@@ -108,6 +118,7 @@ describe("versioned feature integration contracts", () => {
       consumerFeatureId: "performance",
       eventName: "work.event-committed",
       payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     expect(() => registerFeatureIntegrations(features, [integration, integration])).toThrow("Duplicate integration contract");
     expect(() => registerFeatureIntegrations(features, [{
@@ -161,6 +172,7 @@ describe("versioned calculation contracts", () => {
     const integration: FeatureIntegrationContract = {
       id: "fixture.integration.v1", version: 1, producerFeatureId: "work",
       consumerFeatureId: "logbook", eventName: "fixture.event", payloadVersion: 1,
+      validatePayload: payload => !!payload && typeof payload === "object" && "revision" in payload,
     };
     const integrationRegistry = registerFeatureIntegrations(features, [integration]);
     const calculationRegistry = registerCalculations(features, [calculation]);
