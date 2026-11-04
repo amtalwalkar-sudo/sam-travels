@@ -25,7 +25,7 @@ class BackupPlugin : Plugin() {
 
 
     private fun businessRecords(): JSONArray {
-        NativeBackupCoverage.assertRoomSchemaCovered()
+        NativeBackupCoverage.assertRoomSchemaCovered(db)
         val rows = db.records().list().filterNot { isInternal(it.id) }
         val result = JSONArray()
         rows.forEach { row ->
