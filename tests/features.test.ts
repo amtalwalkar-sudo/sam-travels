@@ -150,6 +150,20 @@ describe("runtime feature registry", () => {
     expect(opened).toBe(false);
   });
 
+  it("copies and freezes dependency descriptors supplied by add-ons", () => {
+    const dependency = { id: "work", contractVersion: 1 };
+    const registry = registerFeatures([{
+      id: "dependency-check", label: "Dependency Check", dataPolicy: "non-persistent",
+      contractVersion: 1, dependencies: [dependency],
+    }]);
+    dependency.id = "admin";
+    expect(registry.get("dependency-check")?.dependencies).toEqual([{ id: "work", contractVersion: 1 }]);
+    expect(Object.isFrozen(registry.get("dependency-check")?.dependencies[0])).toBe(true);
+    expect(() => {
+      (registry.get("dependency-check")!.dependencies[0] as { id: string }).id = "admin";
+    }).toThrow();
+  });
+
   it("exposes a runtime-immutable feature registry", () => {
     const registry = registerFeatures();
     expect(Object.isFrozen(registry)).toBe(true);
