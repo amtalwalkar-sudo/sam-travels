@@ -50,7 +50,11 @@ class DriverWorkflowStoreTest {
         assertEquals(1, next.getInt("revision"))
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-1")!!.json).getString("status"))
         assertTrue(db.records().get("driver-event:event-1") != null)
-        assertTrue(db.records().get("driver-outbox:1") != null)
+        val outbox = JSONObject(db.records().get("driver-outbox:1")!!.json)
+        assertEquals("logbook.work-driver-events.v1", outbox.getString("integrationId"))
+        assertEquals(1, outbox.getInt("contractVersion"))
+        assertEquals("work.driver-event-committed", outbox.getString("eventName"))
+        assertEquals(1, outbox.getInt("payloadVersion"))
         assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
             .getJSONObject("value").getInt("revision"))
     }
