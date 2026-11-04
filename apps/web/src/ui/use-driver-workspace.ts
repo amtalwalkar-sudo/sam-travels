@@ -129,6 +129,8 @@ export function useDriverWorkspace() {
       setDriverMessage(
         result.status === "recorded"
           ? "Recovered action recorded"
+          : result.reason === "gps_recovery_window_expired"
+          ? "GPS evidence window expired · reissue the action when ready"
           : "Still awaiting a reliable GPS fix · " + (result.reason ?? "retry later"),
       );
     } catch (cause) {
