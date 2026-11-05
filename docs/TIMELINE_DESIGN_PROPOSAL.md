@@ -135,11 +135,11 @@ Idle time consists of:
 
 It excludes pickup-approach and passenger-ride intervals.
 
-The intended reconciliation is:
+The intended reconciliation for each logical shift is:
 
-`Shift duration = Total pickup time + Total trip time + Total idle time`
+`Logical-shift duration = allocated pickup time + allocated passenger-trip time + idle time`
 
-This reconciliation must be validated, not forced by hiding or inventing time. The 04:00 cross-boundary trip attribution issue in Section 11 must be resolved before this calculation is frozen.
+For intervals crossing a logical-shift boundary, allocate elapsed time by actual interval overlap with each logical shift's time window. Idle time is the remaining, non-overlapping portion of that logical shift's duration after pickup and passenger-trip intervals have been allocated. Validate that the three components reconcile exactly (subject only to the documented timestamp precision); never hide, invent or double-count time. Trip/attempt counts and financial ownership remain attached to the originating logical shift as specified in Section 6.2.
 
 ### Distance and counts
 
@@ -180,7 +180,28 @@ The proposed filter has three choices, in this order:
 
 Persisted UTC event instants and the existing Asia/Kolkata business-date/timezone context remain authoritative. The 04:00 logical-shift assignment rule must never be replaced by UI date arithmetic.
 
-A product decision is still required for how a logical shift that spans midnight is visually placed in daily groups within a calendar week, and whether Today/By date use the calendar date or the persisted operational/business date as their primary day key. Until approved, do not split, reassign or duplicate the underlying shift/trip records to make a visual grouping fit.
+**Approved calendar-day grouping rule:** Today, Week and By date use ordinary `Asia/Kolkata` calendar dates, from 00:00 to 00:00, as their day keys. Week is Monday through Sunday, with each calendar date shown as its own daily group. Events are placed under the calendar date of their event timestamp in `Asia/Kolkata`; they are not moved to the date on which the logical shift began.
+
+A logical shift may span midnight. Its section may therefore continue across consecutive calendar-day groups and must be visibly identified as a continuation of the same logical shift (using the same stable logical-shift identity and without fabricating another shift start). Do not duplicate the underlying event or business record merely to show the continuation. Today and By date show the events belonging to the selected calendar date, with enough shift context to make a continued shift understandable. The 04:00 logical-shift rotation remains a separate rule from midnight calendar grouping: at 04:00 the existing workflow creates the next logical-shift segment. A shift summary is shown exactly once, only when that logical shift ends; it must not be repeated in every calendar-day group the shift spans.
+
+### 6.2 Approved cross-04:00 interval and ownership reconciliation
+
+A pickup or passenger ride may begin before 04:00 and finish after the 04:00 logical-shift rotation. Preserve one authoritative trip/attempt record and its stable ID; do not split it into duplicate trips. Apply these ownership and time-allocation rules:
+
+- The trip/attempt, completed-ride count, fare, cancellation fee and other trip-owned financial values remain owned by the logical shift active when that trip/attempt was created, consistent with the Driver Workflow contract.
+- Elapsed pickup time is allocated to each logical shift according to the actual overlap between the pickup interval and that shift's time window.
+- Elapsed passenger-trip time (Start ride → End ride) is allocated in the same way, by interval overlap.
+- A shift receives only the elapsed minutes that fall within its own time window. The interval is counted once across all overlapping logical shifts; there is no duplication.
+- Idle time for each logical shift is the complement of its allocated pickup and passenger-trip intervals within that shift's duration.
+- Counts and money are not apportioned by elapsed minutes. Therefore, a later logical shift can legitimately show allocated passenger-trip time but zero completed rides and no fare for that trip when the trip record is owned by the preceding shift. The Timeline must make the distinction between time allocation and record/financial ownership clear.
+
+**Example:** A passenger ride runs from 03:50 to 04:20. The originating logical shift receives 10 minutes of passenger-trip time, while the next logical shift receives 20 minutes. There is one trip record, one completed-ride count and one fare, all owned by the originating shift. The later shift's summary includes its 20 minutes of allocated passenger-trip time but does not claim the ride count or fare. Apply the same overlap method to a pickup interval crossing 04:00, including a cancelled attempt. Boundary instants must be handled consistently so a single instant or duration is never counted twice.
+
+The per-shift reconciliation remains:
+
+`Logical-shift duration = allocated pickup time + allocated passenger-trip time + idle time`
+
+This is a time-accounting rule only; it does not change source-record ownership, trip assignment, lifecycle transitions, or the existing 04:00 workflow.
 
 ## 7. Metric add/remove/change isolation and regression protection
 
@@ -299,17 +320,15 @@ The PWA and installed Android application must use the same Timeline domain rule
 - Projection caches, if introduced, must be versioned, disposable and rebuildable. Cache invalidation must never delete authoritative records.
 - Incomplete/pending source workflows must be represented honestly and must not appear as completed rides or finalized summaries.
 
-## 11. Open design decisions to resolve before freeze
+## 11. Remaining design decisions to resolve before freeze
 
-These are intentionally not decided by this proposal:
+The following items remain open; the approved date grouping and cross-04:00 accounting rules in Sections 5 and 6.2 are no longer open decisions:
 
-1. **Calendar-day versus operational-day grouping:** How should Today, By date and the daily groups within Week place shifts/events around midnight and the 04:00 logical boundary? Existing logical-shift IDs and trip assignment remain authoritative. Do not split/reassign source records.
-2. **Trip crossing the 04:00 boundary and summary reconciliation:** The existing workflow assigns a trip wholly to the logical shift in which it was created, while logical shifts rotate at 04:00. A pickup/ride interval can therefore extend beyond the logical shift's end. Decide whether summary time is attributed by interval overlap across logical shifts or another explicit rule. The shift-duration reconciliation must not be claimed until this is resolved; do not silently split the trip record or double-count its duration.
-3. **Geocoder provider and cache policy:** Provider, locale, cache key/precision, cache freshness/refresh, provider attribution and retention must be selected through a privacy/cost review. This proposal does not select a vendor.
-4. **Metric catalogue:** The initial display metrics are listed in Sections 5 and 7, but future additions/removals and any additional financial or performance metrics require separate product approval and calculation contracts.
-5. **Automatic 04:00 boundary presentation:** Confirm the exact visual label and placement for the system-generated logical-shift boundary and deferred odometer confirmation.
+1. **Geocoder provider and cache policy:** Provider, locale, cache key/precision, cache freshness/refresh, provider attribution and retention must be selected through a privacy/cost review. This proposal does not select a vendor.
+2. **Metric catalogue:** The initial display metrics are listed in Sections 5 and 7, but future additions/removals and any additional financial or performance metrics require separate product approval and calculation contracts.
+3. **Automatic 04:00 boundary presentation:** Confirm the exact visual label and placement for the system-generated logical-shift boundary and deferred odometer confirmation.
 
-No unresolved item should be guessed during implementation.
+No remaining unresolved item should be guessed during implementation.
 
 ## 12. Required verification before any future implementation approval
 
