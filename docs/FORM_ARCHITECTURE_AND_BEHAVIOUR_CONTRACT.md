@@ -1,6 +1,6 @@
 # Form Architecture and Behaviour Contract
 
-Status: approved core form rules documented; the additional recommendations in Sections 11–12 are explicitly marked pending user approval. Runtime implementation and acceptance are separate work.
+Status: approved form rules and recommendations documented; runtime implementation and acceptance are separate work.
 Scope: the shared form foundation for all current and future Sam Travels workflows across the PWA and native Android presentation surfaces.
 Authority: this contract defines form architecture and common behaviour. It supplements the shared-foundation, feature-module, persistence, transaction/recovery, security/compatibility, and UI/UX contracts. It does not replace feature-owned business rules.
 
@@ -117,7 +117,7 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 - Where a form's risk warrants it, show a concise review of important values before its one Submit action. Avoid unnecessary review screens for low-risk forms.
 - Prevent accidental double taps and duplicate action execution through the shared idempotent command/action boundary, not merely by disabling a button visually.
 
-## 11. Proposed addition — units, currency, and numeric precision (pending user approval)
+## 11. Units, currency, and numeric precision
 
 - Every numeric field must make its meaning and unit clear where ambiguity is possible (for example ₹, km, litres, minutes, quantity, or percentage).
 - Currency fields use the currency defined by the owning feature; initial Sam Travels monetary records use INR as defined by the driver workflow contract.
@@ -125,7 +125,7 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 - Do not mix values with different units or silently convert them. Any conversion must be explicit, correct, and visible.
 - Calculated/read-only values should be distinguishable from driver-entered values. Where a calculation materially affects a business decision, provide a concise explanation of its inputs or calculation basis.
 
-## 12. Proposed addition — keyboard, touch, and accessibility behaviour (pending user approval)
+## 12. Keyboard, touch, and accessibility behaviour
 
 - Controls must have clear labels and be usable on mobile touchscreens, with adequate touch targets and spacing to reduce accidental taps.
 - Focus order should follow the form's logical reading and entry order.
@@ -179,6 +179,6 @@ A form conforms only when:
 - It prevents duplicate effects and preserves data through supported interruption/recovery paths.
 - Its destructive actions and unusual-value warnings follow this contract.
 - Its data remains compatible with shared migration, backup/restore, and audit requirements.
-- The proposed recommendations in Sections 11–12 are not binding until explicitly approved.
+- Units, currency, precision, rounding, keyboard, touch, and accessibility requirements in Sections 11–12 are approved shared requirements.
 
 This contract records approved architecture and product rules only. It does not claim these guarantees are already implemented or runtime-enforced. Runtime changes, schema changes, UI changes, and implementation acceptance require a separate explicit authorization and test plan.
