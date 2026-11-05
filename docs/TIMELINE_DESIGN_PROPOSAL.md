@@ -1,6 +1,6 @@
 # Timeline Product Design
 
-# Status: Final product design frozen
+**Status: Final product design frozen.**
 
 **Design approval: Frozen by explicit user approval.**
 **Implementation authorization: Not granted.**
@@ -408,6 +408,5 @@ It does **not** authorize:
 - Database schema, indexes, migrations or persisted metric definitions.
 - Android workers/services, PWA background behavior or geocoder integration.
 - Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
-- Any code, schema, migration, UI, background-service, integration or runtime implementation.
 
 Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The product design itself is already frozen; implementation approval must not be inferred from this design freeze.
