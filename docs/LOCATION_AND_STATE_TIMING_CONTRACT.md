@@ -68,6 +68,14 @@ Maintain event-driven state intervals rather than relying on a UI interval as th
 Required duration measures:
 - Shift duration: shift start to shift end. The driver-facing Work screen does not show a prominent continuously running shift timer; show total elapsed shift duration when the driver goes Offline and after the shift has ended. This presentation choice does not remove durable interval timing, recovery, or reporting.
 - Ride duration: Start ride to End ride; while active, show elapsed time.
+
+### 04:00 logical-shift rotation
+- At 04:00 Asia/Kolkata, rotate the logical shift automatically while preserving the driver's continuous Online session. This is not an Offline/Online transition and must not be rendered as one.
+- Assign each trip to the logical-shift ID active when that trip is created. A trip crossing 04:00 remains wholly assigned to its creation shift; trips created at or after 04:00 use the new logical shift.
+- Persist the boundary and new logical-shift identity with stable identity/idempotency so delayed startup, offline operation, process death, or reboot can recover exactly one boundary without duplicate shifts.
+- Do not interrupt an active trip with an odometer-confirmation prompt. If a trip is active at 04:00, defer the new shift's odometer confirmation until the trip is resolved: after the cancellation-fee form is saved for a cancelled pickup-approach trip, or after the Fare form is saved for a completed ride. If no trip is active, present the confirmation at the boundary.
+- Prefill the new logical shift's odometer confirmation with the last confirmed odometer reading. Allow the driver to confirm or edit it; an upward edit is recorded as personal kilometres under the approved driver-workflow rule.
+- The automatic logical boundary is a system-generated shift-segmentation event, not a fabricated driver action. Preserve its actual 04:00 local boundary instant and timezone context. Do not invent a GPS fix for it; GPS evidence rules continue to apply to actual user-triggered shift/trip events defined by the driver workflow contract.
 - Pickup approach duration: entering the going-to-pickup state (ride accepted/approach begins) until pickup/trip start, or until ride cancellation if cancelled first.
 - Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue ride duration unless a new trip is explicitly created and its Start ride event is recorded.
 
@@ -109,6 +117,10 @@ Represent intervals with a start event, optional end event, status, and derived 
 - Verify clock rollback/forward anomalies are flagged and do not silently corrupt historical durations.
 
 - Verify shift, trip, and pickup approach durations across midnight, WebView reload, process death, and device reboot/recovery. Verify the Work screen does not show a prominent live shift timer while retaining correct shift-duration results at shift end and in history.
+- Verify the 04:00 Asia/Kolkata boundary rotates the logical shift without interrupting Online status or creating an Offline/Online transition.
+- Verify trips created before 04:00 remain assigned to the previous logical shift even when they end after 04:00, and trips created at/after 04:00 use the new logical shift.
+- Verify a trip active at 04:00 is not split and no odometer prompt appears during pickup approach or an active ride; verify the prompt appears only after cancellation-fee save or Fare save, respectively.
+- Verify the boundary and new logical-shift identity recover exactly once after app closure, offline operation, process death, and reboot; retries must not create duplicate shifts.
 - Verify cancellation closes the pickup approach timer and records location at cancellation.
 - Verify India clock formatting and elapsed duration formatting, including durations longer than 24 hours.
 
