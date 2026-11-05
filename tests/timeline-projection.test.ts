@@ -47,9 +47,10 @@ describe("headless Timeline domain projection",()=>{
   expect(m.parking_total).toEqual({status:"available",value:1000,unit:"minor_currency_units",currency:"INR"});
  });
  it("calculates business kilometres from a valid odometer pair",()=>{
-  const readings:TimelineOdometerReading[]=[{id:"os",kind:"start",readingKm:1200.5,recordedAt:shiftStart},{id:"oe",kind:"end",readingKm:1234.75,recordedAt:shiftEnd}];
+  const readings:TimelineOdometerReading[]=[{id:"os",kind:"start",readingKm:1200.5,recordedAt:shiftStart},{id:"oe",kind:"end",readingKm:1234.75,recordedAt:"2026-11-04T22:00:00.000Z"}];
   const p=buildTimelineProjection({events:[event("ss",1,"shift_start",shiftStart,"idle"),event("se",2,"shift_end",shiftEnd)],odometer:{status:"available",records:readings}});
   expect(p.logicalShifts[0].metrics.business_km).toEqual({status:"available",value:34.25,unit:"km"});
+  expect(p.logicalShifts[1].metrics.business_km.status).toBe("unavailable");
  });
  it("keeps open shift and trip values pending without a stable as-of instant",()=>{
   const p=buildTimelineProjection({events:[event("ss",1,"shift_start",shiftStart,"idle"),event("ts",2,"trip_start","2026-11-04T19:00:00.000Z")]});
