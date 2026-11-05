@@ -1,6 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
-import { analyzeModuleReferences } from "./architecture-import-parser.mjs";
+import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "./architecture-import-parser.mjs";
 
 const root = process.cwd();
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
@@ -223,15 +223,13 @@ const androidPersistenceGateways = new Set([
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   const content = await readFile(absolute, "utf8");
-  const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
+  const productionTypeScript = /^(?:packages|apps\\/web\\/src)\\//.test(relative) &&
     !relative.startsWith("packages/storage-browser/src/");
-  if (productionTypeScript && /(?:from|import\s*\()\s*["']dexie(?:\/[^"']*)?["']/.test(content)) {
-    failures.push(relative + ": Dexie is a storage adapter dependency and may only be imported by packages/storage-browser");
-  }
   const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
-  if (productionTypeScript && /\bbrowserDatabase\b/.test(content) &&
-      !browserPersistenceGateways.has(relative)) {
-    failures.push(relative + ": browserDatabase is private to the browser persistence adapter");
+  if (productionTypeScript && !browserPersistenceGateways.has(relative)) {
+    for (const reference of analyzeBrowserPersistenceReferences(content, relative)) {
+      failures.push(`${relative}:${reference.line}: direct browser persistence access "${reference.symbol}" is private to the browser persistence adapter`);
+    }
   }
   if (relative.startsWith("android/app/src/main/") &&
       /\b[A-Za-z_]\w*\.(?:records|logBookEvents)\(\)/.test(content) &&
