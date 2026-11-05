@@ -5,7 +5,7 @@ import java.time.Instant
 
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
-    private fun snapshot(db: LocalDatabase): JSONObject =
+    fun snapshot(db: LocalDatabase): JSONObject =
         db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
             ?: JSONObject().put("schemaVersion", 1).put("revision", 0).put("state", "idle")
@@ -194,4 +194,20 @@ object DriverWorkflowStore {
             }
         }
     }
+
+    /** Read the durable pending-intent set through the Work repository boundary. */
+    fun listPending(db: LocalDatabase): List<JSONObject> =
+        db.records().list()
+            .filter { it.id.startsWith("driver-intent:") }
+            .mapNotNull { row ->
+                runCatching { JSONObject(row.json) }.getOrNull()?.takeIf {
+                    it.optString("status") == "pending_location" ||
+                        it.optString("status") == "needs_attention"
+                }
+            }
+
+    /** Read the immutable committed event stream through its owning repository boundary. */
+    fun listEvents(db: LocalDatabase): List<JSONObject> =
+        db.logBookEvents().list().map { JSONObject(it.json) }
+
 }
