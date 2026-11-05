@@ -29,7 +29,6 @@ class DriverWorkflowPlugin:Plugin(){
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
  private fun state():JSONObject=DriverWorkflowStore.snapshot(db)
- private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
  @PluginMethod fun enableOverlay(call:PluginCall){
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"overlayLocationPermissionCallback");return}
   startOverlay(call)
