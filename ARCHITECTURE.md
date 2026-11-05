@@ -61,7 +61,7 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 
 ## Consolidated architecture foundation contract
 
-The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
+The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). Its Section 9.1 also makes time integrity, explicit zero/unavailable/pending value semantics, and presentation non-interference mandatory across all capabilities. This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
 
 ## Driver workflow and business rules
 
@@ -70,6 +70,10 @@ The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational
 ## UI/UX and application shell foundation
 
 The presentation boundaries, shell responsibilities, design-system governance, interaction and accessibility requirements, component-level decoupling, platform presentation boundaries, and verification criteria are defined in [docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md](docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md). This contract supplements the feature, lifecycle, PWA, Android, persistence, recovery, and security contracts; it does not replace their authority or define business rules, calculations, persistence semantics, or feature workflows.
+
+## Frozen Timeline product design
+
+The final event-wise Timeline product design is recorded in [docs/TIMELINE_DESIGN_PROPOSAL.md](docs/TIMELINE_DESIGN_PROPOSAL.md). Its product behavior, date/week navigation, logical-shift grouping, cross-04:00 time allocation and ownership, shift summaries, initial metric catalogue, and presentation rules are frozen as the product-design baseline. Geoapify Reverse Geocoding API is selected as the primary hosted provider for optional text-only location enrichment, behind a replaceable adapter and subject to the documented India-quality, privacy, credential, attribution and budget activation gates. Selection does not mean an account, credential, integration or paid plan exists, and does not authorize implementation. This design freeze does not authorize implementation and does not override existing normative architecture contracts. Any later product-design change requires explicit review and approval; implementation requires a separate plan and explicit authorization.
 
 ## Feature modularity
 
