@@ -78,10 +78,30 @@ Room's transaction boundary must cover each accepted Android business transition
 
 ## Time integrity
 
-- Persist event timestamps as unambiguous UTC instants; preserve the business timezone/date used for display and reporting.
-- Compute elapsed durations from persisted start and end instants/current instant, not a periodically incremented counter.
-- Recompute active timers after restart so powered-off time is included. A monotonic clock alone is insufficient across reboot; use wall-clock instants with boot/clock-change diagnostics.
-- If the device's offline wall clock is manually changed while powered off, exact real-world elapsed time cannot be independently established. Record clock-integrity warnings and provide a review/correction path rather than silently altering event history.
+Time integrity is mandatory for every feature and calculation, not only the driver workflow:
+- Persist event occurrence timestamps as immutable, unambiguous UTC instants; preserve the applicable IANA business timezone and business date separately. Sam Travels currently uses Asia/Kolkata for business-date and display rules.
+- Keep occurred-at, received-at, persisted-at, synchronized-at and recovered-at meanings distinct wherever those moments differ. A delayed or recovered event retains its original occurrence instant; recovery time is not substituted for event time.
+- Keep event sequence/order and stable identity separate from wall-clock time. Never rewrite historical timestamps or reorder immutable events to hide a clock anomaly.
+- Compute elapsed durations from authoritative persisted interval endpoints/current instants, not periodically incremented counters or formatted date strings.
+- A monotonic clock may measure elapsed time within one boot session, but cannot alone establish elapsed time across reboot. Where available, retain boot-session and monotonic anchors alongside wall-clock instants to detect discontinuities.
+- Detect material backward/forward clock changes and impossible timestamp ordering. If offline clock changes during power-off make exact real-world elapsed time unknowable, expose uncertainty and require an auditable review/correction path; do not fabricate precision or silently alter history.
+- Network time may corroborate the device clock but is never required for offline operation. Changing display timezone/format must not mutate stored instants or historical business dates.
+- Driver GPS/fix-age and event-time evidence follows [docs/LOCATION_AND_STATE_TIMING_CONTRACT.md](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md); these general time guarantees apply to Finance, Log Book, Performance and every other capability as well.
+
+## Value availability and zero semantics
+
+Every persisted or derived quantity must preserve the distinction between a known value and the state of that value:
+- **Known zero:** an actual recorded zero, or a zero produced by an approved calculation over a complete authoritative scope whose contract defines an empty qualifying set as zero.
+- **Unavailable/unknown:** required source data is absent, invalid, inaccessible, or cannot support a trustworthy result.
+- **Pending/incomplete:** required work or source events have not yet reached a terminal/reconciled state.
+- **Not applicable:** the domain contract explicitly says the measure does not apply to this record or context.
+- **Needs attention/invalid:** conflicting, malformed, or inconsistent source data prevents a valid result.
+- Never coerce missing/null/undefined/invalid values to zero or another apparently valid default. A complete query with no qualifying records may yield a zero count/total only where the relevant calculation contract explicitly permits it.
+- If an aggregate depends on missing, invalid or pending required inputs, do not present it as a final complete total. A partial aggregate must be explicitly labelled partial and identify its incomplete scope.
+- Persist or derive the value status alongside its value so PWA and Android surfaces cannot assign different meanings to the same data. Feature and calculation contracts define required/optional inputs and domain-specific handling.
+- Presentation-only changes must not change the underlying value, status, calculation, source record, or historical result.
+
+These rules are mandatory shared-foundation requirements and are expanded in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md), Section 9.1.
 
 
 ## Dates, money, and units
