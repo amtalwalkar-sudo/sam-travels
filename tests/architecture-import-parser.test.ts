@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeModuleReferences } from "../scripts/architecture-import-parser.mjs";
+import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "../scripts/architecture-import-parser.mjs";
 
 describe("compiler-backed architecture import parser", () => {
   it("collects static, re-export, dynamic, and CommonJS module references", () => {
