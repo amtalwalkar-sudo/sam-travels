@@ -98,6 +98,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 - The latest successfully saved/confirmed odometer reading remains visible on the Work screen in every driver state: Offline, shift-start entry, Online, pickup approach, active ride, between trips, and shift-end entry.
 - Display only the latest confirmed/saved reading, never an unsaved form value.
 - **Personal km** = current shift-start reading minus the previous confirmed shift-end reading. This is shown immediately when an edited start reading makes it calculable; it remains provisional until start confirmation.
+- On the first-ever shift, when no previous shift-end reading exists, show personal kilometres as **“Not available (first shift)”**. Do not display zero or ask the driver to estimate/enter a value manually.
 - **Business km** = shift-end reading minus shift-start reading for that shift.
 - Odometer readings and distance belong to the shift record, not to individual trip fare entries.
 - Do not infer distance from GPS or use GPS distance as a substitute for the odometer calculation.
@@ -206,12 +207,11 @@ Odometer entry and confirmation are shift-start/shift-end workflow requirements.
 ## 9. Explicitly unresolved product decisions
 
 The following are intentionally not guessed or silently decided by this contract:
-2. Whether a pending Fare entry blocks creation of another trip or other driver actions.
-3. Cancellation-fee required/optional rules, zero-value treatment, payer, and whether cancellation records support Toll/Parking.
-4. How to handle a shift-end odometer reading lower than that shift's confirmed start reading.
-5. Whether controlled odometer corrections alter only the corrected shift or require recalculation/review of later shift distance allocations.
-6. Thresholds or warnings for unusually large odometer differences.
- 9. The exact user interaction for editing a financial entry after trip finalization, while preserving auditable corrections.
+1. Whether a pending Fare entry blocks creation of another trip or other driver actions.
+2. Cancellation-fee required/optional rules, zero-value treatment, payer, and whether cancellation records support Toll/Parking.
+ 3. Whether controlled odometer corrections alter only the corrected shift or require recalculation/review of later shift distance allocations.
+4. Thresholds or warnings for unusually large odometer differences.
+5. The exact user interaction for editing a financial entry after trip finalization, while preserving auditable corrections.
 
 No implementation may invent these behaviours. Each requires an explicit product decision and an update to this contract before the corresponding workflow is finalized.
 
