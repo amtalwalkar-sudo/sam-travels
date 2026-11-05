@@ -68,7 +68,7 @@ function parseTime(value:string|undefined):number|undefined {
   if(typeof value!=="string")return undefined; const n=Date.parse(value); return Number.isFinite(n)?n:undefined;
 }
 function createShift(id:string):ShiftBuilder {
-  return {id,anchorDate:id.slice(13),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
+  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
 }
 type BusyInterval={start:number;end:number;kind:"pickup"|"passenger"};
 function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"|"pickupMs",busy?:Map<string,BusyInterval[]>):void {

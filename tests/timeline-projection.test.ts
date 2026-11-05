@@ -12,6 +12,7 @@ describe("headless Timeline domain projection",()=>{
   const p=buildTimelineProjection({events:[event("ss",1,"shift_start",shiftStart,"idle"),event("se",2,"shift_end",shiftEnd)]});
   expect(p.calendarDays.map(x=>x.date)).toEqual(["2026-11-04","2026-11-05"]);
   expect(p.logicalShifts.map(x=>x.id)).toEqual(["logical-shift:2026-11-04","logical-shift:2026-11-05"]);
+  expect(p.logicalShifts.map(x=>x.anchorDate)).toEqual(["2026-11-04","2026-11-05"]);
   expect(p.logicalShifts.map(x=>x.metrics.shift_duration)).toEqual([{status:"available",value:270,unit:"minutes"},{status:"available",value:60,unit:"minutes"}]);
  });
  it("allocates a 03:50–04:20 trip by overlap but owns its count at trip start",()=>{
