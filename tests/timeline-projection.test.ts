@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {buildTimelineProjection,TIMELINE_V1_METRIC_IDS,type TimelineFinancialRecord,type TimelineOdometerReading} from "../packages/domain/src/timeline";
+import {buildTimelineProjection,TIMELINE_V1_METRIC_IDS,type TimelineFinancialRecord,type TimelineOdometerReading,type TimelinePickupInterval} from "../packages/domain/src/timeline";
 import type {DriverEvent} from "../packages/domain/src/driver-workflow";
 function event(id:string,revision:number,eventType:DriverEvent["command"]["eventType"],at:string,expectedPriorState:DriverEvent["command"]["expectedPriorState"]="shift_active"):DriverEvent {
  return {eventId:id,command:{schemaVersion:1,commandId:id,eventId:id,eventType,originSurface:"pwa",transitionAt:at,expectedPriorState,expectedRevision:revision-1,idempotencyKey:id},
@@ -64,5 +64,28 @@ describe("headless Timeline domain projection",()=>{
  it("does not count an orphan close as completed or cancelled",()=>{
   const p=buildTimelineProjection({events:[event("orphan",1,"trip_end","2026-11-04T20:10:00.000Z","trip_active")]});
   expect(p.logicalShifts[0].metrics.completed_ride_count.status).toBe("invalid");expect(p.integrityIssues[0].code).toBe("unmatched_trip_close");
+ });
+
+ it("calculates pickup time and idle as the non-overlapping complement of shift and passenger time",()=>{
+  const events=[
+   event("ss",1,"shift_start",shiftStart,"idle"),
+   event("ts",2,"trip_start","2026-11-04T18:20:00.000Z","shift_active"),
+   event("te",3,"trip_end","2026-11-04T18:50:00.000Z","trip_active"),
+   event("se",4,"shift_end",shiftEnd,"shift_active")
+  ];
+  const pickups:TimelinePickupInterval[]=[{id:"pickup-1",startedAt:"2026-11-04T18:10:00.000Z",endedAt:"2026-11-04T18:20:00.000Z"}];
+  const p=buildTimelineProjection({events,pickupIntervals:{status:"available",records:pickups}});
+  expect(p.logicalShifts[0].metrics.pickup_time).toEqual({status:"available",value:10,unit:"minutes"});
+  expect(p.logicalShifts[0].metrics.passenger_trip_time).toEqual({status:"available",value:30,unit:"minutes"});
+  expect(p.logicalShifts[0].metrics.idle_time).toEqual({status:"available",value:230,unit:"minutes"});
+  expect(p.logicalShifts[1].metrics.pickup_time).toEqual({status:"available",value:0,unit:"minutes"});
+  expect(p.logicalShifts[1].metrics.idle_time).toEqual({status:"available",value:60,unit:"minutes"});
+ });
+ it("invalidates idle and activity time when pickup and passenger intervals overlap",()=>{
+  const events=[event("ss",1,"shift_start",shiftStart,"idle"),event("ts",2,"trip_start","2026-11-04T18:20:00.000Z"),event("te",3,"trip_end","2026-11-04T18:50:00.000Z","trip_active"),event("se",4,"shift_end",shiftEnd,"shift_active")];
+  const p=buildTimelineProjection({events,pickupIntervals:{status:"available",records:[{id:"overlap",startedAt:"2026-11-04T18:15:00.000Z",endedAt:"2026-11-04T18:25:00.000Z"}]}});
+  expect(p.logicalShifts[0].metrics.pickup_time.status).toBe("invalid");
+  expect(p.logicalShifts[0].metrics.passenger_trip_time.status).toBe("invalid");
+  expect(p.logicalShifts[0].metrics.idle_time.status).toBe("invalid");
  });
 });
