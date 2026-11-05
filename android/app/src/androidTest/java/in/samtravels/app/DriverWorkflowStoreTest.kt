@@ -237,4 +237,37 @@ class DriverWorkflowStoreTest {
         assertTrue(DriverWorkflowStore.firstRecoverableIntent(db) == null)
     }
 
+
+    @Test fun roomEventReadMatchesTheSharedTimelineParityFixture() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val fixture = context.assets.open("timeline-parity-events-v1.json")
+            .bufferedReader().use { it.readText() }
+        val expected = org.json.JSONArray(fixture)
+        for (index in 0 until expected.length()) {
+            val event = expected.getJSONObject(index)
+            db.logBookEvents().put(
+                LogBookEventRecord(
+                    event.getString("eventId"),
+                    event.toString(),
+                    1,
+                    event.getString("committedAt"),
+                ),
+            )
+        }
+
+        val actual = DriverWorkflowStore.listEvents(db)
+        assertEquals(expected.length(), actual.size)
+        for (index in 0 until expected.length()) {
+            val expectedEvent = expected.getJSONObject(index)
+            val actualEvent = actual[index]
+            assertEquals(expectedEvent.getString("eventId"), actualEvent.getString("eventId"))
+            assertEquals(expectedEvent.getInt("revision"), actualEvent.getInt("revision"))
+            assertEquals(expectedEvent.getString("committedAt"), actualEvent.getString("committedAt"))
+            assertEquals(expectedEvent.getJSONObject("command").getString("eventType"),
+                actualEvent.getJSONObject("command").getString("eventType"))
+            assertEquals(expectedEvent.getJSONObject("command").getString("transitionAt"),
+                actualEvent.getJSONObject("command").getString("transitionAt"))
+        }
+    }
+
 }
