@@ -1,4 +1,4 @@
-package in.samtravels.app
+package `in`.samtravels.app
 
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
