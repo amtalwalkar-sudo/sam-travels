@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserDiagnostics, recordBrowserDiagnostic } from "../packages/storage-browser/src/local-diagnostics";
