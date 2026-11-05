@@ -71,9 +71,9 @@ The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational
 
 The presentation boundaries, shell responsibilities, design-system governance, interaction and accessibility requirements, component-level decoupling, platform presentation boundaries, and verification criteria are defined in [docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md](docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md). This contract supplements the feature, lifecycle, PWA, Android, persistence, recovery, and security contracts; it does not replace their authority or define business rules, calculations, persistence semantics, or feature workflows.
 
-## Timeline design proposal
+## Frozen Timeline product design
 
-The proposed event-wise Timeline product and architecture decisions, including date/week navigation, shift summaries, metric regression isolation, and optional offline reverse-geocoding enrichment, are recorded in [docs/TIMELINE_DESIGN_PROPOSAL.md](docs/TIMELINE_DESIGN_PROPOSAL.md). This is a discussion document only: it is not frozen, does not override existing contracts, and does not authorize implementation. Its unresolved date/shift attribution decisions must be settled before any future freeze or implementation approval.
+The final event-wise Timeline product design is recorded in [docs/TIMELINE_DESIGN_PROPOSAL.md](docs/TIMELINE_DESIGN_PROPOSAL.md). Its product behavior, date/week navigation, logical-shift grouping, cross-04:00 time allocation and ownership, shift summaries, initial metric catalogue, location-enrichment strategy, presentation rules, and acceptance criteria are frozen as the product-design baseline. This design freeze does not authorize implementation and does not override existing normative architecture contracts. Any later product-design change requires explicit review and approval; implementation requires a separate plan and explicit authorization.
 
 ## Feature modularity
 
