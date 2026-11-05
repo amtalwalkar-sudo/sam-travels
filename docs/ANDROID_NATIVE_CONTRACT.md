@@ -38,7 +38,7 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 
 - Provide a Capacitor location bridge backed by Android location APIs for native Android operation and browser geolocation for active PWA operation.
 - **Do not implement continuous GPS tracking.** No location polling, subscription, periodic sampling, or background location collection between required user-triggered events, even while a shift is active.
-- Start a bounded, fresh location request only for shift start/end, ride/trip start/end, and ride cancellation. Stop that request after a reliable fix or recoverable failure/timeout.
+- Start a bounded, fresh location request only for shift start/end, trip creation/Going to pickup, Start ride, End ride, and ride cancellation. These are six distinct event types; do not reuse one event's GPS fix for another. Stop that request after a reliable fix or recoverable failure/timeout.
 - Acquire GPS offline; internet/network assistance may improve time-to-fix but is never mandatory.
 - For each required transition, continue that event's acquisition until a fix passes the configured accuracy and freshness policy. Do not mark the transition complete with unreliable/missing GPS evidence.
 - Store fix timestamp and transition timestamp separately, along with coordinates, horizontal accuracy, and source.
