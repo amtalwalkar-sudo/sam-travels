@@ -25,13 +25,17 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 ### Active shift and going Offline
 
-- One shift may contain multiple manually created trips.
+- One logical shift may contain multiple manually created trips.
 - The driver may go Offline at any time except while a ride is active (after Start ride and before End ride).
-- Going to pickup is not an active ride. The driver may go Offline while a trip is in the pickup-approach stage.
-- After a trip is cancelled, the shift remains Online; the driver may manually create another trip or go Offline.
-- Ending a shift records the actual transition timestamp and its own event-scoped GPS evidence. The required shift-end odometer reading must be entered before the shift can end.
-- A shift-end command must not be committed while an actual ride remains active.
-- If a shift ends while a trip is still going to pickup, the trip record and its event history must not disappear. The exact terminal/interrupted status and subsequent permitted handling of that trip remain an explicit product decision; do not silently cancel, complete, or delete it.
+- A trip created in Going to pickup is a real trip. Before a driver manually ends the shift while that trip is still in pickup approach, the driver must select Cancel trip and complete/save the cancellation-fee form. Only then may the shift end. The trip must never be silently abandoned, deleted, or treated as completed.
+- After a trip is cancelled and its cancellation-fee form is saved, the driver remains Online and may create another trip or manually go Offline.
+- **04:00 automatic logical-shift boundary:** At 04:00 Asia/Kolkata, KFE closes the previous logical shift and starts a new logical shift while keeping the driver's Online session continuously active. Do not require an Offline/Online toggle and do not represent this as a break in the driver's Online session.
+- Trips created before 04:00 remain assigned to the previous logical shift; trips created at or after 04:00 belong to the new logical shift. A trip already in progress at 04:00 remains wholly assigned to the shift in which it was created; never split a trip across shifts.
+- The 04:00 boundary is durable, uniquely identified, idempotent, and recoverable if the app is closed, stopped, or offline at that time. Reconciliation must create exactly one boundary/new logical shift, not duplicates.
+- The new logical shift's odometer start value is prefilled from the last confirmed odometer reading. The driver may confirm or edit it; an upward edit records the difference as personal kilometres under the approved odometer rule. Keep the confirmation pending until it can be safely presented.
+- Do not interrupt an active trip with an odometer pop-up. If no trip is active at 04:00, present the confirmation then. If a trip is in pickup approach, wait until it is cancelled and its cancellation-fee form is saved. If a ride is active, wait until End ride and the Fare form are saved. Then present the odometer confirmation. The Online session remains active throughout.
+- A manually ended shift records its actual transition timestamp and its own event-scoped GPS evidence. Its required shift-end odometer reading must be entered before it can end.
+- A shift-end command must not be committed while an actual ride remains active or while a pickup-approach trip has not been cancelled and its cancellation-fee form saved.
 
 ### Shift duration presentation
 
@@ -181,12 +185,14 @@ Odometer entry and confirmation are shift-start/shift-end workflow requirements.
 
 ## 7. Operational date
 
-- The operational day boundary is **04:00 local time**, not midnight.
-- Persist each event's actual timestamp; never alter or round event time to fit an operational date.
-- Assign a trip's operational date when the trip is created. That date remains fixed for the lifetime of the trip, even if the trip crosses 04:00.
-- Example: a trip created at 03:50 and ended at 04:20 belongs to the operational date assigned at 03:50 (the previous operational day).
-- Use the existing `Asia/Kolkata` timezone contract for initial local business-date interpretation, while storing UTC instants and the relevant local date/time-zone context.
-- Shift operational-date assignment (including a shift that crosses 04:00) is not yet approved. Do not assume it follows the trip rule until explicitly decided.
+- The operational-day and logical-shift boundary is **04:00 Asia/Kolkata local time**, not midnight.
+- Persist each event's actual timestamp; never alter or round event time to fit an operational date or shift.
+- Assign a trip's operational date and logical-shift ID when the trip is created. Both remain fixed for the lifetime of the trip, even if the trip crosses 04:00.
+- Example: a trip created at 03:50 and ended at 04:20 belongs to the previous operational day and previous logical shift. A trip created at 04:00 or later belongs to the new operational day and new logical shift.
+- At 04:00, rotate the logical shift automatically while retaining one continuous Online session. The old shift boundary and new shift identity must be committed/recovered idempotently; do not synthesize an Offline/Online cycle.
+- An active trip at the boundary remains assigned to its creation shift. Defer the new shift's odometer confirmation until the current trip workflow is safely resolved: after cancellation-fee save for a pickup-approach cancellation, or after Fare save for a completed ride. If no trip is active, show the confirmation at the boundary.
+- Prefill the new logical shift's odometer confirmation with the last confirmed odometer reading. Allow confirmation or an upward edit; under the approved rule, record the increase as personal kilometres. Do not show the prompt while the driver is in an active ride.
+- Store UTC instants and the relevant local date/time-zone context; use the existing `Asia/Kolkata` timezone contract for boundary interpretation.
 
 ## 8. Timing, GPS, and durability integration
 
@@ -200,21 +206,18 @@ Odometer entry and confirmation are shift-start/shift-end workflow requirements.
 ## 9. Explicitly unresolved product decisions
 
 The following are intentionally not guessed or silently decided by this contract:
-1. The exact status and permitted follow-up actions for a trip still going to pickup when its shift ends.
 2. Whether a pending Fare entry blocks creation of another trip or other driver actions.
 3. Cancellation-fee required/optional rules, zero-value treatment, payer, and whether cancellation records support Toll/Parking.
 4. How to handle a shift-end odometer reading lower than that shift's confirmed start reading.
 5. Whether controlled odometer corrections alter only the corrected shift or require recalculation/review of later shift distance allocations.
 6. Thresholds or warnings for unusually large odometer differences.
-7. How the first shift's personal-kilometre value should be presented when no previous shift-end reading exists.
-8. The operational-date assignment rule for shifts crossing 04:00.
-9. The exact user interaction for editing a financial entry after trip finalization, while preserving auditable corrections.
+ 9. The exact user interaction for editing a financial entry after trip finalization, while preserving auditable corrections.
 
 No implementation may invent these behaviours. Each requires an explicit product decision and an update to this contract before the corresponding workflow is finalized.
 
 ## 10. Contract ownership and acceptance
 
-- This contract owns the driver workflow's product rules and state semantics.
+- This contract owns the driver workflow's product rules and state semantics, including automatic 04:00 logical-shift rotation and deferred odometer confirmation.
 - `ANDROID_NATIVE_CONTRACT.md` owns Android overlay/bridge execution, Room ownership, permissions, lifecycle and platform behavior; this document adds the explicit shift-controlled overlay visibility and workflow parity requirements.
 - `LOCATION_AND_STATE_TIMING_CONTRACT.md` owns GPS evidence, timestamp integrity, duration derivation, and timer recovery; this document identifies the distinct driver events that require that evidence.
 - `FEATURE_MODULE_CONTRACT.md` owns feature boundaries, public entry points, calculation ownership, forms as adapters, and add-on isolation.
