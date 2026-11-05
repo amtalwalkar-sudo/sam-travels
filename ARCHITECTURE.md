@@ -63,6 +63,10 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 
 The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
 
+## Driver workflow and business rules
+
+The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational-date, and PWA/native overlay workflow is defined in [docs/DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md). It is the product-rule authority for that workflow and supplements the shared architecture foundation, feature, Android, transaction/recovery, and GPS/time contracts. Those existing contracts retain authority for their respective technical guarantees.
+
 ## Feature modularity
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
