@@ -100,7 +100,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
   const ensure=(id:string):ShiftBuilder=>{const found=shifts.get(id);if(found)return found;const created=createShift(id);shifts.set(id,created);return created;};
   for(const event of input.events) {
     const at=parseTime(event?.command?.transitionAt);
-    if(!event?.eventId||!Number.isSafeInteger(event.revision)||event.revision<1||at===undefined||!event.command?.eventType) {
+    if(!event?.eventId||!Number.isSafeInteger(event.revision)||event.revision<1||at===undefined||!event.command?.eventType||!["shift_start","shift_end","trip_start","trip_end","ride_cancel"].includes(event.command.eventType)) {
       issues.push({code:"invalid_event",eventId:event?.eventId});continue;
     }
     const previous=unique.get(event.eventId);
@@ -146,8 +146,8 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     else addInterval(shifts,start,asOf,"shiftDurationMs");
   }
 
-  const trips:TripSpan[]=[],openTrip: {event:DriverEvent}|undefined;
-  let activeTrip=openTrip;
+  const trips:TripSpan[]=[];
+  let activeTrip:{event:DriverEvent}|undefined;
   for(const e of events) {
     const kind=e.command.eventType,at=Date.parse(e.command.transitionAt),id=shiftIdAt(at);
     if(kind==="trip_start") {
@@ -177,7 +177,15 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     const start=Date.parse(activeTrip.event.command.transitionAt),s=ensure(shiftIdAt(start));
     if(asOf===undefined)s.pendingTrip=true;
     else if(asOf<start){s.invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:activeTrip.event.eventId,logicalShiftId:s.id});}
-    else {addInterval(shifts,start,asOf,"passengerTripMs");for(const shift of shifts.values())if(shift.passengerTripMs>0)shift.pendingTrip=true;}
+    else {
+      addInterval(shifts,start,asOf,"passengerTripMs");
+      let cursor=start;
+      while(cursor<asOf) {
+        const id=shiftIdAt(cursor);
+        ensure(id).pendingTrip=true;
+        cursor=Math.min(asOf,nextBoundary(cursor));
+      }
+    }
   }
 
   const tripById=new Map(trips.map(t=>[t.id,t]));
