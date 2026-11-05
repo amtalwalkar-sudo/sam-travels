@@ -72,7 +72,7 @@ class KotlinArchitectureBoundaryTest {
         val violations = mutableListOf<String>()
         val sourceRoot = File(root, "android/app/src/main")
         sourceRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { source ->
-            val relative = source.relativeTo(root).invariantSeparatorsPath
+            val relative = source.relativeTo(root).path.replace(File.separatorChar, '/')
             withParsed(source.readText()) { file ->
                 file.accept(object : KtTreeVisitorVoid() {
                     override fun visitCallExpression(expression: KtCallExpression) {
