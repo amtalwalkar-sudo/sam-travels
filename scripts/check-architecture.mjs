@@ -153,9 +153,9 @@ for (const absolute of sourceFiles) {
 
   for (const reference of parsed.references) {
     const specifier = reference.specifier;
-    const productionTypeScript = /^(?:packages|apps\\/web\\/src)\\//.test(relative) &&
+    const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
       !relative.startsWith("packages/storage-browser/src/");
-    if (productionTypeScript && /^(?:dexie)(?:\\/|$)/.test(specifier)) {
+    if (productionTypeScript && /^(?:dexie)(?:\/|$)/.test(specifier)) {
       failures.push(`${relative}:${reference.line}: Dexie import "${specifier}" is private to packages/storage-browser`);
     }
     const resolved = resolveImport(specifier, relative, resolveAlias);
@@ -228,7 +228,7 @@ const androidPersistenceGateways = new Set([
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   const content = await readFile(absolute, "utf8");
-  const productionTypeScript = /^(?:packages|apps\\/web\\/src)\\//.test(relative) &&
+    const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
     !relative.startsWith("packages/storage-browser/src/");
   const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
   if (productionTypeScript && !browserPersistenceGateways.has(relative)) {
