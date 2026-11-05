@@ -40,7 +40,7 @@ Each transition intent has its own stable event ID and event timestamp. Store th
 
 ## Native platform lifecycle
 
-- GPS acquisition is initiated only by the five user-triggered transition events above. No shift-scoped continuous GPS service, periodic sampling, or idle background location collection is required or permitted by this product contract.
+- GPS acquisition is initiated only by the six user-triggered transition events above. No shift-scoped continuous GPS service, periodic sampling, or idle background location collection is required or permitted by this product contract.
 - The native overlay is a separate UI feature. Overlay enabled/disabled/visible state must not gate event-based GPS acquisition.
 - The trip-creation / Going-to-pickup event is a required event-scoped GPS boundary in addition to Start ride, End ride, and cancellation. A trip-creation fix must never stand in for a later Start ride fix.
 - A transition GPS request may continue asynchronously while the app is backgrounded only as permitted by Android permissions and policy; do not keep a permanent location foreground service running between events.
