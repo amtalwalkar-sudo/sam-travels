@@ -176,6 +176,6 @@ describe("runtime feature registry", () => {
   it("returns immutable registration metadata", () => {
     const registry = registerFeatures();
     expect(() => (registry.get("work")!.dependencies as string[]).push("admin")).toThrow();
-    expect(registry.get("work")!.dependencies).toEqual([]);
+    expect(registry.get("work")!.dependencies).toEqual([{ id: "platform", contractVersion: 1 }]);
   });
 });
