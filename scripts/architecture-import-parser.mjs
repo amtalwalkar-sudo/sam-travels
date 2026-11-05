@@ -51,3 +51,32 @@ export function analyzeModuleReferences(source, fileName = "fixture.ts") {
   visit(sourceFile);
   return { references, diagnostics };
 }
+
+/**
+ * Find browser persistence primitives in production TypeScript. These APIs
+ * belong only in the designated browser persistence adapter; callers must use
+ * the application repository boundary instead.
+ */
+export function analyzeBrowserPersistenceReferences(source, fileName = "fixture.ts") {
+  const scriptKind = /\\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const references = [];
+  const guardedNames = new Set(["browserDatabase", "indexedDB", "IDBDatabase", "IDBObjectStore", "IDBTransaction"]);
+  const visit = (node) => {
+    if (ts.isIdentifier(node) && guardedNames.has(node.text)) {
+      references.push({
+        symbol: node.text,
+        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+      });
+    }
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "Dexie") {
+      references.push({
+        symbol: "new Dexie",
+        line: sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1,
+      });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return references;
+}
