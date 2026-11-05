@@ -53,7 +53,7 @@ describe("compiler-backed architecture import parser", () => {
       'const db = window.indexedDB.open("business");',
       'const table = new Dexie("business");',
       'declare const store: IDBObjectStore;',
-    ].join("\\n");
+    ].join("\n");
 
     expect(analyzeBrowserPersistenceReferences(source, "unsafe.ts").map((item) => item.symbol)).toEqual([
       "indexedDB",
