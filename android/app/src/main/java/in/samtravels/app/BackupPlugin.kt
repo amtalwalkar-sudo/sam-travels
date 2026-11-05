@@ -162,7 +162,7 @@ class BackupPlugin : Plugin() {
                     require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
                     val restoredById = (0 until restored.length()).associate {
                         val record = restored.getJSONObject(it)
-                        record.getString("participantId") + ":" + record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
+                        record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
                     }
                     val expectedById = (0 until records.length()).associate {
                         val record = records.getJSONObject(it)
