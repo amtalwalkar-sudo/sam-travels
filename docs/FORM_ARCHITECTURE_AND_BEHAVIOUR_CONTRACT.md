@@ -232,3 +232,33 @@ This contract records approved architecture and product rules only. It does not 
 - Prevent accidental double submission through the shared idempotent command boundary and show a truthful pending state while saving.
 - Do not clear the form or advance the workflow until durable save/submit success is confirmed. On failure, retain entries and make correction or retry straightforward.
 - Use adequate touch targets, spacing, readable labels, and logical focus order. Important errors and status must remain understandable without relying on colour alone.
+
+## 19. Repeated-entry workflows and safe batch completion
+
+These requirements apply to every form that supports entering multiple records or items in one working session. They are not limited to Admin or any particular feature.
+
+### Form-declared completion pattern
+- The shared form architecture supports both **save each entry** and **submit the whole batch** patterns. Each form declares which pattern applies according to its business purpose; the framework must not force one pattern on every workflow.
+- **Save each entry:** each completed entry is durably saved as its own record before the user proceeds to the next entry. The user can then choose to add another entry or finish the session. A later entry failure must not undo earlier successfully saved records.
+- **Submit the whole batch:** entries are collected in a batch and submitted together through one explicit batch completion action. The batch and its individual entries must have clear retained draft/pending/failed/committed states as applicable. The system must not represent an incomplete or pending batch as submitted.
+- The form definition must make the chosen pattern and the meaning of its primary action clear. The shared one-primary-action rule remains in force; repeated-entry controls such as **Add another** are navigation/workflow controls, not competing Save/Submit actions.
+
+### Fast, accurate repeated entry
+- Repeated-entry forms should minimize unnecessary typing, taps, and navigation while preserving clear review and correction.
+- Provide an explicit **Add another** flow where multiple entries are valid. Reuse prior values only when the field is stable and reuse is appropriate; never carry forward values that are likely to differ between records without clear review.
+- Show a concise summary of entries already added and provide a straightforward way to inspect, edit, or remove an entry before the relevant completion boundary, subject to the owning feature's audit and deletion policy.
+- Preserve the logical field order, automatic-focus, suitable-keyboard, Enter/Next, forgiving-validation, and viewport rules in Section 18 for each repeated entry. Moving to another entry must not unexpectedly reset unrelated form context or lose entered values.
+- Prevent duplicate entries and duplicate batch effects through stable record/operation identity and the shared idempotent command boundary. A repeated tap or retry must not create an unintended second record.
+
+### Interruption, recovery, and truthful status
+- Preserve both the current in-progress entry and all previously completed entries in the session across navigation, backgrounding, process termination, restart, and supported recovery.
+- On resume, clearly distinguish entries already durably saved from entries that remain in progress, drafts, pending submission, or failed. Never imply that a batch or entry was committed when it was not.
+- For save-each-entry workflows, a failure while saving the current entry must retain that entry for retry without duplicating earlier saved entries.
+- For whole-batch workflows, retain the complete batch and its entry-level data after validation or submission failure; allow correction/retry according to the owning feature's rules. Batch submission must be atomic where the business operation requires all-or-nothing semantics; otherwise the form definition must declare the permitted partial-success behaviour and report it precisely.
+- Do not clear, discard, or advance past uncommitted entries until the authoritative durable outcome is known. Recovery must reconcile from persisted state, not screen memory.
+
+### Driver safety
+- Fast-entry design must never encourage or require the driver to operate the phone while the vehicle is moving. Entry, review, correction, and batch completion must be safely pausable and resumable when the vehicle is stopped.
+- Where a workflow is interrupted by driving or another safety-critical activity, preserve its state and allow the driver to resume later without losing completed or in-progress entries.
+- Any automatic capture or background operation must follow its separately approved event, permission, privacy, and shared-foundation contracts; repeated-entry convenience must not introduce continuous tracking or unapproved automatic business actions.
+
