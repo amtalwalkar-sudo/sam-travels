@@ -39,6 +39,8 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Implementation delivered; device acceptance outstanding:** shared versioned driver commands and transition rules; durable Room/Dexie intents, events, projection and outbox; event-scoped GPS bridge; PWA controls; native overlay; stale-command rejection and pending retry are implemented. Browser automated tests and CI must pass. Physical-device permission, GPS, overlay, process-death/reboot, and timing validation remain a release gate; do not claim those are complete from CI compilation alone.
 
+**Approved detailed product workflow contract:** [DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md) now records the shift/trip event distinctions, odometer requirements, Fare/Toll/Parking rules, operational-day assignment, and explicit PWA-controlled overlay lifecycle/full financial-entry parity. This is a documentation and product-rule milestone only. It does not claim that every detailed rule is implemented or accepted. Unresolved product decisions are listed in that contract and must be decided before their affected implementation slices are finalized.
+
 ## Phase 4 — Core workflow, persistence, recovery, and modularity hardening
 
 - Audit and reduce oversized or multi-responsibility files; put every capability in its proper owner area.
