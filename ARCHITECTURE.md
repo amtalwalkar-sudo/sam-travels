@@ -63,10 +63,6 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 
 The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
 
-## UI/UX and application shell foundation
-
-The approved presentation boundaries, shell responsibilities, design-system governance, interaction and accessibility requirements, component-level decoupling, replaceability, and verification criteria are defined in [docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md](docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md). This contract governs presentation architecture; it does not define business rules, calculations, persistence semantics, or feature workflows. It must be reconciled with existing architecture and feature contracts before implementation.
-
 ## Feature modularity
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
