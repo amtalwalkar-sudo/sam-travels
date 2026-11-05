@@ -302,7 +302,7 @@ describe("runtime registry bootstrap", () => {
 
   it("validates and exposes feature, integration, and calculation registries together", () => {
     const runtime = initializeRuntimeRegistry();
-    expect(runtime.features.size).toBe(7);
+    expect(runtime.features.size).toBe(8);
     expect(runtime.startupOrder[0].id).toBe("work");
     expect(runtime.integrations.size).toBe(0);
     expect([...runtime.backupParticipants.keys()]).toEqual(["work-driver-state"]);
