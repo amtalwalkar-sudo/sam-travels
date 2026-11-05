@@ -41,6 +41,8 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Approved detailed product workflow contract:** [DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md) now records the shift/trip event distinctions, odometer requirements, Fare/Toll/Parking rules, operational-day assignment, and explicit PWA-controlled overlay lifecycle/full financial-entry parity. This is a documentation and product-rule milestone only. It does not claim that every detailed rule is implemented or accepted. Unresolved product decisions are listed in that contract and must be decided before their affected implementation slices are finalized.
 
+**Approved shared form contract:** [FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md](docs/FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md) defines the mandatory shared form architecture, form-specific policies, one Save-or-Submit action, lifecycle/status semantics, in-progress preservation, validation, input accuracy, destructive-action safeguards, compatibility, and conformance requirements. This is documentation only; it does not claim that the form guarantees are already implemented or runtime-enforced.
+
 ## Phase 4 — Core workflow, persistence, recovery, and modularity hardening
 
 - Audit and reduce oversized or multi-responsibility files; put every capability in its proper owner area.
@@ -146,6 +148,7 @@ Do not mark Phase 6 fully accepted until those external/device checks are comple
 
 ## Cross-phase engineering gates
 
+- **Forms:** follow [Form Architecture and Behaviour Contract](docs/FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md); every current/future form uses the shared architecture and declares its own business-specific lifecycle, action, validation, date/time, editing, deletion, and presentation policies.
 - **Persistence ownership:** Room is the sole Android business database; IndexedDB is authoritative only in browser-only PWA. No dual writes.
 - **Transaction/recovery:** follow [Transaction and Recovery Contract](docs/TRANSACTION_AND_RECOVERY_CONTRACT.md); gesture feedback is not durable acceptance and transport is at-least-once/idempotent.
 - **GPS/time:** follow [GPS Evidence and State Timing Contract](docs/LOCATION_AND_STATE_TIMING_CONTRACT.md); no continuous tracking; thresholds are explicit/versioned; later fixes are never backdated.
