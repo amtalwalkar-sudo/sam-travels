@@ -1,8 +1,8 @@
 # Timeline Product Design
 
-**Status: Draft proposal — not frozen; awaiting complete-design approval.**
+**Status: Draft proposal — visual direction approved; remaining product design is open and not frozen.**
 
-**Design approval: Partial decisions are recorded for review; complete Timeline design approval is pending.**
+**Design approval: Mobile visual direction and shift-summary treatment approved on 5 November 2026; remaining product decisions are still open.**
 **Implementation authorization: Not granted.**
 **Scope: Product-design documentation only; no runtime implementation.**
 
@@ -58,11 +58,13 @@ The conceptual flow is:
 
 ### 4.0 Approved mockup is the PWA visual source of truth
 
-The exact previously approved Timeline screen mockup governs the PWA main app's visual presentation. Reproduce its composition, visual hierarchy, typography, spacing, borders, shapes, colours, alignment, connectors, event sequence and relative component sizing faithfully. Do not introduce a new design or reinterpret the mockup. Responsive changes are permitted only to preserve usability on different viewport sizes and must retain the same information hierarchy, component order, grouping and visual language.
+The approved mobile visual direction is preserved as the versioned SVG reference [sam-travels-timeline-approved-direction-v1.svg](reference/timeline-mockup/sam-travels-timeline-approved-direction-v1.svg), with provenance and checksum in its [v1 manifest](reference/timeline-mockup/manifest-v1.md). The reference was authored from the user's detailed chat mockup and the review direction explicitly approved on 5 November 2026; the earlier discussion supplied text rather than an existing image file. This artifact is the approved repository visual baseline, not a claim that an earlier uploaded screenshot was recovered.
 
-The binding preservation, responsive-adaptation, measurement, change-control and visual-regression requirements are defined in the [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md). The original approved mockup must be preserved unmodified under [docs/reference/timeline-mockup](reference/timeline-mockup/), with a checksum and viewport/state manifest. **Current reference status:** the original mockup artifact was not present in the repository when the visual-fidelity contract was added; pixel-level acceptance remains blocked until that exact original is committed. Do not recreate or substitute it.
+The approved direction includes compact individually separated ride containers; pickup journeys as distinct connectors outside ride cards; restrained cancellation events; stronger shift start/end boundaries; shift-summary metric panels; and fixed bottom navigation labelled exactly **Drive · Timeline · Performance · Admin**. Shift summaries must distinguish confirmed values from unavailable or unresolved values. In the supplied example Shift 1 total fare is ₹1,120 (₹450 + ₹620 + ₹50 cancellation fee); its pickup/idle values remain unresolved pending interval reconciliation. Shift 2's supplied time values reconcile. Missing toll, parking and odometer values remain unavailable rather than fabricated.
 
-The requirements below define the event content and semantic behavior; they do not authorize visual deviations from the approved mockup.
+The binding preservation, responsive-adaptation, measurement, change-control and visual-regression requirements are defined in the [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md). The approved v1 artifact is immutable; future approved changes require a new versioned reference, manifest update, retained prior baseline and explicit approval. The reference governs the current visual direction, but does not freeze the entire product design or authorize implementation.
+
+The requirements below define the event content and semantic behavior; they do not authorize visual deviations from the approved reference.
 
 The Timeline is compact, readable at phone size and visually ordered like an algorithm/event sequence. It must avoid oversized cards, redundant labels and maps. Distinct rides and shifts need unmistakable boundaries.
 
@@ -231,7 +233,23 @@ Each metric definition must identify:
 - Historical-result/recalculation policy.
 - Golden examples, boundary cases and regression fixtures.
 
-Presentation configuration is separate from calculation definitions. It may control visibility, order, labels, compactness and formatting without changing business calculations.
+Presentation configuration is separate from calculation definitions. It may control visibility, order, labels, compactness, grouping, formatting and layout without changing business calculations.
+
+### 7.1 Extensible metric and summary contract
+
+The ten v1 metrics below are the initial approved baseline, **not a permanent ceiling or a hardcoded summary-panel schema**. The Timeline must remain compatible with later additions, removals, reordering, regrouping and replacement of presentation components.
+
+- Give every metric a stable, namespaced ID and an independently versioned definition. A metric definition owns its formula, inputs, units, currency, precision, result-state semantics, dependencies, historical policy and golden fixtures; it does not own screen layout.
+- Expose metrics through a versioned registry/catalogue or equivalent public extension contract. The registry must validate duplicate IDs, missing dependencies, unsupported versions and invalid ownership. Consumers address metrics by stable ID, never by array position or display label.
+- Keep metric calculation/output contracts independent from summary-panel presentation. A summary panel consumes a collection of typed metric results and presentation metadata; it must not contain metric formulas or assume a fixed number/order of metrics.
+- A new metric may be added without changing existing metric IDs, formulas, outputs, source ownership, persistence records or consumers. Adding/removing/hiding/reordering a metric must be independently testable.
+- Presentation configuration must be separately versioned and disposable. It may select which registered metrics appear, their order/group, label, formatting and responsive arrangement. Unknown or unsupported presentation metadata must degrade safely without corrupting metric results.
+- A future layout may replace the current summary panel, split it into sections, add collapsible groups or introduce new presentation components while consuming the same metric-result contracts. A visual redesign must not require rewriting calculation or source-data wiring.
+- Metric definitions may declare dependencies on other published metric contracts, but no hidden dependency on another metric's rendered component, display label or position is permitted. Dependency cycles are rejected.
+- New event types and Timeline sections must use independently registered, versioned presentation contracts and source-owned public event/query contracts. Event renderers must not become owners of source records. An unrecognized event type must remain visible through a safe generic/unsupported presentation rather than being silently dropped.
+- New Timeline capabilities must be additive and isolated behind stable public contracts. They must not require changing unrelated Work/Shift, Log Book/Trips, Finance or other feature internals. Any source-domain or cross-feature change still requires its own product and architecture approval.
+- Version the metric catalogue, presentation configuration and projection independently where they evolve independently. Migration/compatibility rules must preserve old stored source data and allow disposable projections/configuration to be rebuilt or safely defaulted.
+- A new metric or event feature requires an explicit product decision and its own calculation/event contract, but it must not require redesigning or replacing the stable Timeline foundation.
 
 Required isolation guarantees:
 - Hiding or removing a metric from Timeline presentation must not delete source data, unregister its owning capability, or remove its calculation from another consumer.
@@ -251,7 +269,7 @@ The architecture should make display metrics independently addable/removable whi
 
 ### Approved initial Timeline metric catalogue (v1)
 
-The initial catalogue is deliberately limited to the following shift-summary metrics; additions require a separate product decision and calculation contract:
+The initial v1 catalogue contains the following ten shift-summary metrics. It is an extensible baseline, not a maximum; later additions require explicit product approval and their own independently versioned calculation contract:
 
 | Stable metric ID | Display meaning and calculation |
 |---|---|
@@ -394,7 +412,7 @@ The PWA and installed Android application must use the same Timeline domain rule
 The previously open Timeline-specific product decisions are now recorded as follows:
 
 1. **Geocoding provider:** Geoapify Reverse Geocoding API is selected as the primary hosted provider behind the shared replaceable adapter, subject to the India-quality, privacy, credential, attribution and budget activation gates in Section 8.3. No account, key, integration, paid plan or recurring spend is created or authorized by this design decision. The public shared Nominatim endpoint is not selected for automatic background processing.
-2. **Initial metric catalogue:** Closed to the ten stable v1 metric IDs listed in Section 7. Future metrics require separate explicit product approval and their own calculation contract.
+2. **Initial metric catalogue:** The ten stable v1 metric IDs listed in Section 7 form the approved initial baseline, not a permanent limit. Future metrics and summary sections may be added through the extensible metric/presentation contracts in Section 7.1, with explicit product approval and independent calculation versioning.
 3. **04:00 boundary presentation:** A neutral system divider labelled `SHIFT ROTATED · 04:00`, with an Online-session-continuity note and a separate pending-odometer status when applicable; it is not a fabricated driver action or GPS event.
 
 The product-design decisions recorded here are proposed for review and do not freeze the complete Timeline design. The five calendar-day/logical-shift separation rules in Section 6.2 are agreed in principle and remain part of the draft pending complete-design approval. Geoapify remains the proposed primary hosted provider behind the replaceable interface; credentials, India acceptance, privacy/contract review, attribution and usage-budget approval remain deployment prerequisites before reverse geocoding is enabled. Provider selection and other partial decisions do not close the overall design review.
@@ -404,7 +422,7 @@ The product-design decisions recorded here are proposed for review and do not fr
 This is the proposed acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
 
 ### Mockup visual fidelity
-- Verify the exact approved original mockup is committed unmodified under `docs/reference/timeline-mockup/`, with a matching SHA-256 checksum and documented reference viewport/state.
+- Verify the currently approved versioned SVG reference is committed with a matching SHA-256 checksum and documented viewport/state/provenance; retain all prior approved versions when a later reference is authorized.
 - Verify the PWA main app against the reference at the same viewport using side-by-side and overlay/difference review; retain evidence tied to the exact build/commit and reference checksum.
 - Verify narrower/wider viewport adaptations preserve the same composition, event order, grouping, hierarchy and visual language without clipping, overlap or hiding essential information.
 - Do not mark visual fidelity verified while the original reference artifact is absent.
@@ -423,8 +441,8 @@ This is the proposed acceptance checklist for future implementation and verifica
 - Verify missing/invalid source values are not fabricated.
 - Test known zero, complete-empty scope, unavailable/unknown, pending/incomplete, not-applicable and invalid/needs-attention independently; prove missing/null/invalid inputs never become zero and incomplete aggregates are not shown as final.
 - Verify exact half-open interval allocation at, before and after 04:00; no instant or duration is allocated twice, pickup/passenger intervals do not overlap, invalid overlaps are surfaced, and idle time is the complement of the union of valid intervals.
-- Verify metric add, hide, remove, reorder and presentation redesign do not alter other metrics or source records.
-- Verify presentation-only changes to visibility, labels, formatting, grouping, filters and layout leave source snapshots, timestamps, ownership, calculation versions, outputs and historical results unchanged.
+- Verify metric add, hide, remove, reorder, grouping, new event types, new summary sections and full presentation redesign through extension contracts do not alter existing metrics, source records or unrelated feature wiring.
+- Verify presentation-only changes to visibility, labels, formatting, grouping, filters and layout leave source snapshots, timestamps, ownership, calculation versions, outputs and historical results unchanged; verify old presentation/configuration versions safely default or migrate.
 - Verify calculation version changes against golden fixtures, historical-result policy and all dependent consumers.
 
 ### Date/week navigation
@@ -490,4 +508,4 @@ It does **not** authorize:
 - Android workers/services, PWA background behavior or geocoder integration.
 - Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
 
-Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The complete product design is not yet approved or frozen; implementation approval must not be inferred from this proposal.
+Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The mobile visual direction and summary-panel treatment are approved, but the complete product design remains open and is not frozen; implementation approval must not be inferred from this proposal.
