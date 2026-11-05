@@ -47,4 +47,18 @@ describe("compiler-backed architecture import parser", () => {
     expect(result.diagnostics).toEqual([]);
     expect(result.references.map((item) => item.specifier)).toEqual(["react"]);
   });
+
+  it("identifies direct IndexedDB and Dexie persistence primitives", () => {
+    const source = [
+      'const db = window.indexedDB.open("business");',
+      'const table = new Dexie("business");',
+      'declare const store: IDBObjectStore;',
+    ].join("\\n");
+
+    expect(analyzeBrowserPersistenceReferences(source, "unsafe.ts").map((item) => item.symbol)).toEqual([
+      "indexedDB",
+      "new Dexie",
+      "IDBObjectStore",
+    ]);
+  });
 });
