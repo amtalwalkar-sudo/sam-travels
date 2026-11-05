@@ -228,7 +228,7 @@ for (const absolute of sourceFiles) {
     failures.push(relative + ": browserDatabase is private to the browser persistence adapter");
   }
   if (relative.startsWith("android/app/src/main/") &&
-      /\b[A-Za-z_]\\w*\.(?:records|logBookEvents)\(\)/.test(content) &&
+      /\b[A-Za-z_]\w*\.(?:records|logBookEvents)\(\)/.test(content) &&
       !androidPersistenceGateways.has(relative)) {
     failures.push(relative + ": Room DAO access must remain inside an approved persistence/backup gateway");
   }
