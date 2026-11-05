@@ -55,6 +55,51 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 
 **Automated CI gate passed; physical-device acceptance outstanding:** capability ownership and dependency rules are enforceable in CI; web UI state/orchestration has been separated from presentation; native transition policy and transactional store have explicit ownership; browser IndexedDB and Room close/reopen recovery are tested; concurrent PWA/native enqueue is serialized; and Android replay of a completed transition is tested both in-process and after durable Room reopen. Run #135 on commit `3ce16e5` completed successfully: web checks/build and Android build, unit tests, and emulator instrumentation all passed. Physical-device validation remains outstanding for permission changes, GPS retry, overlay/service restart, process interruption, offline relaunch, and reboot. Do not mark Phase 4 accepted until those device checks are recorded.
 
+## Phase 4B — Mandatory shared foundation runtime enforcement and acceptance
+
+**Separate implementation phase; required before Phase 5 business-module expansion.** This phase turns the normative shared contract in [SHARED_FOUNDATION_ENFORCEMENT_CONTRACT.md](docs/SHARED_FOUNDATION_ENFORCEMENT_CONTRACT.md) into verified runtime and CI guarantees for every existing and future feature. It is not part of the documentation-only driver workflow change. No runtime implementation is authorized by this plan update.
+
+**Implementation sequence:**
+- Audit existing TypeScript, Kotlin/Android, Room, IndexedDB, GPS, lifecycle, network, recovery, backup/restore, feature-registration, and diagnostics paths against the shared contract. Produce a gap matrix that distinguishes already implemented, partially implemented, missing, and device-only acceptance.
+- Reuse existing shared services and contracts; remove or prevent feature-local competing persistence, GPS, lifecycle, sync, and recovery paths. Do not rewrite stable working foundations without evidence.
+- Close runtime gaps in durable command/intent handling, atomic commits, revision/outbox handling, idempotent replay, startup/resume/reboot reconciliation, and explicit pending/failed/needs-attention outcomes.
+- Ensure event-scoped GPS and time integrity are mediated by shared platform ports with honest permission/OS-deferral outcomes; no continuous tracking.
+- Enforce PWA/native overlay parity through the same application use cases and Room-backed Android state.
+- Complete feature registration and dependency/version validation, full backup participant discovery/restore validation, and bounded privacy-safe diagnostics at real operation/recovery boundaries.
+- Extend architecture enforcement across TypeScript and Kotlin/Android boundaries. Keep CI checks deterministic and fail closed on detectable bypasses.
+- Add/extend automated tests and failure injection. Preserve existing database, command, bridge, and backup compatibility; migrations must be explicit and repeatable-safe.
+
+**Mandatory automated acceptance tests:**
+1. **Authority and boundary:** browser-only PWA writes only through IndexedDB adapter; installed Android WebView and overlay write through the same Room-backed repository/application boundary; no Android IndexedDB business-store fallback or dual write.
+2. **Atomic durability:** inject interruption before intent commit, after intent commit, during completion, and after commit/before outbox delivery. Only committed operations are reported durable; restart reconstructs the correct state.
+3. **Idempotency and concurrency:** replay identical commands, deliver outbox messages repeatedly, submit stale revisions, and race PWA/overlay commands. No duplicate trip, shift boundary, fare, odometer entry, or other business effect; conflicts are explicit.
+4. **Lifecycle recovery:** close/reopen the app, recreate WebView/overlay, background/foreground, kill the process at each durable boundary, and simulate reboot/reconciliation. Pending and committed operations recover without relying on UI/service memory.
+5. **GPS evidence:** test distinct fixes for each GPS-required event; valid accuracy/age boundaries; stale, inaccurate, unavailable, permission-denied/revoked, and OS-deferred outcomes. A later fix must never be backdated or reused for another event.
+6. **Time integrity:** test timezone/DST-independent UTC persistence, Asia/Kolkata operational-day boundary at 04:00, clock changes, app downtime across the boundary, and idempotent single logical-shift rotation without breaking the continuous Online session.
+7. **Offline/network policy:** complete local workflows without connectivity; queue only durable work; reconnect and replay in order; deduplicate repeated delivery; prove all network calls pass through the shared policy gateway.
+8. **Surface parity:** issue each supported driver command from PWA and overlay; verify identical validation, financial calculations, pending/final states, and convergence on the same Room revision.
+9. **Feature registration:** missing/duplicate IDs, incompatible versions, missing migrations/dependencies, and missing backup/restore declarations block write enablement; valid feature registration succeeds deterministically.
+10. **Backup completeness and restore:** register a test persistent feature and prove its records/references are included without a second allowlist; reject missing/unknown participants and unsupported schemas before replacement; inject restore interruption and prove checkpoint/rollback and source preservation.
+11. **Diagnostics:** verify bounded retention, redaction of GPS/secrets/financial payloads, explicit export only, no network transmission, and that diagnostics failure never fails a business transaction.
+12. **Cross-platform architecture gate:** add fixtures proving the CI architecture checker catches prohibited TypeScript and Kotlin imports, direct persistence/platform access, dependency-direction violations, and feature-entry-point bypasses.
+13. **Migration/compatibility regression:** migrate every supported prior Room/schema/contract fixture; preserve stable IDs, event ordering, timestamps, idempotency keys, and both supported backup V1/V2 readers.
+14. **Full regression:** run the complete web, architecture, Android unit/instrumentation, persistence, recovery, backup, and restore suites with no weakening or broad suppressions of existing gates.
+
+**Device acceptance (separate from automated CI):**
+- Verify screen-off/wake, permission changes, background restrictions/Doze, process death, force-stop/relaunch, reboot, GPS availability, and overlay reattachment on a representative Android device.
+- Record OS/device/API-level outcomes and repeatability. Architecture must adapt to supported Android versions and OEM restrictions; do not hard-code one handset model.
+- A powered-off device cannot execute work while off. Acceptance proves already committed data survives and reconciliation is correct after boot; it does not require an impossible shutdown callback or fabricated GPS event.
+
+**Exit gate — blocks Phase 5 runtime feature expansion:**
+- Every automated acceptance test above passes in CI.
+- TypeScript and Kotlin architecture gates are required checks, not advisory jobs.
+- Runtime gap matrix is closed or has explicitly approved, bounded exceptions.
+- No known data-loss, duplicate-effect, migration, restore, or privacy blocker remains.
+- Device-only limitations and results are recorded separately; CI green is not represented as physical-device acceptance.
+- User reviews the evidence and explicitly authorizes proceeding to the next runtime feature phase.
+
+**Scope guard:** This phase is a plan only. The present PR remains documentation-only. No application source, UI, database schema, migration, Android service, GPS behavior, or runtime workflow is changed until the user separately authorizes implementation.
+
 ## Phase 5 — Business modules (incremental, deferred)
 
 - Add Log Book, Finance, Vehicle, Performance, Admin, and other business capabilities incrementally after the core workflow is accepted.
