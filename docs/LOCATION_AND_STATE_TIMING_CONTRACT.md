@@ -67,9 +67,9 @@ Maintain event-driven state intervals rather than relying on a UI interval as th
 
 Required duration measures:
 - Shift duration: shift start to shift end. The driver-facing Work screen does not show a prominent continuously running shift timer; show total elapsed shift duration when the driver goes Offline and after the shift has ended. This presentation choice does not remove durable interval timing, recovery, or reporting.
-- Ride duration: trip start to trip end; while active, show elapsed time.
+- Ride duration: Start ride to End ride; while active, show elapsed time.
 - Pickup approach duration: entering the going-to-pickup state (ride accepted/approach begins) until pickup/trip start, or until ride cancellation if cancelled first.
-- Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue trip duration unless a new trip-start event is explicitly created.
+- Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue ride duration unless a new trip is explicitly created and its Start ride event is recorded.
 
 Timer continuity rules:
 - The authoritative elapsed duration is the difference between the persisted start instant and the current instant, or between persisted start and end instants for a closed interval. Never increment a counter as the source of truth.
