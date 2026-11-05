@@ -6,7 +6,7 @@ import ts from "typescript";
  * strings, and regular expressions are intentionally ignored by the AST.
  */
 export function analyzeModuleReferences(source, fileName = "fixture.ts") {
-  const scriptKind = /\.tsx$/i.test(fileName)
+  const scriptKind = /\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
     ? ts.ScriptKind.TSX
     : /\.jsx$/i.test(fileName)
       ? ts.ScriptKind.JSX
@@ -58,7 +58,7 @@ export function analyzeModuleReferences(source, fileName = "fixture.ts") {
  * the application repository boundary instead.
  */
 export function analyzeBrowserPersistenceReferences(source, fileName = "fixture.ts") {
-  const scriptKind = /\\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const scriptKind = /\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind);
   const references = [];
   const guardedNames = new Set(["browserDatabase", "indexedDB", "IDBDatabase", "IDBObjectStore", "IDBTransaction"]);
