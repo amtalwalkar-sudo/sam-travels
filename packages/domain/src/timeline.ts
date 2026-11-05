@@ -15,16 +15,19 @@ export type TimelineSourceSnapshot<T> =
   | { status:"unavailable"|"invalid"; reason:string };
 /** Finance-owned records; amounts are integer minor units (paise for INR). */
 export type TimelineFinancialRecord = { id:string; tripId:string; kind:"fare"|"cancellation_fee"|"toll"|"parking"; amountMinor:number; currency:string; occurredAt:string };
+/** Work-owned pickup interval evidence, from approach initiation to ride start or cancellation. */
+export type TimelinePickupInterval = { id:string; startedAt:string; endedAt:string };
 /** Vehicle-owned odometer evidence. */
 export type TimelineOdometerReading = { id:string; kind:"start"|"end"; readingKm:number; recordedAt:string };
 export type TimelineProjectionInput = {
   events:readonly DriverEvent[];
   asOf?:string;
+  pickupIntervals?:TimelineSourceSnapshot<TimelinePickupInterval>;
   financial?:TimelineSourceSnapshot<TimelineFinancialRecord>;
   odometer?:TimelineSourceSnapshot<TimelineOdometerReading>;
 };
 export type TimelineIntegrityIssue = {
-  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval";
+  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval"|"invalid_pickup_interval"|"overlapping_activity_intervals";
   eventId?:string;
   logicalShiftId?:string;
 };
@@ -33,9 +36,9 @@ export type TimelineCalendarDay = { date:string; eventIds:string[]; logicalShift
 export type TimelineProjection = { schemaVersion:1; timeZone:"Asia/Kolkata"; logicalShiftBoundary:"04:00"; calendarDays:TimelineCalendarDay[]; logicalShifts:TimelineShiftProjection[]; integrityIssues:TimelineIntegrityIssue[] };
 type TripSpan = { id:string; endedAt:number; status:"completed"|"cancelled"; ownerShiftId:string };
 type ShiftBuilder = {
-  id:string; anchorDate:string; eventIds:Set<string>; shiftDurationMs:number; passengerTripMs:number;
+  id:string; anchorDate:string; eventIds:Set<string>; shiftDurationMs:number; passengerTripMs:number; pickupMs:number;
   completedRideCount:number; cancelledAttemptCount:number; pendingShift:boolean; pendingTrip:boolean;
-  invalidShift:boolean; invalidTrip:boolean;
+  invalidShift:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
 };
 const UNIT:Record<TimelineMetricId,TimelineMetricUnit> = {
   shift_duration:"minutes",pickup_time:"minutes",passenger_trip_time:"minutes",idle_time:"minutes",
@@ -65,14 +68,17 @@ function parseTime(value:string|undefined):number|undefined {
   if(typeof value!=="string")return undefined; const n=Date.parse(value); return Number.isFinite(n)?n:undefined;
 }
 function createShift(id:string):ShiftBuilder {
-  return {id,anchorDate:id.slice(13),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,invalidShift:false,invalidTrip:false};
+  return {id,anchorDate:id.slice(13),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
 }
-function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"):void {
+type BusyInterval={start:number;end:number;kind:"pickup"|"passenger"};
+function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"|"pickupMs",busy?:Map<string,BusyInterval[]>):void {
   let cursor=start;
   while(cursor<end) {
     const id=shiftIdAt(cursor),until=Math.min(end,nextBoundary(cursor));
     if(until<=cursor)throw new Error("Timeline interval boundary did not advance");
-    const shift=shifts.get(id)??createShift(id); shift[target]+=until-cursor; shifts.set(id,shift); cursor=until;
+    const shift=shifts.get(id)??createShift(id); shift[target]+=until-cursor; shifts.set(id,shift);
+    if(busy&&target!=="shiftDurationMs"){const list=busy.get(id)??[];list.push({start:cursor,end:until,kind:target==="pickupMs"?"pickup":"passenger"});busy.set(id,list);}
+    cursor=until;
   }
 }
 function available(value:number,unit:TimelineMetricUnit,currency?:string):TimelineMetric {
@@ -146,6 +152,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     else addInterval(shifts,start,asOf,"shiftDurationMs");
   }
 
+  const busyIntervals=new Map<string,BusyInterval[]>();
   const trips:TripSpan[]=[];
   let activeTrip:{event:DriverEvent}|undefined;
   for(const e of events) {
@@ -164,7 +171,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
           trips.push({id:activeTrip.event.eventId,endedAt:at,status:cancelled?"cancelled":"completed",ownerShiftId:ownerId});
           const owner=ensure(ownerId);
           if(cancelled)owner.cancelledAttemptCount+=1;
-          else {owner.completedRideCount+=1;addInterval(shifts,start,at,"passengerTripMs");}
+          else {owner.completedRideCount+=1;addInterval(shifts,start,at,"passengerTripMs",busyIntervals);}
         }
         activeTrip=undefined;
       } else if(kind==="ride_cancel"&&e.command.expectedPriorState==="approach_active") {
@@ -178,13 +185,34 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     if(asOf===undefined)s.pendingTrip=true;
     else if(asOf<start){s.invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:activeTrip.event.eventId,logicalShiftId:s.id});}
     else {
-      addInterval(shifts,start,asOf,"passengerTripMs");
+      addInterval(shifts,start,asOf,"passengerTripMs",busyIntervals);
       let cursor=start;
       while(cursor<asOf) {
         const id=shiftIdAt(cursor);
         ensure(id).pendingTrip=true;
         cursor=Math.min(asOf,nextBoundary(cursor));
       }
+    }
+  }
+
+  const pickup=sourceMetric(input.pickupIntervals,"minutes","pickup_initiation_source_not_registered");
+  if("records" in pickup)for(const interval of pickup.records) {
+    const start=parseTime(interval.startedAt),end=parseTime(interval.endedAt);
+    if(!interval.id||start===undefined||end===undefined||end<start) {
+      const id=start===undefined?undefined:shiftIdAt(start);
+      if(id)ensure(id).invalidPickup=true;
+      issues.push({code:"invalid_pickup_interval",eventId:interval.id,logicalShiftId:id});
+      continue;
+    }
+    addInterval(shifts,start,end,"pickupMs",busyIntervals);
+  }
+  for(const [id,intervals] of busyIntervals) {
+    const ordered=[...intervals].sort((a,b)=>a.start-b.start||a.end-b.end);
+    for(let i=1;i<ordered.length;i++)if(ordered[i].start<ordered[i-1].end) {
+      ensure(id).invalidTimeAllocation=true;
+      if(ordered[i].kind==="pickup"||ordered[i-1].kind==="pickup")ensure(id).invalidPickup=true;
+      issues.push({code:"overlapping_activity_intervals",logicalShiftId:id});
+      break;
     }
   }
 
@@ -234,13 +262,25 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     }
     const duration:TimelineMetric=s.invalidShift?{status:"invalid",unit:"minutes",reason:"shift_event_sequence_invalid"}:
       s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:available(minutes(s.shiftDurationMs),"minutes");
-    const passenger:TimelineMetric=s.invalidTrip?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
+    const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
+    const pickupMetric:TimelineMetric=!("records" in pickup)?pickup:
+      s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:
+      available(minutes(s.pickupMs),"minutes");
+    let idleMetric:TimelineMetric;
+    if(s.invalidShift||s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation)idleMetric={status:"invalid",unit:"minutes",reason:"shift_or_activity_interval_invalid"};
+    else if(duration.status!=="available")idleMetric=duration;
+    else if(passenger.status!=="available")idleMetric=passenger;
+    else if(pickupMetric.status!=="available")idleMetric=pickupMetric;
+    else {
+      const idleMs=s.shiftDurationMs-s.passengerTripMs-s.pickupMs;
+      idleMetric=idleMs< -1?{status:"invalid",unit:"minutes",reason:"activity_time_exceeds_shift_duration"}:available(minutes(Math.max(0,idleMs)),"minutes");
+    }
     const completed:TimelineMetric=s.invalidTrip?{status:"invalid",unit:"count",reason:"trip_event_sequence_invalid"}:available(s.completedRideCount,"count");
     const cancelled:TimelineMetric=s.invalidTrip?{status:"invalid",unit:"count",reason:"trip_event_sequence_invalid"}:available(s.cancelledAttemptCount,"count");
     return {id:s.id,anchorDate:s.anchorDate,eventIds:[...s.eventIds].sort(),metrics:{
-      shift_duration:duration,pickup_time:unavailable("minutes","pickup_initiation_event_not_persisted"),
-      passenger_trip_time:passenger,idle_time:unavailable("minutes","pickup_time_unavailable"),
+      shift_duration:duration,pickup_time:pickupMetric,
+      passenger_trip_time:passenger,idle_time:idleMetric,
       total_fare:financialMetric("total_fare"),toll_total:financialMetric("toll_total"),
       parking_total:financialMetric("parking_total"),business_km:businessKm,
       completed_ride_count:completed,cancelled_attempt_count:cancelled,
