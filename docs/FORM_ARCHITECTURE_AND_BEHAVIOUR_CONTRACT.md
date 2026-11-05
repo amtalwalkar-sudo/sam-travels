@@ -180,5 +180,55 @@ A form conforms only when:
 - Its destructive actions and unusual-value warnings follow this contract.
 - Its data remains compatible with shared migration, backup/restore, and audit requirements.
 - Units, currency, precision, rounding, keyboard, touch, and accessibility requirements in Sections 11–12 are approved shared requirements.
+- Viewport adaptation, keyboard-safe visibility, sequential field navigation, automatic focus policy, forgiving correction, and submission-protection requirements in Section 18 are satisfied.
 
 This contract records approved architecture and product rules only. It does not claim these guarantees are already implemented or runtime-enforced. Runtime changes, schema changes, UI changes, and implementation acceptance require a separate explicit authorization and test plan.
+
+
+## 18. Viewport, keyboard-aware presentation, focus, and forgiving data entry
+
+### Viewport and scrolling
+- Use a fit-first, scroll-when-needed approach. Short forms should fit within the usable viewport where practical; longer forms may scroll vertically.
+- Do not force a non-scrolling layout when it would make fields or controls cramped. Avoid unnecessary nested scrolling and unnecessary scrolling in short forms.
+- Layouts must adapt to different supported phone sizes, orientations, and changing keyboard heights. Avoid fixed dimensions that cause content to be clipped.
+- When the keyboard opens, adapt or reposition the form so the active field, its label, entered value, and relevant help/validation message remain visible.
+- No field, error message, or essential action may be obscured behind the keyboard. The primary Save/Submit action must remain logically reachable without overlapping or hiding form content.
+- Save or Submit placement is form-specific and must appear where it is most logical for that workflow. It is not required to be universally fixed at the bottom or universally placed after the last field.
+
+### Keyboard and keypad selection
+- Select the input method appropriate to each field: numeric, decimal numeric, text, phone, date/time, or another suitable type.
+- Numeric entry must use the appropriate whole-number or decimal input mode according to the field's declared precision.
+- Do not apply surprising automatic formatting while the driver is typing. Make backspace, clearing, selecting, and replacing digits straightforward.
+- A shared custom numeric keypad may be used if native/system keyboards cannot reliably provide the required visibility, consistency, or driver-friendly behaviour. Any custom keypad must support the field's required digits, decimal separator where permitted, backspace, clear, and an explicit Next/Done action. It must preserve the same validation and business semantics across PWA and Android overlay surfaces.
+- A custom keypad is an implementation option, not a reason to create a separate form framework or input/business-rule path.
+
+### Automatic focus and keyboard opening
+- Automatic focus on the first logical editable field is the default for straightforward data-entry forms. Where appropriate, open the suitable keyboard automatically so the driver can begin entering information without first tapping the field.
+- This is especially important for short, task-oriented forms such as Fare and Cancellation Fee entry: when the form opens, focus the amount field and present the appropriate numeric keypad, allowing direct entry followed by the form's explicit Submit action.
+- Apply the same direct-entry principle to other forms wherever the next action is unambiguous and immediate data entry is expected.
+- Do not automatically open the keyboard when the driver must first read instructions, choose a section, make a prerequisite selection, or when no suitable first field is yet available. In those cases, focus/open the keyboard only after the necessary choice or context is established.
+- Automatic focus must never interrupt an active task, obscure essential context, or move focus unexpectedly.
+
+### Sequential field navigation
+- Each form declares its logical data-entry order independently of visual layout.
+- For multi-field forms, the keyboard's Next/Enter action moves focus to the next eligible editable field in that declared order, without requiring the driver to tap each field.
+- Keep the keyboard open when moving between compatible fields. When the next field requires a different input type, switch to the appropriate input method without losing entered values.
+- Skip hidden, collapsed, inapplicable, calculated, and read-only fields. Optional fields are included or skipped according to the form's declared entry flow; do not unexpectedly force entry into an unopened optional section.
+- The driver may tap any visible editable field to revisit and correct an earlier value. Sequential navigation must not remove manual navigation or correction freedom.
+- The final field's Done action dismisses the keyboard or moves to an appropriate review state. It must never trigger Save, Submit, deletion, or another business operation implicitly.
+- Enter/Next navigation must work consistently across PWA and Android overlay forms, within the capabilities of each platform's input method.
+
+### Forgiving correction and validation recovery
+- Preserve all valid entries when a field fails validation. Never clear the entire form because one field is incorrect.
+- Keep the driver at the relevant field or return focus to it in a predictable way; identify the issue and explain how to correct it.
+- Tapping an actionable validation message may focus or scroll to the relevant field. Validation must not cause unrelated or repeated unexpected cursor jumps.
+- Do not lose the driver's position or entered values when the keyboard opens/closes, focus changes, or validation is displayed.
+- Make field values easy to edit, replace, and correct before submission. Never silently alter the driver's entered value.
+- Distinguish editable, calculated, read-only, required, and optional fields visually and accessibly. Use clear grouping and collapsible secondary sections where they reduce cognitive load without hiding required information.
+- For longer forms, provide a clear sense of progress or section position where useful, without adding unnecessary steps to short forms.
+
+### Submission and interaction safeguards
+- Keyboard Next/Enter/Done actions are navigation controls, not implicit business actions. Only the form's explicitly labelled Save or Submit control performs its declared completion action.
+- Prevent accidental double submission through the shared idempotent command boundary and show a truthful pending state while saving.
+- Do not clear the form or advance the workflow until durable save/submit success is confirmed. On failure, retain entries and make correction or retry straightforward.
+- Use adequate touch targets, spacing, readable labels, and logical focus order. Important errors and status must remain understandable without relying on colour alone.
