@@ -1,5 +1,6 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { analyzeModuleReferences } from "./architecture-import-parser.mjs";
 
 const root = process.cwd();
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
@@ -68,10 +69,6 @@ function targetLayer(resolved) {
   return null;
 }
 
-function readImportSpecifiers(content) {
-  const pattern = /\b(?:import|export)\s*(?:type\s+)?(?:[^"'()]*?\bfrom\s*)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|\brequire\s*\(\s*["']([^"']+)["']\s*\)/g;
-  return [...content.matchAll(pattern)].map((match) => match[1] ?? match[2] ?? match[3]);
-}
 
 function aliasResolver(tsconfig) {
   const compiler = tsconfig.compilerOptions ?? {};
@@ -146,7 +143,16 @@ for (const absolute of sourceFiles) {
   const fromFeature = featureName(relative);
   if (fromFeature) featureGraph.set(fromFeature, featureGraph.get(fromFeature) ?? new Set());
 
-  for (const specifier of readImportSpecifiers(content)) {
+  const isTypeScriptSource = /\\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(relative);
+  const parsed = isTypeScriptSource
+    ? analyzeModuleReferences(content, relative)
+    : { references: [], diagnostics: [] };
+  for (const diagnostic of parsed.diagnostics) {
+    failures.push(`${relative}:${diagnostic.line ? `:${diagnostic.line}` : ""} TypeScript parser error ${diagnostic.code}: ${diagnostic.message}`);
+  }
+
+  for (const reference of parsed.references) {
+    const specifier = reference.specifier;
     const resolved = resolveImport(specifier, relative, resolveAlias);
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
