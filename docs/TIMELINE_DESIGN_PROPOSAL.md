@@ -1,11 +1,11 @@
 # Timeline Design Proposal
 
-**Status: Proposed; discussion remains open.**
+**Status: Proposed; product decisions recorded for review.**
 **Approval state: Not frozen.**
 **Implementation authorization: Not granted.**
 **Scope of this document change: Documentation only.**
 
-This document records the Timeline product and architecture decisions discussed for the single-driver Sam Travels application. It is a proposal for review, not an implementation specification that authorizes code, schema, migration, UI, background-service, or runtime changes. Further product decisions may be added before the design is frozen.
+This document records the Timeline product and architecture decisions discussed for the single-driver Sam Travels application. It is a proposal for review, not an implementation specification that authorizes code, schema, migration, UI, background-service, or runtime changes. The product decisions recorded below close the previously identified Timeline-specific open items. The overall design remains proposed and is not frozen until the user explicitly approves it.
 
 ## 1. Purpose and product boundary
 
@@ -109,7 +109,7 @@ Each logical shift is a separate section with its own independent duration. The 
 - Timeline must not invent a GPS fix or driver shift-start action for the automatic boundary.
 - Any pending odometer confirmation and active-trip deferral continue to follow the driver workflow contract.
 
-The visual treatment of an automatic 04:00 boundary may need a distinct system event rather than a normal manually initiated Shift Started event.
+The automatic 04:00 boundary is shown as a compact, neutral system divider labelled **`SHIFT ROTATED · 04:00`**. It separates the prior logical shift from the new logical-shift segment and includes a short secondary note that the Online session continued. It is not styled or counted as a driver-initiated Shift Started/Shift Ended action, and it carries no fabricated GPS location. If the app reconciles the boundary after being closed/offline, display the effective 04:00 boundary time, not the later recovery time. If odometer confirmation is deferred by an active trip, show a small **Odometer confirmation pending** status on the new shift until the driver completes it; the confirmation itself is a separate event at its actual completion time.
 
 ## 5. Shift Summary
 
@@ -230,6 +230,25 @@ Required isolation guarantees:
 
 The architecture should make display metrics independently addable/removable while preserving the stable application, repository and source-data wiring.
 
+### Approved initial Timeline metric catalogue (v1)
+
+The initial catalogue is deliberately limited to the following shift-summary metrics; additions require a separate product decision and calculation contract:
+
+| Stable metric ID | Display meaning and calculation |
+|---|---|
+| `shift_duration` | Elapsed time between the logical shift's authoritative start and end instants. |
+| `pickup_time` | Sum of pickup-approach intervals allocated to this logical shift by actual interval overlap, including cancelled attempts. |
+| `passenger_trip_time` | Sum of passenger ride intervals allocated to this logical shift by actual interval overlap. |
+| `idle_time` | Logical-shift duration minus allocated pickup time and passenger-trip time. |
+| `total_fare` | Completed-ride fares plus cancellation fees owned by this logical shift; toll and parking excluded. |
+| `toll_total` | Sum of toll amounts owned by this logical shift, displayed separately. |
+| `parking_total` | Sum of parking amounts owned by this logical shift, displayed separately. |
+| `business_km` | Ending shift odometer minus starting shift odometer; unavailable if either authoritative reading is missing/invalid. |
+| `completed_ride_count` | Count of completed ride records owned by this logical shift. |
+| `cancelled_attempt_count` | Count of cancelled pickup attempts owned by this logical shift. |
+
+All money remains in INR and is summed from authoritative source amounts without silently rounding individual entries. Time is calculated from persisted instants at the source timestamp precision; display formatting must not change the calculation. Cross-04:00 time allocation and record/financial ownership follow Section 6.2. No derived net-income, fuel, profitability, or distance-from-GPS metric is part of this initial Timeline catalogue.
+
 ## 8. Location display and reverse geocoding
 
 ### 8.1 Immutable GPS evidence
@@ -246,7 +265,15 @@ Timeline must not request GPS merely to render a historical event or resolve an 
 - Do not claim a precise street, building or landmark when the evidence/provider result supports only a broader locality.
 - Timeline remains map-free; reverse geocoding is text enrichment only.
 
-### 8.3 Separate enrichment record
+### 8.3 Provider and deployment decision
+
+**Approved provider strategy:** use one dedicated, production-suitable hosted reverse-geocoding provider behind the shared provider-independent Location Resolution interface. The provider must support reverse lookup, India coverage, an application-specific credential, durable result caching, bounded asynchronous/background request patterns, clear attribution, and terms that permit the required display and retention of locality/address enrichment. The provider must be replaceable through configuration/adapter selection without changing Timeline, GPS evidence, or feature-owned records. Do not bind Timeline directly to a vendor SDK or endpoint.
+
+Do **not** use the public OpenStreetMap Nominatim shared endpoint as Sam Travels' production background queue provider. Its published policy imposes a maximum of one request per second, requires identifying request headers and attribution, requires caching, and strongly discourages periodic app requests/background bulk geocoding; it also warns that access may be withdrawn. These constraints make it a poor default for durable automatic queue processing. A separately operated/self-hosted Nominatim instance would be a different deployment choice and is not selected here. See the [OpenStreetMap Foundation Nominatim Usage Policy](https://operations.osmfoundation.org/policies/nominatim/).
+
+No vendor, API key, account, paid plan, or production endpoint is embedded or selected by this documentation decision. Before enabling the capability in a deployment, the operator must select and configure a provider that meets the criteria above, review its current pricing, privacy/data-processing terms, retention and attribution requirements, set a bounded usage budget, and disclose the exact coordinate data sent. If no compliant provider is configured, reverse geocoding remains unavailable/deferred; local event capture and Timeline remain fully usable. This closes the architecture/product choice without inventing credentials or committing the user to an unknown recurring cost.
+
+### 8.4 Separate enrichment record
 
 A reverse-geocoding result is optional enrichment linked to an immutable GPS snapshot. Store separately:
 - Source event/GPS snapshot identity.
@@ -256,7 +283,7 @@ A reverse-geocoding result is optional enrichment linked to an immutable GPS sna
 
 The enrichment may be refreshed or replaced under an explicit provider/cache policy. The original GPS evidence and event timestamps may not be changed by that process.
 
-### 8.4 Offline behavior and durable queue
+### 8.5 Offline behavior and durable queue
 
 - Event capture and business operations work offline and never wait for reverse geocoding.
 - When no cached label exists and the device is offline, preserve the GPS snapshot and mark the enrichment pending/deferred.
@@ -267,7 +294,7 @@ The enrichment may be refreshed or replaced under an explicit provider/cache pol
 - Batch lookups when the selected provider supports it and doing so reduces requests; do not send the full business database for a location lookup.
 - Stop scheduling work when no eligible pending enrichment remains.
 
-### 8.5 User-controlled network access
+### 8.6 User-controlled network access
 
 The existing Internet Access Control Contract takes precedence:
 - Reverse geocoding is optional and must use the shared network capability/policy gateway.
@@ -277,7 +304,7 @@ The existing Internet Access Control Contract takes precedence:
 - If policy is disabled, leave enrichment pending/deferred and make no request. If policy is enabled but connectivity is absent, defer safely.
 - Turning network access off stops eligible new requests and safely retains pending work.
 
-### 8.6 Battery- and data-conscious automatic processing
+### 8.7 Battery- and data-conscious automatic processing
 
 Automatic resolution must not mean continuous background activity:
 - Never start continuous GPS, a location listener, periodic coordinate sampling or GPS polling for geocoding.
@@ -288,7 +315,7 @@ Automatic resolution must not mean continuous background activity:
 - Perform network and storage work off the UI/main thread. Do not block a shift, pickup, ride, cancellation, fare or odometer operation.
 - When the queue is empty, no periodic geocoding work should remain scheduled.
 
-### 8.7 Honest status
+### 8.8 Honest status
 
 Distinguish at least:
 - Resolved.
@@ -320,15 +347,15 @@ The PWA and installed Android application must use the same Timeline domain rule
 - Projection caches, if introduced, must be versioned, disposable and rebuildable. Cache invalidation must never delete authoritative records.
 - Incomplete/pending source workflows must be represented honestly and must not appear as completed rides or finalized summaries.
 
-## 11. Remaining design decisions to resolve before freeze
+## 11. Decision closure and change control
 
-The following items remain open; the approved date grouping and cross-04:00 accounting rules in Sections 5 and 6.2 are no longer open decisions:
+The previously open Timeline-specific product decisions are now recorded as follows:
 
-1. **Geocoder provider and cache policy:** Provider, locale, cache key/precision, cache freshness/refresh, provider attribution and retention must be selected through a privacy/cost review. This proposal does not select a vendor.
-2. **Metric catalogue:** The initial display metrics are listed in Sections 5 and 7, but future additions/removals and any additional financial or performance metrics require separate product approval and calculation contracts.
-3. **Automatic 04:00 boundary presentation:** Confirm the exact visual label and placement for the system-generated logical-shift boundary and deferred odometer confirmation.
+1. **Geocoding provider strategy:** A dedicated, production-suitable hosted provider behind the shared replaceable adapter; no public shared Nominatim endpoint for automatic background processing; no vendor, credentials or paid plan hardcoded. Deployment must complete provider/privacy/pricing/budget review before enabling the capability. If none is configured, enrichment remains unavailable/deferred without affecting driver workflows.
+2. **Initial metric catalogue:** Closed to the ten stable v1 metric IDs listed in Section 7. Future metrics require separate explicit product approval and their own calculation contract.
+3. **04:00 boundary presentation:** A neutral system divider labelled `SHIFT ROTATED · 04:00`, with an Online-session-continuity note and a separate pending-odometer status when applicable; it is not a fabricated driver action or GPS event.
 
-No remaining unresolved item should be guessed during implementation.
+These decisions close the identified product-design questions for the proposal. They do not freeze the entire Timeline design or authorize implementation. Any later change must be reviewed and recorded explicitly; vendor configuration and commercial approval remain deployment prerequisites, not unresolved Timeline UX or architecture decisions.
 
 ## 12. Required verification before any future implementation approval
 
