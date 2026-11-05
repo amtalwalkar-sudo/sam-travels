@@ -59,7 +59,7 @@ Every module must:
 2. Read/write through the runtime's authoritative repository (Room on Android; IndexedDB in browser-only PWA).
 3. Use typed commands/queries and stable IDs; replayable commands must be idempotent.
 4. Respect shared driver state and the PWA/native overlay coordinator; never create a second shift/trip state machine.
-5. Avoid continuous GPS. Location can only be requested through the approved event-scoped location capability for the five defined lifecycle events.
+5. Avoid continuous GPS. Location can only be requested through the approved event-scoped location capability for the six defined lifecycle events.
 6. Keep presentation responsive and move storage, location, and network work off the UI thread.
 7. Preserve records through migrations, restore, and recovery; never silently clear or rewrite history.
 8. Supply domain, repository, migration, UI, offline, and failure-path tests appropriate to the module.
