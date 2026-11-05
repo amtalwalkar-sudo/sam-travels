@@ -3,14 +3,11 @@ package in.samtravels.app
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
-import org.jetbrains.kotlin.com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
-import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,7 +19,7 @@ import java.io.File
  * the persistence-call checks.
  */
 class KotlinArchitectureBoundaryTest {
-    private fun parse(source: String): KtFile {
+    private fun <T> withParsed(source: String, inspect: (KtFile) -> T): T {
         val disposable = Disposer.newDisposable()
         try {
             val environment = KotlinCoreEnvironment.createForProduction(
@@ -30,7 +27,8 @@ class KotlinArchitectureBoundaryTest {
                 CompilerConfiguration(),
                 EnvironmentConfigFiles.JVM_CONFIG_FILES,
             )
-            return KtPsiFactory(environment.project).createFile("ArchitectureFixture.kt", source)
+            val file = KtPsiFactory(environment.project).createFile("ArchitectureFixture.kt", source)
+            return inspect(file)
         } finally {
             Disposer.dispose(disposable)
         }
@@ -49,14 +47,15 @@ class KotlinArchitectureBoundaryTest {
 
     @Test
     fun kotlinPsiFindsRoomDaoCallsButIgnoresCommentsAndStrings() {
-        val file = parse(
+        withParsed(
             """
             // database.records()
             val note = "database.logBookEvents()"
             fun read(database: LocalDatabase) = database.records().list()
             """.trimIndent(),
-        )
-        assertEquals(listOf("records", "list"), callNames(file))
+        ) { file ->
+            assertEquals(listOf("records", "list"), callNames(file))
+        }
     }
 
     @Test
@@ -74,16 +73,17 @@ class KotlinArchitectureBoundaryTest {
         val sourceRoot = File(root, "android/app/src/main")
         sourceRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { source ->
             val relative = source.relativeTo(root).invariantSeparatorsPath
-            val file = parse(source.readText())
-            file.accept(object : KtTreeVisitorVoid() {
-                override fun visitCallExpression(expression: KtCallExpression) {
-                    val name = expression.calleeExpression?.text
-                    if (name in setOf("records", "logBookEvents") && relative !in allowed) {
-                        violations += "$relative: direct Room DAO call '$name' outside an approved gateway"
+            withParsed(source.readText()) { file ->
+                file.accept(object : KtTreeVisitorVoid() {
+                    override fun visitCallExpression(expression: KtCallExpression) {
+                        val name = expression.calleeExpression?.text
+                        if (name in setOf("records", "logBookEvents") && relative !in allowed) {
+                            violations += "$relative: direct Room DAO call '$name' outside an approved gateway"
+                        }
+                        super.visitCallExpression(expression)
                     }
-                    super.visitCallExpression(expression)
-                }
-            })
+                })
+            }
         }
         assertTrue(violations.joinToString("\n"), violations.isEmpty())
     }
@@ -96,6 +96,6 @@ class KotlinArchitectureBoundaryTest {
             ) return candidate
             candidate = candidate.parentFile
         }
-        error("Could not locate Sam Travels repository root from ${System.getProperty("user.dir")}")
+        error("Could not locate Sam Travels repository root from \${System.getProperty("user.dir")}")
     }
 }
