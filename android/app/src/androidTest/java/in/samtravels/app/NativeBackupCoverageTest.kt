@@ -35,9 +35,6 @@ class NativeBackupCoverageTest {
             database.records().put(StoredRecord("driver-state", """{"value":{"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-state", """{"value":{"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded"}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
             assertEquals(5, exported.length())
