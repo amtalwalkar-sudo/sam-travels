@@ -1,11 +1,12 @@
-# Timeline Design Proposal
+# Timeline Product Design
 
-**Status: Proposed; product decisions recorded for review.**
-**Approval state: Not frozen.**
+# Status: Final product design frozen
+
+**Design approval: Frozen by explicit user approval.**
 **Implementation authorization: Not granted.**
-**Scope of this document change: Documentation only.**
+**Scope: Product-design documentation only; no runtime implementation.**
 
-This document records the Timeline product and architecture decisions discussed for the single-driver Sam Travels application. It is a proposal for review, not an implementation specification that authorizes code, schema, migration, UI, background-service, or runtime changes. The product decisions recorded below close the previously identified Timeline-specific open items. The overall design remains proposed and is not frozen until the user explicitly approves it.
+This document is the frozen product-design baseline for the Timeline in the single-driver Sam Travels application. It records the agreed product behavior, presentation, grouping, calculations, location-enrichment policy, cross-platform expectations, and acceptance criteria. The design is frozen by explicit user approval. This freeze is limited to product design and its documented architecture boundaries; it does not authorize code, schema, migration, UI, background-service, integration, or runtime implementation. Existing normative architecture contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
@@ -30,9 +31,9 @@ Timeline must follow, and does not replace or weaken, the existing contracts:
 - [Native Android Contract](ANDROID_NATIVE_CONTRACT.md), [Application Lifecycle Contract](APPLICATION_LIFECYCLE_CONTRACT.md), [PWA Lifecycle Contract](PWA_LIFECYCLE_CONTRACT.md) and [Platform Acceptance Contract](PLATFORM_ACCEPTANCE_CONTRACT.md) — platform and lifecycle limitations.
 - [Architecture Enforcement and Verification](ARCHITECTURE_ENFORCEMENT.md) — static checks, runtime tests and acceptance evidence.
 
-If this proposal appears to conflict with an existing normative contract, the existing contract remains authoritative. Resolve the conflict through an explicitly reviewed contract change before implementation; do not silently reinterpret the existing rule.
+If this frozen design appears to conflict with an existing normative contract, the existing contract remains authoritative. Resolve the conflict through an explicitly reviewed contract change before implementation; do not silently reinterpret the existing rule.
 
-## 3. Proposed Timeline architecture
+## 3. Timeline architecture
 
 The conceptual flow is:
 
@@ -50,7 +51,7 @@ The conceptual flow is:
 - Timeline consumes versioned public application queries/contracts or published events. It must not read another feature's private tables, import its persistence adapter, or mutate its records.
 - Timeline must not create duplicate authoritative shift, trip, fare, cancellation, odometer or GPS records.
 - Any cached Timeline projection is derived, non-authoritative, disposable and rebuildable from source records. It must carry a projection/schema version if persisted. It must not become a second business history.
-- If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This proposal does not authorize such data.
+- If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This frozen design does not authorize such data.
 
 ## 4. Event-wise presentation requirements
 
@@ -153,7 +154,7 @@ Toll, parking, trip count, cancellation count and distance must retain their own
 
 ## 6. Timeline date and duration navigation
 
-The proposed filter has three choices, in this order:
+The frozen filter has three choices, in this order:
 
 1. **Today** — selected by default whenever Timeline is opened.
 2. **Week** — the current Monday–Sunday calendar week by default.
@@ -355,18 +356,18 @@ The previously open Timeline-specific product decisions are now recorded as foll
 2. **Initial metric catalogue:** Closed to the ten stable v1 metric IDs listed in Section 7. Future metrics require separate explicit product approval and their own calculation contract.
 3. **04:00 boundary presentation:** A neutral system divider labelled `SHIFT ROTATED · 04:00`, with an Online-session-continuity note and a separate pending-odometer status when applicable; it is not a fabricated driver action or GPS event.
 
-These decisions close the identified product-design questions for the proposal. They do not freeze the entire Timeline design or authorize implementation. Any later change must be reviewed and recorded explicitly; vendor configuration and commercial approval remain deployment prerequisites, not unresolved Timeline UX or architecture decisions.
+The product-design decisions and the complete Timeline design recorded in this document are frozen. Any later product-design change requires explicit review and approval, followed by an update to this baseline. Provider selection, credentials, commercial/privacy review and budget approval remain deployment prerequisites before reverse geocoding is enabled; they do not leave the Timeline product design open.
 
 ## 12. Required verification before any future implementation approval
 
-This is a proposed acceptance checklist, not evidence that implementation or tests already exist.
+This is the frozen acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
 
 ### Event and shift correctness
 - Verify deterministic ordering, stable IDs, duplicate/delayed delivery, and correction/replay behavior.
 - Verify shift start/end, pickup initiation, Start ride, End ride and cancellation blocks.
 - Verify multiple shifts, live/final timer continuity, app restart and clock-integrity limitations.
 - Verify the 04:00 boundary, continuous Online session, active-trip deferral and trip assignment.
-- Verify cross-midnight and cross-boundary cases after the open attribution/grouping rules are approved.
+- Verify cross-midnight and cross-boundary cases against the frozen grouping, ownership and interval-allocation rules in Sections 6 and 6.2.
 
 ### Summary and metric regression
 - Verify fare includes completed fares plus cancellation fees; toll and parking remain separate.
@@ -399,7 +400,7 @@ This is a proposed acceptance checklist, not evidence that implementation or tes
 
 ## 13. Non-authorization and change control
 
-This document records the proposed Timeline design only.
+This document records the frozen Timeline product design only.
 
 It does **not** authorize:
 - Timeline UI or navigation implementation.
@@ -407,6 +408,6 @@ It does **not** authorize:
 - Database schema, indexes, migrations or persisted metric definitions.
 - Android workers/services, PWA background behavior or geocoder integration.
 - Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
-- Freezing the Timeline design or treating unresolved decisions as approved.
+- Any code, schema, migration, UI, background-service, integration or runtime implementation.
 
-Any future implementation requires the user to approve the completed product design, resolve the open decisions, review the implementation plan and explicitly authorize the implementation scope.
+Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The product design itself is already frozen; implementation approval must not be inferred from this design freeze.
