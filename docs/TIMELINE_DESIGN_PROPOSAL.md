@@ -1,12 +1,12 @@
 # Timeline Product Design
 
-**Status: Final product design frozen.**
+**Status: Draft proposal — not frozen; awaiting complete-design approval.**
 
-**Design approval: Frozen by explicit user approval.**
+**Design approval: Partial decisions are recorded for review; complete Timeline design approval is pending.**
 **Implementation authorization: Not granted.**
 **Scope: Product-design documentation only; no runtime implementation.**
 
-This document is the frozen product-design baseline for the Timeline in the single-driver Sam Travels application. It records the agreed product behavior, presentation, grouping, calculations, location-enrichment policy, cross-platform expectations, and acceptance criteria. The design is frozen by explicit user approval. This freeze is limited to product design and its documented architecture boundaries; it does not authorize code, schema, migration, UI, background-service, integration, or runtime implementation. Existing normative architecture contracts remain authoritative.
+This document is the working product-design proposal for the Timeline in the single-driver Sam Travels application. It records proposed product behavior, presentation, grouping, calculations, location-enrichment policy, cross-platform expectations, and acceptance criteria. Some individual rules have been agreed in principle, but the complete Timeline design is not approved or frozen. This document remains open for review and revision until the user explicitly approves the complete design. Documentation updates do not authorize code, schema, migration, UI, background-service, integration, or runtime implementation. Existing normative architecture contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
@@ -32,7 +32,7 @@ Timeline must follow, and does not replace or weaken, the existing contracts:
 - [Architecture Enforcement and Verification](ARCHITECTURE_ENFORCEMENT.md) — static checks, runtime tests and acceptance evidence.
 - [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md) — the approved mockup is the PWA main app's visual source of truth; original-reference preservation and visual regression requirements.
 
-If this frozen design appears to conflict with an existing normative contract, the existing contract remains authoritative. Resolve the conflict through an explicitly reviewed contract change before implementation; do not silently reinterpret the existing rule.
+If this proposal appears to conflict with an existing normative contract, the existing contract remains authoritative. Resolve the conflict through an explicitly reviewed contract change before implementation; do not silently reinterpret the existing rule.
 
 ## 3. Timeline architecture
 
@@ -52,7 +52,7 @@ The conceptual flow is:
 - Timeline consumes versioned public application queries/contracts or published events. It must not read another feature's private tables, import its persistence adapter, or mutate its records.
 - Timeline must not create duplicate authoritative shift, trip, fare, cancellation, odometer or GPS records.
 - Any cached Timeline projection is derived, non-authoritative, disposable and rebuildable from source records. It must carry a projection/schema version if persisted. It must not become a second business history.
-- If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This frozen design does not authorize such data.
+- If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This proposal does not authorize such data.
 
 ## 4. Event-wise presentation requirements
 
@@ -163,7 +163,7 @@ Toll, parking, trip count, cancellation count and distance must retain their own
 
 ## 6. Timeline date and duration navigation
 
-The frozen filter has three choices, in this order:
+The proposed filter has three choices, in this order:
 
 1. **Today** — selected by default whenever Timeline is opened.
 2. **Week** — the current Monday–Sunday calendar week by default.
@@ -194,7 +194,7 @@ Persisted UTC event instants and the existing Asia/Kolkata business-date/timezon
 
 A logical shift may span midnight. Its section may therefore continue across consecutive calendar-day groups and must be visibly identified as a continuation of the same logical shift (using the same stable logical-shift identity and without fabricating another shift start). Do not duplicate the underlying event or business record merely to show the continuation. Today and By date show the events belonging to the selected calendar date, with enough shift context to make a continued shift understandable. The 04:00 logical-shift rotation remains a separate rule from midnight calendar grouping: at 04:00 the existing workflow creates the next logical-shift segment. A shift summary is shown exactly once, only when that logical shift ends; it must not be repeated in every calendar-day group the shift spans.
 
-### 6.2 Approved cross-04:00 interval and ownership reconciliation
+### 6.2 Proposed cross-04:00 interval and ownership reconciliation
 
 A pickup or passenger ride may begin before 04:00 and finish after the 04:00 logical-shift rotation. Preserve one authoritative trip/attempt record and its stable ID; do not split it into duplicate trips. Apply these ownership and time-allocation rules:
 
@@ -397,11 +397,11 @@ The previously open Timeline-specific product decisions are now recorded as foll
 2. **Initial metric catalogue:** Closed to the ten stable v1 metric IDs listed in Section 7. Future metrics require separate explicit product approval and their own calculation contract.
 3. **04:00 boundary presentation:** A neutral system divider labelled `SHIFT ROTATED · 04:00`, with an Online-session-continuity note and a separate pending-odometer status when applicable; it is not a fabricated driver action or GPS event.
 
-The product-design decisions and the complete Timeline design recorded in this document are frozen. Any later product-design change requires explicit review and approval, followed by an update to this baseline. Geoapify is the selected provider; credentials, India acceptance, privacy/contract review, attribution and usage-budget approval remain deployment prerequisites before reverse geocoding is enabled. These activation prerequisites do not leave the Timeline product design open.
+The product-design decisions recorded here are proposed for review and do not freeze the complete Timeline design. The five calendar-day/logical-shift separation rules in Section 6.2 are agreed in principle and remain part of the draft pending complete-design approval. Geoapify remains the proposed primary hosted provider behind the replaceable interface; credentials, India acceptance, privacy/contract review, attribution and usage-budget approval remain deployment prerequisites before reverse geocoding is enabled. Provider selection and other partial decisions do not close the overall design review.
 
 ## 12. Required verification before any future implementation approval
 
-This is the frozen acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
+This is the proposed acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
 
 ### Mockup visual fidelity
 - Verify the exact approved original mockup is committed unmodified under `docs/reference/timeline-mockup/`, with a matching SHA-256 checksum and documented reference viewport/state.
@@ -415,7 +415,7 @@ This is the frozen acceptance checklist for future implementation and verificati
 - Verify shift start/end, pickup initiation, Start ride, End ride and cancellation blocks.
 - Verify multiple shifts, live/final timer continuity, app restart and clock-integrity limitations.
 - Verify the 04:00 boundary, continuous Online session, active-trip deferral and trip assignment.
-- Verify cross-midnight and cross-boundary cases against the frozen grouping, ownership and interval-allocation rules in Sections 6 and 6.2.
+- Verify cross-midnight and cross-boundary cases against the proposed grouping, ownership and interval-allocation rules in Sections 6 and 6.2.
 
 ### Summary and metric regression
 - Verify fare includes completed fares plus cancellation fees; toll and parking remain separate.
@@ -477,11 +477,11 @@ This matrix makes the six architecture-quality requirements independently tracea
 - Do not mark a row **Device-verified** without a recorded physical device/model, Android version, app build/commit, test scenario, outcome and diagnostics. The user's phone testing remains deliberately deferred; no device verification is claimed by this document.
 - Reverse geocoding is deliberately deferred. It is not a prerequisite for Timeline core conformance, and no geocoder credential, provider call or live-provider acceptance is required to pass the six core architecture rows. Provider-specific activation and India-quality checks remain governed by Section 8.3 and must be tracked separately.
 - A row can have CI-verified core behavior while its separately required physical-device sub-check remains pending. Record that distinction explicitly rather than treating one as proof of the other.
-- This matrix is an evidence/traceability addition to the frozen design. It does not authorize Timeline implementation, phone testing, reverse-geocoder activation, schema changes, migrations, UI work or runtime changes.
+- This matrix is an evidence/traceability addition to the current proposal. It does not authorize Timeline implementation, phone testing, reverse-geocoder activation, schema changes, migrations, UI work or runtime changes.
 
 ## 13. Non-authorization and change control
 
-This document records the frozen Timeline product design only.
+This document records the current Timeline product-design proposal only.
 
 It does **not** authorize:
 - Timeline UI or navigation implementation.
@@ -490,4 +490,4 @@ It does **not** authorize:
 - Android workers/services, PWA background behavior or geocoder integration.
 - Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
 
-Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The product design itself is already frozen; implementation approval must not be inferred from this design freeze.
+Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The complete product design is not yet approved or frozen; implementation approval must not be inferred from this proposal.
