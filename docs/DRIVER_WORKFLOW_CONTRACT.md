@@ -219,5 +219,5 @@ No implementation may invent these behaviours. Each requires an explicit product
 - `LOCATION_AND_STATE_TIMING_CONTRACT.md` owns GPS evidence, timestamp integrity, duration derivation, and timer recovery; this document identifies the distinct driver events that require that evidence.
 - `FEATURE_MODULE_CONTRACT.md` owns feature boundaries, public entry points, calculation ownership, forms as adapters, and add-on isolation.
 - `TRANSACTION_AND_RECOVERY_CONTRACT.md`, persistence, backup, security, and lifecycle contracts remain authoritative for their existing guarantees.
-- `UI_UX_SHELL_FOUNDATION_CONTRACT.md` owns presentation architecture and visual/component standards; it does not override these business rules.
+- The UI/UX and application shell presentation contract owns presentation architecture and visual/component standards; it does not override these business rules.
 - Approval of this contract documents product requirements only. It does not claim that every listed behavior is implemented, tested, or accepted on a physical phone.
