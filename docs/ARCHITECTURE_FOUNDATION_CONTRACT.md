@@ -172,6 +172,38 @@ New feature data may affect an existing calculation only through an explicitly a
 
 The first implementation task is an inventory of existing calculations and their actual inputs/consumers, followed by an audit of backup snapshot and restore code. Do not invent formulas or infer that an existing metric consumes a new feature merely because the concepts are related.
 
+## 9.1 Mandatory cross-feature time-integrity and value-state semantics
+
+These are mandatory shared-foundation requirements for every capability that records, reads, allocates, aggregates, schedules, or presents timestamps, durations, counts, distances, money, or other measured/derived values. They apply to Work/Shift, Log Book/Trips, Finance, Vehicle, Performance, Admin, Timeline, and future capabilities. A feature contract may add stricter domain-specific rules but must not weaken these guarantees.
+
+### Time integrity
+- Persist event occurrence times as immutable, unambiguous UTC instants. Preserve the applicable IANA business-timezone context and business date separately; Sam Travels uses Asia/Kolkata for its current business-date and display rules.
+- Keep the time an event occurred distinct from the time it was received, persisted, synchronized, recovered, or enriched. Delayed delivery and recovery must never rewrite the original occurrence instant or disguise a later observation as contemporaneous evidence.
+- Keep event sequence/order and stable identity separate from wall-clock timestamps. A clock correction must not reorder or rewrite immutable historical event instants.
+- Derive elapsed durations from authoritative persisted interval endpoints/current instants, not periodically incremented UI counters or formatted display strings. Monotonic elapsed-time anchors may corroborate duration within a boot session; they are not an absolute clock across reboot.
+- Where available, retain boot-session/monotonic anchors and clock-integrity diagnostics to detect wall-clock discontinuities. If offline clock changes or missing anchors make exact elapsed time unknowable, expose an explicit uncertain/needs-review result; never fabricate precision or silently correct history.
+- Network time may corroborate a clock but is never a dependency for offline business operations. Timezone/display changes must not mutate stored UTC instants or historical business dates.
+- Use the detailed GPS/fix-age, event-time, reboot and clock-anomaly requirements in [Location and State Timing](LOCATION_AND_STATE_TIMING_CONTRACT.md) for driver events. These shared rules also apply to non-GPS timestamps and intervals in every other capability.
+
+### Zero, unavailable, pending and invalid values
+- A value of zero is a valid known value and must remain distinct from missing, unavailable, unknown, pending/incomplete, invalid/needs-attention, and not-applicable states.
+- A missing/null/undefined/invalid source value must never be coerced to numeric zero, an empty string, false, or a successful/complete result merely to simplify rendering or aggregation.
+- A zero may be reported only when it is explicitly recorded as zero, or when the authoritative source scope is complete and the metric's approved calculation contract defines an empty qualifying set as zero (for example, a completed query with no matching ride records yields a ride count of zero).
+- If required inputs are missing, invalid, or still pending, the result must carry that state. Do not present a partial aggregate as a final total; a partial value is permitted only when it is explicitly labelled partial and its excluded/pending scope is clear.
+- Not-applicable is a domain decision, not a synonym for zero or missing. Each feature/calculation contract defines which inputs are required, optional, or legitimately absent and how each state affects its output.
+- User-facing presentation must preserve the value and its status together. The same underlying facts must produce the same zero/unavailable/pending meaning on PWA and Android.
+
+### Presentation non-interference
+- Changes to visibility, ordering, labels, formatting, grouping, filters, layout, or other presentation configuration must not mutate authoritative business records, timestamps, financial ownership, calculation rules, historical results, or source data.
+- Presentation may select or format a projection; it must not convert an unavailable value into zero, recompute a business formula independently, or persist a presentation choice as a business fact.
+- Hiding/removing a displayed metric or feature does not delete its source records or disable calculations required by other consumers.
+
+### Required verification
+- Test zero, missing, invalid, pending, not-applicable, and complete-empty cases independently for every shared calculation/value contract.
+- Test event occurrence time separately from received/persisted/recovered time, including delayed delivery, restart, clock rollback/forward, timezone/display changes, and offline reboot uncertainty.
+- Test that equal-time events remain deterministically ordered without mutating timestamps, and that PWA/Android adapters return equivalent values and statuses.
+- Test that presentation-only changes leave source-record snapshots, revisions, ownership, calculation outputs, and historical results unchanged.
+
 ## 10. Local diagnostics and support export
 
 Diagnostics are local-first and are not business records.
