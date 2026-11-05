@@ -96,6 +96,6 @@ class KotlinArchitectureBoundaryTest {
             ) return candidate
             candidate = candidate.parentFile
         }
-        error("Could not locate Sam Travels repository root from \${System.getProperty("user.dir")}")
+        error("Could not locate Sam Travels repository root from ${System.getProperty("user.dir")}")
     }
 }
