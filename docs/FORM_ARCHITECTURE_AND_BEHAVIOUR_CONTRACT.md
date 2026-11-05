@@ -314,3 +314,44 @@ These requirements apply when a shared form is presented in the native Android o
 - Verify PWA/native parity for Fare and Cancellation Fee fields, field order, validation, calculations, save outcomes, and recovery.
 - Verify overlay/WebView/process recreation and restart restore both the authoritative form state and the preferred panel position without duplicate Save/Submit effects.
 - Record platform/device limitations separately; automated tests or emulator results do not by themselves establish physical-device acceptance.
+
+## 21. Automated architecture enforcement and form conformance
+
+These requirements turn the form contract into machine-checkable safeguards. Documentation and code review remain useful, but neither is sufficient to establish conformance. The applicable checks must run automatically in CI and must be required release checks, not advisory jobs.
+
+### Machine-checkable form definitions
+- Every implemented form must be discoverable through the shared form registry or equivalent authoritative registration mechanism. A registration declares a stable form ID, definition version, owning feature, field definitions, requiredness, validation policy, date/time and numeric semantics where applicable, exactly one primary action, lifecycle transitions, edit/delete policy, and supported presentation surfaces.
+- Definitions must be validated against a versioned schema. Missing, duplicate, malformed, or unsupported registrations must fail validation; do not silently substitute defaults for business-critical policy.
+- The registry is a source of discoverability and conformance metadata, not a second source of business truth. Domain/application services remain authoritative for business rules, calculations, validation, persistence, and state transitions.
+- Form presentation configuration must not contain business calculations, persistence operations, or feature-owned transaction/recovery logic.
+
+### Static architecture enforcement
+- CI architecture checks must inspect both TypeScript and Kotlin/Android source boundaries, including imports, dependency direction, public feature entry points, and direct access to platform or persistence implementations.
+- Checks must reject form-specific persistence/recovery stores, direct database access from presentation code, duplicated business calculations or validation paths, bypasses of the shared application command boundary, and unauthorized cross-feature imports.
+- Checks must detect prohibited patterns across production source, not merely a selected set of TypeScript files. Kotlin/Android checks are mandatory wherever native form or overlay code participates.
+- Suppressions or exceptions must be narrow, justified, owned, and reviewable. Broad exclusions, blanket allowlists, or disabling a failing rule to make CI green are not acceptable.
+
+### Automated behavioural conformance
+- Shared contract tests must validate every registered form definition and its declared lifecycle/action policy.
+- Form tests must cover required/optional fields, warning-versus-blocking validation, units/precision/rounding, date/time rules, Save-versus-Submit semantics, lifecycle transitions, edit/delete policy, and authoritative business-boundary validation as applicable to that form.
+- Persistence and recovery tests must cover in-progress retention, durable Save/Submit outcomes, idempotent retries, duplicate taps/delivery, stale revisions, interruption, process recreation, restart, migration, and restore participation.
+- Surface-parity tests must execute equivalent operations through PWA and native Android presentation and verify identical business validation, calculations, command outcomes, and authoritative record revisions.
+- Overlay conformance tests must additionally cover panel positioning, drag isolation, keyboard/IME adaptation, safe insets, touch pass-through where supported, state continuity, and responsive behaviour. Emulator/CI evidence must remain distinct from physical-device/OEM acceptance.
+- Tests must include negative fixtures that intentionally violate a rule and prove the corresponding check fails. A suite that only proves valid examples pass is insufficient to demonstrate enforcement.
+
+### CI and release-gate behaviour
+- Architecture, registry/schema validation, form conformance, persistence/recovery, and supported surface-parity suites must be required CI checks for changes that can affect forms or their shared foundations. Changes to shared foundations must trigger the full relevant suite.
+- A detectable architecture bypass, invalid form definition, failed conformance test, or regression in an existing form blocks the check and release. Do not weaken existing checks or mark a failed/skipped suite as passing.
+- CI output should identify the violating form/rule/test and provide actionable diagnostics without exposing driver data, GPS coordinates, secrets, or financial payloads.
+- Record which checks ran and their results. A green CI run proves only the automated scenarios exercised; it does not prove physical-device ergonomics, OEM-specific overlay behaviour, or any deferred external acceptance.
+- New forms are not considered conformant merely because they compile, render, or pass generic smoke tests. They must pass the shared definition, architecture, behavioural, persistence/recovery, and applicable PWA/native conformance gates.
+
+### Acceptance requirements
+- Demonstrate a valid registered form passes schema and conformance checks.
+- Demonstrate negative fixtures fail for missing/duplicate IDs, missing primary action, both Save and Submit, undeclared fields/policies, presentation-layer business logic, direct persistence access, prohibited TypeScript/Kotlin dependencies, and application-boundary bypasses.
+- Demonstrate each registered form is included in the conformance suite without maintaining a second manually curated form list.
+- Demonstrate regression tests catch a changed business result or validation rule that causes PWA/native divergence.
+- Demonstrate interruption, duplicate delivery, migration, and restore failures block the relevant required CI checks.
+- Demonstrate diagnostic output is actionable and privacy-safe, and that physical-device acceptance is tracked separately from CI.
+
+This section defines the target enforcement contract. It does not claim that a complete form registry, all static rules, or all runtime conformance tests already exist. Implementation and evidence belong to the separately authorized runtime-enforcement phase; documentation alone is not acceptance.
