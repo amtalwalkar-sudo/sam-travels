@@ -63,6 +63,10 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 
 The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
 
+## Driver workflow and business rules
+
+The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational-date, and PWA/native overlay workflow is defined in [docs/DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md). It is the product-rule authority for that workflow and supplements the shared architecture foundation, feature, Android, transaction/recovery, and GPS/time contracts. Those existing contracts retain authority for their respective technical guarantees.
+
 ## UI/UX and application shell foundation
 
 The presentation boundaries, shell responsibilities, design-system governance, interaction and accessibility requirements, component-level decoupling, platform presentation boundaries, and verification criteria are defined in [docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md](docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md). This contract supplements the feature, lifecycle, PWA, Android, persistence, recovery, and security contracts; it does not replace their authority or define business rules, calculations, persistence semantics, or feature workflows.

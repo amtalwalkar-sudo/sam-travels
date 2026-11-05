@@ -2,12 +2,15 @@
 
 ## Required event snapshots
 
-Capture one GPS snapshot for each of these user-triggered state transitions:
+Capture a separate GPS snapshot for each of these user-triggered state transitions:
 - Shift start
 - Shift end
-- Ride/trip start
-- Ride/trip end
+- Trip creation / entry into Going to pickup
+- Start ride
+- End ride
 - Ride cancellation, at the cancellation location
+
+Trip creation and Start ride are distinct events. Do not reuse the trip-creation fix as Start ride evidence. Each accepted transition owns its own event ID, original transition timestamp, and GPS acquisition.
 
 This is **event-based location capture, not continuous tracking**. Do not run periodic GPS polling, maintain a location subscription between events, or collect background location merely because a shift is active. Each transition starts a bounded, event-specific acquisition request which ends when a reliable fix is obtained or the request reaches a recoverable failure/timeout state.
 
@@ -37,8 +40,9 @@ Each transition intent has its own stable event ID and event timestamp. Store th
 
 ## Native platform lifecycle
 
-- GPS acquisition is initiated only by the five user-triggered transition events above. No shift-scoped continuous GPS service, periodic sampling, or idle background location collection is required or permitted by this product contract.
+- GPS acquisition is initiated only by the six user-triggered transition events above. No shift-scoped continuous GPS service, periodic sampling, or idle background location collection is required or permitted by this product contract.
 - The native overlay is a separate UI feature. Overlay enabled/disabled/visible state must not gate event-based GPS acquisition.
+- The trip-creation / Going-to-pickup event is a required event-scoped GPS boundary in addition to Start ride, End ride, and cancellation. A trip-creation fix must never stand in for a later Start ride fix.
 - A transition GPS request may continue asynchronously while the app is backgrounded only as permitted by Android permissions and policy; do not keep a permanent location foreground service running between events.
 - The PWA/browser may provide foreground location while active, but Capacitor's native Android bridge is responsible for event capture in the installed Android app.
 - Offline operation is mandatory: location acquisition and event persistence must not depend on internet. Queue non-essential network synchronization for later.
@@ -62,10 +66,18 @@ Each transition intent has its own stable event ID and event timestamp. Store th
 Maintain event-driven state intervals rather than relying on a UI interval as the source of truth. Persist state-entered and state-exited timestamps; calculate duration from those timestamps so app restarts, WebView reloads, and process death do not reset elapsed time.
 
 Required duration measures:
-- Shift duration: shift start to shift end; while active, show elapsed time.
-- Ride duration: trip start to trip end; while active, show elapsed time.
+- Shift duration: shift start to shift end. The driver-facing Work screen does not show a prominent continuously running shift timer; show total elapsed shift duration when the driver goes Offline and after the shift has ended. This presentation choice does not remove durable interval timing, recovery, or reporting.
+- Ride duration: Start ride to End ride; while active, show elapsed time.
+
+### 04:00 logical-shift rotation
+- At 04:00 Asia/Kolkata, rotate the logical shift automatically while preserving the driver's continuous Online session. This is not an Offline/Online transition and must not be rendered as one.
+- Assign each trip to the logical-shift ID active when that trip is created. A trip crossing 04:00 remains wholly assigned to its creation shift; trips created at or after 04:00 use the new logical shift.
+- Persist the boundary and new logical-shift identity with stable identity/idempotency so delayed startup, offline operation, process death, or reboot can recover exactly one boundary without duplicate shifts.
+- Do not interrupt an active trip with an odometer-confirmation prompt. If a trip is active at 04:00, defer the new shift's odometer confirmation until the trip is resolved: after the cancellation-fee form is saved for a cancelled pickup-approach trip, or after the Fare form is saved for a completed ride. If no trip is active, present the confirmation at the boundary.
+- Prefill the new logical shift's odometer confirmation with the last confirmed odometer reading. Allow the driver to confirm or edit it; an upward edit is recorded as personal kilometres under the approved driver-workflow rule.
+- The automatic logical boundary is a system-generated shift-segmentation event, not a fabricated driver action. Preserve its actual 04:00 local boundary instant and timezone context. Do not invent a GPS fix for it; GPS evidence rules continue to apply to actual user-triggered shift/trip events defined by the driver workflow contract.
 - Pickup approach duration: entering the going-to-pickup state (ride accepted/approach begins) until pickup/trip start, or until ride cancellation if cancelled first.
-- Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue trip duration unless a new trip-start event is explicitly created.
+- Cancellation closes the active approach interval and records the cancellation GPS snapshot/time. A cancelled ride must not later accrue ride duration unless a new trip is explicitly created and its Start ride event is recorded.
 
 Timer continuity rules:
 - The authoritative elapsed duration is the difference between the persisted start instant and the current instant, or between persisted start and end instants for a closed interval. Never increment a counter as the source of truth.
@@ -89,7 +101,7 @@ Represent intervals with a start event, optional end event, status, and derived 
 ## Acceptance tests
 
 - Verify no continuous GPS requests, periodic polling, or location listener exists between transition events or during an otherwise active shift.
-- Verify each of the five required event types starts its own fresh GPS acquisition and stores the correct event/fix timestamps.
+- Verify each of the six required event types (shift start/end, trip creation, Start ride, End ride, cancellation) starts its own fresh GPS acquisition and stores the correct event/fix timestamps.
 - Verify swipe feedback and screen interaction remain immediate and smooth while GPS is delayed, unavailable, offline, or retrying.
 - Verify GPS callbacks, Room writes, and reconciliation never run on or block the UI/main thread.
 - Verify pending intent is durably queued with a stable ID and survives WebView reload/process death; retries do not duplicate events.
@@ -104,7 +116,11 @@ Represent intervals with a start event, optional end event, status, and derived 
 - Verify timers include elapsed time while app is closed and phone is powered off; test normal reboot and simulated clock changes.
 - Verify clock rollback/forward anomalies are flagged and do not silently corrupt historical durations.
 
-- Verify shift, trip, and pickup approach durations across midnight, WebView reload, process death, and device reboot/recovery.
+- Verify shift, trip, and pickup approach durations across midnight, WebView reload, process death, and device reboot/recovery. Verify the Work screen does not show a prominent live shift timer while retaining correct shift-duration results at shift end and in history.
+- Verify the 04:00 Asia/Kolkata boundary rotates the logical shift without interrupting Online status or creating an Offline/Online transition.
+- Verify trips created before 04:00 remain assigned to the previous logical shift even when they end after 04:00, and trips created at/after 04:00 use the new logical shift.
+- Verify a trip active at 04:00 is not split and no odometer prompt appears during pickup approach or an active ride; verify the prompt appears only after cancellation-fee save or Fare save, respectively.
+- Verify the boundary and new logical-shift identity recover exactly once after app closure, offline operation, process death, and reboot; retries must not create duplicate shifts.
 - Verify cancellation closes the pickup approach timer and records location at cancellation.
 - Verify India clock formatting and elapsed duration formatting, including durations longer than 24 hours.
 

@@ -41,6 +41,17 @@ The capability's public entry point is its only supported cross-capability impor
 - No catch-all file may own unrelated capabilities. Split files by cohesive responsibility; avoid minified source and giant components/services/repositories.
 - Keep source files at or below 400 lines and 24 KB. Exceptions require an explicit reviewed architecture decision and should be temporary.
 
+## Driver workflow product contract
+
+The approved shift, trip, odometer, fare, toll, parking, operational-date, and shared PWA/native overlay product rules are defined in [DRIVER_WORKFLOW_CONTRACT.md](DRIVER_WORKFLOW_CONTRACT.md). That contract supplements this module contract; it does not change feature ownership or persistence boundaries.
+
+- Work/Shift owns shift state and shift-level odometer readings, including personal/business distance derivation.
+- Log Book/Trips owns trip lifecycle records and trip-level Fare, Toll, Parking, and cancellation-fee records when those capabilities are implemented. Do not move trip financial-entry rules into UI components or the Work/Shift screen.
+- Domain/application use cases own all validation and calculations. PWA forms and native overlay entry surfaces are adapters that submit typed commands to the same use cases.
+- The driver workflow remains one shared state machine. No feature or presentation surface may introduce a parallel shift/trip lifecycle.
+- A completed ride and a financially finalized trip are distinct when required Fare entry is pending. Preserve the pending financial state through persistence and recovery.
+- The product workflow contract records approved rules and explicit unresolved decisions; unresolved decisions must be settled before the corresponding implementation slice is finalized.
+
 ## Shared platform contracts
 
 Every module must:
@@ -48,7 +59,7 @@ Every module must:
 2. Read/write through the runtime's authoritative repository (Room on Android; IndexedDB in browser-only PWA).
 3. Use typed commands/queries and stable IDs; replayable commands must be idempotent.
 4. Respect shared driver state and the PWA/native overlay coordinator; never create a second shift/trip state machine.
-5. Avoid continuous GPS. Location can only be requested through the approved event-scoped location capability for the five defined lifecycle events.
+5. Avoid continuous GPS. Location can only be requested through the approved event-scoped location capability for the six defined lifecycle events.
 6. Keep presentation responsive and move storage, location, and network work off the UI thread.
 7. Preserve records through migrations, restore, and recovery; never silently clear or rewrite history.
 8. Supply domain, repository, migration, UI, offline, and failure-path tests appropriate to the module.

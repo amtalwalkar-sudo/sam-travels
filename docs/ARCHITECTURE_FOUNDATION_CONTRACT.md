@@ -71,6 +71,8 @@ For each future Finance machine, its feature contract must be approved before th
 
 The two driver surfaces must never introduce separate shift or trip state machines. Backup/restore and native pending-action state machines remain distinct from business-finance state machines.
 
+The approved product semantics for the driver workflow—including distinct trip-creation and Start ride events, odometer rules, trip financial finalization, operational dates, and native overlay parity—are defined in [DRIVER_WORKFLOW_CONTRACT.md](DRIVER_WORKFLOW_CONTRACT.md). This detailed contract does not replace the transaction, persistence, Android, or GPS/time guarantees above.
+
 ## 5. Android and platform capability boundaries
 
 - Domain and application rules remain platform-neutral.

@@ -22,11 +22,23 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Overlay visibility is impossible while the display is physically off; resume/reconcile when the display wakes.
 - The overlay is a separate presentation feature and is not a prerequisite for event-based GPS acquisition.
 
+### Shift-controlled overlay lifecycle and workflow parity
+
+- The PWA is the controller of shift start/end; the overlay has no independent shift lifecycle or start/end authority.
+- When the overlay feature is enabled and the required Android permission is granted, show it only after the shift-start transition has durably committed. Hide/close it only after the shift-end transition has durably committed.
+- A failed, rejected, or pending shift start must not show an active-shift overlay. A failed, rejected, or pending shift end must not hide it as though the shift ended.
+- Overlay visibility is a projection of the authoritative shift state. Reconcile the durable state before showing operational controls after process restart, WebView recreation, or overlay reattachment.
+- Permission denial/revocation or user disablement affects overlay availability only; it must not create a second shift state or block otherwise valid PWA driver operations.
+- The overlay must support the complete driver workflow: trip creation/Going to pickup, Start ride, End ride, Cancel ride, Fare entry (including explicit zero), optional Toll and Parking entries, independent Driver/Customer payer selection for each entered amount, and completion of pending financial entry.
+- PWA and overlay must use the same application use cases, validation, calculations, durable records, and pending/finalization states. Do not implement overlay-specific financial rules or a parallel form workflow.
+- If odometer entry is exposed in the overlay, it must use the same shift/odometer application contract and validation as the PWA.
+- The screen-off visibility limitation remains: reconcile and show the overlay after the display wakes if the shift remains active and the feature is enabled/authorized.
+
 ## Event-based location acquisition
 
 - Provide a Capacitor location bridge backed by Android location APIs for native Android operation and browser geolocation for active PWA operation.
 - **Do not implement continuous GPS tracking.** No location polling, subscription, periodic sampling, or background location collection between required user-triggered events, even while a shift is active.
-- Start a bounded, fresh location request only for shift start/end, ride/trip start/end, and ride cancellation. Stop that request after a reliable fix or recoverable failure/timeout.
+- Start a bounded, fresh location request only for shift start/end, trip creation/Going to pickup, Start ride, End ride, and ride cancellation. These are six distinct event types; do not reuse one event's GPS fix for another. Stop that request after a reliable fix or recoverable failure/timeout.
 - Acquire GPS offline; internet/network assistance may improve time-to-fix but is never mandatory.
 - For each required transition, continue that event's acquisition until a fix passes the configured accuracy and freshness policy. Do not mark the transition complete with unreliable/missing GPS evidence.
 - Store fix timestamp and transition timestamp separately, along with coordinates, horizontal accuracy, and source.
