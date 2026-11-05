@@ -133,17 +133,17 @@ export class NativeEventLocationProvider implements EventLocationProvider {
 export async function createDriverWorkflow(): Promise<{
   repository: DriverWorkflowRepository;
   location: EventLocationProvider;
+  timeline: TimelineProjectionService;
 }> {
-  if (Capacitor.isNativePlatform()) {
-    return {
-      repository: new NativeDriverWorkflowRepository(),
-      location: new NativeEventLocationProvider(),
-    };
-  }
-
+  const repository = Capacitor.isNativePlatform()
+    ? new NativeDriverWorkflowRepository()
+    : new DexieDriverWorkflowRepository();
   return {
-    repository: new DexieDriverWorkflowRepository(),
-    location: new BrowserEventLocationProvider(),
+    repository,
+    location: Capacitor.isNativePlatform()
+      ? new NativeEventLocationProvider()
+      : new BrowserEventLocationProvider(),
+    timeline: createTimelineProjectionService(repository),
   };
 }
 

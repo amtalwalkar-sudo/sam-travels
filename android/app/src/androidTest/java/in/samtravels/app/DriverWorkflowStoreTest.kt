@@ -240,7 +240,8 @@ class DriverWorkflowStoreTest {
 
     @Test fun roomEventReadMatchesTheSharedTimelineParityFixture() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val fixture = context.assets.open("timeline-parity-events-v1.json")
+        val fixture = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
+            .open("timeline-parity-events-v1.json")
             .bufferedReader().use { it.readText() }
         val expected = org.json.JSONArray(fixture)
         for (index in 0 until expected.length()) {
