@@ -373,7 +373,7 @@ The PWA and installed Android application must use the same Timeline domain rule
 - Order events first by immutable occurrence instant, then by the authoritative source-defined event sequence/order when available, and finally by stable event ID as the deterministic tie-breaker. Persisted source ordering is not replaced by receive, sync, recovery or render time.
 - Equal-timestamp events must retain the same order across refresh, replay, pagination, restart, PWA and Android. Do not rewrite timestamps to force an ordering; preserve event identity and sequence separately.
 - Keep occurred-at, received-at, persisted-at and recovered-at distinct. Delayed delivery or recovery must not move an event to a different historical time group.
-- Use stable event identity, persisted event instants, source revisions and deterministic tie-breaking for events with equal timestamps.
+- Use stable event identity and source revisions for deduplication and projection invalidation; the ordering rule above remains authoritative for display order.
 - Delayed/replayed source events must not create duplicate Timeline entries.
 - A changed authoritative source record invalidates/rebuilds the affected projection and dependent metrics; it does not create a second correction path in Timeline.
 - Large histories must use bounded queries/pagination or equivalent indexing. Do not load the complete lifetime history for a one-day view.
@@ -397,7 +397,6 @@ This is the frozen acceptance checklist for future implementation and verificati
 ### Event and shift correctness
 - Verify deterministic ordering by occurrence instant, source-defined sequence and stable event ID, including equal timestamps, delayed delivery, replay, pagination and recovery; prove receive/recovery time never replaces occurrence time.
 - Verify persisted UTC instants, Asia/Kolkata business-date context, active duration after restart, clock rollback/forward, timezone/display changes and explicit uncertainty when offline reboot clock changes make exact elapsed time unknowable.
-- Verify shift start/end, pickup initiation, Start ride, End ride and cancellation blocks.
 - Verify shift start/end, pickup initiation, Start ride, End ride and cancellation blocks.
 - Verify multiple shifts, live/final timer continuity, app restart and clock-integrity limitations.
 - Verify the 04:00 boundary, continuous Online session, active-trip deferral and trip assignment.
