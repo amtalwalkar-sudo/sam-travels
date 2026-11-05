@@ -20,7 +20,13 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
         id: "work-driver-state",
         featureId: "work",
         schemaVersion: 1,
-        tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+        tableNames: ["driverState", "driverIntents", "driverOutbox"],
+      },
+      {
+        id: "logbook-events",
+        featureId: "logbook",
+        schemaVersion: 1,
+        tableNames: ["driverEvents"],
       },
     ]);
     expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
