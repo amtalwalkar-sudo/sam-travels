@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import fixture from "../android/app/src/androidTest/assets/timeline-parity-events-v1.json";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { TimelineProjectionService, type TimelineEventSource } from "../packages/application/src/timeline-projection-service";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
@@ -50,4 +51,37 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     }
     expect(left).toEqual(right);
   });
+  it("rebuilds the same Timeline projection after snapshot restore and database restart", async () => {
+    await browserDatabase.table("driverEvents").bulkPut(events);
+    const beforeRestore = await new TimelineProjectionService(
+      new DexieDriverWorkflowRepository(),
+    ).project();
+
+    const backup = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.table("driverEvents").clear();
+    expect(await browserDatabase.table("driverEvents").count()).toBe(0);
+
+    const restored = await restoreBrowserSnapshot({
+      data: backup.data,
+      manifest: backup.manifest,
+      confirmed: true,
+    });
+
+    browserDatabase.close();
+    await browserDatabase.open();
+    const afterRestoreAndRestart = await new TimelineProjectionService(
+      new DexieDriverWorkflowRepository(),
+    ).project();
+
+    expect(afterRestoreAndRestart).toEqual(beforeRestore);
+    expect(afterRestoreAndRestart.logicalShifts.map(shift => shift.id)).toEqual(
+      beforeRestore.logicalShifts.map(shift => shift.id),
+    );
+    expect(afterRestoreAndRestart.logicalShifts.map(shift => shift.metrics)).toEqual(
+      beforeRestore.logicalShifts.map(shift => shift.metrics),
+    );
+
+    await markBrowserRestoreVerified(restored.checkpointId);
+  });
+
 });
