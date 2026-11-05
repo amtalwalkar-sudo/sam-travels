@@ -1,3 +1,4 @@
+import { createReadonlyRegistry } from "./readonly-registry";
 import type { FeatureDefinition, FeatureId } from "./features";
 
 export type FeatureIntegrationContract = {
@@ -7,6 +8,8 @@ export type FeatureIntegrationContract = {
   consumerFeatureId: FeatureId;
   eventName: string;
   payloadVersion: number;
+  /** Runtime payload guard for data crossing the feature boundary. */
+  validatePayload(payload: unknown): boolean;
 };
 
 export type CalculationRounding = {
@@ -27,11 +30,45 @@ export type CalculationContract<Input, Output> = {
   inputSchemaVersion: number;
   outputSchemaVersion: number;
   unit: string;
+  /** Direct input property containing the ISO business-effective date (YYYY-MM-DD). */
   effectiveDateField: string;
   rounding: CalculationRounding;
   calculate(input: Input): Output;
   regressionCases: CalculationRegressionCase<Input, Output>[];
 };
+
+/**
+ * Calculation inputs, outputs, and regression fixtures are data, not mutable
+ * application state. Copy JSON-shaped values and freeze the copy before
+ * handing them to calculation code. Reject cycles and non-data values.
+ */
+function cloneFrozenCalculationData<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Calculation data must contain finite numbers");
+    return value;
+  }
+  if (typeof value !== "object") throw new Error("Calculation data must be JSON-compatible");
+  const source = value as object;
+  if (seen.has(source)) throw new Error("Calculation data cannot contain cycles");
+  seen.add(source);
+  let copy: object;
+  if (Array.isArray(value)) {
+    copy = value.map(item => cloneFrozenCalculationData(item, seen));
+  } else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error("Calculation data must contain only plain objects and arrays");
+    }
+    const record: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      record[key] = cloneFrozenCalculationData(item, seen);
+    }
+    copy = record;
+  }
+  seen.delete(source);
+  return Object.freeze(copy) as T;
+}
 
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) return "[" + value.map(stableSerialize).join(",") + "]";
@@ -44,6 +81,13 @@ function stableSerialize(value: unknown): string {
   return JSON.stringify(value) ?? "undefined";
 }
 
+function validIsoBusinessDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 /** Validate explicit producer/consumer contracts against the runtime feature graph. */
 export function registerFeatureIntegrations(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
@@ -52,7 +96,7 @@ export function registerFeatureIntegrations(
   const registry = new Map<string, FeatureIntegrationContract>();
   for (const contract of contracts) {
     if (registry.has(contract.id)) throw new Error("Duplicate integration contract: " + contract.id);
-    if (!contract.id || !contract.eventName || !Number.isSafeInteger(contract.version) || contract.version < 1 || !Number.isSafeInteger(contract.payloadVersion) || contract.payloadVersion < 1) {
+    if (!contract.id?.trim() || !contract.eventName?.trim() || typeof contract.validatePayload !== "function" || !Number.isSafeInteger(contract.version) || contract.version < 1 || !Number.isSafeInteger(contract.payloadVersion) || contract.payloadVersion < 1) {
       throw new Error("Invalid integration contract: " + contract.id);
     }
     const producer = features.get(contract.producerFeatureId);
@@ -68,14 +112,10 @@ export function registerFeatureIntegrations(
     }
     registry.set(contract.id, Object.freeze({ ...contract }));
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
-/**
- * Register versioned, pure domain calculations and execute their regression
- * fixtures immediately. UI and persistence code consume this contract; neither
- * owns or reimplements the formula.
- */
+/** Register versioned, pure domain calculations and execute their regression fixtures immediately. */
 export function registerCalculations<Input, Output>(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
   contracts: CalculationContract<Input, Output>[],
@@ -86,28 +126,47 @@ export function registerCalculations<Input, Output>(
     if (
       !contract.id ||
       !features.has(contract.ownerFeatureId) ||
-      contract.version < 1 ||
-      contract.inputSchemaVersion < 1 ||
-      contract.outputSchemaVersion < 1 ||
+      !Number.isSafeInteger(contract.version) || contract.version < 1 ||
+      !Number.isSafeInteger(contract.inputSchemaVersion) || contract.inputSchemaVersion < 1 ||
+      !Number.isSafeInteger(contract.outputSchemaVersion) || contract.outputSchemaVersion < 1 ||
       !contract.unit ||
       !contract.effectiveDateField ||
       !["none", "half-up", "half-even", "floor", "ceil"].includes(contract.rounding.mode) ||
       !Number.isInteger(contract.rounding.decimalPlaces) ||
       contract.rounding.decimalPlaces < 0 ||
       contract.rounding.decimalPlaces > 12 ||
+      !Array.isArray(contract.regressionCases) ||
       contract.regressionCases.length === 0
     ) {
       throw new Error("Invalid calculation contract: " + contract.id);
     }
     for (const testCase of contract.regressionCases) {
-      const actual = contract.calculate(testCase.input);
-      if (stableSerialize(actual) !== stableSerialize(testCase.expected)) {
+      if (!validIsoBusinessDate((testCase.input as Record<string, unknown>)[contract.effectiveDateField])) {
+        throw new Error("Calculation regression case has invalid effective date: " + contract.id + ":" + testCase.name);
+      }
+      const immutableInput = cloneFrozenCalculationData(testCase.input);
+      const actual = cloneFrozenCalculationData(contract.calculate(immutableInput));
+      const expected = typeof testCase.expected === "number"
+        ? applyCalculationRounding(testCase.expected, contract.rounding)
+        : testCase.expected;
+      const normalized = typeof actual === "number"
+        ? applyCalculationRounding(actual, contract.rounding)
+        : actual;
+      if (stableSerialize(normalized) !== stableSerialize(expected)) {
         throw new Error("Calculation regression failed: " + contract.id + ":" + testCase.name);
       }
     }
-    registry.set(contract.id, Object.freeze({ ...contract }));
+    registry.set(contract.id, Object.freeze({
+      ...contract,
+      rounding: Object.freeze({ ...contract.rounding }),
+      regressionCases: Object.freeze(contract.regressionCases.map(testCase => Object.freeze({
+        name: testCase.name,
+        input: cloneFrozenCalculationData(testCase.input),
+        expected: cloneFrozenCalculationData(testCase.expected),
+      }))) as CalculationRegressionCase<Input, Output>[],
+    }));
   }
-  return registry;
+  return createReadonlyRegistry(registry);
 }
 
 /** Apply a declared decimal rounding policy without changing the source formula. */
@@ -136,6 +195,7 @@ export function applyCalculationRounding(value: number, policy: CalculationRound
 export type FeatureIntegrationMessage<Payload> = {
   integrationId: string;
   contractVersion: number;
+  eventName: string;
   payloadVersion: number;
   eventId: string;
   occurredAt: string;
@@ -155,19 +215,23 @@ export async function dispatchFeatureIntegration<Payload>(
   if (!contract) throw new Error("Unknown feature integration: " + message.integrationId);
   if (
     message.contractVersion !== contract.version ||
-    message.payloadVersion !== contract.payloadVersion
+    message.payloadVersion !== contract.payloadVersion ||
+    message.eventName !== contract.eventName
   ) {
     throw new Error("Incompatible feature integration message: " + message.integrationId);
   }
   if (!message.eventId || !Number.isFinite(Date.parse(message.occurredAt))) {
     throw new Error("Invalid feature integration message envelope: " + message.integrationId);
   }
+  if (!contract.validatePayload(message.payload)) {
+    throw new Error("Invalid feature integration payload: " + contract.id);
+  }
   const handler = handlers[contract.id];
   if (!handler) throw new Error("Missing feature integration handler: " + contract.id);
   await handler(message);
 }
 
-/** Execute a registered calculation only when the caller requests its exact version. */
+/** Execute the exact calculation version and apply its declared date and rounding policy. */
 export function runCalculation<Input, Output>(
   contract: CalculationContract<Input, Output>,
   input: Input,
@@ -176,5 +240,62 @@ export function runCalculation<Input, Output>(
   if (contract.version !== expectedVersion) {
     throw new Error("Incompatible calculation version: " + contract.id);
   }
-  return contract.calculate(input);
+  if (!validIsoBusinessDate((input as Record<string, unknown>)[contract.effectiveDateField])) {
+    throw new Error("Invalid calculation effective date: " + contract.id);
+  }
+  const immutableInput = cloneFrozenCalculationData(input);
+  const result = contract.calculate(immutableInput);
+  const normalized = typeof result === "number"
+    ? applyCalculationRounding(result, contract.rounding)
+    : result;
+  return cloneFrozenCalculationData(normalized) as Output;
+}
+
+
+export type CalculationExecutionResult<Output = unknown> = Readonly<{
+  calculationId: string;
+  ownerFeatureId: FeatureId;
+  version: number;
+  inputSchemaVersion: number;
+  outputSchemaVersion: number;
+  effectiveDate: string;
+  unit: string;
+  value: Output;
+}>;
+
+/**
+ * Execute a calculation by its registered identity, not by a UI-held function.
+ * The result carries the exact rule/schema versions and effective date so
+ * callers can retain provenance without duplicating formula logic.
+ */
+export function executeRegisteredCalculation<Input, Output>(
+  registry: ReadonlyMap<string, CalculationContract<any, any>>,
+  calculationId: string,
+  input: Input,
+  expected: { version: number; inputSchemaVersion: number; outputSchemaVersion: number },
+): CalculationExecutionResult<Output> {
+  const contract = registry.get(calculationId);
+  if (!contract) throw new Error("Unknown calculation: " + calculationId);
+  if (contract.inputSchemaVersion !== expected.inputSchemaVersion) {
+    throw new Error("Incompatible calculation input schema: " + calculationId);
+  }
+  if (contract.outputSchemaVersion !== expected.outputSchemaVersion) {
+    throw new Error("Incompatible calculation output schema: " + calculationId);
+  }
+  const typedContract = contract as CalculationContract<Input, Output>;
+  const value = runCalculation(typedContract, input, expected.version);
+  const effectiveDate = (input as Record<string, unknown>)[contract.effectiveDateField];
+  if (typeof effectiveDate !== "string") {
+    throw new Error("Invalid calculation effective date: " + calculationId);
+  }
+  return Object.freeze({
+    calculationId: contract.id,
+    ownerFeatureId: contract.ownerFeatureId,
+    version: contract.version,
+    inputSchemaVersion: contract.inputSchemaVersion,
+    outputSchemaVersion: contract.outputSchemaVersion,
+    effectiveDate,
+    unit: contract.unit,
+    value,
+  });
 }

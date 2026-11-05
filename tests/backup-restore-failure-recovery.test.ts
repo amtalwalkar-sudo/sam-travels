@@ -13,6 +13,35 @@ describe("backup restore failure recovery", () => {
     await browserDatabase.open();
   });
 
+  it("does not return a partial backup when snapshot export is interrupted", async () => {
+    const timestamp = "2026-11-04T00:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "backup-source", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1, data: { label: "source-survives" },
+    });
+    const database = browserDatabase as unknown as { transaction: (...args: any[]) => any };
+    const originalTransaction = database.transaction;
+    let injected = false;
+    database.transaction = function (...args: any[]) {
+      if (args[0] === "r" && !injected) {
+        injected = true;
+        const scope = args[2];
+        args[2] = async (...scopeArgs: any[]) => {
+          await scope(...scopeArgs);
+          throw new Error("simulated_snapshot_interruption");
+        };
+      }
+      return originalTransaction.apply(this, args);
+    };
+    try {
+      await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("simulated_snapshot_interruption");
+    } finally {
+      database.transaction = originalTransaction;
+    }
+    expect((await browserDatabase.records.get("backup-source"))?.data).toEqual({ label: "source-survives" });
+    expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
+  });
+
   it("rejects malformed feature rows before replacing current data", async () => {
     const timestamp = "2026-11-04T00:00:00.000Z";
     await browserDatabase.records.put({

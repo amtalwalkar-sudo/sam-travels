@@ -20,7 +20,13 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
         id: "work-driver-state",
         featureId: "work",
         schemaVersion: 1,
-        tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+        tableNames: ["driverState", "driverIntents", "driverOutbox"],
+      },
+      {
+        id: "logbook-events",
+        featureId: "logbook",
+        schemaVersion: 1,
+        tableNames: ["driverEvents"],
       },
     ]);
     expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
@@ -147,6 +153,18 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     expect(await listBrowserRecoveryCheckpoints()).toEqual([
       expect.objectContaining({ id: result.checkpointId, status: "rollback_complete" }),
     ]);
+  });
+
+  it("rejects backup participant ownership or snapshot-version drift", async () => {
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    const altered = {
+      ...snapshot.manifest,
+      participants: snapshot.manifest.participants?.map(item =>
+        item.id === "logbook-events" ? { ...item, snapshotVersion: item.snapshotVersion + 1 } : item),
+    };
+    await expect(restoreBrowserSnapshot({ data: snapshot.data, manifest: altered, confirmed: true }))
+      .rejects.toThrow("backup_participant_manifest_mismatch");
+    expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
   });
 
   it("refuses replacement without confirmation and rejects mismatched record counts", async () => {

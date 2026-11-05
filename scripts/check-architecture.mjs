@@ -26,6 +26,7 @@ function layer(file) {
   if (p.startsWith("packages/core/src/")) return "core";
   if (p.startsWith("packages/domain/src/")) return "domain";
   if (p.startsWith("packages/application/src/")) return "application";
+  if (p.startsWith("packages/presentation/src/")) return "presentation";
   if (p.startsWith("packages/storage-browser/src/") || p.startsWith("packages/storage-android/src/")) return "storage";
   if (p.startsWith("packages/features/")) return "feature";
   if (p.startsWith("apps/web/src/ui/") || p.startsWith("apps/web/src/components/")) return "ui";
@@ -60,6 +61,7 @@ function targetLayer(resolved) {
   if (p.includes("/packages/core/src/")) return "core";
   if (p.includes("/packages/domain/src/")) return "domain";
   if (p.includes("/packages/application/src/")) return "application";
+  if (p.includes("/packages/presentation/src/")) return "presentation";
   if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
   if (p.includes("/packages/features/")) return "feature";
   if (p.includes("/apps/web/src/")) return "ui";
@@ -164,7 +166,7 @@ for (const absolute of sourceFiles) {
       specifier.startsWith("@capacitor/") ||
       /^(?:androidx\.|android\.|java\.|javax\.|org\.json|com\.dropbox\.)/.test(specifier);
 
-    if (["core", "domain", "application"].includes(from) && platformOrUiImport) {
+    if (["core", "domain", "application", "presentation"].includes(from) && platformOrUiImport) {
       failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
     }
     if (from === "storage" && (
@@ -176,12 +178,13 @@ for (const absolute of sourceFiles) {
     }
 
     const forbidden =
-      (from === "core" && ["domain", "application", "storage", "ui", "feature"].includes(target)) ||
-      (from === "domain" && ["application", "storage", "ui"].includes(target)) ||
-      (from === "application" && ["storage", "ui"].includes(target)) ||
-      (from === "storage" && target === "ui") ||
+      (from === "core" && ["domain", "application", "storage", "ui", "feature", "presentation"].includes(target)) ||
+      (from === "domain" && ["application", "storage", "ui", "presentation"].includes(target)) ||
+      (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
+      (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
+      (from === "storage" && ["ui", "presentation"].includes(target)) ||
       (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
-      (from === "feature" && ["storage", "ui"].includes(target)) ||
+      (from === "feature" && ["storage", "ui", "presentation"].includes(target)) ||
       (from === "ui" && target === "storage");
     if (forbidden) {
       failures.push(`${relative}: ${from} layer must not import ${target ?? "a forbidden adapter"} via "${specifier}"`);
@@ -193,6 +196,29 @@ for (const absolute of sourceFiles) {
     )) {
       failures.push(`${relative}: presentation must use application/platform contracts, not direct storage or Capacitor APIs "${specifier}"`);
     }
+  }
+}
+
+// Android/Kotlin rules supplement TypeScript dependency direction checks.
+const kotlinSources = sourceFiles.filter(file => file.endsWith(".kt") || file.endsWith(".java"));
+for (const absolute of kotlinSources) {
+  const relative = normalize(path.relative(root, absolute));
+  const content = await readFile(absolute, "utf8");
+  if (relative.startsWith("android/app/src/main/")) {
+    if (/^\s*@(Entity|Dao|Database)\b/m.test(content) && !relative.endsWith("/LocalDatabase.kt")) {
+      failures.push(relative + ": Room declarations must be centralized in LocalDatabase.kt");
+    }
+    if (/^\s*@PluginMethod\b/m.test(content) && !relative.endsWith("Plugin.kt")) {
+      failures.push(relative + ": Capacitor bridge methods must be isolated in *Plugin.kt adapters");
+    }
+    if (/Class\.forName\s*\(|java\.lang\.reflect|DexClassLoader/.test(content)) {
+      failures.push(relative + ": reflection/dynamic loading bypasses static architecture enforcement");
+    }
+  }
+  if (/^packages\/(core|domain|application|presentation)\/src\//.test(relative) &&
+      (/^\s*import\s+(?:android\.|androidx\.|com\.getcapacitor\.|java\.io\.)/m.test(content) ||
+       /\b(?:androidx\.room|android\.content\.|android\.location\.|com\.getcapacitor\.|java\.io\.)/.test(content))) {
+    failures.push(relative + ": platform-neutral Kotlin may not reference Android, Room, Capacitor, or Java I/O");
   }
 }
 
@@ -220,11 +246,31 @@ for (const section of requiredFeatureContractSections) {
   if (!featureContract.includes(section)) failures.push(`docs/FEATURE_MODULE_CONTRACT.md: missing required section "${section}"`);
 }
 
+// The application must validate one shared runtime registry before mounting UI.
+const applicationEntry = await readFile(path.join(root, "apps/web/src/main.tsx"), "utf8");
+const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-driver-workspace.ts"), "utf8");
+const registryCall = applicationEntry.indexOf("getApplicationRuntimeRegistry();");
+const uiMount = applicationEntry.indexOf("createRoot(");
+if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) {
+  failures.push("apps/web/src/main.tsx: the validated application runtime registry must be initialized before UI mounting");
+}
+if (!workspaceConsumer.includes("getApplicationRuntimeRegistry()")) {
+  failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application registry singleton");
+}
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/")) continue;
+  const content = await readFile(absolute, "utf8");
+  if (content.includes("initializeApplicationRuntimeRegistry(")) {
+    failures.push(relative + ": application consumers must use the shared runtime registry, not create independent registries");
+  }
+}
+
 if (failures.length) {
   console.error("Architecture gate failed:");
   for (const failure of failures) console.error(` - ${failure}`);
   process.exitCode = 1;
 } else {
   const dependencyCount = [...featureGraph.values()].reduce((sum, edges) => sum + edges.size, 0);
-  console.log(`Architecture gate passed: ${sourceFiles.length} source files checked; dependency direction, public feature boundaries (${featureGraph.size} feature packages / ${dependencyCount} declared edges), cycle checks, and source-size limits are within policy.`);
+  console.log(`Architecture gate passed: ${sourceFiles.length} source files checked; dependency direction, public feature boundaries (${featureGraph.size} feature packages / ${dependencyCount} declared edges), Android/Kotlin adapter boundaries, cycle checks, and source-size limits are within policy.`);
 }

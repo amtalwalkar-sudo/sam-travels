@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LocalDatabaseMigrationTest {
@@ -26,6 +27,10 @@ class LocalDatabaseMigrationTest {
             "INSERT INTO `records` (`id`, `json`, `schemaVersion`, `updatedAt`) " +
                 "VALUES ('legacy-driver-state', '{\"state\":\"shift_active\"}', 1, '2026-11-04T10:00:00Z')",
         )
+        legacy.execSQL(
+            "INSERT INTO `records` (`id`, `json`, `schemaVersion`, `updatedAt`) " +
+                "VALUES ('driver-event:event-legacy', '{\"eventId\":\"event-legacy\",\"kind\":\"trip_completed\"}', 1, '2026-11-04T10:01:00Z')",
+        )
         legacy.execSQL("CREATE TABLE IF NOT EXISTS `room_master_table` (id INTEGER PRIMARY KEY, identity_hash TEXT)")
         legacy.execSQL("INSERT OR REPLACE INTO `room_master_table` (id, identity_hash) VALUES(42, 'legacy-v1-hash')")
         legacy.version = 1
@@ -33,20 +38,24 @@ class LocalDatabaseMigrationTest {
     }
 
     @Test
-    fun versionOneDataSurvivesTheVersionTwoIndexMigration() {
+    fun versionOneDataSurvivesBothRoomMigrations() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "room-migration-v1-to-v2.db"
         createVersionOneDatabase(context, name)
 
         val migrated = Room.databaseBuilder(context, LocalDatabase::class.java, name)
-            .addMigrations(LocalDatabase.MIGRATION_1_2)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {
             val row = migrated.records().get("legacy-driver-state")
             assertNotNull(row)
             assertEquals("{\"state\":\"shift_active\"}", row!!.json)
-            assertEquals(2, migrated.openHelper.readableDatabase.version)
+            assertNull(migrated.records().get("driver-event:event-legacy"))
+            assertEquals("event-legacy", migrated.logBookEvents().list().single().eventId)
+            assertEquals("{\"eventId\":\"event-legacy\",\"kind\":\"trip_completed\"}", migrated.logBookEvents().list().single().json)
+            assertEquals(3, migrated.openHelper.readableDatabase.version)
+            migrated.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE type='table' AND name='logbook_events'").use { cursor -> assertEquals(true, cursor.moveToFirst()) }
             migrated.openHelper.readableDatabase.query(
                 "SELECT name FROM sqlite_master WHERE type='index' AND name='index_records_updatedAt'",
             ).use { cursor -> assertEquals(true, cursor.moveToFirst()) }
@@ -69,7 +78,7 @@ class LocalDatabaseMigrationTest {
         }
 
         val broken = Room.databaseBuilder(context, LocalDatabase::class.java, name)
-            .addMigrations(injectedFailure)
+            .addMigrations(injectedFailure, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .build()
         try {
@@ -94,6 +103,10 @@ class LocalDatabaseMigrationTest {
             raw.rawQuery("SELECT json FROM records WHERE id='legacy-driver-state'", null).use { cursor ->
                 assertEquals(true, cursor.moveToFirst())
                 assertEquals("{\"state\":\"shift_active\"}", cursor.getString(0))
+            }
+            raw.rawQuery("SELECT json FROM records WHERE id='driver-event:event-legacy'", null).use { cursor ->
+                assertEquals(true, cursor.moveToFirst())
+                assertEquals("{\"eventId\":\"event-legacy\",\"kind\":\"trip_completed\"}", cursor.getString(0))
             }
             raw.rawQuery("SELECT identity_hash FROM room_master_table WHERE id=42", null).use { cursor ->
                 assertEquals(true, cursor.moveToFirst())

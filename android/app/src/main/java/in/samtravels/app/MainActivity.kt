@@ -12,6 +12,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(SecureVaultPlugin::class.java)
         registerPlugin(BackupKeyVaultPlugin::class.java)
         registerPlugin(BackupPlugin::class.java)
+        registerPlugin(DiagnosticsPlugin::class.java)
         persistDropboxCallback(intent)
         super.onCreate(savedInstanceState)
         BackgroundBackupScheduler.schedule(this)

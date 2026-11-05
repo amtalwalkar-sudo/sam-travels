@@ -19,7 +19,7 @@ Initial feature areas:
 - Admin
 - Backup and Recovery
 
-These are product areas, not permission to build a generic fleet platform.
+These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`; currently Work is the only registered persistent product feature. Finance, Vehicle, Performance, Admin, and Log Book remain non-persistent placeholders until their own data models and persistence adapters are implemented.
 
 ## Capability ownership
 
@@ -34,7 +34,7 @@ The capability's public entry point is its only supported cross-capability impor
 - A form can be redesigned or added without changing the module's stable application wiring.
 - Calculations are domain-owned, pure where practical, versioned when historical outputs depend on their rules, and independently tested.
 - Persistence changes remain behind repositories and explicit versioned migrations.
-- Feature registration is explicit and typed; module dependencies are declared and checked. Avoid hidden global registries with unrestricted access.
+- Feature registration is explicit and typed; module dependencies are declared and checked. Runtime bootstrap accepts additive feature definitions and constructs feature, integration, and calculation registries locally, returning no partial registry if any contract fails. Avoid hidden global registries with unrestricted access.
 - A module may add optional capabilities but cannot silently change another module's data, permissions, network behavior, or lifecycle state.
 - Cross-module workflows use an application coordinator with explicit transaction boundaries and compensating/recovery behavior where a single database transaction cannot cover the workflow.
 - No capability may import another capability's private UI, tables, persistence adapter, or platform implementation.
@@ -63,7 +63,7 @@ Every feature that persists business data must have exactly one explicit registr
 - Backup snapshot/export participation and required attachment/reference inventory.
 - Restore compatibility, validation, and recovery participation.
 - Lifecycle and deletion policy.
-- Registration, migration, dependency, backup, restore, and failure-path tests.
+- Registration, migration, dependency, backup, restore, and failure-path tests. Migration execution must use the transaction-bound runner; it preflights the complete migration chain and handler set before opening the store transaction, and the adapter must roll back if a handler fails.
 
 A feature with missing or invalid registration must not be enabled for persistent writes. Duplicate IDs, missing dependencies, unsupported versions, absent migrations, or missing backup/restore declarations fail closed. The registry is metadata and coordination, not a replacement for feature-owned persistence or domain invariants.
 
@@ -84,13 +84,13 @@ The backup coordinator discovers participants through the validated registry. Ea
 
 Restore validates all required participants and dependencies before replacement, creates a recovery checkpoint, requires explicit confirmation, stages and validates the complete dataset, and commits or rolls back recoverably. Unknown required features, incompatible schemas, missing attachments, or broken relationships fail closed. Existing backup encryption formats remain compatible.
 
-The browser PWA now resolves its snapshot table set from the validated feature registry and its storage-adapter participant declarations; it fails closed for missing, orphaned, duplicate, or unclassified participants/tables. Existing checkpoint, confirmation, transactional restore, verification, and rollback behavior remains in place. The Android Room backup path has not yet been migrated to this participant registry, so cross-runtime registry-driven backup completeness is not yet claimed.
+The browser PWA now resolves its snapshot table set from the validated feature registry and its storage-adapter participant declarations; it fails closed for missing, orphaned, duplicate, or unclassified participants/tables. Existing checkpoint, confirmation, transactional restore, verification, and rollback behavior remains in place. The Android Room path now has a native participant registry aligned on the `platform-records` identifier; its schema guard rejects duplicate participants/tables and any Room table not covered by the snapshot participant. The browser Work participant remains separate because its workflow state is stored in dedicated IndexedDB tables. This provides registry-driven table coverage in both current runtimes, but adding a future Android feature-specific table still requires registering its native participant and adding the corresponding snapshot serialization/restore contract.
 
 ## Calculation ownership and integrations
 
 Each calculation has one owning capability and a versioned contract recording its formula, units, precision/rounding, input sources, period semantics, inclusion/exclusion rules, missing-data behavior, output meaning, effective-date policy, and regression fixtures.
 
-The runtime now provides versioned calculation and integration registries, deterministic rounding helpers, and mandatory calculation regression fixtures. No production Finance/Performance calculation or cross-feature event subscription is registered yet; these contracts must be populated when those business modules are implemented. Test fixtures prove the registry behavior, not product calculations.
+The runtime now provides versioned calculation and integration registries, deterministic rounding helpers, mandatory calculation regression fixtures, and exact-version execution. Calculation execution validates the declared ISO business-effective date and applies the declared rounding policy to numeric results. Integration dispatch validates the integration ID, contract version, event name, payload version, event identity, and timestamp before invoking the consumer handler. The Log Book now registers a production trip-duration calculation (elapsed minutes from the committed trip interval) with versioned inputs, explicit business-effective date, declared precision, and regression fixtures. Work driver events are registered as a versioned Work-to-Log Book integration and dispatched through a consumer port; the durable Work event log remains replay authority. Finance/Performance business calculations are intentionally not invented while those modules remain placeholders.
 
 New feature data affects an existing calculation only through an explicitly approved, versioned integration contract. It must identify consumed data, mapping, timing/effective date, missing/disabled-feature behavior, and expected output effects. Until that integration is approved and tested, existing calculation behavior remains unchanged.
 

@@ -1,5 +1,7 @@
 import {
   registerFeatures,
+  registerBackupParticipants,
+  type BackupParticipantDefinition,
   resolveFeatureStartupOrder,
   type FeatureDefinition,
   type FeatureId,
@@ -12,14 +14,17 @@ import {
 } from "./feature-contracts";
 
 export type RuntimeContractDefinitions = {
+  /** Add-on definitions are validated together with the stable built-in catalogue. */
+  features?: FeatureDefinition[];
   integrations: FeatureIntegrationContract[];
   calculations: CalculationContract<any, any>[];
 };
 
 export type RuntimeRegistry = {
   features: ReadonlyMap<FeatureId, FeatureDefinition>;
-  startupOrder: FeatureDefinition[];
+  startupOrder: readonly FeatureDefinition[];
   integrations: ReadonlyMap<string, FeatureIntegrationContract>;
+  backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
   calculations: ReadonlyMap<string, CalculationContract<any, any>>;
 };
 
@@ -27,9 +32,12 @@ export type RuntimeRegistry = {
 export function initializeRuntimeRegistry(
   definitions: RuntimeContractDefinitions = { integrations: [], calculations: [] },
 ): RuntimeRegistry {
-  const features = registerFeatures();
+  // Build every registry locally. A failure in any contract prevents a partial
+  // runtime catalogue from being returned to the application bootstrap.
+  const features = registerFeatures(definitions.features ?? []);
   const startupOrder = resolveFeatureStartupOrder(features);
+  const backupParticipants = registerBackupParticipants(features);
   const integrations = registerFeatureIntegrations(features, definitions.integrations);
   const calculations = registerCalculations(features, definitions.calculations);
-  return Object.freeze({ features, startupOrder, integrations, calculations });
+  return Object.freeze({ features, startupOrder: Object.freeze(startupOrder), backupParticipants, integrations, calculations });
 }

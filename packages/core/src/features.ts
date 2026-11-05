@@ -1,4 +1,6 @@
+import { createReadonlyRegistry } from "./readonly-registry";
 export type FeatureId = string;
+export type FeatureDataPolicy = "persistent" | "non-persistent";
 
 export type FeatureDependency = FeatureId | {
   id: FeatureId;
@@ -32,17 +34,20 @@ export type PersistentFeatureContract = {
 export type FeatureDefinition = {
   id: FeatureId;
   label: string;
+  dataPolicy: FeatureDataPolicy;
   contractVersion: number;
   dependencies: FeatureDependency[];
   persistence?: PersistentFeatureContract;
 };
 
 const initial: FeatureDefinition[] = [
+  { id: "platform", label: "Platform Runtime", dataPolicy: "persistent", contractVersion: 1, dependencies: [], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "platform-records", snapshotVersion: 1, required: true }, restore: { validatorId: "platform-records-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
   {
     id: "work",
     label: "Work",
+    dataPolicy: "persistent",
     contractVersion: 1,
-    dependencies: [],
+    dependencies: [{ id: "platform", contractVersion: 1 }],
     persistence: {
       schemaVersion: 1,
       migrations: [],
@@ -51,16 +56,22 @@ const initial: FeatureDefinition[] = [
       lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
     },
   },
-  { id: "logbook", label: "Log Book", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }] },
-  { id: "finance", label: "Finance", contractVersion: 1, dependencies: [] },
-  { id: "vehicle", label: "Vehicle", contractVersion: 1, dependencies: [] },
-  { id: "performance", label: "Performance", contractVersion: 1, dependencies: [
-    { id: "work", contractVersion: 1 },
-    { id: "logbook", contractVersion: 1 },
-    { id: "finance", contractVersion: 1 },
-  ] },
-  { id: "admin", label: "Admin", contractVersion: 1, dependencies: [] },
-  { id: "backup", label: "Backup & Recovery", contractVersion: 1, dependencies: [] },
+  { id: "logbook", label: "Log Book", dataPolicy: "persistent", contractVersion: 1, dependencies: [{ id: "work", contractVersion: 1 }], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "logbook-events", snapshotVersion: 1, required: true }, restore: { validatorId: "logbook-events-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
+  { id: "finance", label: "Finance", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
+  { id: "vehicle", label: "Vehicle", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
+  {
+    id: "performance",
+    label: "Performance",
+    dataPolicy: "non-persistent",
+    contractVersion: 1,
+    dependencies: [
+      { id: "work", contractVersion: 1 },
+      { id: "logbook", contractVersion: 1 },
+      { id: "finance", contractVersion: 1 },
+    ],
+  },
+  { id: "admin", label: "Admin", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
+  { id: "backup", label: "Backup & Recovery", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
 ];
 
 function dependencyId(dependency: FeatureDependency): FeatureId {
@@ -69,6 +80,12 @@ function dependencyId(dependency: FeatureDependency): FeatureId {
 
 function validatePersistentContract(feature: FeatureDefinition): void {
   const contract = feature.persistence;
+  if (feature.dataPolicy === "persistent" && !contract) {
+    throw new Error("Persistent feature is missing its persistence contract: " + feature.id);
+  }
+  if (feature.dataPolicy === "non-persistent" && contract) {
+    throw new Error("Non-persistent feature cannot declare a persistence contract: " + feature.id);
+  }
   if (!contract) return;
   if (!Number.isSafeInteger(contract.schemaVersion) || contract.schemaVersion < 1) {
     throw new Error("Invalid schema version for feature: " + feature.id);
@@ -76,7 +93,12 @@ function validatePersistentContract(feature: FeatureDefinition): void {
   if (!Array.isArray(contract.migrations)) {
     throw new Error("Invalid migration list for feature: " + feature.id);
   }
-  if (!contract.backup?.required || !contract.backup.participantId || !Number.isSafeInteger(contract.backup.snapshotVersion) || contract.backup.snapshotVersion < 1) {
+  if (
+    !contract.backup?.required ||
+    !contract.backup.participantId ||
+    !Number.isSafeInteger(contract.backup.snapshotVersion) ||
+    contract.backup.snapshotVersion < 1
+  ) {
     throw new Error("Missing required backup participant for feature: " + feature.id);
   }
   if (!contract.restore?.required || !contract.restore.validatorId) {
@@ -87,16 +109,19 @@ function validatePersistentContract(feature: FeatureDefinition): void {
   }
 
   const migrations = [...contract.migrations].sort((a, b) => a.fromVersion - b.fromVersion);
+  const migrationIds = new Set<string>();
   let expectedVersion = 1;
   for (const migration of migrations) {
     if (
       !migration.id ||
+      migrationIds.has(migration.id) ||
       migration.fromVersion !== expectedVersion ||
       migration.toVersion !== migration.fromVersion + 1 ||
       migration.toVersion > contract.schemaVersion
     ) {
       throw new Error("Invalid migration chain for feature: " + feature.id);
     }
+    migrationIds.add(migration.id);
     expectedVersion = migration.toVersion;
   }
   if (expectedVersion !== contract.schemaVersion) {
@@ -121,20 +146,24 @@ function assertAcyclic(registry: Map<FeatureId, FeatureDefinition>): void {
 
 /**
  * Build and validate the runtime feature catalogue before feature writes are enabled.
- * Persistent features fail closed unless backup, restore, lifecycle, and migration
- * metadata form a complete contract.
+ * Every module must explicitly declare whether it persists business data.
  */
 export function registerFeatures(additional: FeatureDefinition[] = []): ReadonlyMap<FeatureId, FeatureDefinition> {
   const registry = new Map<FeatureId, FeatureDefinition>();
   for (const source of [...initial, ...additional]) {
     if (registry.has(source.id)) throw new Error("Duplicate feature registration: " + source.id);
-    if (!source.label.trim() || !Number.isSafeInteger(source.contractVersion) || source.contractVersion < 1) {
+    if (
+      !["persistent", "non-persistent"].includes(source.dataPolicy) ||
+      !source.label.trim() ||
+      !Number.isSafeInteger(source.contractVersion) ||
+      source.contractVersion < 1
+    ) {
       throw new Error("Invalid feature contract: " + source.id);
     }
     validatePersistentContract(source);
     const feature: FeatureDefinition = Object.freeze({
       ...source,
-      dependencies: Object.freeze([...source.dependencies]) as FeatureDependency[],
+      dependencies: Object.freeze(source.dependencies.map(dependency => typeof dependency === "string" ? dependency : Object.freeze({ ...dependency }))) as FeatureDependency[],
       persistence: source.persistence ? Object.freeze({
         ...source.persistence,
         migrations: Object.freeze(source.persistence.migrations.map(migration => Object.freeze({ ...migration }))) as FeatureMigration[],
@@ -165,7 +194,36 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
     if (id && participants.has(id)) throw new Error("Duplicate backup participant: " + id);
     if (id) participants.add(id);
   }
-  return registry;
+  return createReadonlyRegistry(registry);
+}
+
+export type BackupParticipantDefinition = {
+  id: string;
+  featureId: FeatureId;
+  snapshotVersion: number;
+  restoreValidatorId: string;
+  required: true;
+};
+
+/** Discover every required backup participant directly from persistent feature contracts. */
+export function registerBackupParticipants(
+  features: ReadonlyMap<FeatureId, FeatureDefinition>,
+): ReadonlyMap<string, BackupParticipantDefinition> {
+  const registry = new Map<string, BackupParticipantDefinition>();
+  for (const feature of features.values()) {
+    const persistence = feature.persistence;
+    if (!persistence) continue;
+    const id = persistence.backup.participantId;
+    if (registry.has(id)) throw new Error("Duplicate backup participant: " + id);
+    registry.set(id, Object.freeze({
+      id,
+      featureId: feature.id,
+      snapshotVersion: persistence.backup.snapshotVersion,
+      restoreValidatorId: persistence.restore.validatorId,
+      required: true,
+    }));
+  }
+  return createReadonlyRegistry(registry);
 }
 
 /** Stable dependency-first order for startup and migration coordination. */
@@ -221,4 +279,46 @@ export async function runFeatureMigrations<Context>(
   }
   for (const step of steps) await step(context);
   return contract.schemaVersion;
+}
+
+
+export type FeatureMigrationTransaction<Context> = {
+  /** The adapter must commit only when operation resolves and roll back on rejection. */
+  run<Result>(operation: (context: Context) => Promise<Result>): Promise<Result>;
+};
+
+/**
+ * Execute a feature migration inside the authoritative store's transaction.
+ * Handler availability and migration ordering are validated before the adapter
+ * is allowed to begin writes; adapter rollback handles injected/runtime failures.
+ */
+export async function runFeatureMigrationsAtomically<Context>(
+  feature: FeatureDefinition,
+  currentVersion: number,
+  handlers: Readonly<Record<string, FeatureMigrationHandler<Context>>>,
+  transaction: FeatureMigrationTransaction<Context>,
+): Promise<number> {
+  const contract = feature.persistence;
+  if (!contract) {
+    if (currentVersion !== 0) throw new Error("Non-persistent feature has a schema version: " + feature.id);
+    return Promise.resolve(0);
+  }
+  if (!Number.isSafeInteger(currentVersion) || currentVersion < 1 || currentVersion > contract.schemaVersion) {
+    throw new Error("Unsupported current schema version for feature: " + feature.id);
+  }
+  let expectedVersion = currentVersion;
+  for (const migration of [...contract.migrations].sort((a, b) => a.fromVersion - b.fromVersion)) {
+    if (migration.fromVersion < currentVersion) continue;
+    if (migration.fromVersion !== expectedVersion || migration.toVersion !== expectedVersion + 1) {
+      throw new Error("Incomplete migration chain for feature: " + feature.id);
+    }
+    if (!handlers[migration.id]) {
+      throw new Error("Missing migration handler " + migration.id + " for feature: " + feature.id);
+    }
+    expectedVersion = migration.toVersion;
+  }
+  if (expectedVersion !== contract.schemaVersion) {
+    throw new Error("Incomplete migration chain for feature: " + feature.id);
+  }
+  return transaction.run(context => runFeatureMigrations(feature, currentVersion, handlers, context));
 }

@@ -6,4 +6,6 @@ export interface SnapshotManifest {
   businessTimezone: string;
   snapshotRevision: number;
   recordCounts: Record<string, number>;
+  /** Participant ownership inventory; absent only for legacy snapshot files. */
+  participants?: Array<{ id: string; featureId: string; snapshotVersion: number; restoreValidatorId: string }>;
 }

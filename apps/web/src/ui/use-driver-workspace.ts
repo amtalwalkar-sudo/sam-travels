@@ -9,6 +9,8 @@ import {
   enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { dispatchCommittedWorkEvent, getApplicationRuntimeRegistry, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
+import { recordBrowserDiagnostic } from "../diagnostics";
 
 export function useDriverWorkspace() {
   const [now, setNow] = useState(Date.now());
@@ -41,6 +43,7 @@ export function useDriverWorkspace() {
       })
       .catch((cause) => {
         if (live) {
+          void recordBrowserDiagnostic({ subsystem: "storage", operation: "repository_startup", failureCategory: "storage", recoveryResult: "startup_blocked" });
           setError(cause instanceof Error ? cause.message : "Local storage unavailable");
           setReady(true);
         }
@@ -59,9 +62,16 @@ export function useDriverWorkspace() {
           return;
         }
 
-        const service = new DriverWorkflowService(repository, location);
+        const runtime = getApplicationRuntimeRegistry();
+        const service = new DriverWorkflowService(repository, location, async (event) => {
+          await dispatchCommittedWorkEvent(runtime, event, async () => {
+            rebuildTripHistoryProjection(await repository.listEvents());
+          });
+        });
         setWorkflow(service);
         setDriver(await service.snapshot());
+        rebuildTripHistoryProjection(await service.events());
+        await service.replayCommittedEvents();
         const pendingItems = await service.reconcilePending();
         setPending(pendingItems);
         setDriverMessage(
@@ -75,6 +85,7 @@ export function useDriverWorkspace() {
         });
 
         const syncHandle = window.setInterval(() => {
+          void service.replayCommittedEvents();
           void service.snapshot().then((snapshot) => {
             if (live) setDriver(snapshot);
           });
@@ -91,7 +102,10 @@ export function useDriverWorkspace() {
         };
       })
       .catch((cause) => {
-        if (live) setDriverMessage(cause instanceof Error ? cause.message : "Driver workflow unavailable");
+        if (live) {
+          void recordBrowserDiagnostic({ subsystem: "workflow", operation: "workflow_startup", failureCategory: "workflow", recoveryResult: "retry_required" });
+          setDriverMessage(cause instanceof Error ? cause.message : "Driver workflow unavailable");
+        }
       });
 
     return () => {
@@ -134,6 +148,7 @@ export function useDriverWorkspace() {
           : "Still awaiting a reliable GPS fix · " + (result.reason ?? "retry later"),
       );
     } catch (cause) {
+      void recordBrowserDiagnostic({ subsystem: "recovery", operation: "retry_pending_action", failureCategory: "recovery", recoveryResult: "retry_failed" });
       setDriverMessage(cause instanceof Error ? cause.message : "Unable to retry pending action");
     } finally {
       setDriverBusy(false);
@@ -171,6 +186,7 @@ export function useDriverWorkspace() {
               : "Action needs attention · " + (result.reason ?? "retry required"),
       );
     } catch (cause) {
+      void recordBrowserDiagnostic({ subsystem: "workflow", operation: "dispatch_transition", failureCategory: "workflow", recoveryResult: "operation_failed" });
       setDriverMessage(cause instanceof Error ? cause.message : "Unable to queue action");
     } finally {
       setDriverBusy(false);

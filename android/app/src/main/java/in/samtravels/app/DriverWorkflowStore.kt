@@ -133,7 +133,7 @@ object DriverWorkflowStore {
                 .put("revision", revision)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
-            save(db, "driver-event:$eventId", eventRecord, now)
+            db.logBookEvents().put(LogBookEventRecord(eventId, eventRecord.toString(), 1, now))
             save(db, "driver-state", JSONObject().put("value", next), now)
             save(db, key, intent, now)
             save(
@@ -143,6 +143,10 @@ object DriverWorkflowStore {
                     .put("id", "driver-state:$revision")
                     .put("eventId", eventId)
                     .put("revision", revision)
+                    .put("integrationId", "logbook.work-driver-events.v1")
+                    .put("contractVersion", 1)
+                    .put("eventName", "work.driver-event-committed")
+                    .put("payloadVersion", 1)
                     .put("delivered", false)
                     .put("createdAt", now),
                 now,

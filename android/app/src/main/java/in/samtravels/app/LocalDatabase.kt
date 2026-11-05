@@ -12,13 +12,66 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/** Versioned metadata used by the native snapshot adapter registry. */
+@Repeatable
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class NativeBackupParticipant(
+    val id: String,
+    val featureId: String,
+    val roomTable: String,
+    val snapshotVersion: Int,
+    val adapterId: String,
+)
+
 @Entity(tableName = "records", indices = [Index(value = ["updatedAt"])])
+@NativeBackupParticipant(
+    id = "work-driver-state",
+    featureId = "work",
+    roomTable = "records",
+    snapshotVersion = 1,
+    adapterId = "work-driver-records-json-v1",
+)
+@NativeBackupParticipant(
+    id = "platform-records",
+    featureId = "platform",
+    roomTable = "records",
+    snapshotVersion = 1,
+    adapterId = "stored-records-json-v1",
+)
 data class StoredRecord(
     @PrimaryKey val id: String,
     val json: String,
     val schemaVersion: Int,
     val updatedAt: String,
 )
+
+@Entity(tableName = "logbook_events", indices = [Index(value = ["updatedAt"])])
+@NativeBackupParticipant(
+    id = "logbook-events",
+    featureId = "logbook",
+    roomTable = "logbook_events",
+    snapshotVersion = 1,
+    adapterId = "logbook-events-json-v1",
+)
+data class LogBookEventRecord(
+    @PrimaryKey val eventId: String,
+    val json: String,
+    val schemaVersion: Int,
+    val updatedAt: String,
+)
+
+@Dao
+interface LogBookEventDao {
+    @Query("SELECT * FROM logbook_events ORDER BY updatedAt, eventId")
+    fun list(): List<LogBookEventRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun put(record: LogBookEventRecord)
+
+    @Query("DELETE FROM logbook_events")
+    fun clear()
+}
 
 @Dao
 interface RecordDao {
@@ -35,20 +88,41 @@ interface RecordDao {
     fun remove(id: String)
 }
 
-@Database(entities = [StoredRecord::class], version = 2, exportSchema = true)
+@Database(entities = [StoredRecord::class, LogBookEventRecord::class], version = 3, exportSchema = true)
 abstract class LocalDatabase : RoomDatabase() {
     abstract fun records(): RecordDao
+    abstract fun logBookEvents(): LogBookEventDao
 
     companion object {
         /**
-         * Version 2 adds the index used by chronological record scans.
-         * The JSON record envelope and all existing rows remain unchanged.
+         * Keep the participant entity inventory beside the Room database contract.
+         * Runtime sqlite_master coverage fails if a Room table is added but not
+         * enrolled here, so new persisted tables cannot silently escape backups.
          */
+        val backupEntityTypes: List<Class<*>> = listOf(StoredRecord::class.java, LogBookEventRecord::class.java)
+
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_records_updatedAt` ON `records` (`updatedAt`)",
                 )
+            }
+        }
+        val MIGRATION_2_3: Migration = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `logbook_events` (`eventId` TEXT NOT NULL, `json` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`eventId`))",
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_logbook_events_updatedAt` ON `logbook_events` (`updatedAt`)",
+                )
+                // Move legacy Work event rows into their new Log Book-owned table atomically.
+                database.execSQL(
+                    "INSERT OR IGNORE INTO `logbook_events` (`eventId`, `json`, `schemaVersion`, `updatedAt`) " +
+                        "SELECT substr(`id`, length('driver-event:') + 1), `json`, `schemaVersion`, `updatedAt` " +
+                        "FROM `records` WHERE `id` LIKE 'driver-event:%'",
+                )
+                database.execSQL("DELETE FROM `records` WHERE `id` LIKE 'driver-event:%'")
             }
         }
     }

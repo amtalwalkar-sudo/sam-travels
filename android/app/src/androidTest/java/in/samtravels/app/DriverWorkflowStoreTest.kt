@@ -49,8 +49,13 @@ class DriverWorkflowStoreTest {
         assertEquals("shift_active", next.getString("state"))
         assertEquals(1, next.getInt("revision"))
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-1")!!.json).getString("status"))
-        assertTrue(db.records().get("driver-event:event-1") != null)
-        assertTrue(db.records().get("driver-outbox:1") != null)
+        assertEquals(1, db.logBookEvents().list().size)
+        assertEquals("event-1", JSONObject(db.logBookEvents().list().single().json).getString("eventId"))
+        val outbox = JSONObject(db.records().get("driver-outbox:1")!!.json)
+        assertEquals("logbook.work-driver-events.v1", outbox.getString("integrationId"))
+        assertEquals(1, outbox.getInt("contractVersion"))
+        assertEquals("work.driver-event-committed", outbox.getString("eventName"))
+        assertEquals(1, outbox.getInt("payloadVersion"))
         assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
             .getJSONObject("value").getInt("revision"))
     }
@@ -70,7 +75,7 @@ class DriverWorkflowStoreTest {
         assertEquals(0, persistedState?.optInt("revision", 0) ?: 0)
         assertEquals("pending_location", JSONObject(db.records().get("driver-intent:event-bad-gps")!!.json)
             .getString("status"))
-        assertFalse(db.records().list().any { it.id.startsWith("driver-event:") })
+        assertTrue(db.logBookEvents().list().isEmpty())
         assertFalse(db.records().list().any { it.id.startsWith("driver-outbox:") })
     }
 
@@ -168,7 +173,7 @@ class DriverWorkflowStoreTest {
         }
 
         assertTrue(rejected)
-        assertEquals(1, db.records().list().count { it.id.startsWith("driver-event:") })
+        assertEquals(1, db.logBookEvents().list().size)
         assertEquals(1, db.records().list().count { it.id.startsWith("driver-outbox:") })
         assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
             .getJSONObject("value").getInt("revision"))
@@ -199,7 +204,8 @@ class DriverWorkflowStoreTest {
             }
 
             assertTrue(rejected)
-            assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-event:") })
+            assertEquals(1, reopened.logBookEvents().list().size)
+            assertEquals("durable-replay", JSONObject(reopened.logBookEvents().list().single().json).getString("eventId"))
             assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-outbox:") })
             assertEquals(1, JSONObject(reopened.records().get("driver-state")!!.json)
                 .getJSONObject("value").getInt("revision"))

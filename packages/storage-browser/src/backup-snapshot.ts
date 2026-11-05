@@ -1,7 +1,7 @@
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
-import { registerFeatures } from "../../core/src/features";
+import { registerFeatures, registerBackupParticipants } from "../../core/src/features";
 
 export interface BrowserSnapshotData {
   records: unknown[];
@@ -32,19 +32,24 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
     id: "work-driver-state",
     featureId: "work",
     schemaVersion: 1,
-    tableNames: ["driverState", "driverIntents", "driverEvents", "driverOutbox"],
+    tableNames: ["driverState", "driverIntents", "driverOutbox"],
   },
+  { id: "logbook-events", featureId: "logbook", schemaVersion: 1, tableNames: ["driverEvents"] },
 ]);
 
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
-  const registry = registerFeatures();
-  const featureParticipants = [...registry.values()]
-    .filter(feature => feature.persistence?.backup.required)
-    .map(feature => {
-      const participantId = feature.persistence!.backup.participantId;
-      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === participantId);
-      if (!participant || participant.featureId !== feature.id) {
-        throw new Error("backup_feature_registration_mismatch:" + feature.id + ":" + participantId);
+  const features = registerFeatures();
+  const discovered = registerBackupParticipants(features);
+  const featureParticipants = [...discovered.values()]
+    .filter(contract => contract.required && contract.featureId !== "platform")
+    .map(contract => {
+      const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === contract.id);
+      if (
+        !participant ||
+        participant.featureId !== contract.featureId ||
+        participant.schemaVersion !== contract.snapshotVersion
+      ) {
+        throw new Error("backup_feature_registration_mismatch:" + contract.featureId + ":" + contract.id);
       }
       return participant;
     });
@@ -55,9 +60,13 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   return resolved;
 }
 
+const requiredFeatureParticipants = [...registerBackupParticipants(registerFeatures()).values()];
+const PARTICIPANT_MANIFEST = requiredFeatureParticipants.map(({ id, featureId, snapshotVersion, restoreValidatorId }) => ({
+  id, featureId, snapshotVersion, restoreValidatorId,
+}));
 const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
   .flatMap(participant => participant.tableNames);
-const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta"] as const;
+const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta", "diagnostics"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
  * Recovery checkpoints and local credential-vault material are intentionally
@@ -83,6 +92,11 @@ function liveTables() {
   return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
 
+async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<BrowserSnapshotData> {
+  const entries = await Promise.all(tables.map(async table => [table.name, await table.toArray()] as const));
+  return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
+}
+
 function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
@@ -105,6 +119,13 @@ const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Tabl
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   if (manifest.schemaVersion !== 1) throw new Error("backup_unsupported_schema");
+  if (manifest.participants) {
+    const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
+      items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
+    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(PARTICIPANT_MANIFEST))) {
+      throw new Error("backup_participant_manifest_mismatch");
+    }
+  }
   for (const name of TABLE_NAMES) {
     const rows = data[name];
     if (!Array.isArray(rows) || rows.length !== manifest.recordCounts[name]) {
@@ -147,13 +168,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   plaintext: Uint8Array;
 }> {
   const tables = liveTables();
-  const data = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
@@ -162,6 +177,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
     recordCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, data[name].length])),
+    participants: PARTICIPANT_MANIFEST,
   };
   return { data, manifest, plaintext: new TextEncoder().encode(JSON.stringify(data)) };
 }
@@ -175,13 +191,7 @@ export async function restoreBrowserSnapshot(input: {
   validateSnapshot(input.data, input.manifest);
 
   const tables = liveTables();
-  const current = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const current = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
 
   const checkpointId = crypto.randomUUID();
   const checkpoint: Checkpoint = {
@@ -202,13 +212,7 @@ export async function restoreBrowserSnapshot(input: {
       await checkpointTable().put({ ...checkpoint, status: "restored_unverified" });
     });
 
-    const verified = await browserDatabase.transaction("r", tables, async () => ({
-      records: await tables[0].toArray(),
-      driverState: await tables[1].toArray(),
-      driverIntents: await tables[2].toArray(),
-      driverEvents: await tables[3].toArray(),
-      driverOutbox: await tables[4].toArray(),
-    })) as BrowserSnapshotData;
+    const verified = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
     if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
@@ -261,13 +265,7 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
     }
     await checkpointTable().put({ ...checkpoint, status: "rollback_complete" });
   });
-  const restored = await browserDatabase.transaction("r", tables, async () => ({
-    records: await tables[0].toArray(),
-    driverState: await tables[1].toArray(),
-    driverIntents: await tables[2].toArray(),
-    driverEvents: await tables[3].toArray(),
-    driverOutbox: await tables[4].toArray(),
-  })) as BrowserSnapshotData;
+  const restored = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   if (!snapshotsEqual(restored, checkpoint.snapshot)) {
     throw new Error("backup_checkpoint_rollback_verification_failed");
   }
