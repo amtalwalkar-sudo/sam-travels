@@ -30,6 +30,7 @@ Timeline must follow, and does not replace or weaken, the existing contracts:
 - [Internet Access Control Contract](NETWORK_ACCESS_CONTRACT.md) — explicit network opt-in, gateway enforcement and optional reverse geocoding.
 - [Native Android Contract](ANDROID_NATIVE_CONTRACT.md), [Application Lifecycle Contract](APPLICATION_LIFECYCLE_CONTRACT.md), [PWA Lifecycle Contract](PWA_LIFECYCLE_CONTRACT.md) and [Platform Acceptance Contract](PLATFORM_ACCEPTANCE_CONTRACT.md) — platform and lifecycle limitations.
 - [Architecture Enforcement and Verification](ARCHITECTURE_ENFORCEMENT.md) — static checks, runtime tests and acceptance evidence.
+- [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md) — the approved mockup is the PWA main app's visual source of truth; original-reference preservation and visual regression requirements.
 
 If this frozen design appears to conflict with an existing normative contract, the existing contract remains authoritative. Resolve the conflict through an explicitly reviewed contract change before implementation; do not silently reinterpret the existing rule.
 
@@ -54,6 +55,14 @@ The conceptual flow is:
 - If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This frozen design does not authorize such data.
 
 ## 4. Event-wise presentation requirements
+
+### 4.0 Approved mockup is the PWA visual source of truth
+
+The exact previously approved Timeline screen mockup governs the PWA main app's visual presentation. Reproduce its composition, visual hierarchy, typography, spacing, borders, shapes, colours, alignment, connectors, event sequence and relative component sizing faithfully. Do not introduce a new design or reinterpret the mockup. Responsive changes are permitted only to preserve usability on different viewport sizes and must retain the same information hierarchy, component order, grouping and visual language.
+
+The binding preservation, responsive-adaptation, measurement, change-control and visual-regression requirements are defined in the [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md). The original approved mockup must be preserved unmodified under [docs/reference/timeline-mockup](reference/timeline-mockup/), with a checksum and viewport/state manifest. **Current reference status:** the original mockup artifact was not present in the repository when the visual-fidelity contract was added; pixel-level acceptance remains blocked until that exact original is committed. Do not recreate or substitute it.
+
+The requirements below define the event content and semantic behavior; they do not authorize visual deviations from the approved mockup.
 
 The Timeline is compact, readable at phone size and visually ordered like an algorithm/event sequence. It must avoid oversized cards, redundant labels and maps. Distinct rides and shifts need unmistakable boundaries.
 
@@ -393,6 +402,12 @@ The product-design decisions and the complete Timeline design recorded in this d
 ## 12. Required verification before any future implementation approval
 
 This is the frozen acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
+
+### Mockup visual fidelity
+- Verify the exact approved original mockup is committed unmodified under `docs/reference/timeline-mockup/`, with a matching SHA-256 checksum and documented reference viewport/state.
+- Verify the PWA main app against the reference at the same viewport using side-by-side and overlay/difference review; retain evidence tied to the exact build/commit and reference checksum.
+- Verify narrower/wider viewport adaptations preserve the same composition, event order, grouping, hierarchy and visual language without clipping, overlap or hiding essential information.
+- Do not mark visual fidelity verified while the original reference artifact is absent.
 
 ### Event and shift correctness
 - Verify deterministic ordering by occurrence instant, source-defined sequence and stable event ID, including equal timestamps, delayed delivery, replay, pagination and recovery; prove receive/recovery time never replaces occurrence time.
