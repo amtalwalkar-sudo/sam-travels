@@ -143,7 +143,7 @@ for (const absolute of sourceFiles) {
   const fromFeature = featureName(relative);
   if (fromFeature) featureGraph.set(fromFeature, featureGraph.get(fromFeature) ?? new Set());
 
-  const isTypeScriptSource = /\\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(relative);
+  const isTypeScriptSource = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(relative);
   const parsed = isTypeScriptSource
     ? analyzeModuleReferences(content, relative)
     : { references: [], diagnostics: [] };
