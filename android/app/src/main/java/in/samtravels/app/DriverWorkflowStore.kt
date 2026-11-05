@@ -210,4 +210,23 @@ object DriverWorkflowStore {
     fun listEvents(db: LocalDatabase): List<JSONObject> =
         db.logBookEvents().list().map { JSONObject(it.json) }
 
+
+    /** Enumerate Work-owned durable intents; callers receive detached JSON values. */
+    fun listIntents(db: LocalDatabase): List<JSONObject> =
+        db.records().list()
+            .filter { it.id.startsWith("driver-intent:") }
+            .mapNotNull { runCatching { JSONObject(it.json) }.getOrNull() }
+
+    /** Find the original pending-location intent eligible for service-start recovery. */
+    fun firstPendingLocation(db: LocalDatabase): JSONObject? =
+        listIntents(db).firstOrNull { it.optString("status") == "pending_location" }
+
+    /** Find a recoverable intent without reviving an expired GPS evidence window. */
+    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? =
+        listIntents(db).firstOrNull {
+            it.optString("status") == "pending_location" ||
+                (it.optString("status") == "needs_attention" &&
+                    it.optString("reason") != "gps_recovery_window_expired")
+        }
+
 }

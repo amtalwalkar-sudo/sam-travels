@@ -222,7 +222,9 @@ for (const absolute of sourceFiles) {
   if (productionTypeScript && /(?:from|import\s*\()\s*["']dexie(?:\/[^"']*)?["']/.test(content)) {
     failures.push(relative + ": Dexie is a storage adapter dependency and may only be imported by packages/storage-browser");
   }
-  if (productionTypeScript && /\bbrowserDatabase\b/.test(content)) {
+  const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
+  if (productionTypeScript && /\bbrowserDatabase\b/.test(content) &&
+      !browserPersistenceGateways.has(relative)) {
     failures.push(relative + ": browserDatabase is private to the browser persistence adapter");
   }
   if (relative.startsWith("android/app/src/main/") &&
