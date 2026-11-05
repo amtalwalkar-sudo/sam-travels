@@ -61,7 +61,7 @@ These rules are checked in CI by `npm run check:architecture`. The guard is inte
 
 ## Consolidated architecture foundation contract
 
-The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
+The approved cross-cutting rules for ownership, compatibility, recovery, six workflow state machines, platform boundaries, CI enforcement, and local diagnostics are consolidated in [docs/ARCHITECTURE_FOUNDATION_CONTRACT.md](docs/ARCHITECTURE_FOUNDATION_CONTRACT.md). Its Section 9.1 also makes time integrity, explicit zero/unavailable/pending value semantics, and presentation non-interference mandatory across all capabilities. This contract supplements the detailed contracts below; it does not replace them. The platform-specific offline, coordination, and backup/restore findings are recorded in [docs/RELIABILITY_AUDIT.md](docs/RELIABILITY_AUDIT.md).
 
 ## Driver workflow and business rules
 
