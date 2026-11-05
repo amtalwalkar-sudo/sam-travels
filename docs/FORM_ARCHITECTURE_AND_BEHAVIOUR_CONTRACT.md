@@ -181,6 +181,7 @@ A form conforms only when:
 - Its data remains compatible with shared migration, backup/restore, and audit requirements.
 - Units, currency, precision, rounding, keyboard, touch, and accessibility requirements in Sections 11–12 are approved shared requirements.
 - Viewport adaptation, keyboard-safe visibility, sequential field navigation, automatic focus policy, forgiving correction, and submission-protection requirements in Section 18 are satisfied.
+- Native Android overlay panel, stable positioning, thumb-zone ergonomics, hand preference, keyboard adaptation, and PWA/native form parity requirements in Section 20 are satisfied.
 
 This contract records approved architecture and product rules only. It does not claim these guarantees are already implemented or runtime-enforced. Runtime changes, schema changes, UI changes, and implementation acceptance require a separate explicit authorization and test plan.
 
@@ -262,3 +263,54 @@ These requirements apply to every form that supports entering multiple records o
 - Where a workflow is interrupted by driving or another safety-critical activity, preserve its state and allow the driver to resume later without losing completed or in-progress entries.
 - Any automatic capture or background operation must follow its separately approved event, permission, privacy, and shared-foundation contracts; repeated-entry convenience must not introduce continuous tracking or unapproved automatic business actions.
 
+
+
+## 20. Native Android overlay form presentation, positioning, and thumb reachability
+
+These requirements apply when a shared form is presented in the native Android overlay above another application. They define a presentation mode for the existing shared form architecture; they do not create a separate form framework, business-rule path, persistence path, or recovery system.
+
+### Window and panel composition
+- The native overlay uses a full-screen transparent overlay window as its positioning surface. The form itself is a distinct, opaque panel within that window; the form is not merely a swipe bar or transparent text floating over the underlying application.
+- The opaque panel presents the actual form, with the same approved field arrangement, labels, control meanings, validation, and primary-action semantics as the corresponding PWA form, adapted responsively to the available Android viewport.
+- The overlay panel does not include the Sam Travels PWA header or bottom navigation. Android system UI, including status/navigation/gesture areas and the input method, remains governed by the operating system and must be respected.
+- The panel must remain visually legible over arbitrary underlying applications and light, dark, busy, or changing backgrounds. Use a sufficiently opaque, high-contrast panel surface; do not depend on the underlying app's colours or content for readability.
+- Where Android permits, touches outside the panel must continue to reach the underlying application. The transparent positioning surface must not unnecessarily intercept the entire screen or create unintended touch blocking. Touches within the panel belong to the form.
+
+### Movable panel and predictable position
+- The opaque panel is movable vertically within safe screen bounds. A dedicated, visually identifiable drag handle is the primary repositioning control; dragging fields, amount values, choices, or the primary action must not move the panel.
+- On first use, place the panel near the bottom of the usable screen, above the system gesture/navigation area, to support comfortable one-handed reach.
+- Remember the driver's preferred panel position and restore it when the overlay or another supported form opens again. Moving the panel must not alter form values, focus state, business state, or operation identity.
+- The preferred position is independent of which underlying application is currently visible. Switching between supported host applications must not cause arbitrary panel jumps.
+- Keep the panel's internal geometry stable when it moves: width, field order, relative spacing, amount-field placement, selection placement, and primary Save/Submit placement should remain consistent. The panel moves as a unit; its controls must not independently rearrange just because the panel was dragged.
+- Constrain the panel to the usable viewport. If screen dimensions, orientation, display cut-outs, system insets, or other safe-area boundaries change, preserve the preferred position as closely as possible while keeping the complete form and its primary action accessible. Any necessary responsive adjustment must be deterministic, not a jump to an unrelated location.
+- The saved position may be represented relative to the usable viewport so it can be restored sensibly across supported size changes. Do not hard-code coordinates for one handset or screen resolution.
+
+### Thumb-zone ergonomics and hand preference
+- Apply one-handed thumb-reachability principles. Place frequent entry and completion controls in comfortable lower-screen reach zones, with the primary action consistently located and easy to reach.
+- Keep amount entry, common Driver-paid/Customer-paid choices, and the primary Save/Submit action reachable without unnecessary stretching. Use adequately sized, well-spaced touch targets and avoid placing frequent actions in difficult-to-reach upper corners.
+- Support a right-hand or left-hand preference. Hand preference may adjust the panel's horizontal alignment or relevant control alignment while preserving the same form meaning, logical field order, and predictable primary-action location.
+- Keep the drag handle separate from data-entry and completion controls so repositioning cannot be confused with editing or submitting.
+- Thumb-zone layout is an ergonomic aid for use when safely stopped. It must not encourage or require phone interaction while the vehicle is moving.
+
+### Keyboard, viewport, and form-state continuity
+- When the Android keyboard or custom keypad opens, adapt the usable viewport and keep the active field, entered value, relevant validation/help, and primary action accessible. Preserve the panel's preferred anchor and geometry as much as the reduced viewport permits.
+- If the full panel cannot fit above the keyboard, use a predictable minimal repositioning or internal scrolling strategy. Do not obscure the active field or primary action, overlap controls, or unexpectedly relocate the panel to an unrelated screen position.
+- Keyboard opening/closing, field focus changes, validation, orientation changes, and panel dragging must not clear or alter entered values, change the form instance/revision, or trigger Save/Submit.
+- Preserve the same logical field order, automatic-focus policy, numeric keypad behaviour, Next/Done semantics, validation messages, and forgiving correction rules as the PWA, subject to platform input-method differences.
+- The primary action must remain in a consistent relative location within the panel wherever the available viewport allows. Any unavoidable adjustment caused by keyboard or system insets must be predictable and must not cause accidental activation.
+
+### PWA/native parity and Android constraints
+- The native panel should match the PWA form's visual design as closely as practical, including field arrangement, spacing, labels, control styling, and primary-action placement. Platform-specific components are permitted only where needed for Android compatibility and must not change the workflow or business meaning.
+- Fare and Cancellation Fee forms use the same shared form definitions and authoritative application/business services on PWA and native overlay. Fare retains its required Fare amount and optional Toll/Parking amounts with independent Driver-paid/Customer-paid selections; Cancellation Fee retains its approved amount rules. The overlay must not introduce separate calculations, validation, or persistence.
+- Overlay positioning, touch dispatch, keyboard/IME behaviour, system bars, permissions, and background-window restrictions vary by Android version and device/OEM. The implementation must adapt to supported platform capabilities, report or handle unavailable behaviour safely, and never promise that application content can cover or override protected system UI.
+- If the overlay is interrupted, recreated, or reattached, restore the same authoritative form instance and its entered values through the shared persistence/recovery boundary. Reconstruct the preferred panel position independently from business/form state.
+
+### Acceptance requirements
+- Verify first-use bottom placement, vertical drag using only the handle, safe-boundary clamping, saved-position restoration, and stable placement across different underlying applications.
+- Verify that dragging does not change field values, focus, form revision, pending operation, or submission state; tapping form controls does not drag the panel.
+- Verify right-hand and left-hand preferences, thumb reachability, target sizing, and consistent primary-action location.
+- Verify keyboard show/hide, numeric/custom keypad, validation, focus navigation, orientation/viewport changes, display insets, and small-screen behaviour without clipping or losing data.
+- Verify outside-panel touch pass-through where supported and ensure the overlay does not unnecessarily block the underlying app.
+- Verify PWA/native parity for Fare and Cancellation Fee fields, field order, validation, calculations, save outcomes, and recovery.
+- Verify overlay/WebView/process recreation and restart restore both the authoritative form state and the preferred panel position without duplicate Save/Submit effects.
+- Record platform/device limitations separately; automated tests or emulator results do not by themselves establish physical-device acceptance.
