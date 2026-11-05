@@ -153,6 +153,11 @@ for (const absolute of sourceFiles) {
 
   for (const reference of parsed.references) {
     const specifier = reference.specifier;
+    const productionTypeScript = /^(?:packages|apps\\/web\\/src)\\//.test(relative) &&
+      !relative.startsWith("packages/storage-browser/src/");
+    if (productionTypeScript && /^(?:dexie)(?:\\/|$)/.test(specifier)) {
+      failures.push(`${relative}:${reference.line}: Dexie import "${specifier}" is private to packages/storage-browser`);
+    }
     const resolved = resolveImport(specifier, relative, resolveAlias);
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
