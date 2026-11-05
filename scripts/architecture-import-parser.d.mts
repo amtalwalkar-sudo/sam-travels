@@ -12,3 +12,8 @@ export function analyzeModuleReferences(
   source: string,
   fileName?: string,
 ): { references: ModuleReference[]; diagnostics: ParseDiagnostic[] };
+
+export function analyzeBrowserPersistenceReferences(
+  source: string,
+  fileName?: string,
+): Array<{ symbol: string; line: number }>;
