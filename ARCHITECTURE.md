@@ -67,6 +67,10 @@ The approved cross-cutting rules for ownership, compatibility, recovery, six wor
 
 The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational-date, and PWA/native overlay workflow is defined in [docs/DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md). It is the product-rule authority for that workflow and supplements the shared architecture foundation, feature, Android, transaction/recovery, and GPS/time contracts. Those existing contracts retain authority for their respective technical guarantees.
 
+## UI/UX and application shell foundation
+
+The presentation boundaries, shell responsibilities, design-system governance, interaction and accessibility requirements, component-level decoupling, platform presentation boundaries, and verification criteria are defined in [docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md](docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md). This contract supplements the feature, lifecycle, PWA, Android, persistence, recovery, and security contracts; it does not replace their authority or define business rules, calculations, persistence semantics, or feature workflows.
+
 ## Feature modularity
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
