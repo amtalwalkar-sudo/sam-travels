@@ -217,4 +217,24 @@ class DriverWorkflowStoreTest {
             context.deleteDatabase(databaseName)
         }
     }
+
+    @Test fun workRepositoryGatewayExposesSnapshotPendingIntentsAndCommittedEvents() {
+        DriverWorkflowStore.queue(db, command("gateway-event"))
+        assertEquals("idle", DriverWorkflowStore.snapshot(db).getString("state"))
+        assertEquals(1, DriverWorkflowStore.listIntents(db).size)
+        assertEquals(1, DriverWorkflowStore.listPending(db).size)
+        assertEquals("gateway-event", DriverWorkflowStore.firstPendingLocation(db)
+            ?.getJSONObject("command")?.getString("eventId"))
+        assertEquals("gateway-event", DriverWorkflowStore.firstRecoverableIntent(db)
+            ?.getJSONObject("command")?.getString("eventId"))
+
+        DriverWorkflowStore.complete(db, "gateway-event", gps())
+        assertEquals(0, DriverWorkflowStore.listPending(db).size)
+        assertEquals(1, DriverWorkflowStore.listEvents(db).size)
+        assertEquals("gateway-event", DriverWorkflowStore.listEvents(db).single().getString("eventId"))
+        assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
+        assertTrue(DriverWorkflowStore.firstPendingLocation(db) == null)
+        assertTrue(DriverWorkflowStore.firstRecoverableIntent(db) == null)
+    }
+
 }
