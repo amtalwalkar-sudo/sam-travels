@@ -1,4 +1,4 @@
-import { assertRecordEnvelope, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
+import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
@@ -119,6 +119,7 @@ function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): 
 const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Table<Checkpoint, string>;
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
+  assertSnapshotManifest(manifest);
   if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
