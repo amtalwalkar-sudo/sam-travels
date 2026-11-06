@@ -67,7 +67,10 @@ class BackupRestoreTransactionFailureTest {
         var durable = builder.build()
         try {
             durable.records().put(driverStateRecord(0, "idle", "2026-11-06T10:00:00.000Z"))
-            val checkpointRecords = NativeBackupCoverage.exportBusinessRecords(durable) { false }
+            val checkpointRecords = NativeBackupCoverage.exportBusinessRecords(durable) { id ->
+                id.startsWith("__sam_travels_recovery_checkpoint__:") ||
+                    id.startsWith("__sam_travels_recovery_journal__:")
+            }
             assertEquals(1, checkpointRecords.length())
             val checkpointId = "stage-four-checkpoint"
             val checkpointKey = "__sam_travels_recovery_checkpoint__:$checkpointId"
@@ -138,7 +141,10 @@ class BackupRestoreTransactionFailureTest {
                 ))
             }
 
-            val recovered = NativeBackupCoverage.exportBusinessRecords(durable) { false }
+            val recovered = NativeBackupCoverage.exportBusinessRecords(durable) { id ->
+                id.startsWith("__sam_travels_recovery_checkpoint__:") ||
+                    id.startsWith("__sam_travels_recovery_journal__:")
+            }
             assertEquals(1, recovered.length())
             val restoredPayload = org.json.JSONObject(recovered.getJSONObject(0).getString("json"))
             assertEquals(0, restoredPayload.getJSONObject("value").getInt("revision"))
