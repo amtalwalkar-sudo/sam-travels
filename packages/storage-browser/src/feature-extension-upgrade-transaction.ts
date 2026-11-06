@@ -1,6 +1,5 @@
 import type { Table } from "dexie";
 import type { FeatureExtensionCompatibilitySnapshot } from "../../core/src/feature-compatibility";
-import type { FeatureExtensionUpgradeTransaction } from "../../application/src/feature-extension-upgrade-coordinator";
 import type { RecordEnvelope } from "../../core/src/types";
 import { assertRecordEnvelope } from "../../core/src/persistence-contract";
 import { browserDatabase } from "./database";
@@ -15,7 +14,7 @@ export type BrowserFeatureMigrationContext = Readonly<{
  * transaction, so a thrown migration or publication error aborts both.
  */
 export class DexieFeatureExtensionUpgradeTransaction
-implements FeatureExtensionUpgradeTransaction<BrowserFeatureMigrationContext> {
+{
   async run<Result>(
     operation: (context: {
       migrationContext: BrowserFeatureMigrationContext;
