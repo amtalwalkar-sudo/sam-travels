@@ -74,6 +74,17 @@ internal object DriverWorkflowContract {
         }
     }
 
+    /** Legacy v1 Log Book rows predate the command/GPS event envelope and remain immutable source history. */
+    fun validateStoredEvent(event: JSONObject) {
+        if (event.has("command")) {
+            validateEvent(event)
+            return
+        }
+        require(event.optString("eventId").isNotBlank() && event.optString("kind").isNotBlank()) {
+            "invalid_legacy_logbook_event"
+        }
+    }
+
     fun validateOutbox(row: JSONObject) {
         val revision = integer(row, "revision")
         require(row.optString("id") == "driver-state:" + revision && row.optString("eventId").isNotBlank() &&
