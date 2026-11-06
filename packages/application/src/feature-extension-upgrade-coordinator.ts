@@ -2,10 +2,8 @@ import {
   validateFeatureExtensionUpgrade,
   initializeRuntimeRegistry,
   runFeatureMigrationsAtomically,
-  type FeatureDefinition,
   type FeatureMigrationHandler,
   type FeatureMigrationTransaction,
-  type FeatureExtensionDefinition,
   type FeatureExtensionCompatibilitySnapshot,
   type RuntimeContractDefinitions,
 } from "../../core/src/index";
