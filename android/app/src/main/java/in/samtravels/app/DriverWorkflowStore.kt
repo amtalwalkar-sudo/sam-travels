@@ -209,11 +209,10 @@ object DriverWorkflowStore {
     fun listPending(db: LocalDatabase): List<JSONObject> =
         db.records().list()
             .filter { it.id.startsWith("driver-intent:") }
-            .mapNotNull { row ->
-                runCatching { JSONObject(row.json) }.getOrNull()?.takeIf {
-                    runCatching { DriverWorkflowContract.validateIntent(it) }.isSuccess &&
-                        (it.optString("status") == "pending_location" || it.optString("status") == "needs_attention")
-                }
+            .map { JSONObject(it.json).also(DriverWorkflowContract::validateIntent) }
+            .filter {
+                it.optString("status") == "pending_location" ||
+                    it.optString("status") == "needs_attention"
             }
 
     /** Read the immutable committed event stream through its owning repository boundary. */
@@ -225,7 +224,7 @@ object DriverWorkflowStore {
     fun listIntents(db: LocalDatabase): List<JSONObject> =
         db.records().list()
             .filter { it.id.startsWith("driver-intent:") }
-            .mapNotNull { runCatching { JSONObject(it.json) }.getOrNull()?.takeIf { intent -> runCatching { DriverWorkflowContract.validateIntent(intent) }.isSuccess } }
+            .map { JSONObject(it.json).also(DriverWorkflowContract::validateIntent) }
 
     /** Find the original pending-location intent eligible for service-start recovery. */
     fun firstPendingLocation(db: LocalDatabase): JSONObject? =
