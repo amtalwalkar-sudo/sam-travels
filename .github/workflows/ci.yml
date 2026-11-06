@@ -45,6 +45,8 @@ jobs:
           java-version: 21
       - run: npm install
       - run: npm run cap:sync
+      - name: Build the shared headless Timeline projection for Android parity tests
+        run: npm run build:timeline-parity
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
