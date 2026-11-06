@@ -55,13 +55,29 @@ export function assertDriverIntentContract(value: unknown): asserts value is Dri
   throw new Error("invalid_driver_intent");
  }
 }
+export type DriverOutboxRecord = {
+ id: string; eventId: string; revision: number; integrationId: string;
+ contractVersion: number; eventName: string; payloadVersion: number;
+ delivered: boolean; createdAt: string;
+};
+export function assertDriverOutboxContract(value: unknown): asserts value is DriverOutboxRecord {
+ if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_outbox");
+ const row = value as Record<string, unknown>;
+ if (typeof row.id !== "string" || !row.id.trim() ||
+     typeof row.eventId !== "string" || !row.eventId.trim() ||
+     !Number.isSafeInteger(row.revision) || (row.revision as number) < 1 ||
+     row.integrationId !== "logbook.work-driver-events.v1" ||
+     row.contractVersion !== 1 || row.eventName !== "work.driver-event-committed" ||
+     row.payloadVersion !== 1 || typeof row.delivered !== "boolean" ||
+     !validInstant(row.createdAt)) throw new Error("invalid_driver_outbox");
+}
 export function assertDriverEventContract(value: unknown): asserts value is DriverEvent {
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_event");
  const event = value as Record<string, unknown>;
  assertDriverCommandContract(event.command);
  if (event.eventId !== (event.command as DriverTransitionCommand).eventId ||
      !validInstant(event.committedAt) ||
-     !Number.isSafeInteger(event.revision) || (event.revision as number) < 1) {
+     !Number.isSafeInteger(event.revision) || (event.revision as number) < 1 || (event.revision as number) !== (event.command as DriverTransitionCommand).expectedRevision + 1) {
   throw new Error("invalid_driver_event");
  }
  const gps = event.gps as Record<string, unknown> | undefined;
