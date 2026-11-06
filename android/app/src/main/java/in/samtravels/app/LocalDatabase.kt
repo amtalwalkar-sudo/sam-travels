@@ -12,6 +12,9 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+/** Increment only with a complete, ordered Room migration and a checked-in schema snapshot. */
+private const val LOCAL_DATABASE_SCHEMA_VERSION = 3
+
 /** Versioned metadata used by the native snapshot adapter registry. */
 @Repeatable
 @Target(AnnotationTarget.CLASS)
@@ -88,7 +91,7 @@ interface RecordDao {
     fun remove(id: String)
 }
 
-@Database(entities = [StoredRecord::class, LogBookEventRecord::class], version = 3, exportSchema = true)
+@Database(entities = [StoredRecord::class, LogBookEventRecord::class], version = LOCAL_DATABASE_SCHEMA_VERSION, exportSchema = true)
 abstract class LocalDatabase : RoomDatabase() {
     abstract fun records(): RecordDao
     abstract fun logBookEvents(): LogBookEventDao
@@ -101,6 +104,7 @@ abstract class LocalDatabase : RoomDatabase() {
          */
         val backupEntityTypes: List<Class<*>> = listOf(StoredRecord::class.java, LogBookEventRecord::class.java)
 
+        /** Ordered upgrade chain: 1 -> 2 -> 3. Never replace this with destructive fallback. */
         val MIGRATION_1_2: Migration = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
