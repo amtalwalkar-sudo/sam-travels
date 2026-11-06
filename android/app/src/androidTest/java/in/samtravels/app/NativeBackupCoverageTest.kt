@@ -118,7 +118,7 @@ class NativeBackupCoverageTest {
 
             val duplicate = JSONArray()
                 .put(JSONObject().put("id", "x").put("json", """{"id":"x","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{}}""").put("schemaVersion", 1).put("updatedAt", "2026-11-04T00:00:00.000Z").put("participantId", "platform-records"))
-                .put(JSONObject().put("id", "x").put("json", """{"id":"x"}""").put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "platform-records"))
+                .put(JSONObject().put("id", "x").put("json", """{"id":"x","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{}}""").put("schemaVersion", 1).put("updatedAt", "2026-11-04T00:00:00.000Z").put("participantId", "platform-records"))
             assertEquals("backup_duplicate_participant_record_id",
                 runCatching { NativeBackupCoverage.validateBusinessRecords(duplicate) }.exceptionOrNull()?.message)
         } finally { database.close() }
