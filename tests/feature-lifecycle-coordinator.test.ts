@@ -58,4 +58,39 @@ describe("application feature lifecycle coordinator", () => {
     expect(result.state).toBe("disabled");
     expect((await repository.get("platform:feature-lifecycle"))?.revision).toBe(2);
   });
+
+  it("fails closed for stale lifecycle contracts and unknown persisted feature ids", async () => {
+    const repository = new MemoryAtomicRepository();
+    const timestamp = "2026-11-06T00:00:00.000Z";
+    await repository.put({
+      id: "platform:feature-lifecycle", schemaVersion: 1, createdAt: timestamp,
+      updatedAt: timestamp, source: "integration", revision: 1,
+      data: { contractVersion: 1, states: [{ featureId: "logbook", contractVersion: 99, state: "enabled" }] },
+    });
+    const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures());
+    await expect(coordinator.list()).rejects.toThrow("Stale or invalid feature lifecycle contract: logbook");
+    await expect(coordinator.transition("logbook", "disable")).rejects.toThrow("Stale or invalid feature lifecycle contract: logbook");
+    expect((await repository.get("platform:feature-lifecycle"))?.revision).toBe(1);
+  });
+
+  it("fails closed when persisted state refers to an unregistered feature", async () => {
+    const repository = new MemoryAtomicRepository();
+    const timestamp = "2026-11-06T00:00:00.000Z";
+    await repository.put({
+      id: "platform:feature-lifecycle", schemaVersion: 1, createdAt: timestamp,
+      updatedAt: timestamp, source: "integration", revision: 1,
+      data: { contractVersion: 1, states: [{ featureId: "removed-feature", contractVersion: 1, state: "disabled" }] },
+    });
+    const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures());
+    await expect(coordinator.list()).rejects.toThrow("feature_lifecycle_unknown_persisted_feature: removed-feature");
+  });
+
+  it("defaults newly registered features to enabled without mutating persistence during reads", async () => {
+    const repository = new MemoryAtomicRepository();
+    const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures());
+    const states = await coordinator.list();
+    expect(states.get("logbook")?.state).toBe("enabled");
+    expect(states.get("performance")?.state).toBe("enabled");
+    expect(await repository.get("platform:feature-lifecycle")).toBeUndefined();
+  });
 });
