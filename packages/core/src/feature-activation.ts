@@ -1,3 +1,4 @@
+import { createReadonlyRegistry } from "./readonly-registry";
 import {
   registerFeatures,
   type FeatureDefinition,
@@ -112,7 +113,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     stack.push(id);
     for (const raw of feature.dependencies) {
       const dependency = dependencyParts(raw);
-      if (declarations.has(dependency.id)) visitCycle(dependency.id);
+      if (!dependency.optional && declarations.has(dependency.id)) visitCycle(dependency.id);
     }
     stack.pop();
     visiting.delete(id);
@@ -189,10 +190,6 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     for (const raw of feature.dependencies) {
       const dependency = dependencyParts(raw);
       if (!dependency.optional) visitActive(dependency.id);
-      else if (activeFeatures.has(dependency.id) &&
-        (dependency.contractVersion === undefined || activeFeatures.get(dependency.id)!.contractVersion === dependency.contractVersion)) {
-        visitActive(dependency.id);
-      }
     }
     ordered.add(id);
     startupOrder.push(feature);
@@ -224,7 +221,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     declarations,
     activeFeatures,
     startupOrder: Object.freeze(startupOrder),
-    results,
+    results: createReadonlyRegistry(results),
     diagnostics: Object.freeze(stableDiagnostics),
   });
 }
