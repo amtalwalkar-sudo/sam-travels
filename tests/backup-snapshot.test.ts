@@ -272,10 +272,7 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
         id: "feature:relationship-addon:child", schemaVersion: 1, createdAt: timestamp,
         updatedAt: timestamp, source: "web", revision: 1, data: { parentId: "feature:relationship-addon:missing" },
       });
-      const snapshot = await exportBrowserSnapshot("0.1.0");
-      await expect(restoreBrowserSnapshot({
-        data: snapshot.data, manifest: snapshot.manifest as import("../packages/core/src/backup").SnapshotManifest, confirmed: true,
-      })).rejects.toThrow("relationship_addon_parent_missing");
+      await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("relationship_addon_parent_missing");
       expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
     } finally { unregister(); }
   });
