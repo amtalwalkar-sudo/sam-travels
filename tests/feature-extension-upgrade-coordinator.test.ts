@@ -6,6 +6,7 @@ import type { FeatureExtensionDefinition } from "../packages/core/src/feature-ex
 import type { FeatureExtensionCompatibilitySnapshot } from "../packages/core/src/feature-compatibility";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieFeatureExtensionUpgradeTransaction } from "../packages/storage-browser/src/feature-extension-upgrade-transaction";
+import { upgradeInstalledBrowserFeatureExtension } from "../apps/web/src/feature-extension-upgrade";
 
 const previousFeature: FeatureDefinition = {
   id: "persistent-addon",
@@ -118,6 +119,31 @@ describe("application feature extension upgrade coordinator", () => {
     expect(transaction.committed).toEqual({ values: [], installedVersion: 1 });
   });
   describe("real IndexedDB transaction adapter", () => {
+
+    it("routes the installed-extension entry point through the concrete browser adapter", async () => {
+      const version = await upgradeInstalledBrowserFeatureExtension({
+        previous, next, nextRuntimeDefinitions: runtimeDefinitions, currentSchemaVersion: 1,
+        handlers: {
+          "persistent-addon-v1-v2": async context => {
+            await context.records.put({
+              id: "feature:persistent-addon:entrypoint",
+              schemaVersion: 1,
+              createdAt: "2026-11-06T00:00:00.000Z",
+              updatedAt: "2026-11-06T00:00:00.000Z",
+              source: "web",
+              revision: 1,
+              data: { entrypoint: true },
+            });
+          },
+        },
+      });
+      expect(version).toBe(2);
+      expect((await browserDatabase.records.get("installed-extension:persistent-addon.core"))?.data)
+        .toMatchObject({ extension: { version: 2 } });
+      expect((await browserDatabase.records.get("feature:persistent-addon:entrypoint"))?.data)
+        .toEqual({ entrypoint: true });
+    });
+
     beforeEach(async () => {
       await browserDatabase.delete();
       await browserDatabase.open();
