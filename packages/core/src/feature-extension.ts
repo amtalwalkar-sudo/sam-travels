@@ -34,7 +34,7 @@ export function registerFeatureExtensions(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
   definitions: readonly FeatureExtensionDefinition[],
 ): ReadonlyMap<string, RegisteredFeatureExtension> {
-  const registry = new Map<string, FeatureExtensionDefinition>();
+  const registry = new Map<string, RegisteredFeatureExtension>();
 
   for (const source of definitions) {
     if (!source.id?.trim() || registry.has(source.id)) {
