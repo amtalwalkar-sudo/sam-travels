@@ -1,4 +1,3 @@
-import type { CalculationContract, FeatureIntegrationContract } from "./feature-contracts";
 import type { FeatureDefinition } from "./features";
 import type { FeatureExtensionDefinition } from "./feature-extension";
 
@@ -98,8 +97,4 @@ export function validateFeatureExtensionUpgrade(
     }
   }
 
-  // The concrete registry builders remain the authority for validating the
-  // full dependency graph, migration chain, calculation fixtures and handlers.
-  void (next.extension.integrations as readonly FeatureIntegrationContract[] | undefined);
-  void (next.extension.calculations as readonly CalculationContract<any, any>[] | undefined);
 }
