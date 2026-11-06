@@ -43,7 +43,7 @@ class BackupPlugin : Plugin() {
         return JSONObject()
             .put("records", records)
             .put("snapshotRevision", snapshotRevision(records))
-            .put("schemaVersion", 1)
+            .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)
             .put("participants", NativeBackupCoverage.participantManifest())
     }
 
@@ -112,7 +112,7 @@ class BackupPlugin : Plugin() {
                 val records = if (snapshot.optJSONArray("participants") == null)
                     NativeBackupCoverage.normalizeLegacyRecords(rawRecords) else rawRecords
                 NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
-                require(manifest.optInt("schemaVersion", -1) == 1 && snapshot.optInt("schemaVersion", -1) == 1) {
+                require(manifest.optInt("schemaVersion", -1) == BackupSnapshotContract.CURRENT_SCHEMA_VERSION && snapshot.optInt("schemaVersion", -1) == BackupSnapshotContract.CURRENT_SCHEMA_VERSION) {
                     "backup_unsupported_schema"
                 }
                 require(manifest.optInt("snapshotRevision", -1) == snapshot.optInt("snapshotRevision", -2)) {
