@@ -16,14 +16,18 @@ const DRIVER_STATES = ["idle", "shift_active", "trip_active", "approach_active",
 const DRIVER_INTENT_STATUSES = ["pending_location", "needs_attention", "recorded", "rejected"] as const;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 function validInstant(value: unknown): value is string {
- return typeof value === "string" && ISO_INSTANT.test(value) && Number.isFinite(Date.parse(value));
+ if (typeof value !== "string") return false;
+ const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
+ if (!match || Number(match[2]) > 23 || Number(match[3]) > 59 || Number(match[4]) > 59) return false;
+ const date = new Date(match[1] + "T00:00:00.000Z");
+ return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === match[1] && Number.isFinite(Date.parse(value));
 }
 export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_command");
  const command = value as Record<string, unknown>;
- if (command.schemaVersion !== 1 || typeof command.commandId !== "string" || !command.commandId.trim() ||
-     typeof command.eventId !== "string" || !command.eventId.trim() ||
-     typeof command.idempotencyKey !== "string" || !command.idempotencyKey.trim() ||
+ if (command.schemaVersion !== 1 || typeof command.commandId !== "string" || !command.commandId.trim() || command.commandId !== command.commandId.trim() ||
+     typeof command.eventId !== "string" || !command.eventId.trim() || command.eventId !== command.eventId.trim() ||
+     typeof command.idempotencyKey !== "string" || !command.idempotencyKey.trim() || command.idempotencyKey !== command.idempotencyKey.trim() ||
      typeof command.eventType !== "string" || !DRIVER_EVENT_TYPES.includes(command.eventType as DriverEventType) ||
      typeof command.originSurface !== "string" || !["pwa", "native_overlay"].includes(command.originSurface) ||
      typeof command.expectedPriorState !== "string" || !DRIVER_STATES.includes(command.expectedPriorState as DriverWorkflowState) ||
