@@ -339,4 +339,15 @@ class DriverWorkflowStoreTest {
     }
 
 
+
+    @Test fun malformedPersistedEventFailsClosedAtRoomReadBoundary() {
+        db.logBookEvents().put(LogBookEventRecord(
+            "malformed-event",
+            """{"eventId":"malformed-event","command":{},"committedAt":"not-an-instant","revision":1}""",
+            1,
+            "2026-11-06T00:00:00Z",
+        ))
+        val failure = runCatching { DriverWorkflowStore.listEvents(db) }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+    }
 }
