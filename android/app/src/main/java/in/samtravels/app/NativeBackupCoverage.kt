@@ -194,7 +194,7 @@ internal object NativeBackupCoverage {
         dynamicFeatureRecordPrefixes[id] = recordIdPrefix
         dynamicFeatureRelationshipValidators[id] = validateRelationships
         dynamicFeatureParticipants[id] = SnapshotParticipant(
-            id, featureId, snapshotVersion, adapterId, StoredRecord::class.java, "records",
+            id, featureId, snapshotVersion, featureAdapterId, StoredRecord::class.java, "records",
         )
         return AutoCloseable {
             synchronized(this) {
