@@ -82,7 +82,7 @@ function cloneFrozenSourceData<T>(value: T, seen = new WeakSet<object>()): T {
 }
 
 function validDate(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
@@ -153,7 +153,7 @@ export async function executeFeatureDataQuery<Record>(
     !Array.isArray(snapshot.records) ||
     typeof snapshot.complete !== "boolean" ||
     !["fresh", "stale", "unknown"].includes(snapshot.freshness) ||
-    !Number.isFinite(Date.parse(snapshot.observedAt))
+    !Number.isFinite(Date.parse(snapshot.observedAt)) ||\n    (snapshot.snapshotToken !== undefined && (typeof snapshot.snapshotToken !== "string" || !snapshot.snapshotToken.trim()))
   ) return Object.freeze({ ...base, status: "invalid", reason: "source_snapshot_metadata_invalid" });
   if (context.snapshotToken && snapshot.snapshotToken && snapshot.snapshotToken !== context.snapshotToken) {
     return Object.freeze({ ...base, status: "invalid", reason: "source_snapshot_token_mismatch" });
