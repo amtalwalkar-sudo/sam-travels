@@ -59,9 +59,8 @@ describe("compiler-backed architecture import parser", () => {
       'declare const store: IDBObjectStore;',
     ].join("\\n");
     expect(analyzeBrowserPersistenceReferences(source, "unsafe.ts").map((item) => item.symbol)).toEqual([
-      "indexedDB", "IDBTransaction", "IDBObjectStore", "localStorage",
-      "sessionStorage", "caches", "navigator.storage", "IDBFactory",
-      "indexedDB", "new Dexie", "IDBObjectStore",
+      "indexedDB", "localStorage", "sessionStorage", "caches",
+      "navigator.storage", "IDBFactory", "indexedDB", "new Dexie", "IDBObjectStore",
     ]);
   });
 
