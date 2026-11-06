@@ -175,7 +175,8 @@ export function initializeRuntimeRegistry(
     } catch (error) {
       const hasExtensions = ownerExtensions.length > 0;
       const hasIntegrations = ownerIntegrations.length > 0;
-      const hasCalculations = ownerCalculations.length > 0;\n      const code = hasExtensions ? "invalid_extension" : hasIntegrations ? "invalid_integration" : hasCalculations ? "invalid_calculation" : "invalid_data_query";
+      const hasCalculations = ownerCalculations.length > 0;
+      const code = hasExtensions ? "invalid_extension" : hasIntegrations ? "invalid_integration" : hasCalculations ? "invalid_calculation" : "invalid_data_query";
       failures.push(Object.freeze({
         featureId: owner,
         code,
