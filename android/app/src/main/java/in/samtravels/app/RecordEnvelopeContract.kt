@@ -21,7 +21,7 @@ internal object RecordEnvelopeContract {
         require(!updatedAt.isBefore(createdAt)) { "record_invalid_timestamps" }
 
         val source = record.opt("source") as? String
-        require(source in sources) { "record_invalid_source" }
+        require(source != null && source in sources) { "record_invalid_source" }
         val revision = number(record, "revision")
         require(revision >= 1.0 && revision <= MAX_SAFE_INTEGER) { "record_invalid_revision" }
         require(record.has("data")) { "record_data_required" }
