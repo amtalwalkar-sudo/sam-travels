@@ -31,6 +31,7 @@ class RoomStorePlugin : Plugin() {
         }
         executor.execute {
             try {
+                NativeStartupRecovery.ensure(db)
                 val row = db.records().get(id)
                 val out = JSObject()
                 if (row != null) out.put("record", decodeStoredRow(row))
@@ -59,6 +60,7 @@ class RoomStorePlugin : Plugin() {
         val updated = record.optString("updatedAt")
         executor.execute {
             try {
+                NativeStartupRecovery.ensure(db)
                 db.records().put(StoredRecord(id, record.toString(), version, updated))
                 call.resolve()
             } catch (error: Exception) {
@@ -71,6 +73,7 @@ class RoomStorePlugin : Plugin() {
     fun list(call: PluginCall) {
         executor.execute {
             try {
+                NativeStartupRecovery.ensure(db)
                 val rows = db.records().list()
                 val arr = JSONArray()
                 rows.forEach { arr.put(decodeStoredRow(it)) }
@@ -92,6 +95,7 @@ class RoomStorePlugin : Plugin() {
         }
         executor.execute {
             try {
+                NativeStartupRecovery.ensure(db)
                 db.records().remove(id)
                 call.resolve()
             } catch (error: Exception) {

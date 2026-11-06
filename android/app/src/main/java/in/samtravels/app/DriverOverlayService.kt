@@ -216,7 +216,15 @@ class DriverOverlayService:Service(){
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
   val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
-  try{DriverWorkflowStore.markNeedsAttention(db,id,effectiveReason)}catch(_:Exception){}
+  try{
+   NativeStartupRecovery.ensure(db)
+   startupRecoveryReady=true
+   startupRecoveryFailed=false
+   DriverWorkflowStore.markNeedsAttention(db,id,effectiveReason)
+  }catch(_:Exception){
+   startupRecoveryReady=false
+   startupRecoveryFailed=true
+  }
   main.post{refresh("Action retained · "+effectiveReason)}
  }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
