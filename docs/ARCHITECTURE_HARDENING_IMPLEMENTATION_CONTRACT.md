@@ -57,6 +57,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 - Browser IndexedDB schema is explicitly versioned at v5; Android Room remains v3 with the ordered 1→2→3 migration chain. RoomStore now registers both migrations, matching Backup.
 - Record validation is enforced by the application service, Dexie write adapter, Android Room write plugin, and backup export/restore ingress. Legacy Room rows remain readable for migration/recovery; typed application reads validate before business use.
 - Native and browser backup manifests validate required metadata, record counts, participant versions, and reject unsupported future versions before checkpoint/replacement.
+- Work command, intent, state, committed-event, and outbox discriminants/revisions are validated at browser/native persistence and backup boundaries; malformed persisted intents/events fail closed rather than being silently skipped.
 - Historical/adversarial fixtures live in `fixtures/persistence/`; TypeScript and Android tests exercise v1/v2 Room migration, Dexie v1→v5 upgrade, record validation, duplicate identities, future-version rejection, and migration rollback.
 
 ## Stage 3 — Real persisted-data cross-platform parity
