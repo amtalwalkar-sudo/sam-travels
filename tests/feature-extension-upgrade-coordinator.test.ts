@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import "fake-indexeddb/auto";
+import { beforeEach, describe, expect, it } from "vitest";
 import { FeatureExtensionUpgradeCoordinator, type FeatureExtensionUpgradeTransaction } from "../packages/application/src/feature-extension-upgrade-coordinator";
 import type { FeatureDefinition } from "../packages/core/src/features";
 import type { FeatureExtensionDefinition } from "../packages/core/src/feature-extension";
 import type { FeatureExtensionCompatibilitySnapshot } from "../packages/core/src/feature-compatibility";
+import { browserDatabase } from "../packages/storage-browser/src/database";
+import { DexieFeatureExtensionUpgradeTransaction } from "../packages/storage-browser/src/feature-extension-upgrade-transaction";
 
 const previousFeature: FeatureDefinition = {
   id: "persistent-addon",
@@ -114,4 +117,60 @@ describe("application feature extension upgrade coordinator", () => {
     })).rejects.toThrow("injected_extension_publish_failure");
     expect(transaction.committed).toEqual({ values: [], installedVersion: 1 });
   });
+  describe("real IndexedDB transaction adapter", () => {
+    beforeEach(async () => {
+      await browserDatabase.delete();
+      await browserDatabase.open();
+    });
+
+    it("commits feature migrations and installed extension metadata together", async () => {
+      const version = await new FeatureExtensionUpgradeCoordinator().apply({
+        previous, next, nextRuntimeDefinitions: runtimeDefinitions, currentSchemaVersion: 1,
+        handlers: {
+          "persistent-addon-v1-v2": async context => {
+            await context.records.put({
+              id: "feature:persistent-addon:migrated",
+              schemaVersion: 1,
+              createdAt: "2026-11-06T00:00:00.000Z",
+              updatedAt: "2026-11-06T00:00:00.000Z",
+              source: "web",
+              revision: 1,
+              data: { migratedTo: 2 },
+            });
+          },
+        },
+        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+      });
+      expect(version).toBe(2);
+      expect((await browserDatabase.records.get("feature:persistent-addon:migrated"))?.data).toEqual({ migratedTo: 2 });
+      expect((await browserDatabase.records.get("installed-extension:persistent-addon.core"))?.data).toMatchObject({
+        extension: { id: "persistent-addon.core", version: 2, featureId: "persistent-addon" },
+        feature: { id: "persistent-addon", persistence: { schemaVersion: 2 } },
+      });
+    });
+
+    it("rolls back actual IndexedDB migration writes when a handler fails", async () => {
+      await expect(new FeatureExtensionUpgradeCoordinator().apply({
+        previous, next, nextRuntimeDefinitions: runtimeDefinitions, currentSchemaVersion: 1,
+        handlers: {
+          "persistent-addon-v1-v2": async context => {
+            await context.records.put({
+              id: "feature:persistent-addon:partial",
+              schemaVersion: 1,
+              createdAt: "2026-11-06T00:00:00.000Z",
+              updatedAt: "2026-11-06T00:00:00.000Z",
+              source: "web",
+              revision: 1,
+              data: { partial: true },
+            });
+            throw new Error("injected_indexeddb_migration_failure");
+          },
+        },
+        transaction: new DexieFeatureExtensionUpgradeTransaction(),
+      })).rejects.toThrow("injected_indexeddb_migration_failure");
+      expect(await browserDatabase.records.get("feature:persistent-addon:partial")).toBeUndefined();
+      expect(await browserDatabase.records.get("installed-extension:persistent-addon.core")).toBeUndefined();
+    });
+  });
+
 });
