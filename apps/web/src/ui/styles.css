@@ -137,3 +137,6 @@ button{font:inherit}
 .settings-panel>p{margin:12px 0 0;color:#71808a;font-size:11px;line-height:1.5}
 .bottom-navigation-item{min-height:58px}
 @media(max-width:380px){.settings-panel{right:8px;width:calc(100% - 16px)}}
+
+.feature-screen-failure{display:grid;gap:7px;margin:12px 0;padding:16px;border:1px solid #e6c9c6;border-radius:12px;background:#fff8f7;color:#7c3933}
+.feature-screen-failure strong{font-size:12px}.feature-screen-failure span{font-size:11px;line-height:1.5}
