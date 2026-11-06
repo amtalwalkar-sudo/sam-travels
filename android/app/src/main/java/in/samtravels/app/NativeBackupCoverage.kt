@@ -163,9 +163,9 @@ internal object NativeBackupCoverage {
             existing == recordIdPrefix || existing.startsWith(recordIdPrefix) || recordIdPrefix.startsWith(existing)
         }) { "backup_feature_record_namespace_overlap" }
 
-        val adapterId = "feature-records-json-v1:$id"
+        val featureAdapterId = "feature-records-json-v1:$id"
         val adapter = object : SnapshotAdapter {
-            override val adapterId = adapterId
+            override val adapterId = featureAdapterId
             override val entityType = StoredRecord::class.java
             override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
                 database.records().list().filter { !isInternal(it.id) && it.id.startsWith(recordIdPrefix) }.map { row ->
@@ -190,7 +190,7 @@ internal object NativeBackupCoverage {
                 StoredRecordsAdapter.restore(database, row)
             }
         }
-        snapshotAdapters[adapterId] = adapter
+        snapshotAdapters[featureAdapterId] = adapter
         dynamicFeatureRecordPrefixes[id] = recordIdPrefix
         dynamicFeatureRelationshipValidators[id] = validateRelationships
         dynamicFeatureParticipants[id] = SnapshotParticipant(
@@ -201,7 +201,7 @@ internal object NativeBackupCoverage {
                 dynamicFeatureParticipants.remove(id)
                 dynamicFeatureRecordPrefixes.remove(id)
                 dynamicFeatureRelationshipValidators.remove(id)
-                snapshotAdapters.remove(adapterId)
+                snapshotAdapters.remove(featureAdapterId)
             }
         }
     }
