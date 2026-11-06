@@ -1,5 +1,10 @@
 # Sam Travels
 
+## Permanent application architecture
+
+The approved, frozen scope is documented in [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 audit and implementation gap matrix are in [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). Follow the staged plan; do not rebuild Stage 5 or treat the scope document as proof of implementation.
+
+
 Sam Travels is a single-driver Driver Log Book and business operations PWA, with a native Android layer for capabilities that the browser cannot reliably provide.
 
 ## Core principles

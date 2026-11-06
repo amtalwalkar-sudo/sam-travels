@@ -1,5 +1,10 @@
 # Architecture
 
+## Permanent application architecture scope
+
+The approved, frozen scope and staged implementation/acceptance criteria for the permanent feature and independently customisable UI/UX architecture are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and gap-based implementation baseline are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). These documents supplement the detailed contracts below; they do not replace Stage 5 or any owning contract.
+
+
 ## Product boundary
 
 Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/operator's work, vehicle, trips, records, and business finances. Do not introduce multi-driver assignment, driver rosters, fleet dispatch, or fleet tenancy unless the product scope is explicitly changed.
