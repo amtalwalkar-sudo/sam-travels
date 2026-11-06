@@ -1,6 +1,6 @@
 # Sam Travels — Permanent Application Architecture
 
-**Status:** Approved and frozen scope; implementation pending Stage 0 audit and subsequent stage gates.  
+**Status:** Approved and frozen scope; Stage 0 audit complete; implementation proceeds through the subsequent stage gates.  
 **Approach:** Additive, incremental, backward-compatible architecture enhancement.  
 **Foundation:** Existing Stage 5 remains authoritative for lifecycle and reliability.
 
