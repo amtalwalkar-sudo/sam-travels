@@ -18,7 +18,7 @@ internal object NativeBackupCoverage {
         val roomTable: String,
     )
 
-    private interface SnapshotAdapter {
+    internal interface SnapshotAdapter {
         val adapterId: String
         val entityType: Class<*>
         fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean): List<JSONObject>
@@ -27,7 +27,7 @@ internal object NativeBackupCoverage {
         fun restore(database: LocalDatabase, row: JSONObject)
     }
 
-    private object StoredRecordsAdapter : SnapshotAdapter {
+    internal object StoredRecordsAdapter : SnapshotAdapter {
         override val adapterId = "stored-records-json-v1"
         override val entityType = StoredRecord::class.java
         override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
@@ -130,83 +130,14 @@ internal object NativeBackupCoverage {
         }
     }
 
-    private val snapshotAdapters: MutableMap<String, SnapshotAdapter> = listOf(
+    internal val snapshotAdapters: MutableMap<String, SnapshotAdapter> = listOf(
         StoredRecordsAdapter, WorkDriverRecordsAdapter, LogBookEventsAdapter,
     ).associateBy { it.adapterId }.toMutableMap()
-    private val dynamicFeatureParticipants = linkedMapOf<String, SnapshotParticipant>()
-    private val dynamicFeatureRecordPrefixes = linkedMapOf<String, String>()
-    private val dynamicFeatureRelationshipValidators = linkedMapOf<String, (List<JSONObject>) -> Unit>()
+    internal val dynamicFeatureParticipants = linkedMapOf<String, SnapshotParticipant>()
+    internal val dynamicFeatureRecordPrefixes = linkedMapOf<String, String>()
+    internal val dynamicFeatureRelationshipValidators = linkedMapOf<String, (List<JSONObject>) -> Unit>()
 
-    /**
-     * Register an isolated add-on using the generic Room records entity.
-     * The feature owns its namespace, row validator and relationship validator;
-     * the adapter participates in the same real Room snapshot/restore transaction.
-     */
-    @Synchronized
-    fun registerFeatureRecordParticipant(
-        id: String,
-        featureId: String,
-        snapshotVersion: Int,
-        recordIdPrefix: String,
-        validateRelationships: (List<JSONObject>) -> Unit,
-    ): AutoCloseable {
-        require(id.isNotBlank() && featureId.isNotBlank() && snapshotVersion >= 1) {
-            "backup_feature_participant_contract_invalid"
-        }
-        require(recordIdPrefix.startsWith("feature:$featureId:")) {
-            "backup_feature_record_namespace_invalid"
-        }
-        require(id !in dynamicFeatureParticipants && discoverParticipants().none { it.id == id }) {
-            "backup_duplicate_participant_id"
-        }
-        require(dynamicFeatureRecordPrefixes.values.none { existing ->
-            existing == recordIdPrefix || existing.startsWith(recordIdPrefix) || recordIdPrefix.startsWith(existing)
-        }) { "backup_feature_record_namespace_overlap" }
-
-        val featureAdapterId = "feature-records-json-v1:$id"
-        val adapter = object : SnapshotAdapter {
-            override val adapterId = featureAdapterId
-            override val entityType = StoredRecord::class.java
-            override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
-                database.records().list().filter { !isInternal(it.id) && it.id.startsWith(recordIdPrefix) }.map { row ->
-                    JSONObject().put("id", row.id).put("json", row.json)
-                        .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
-                        .put("participantId", participantId)
-                }
-            override fun validate(row: JSONObject) {
-                StoredRecordsAdapter.validate(row)
-                require(row.optString("participantId") == id && row.optString("id").startsWith(recordIdPrefix)) {
-                    "backup_feature_record_owner_mismatch:$id"
-                }
-            }
-            override fun clear(database: LocalDatabase) {
-                database.records().list().filter { it.id.startsWith(recordIdPrefix) }
-                    .forEach { database.records().remove(it.id) }
-            }
-            override fun restore(database: LocalDatabase, row: JSONObject) {
-                require(row.optString("participantId") == id && row.optString("id").startsWith(recordIdPrefix)) {
-                    "backup_feature_record_owner_mismatch:$id"
-                }
-                StoredRecordsAdapter.restore(database, row)
-            }
-        }
-        snapshotAdapters[featureAdapterId] = adapter
-        dynamicFeatureRecordPrefixes[id] = recordIdPrefix
-        dynamicFeatureRelationshipValidators[id] = validateRelationships
-        dynamicFeatureParticipants[id] = SnapshotParticipant(
-            id, featureId, snapshotVersion, featureAdapterId, StoredRecord::class.java, "records",
-        )
-        return AutoCloseable {
-            synchronized(this) {
-                dynamicFeatureParticipants.remove(id)
-                dynamicFeatureRecordPrefixes.remove(id)
-                dynamicFeatureRelationshipValidators.remove(id)
-                snapshotAdapters.remove(featureAdapterId)
-            }
-        }
-    }
-
-    private fun isFeatureOwnedRecord(id: String): Boolean =
+    internal fun isFeatureOwnedRecord(id: String): Boolean =
         dynamicFeatureRecordPrefixes.values.any { id.startsWith(it) }
 
     fun discoverParticipants(): List<SnapshotParticipant> =
