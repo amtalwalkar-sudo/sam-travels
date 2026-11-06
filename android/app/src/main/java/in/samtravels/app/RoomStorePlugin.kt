@@ -9,6 +9,7 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 
 /** Shared transaction primitive used by the native repository and Room instrumentation tests. */
@@ -116,7 +117,7 @@ class RoomStorePlugin : Plugin() {
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
-                val committed = compareAndSetStoredRecord(db, id, expected, record)
+                val committed = runBlocking { compareAndSetStoredRecord(db, id, expected, record) }
                 val out = JSObject()
                 out.put("committed", committed)
                 call.resolve(out)
