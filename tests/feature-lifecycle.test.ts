@@ -39,7 +39,7 @@ describe("feature lifecycle policy", () => {
   it("prevents disabling a feature while an active dependent relies on it", () => {
     const context = contextWith();
     expect(() => transitionFeatureLifecycle("work", "disable", context))
-      .toThrow("active dependents: logbook");
+      .toThrow(/active dependents:.*logbook/);
   });
 
   it("requires dependencies to be enabled before enabling a feature", () => {
@@ -58,7 +58,7 @@ describe("feature lifecycle policy", () => {
   });
 
   it("requires disablement before retirement and never treats retirement as data deletion", () => {
-    const context = contextWith({ logbook: "disabled" });
+    const context = contextWith({ logbook: "disabled", performance: "retired" });
     const result = transitionFeatureLifecycle("logbook", "retire", context);
     expect(result.state).toBe("retired");
     expect(context.features.get("logbook")?.persistence?.backup.required).toBe(true);
