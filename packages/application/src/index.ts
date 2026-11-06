@@ -4,3 +4,5 @@ export * from "./form-submission-port";
 
 export * from "./timeline-projection-service";
 export * from "./runtime-registry";
+
+export * from "./feature-lifecycle-coordinator";
