@@ -44,6 +44,10 @@ internal object NativeBackupCoverage {
             val payload = JSONObject(row.getString("json"))
             if (row.optString("participantId") == "platform-records") {
                 RecordEnvelopeContract.validate(payload)
+                require(row.optInt("schemaVersion", -1) == payload.optInt("schemaVersion", -2) &&
+                    row.optString("updatedAt") == payload.optString("updatedAt")) {
+                    "backup_record_storage_envelope_mismatch"
+                }
             }
             if (payload.has("id")) require(payload.optString("id") == row.optString("id")) {
                 "backup_record_identity_mismatch"
