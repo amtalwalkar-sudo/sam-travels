@@ -270,6 +270,17 @@ internal object NativeBackupCoverage {
         }
     }
 
+    /** Validate the manifest revision against the authoritative driver-state row before restore mutation. */
+    fun validateSnapshotRevision(records: JSONArray, snapshotRevision: Int) {
+        require(snapshotRevision >= 0) { "backup_snapshot_revision_mismatch" }
+        val stateRow = (0 until records.length()).map { records.getJSONObject(it) }
+            .firstOrNull { it.optString("participantId") == "work-driver-state" && it.optString("id") == "driver-state" }
+        val storedRevision = if (stateRow == null) 0 else {
+            JSONObject(stateRow.getString("json")).optJSONObject("value")?.optInt("revision", -1) ?: -1
+        }
+        require(storedRevision == snapshotRevision) { "backup_snapshot_revision_mismatch" }
+    }
+
     /** Caller owns the surrounding Room transaction. */
     fun replaceBusinessRecords(database: LocalDatabase, records: JSONArray) {
         validateBusinessRecords(records)
@@ -344,4 +355,27 @@ internal object NativeBackupRecovery {
             val key = row.getString("participantId") + ":" + row.getString("id")
             key to Triple(row.getString("json"), row.getInt("schemaVersion"), row.getString("updatedAt"))
         }
+}
+
+
+/**
+ * Process-wide startup gate shared by the driver plugin, overlay service, and
+ * backup plugin. An unverified restore is rolled back only when a new process
+ * first opens the authoritative database. A failed recovery never opens the gate.
+ */
+internal object NativeStartupRecovery {
+    @Volatile private var ready = false
+
+    @Synchronized
+    fun ensure(database: LocalDatabase): List<String> {
+        if (ready) return emptyList()
+        val recovered = NativeBackupRecovery.recoverPending(database)
+        ready = true
+        return recovered
+    }
+
+    @Synchronized
+    fun invalidate() {
+        ready = false
+    }
 }

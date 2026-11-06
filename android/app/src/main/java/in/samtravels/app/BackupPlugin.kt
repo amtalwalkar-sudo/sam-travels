@@ -22,6 +22,7 @@ class BackupPlugin : Plugin() {
     private val checkpointPrefix = NativeBackupRecovery.CHECKPOINT_PREFIX
     private val journalPrefix = NativeBackupRecovery.JOURNAL_PREFIX
     private fun isInternal(id: String) = NativeBackupRecovery.isInternalRecord(id)
+ private fun ensureStartupRecovery() { NativeStartupRecovery.ensure(db) }
 
 
     private fun businessRecords(): JSONArray =
@@ -69,6 +70,7 @@ class BackupPlugin : Plugin() {
     fun exportSnapshot(call: PluginCall) {
         executor.execute {
             try {
+                ensureStartupRecovery()
                 var snapshot: JSONObject? = null
                 db.runInTransaction { snapshot = makeSnapshot() }
                 val value = snapshot ?: error("snapshot_unavailable")
@@ -106,6 +108,7 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
+                ensureStartupRecovery()
                 BackupSnapshotContract.validateSnapshot(snapshot)
                 BackupSnapshotContract.validateManifest(manifest)
                 val rawRecords = snapshot.optJSONArray("records") ?: error("backup_records_missing")
@@ -114,6 +117,7 @@ class BackupPlugin : Plugin() {
                 val records = if (snapshot.optJSONArray("participants") == null)
                     NativeBackupCoverage.normalizeLegacyRecords(rawRecords) else rawRecords
                 NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
+                NativeBackupCoverage.validateSnapshotRevision(records, snapshot.optInt("snapshotRevision", -1))
                 require(manifest.optInt("schemaVersion", -1) == BackupSnapshotContract.CURRENT_SCHEMA_VERSION && snapshot.optInt("schemaVersion", -1) == BackupSnapshotContract.CURRENT_SCHEMA_VERSION) {
                     "backup_unsupported_schema"
                 }
@@ -174,7 +178,13 @@ class BackupPlugin : Plugin() {
                         "backup_post_restore_integrity_mismatch"
                     }
                 } catch (restoreError: Exception) {
-                    NativeBackupRecovery.rollback(db, id)
+                    try {
+                        NativeBackupRecovery.rollback(db, id)
+                    } catch (rollbackError: Exception) {
+                        NativeStartupRecovery.invalidate()
+                        rollbackError.addSuppressed(restoreError)
+                        throw rollbackError
+                    }
                     throw restoreError
                 }
 
@@ -193,7 +203,7 @@ class BackupPlugin : Plugin() {
     fun recoverPendingCheckpoints(call: PluginCall) {
         executor.execute {
             try {
-                val recovered = NativeBackupRecovery.recoverPending(db)
+                val recovered = ensureStartupRecovery()
                 val out = JSObject()
                 out.put("recovered", JSONArray(recovered))
                 call.resolve(out)
@@ -208,6 +218,7 @@ class BackupPlugin : Plugin() {
     fun listCheckpoints(call: PluginCall) {
         executor.execute {
             try {
+                ensureStartupRecovery()
                 val result = JSONArray()
                 db.records().list().filter { it.id.startsWith(journalPrefix) }.forEach {
                     val row = JSONObject(it.json)
@@ -231,7 +242,13 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
-                NativeBackupRecovery.rollback(db, id)
+                ensureStartupRecovery()
+                try {
+                    NativeBackupRecovery.rollback(db, id)
+                } catch (rollbackError: Exception) {
+                    NativeStartupRecovery.invalidate()
+                    throw rollbackError
+                }
                 call.resolve()
             } catch (error: Exception) {
                 call.reject("Checkpoint rollback failed; retained checkpoint remains available", error)
@@ -248,6 +265,7 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
+                ensureStartupRecovery()
                 db.runInTransaction {
                     val key = journalPrefix + id
                     val row = db.records().get(key) ?: error("recovery_checkpoint_missing")
@@ -272,6 +290,7 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
+                ensureStartupRecovery()
                 db.runInTransaction {
                     val key = journalPrefix + id
                     val row = db.records().get(key) ?: error("recovery_checkpoint_missing")

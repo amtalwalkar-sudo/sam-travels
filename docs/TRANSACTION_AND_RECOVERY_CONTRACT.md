@@ -58,6 +58,8 @@ Every state-changing command follows one ordered lifecycle on both IndexedDB and
 
 Restore uses the same ordering discipline. Validate/decrypt the complete backup before mutation; capture a consistent pre-restore checkpoint; replace all registered participants atomically; read back and compare the committed dataset; and retain the checkpoint until verification is explicitly recorded. If the process stops after replacement but before verification, startup recovery rolls back the unverified restore from the checkpoint. If replacement transaction aborts before commit, the old dataset remains authoritative and no partial replacement is exposed.
 
+Startup recovery is a process boundary, not a repeated read-side action. Browser runtime memoizes successful reconciliation for the current page process and retries after a failed recovery; a page reload starts a new recovery pass. Android uses one process-wide gate shared by the Backup plugin, DriverWorkflow plugin, and native overlay service. No native driver state/intent/event operation or backup export/restore may pass the gate before checkpoint reconciliation succeeds. A successful restore in the current process is not mistaken for a process-death interruption by another plugin or service; if rollback itself fails, the gate is invalidated and operational access remains blocked until recovery succeeds. Before replacement, native restore also verifies that the snapshot/manifest revision matches the revision inside the authoritative driver-state record.
+
 ## Event-scoped GPS and interruption
 
 - Only the defined lifecycle actions request location: shift start/end, trip start/end, and ride cancellation. No continuous tracking, periodic polling, or background location listener is permitted between events.

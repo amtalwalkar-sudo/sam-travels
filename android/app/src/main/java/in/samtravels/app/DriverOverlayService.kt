@@ -42,7 +42,9 @@ class DriverOverlayService:Service(){
  private var activeLocationTimeout:Runnable?=null
  private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
- @Volatile private var startupRecoveryChecked=false
+ @Volatile private var startupRecoveryReady=false
+ @Volatile private var startupRecoveryFailed=false
+ @Volatile private var pendingIntentRecoveryChecked=false
  private val notificationChannelId="sam_travels_driver_controls"
  private val notificationId=7301
  private fun enterForeground(){
@@ -66,11 +68,23 @@ class DriverOverlayService:Service(){
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
   try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY}
-  if(databaseObserver==null){
-   databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
-   db.invalidationTracker.addObserver(databaseObserver!!)
+  executor.execute{
+   try{
+    NativeStartupRecovery.ensure(db)
+    startupRecoveryReady=true
+    startupRecoveryFailed=false
+    if(databaseObserver==null){
+     databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
+     db.invalidationTracker.addObserver(databaseObserver!!)
+    }
+    main.post{showPanel();recoverPendingAfterServiceStart()}
+   }catch(error:Exception){
+    startupRecoveryReady=false
+    startupRecoveryFailed=true
+    LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
+    main.post{showPanel();refresh("Recovery required · actions disabled")}
+   }
   }
-  main.post{showPanel();recoverPendingAfterServiceStart()}
   return START_STICKY
  }
  /**
@@ -79,10 +93,12 @@ class DriverOverlayService:Service(){
   * intents remain durable and visible for review; they are never backdated.
   */
  private fun recoverPendingAfterServiceStart(){
-  if(startupRecoveryChecked)return
-  startupRecoveryChecked=true
+  if(!startupRecoveryReady||pendingIntentRecoveryChecked)return
+  pendingIntentRecoveryChecked=true
   executor.execute{
    try{
+    NativeStartupRecovery.ensure(db)
+    startupRecoveryReady=true
     val intent=DriverWorkflowStore.firstPendingLocation(db)?:return@execute
     val command=intent.optJSONObject("command")?:error("pending_command_missing")
     val id=command.optString("eventId")
@@ -119,6 +135,9 @@ class DriverOverlayService:Service(){
   try{window.addView(root,params);refresh()}catch(_:Exception){panel=null;stopSelf()}
  }
  private fun refresh(message:String?=null){executor.execute{try{
+  NativeStartupRecovery.ensure(db)
+  startupRecoveryReady=true
+  startupRecoveryFailed=false
   val s=DriverWorkflowStore.snapshot(db)
   val intents=DriverWorkflowStore.listIntents(db)
   val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
@@ -134,10 +153,21 @@ class DriverOverlayService:Service(){
    actionButtons["ride_cancel"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
    actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
   }
- }catch(_:Exception){main.post{status?.text="Driver state unavailable"}}}}
+ }catch(_:Exception){
+  startupRecoveryReady=false
+  startupRecoveryFailed=true
+  LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
+  main.post{
+   status?.text="Recovery required · actions disabled"
+   recoveryButton?.isEnabled=false
+   actionButtons.values.forEach{it.isEnabled=false}
+  }
+ }}}
  private fun runRecovery(){
-  if(activeLocationEventId!=null)return
+  if(!startupRecoveryReady||activeLocationEventId!=null)return
   executor.execute{try{
+   NativeStartupRecovery.ensure(db)
+   startupRecoveryReady=true
    val intent=DriverWorkflowStore.firstRecoverableIntent(db)
    if(intent==null){main.post{refresh("No pending action to recover")};return@execute}
    val command=intent.optJSONObject("command")?:error("pending_command_missing");val id=command.optString("eventId")
@@ -150,9 +180,12 @@ class DriverOverlayService:Service(){
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
  private fun runTransition(event:String){
+  if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
   status?.text="Saving action · GPS pending"
   main.post{actionButtons.values.forEach{it.isEnabled=false}}
   executor.execute{try{
+   NativeStartupRecovery.ensure(db)
+   startupRecoveryReady=true
    val snapshot=DriverWorkflowStore.snapshot(db)
    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
    val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event)
@@ -191,6 +224,7 @@ class DriverOverlayService:Service(){
    val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
     .put("horizontalAccuracyM",location.accuracy.toDouble()).put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
     .put("provider",location.provider?:"android")
+   NativeStartupRecovery.ensure(db)
    DriverWorkflowStore.complete(db,id,gps)
    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}

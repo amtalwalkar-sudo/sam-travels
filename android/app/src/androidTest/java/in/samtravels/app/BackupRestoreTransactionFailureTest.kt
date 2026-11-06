@@ -129,7 +129,7 @@ class BackupRestoreTransactionFailureTest {
                 durable.records().get(journalKey)!!.json,
             ).getString("status"))
 
-            assertEquals(listOf(checkpointId), NativeBackupRecovery.recoverPending(durable))
+            assertEquals(listOf(checkpointId), NativeStartupRecovery.ensure(durable))
             val recovered = NativeBackupCoverage.exportBusinessRecords(durable) { id ->
                 id.startsWith("__sam_travels_recovery_checkpoint__:") ||
                     id.startsWith("__sam_travels_recovery_journal__:")
@@ -141,7 +141,52 @@ class BackupRestoreTransactionFailureTest {
             assertEquals("rollback_complete", org.json.JSONObject(
                 durable.records().get(journalKey)!!.json,
             ).getString("status"))
-            assertEquals(emptyList<String>(), NativeBackupRecovery.recoverPending(durable))
+            assertEquals("idle", DriverWorkflowStore.snapshot(durable).getString("state"))
+            assertEquals(0, DriverWorkflowStore.snapshot(durable).getInt("revision"))
+
+            // A second restore in this same process is not mistaken for an interrupted
+            // restore: the process-wide gate has already completed startup recovery.
+            val sameProcessId = "stage-four-same-process-checkpoint"
+            val sameProcessCheckpoint = NativeBackupCoverage.exportBusinessRecords(durable) { id ->
+                NativeBackupRecovery.isInternalRecord(id)
+            }
+            val sameProcessCheckpointKey = "__sam_travels_recovery_checkpoint__:$sameProcessId"
+            val sameProcessJournalKey = "__sam_travels_recovery_journal__:$sameProcessId"
+            val sameProcessNow = "2026-11-06T10:04:00.000Z"
+            durable.runInTransaction {
+                durable.records().put(StoredRecord(
+                    sameProcessCheckpointKey,
+                    org.json.JSONObject().put("records", sameProcessCheckpoint).toString(),
+                    1,
+                    sameProcessNow,
+                ))
+                durable.records().put(StoredRecord(
+                    sameProcessJournalKey,
+                    org.json.JSONObject().put("id", sameProcessId).put("createdAt", sameProcessNow)
+                        .put("status", "checkpoint").toString(),
+                    1,
+                    sameProcessNow,
+                ))
+            }
+            val sameProcessReplacement = org.json.JSONArray().put(
+                org.json.JSONObject(sameProcessCheckpoint.getJSONObject(0).toString())
+                    .put("json", driverStateRecord(1, "shift_active", sameProcessNow).json)
+                    .put("updatedAt", sameProcessNow),
+            )
+            NativeBackupCoverage.validateBusinessRecords(sameProcessReplacement, requireExplicitOwnerTags = true)
+            durable.runInTransaction {
+                NativeBackupCoverage.replaceBusinessRecords(durable, sameProcessReplacement)
+                durable.records().put(StoredRecord(
+                    sameProcessJournalKey,
+                    org.json.JSONObject().put("id", sameProcessId).put("createdAt", sameProcessNow)
+                        .put("status", "restored_unverified").toString(),
+                    1,
+                    sameProcessNow,
+                ))
+            }
+            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(durable))
+            assertEquals("shift_active", DriverWorkflowStore.snapshot(durable).getString("state"))
+            assertEquals(1, DriverWorkflowStore.snapshot(durable).getInt("revision"))
         } finally {
             durable.close()
             context.deleteDatabase(databaseName)

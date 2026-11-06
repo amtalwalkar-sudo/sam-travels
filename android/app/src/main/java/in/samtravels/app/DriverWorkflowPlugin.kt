@@ -28,7 +28,8 @@ class DriverWorkflowPlugin:Plugin(){
  private val main=Handler(Looper.getMainLooper())
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
- private fun state():JSONObject=DriverWorkflowStore.snapshot(db)
+ private fun ensureStartupRecovery(){NativeStartupRecovery.ensure(db)}
+ private fun state():JSONObject{ensureStartupRecovery();return DriverWorkflowStore.snapshot(db)}
  @PluginMethod fun enableOverlay(call:PluginCall){
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"overlayLocationPermissionCallback");return}
   startOverlay(call)
@@ -52,10 +53,10 @@ class DriverWorkflowPlugin:Plugin(){
  @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val out=JSObject();out.put("snapshot",state());call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
  @PluginMethod fun queueIntent(call:PluginCall){
   val command=call.getObject("command");if(command==null){call.reject("Command required");return}
-  executor.execute{try{val intent=DriverWorkflowStore.queue(db,command);val out=JSObject();out.put("intent",intent);call.resolve(out)}
+  executor.execute{try{ensureStartupRecovery();val intent=DriverWorkflowStore.queue(db,command);val out=JSObject();out.put("intent",intent);call.resolve(out)}
    catch(e:Exception){LocalDiagnostics.record(context,"workflow","queue_intent","workflow","operation_failed");call.reject("Driver intent enqueue failed: "+(e.message?:"unknown failure"),"INTENT_ENQUEUE_FAILED",e)}}
  }
- @PluginMethod fun listPending(call:PluginCall){executor.execute{try{val arr=JSONArray();DriverWorkflowStore.listPending(db).forEach{arr.put(it)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
+ @PluginMethod fun listPending(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listPending(db).forEach{arr.put(it)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
  @PluginMethod fun captureLocation(call:PluginCall){
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"locationPermissionCallback");return}
   requestOneFix(call)
@@ -86,21 +87,21 @@ class DriverWorkflowPlugin:Plugin(){
  @PluginMethod fun completeIntent(call:PluginCall){
   val eventId=call.getString("eventId");val gps=call.getObject("gps")
   if(eventId.isNullOrBlank()||gps==null){call.reject("Event id and GPS evidence required");return}
-  executor.execute{try{val committed=DriverWorkflowStore.complete(db,eventId,gps)
+  executor.execute{try{ensureStartupRecovery();val committed=DriverWorkflowStore.complete(db,eventId,gps)
    val out=JSObject();out.put("snapshot",committed);call.resolve(out)
    val eventData=JSObject();eventData.put("snapshot",committed);notifyListeners("driverStateChanged",eventData)
   }catch(e:Exception){LocalDiagnostics.record(context,"workflow","complete_intent","workflow","operation_failed");call.reject("Driver transition was not committed: "+(e.message?:"unknown failure"),"TRANSITION_FAILED",e)}}
  }
  @PluginMethod fun retryIntent(call:PluginCall){
   val id=call.getString("eventId");if(id.isNullOrBlank()){call.reject("Event id required");return}
-  executor.execute{try{val intent=DriverWorkflowStore.reactivate(db,id);val out=JSObject();out.put("intent",intent);call.resolve(out)}
+  executor.execute{try{ensureStartupRecovery();val intent=DriverWorkflowStore.reactivate(db,id);val out=JSObject();out.put("intent",intent);call.resolve(out)}
    catch(e:Exception){LocalDiagnostics.record(context,"recovery","retry_intent","recovery","retry_failed");call.reject("Unable to resume pending intent: "+(e.message?:"unknown failure"),"INTENT_RECOVERY_FAILED",e)}}
  }
- @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{val arr=JSONArray();DriverWorkflowStore.listEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
+ @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
  @PluginMethod fun markNeedsAttention(call:PluginCall){
   val id=call.getString("eventId");val reason=call.getString("reason")?:"location_unavailable"
   if(id.isNullOrBlank()){call.reject("Event id required");return}
-  executor.execute{try{DriverWorkflowStore.markNeedsAttention(db,id,reason);call.resolve()}
+  executor.execute{try{ensureStartupRecovery();DriverWorkflowStore.markNeedsAttention(db,id,reason);call.resolve()}
    catch(e:Exception){call.reject("Unable to preserve pending intent",e)}}
  }
 

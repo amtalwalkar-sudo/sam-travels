@@ -106,6 +106,21 @@ class NativeBackupCoverageTest {
         assertEquals("backup_participant_snapshot_version_mismatch:platform-records", failure?.message)
     }
 
+    @Test fun rejectsSnapshotRevisionThatDoesNotMatchThePersistedDriverState() {
+        val records = JSONArray().put(JSONObject()
+            .put("id", "driver-state")
+            .put("json", JSONObject().put("value", JSONObject()
+                .put("schemaVersion", 1).put("revision", 4).put("state", "shift_active")).toString())
+            .put("schemaVersion", 1)
+            .put("updatedAt", "2026-11-06T10:00:00Z")
+            .put("participantId", "work-driver-state"))
+        NativeBackupCoverage.validateSnapshotRevision(records, 4)
+        assertEquals("backup_snapshot_revision_mismatch",
+            runCatching { NativeBackupCoverage.validateSnapshotRevision(records, 5) }.exceptionOrNull()?.message)
+        assertEquals("backup_snapshot_revision_mismatch",
+            runCatching { NativeBackupCoverage.validateSnapshotRevision(JSONArray(), 1) }.exceptionOrNull()?.message)
+    }
+
     @Test fun rejectsUnknownParticipantAndDuplicateRows() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
