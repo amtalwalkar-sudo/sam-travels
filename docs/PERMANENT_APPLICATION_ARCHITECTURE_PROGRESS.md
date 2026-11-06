@@ -71,10 +71,14 @@ Stage 2 is additive and reuses the Stage 1 generated catalogue and existing appl
 
 ### Stage 2 implementation audit and completion gate
 
-Before changing runtime behavior, inspect extension descriptors, dependency declarations, registry validation/registration, bootstrap error handling, fixtures, and Stage 5 participant/lifecycle adapters. Classify existing support and gaps; implement only necessary gaps.
+The source audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md). Initial implementation is on branch `feat/dependency-activation-isolation`:
 
-Stage 2 is complete only after tests prove valid dependency-first activation, missing/incompatible/cyclic dependency rejection, optional dependency handling, independent-feature isolation, no partial registration after injected failure, deterministic diagnostics, and unchanged Stage 5 persistence/backup/restore/recovery behavior. Web, Android and integrated CI must pass.
+- Added an explicit optional-dependency marker while preserving required-by-default dependency declarations.
+- Added a deterministic activation planner that separates declaration validation from dependency resolution, reports active/blocked/rejected outcomes, records unavailable optional dependencies, detects cycles, and computes dependency-first order.
+- Added focused planner tests for missing required dependencies, optional absence, incompatible versions, cycles, independent-feature isolation, deterministic ordering, invalid declarations, and persistent ownership visibility.
+- The planner is not yet wired into the application runtime bootstrap. Contribution-level failure isolation and the full Stage 2 proof remain outstanding; no Stage 2 completion or CI claim is made.
 
+The remaining implementation must wire the planner into the one application-owned registry, isolate extension/integration/calculation contribution failures atomically, preserve complete backup participant ownership, and then prove lifecycle/restore/recovery/upgrade regressions.
 ## Implementation discipline
 
 Complete one stage at a time. Each stage must have a focused implementation, tests, CI evidence and progress update before the next stage begins. Do not onboard the first real business feature as part of this architecture project; use disposable fixtures only when required to prove contracts.
