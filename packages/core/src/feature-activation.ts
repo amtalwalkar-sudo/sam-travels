@@ -218,8 +218,8 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
   }
 
   return Object.freeze({
-    declarations,
-    activeFeatures,
+    declarations: createReadonlyRegistry(declarations),
+    activeFeatures: createReadonlyRegistry(activeFeatures),
     startupOrder: Object.freeze(startupOrder),
     results: createReadonlyRegistry(results),
     diagnostics: Object.freeze(stableDiagnostics),
