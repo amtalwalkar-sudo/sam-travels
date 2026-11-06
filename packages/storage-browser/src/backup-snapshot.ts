@@ -184,6 +184,12 @@ function validateSnapshotRows(data: BrowserSnapshotData): void {
 
 function validateCustomFeatureBackupRecords(rows: unknown[]): void {
   const typedRecords = rows as import("../../core/src/types").RecordEnvelope<unknown>[];
+  for (const record of typedRecords) {
+    if (record.id.startsWith("feature:") &&
+        ![...customBrowserFeatureBackupAdapters.values()].some(adapter => record.id.startsWith(adapter.recordIdPrefix))) {
+      throw new Error("backup_unregistered_feature_record:" + record.id);
+    }
+  }
   for (const adapter of customBrowserFeatureBackupAdapters.values()) {
     const owned = typedRecords.filter(record => record.id.startsWith(adapter.recordIdPrefix));
     owned.forEach(record => adapter.validateRecord(record, typedRecords));
