@@ -129,11 +129,11 @@ Stage 2 is complete. Continue with Stage 3 — cross-feature data orchestration 
 
 ### Entry gate and approved design decision
 
-Stage 3 merged-main CI is green. Stage 4 may now begin. The approved presentation requirement is **unrestricted custom feature UI**: a feature may supply a completely custom screen, layout, visual system, and interaction experience. The architecture defines safe integration and lifecycle boundaries; it must not constrain features to predefined screen templates or force a shared visual design system. The shell and individual presentation subsystems must remain replaceable independently of feature business logic and data contracts.
+Stage 3 merged-main CI is green. Stage 4 implementation has been delivered in PR #24; merge and merged-main verification remain. The approved presentation requirement is **unrestricted custom feature UI**: a feature may supply a completely custom screen, layout, visual system, and interaction experience. The architecture defines safe integration and lifecycle boundaries; it must not constrain features to predefined screen templates or force a shared visual design system. The shell and individual presentation subsystems must remain replaceable independently of feature business logic and data contracts.
 
-### Audit approved; implementation in progress
+### Audit approved; implementation delivered
 
-The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md). The product owner reviewed and approved the findings, then explicitly approved a clean-slate presentation replacement. The former shell and presentation are disposable; application/data contracts and Stage 5 foundations remain authoritative. Stage 4 implementation is underway.
+The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md). The product owner reviewed and approved the findings, then explicitly approved a clean-slate presentation replacement. The former shell and presentation are disposable; application/data contracts and Stage 5 foundations remain authoritative. Stage 4 implementation and PR CI are complete; merge and merged-main CI verification remain.
 
 ## Implementation discipline
 
