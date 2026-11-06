@@ -7,8 +7,10 @@ describe("compiler-backed architecture import parser", () => {
     const resolveAlias = createAliasResolver({ compilerOptions: { baseUrl: ".", paths: { "@storage/*": ["packages/storage-browser/src/*"] } } });
     const resolved = resolveImport("@storage/index", "packages/application/src/feature.ts", resolveAlias);
     expect(resolved).toBe("packages/storage-browser/src/index");
-    expect(targetLayer(resolved)).toBe("storage");
-    expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);
+    if (resolved) {
+      expect(targetLayer(resolved)).toBe("storage");
+      expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);
+    }
   });
 
   it("rejects persistence-library imports outside the storage adapter", () => {
