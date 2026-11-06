@@ -14,10 +14,10 @@ import {
 import { RoomFeatureExtensionUpgradeTransaction } from "./room-feature-extension-upgrade";
 
 /**
- * Installed-extension update entry point for the browser application.
+ * Installed-extension update entry point for web and native application composition.
  * Call this from the extension installer/update flow; compatibility preflight,
  * feature migrations and installed-version publication execute atomically in
- * the authoritative IndexedDB records transaction.
+ * the authoritative IndexedDB or Room records transaction.
  */
 export async function upgradeInstalledBrowserFeatureExtension(input: {
   previous: FeatureExtensionCompatibilitySnapshot;
