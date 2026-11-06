@@ -283,3 +283,65 @@ internal object NativeBackupCoverage {
         }
     }
 }
+
+
+/** Durable Room restore journal and startup recovery for unverified replacements. */
+internal object NativeBackupRecovery {
+    const val CHECKPOINT_PREFIX = "__sam_travels_recovery_checkpoint__:"
+    const val JOURNAL_PREFIX = "__sam_travels_recovery_journal__:"
+
+    fun isInternalRecord(id: String): Boolean =
+        id.startsWith(CHECKPOINT_PREFIX) || id.startsWith(JOURNAL_PREFIX)
+
+    fun rollback(database: LocalDatabase, id: String) {
+        val checkpointRow = database.records().get(CHECKPOINT_PREFIX + id)
+            ?: error("recovery_checkpoint_missing")
+        val journalRow = database.records().get(JOURNAL_PREFIX + id)
+            ?: error("recovery_journal_missing")
+        val journal = JSONObject(journalRow.json)
+        require(
+            journal.optString("status") == "checkpoint" ||
+                journal.optString("status") == "restored_unverified" ||
+                journal.optString("status") == "rollback_complete",
+        ) { "checkpoint_not_rollback_eligible" }
+        val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
+
+        database.runInTransaction {
+            NativeBackupCoverage.replaceBusinessRecords(database, oldRecords)
+            journal.put("status", "rollback_complete")
+            database.records().put(
+                StoredRecord(JOURNAL_PREFIX + id, journal.toString(), 1, java.time.Instant.now().toString()),
+            )
+        }
+
+        val restored = NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord)
+        require(canonicalRecords(restored) == canonicalRecords(oldRecords)) {
+            "checkpoint_rollback_integrity_mismatch"
+        }
+    }
+
+    fun recoverPending(database: LocalDatabase): List<String> {
+        val pending = database.records().list()
+            .filter { it.id.startsWith(JOURNAL_PREFIX) }
+            .map { JSONObject(it.json) }
+            .filter {
+                it.optString("status") == "checkpoint" ||
+                    it.optString("status") == "restored_unverified"
+            }
+            .sortedByDescending { it.optString("createdAt") }
+        val recovered = mutableListOf<String>()
+        pending.forEach { journal ->
+            val id = journal.getString("id")
+            rollback(database, id)
+            recovered.add(id)
+        }
+        return recovered
+    }
+
+    private fun canonicalRecords(records: JSONArray): Map<String, Triple<String, Int, String>> =
+        (0 until records.length()).associate { index ->
+            val row = records.getJSONObject(index)
+            val key = row.getString("participantId") + ":" + row.getString("id")
+            key to Triple(row.getString("json"), row.getInt("schemaVersion"), row.getString("updatedAt"))
+        }
+}

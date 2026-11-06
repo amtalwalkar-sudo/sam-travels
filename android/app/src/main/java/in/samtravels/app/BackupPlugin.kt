@@ -19,9 +19,9 @@ class BackupPlugin : Plugin() {
             .build()
     }
 
-    private val checkpointPrefix = "__sam_travels_recovery_checkpoint__:"
-    private val journalPrefix = "__sam_travels_recovery_journal__:"
-    private fun isInternal(id: String) = id.startsWith(checkpointPrefix) || id.startsWith(journalPrefix)
+    private val checkpointPrefix = NativeBackupRecovery.CHECKPOINT_PREFIX
+    private val journalPrefix = NativeBackupRecovery.JOURNAL_PREFIX
+    private fun isInternal(id: String) = NativeBackupRecovery.isInternalRecord(id)
 
 
     private fun businessRecords(): JSONArray =
@@ -138,10 +138,10 @@ class BackupPlugin : Plugin() {
                     if (payload.has("id")) require(payload.optString("id") == id) { "backup_record_identity_mismatch" }
                 }
 
-                val checkpoint = makeSnapshot()
                 val now = Instant.now().toString()
                 val id = UUID.randomUUID().toString()
                 db.runInTransaction {
+                    val checkpoint = makeSnapshot()
                     saveInternal(checkpointPrefix + id, checkpoint, now)
                     saveInternal(
                         journalPrefix + id,
@@ -174,16 +174,7 @@ class BackupPlugin : Plugin() {
                         "backup_post_restore_integrity_mismatch"
                     }
                 } catch (restoreError: Exception) {
-                    val old = JSONObject(db.records().get(checkpointPrefix + id)?.json ?: error("recovery_checkpoint_missing"))
-                    val oldRecords = old.getJSONArray("records")
-                    db.runInTransaction {
-                        NativeBackupCoverage.replaceBusinessRecords(db, oldRecords)
-                        saveInternal(
-                            journalPrefix + id,
-                            JSONObject().put("id", id).put("createdAt", now).put("status", "rollback_complete"),
-                            now,
-                        )
-                    }
+                    NativeBackupRecovery.rollback(db, id)
                     throw restoreError
                 }
 
@@ -194,6 +185,21 @@ class BackupPlugin : Plugin() {
             } catch (error: Exception) {
                 LocalDiagnostics.record(context, "recovery", "restore_snapshot", "backup", "restore_failed")
                 call.reject("Restore failed; source data or recovery checkpoint was preserved: " + (error.message ?: "unknown failure"), "RESTORE_FAILED", error)
+            }
+        }
+    }
+
+    @PluginMethod
+    fun recoverPendingCheckpoints(call: PluginCall) {
+        executor.execute {
+            try {
+                val recovered = NativeBackupRecovery.recoverPending(db)
+                val out = JSObject()
+                out.put("recovered", JSONArray(recovered))
+                call.resolve(out)
+            } catch (error: Exception) {
+                LocalDiagnostics.record(context, "recovery", "recover_pending_checkpoints", "backup", "recovery_failed")
+                call.reject("Pending restore recovery failed; retained checkpoints remain available", error)
             }
         }
     }
@@ -225,29 +231,7 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
-                val checkpointRow = db.records().get(checkpointPrefix + id) ?: error("recovery_checkpoint_missing")
-                val journalRow = db.records().get(journalPrefix + id) ?: error("recovery_journal_missing")
-                val journal = JSONObject(journalRow.json)
-                require(journal.optString("status") == "checkpoint" || journal.optString("status") == "restored_unverified" || journal.optString("status") == "rollback_complete") {
-                    "checkpoint_not_rollback_eligible"
-                }
-                val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
-                db.runInTransaction {
-                    NativeBackupCoverage.replaceBusinessRecords(db, oldRecords)
-                    journal.put("status", "rollback_complete")
-                    saveInternal(journalPrefix + id, journal, Instant.now().toString())
-                }
-                val restored = businessRecords()
-                require(restored.length() == oldRecords.length()) { "checkpoint_rollback_count_mismatch" }
-                val restoredById = (0 until restored.length()).associate {
-                    val record = restored.getJSONObject(it)
-                    record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
-                }
-                val expectedById = (0 until oldRecords.length()).associate {
-                    val record = oldRecords.getJSONObject(it)
-                    record.getString("participantId") + ":" + record.getString("id") to Triple(record.getString("json"), record.getInt("schemaVersion"), record.getString("updatedAt"))
-                }
-                require(restoredById == expectedById) { "checkpoint_rollback_integrity_mismatch" }
+                NativeBackupRecovery.rollback(db, id)
                 call.resolve()
             } catch (error: Exception) {
                 call.reject("Checkpoint rollback failed; retained checkpoint remains available", error)

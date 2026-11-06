@@ -99,6 +99,13 @@ This contract supplements the existing architecture, persistence, recovery, feat
 - Restore checkpoint, replacement, verification, and rollback tests.
 - Derived projection rebuild equivalence test before/after restart and restore.
 
+### Implementation evidence under test
+- Browser and Room completion resolve an exact committed replay from its durable event, state revision, and outbox; command ID or idempotency-key reuse across distinct event IDs is rejected.
+- IndexedDB and Room transaction suites inject failures at event, state/revision, terminal-intent, and outbox writes and verify that no partial completion becomes authoritative.
+- Unverified restore checkpoints are reconciled by browser and native startup hooks before driver repositories expose operational state; rollback is verified against the retained checkpoint.
+- Timeline and trip-history projections remain derived from persisted event rows and are rebuilt after restore/reopen.
+- Stage 4 remains **in progress** until focused web suites, architecture enforcement, Android build/unit/instrumentation gates, and full CI on the resulting commit pass.
+
 ## Stage 5 — Integrated regression gate
 
 ### Required implementation
@@ -118,7 +125,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 | 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI #631 on `42fd818ac12a5a69860863b1549d736892df4d91` | Verified |
 | 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests; CI run `42197902329` passed all architecture, web, and Android gates on Stage 2 head `af2da94a4defccafa46e12143b08591650bb670e` | Verified |
 | 3 | Actual IndexedDB + Room persisted-record parity | Full Dexie-generated projection oracle; durable Room restore/reopen; pending-edge and Room v2 migrated-legacy comparisons; malformed-record rejection; CI #741 (`42203502104`) on `6e11d75c3d9860f2d6632a6a443d33e7f1e4f869` | Verified |
-| 4 | Transaction/recovery guarantees | Failure-injection, replay, restart, restore tests | Not yet verified |
+| 4 | Transaction/recovery guarantees | Atomic event/state/intent/outbox writes; idempotent replay; startup recovery of unverified restore checkpoints; derived projection rebuild; web and Room failure-injection suites | In progress |
 | 5 | Integrated regression gate | Full CI green on PR head | Not yet verified |
 
 A contract or documentation commit alone does not count as implementation completion. Mark a stage verified only after its code, tests, and CI evidence are present.

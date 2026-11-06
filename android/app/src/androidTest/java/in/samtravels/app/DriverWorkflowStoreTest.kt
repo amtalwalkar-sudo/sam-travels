@@ -137,6 +137,18 @@ class DriverWorkflowStoreTest {
         assertEquals(1, db.records().list().count { it.id.startsWith("driver-intent:") })
     }
 
+    @Test fun commandAndIdempotencyKeysCannotBeReusedForAnotherEvent() {
+        val first = command("identity-owner")
+        DriverWorkflowStore.queue(db, first)
+        val reusedKey = command("identity-second").put("idempotencyKey", first.getString("idempotencyKey"))
+        assertEquals("duplicate_command_identity_conflict",
+            runCatching { DriverWorkflowStore.queue(db, reusedKey) }.exceptionOrNull()?.message)
+        val reusedCommand = command("identity-third").put("commandId", first.getString("commandId"))
+        assertEquals("duplicate_command_identity_conflict",
+            runCatching { DriverWorkflowStore.queue(db, reusedCommand) }.exceptionOrNull()?.message)
+        assertEquals(1, DriverWorkflowStore.listIntents(db).size)
+    }
+
     @Test fun pendingIntentSurvivesRoomReopenAndCanBeRecovered() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "driver-workflow-recovery-test.db"
@@ -168,14 +180,9 @@ class DriverWorkflowStoreTest {
         val first = DriverWorkflowStore.complete(db, "event-replay", gps())
         assertEquals(1, first.getInt("revision"))
 
-        var rejected = false
-        try {
-            DriverWorkflowStore.complete(db, "event-replay", gps())
-        } catch (_: Exception) {
-            rejected = true
-        }
-
-        assertTrue(rejected)
+        val replayed = DriverWorkflowStore.complete(db, "event-replay", gps())
+        assertEquals(first.getString("state"), replayed.getString("state"))
+        assertEquals(first.getInt("revision"), replayed.getInt("revision"))
         assertEquals(1, db.logBookEvents().list().size)
         assertEquals(1, db.records().list().count { it.id.startsWith("driver-outbox:") })
         assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
@@ -199,14 +206,9 @@ class DriverWorkflowStoreTest {
         val reopened = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
         try {
-            var rejected = false
-            try {
-                DriverWorkflowStore.complete(reopened, "durable-replay", gps())
-            } catch (_: Exception) {
-                rejected = true
-            }
-
-            assertTrue(rejected)
+            val replayed = DriverWorkflowStore.complete(reopened, "durable-replay", gps())
+            assertEquals(committed.getString("state"), replayed.getString("state"))
+            assertEquals(committed.getInt("revision"), replayed.getInt("revision"))
             assertEquals(1, reopened.logBookEvents().list().size)
             assertEquals("durable-replay", JSONObject(reopened.logBookEvents().list().single().json).getString("eventId"))
             assertEquals(1, reopened.records().list().count { it.id.startsWith("driver-outbox:") })
@@ -218,6 +220,42 @@ class DriverWorkflowStoreTest {
         } finally {
             reopened.close()
             context.deleteDatabase(databaseName)
+        }
+    }
+
+    @Test fun injectedFailureAtEachCompletionWriteBoundaryRollsBackEveryAuthoritativeWrite() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val boundaries = listOf(
+            "logbook" to "CREATE TRIGGER fail_logbook BEFORE INSERT ON logbook_events WHEN NEW.eventId='fault-logbook' BEGIN SELECT RAISE(ABORT, 'injected_logbook_failure'); END",
+            "state" to "CREATE TRIGGER fail_state BEFORE INSERT ON records WHEN NEW.id='driver-state' BEGIN SELECT RAISE(ABORT, 'injected_state_failure'); END",
+            "intent" to "CREATE TRIGGER fail_intent BEFORE INSERT ON records WHEN NEW.id='driver-intent:fault-intent' BEGIN SELECT RAISE(ABORT, 'injected_intent_failure'); END",
+            "outbox" to "CREATE TRIGGER fail_outbox BEFORE INSERT ON records WHEN NEW.id='driver-outbox:1' BEGIN SELECT RAISE(ABORT, 'injected_outbox_failure'); END",
+        )
+        boundaries.forEach { (boundary, sql) ->
+            val local = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+                .allowMainThreadQueries().build()
+            val eventId = when (boundary) {
+                "logbook" -> "fault-logbook"
+                "state" -> "fault-state"
+                "intent" -> "fault-intent"
+                else -> "fault-outbox"
+            }
+            try {
+                DriverWorkflowStore.queue(local, command(eventId))
+                local.openHelper.writableDatabase.execSQL(sql)
+                val failure = runCatching { DriverWorkflowStore.complete(local, eventId, gps()) }.exceptionOrNull()
+                local.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_" + boundary)
+                assertTrue("Expected injected " + boundary + " failure", failure != null)
+                assertEquals("idle", DriverWorkflowStore.snapshot(local).getString("state"))
+                assertEquals(0, DriverWorkflowStore.snapshot(local).getInt("revision"))
+                assertEquals("pending_location",
+                    JSONObject(local.records().get("driver-intent:" + eventId)!!.json).getString("status"))
+                assertTrue(local.logBookEvents().list().isEmpty())
+                assertEquals(0, local.records().list().count { it.id.startsWith("driver-outbox:") })
+            } finally {
+                runCatching { local.openHelper.writableDatabase.execSQL("DROP TRIGGER fail_" + boundary) }
+                local.close()
+            }
         }
     }
 

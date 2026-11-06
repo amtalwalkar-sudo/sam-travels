@@ -5,7 +5,7 @@ import {
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
   restoreBrowserSnapshot,
-  rollbackBrowserRecoveryCheckpoint,
+  recoverBrowserRestoreTransactions,
 } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { createDriverCommand } from "../packages/features/work-shift";
@@ -55,7 +55,7 @@ describe("Stage 4 recovery lifecycle", () => {
       expect.objectContaining({ id: restored.checkpointId, status: "restored_unverified" }),
     ]);
 
-    await rollbackBrowserRecoveryCheckpoint(restored.checkpointId);
+    await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 1 });
     expect((await browserDatabase.records.get("durable-business-record"))?.data)
       .toEqual({ label: "pre-restore-current" });
     expect(await listBrowserRecoveryCheckpoints()).toEqual([

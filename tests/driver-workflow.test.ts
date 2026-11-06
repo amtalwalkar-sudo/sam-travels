@@ -23,7 +23,8 @@ describe("durable single-driver workflow",()=>{
   const next=await repo.completeIntent(command.eventId,gps,command.transitionAt);
   expect(next.state).toBe("shift_active");expect(next.revision).toBe(1);
   expect(await repo.listEvents()).toHaveLength(1);expect((await repo.getIntent(command.eventId))?.status).toBe("recorded");
-  await expect(repo.completeIntent(command.eventId,gps,command.transitionAt)).rejects.toThrow();
+  const replayed=await repo.completeIntent(command.eventId,gps,command.transitionAt);
+  expect(replayed).toEqual(next);
   expect((await repo.getSnapshot()).revision).toBe(1);
   const outbox=await browserDatabase.table("driverOutbox").toArray();
   expect(outbox).toHaveLength(1);

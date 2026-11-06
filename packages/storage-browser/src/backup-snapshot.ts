@@ -267,6 +267,15 @@ export async function listBrowserRecoveryCheckpoints(): Promise<Array<Pick<Check
   return (await checkpointTable().toArray()).map(({ id, createdAt, status }) => ({ id, createdAt, status }));
 }
 
+/** Recover restore transactions left at checkpoint/restored_unverified by process death. */
+export async function recoverBrowserRestoreTransactions(): Promise<{ recovered: number }> {
+  const pending = (await checkpointTable().toArray()).filter(checkpoint =>
+    checkpoint.status === "checkpoint" || checkpoint.status === "restored_unverified",
+  );
+  for (const checkpoint of pending) await rollbackBrowserRecoveryCheckpoint(checkpoint.id);
+  return { recovered: pending.length };
+}
+
 export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): Promise<void> {
   const checkpoint = await checkpointTable().get(checkpointId);
   if (!checkpoint || (checkpoint.status !== "checkpoint" && checkpoint.status !== "restored_unverified" && checkpoint.status !== "rollback_complete")) {

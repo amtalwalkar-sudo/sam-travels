@@ -10,6 +10,7 @@ import type {
 } from "../../../packages/features/work-shift";
 import { DexieDriverWorkflowRepository } from "../../../packages/storage-browser/src/driver-workflow";
 import { TimelineProjectionService, type TimelineEvidenceSource } from "../../../packages/application/src/timeline-projection-service";
+import { recoverPendingBackupTransactions } from "./backup-runtime";
 
 type NativeApi = {
   getSnapshot(): Promise<{ snapshot: DriverStateProjection }>;
@@ -135,6 +136,7 @@ export async function createDriverWorkflow(): Promise<{
   location: EventLocationProvider;
   timeline: TimelineProjectionService;
 }> {
+  await recoverPendingBackupTransactions();
   const repository = Capacitor.isNativePlatform()
     ? new NativeDriverWorkflowRepository()
     : new DexieDriverWorkflowRepository();

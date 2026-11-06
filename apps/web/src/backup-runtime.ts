@@ -17,6 +17,7 @@ import {
   markBrowserRestoreVerified,
   discardVerifiedBrowserCheckpoint,
   rollbackBrowserRecoveryCheckpoint,
+  recoverBrowserRestoreTransactions,
   type BrowserSnapshotData,
 } from "../../../packages/storage-browser/src";
 
@@ -29,6 +30,7 @@ type RoomBackupApi = {
   markRestoreVerified(input: { checkpointId: string }): Promise<void>;
   discardVerifiedCheckpoint(input: { checkpointId: string }): Promise<void>;
   rollbackCheckpoint(input: { checkpointId: string }): Promise<void>;
+  recoverPendingCheckpoints(): Promise<{ recovered: string[] }>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
 type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void>; configureBackgroundBackup(input: { clientId: string; redirectUri: string }): Promise<void>; scheduleBackgroundBackup(): Promise<void> };
@@ -157,4 +159,14 @@ export async function restoreDropboxBackup(input: {
 export async function rollbackRecoveryCheckpoint(checkpointId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) return NativeBackup.rollbackCheckpoint({ checkpointId });
   return rollbackBrowserRecoveryCheckpoint(checkpointId);
+}
+
+
+/** Reconcile unverified restore transactions before operational repositories are exposed. */
+export async function recoverPendingBackupTransactions(): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    await NativeBackup.recoverPendingCheckpoints();
+    return;
+  }
+  await recoverBrowserRestoreTransactions();
 }

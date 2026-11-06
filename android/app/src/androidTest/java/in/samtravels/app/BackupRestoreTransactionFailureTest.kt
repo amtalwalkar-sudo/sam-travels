@@ -129,18 +129,7 @@ class BackupRestoreTransactionFailureTest {
                 durable.records().get(journalKey)!!.json,
             ).getString("status"))
 
-            durable.runInTransaction {
-                NativeBackupCoverage.replaceBusinessRecords(durable, checkpointRecords)
-                durable.records().put(StoredRecord(
-                    journalKey,
-                    org.json.JSONObject().put("id", checkpointId)
-                        .put("createdAt", "2026-11-06T10:02:00.000Z")
-                        .put("status", "rollback_complete").toString(),
-                    1,
-                    "2026-11-06T10:03:00.000Z",
-                ))
-            }
-
+            assertEquals(listOf(checkpointId), NativeBackupRecovery.recoverPending(durable))
             val recovered = NativeBackupCoverage.exportBusinessRecords(durable) { id ->
                 id.startsWith("__sam_travels_recovery_checkpoint__:") ||
                     id.startsWith("__sam_travels_recovery_journal__:")
@@ -152,6 +141,7 @@ class BackupRestoreTransactionFailureTest {
             assertEquals("rollback_complete", org.json.JSONObject(
                 durable.records().get(journalKey)!!.json,
             ).getString("status"))
+            assertEquals(emptyList<String>(), NativeBackupRecovery.recoverPending(durable))
         } finally {
             durable.close()
             context.deleteDatabase(databaseName)
