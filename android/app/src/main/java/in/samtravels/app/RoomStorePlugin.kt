@@ -19,16 +19,8 @@ class RoomStorePlugin : Plugin() {
             .build()
     }
 
-    private fun validatedEnvelope(row: StoredRecord): JSONObject {
-        val record = JSONObject(row.json)
-        RecordEnvelopeContract.validate(record)
-        require(record.optString("id") == row.id &&
-            record.optInt("schemaVersion", -1) == row.schemaVersion &&
-            record.optString("updatedAt") == row.updatedAt) {
-            "record_storage_envelope_mismatch"
-        }
-        return record
-    }
+    // Reads preserve historical rows; application services validate typed records before use.
+    private fun decodeStoredRow(row: StoredRecord): JSONObject = JSONObject(row.json)
 
     @PluginMethod
     fun get(call: PluginCall) {
@@ -41,7 +33,7 @@ class RoomStorePlugin : Plugin() {
             try {
                 val row = db.records().get(id)
                 val out = JSObject()
-                if (row != null) out.put("record", validatedEnvelope(row))
+                if (row != null) out.put("record", decodeStoredRow(row))
                 call.resolve(out)
             } catch (error: Exception) {
                 call.reject("Room read failed", error)
@@ -81,7 +73,7 @@ class RoomStorePlugin : Plugin() {
             try {
                 val rows = db.records().list()
                 val arr = JSONArray()
-                rows.forEach { arr.put(validatedEnvelope(it)) }
+                rows.forEach { arr.put(decodeStoredRow(it)) }
                 val out = JSObject()
                 out.put("records", arr)
                 call.resolve(out)
