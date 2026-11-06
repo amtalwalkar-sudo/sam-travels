@@ -11,7 +11,7 @@
 | Stage 1 — Deterministic feature discovery and declarations | **Complete** | PR #20 merged by squash (merge commit `4d4b2006887e2c919fed8d118c2762868975bb8e`). CI run #839 / `42299197556`: architecture, web, Android and integrated regression jobs all passed. |
 | Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
-| Stage 4 — Independent UI/UX architecture and feature UI registration | **Implementation in progress** | Audit reviewed and approved. Clean-slate presentation: replace old shell/UI entirely; preserve application/data foundations. Fixed bottom menus: Drive, Timeline, Performance, Admin; expandable Settings gear in upper corner; unrestricted custom feature screens. |
+| Stage 4 — Independent UI/UX architecture and feature UI registration | **Implementation complete; merge verification pending** | PR #24 implements the clean-slate shell, four fixed bottom destinations, expandable Settings, owner-scoped custom screen contributions, isolated screen host and fixture coverage. PR CI run #877 passed Architecture, Web, Android and Integrated regression. Awaiting merge and merged-main CI. |
 | Stage 5 — Diagnostics and change impact | Not started | Extend existing diagnostics and architecture checks. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
 
@@ -138,3 +138,16 @@ The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITEC
 ## Implementation discipline
 
 Complete one stage at a time. Each stage must have a focused implementation, tests, CI evidence and progress update before the next stage begins. Do not onboard the first real business feature as part of this architecture project; use disposable fixtures only when required to prove contracts.
+
+
+### Stage 4 — implementation evidence (PR #24)
+
+- Implementation PR: [#24 — clean-slate presentation shell and custom screen registration](https://github.com/amtalwalkar-sudo/sam-travels/pull/24).
+- Replaced the previous shell composition with an independently replaceable application shell. The shell owns the fixed four-item bottom navigation (Drive, Timeline, Performance, Admin) and an expandable upper-corner Settings drawer; Settings is not a primary destination.
+- Kept existing Drive/Timeline workflows and application-owned actions in the application composition. The shell receives screen content and settings content through explicit props.
+- Added a framework-neutral, versioned, owner-scoped custom screen contribution contract. The contribution is registered in the existing feature extension/runtime registry and published atomically with the owning feature's other contributions. No parallel registry or React dependency was added to core.
+- Added a custom feature screen host with owner/screen-level render failure containment. Two structurally different fixture renderers prove that the contract does not impose a template or visual system.
+- Added tests for custom renderer freedom, immutable registration, invalid ownership, duplicate identities, owner-group isolation, and the exact four approved primary destinations.
+- Reconciled the previous UI/UX shell contract with the approved clean-slate decision. The old presentation implementation is disposable; application/data/lifecycle/Stage 5 guarantees remain authoritative.
+- PR workflow run [#877](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42313471031) passed all four jobs: Architecture, Web, Android and Integrated regression. The Web job passed all 223 tests and production build; Android build and required emulator/reliability gate passed.
+- No real business feature was onboarded. Physical-device usability remains unclaimed.
