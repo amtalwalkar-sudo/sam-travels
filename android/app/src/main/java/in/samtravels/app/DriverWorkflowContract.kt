@@ -67,8 +67,9 @@ internal object DriverWorkflowContract {
     }
 
     fun validateOutbox(row: JSONObject) {
-        require(row.optString("id").isNotBlank() && row.optString("eventId").isNotBlank() &&
-            integer(row, "revision") >= 1L && row.optString("integrationId") == "logbook.work-driver-events.v1" &&
+        val revision = integer(row, "revision")
+        require(row.optString("id") == "driver-state:" + revision && row.optString("eventId").isNotBlank() &&
+            revision >= 1L && row.optString("integrationId") == "logbook.work-driver-events.v1" &&
             integer(row, "contractVersion") == 1L &&
             row.optString("eventName") == "work.driver-event-committed" &&
             integer(row, "payloadVersion") == 1L && row.opt("delivered") is Boolean) {
