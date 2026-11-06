@@ -41,6 +41,7 @@ object DriverWorkflowStore {
             val oldRow = db.records().get(key)
             if (oldRow != null) {
                 val old = JSONObject(oldRow.json)
+                DriverWorkflowContract.validateIntent(old)
                 val previousCommand = old.optJSONObject("command")
                 require(
                     previousCommand != null &&
