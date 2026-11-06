@@ -37,7 +37,7 @@ export type RuntimeContractDefinitions = {
 
 export type RuntimeContributionFailure = Readonly<{
   featureId: FeatureId;
-  code: "invalid_extension" | "invalid_integration" | "invalid_calculation" | "invalid_data_query" | "duplicate_contribution";
+  code: "invalid_extension" | "invalid_integration" | "invalid_calculation" | "invalid_data_query" | "invalid_presentation" | "duplicate_contribution";
   message: string;
 }>;
 
@@ -53,7 +53,7 @@ export type RuntimeRegistry = {
   /** Includes every valid persistent owner, whether active, blocked, or disabled. */
   backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
   calculations: ReadonlyMap<string, CalculationContract<any, any>>;
-  dataQueries: ReadonlyMap<string, FeatureDataQueryContract<any>>;
+  dataQueries: ReadonlyMap<string, FeatureDataQueryContract<any>>;\n  presentationScreens: ReadonlyMap<string, FeaturePresentationScreen>;
   contributionFailures: readonly RuntimeContributionFailure[];
 };
 
@@ -80,7 +80,7 @@ export function initializeRuntimeRegistry(
   const extensionsByOwner = new Map<FeatureId, FeatureExtensionDefinition[]>();
   const integrationsByOwner = new Map<FeatureId, FeatureIntegrationContract[]>();
   const calculationsByOwner = new Map<FeatureId, CalculationContract<any, any>[]>();
-  const dataQueriesByOwner = new Map<FeatureId, FeatureDataQueryContract<any>[]>();
+  const dataQueriesByOwner = new Map<FeatureId, FeatureDataQueryContract<any>[]>();\n  const presentationByOwner = new Map<FeatureId, FeaturePresentationScreen[]>();
   const failures: RuntimeContributionFailure[] = [];
   const add = <T>(map: Map<FeatureId, T[]>, owner: FeatureId, value: T) => {
     const values = map.get(owner) ?? [];
@@ -92,7 +92,7 @@ export function initializeRuntimeRegistry(
     add(extensionsByOwner, extension.featureId, extension);
     for (const integration of extension.integrations ?? []) add(integrationsByOwner, extension.featureId, integration);
     for (const calculation of extension.calculations ?? []) add(calculationsByOwner, extension.featureId, calculation);
-    for (const query of extension.dataQueries ?? []) add(dataQueriesByOwner, extension.featureId, query);
+    for (const query of extension.dataQueries ?? []) add(dataQueriesByOwner, extension.featureId, query);\n    for (const screen of extension.presentationScreens ?? []) add(presentationByOwner, extension.featureId, screen);
   }
   for (const integration of definitions.integrations ?? []) add(integrationsByOwner, integration.consumerFeatureId, integration);
   for (const calculation of definitions.calculations ?? []) add(calculationsByOwner, calculation.ownerFeatureId, calculation);
@@ -110,7 +110,7 @@ export function initializeRuntimeRegistry(
   for (const [owner, values] of extensionsByOwner) for (const value of values) countIdentity("extension", value.id, owner);
   for (const [owner, values] of integrationsByOwner) for (const value of values) countIdentity("integration", value.id, owner);
   for (const [owner, values] of calculationsByOwner) for (const value of values) countIdentity("calculation", value.id, owner);
-  for (const [owner, values] of dataQueriesByOwner) for (const value of values) countIdentity("data-query", value.id, owner);
+  for (const [owner, values] of dataQueriesByOwner) for (const value of values) countIdentity("data-query", value.id, owner);\n  for (const [owner, values] of presentationByOwner) for (const value of values) countIdentity("presentation-screen", value.id, owner);
   const duplicateOwners = new Set<FeatureId>();
   for (const extension of extensionDefinitions) {
     if (extension.feature && activation.diagnostics.some(diagnostic =>
@@ -139,13 +139,13 @@ export function initializeRuntimeRegistry(
   const extensions = new Map<string, RegisteredFeatureExtension>();
   const integrations = new Map<string, FeatureIntegrationContract>();
   const calculations = new Map<string, CalculationContract<any, any>>();
-  const dataQueries = new Map<string, FeatureDataQueryContract<any>>();
+  const dataQueries = new Map<string, FeatureDataQueryContract<any>>();\n  const presentationScreens = new Map<string, FeaturePresentationScreen>();
 
   const owners = new Set<FeatureId>([
     ...extensionsByOwner.keys(),
     ...integrationsByOwner.keys(),
     ...calculationsByOwner.keys(),
-    ...dataQueriesByOwner.keys(),
+    ...dataQueriesByOwner.keys(),\n    ...presentationByOwner.keys(),
   ]);
   for (const owner of [...owners].sort()) {
     if (!features.has(owner)) {
@@ -160,18 +160,18 @@ export function initializeRuntimeRegistry(
     const ownerExtensions = extensionsByOwner.get(owner) ?? [];
     const ownerIntegrations = integrationsByOwner.get(owner) ?? [];
     const ownerCalculations = calculationsByOwner.get(owner) ?? [];
-    const ownerDataQueries = dataQueriesByOwner.get(owner) ?? [];
+    const ownerDataQueries = dataQueriesByOwner.get(owner) ?? [];\n    const ownerPresentation = presentationByOwner.get(owner) ?? [];
     try {
       // Stage every registry for this owner locally. Nothing is published until
       // all three validators succeed, preventing partial feature contribution.
       const stagedExtensions = registerFeatureExtensions(features, ownerExtensions);
       const stagedIntegrations = registerFeatureIntegrations(activeFeatures, ownerIntegrations);
       const stagedCalculations = registerCalculations(activeFeatures, ownerCalculations);
-      const stagedDataQueries = registerFeatureDataQueries(activeFeatures, ownerDataQueries);
+      const stagedDataQueries = registerFeatureDataQueries(activeFeatures, ownerDataQueries);\n      const stagedPresentation = registerFeaturePresentationScreens(activeFeatures, ownerPresentation);
       for (const [id, value] of stagedExtensions) extensions.set(id, value);
       for (const [id, value] of stagedIntegrations) integrations.set(id, value);
       for (const [id, value] of stagedCalculations) calculations.set(id, value);
-      for (const [id, value] of stagedDataQueries) dataQueries.set(id, value);
+      for (const [id, value] of stagedDataQueries) dataQueries.set(id, value);\n      for (const [id, value] of stagedPresentation) presentationScreens.set(id, value);
     } catch (error) {
       const hasExtensions = ownerExtensions.length > 0;
       const hasIntegrations = ownerIntegrations.length > 0;
@@ -198,7 +198,7 @@ export function initializeRuntimeRegistry(
     integrations: createReadonlyRegistry(integrations),
     backupParticipants,
     calculations: createReadonlyRegistry(calculations),
-    dataQueries: createReadonlyRegistry(dataQueries),
+    dataQueries: createReadonlyRegistry(dataQueries),\n    presentationScreens: createReadonlyRegistry(presentationScreens),
     contributionFailures: Object.freeze(failures.sort((a, b) =>
       a.featureId < b.featureId ? -1 : a.featureId > b.featureId ? 1 : a.code < b.code ? -1 : a.code > b.code ? 1 : 0,
     )),
