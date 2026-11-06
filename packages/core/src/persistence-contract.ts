@@ -1,4 +1,5 @@
 import type { RecordEnvelope } from "./types";
+import type { SnapshotManifest } from "./backup";
 
 /**
  * Versioned persistence contracts shared by application services and storage adapters.
@@ -48,5 +49,46 @@ export function assertRecordEnvelope(value: unknown): asserts value is RecordEnv
   }
   if (record.deletedAt !== undefined && record.deletedAt !== null && !isIsoInstant(record.deletedAt)) {
     throw new Error("record_invalid_deleted_at");
+  }
+}
+
+/** Validate the versioned top-level backup manifest before any restore checkpoint or mutation. */
+export function assertSnapshotManifest(value: unknown): asserts value is SnapshotManifest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("backup_invalid_manifest");
+  const manifest = value as Record<string, unknown>;
+  if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
+  if (typeof manifest.applicationVersion !== "string" || !manifest.applicationVersion.trim() ||
+      !isIsoInstant(manifest.createdAt) ||
+      typeof manifest.businessTimezone !== "string" || !manifest.businessTimezone.trim()) {
+    throw new Error("backup_invalid_manifest");
+  }
+  if (!Number.isSafeInteger(manifest.snapshotRevision) || (manifest.snapshotRevision as number) < 0) {
+    throw new Error("backup_invalid_snapshot_revision");
+  }
+  if (!manifest.recordCounts || typeof manifest.recordCounts !== "object" || Array.isArray(manifest.recordCounts)) {
+    throw new Error("backup_invalid_record_counts");
+  }
+  for (const [table, count] of Object.entries(manifest.recordCounts as Record<string, unknown>)) {
+    if (!table.trim() || !Number.isSafeInteger(count) || (count as number) < 0) {
+      throw new Error("backup_invalid_record_counts");
+    }
+  }
+  if (manifest.participants !== undefined) {
+    if (!Array.isArray(manifest.participants)) throw new Error("backup_invalid_participant_manifest");
+    const ids = new Set<string>();
+    for (const participant of manifest.participants) {
+      if (!participant || typeof participant !== "object" || Array.isArray(participant)) {
+        throw new Error("backup_invalid_participant_manifest");
+      }
+      const item = participant as Record<string, unknown>;
+      if (typeof item.id !== "string" || !item.id.trim() ||
+          typeof item.featureId !== "string" || !item.featureId.trim() ||
+          typeof item.restoreValidatorId !== "string" || !item.restoreValidatorId.trim() ||
+          !Number.isSafeInteger(item.snapshotVersion) || (item.snapshotVersion as number) < 1 ||
+          ids.has(item.id)) {
+        throw new Error("backup_invalid_participant_manifest");
+      }
+      ids.add(item.id);
+    }
   }
 }
