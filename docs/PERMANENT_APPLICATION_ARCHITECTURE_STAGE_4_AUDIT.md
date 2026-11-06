@@ -1,6 +1,6 @@
 # Permanent Application Architecture — Stage 4 Presentation Audit
 
-**Status:** Implementation delivered in PR #24; PR CI passed. Merged-main verification remains the final completion gate.  
+**Status:** Complete — PR #24 merged and merged-main CI run #881 passed all four jobs.  
 **Baseline:** `main` at `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd` (Stage 3 merged-main CI run #868 succeeded).  
 **Scope:** Independent application shell, unrestricted custom feature presentation, screen/navigation contributions, presentation composition and verification.  
 **Non-scope:** Business feature onboarding, business rules/calculations, persistence redesign, platform lifecycle redesign, Stage 5 replacement, final visual redesign.
@@ -84,3 +84,8 @@ The unrestricted custom-screen requirement remains: no predefined screen templat
 The approved 4A–4E scope is implemented in [PR #24](https://github.com/amtalwalkar-sudo/sam-travels/pull/24): versioned owner-scoped presentation screen contracts, atomic publication through the existing runtime registry, a replaceable shell component, fixed four-destination bottom navigation with expandable Settings, custom screen hosting and per-screen failure containment, two different fixture renderers, and focused ownership/duplicate/replaceability tests. The former shell contract has been reconciled with the clean-slate decision.
 
 PR workflow run [#877](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42313471031) passed Architecture, Web, Android and Integrated regression. The full Web suite passed 223 tests and the production build; Android build and required emulator/reliability gate passed. This is PR evidence only; Stage 4 is not marked complete until the merge and merged-main CI verification succeed.
+
+
+## 8. Merged-main completion evidence
+
+PR [#24](https://github.com/amtalwalkar-sudo/sam-travels/pull/24) was squash-merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main workflow [#881](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42314701276) passed Architecture, Web, Android and Integrated regression on that exact commit. The Web job passed all 223 tests and production build; Android build and required emulator/reliability gate passed. Stage 4 is complete. Physical-device acceptance remains separate and is not claimed.
