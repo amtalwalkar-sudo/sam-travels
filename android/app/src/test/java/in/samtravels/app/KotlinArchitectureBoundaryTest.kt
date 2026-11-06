@@ -65,6 +65,7 @@ class KotlinArchitectureBoundaryTest {
         "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
         "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
         "android/app/src/main/java/in/samtravels/app/NativeBackupCoverage.kt",
+        "android/app/src/main/java/in/samtravels/app/NativeFeatureBackupParticipants.kt",
     )
 
     private fun roomDaoViolations(source: String, relative: String): List<String> =
