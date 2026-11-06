@@ -16,14 +16,24 @@ describe("feature scaffolding", () => {
     temporaryRoots.push(root);
     const created = await createFeatureScaffold({ root, featureId: "fleet-notes", label: "Fleet Notes" });
 
-    expect(created).toHaveLength(4);
+    expect(created).toHaveLength(6);
     const runtime = await readFile(path.join(root, "packages/features/fleet-notes/runtime.ts"), "utf8");
     const entry = await readFile(path.join(root, "packages/features/fleet-notes/index.ts"), "utf8");
     const test = await readFile(path.join(root, "tests/features/fleet-notes.extension.test.ts"), "utf8");
+    const manifest = await readFile(path.join(root, "packages/features/fleet-notes/feature.manifest.json"), "utf8");
+    const catalog = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
     expect(runtime).toContain('dataPolicy: "non-persistent"');
     expect(runtime).toContain('publicEntryPoint: "packages/features/fleet-notes/index.ts"');
     expect(runtime).toContain("FLEET_NOTES_FEATURE_EXTENSION");
     expect(entry).toContain("FLEET_NOTES_FEATURE_EXTENSION");
+    expect(JSON.parse(manifest)).toMatchObject({
+      manifestVersion: 1,
+      id: "fleet-notes",
+      entryPoint: "packages/features/fleet-notes/index.ts",
+      extensionExport: "FLEET_NOTES_FEATURE_EXTENSION",
+    });
+    expect(catalog).toContain("FLEET_NOTES_FEATURE_EXTENSION as discoveredFeatureExtension1");
+    expect(catalog).not.toContain("import.meta.glob");
     expect(test).toContain("createApplicationRuntimeRegistry");
     expect(test).toContain('runtime.features.get("fleet-notes")');
   });

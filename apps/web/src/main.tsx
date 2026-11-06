@@ -4,14 +4,14 @@ import {
   initializeApplicationRuntimeRegistry,
   initializeApplicationFeatureLifecycle,
 } from "../../../packages/application/src";
-import { LOGBOOK_FEATURE_EXTENSION } from "../../../packages/features/logbook";
+import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository } from "./native-store";
 import { App } from "./ui/App";
 import "./ui/styles.css";
 
 // Initialize all contracts and the authoritative lifecycle repository before UI.
 async function bootstrap(): Promise<void> {
-  initializeApplicationRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
+  initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   const repository = await createPlatformRepository();
   initializeApplicationFeatureLifecycle(repository);
   createRoot(document.getElementById("root")!).render(

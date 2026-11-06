@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { generateFeatureCatalog } from "./discover-features.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const templateDirectory = path.resolve(scriptDirectory, "../templates/feature");
@@ -39,6 +40,7 @@ export async function createFeatureScaffold({ root = process.cwd(), featureId, l
     "__FEATURE_CONST__": featureConstant,
   };
   const outputs = [
+    ["feature.manifest.json.tpl", path.join(featureDirectory, "feature.manifest.json")],
     ["index.ts.tpl", path.join(featureDirectory, "index.ts")],
     ["runtime.ts.tpl", path.join(featureDirectory, "runtime.ts")],
     ["README.md.tpl", path.join(featureDirectory, "README.md")],
@@ -62,7 +64,11 @@ export async function createFeatureScaffold({ root = process.cwd(), featureId, l
   for (const [outputPath, content] of rendered) {
     await writeFile(outputPath, content, { flag: "wx" });
   }
-  return rendered.map(([outputPath]) => path.relative(root, outputPath).split(path.sep).join("/"));
+  await generateFeatureCatalog({ root });
+  return [
+    ...rendered.map(([outputPath]) => path.relative(root, outputPath).split(path.sep).join("/")),
+    "apps/web/src/generated-feature-catalog.ts",
+  ];
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -76,7 +82,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       const created = await createFeatureScaffold({ featureId, label });
       console.log("Created feature scaffold:");
       for (const file of created) console.log(" - " + file);
-      console.log("Next: implement the feature contract, then add its extension descriptor to apps/web/src/main.tsx.");
+      console.log("Next: implement the feature contract. Its manifest is included in the generated static catalogue; no main.tsx registration edit is needed.");
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       process.exitCode = 1;

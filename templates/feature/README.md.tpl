@@ -18,7 +18,7 @@ This scaffold is deliberately registered as `non-persistent`. Do not change it t
 - [ ] Add versioned integrations with explicit producer/consumer ownership and payload validation.
 - [ ] If persistent: complete migration, backup, restore, lifecycle, and offline/recovery contracts before enabling writes.
 - [ ] Add PWA and Android adapters that call the same business implementation.
-- [ ] Compose `__FEATURE_CONST___FEATURE_EXTENSION` in the outer application entry point.
+- [ ] Keep the generated feature manifest aligned with the extension's stable identity and public export.
 - [ ] Run architecture, web, Android, migration, backup/restore, offline, recovery, and integrated regression gates as applicable.
 
-Do not import another feature's private files or tables. Cross-feature use must go through public contracts. Do not create a second global registry; the application composition root supplies descriptors to the application-owned registry.
+The scaffold creates `feature.manifest.json`; the build-time discovery command adds it to a deterministic, statically linked catalogue. Do not edit `apps/web/src/main.tsx` to register this feature. Do not import another feature's private files or tables. Cross-feature use must go through public contracts. Do not create a second global registry; the application composition root supplies the generated catalogue to the application-owned registry.
