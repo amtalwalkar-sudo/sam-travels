@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createApplicationRuntimeRegistry } from "../../packages/application/src";
-import { __FEATURE_CONST___FEATURE_EXTENSION } from "../../packages/features/__FEATURE_ID__";
+import { DISCOVERED_FEATURE_EXTENSIONS } from "../../apps/web/src/generated-feature-catalog";
 
 describe("__FEATURE_LABEL__ feature scaffold", () => {
-  it("publishes a valid non-persistent extension through the application registry", () => {
+  it("is discovered and registered through the generated application catalogue", () => {
+    const discovered = DISCOVERED_FEATURE_EXTENSIONS.find(extension => extension.featureId === "__FEATURE_ID__");
+    expect(discovered).toBeDefined();
+
     const runtime = createApplicationRuntimeRegistry({
-      extensions: [__FEATURE_CONST___FEATURE_EXTENSION],
+      extensions: [...DISCOVERED_FEATURE_EXTENSIONS],
     });
 
     expect(runtime.features.get("__FEATURE_ID__")).toMatchObject({
