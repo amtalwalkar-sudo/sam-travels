@@ -220,7 +220,7 @@ object DriverWorkflowStore {
 
     /** Read the immutable committed event stream through its owning repository boundary. */
     fun listEvents(db: LocalDatabase): List<JSONObject> =
-        db.logBookEvents().list().map { JSONObject(it.json).also(DriverWorkflowContract::validateEvent) }
+        db.logBookEvents().list().map { JSONObject(it.json).also(DriverWorkflowContract::validateStoredEvent) }
 
 
     /** Enumerate Work-owned durable intents; callers receive detached JSON values. */
