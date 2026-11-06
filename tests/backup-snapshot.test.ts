@@ -277,4 +277,13 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     } finally { unregister(); }
   });
 
+  it("fails closed when feature-owned browser records have no registered adapter", async () => {
+    await browserDatabase.records.put({
+      id: "feature:orphan-addon:row", schemaVersion: 1,
+      createdAt: "2026-11-06T00:00:00.000Z", updatedAt: "2026-11-06T00:00:00.000Z",
+      source: "web", revision: 1, data: { retained: true },
+    });
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("backup_unregistered_feature_record:feature:orphan-addon:row");
+  });
+
 });
