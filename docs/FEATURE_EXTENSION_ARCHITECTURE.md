@@ -15,7 +15,7 @@ A feature extension is one cohesive, versioned descriptor containing:
 - The feature-owned versioned calculations.
 - The feature-owned versioned cross-feature integrations.
 
-The application layer owns runtime construction, validation, singleton lifecycle, and generic cross-feature event coordination. The outer application entry point statically composes feature extension descriptors and passes them to the application layer before mounting presentation. Feature packages publish descriptors only; they never initialize or own the global application registry. The application layer does not import feature packages, preserving explicit acyclic dependency direction.
+The application layer owns runtime construction, validation, singleton lifecycle, and generic cross-feature event coordination. Feature packages publish descriptors only; they never initialize or own the global application registry. A deterministic build-time discovery step reads each feature's explicit `feature.manifest.json`, validates its canonical public entry point and named extension export, and generates a sorted static-import catalogue at `apps/web/src/generated-feature-catalog.ts`. The outer application composition root passes that generated catalogue to the application layer before mounting presentation. There is no arbitrary runtime directory scanning, reflection, dynamic code loading, or per-feature edit to `main.tsx`. The application layer does not import feature packages, preserving explicit acyclic dependency direction.
 
 Runtime bootstrap combines built-in features, optional new feature definitions, and extension contributions locally. It validates the complete feature graph, ownership of every contribution, integration dependencies, calculation regression fixtures, persistence contracts, and backup participants before returning one immutable registry. Any invalid contribution fails startup; no partial registry is exposed.
 
@@ -30,12 +30,13 @@ npm run feature:create -- finance-insights "Finance Insights"
 ```
 
 The generator creates:
+- `packages/features/<feature-id>/feature.manifest.json` — explicit feature identity, manifest schema version, canonical public entry point, and extension export name.
 - `packages/features/<feature-id>/index.ts` — the only supported public import surface.
 - `packages/features/<feature-id>/runtime.ts` — a versioned feature definition and extension descriptor.
 - `packages/features/<feature-id>/README.md` — the ownership and implementation checklist.
 - `tests/features/<feature-id>.extension.test.ts` — a smoke test through the application-owned registry.
 
-The generator validates a lowercase kebab-case ID and non-empty label, refuses to overwrite existing paths, and does not modify the application composition root. The generated feature is deliberately `non-persistent`; it cannot enable business writes. A feature that stores business data must first complete the full persistent-feature, migration, backup, restore, lifecycle, and adapter contracts. Add the descriptor to the outer composition root only after its contract and tests are ready. Templates are starting structure, not a substitute for feature-specific design or acceptance testing.
+The generator validates a lowercase kebab-case ID and non-empty label, refuses to overwrite existing paths, writes the manifest, and regenerates the deterministic static catalogue. The generated feature is deliberately `non-persistent`; it cannot enable business writes. A feature that stores business data must first complete the full persistent-feature, migration, backup, restore, lifecycle, and adapter contracts. The feature's manifest is automatically included in the generated catalogue; no per-feature edit to `apps/web/src/main.tsx` is required. Run `npm run features:check` to verify that the checked-in catalogue matches all manifests, or `npm run features:discover` after adding/updating a manifest manually. Templates are starting structure, not a substitute for feature-specific design or acceptance testing.
 
 ## Adding a new feature
 
@@ -45,7 +46,7 @@ The generator validates a lowercase kebab-case ID and non-empty label, refuses t
 4. Keep domain rules and calculations in the feature's domain/application-owned implementation; keep forms and screens as replaceable adapters.
 5. Publish one `FeatureExtensionDefinition` with its stable ID, version, owner, public entry point, feature definition, calculations, and integrations.
 6. Add regression fixtures for every calculation and contract tests for every integration.
-7. Export the descriptor from the feature's public entry point. The outer application composition root supplies it to the application-layer registry initializer; the feature must not initialize the global registry.
+7. Export the descriptor from the feature's public entry point and ensure its manifest names that export. The build-time discovery step includes it in the generated static catalogue; the application composition root supplies the catalogue to the application-layer registry initializer. The feature must not initialize the global registry.
 8. Do not add direct cross-feature imports or duplicate platform business logic.
 9. Verify the feature through architecture, web, Android, migration, backup/restore, offline, recovery, and integrated regression gates as applicable.
 
@@ -77,6 +78,6 @@ The architecture CI gate resolves relative and aliased imports and rejects any e
 
 ## Verification and release claims
 
-Automated CI must verify extension registration, duplicate/unknown IDs, dependency cycles, ownership boundaries, calculation fixtures, integration compatibility, public feature API imports, and existing regression suites. Persistent extensions additionally require migration and backup/restore compatibility tests.
+Automated CI must verify that every explicit feature manifest is valid, its canonical public entry point exports the declared descriptor, the generated catalogue is current and deterministic, and extension registration rejects duplicate/unknown IDs, dependency cycles, ownership violations, invalid calculation fixtures and incompatible integrations. Continue enforcing public feature API imports and existing regression suites. Persistent extensions additionally require migration and backup/restore compatibility tests.
 
 A green CI run proves only the automated checks executed on that commit. Physical-device and live external-service acceptance remain separate release gates.
