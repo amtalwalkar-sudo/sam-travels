@@ -1,3 +1,4 @@
+import { assertRecordEnvelope, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
@@ -118,7 +119,7 @@ function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): 
 const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Table<Checkpoint, string>;
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
-  if (manifest.schemaVersion !== 1) throw new Error("backup_unsupported_schema");
+  if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
       items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
@@ -153,10 +154,8 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   }
   const ids = new Set<string>();
   for (const row of data.records) {
-    if (!row || typeof row !== "object" || typeof (row as { id?: unknown }).id !== "string") {
-      throw new Error("backup_invalid_record");
-    }
-    const id = (row as { id: string }).id;
+    assertRecordEnvelope(row);
+    const id = row.id;
     if (!id || ids.has(id)) throw new Error("backup_duplicate_record_id");
     ids.add(id);
   }
@@ -172,7 +171,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
-    schemaVersion: 1,
+    schemaVersion: BACKUP_SNAPSHOT_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
