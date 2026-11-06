@@ -52,6 +52,7 @@ describe("compiler-backed architecture import parser", () => {
       'request.result.transaction("records", "readwrite").objectStore("records").put(value);',
       'window.localStorage.setItem("record", value);',
       'globalThis["indexedDB"].deleteDatabase("old");',
+      'browserDatabase.records.put(record);',
       'sessionStorage.removeItem("record");',
       'caches.delete("business-cache");',
       'navigator.storage.persist();',
@@ -61,7 +62,7 @@ describe("compiler-backed architecture import parser", () => {
     ].join("\n");
     expect(analyzeBrowserPersistenceReferences(source, "unsafe.ts").map((item) => item.symbol)).toEqual([
       "indexedDB", "localStorage", "sessionStorage", "caches",
-      "navigator.storage", "IDBFactory", "indexedDB", "new Dexie", "IDBObjectStore", "indexedDB",
+      "navigator.storage", "IDBFactory", "indexedDB", "new Dexie", "IDBObjectStore", "indexedDB", "browserDatabase",
     ]);
   });
 
