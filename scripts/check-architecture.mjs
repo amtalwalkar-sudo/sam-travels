@@ -1,7 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "./architecture-import-parser.mjs";
-import { createAliasResolver, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "./architecture-import-policy.mjs";
+import { createAliasResolver, isBrowserPersistenceModule, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "./architecture-import-policy.mjs";
 
 const root = process.cwd();
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
