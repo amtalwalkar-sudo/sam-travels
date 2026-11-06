@@ -5,6 +5,8 @@ export type FeatureDataPolicy = "persistent" | "non-persistent";
 export type FeatureDependency = FeatureId | {
   id: FeatureId;
   contractVersion: number;
+  /** Missing or incompatible optional dependencies do not block activation. */
+  optional?: boolean;
 };
 
 export type FeatureMigration = {
