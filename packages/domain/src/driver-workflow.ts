@@ -69,7 +69,7 @@ export function assertDriverOutboxContract(value: unknown): asserts value is Dri
  const row = value as Record<string, unknown>;
  if (typeof row.id !== "string" || !row.id.trim() ||
      typeof row.eventId !== "string" || !row.eventId.trim() ||
-     !Number.isSafeInteger(row.revision) || (row.revision as number) < 1 || row.id !== "driver-state:" + row.revision ||
+     !Number.isSafeInteger(row.revision) || (row.revision as number) < 1 || row.id !== "driver-state:" + (row.revision as number) ||
      row.integrationId !== "logbook.work-driver-events.v1" ||
      row.contractVersion !== 1 || row.eventName !== "work.driver-event-committed" ||
      row.payloadVersion !== 1 || typeof row.delivered !== "boolean" ||
