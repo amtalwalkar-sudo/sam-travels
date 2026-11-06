@@ -56,21 +56,17 @@ class BackupRestoreTransactionFailureTest {
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
 
-        fun platformRecord(revision: Int, label: String, updatedAt: String): StoredRecord {
-            val payload = org.json.JSONObject()
-                .put("id", "stage-four-business-record")
-                .put("schemaVersion", 1)
-                .put("createdAt", "2026-11-06T10:00:00.000Z")
-                .put("updatedAt", updatedAt)
-                .put("source", "web")
-                .put("revision", revision)
-                .put("data", org.json.JSONObject().put("label", label))
-            return StoredRecord("stage-four-business-record", payload.toString(), 1, updatedAt)
+        fun driverStateRecord(revision: Int, state: String, updatedAt: String): StoredRecord {
+            val payload = org.json.JSONObject().put(
+                "value",
+                org.json.JSONObject().put("schemaVersion", 1).put("revision", revision).put("state", state),
+            )
+            return StoredRecord("driver-state", payload.toString(), 1, updatedAt)
         }
 
         var durable = builder.build()
         try {
-            durable.records().put(platformRecord(1, "before-restore", "2026-11-06T10:00:00.000Z"))
+            durable.records().put(driverStateRecord(0, "idle", "2026-11-06T10:00:00.000Z"))
             val checkpointRecords = NativeBackupCoverage.exportBusinessRecords(durable) { false }
             assertEquals(1, checkpointRecords.length())
             val checkpointId = "stage-four-checkpoint"
@@ -95,7 +91,8 @@ class BackupRestoreTransactionFailureTest {
 
             val replacement = org.json.JSONArray().put(
                 org.json.JSONObject(checkpointRecords.getJSONObject(0).toString())
-                    .put("json", platformRecord(2, "replacement", "2026-11-06T10:01:00.000Z").json)
+                    .put("id", "driver-state")
+                    .put("json", driverStateRecord(1, "shift_active", "2026-11-06T10:01:00.000Z").json)
                     .put("updatedAt", "2026-11-06T10:01:00.000Z"),
             )
             NativeBackupCoverage.validateBusinessRecords(replacement, requireExplicitOwnerTags = true)
@@ -110,8 +107,8 @@ class BackupRestoreTransactionFailureTest {
                 ))
             }
             assertEquals(2, org.json.JSONObject(
-                durable.records().get("stage-four-business-record")!!.json,
-            ).getInt("revision"))
+                durable.records().get("driver-state")!!.json,
+            ).getJSONObject("value").getInt("revision"))
         } finally {
             durable.close()
         }
@@ -144,8 +141,8 @@ class BackupRestoreTransactionFailureTest {
             val recovered = NativeBackupCoverage.exportBusinessRecords(durable) { false }
             assertEquals(1, recovered.length())
             val restoredPayload = org.json.JSONObject(recovered.getJSONObject(0).getString("json"))
-            assertEquals(1, restoredPayload.getInt("revision"))
-            assertEquals("before-restore", restoredPayload.getJSONObject("data").getString("label"))
+            assertEquals(0, restoredPayload.getJSONObject("value").getInt("revision"))
+            assertEquals("idle", restoredPayload.getJSONObject("value").getString("state"))
             assertEquals("rollback_complete", org.json.JSONObject(
                 durable.records().get(journalKey)!!.json,
             ).getString("status"))
