@@ -29,7 +29,7 @@ describe("feature lifecycle policy", () => {
   });
 
   it("disables an enabled feature without changing its persistence contract", () => {
-    const context = contextWith();
+    const context = contextWith({ performance: "disabled" });
     const before = context.features.get("logbook")?.persistence;
     const result = transitionFeatureLifecycle("logbook", "disable", context);
     expect(result.state).toBe("disabled");
