@@ -5,10 +5,13 @@ import java.time.Instant
 
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
-    fun snapshot(db: LocalDatabase): JSONObject =
-        db.records().get("driver-state")
+    fun snapshot(db: LocalDatabase): JSONObject {
+        val state = db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
             ?: JSONObject().put("schemaVersion", 1).put("revision", 0).put("state", "idle")
+        DriverWorkflowContract.validateState(state)
+        return state
+    }
 
     private fun save(db: LocalDatabase, key: String, value: JSONObject, now: String) {
         db.records().put(StoredRecord(key, value.toString(), 1, now))
@@ -20,6 +23,7 @@ object DriverWorkflowStore {
             val eventId = command.optString("eventId")
             val commandId = command.optString("commandId")
             val idempotencyKey = command.optString("idempotencyKey")
+            DriverWorkflowContract.validateCommand(command)
             require(
                 command.optInt("schemaVersion", -1) == 1 &&
                     eventId.isNotBlank() && commandId.isNotBlank() && idempotencyKey.isNotBlank(),
@@ -96,6 +100,7 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
             require(intent.optString("status") == "pending_location") { "intent_not_pending" }
 
             val command = intent.getJSONObject("command")
@@ -125,21 +130,21 @@ object DriverWorkflowStore {
             }
 
             val now = Instant.now().toString()
+            DriverWorkflowContract.validateState(next)
             val eventRecord = JSONObject()
                 .put("eventId", eventId)
                 .put("command", command)
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
+            DriverWorkflowContract.validateEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
+            DriverWorkflowContract.validateIntent(intent)
             db.logBookEvents().put(LogBookEventRecord(eventId, eventRecord.toString(), 1, now))
             save(db, "driver-state", JSONObject().put("value", next), now)
             save(db, key, intent, now)
-            save(
-                db,
-                "driver-outbox:$revision",
-                JSONObject()
+            val outbox = JSONObject()
                     .put("id", "driver-state:$revision")
                     .put("eventId", eventId)
                     .put("revision", revision)
@@ -148,9 +153,9 @@ object DriverWorkflowStore {
                     .put("eventName", "work.driver-event-committed")
                     .put("payloadVersion", 1)
                     .put("delivered", false)
-                    .put("createdAt", now),
-                now,
-            )
+                    .put("createdAt", now)
+            DriverWorkflowContract.validateOutbox(outbox)
+            save(db, "driver-outbox:$revision", outbox, now)
             committed = next
         }
         return committed ?: error("transition_not_committed")
