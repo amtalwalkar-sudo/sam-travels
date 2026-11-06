@@ -18,7 +18,6 @@ import {
 } from "./feature-extension";
 import {
   planFeatureActivation,
-  type FeatureActivationDiagnostic,
   type FeatureActivationPlan,
 } from "./feature-activation";
 
