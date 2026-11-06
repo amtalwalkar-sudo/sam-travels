@@ -58,32 +58,56 @@ class KotlinArchitectureBoundaryTest {
         }
     }
 
+    private val approvedRoomGateways = setOf(
+        "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
+        "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+        "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
+        "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
+        "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
+        "android/app/src/main/java/in/samtravels/app/NativeBackupCoverage.kt",
+    )
+
+    private fun roomDaoViolations(source: String, relative: String): List<String> =
+        withParsed(source) { file ->
+            val violations = mutableListOf<String>()
+            file.accept(object : KtTreeVisitorVoid() {
+                override fun visitCallExpression(expression: KtCallExpression) {
+                    val name = expression.calleeExpression?.text
+                    if (name in setOf("records", "logBookEvents") && relative !in approvedRoomGateways) {
+                        violations += "$relative: direct Room DAO call '$name' outside an approved gateway"
+                    }
+                    super.visitCallExpression(expression)
+                }
+            })
+            violations
+        }
+
+    @Test
+    fun authorizedGatewayFixtureAllowsRoomDaoCalls() {
+        val source = "fun read(database: LocalDatabase) = database.records().list()"
+        assertTrue(roomDaoViolations(
+            source,
+            "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+        ).isEmpty())
+    }
+
+    @Test
+    fun unauthorizedFixtureRejectsRoomDaoCalls() {
+        val source = "fun read(database: LocalDatabase) = database.records().list()"
+        assertEquals(
+            listOf("packages/application/src/unsafe.kt: direct Room DAO call 'records' outside an approved gateway"),
+            roomDaoViolations(source, "packages/application/src/unsafe.kt"),
+        )
+    }
+
     @Test
     fun productionRoomDaoCallsStayInsideApprovedGateways() {
         val root = findRepositoryRoot()
-        val allowed = setOf(
-            "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
-            "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
-            "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
-            "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
-            "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
-            "android/app/src/main/java/in/samtravels/app/NativeBackupCoverage.kt",
-        )
         val violations = mutableListOf<String>()
         val sourceRoot = File(root, "android/app/src/main")
         sourceRoot.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { source ->
             val relative = source.relativeTo(root).path.replace(File.separatorChar, '/')
-            withParsed(source.readText()) { file ->
-                file.accept(object : KtTreeVisitorVoid() {
-                    override fun visitCallExpression(expression: KtCallExpression) {
-                        val name = expression.calleeExpression?.text
-                        if (name in setOf("records", "logBookEvents") && relative !in allowed) {
-                            violations += "$relative: direct Room DAO call '$name' outside an approved gateway"
-                        }
-                        super.visitCallExpression(expression)
-                    }
-                })
-            }
+            violations += roomDaoViolations(source.readText(), relative)
         }
         assertTrue(violations.joinToString("\n"), violations.isEmpty())
     }
