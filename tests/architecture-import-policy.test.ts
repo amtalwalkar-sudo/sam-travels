@@ -16,6 +16,6 @@ describe("public feature import boundary", () => {
   it("resolves relative feature imports before applying the public boundary", () => {
     const resolved = resolveImport("../../../packages/features/logbook/runtime", "apps/web/src/main.tsx", () => null);
     expect(resolved).toBe("packages/features/logbook/runtime");
-    expect(isPublicFeatureEntry(resolved)).toBe(false);
+    expect(isPublicFeatureEntry(resolved ?? "")).toBe(false);
   });
 });
