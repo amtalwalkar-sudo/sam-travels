@@ -5,12 +5,16 @@ import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/dri
 import {createDriverCommand,DriverWorkflowService} from "../packages/features/work-shift";
 import type {GpsFix} from "../packages/core/src/types";
 import {
- dispatchCommittedWorkEvent,
- initializeApplicationRuntimeRegistry,
+ LOGBOOK_FEATURE_EXTENSION,
+ LOGBOOK_WORK_EVENT_INTEGRATION,
  rebuildTripHistoryProjection,
  readTripHistoryProjection,
  TRIP_DURATION_CALCULATION,
 } from "../packages/features/logbook";
+import {
+ createApplicationRuntimeRegistry,
+ dispatchCommittedFeatureEvent,
+} from "../packages/application/src";
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
 
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
@@ -125,11 +129,11 @@ describe("durable single-driver workflow",()=>{
 
  it("proves Work-to-Log Book calculation and projection recovery across a database restart",async()=>{
   const repo=new DexieDriverWorkflowRepository();
-  const runtime=initializeApplicationRuntimeRegistry();
+  const runtime=createApplicationRuntimeRegistry({extensions:[LOGBOOK_FEATURE_EXTENSION]});
   let captureAt="2026-11-03T10:00:00.000Z";
   const delivered:string[]=[];
   const service=new DriverWorkflowService(repo,{capture:async()=>({...gps,fixAt:captureAt})},async event=>{
-   await dispatchCommittedWorkEvent(runtime,event,async message=>{
+   await dispatchCommittedFeatureEvent(runtime,LOGBOOK_WORK_EVENT_INTEGRATION,event,async message=>{
     delivered.push(message.eventId);
     rebuildTripHistoryProjection(await repo.listEvents());
    });
@@ -167,7 +171,7 @@ describe("durable single-driver workflow",()=>{
 
   const replayed:string[]=[];
   const recoveredService=new DriverWorkflowService(recoveredRepository,{capture:async()=>({...gps,fixAt:captureAt})},async event=>{
-   await dispatchCommittedWorkEvent(runtime,event,async message=>{
+   await dispatchCommittedFeatureEvent(runtime,LOGBOOK_WORK_EVENT_INTEGRATION,event,async message=>{
     replayed.push(message.eventId);
     rebuildTripHistoryProjection(await recoveredRepository.listEvents());
    });
