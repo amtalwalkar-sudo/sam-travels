@@ -69,6 +69,12 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
   for (const id of declarations.keys()) states.set(id, "active");
 
   const sorted = [...additional].sort((a, b) => compareText(String(a?.id ?? ""), String(b?.id ?? "")));
+  const declarationCounts = new Map<FeatureId, number>();
+  for (const source of sorted) {
+    if (typeof source?.id === "string" && source.id.trim()) {
+      declarationCounts.set(source.id, (declarationCounts.get(source.id) ?? 0) + 1);
+    }
+  }
   for (const source of sorted) {
     const id = source?.id;
     if (typeof id !== "string" || !id.trim()) {
@@ -77,6 +83,11 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     }
     if (declarations.has(id)) {
       diagnostics.push({ code: "duplicate_feature", featureId: id, message: "Feature identifier is already registered." });
+      continue;
+    }
+    if ((declarationCounts.get(id) ?? 0) > 1) {
+      states.set(id, "rejected");
+      diagnostics.push({ code: "duplicate_feature", featureId: id, message: "Feature identifier is declared more than once; every duplicate declaration was rejected." });
       continue;
     }
     try {
@@ -207,7 +218,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
   );
 
   const results = new Map<FeatureId, FeatureActivationResult>();
-  for (const id of [...declarations.keys()].sort()) {
+  for (const id of [...states.keys()].sort(compareText)) {
     const featureDiagnostics = stableDiagnostics.filter(item => item.featureId === id);
     results.set(id, Object.freeze({
       featureId: id,
