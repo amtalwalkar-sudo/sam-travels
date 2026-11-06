@@ -1,6 +1,8 @@
 package `in`.samtravels.app
 
 import android.content.Context
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,6 +16,7 @@ import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
 class DriverWorkflowStoreTest {
@@ -238,36 +241,78 @@ class DriverWorkflowStoreTest {
     }
 
 
-    @Test fun roomEventReadMatchesTheSharedTimelineParityFixture() {
+    @Test fun roomPersistedEventsRunThroughTheSharedTimelineProjection() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val fixture = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
-            .open("timeline-parity-events-v1.json")
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val fixture = instrumentation.context.assets.open("timeline-parity-events-v1.json")
             .bufferedReader().use { it.readText() }
-        val expected = org.json.JSONArray(fixture)
-        for (index in 0 until expected.length()) {
-            val event = expected.getJSONObject(index)
-            db.logBookEvents().put(
-                LogBookEventRecord(
-                    event.getString("eventId"),
-                    event.toString(),
-                    1,
-                    event.getString("committedAt"),
-                ),
+        val expectedEvents = org.json.JSONArray(fixture)
+        for (index in 0 until expectedEvents.length()) {
+            val event = expectedEvents.getJSONObject(index)
+            val row = LogBookEventRecord(
+                event.getString("eventId"),
+                event.toString(),
+                1,
+                event.getString("committedAt"),
+            )
+            db.logBookEvents().put(row)
+            // Replayed delivery replaces the same stable identity; it must not add a second event.
+            if (index == 0) db.logBookEvents().put(row)
+        }
+
+        // The projector receives only events returned by the real Room gateway after persistence.
+        val persistedEvents = DriverWorkflowStore.listEvents(db)
+        assertEquals(expectedEvents.length(), persistedEvents.size)
+        val eventJson = org.json.JSONArray().apply { persistedEvents.forEach { put(it) } }
+        val bundle = instrumentation.context.assets.open("timeline-projection.js")
+            .bufferedReader().use { it.readText() }
+        val completed = CountDownLatch(1)
+        val projectionJson = AtomicReference<String?>()
+        lateinit var webView: WebView
+
+        instrumentation.runOnMainSync {
+            webView = WebView(context)
+            webView.settings.javaScriptEnabled = true
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "JSON.stringify(TimelineParity.buildTimelineProjection({events:$eventJson}))",
+                    ) { encoded ->
+                        projectionJson.set(org.json.JSONTokener(encoded).nextValue() as String)
+                        completed.countDown()
+                    }
+                }
+            }
+            webView.loadDataWithBaseURL(
+                "https://localhost/",
+                "<html><head><script>$bundle</script></head><body></body></html>",
+                "text/html",
+                "UTF-8",
+                null,
             )
         }
 
-        val actual = DriverWorkflowStore.listEvents(db)
-        assertEquals(expected.length(), actual.size)
-        for (index in 0 until expected.length()) {
-            val expectedEvent = expected.getJSONObject(index)
-            val actualEvent = actual[index]
-            assertEquals(expectedEvent.getString("eventId"), actualEvent.getString("eventId"))
-            assertEquals(expectedEvent.getInt("revision"), actualEvent.getInt("revision"))
-            assertEquals(expectedEvent.getString("committedAt"), actualEvent.getString("committedAt"))
-            assertEquals(expectedEvent.getJSONObject("command").getString("eventType"),
-                actualEvent.getJSONObject("command").getString("eventType"))
-            assertEquals(expectedEvent.getJSONObject("command").getString("transitionAt"),
-                actualEvent.getJSONObject("command").getString("transitionAt"))
+        try {
+            assertTrue("Shared Timeline projection did not finish", completed.await(20, TimeUnit.SECONDS))
+            val projection = JSONObject(projectionJson.get() ?: error("Timeline projection returned no result"))
+            assertEquals(1, projection.getInt("schemaVersion"))
+            assertEquals("Asia/Kolkata", projection.getString("timeZone"))
+            assertEquals(2, projection.getJSONArray("calendarDays").length())
+            val shifts = projection.getJSONArray("logicalShifts")
+            assertEquals(2, shifts.length())
+            val first = shifts.getJSONObject(0).getJSONObject("metrics")
+            val second = shifts.getJSONObject(1).getJSONObject("metrics")
+            assertEquals(270.0, first.getJSONObject("shift_duration").getDouble("value"), 0.0)
+            assertEquals(60.0, second.getJSONObject("shift_duration").getDouble("value"), 0.0)
+            assertEquals(10.0, first.getJSONObject("passenger_trip_time").getDouble("value"), 0.0)
+            assertEquals(20.0, second.getJSONObject("passenger_trip_time").getDouble("value"), 0.0)
+            assertEquals(1, first.getJSONObject("completed_ride_count").getInt("value"))
+            assertEquals(0, second.getJSONObject("completed_ride_count").getInt("value"))
+            assertEquals("unavailable", first.getJSONObject("total_fare").getString("status"))
+            assertEquals("unavailable", first.getJSONObject("business_km").getString("status"))
+            assertEquals(0, projection.getJSONArray("integrityIssues").length())
+        } finally {
+            instrumentation.runOnMainSync { webView.destroy() }
         }
     }
 
