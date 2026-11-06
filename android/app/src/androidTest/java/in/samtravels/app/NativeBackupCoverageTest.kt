@@ -49,7 +49,7 @@ class NativeBackupCoverageTest {
             assertTrue(database.records().get("driver-outbox:2") == null)
             assertTrue(database.logBookEvents().list().isEmpty())
             NativeBackupCoverage.replaceBusinessRecords(database, exported)
-            assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getString("value"))
+            assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getJSONObject("data").getString("value"))
             assertEquals("shift_active", JSONObject(database.records().get("driver-state")!!.json).getJSONObject("value").getString("state"))
             assertEquals("event-1", JSONObject(database.records().get("driver-intent:event-1")!!.json).getString("eventId"))
             assertEquals("event-1", JSONObject(database.records().get("driver-outbox:2")!!.json).getString("eventId"))
