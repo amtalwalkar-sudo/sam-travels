@@ -305,9 +305,9 @@ class DriverWorkflowStoreTest {
             assertEquals(expectedEvents.length(), exported.length())
 
             // Exercise the native replacement/restore adapter, not just a second insert.
-            NativeBackupCoverage.replaceBusinessRecords(durable, org.json.JSONArray())
+            durable.runInTransaction { NativeBackupCoverage.replaceBusinessRecords(durable, org.json.JSONArray()) }
             assertTrue(durable.logBookEvents().list().isEmpty())
-            NativeBackupCoverage.replaceBusinessRecords(durable, exported)
+            durable.runInTransaction { NativeBackupCoverage.replaceBusinessRecords(durable, exported) }
         } finally {
             durable.close()
         }
