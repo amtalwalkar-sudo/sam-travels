@@ -11,7 +11,7 @@
 | Stage 1 — Deterministic feature discovery and declarations | **Complete** | PR #20 merged by squash (merge commit `4d4b2006887e2c919fed8d118c2762868975bb8e`). CI run #839 / `42299197556`: architecture, web, Android and integrated regression jobs all passed. |
 | Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
-| Stage 4 — Independent UI/UX architecture and feature UI registration | **Implementation complete; merge verification pending** | PR #24 implements the clean-slate shell, four fixed bottom destinations, expandable Settings, owner-scoped custom screen contributions, isolated screen host and fixture coverage. PR CI run #877 passed Architecture, Web, Android and Integrated regression. Awaiting merge and merged-main CI. |
+| Stage 4 — Independent UI/UX architecture and feature UI registration | **Complete** | PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main CI run #881 passed Architecture, Web, Android and Integrated regression. Clean-slate shell, four fixed bottom destinations, expandable Settings and unrestricted owner-scoped custom screens are in main. |
 | Stage 5 — Diagnostics and change impact | Not started | Extend existing diagnostics and architecture checks. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
 
@@ -129,11 +129,11 @@ Stage 2 is complete. Continue with Stage 3 — cross-feature data orchestration 
 
 ### Entry gate and approved design decision
 
-Stage 3 merged-main CI is green. Stage 4 implementation has been delivered in PR #24; merge and merged-main verification remain. The approved presentation requirement is **unrestricted custom feature UI**: a feature may supply a completely custom screen, layout, visual system, and interaction experience. The architecture defines safe integration and lifecycle boundaries; it must not constrain features to predefined screen templates or force a shared visual design system. The shell and individual presentation subsystems must remain replaceable independently of feature business logic and data contracts.
+Stage 3 merged-main CI is green. Stage 4 implementation was delivered in PR #24 and is merged and verified on main. The approved presentation requirement is **unrestricted custom feature UI**: a feature may supply a completely custom screen, layout, visual system, and interaction experience. The architecture defines safe integration and lifecycle boundaries; it must not constrain features to predefined screen templates or force a shared visual design system. The shell and individual presentation subsystems must remain replaceable independently of feature business logic and data contracts.
 
 ### Audit approved; implementation delivered
 
-The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md). The product owner reviewed and approved the findings, then explicitly approved a clean-slate presentation replacement. The former shell and presentation are disposable; application/data contracts and Stage 5 foundations remain authoritative. Stage 4 implementation and PR CI are complete; merge and merged-main CI verification remain.
+The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md). The product owner reviewed and approved the findings, then explicitly approved a clean-slate presentation replacement. The former shell and presentation are disposable; application/data contracts and Stage 5 foundations remain authoritative. Stage 4 is complete. The clean-slate presentation implementation and merged-main CI evidence are recorded below.
 
 ## Implementation discipline
 
@@ -151,3 +151,11 @@ Complete one stage at a time. Each stage must have a focused implementation, tes
 - Reconciled the previous UI/UX shell contract with the approved clean-slate decision. The old presentation implementation is disposable; application/data/lifecycle/Stage 5 guarantees remain authoritative.
 - PR workflow run [#877](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42313471031) passed all four jobs: Architecture, Web, Android and Integrated regression. The Web job passed all 223 tests and production build; Android build and required emulator/reliability gate passed.
 - No real business feature was onboarded. Physical-device usability remains unclaimed.
+
+
+### Stage 4 — merged-main completion evidence
+
+- [PR #24](https://github.com/amtalwalkar-sudo/sam-travels/pull/24) merged to main as `9493b4d8ec039de7b9f469063cd92a254207346b`.
+- Merged-main workflow [#881](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42314701276) passed all four jobs on that exact commit: Architecture, Web, Android and Integrated regression.
+- The merged Web job passed all 223 tests and the production build. Android Gradle assembly/unit tests and the required emulator/reliability gate passed; the workflow also published the unsigned release APK from merged main.
+- Stage 4 is complete. No real business feature was onboarded, and no physical-device usability claim is made. Stage 5 remains the next stage.
