@@ -64,7 +64,8 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
 }
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);\n  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const workspace = useDriverWorkspace();
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
