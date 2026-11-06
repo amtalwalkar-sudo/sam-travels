@@ -104,7 +104,14 @@ This contract supplements the existing architecture, persistence, recovery, feat
 - IndexedDB and Room transaction suites inject failures at event, state/revision, terminal-intent, and outbox writes and verify that no partial completion becomes authoritative.
 - Unverified restore checkpoints are reconciled by browser and native startup hooks before driver repositories expose operational state; rollback is verified against the retained checkpoint.
 - Timeline and trip-history projections remain derived from persisted event rows and are rebuilt after restore/reopen.
-- Stage 4 remains **in progress** until focused web suites, architecture enforcement, Android build/unit/instrumentation gates, and full CI on the resulting commit pass.
+- `packages/storage-browser/src/driver-workflow.ts` and `android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt` now resolve exact committed replays from durable event/state/outbox records and reject command-ID or idempotency-key reuse across different event IDs. Duplicate delivery returns the prior committed outcome without another business write.
+- Browser and Room transaction tests inject failures at each authoritative completion write (event, state/revision, terminal intent, and outbox). They verify atomic rollback leaves the prior state, retryable intent, event table, and outbox consistent, including after reopen.
+- Browser `recoverBrowserRestoreTransactions` and native `NativeBackupRecovery.recoverPending` reconcile `checkpoint` / `restored_unverified` restore journals before operational driver repositories are exposed. Native recovery is shared with explicit checkpoint rollback; both paths verify restored data against the retained checkpoint.
+- Native checkpoint capture and journal creation are in one Room transaction before replacement. Replacement and journal status transition are atomic; a process restart before post-restore verification rolls back to the pre-restore checkpoint.
+- Browser recovery tests prove a pre-restore checkpoint survives IndexedDB close/reopen and is automatically reconciled; restored authoritative events rebuild the trip-history projection to the same complete output after restore and reopen.
+- Android Room instrumentation proves checkpoint/journal durability across database close/reopen and startup recovery rollback; transaction triggers inject failures at the Log Book, state, intent, and outbox write boundaries. Existing tests also cover duplicate/replayed completion, command identity reuse, and stale/competing commands.
+- CI #748 (`42207494968`) on implementation commit `3f540d7d34de1340d274a52b97a3ca8ac5e8e8e2` passed architecture enforcement, the complete web regression suite and production build, Android assemble/unit/AndroidTest compilation, and the required Android emulator Room/workflow/backup reliability gate.
+- **Stage 4 verified.** Stage 5 integrated regression remains not started; PR #13 remains draft/unmerged, PR #12 remains unchanged, and UI/Timeline shell work remains out of scope. Physical-device and live Dropbox/account acceptance remain deferred release gates.
 
 ## Stage 5 — Integrated regression gate
 
@@ -125,7 +132,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 | 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI #631 on `42fd818ac12a5a69860863b1549d736892df4d91` | Verified |
 | 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests; CI run `42197902329` passed all architecture, web, and Android gates on Stage 2 head `af2da94a4defccafa46e12143b08591650bb670e` | Verified |
 | 3 | Actual IndexedDB + Room persisted-record parity | Full Dexie-generated projection oracle; durable Room restore/reopen; pending-edge and Room v2 migrated-legacy comparisons; malformed-record rejection; CI #741 (`42203502104`) on `6e11d75c3d9860f2d6632a6a443d33e7f1e4f869` | Verified |
-| 4 | Transaction/recovery guarantees | Atomic event/state/intent/outbox writes; idempotent replay; startup recovery of unverified restore checkpoints; derived projection rebuild; web and Room failure-injection suites | In progress |
+| 4 | Transaction/recovery guarantees | Atomic event/state/intent/outbox writes; idempotent replay; startup recovery of unverified restore checkpoints; derived projection rebuild; web and Room failure-injection suites; CI #748 (`42207494968`) on `3f540d7d34de1340d274a52b97a3ca8ac5e8e8e2` | Verified |
 | 5 | Integrated regression gate | Full CI green on PR head | Not yet verified |
 
 A contract or documentation commit alone does not count as implementation completion. Mark a stage verified only after its code, tests, and CI evidence are present.
