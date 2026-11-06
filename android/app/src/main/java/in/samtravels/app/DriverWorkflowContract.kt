@@ -12,19 +12,27 @@ internal object DriverWorkflowContract {
     private val intentStatuses = setOf("pending_location", "needs_attention", "recorded", "rejected")
 
     fun validateCommand(command: JSONObject) {
-        require(command.optInt("schemaVersion", -1) == 1) { "invalid_command" }
-        require(command.optString("commandId").isNotBlank() && command.optString("eventId").isNotBlank() &&
-            command.optString("idempotencyKey").isNotBlank()) { "invalid_command_identity" }
-        require(command.optString("eventType") in eventTypes) { "invalid_event_type" }
-        require(command.optString("originSurface") in surfaces) { "invalid_command_surface" }
-        require(command.optString("expectedPriorState") in states) { "invalid_prior_state" }
+        require(integer(command, "schemaVersion") == 1L) { "invalid_command" }
+        val commandId = command.opt("commandId") as? String
+        val eventId = command.opt("eventId") as? String
+        val idempotencyKey = command.opt("idempotencyKey") as? String
+        require(!commandId.isNullOrBlank() && commandId == commandId.trim() &&
+            !eventId.isNullOrBlank() && eventId == eventId.trim() &&
+            !idempotencyKey.isNullOrBlank() && idempotencyKey == idempotencyKey.trim()) { "invalid_command_identity" }
+        val eventType = command.opt("eventType") as? String
+        val surface = command.opt("originSurface") as? String
+        val priorState = command.opt("expectedPriorState") as? String
+        require(eventType != null && eventType in eventTypes) { "invalid_event_type" }
+        require(surface != null && surface in surfaces) { "invalid_command_surface" }
+        require(priorState != null && priorState in states) { "invalid_prior_state" }
         require(integer(command, "expectedRevision") >= 0L) { "invalid_revision" }
         parseInstant(command.optString("transitionAt"), "invalid_transition_timestamp")
     }
 
     fun validateIntent(intent: JSONObject) {
         validateCommand(intent.optJSONObject("command") ?: error("invalid_driver_intent"))
-        require(intent.optString("status") in intentStatuses) { "invalid_driver_intent_status" }
+        val status = intent.opt("status") as? String
+        require(status != null && status in intentStatuses) { "invalid_driver_intent_status" }
         val createdAt = parseInstant(intent.optString("createdAt"), "invalid_driver_intent_timestamp")
         val updatedAt = parseInstant(intent.optString("updatedAt"), "invalid_driver_intent_timestamp")
         require(!updatedAt.isBefore(createdAt)) { "invalid_driver_intent_timestamp" }
@@ -37,9 +45,9 @@ internal object DriverWorkflowContract {
         require(state.optInt("schemaVersion", -1) == 1 && integer(state, "revision") >= 0L &&
             state.optString("state") in states) { "invalid_driver_state" }
         listOf("shiftStartedAt", "tripStartedAt", "approachStartedAt").forEach { key ->
-            if (state.has(key) && !state.isNull(key)) parseInstant(state.optString(key), "invalid_driver_state_timestamp")
+            if (state.has(key)) parseInstant(state.opt(key) as? String ?: "", "invalid_driver_state_timestamp")
         }
-        if (state.has("lastEventId")) require(state.optString("lastEventId").isNotBlank()) {
+        if (state.has("lastEventId")) require((state.opt("lastEventId") as? String)?.isNotBlank() == true) {
             "invalid_driver_state_event_id"
         }
     }
@@ -47,7 +55,7 @@ internal object DriverWorkflowContract {
     fun validateEvent(event: JSONObject) {
         val command = event.optJSONObject("command") ?: error("invalid_driver_event")
         validateCommand(command)
-        require(event.optString("eventId") == command.optString("eventId")) { "driver_event_identity_mismatch" }
+        require((event.opt("eventId") as? String) == command.optString("eventId")) { "driver_event_identity_mismatch" }
         val revision = integer(event, "revision")
         require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }
         parseInstant(event.optString("committedAt"), "invalid_driver_event_timestamp")
