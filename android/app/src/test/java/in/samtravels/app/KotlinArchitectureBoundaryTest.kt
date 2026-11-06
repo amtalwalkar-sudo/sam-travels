@@ -76,6 +76,9 @@ class KotlinArchitectureBoundaryTest {
                     if (name in setOf("records", "logBookEvents") && relative !in approvedRoomGateways) {
                         violations += "$relative: direct Room database accessor '$name' outside an approved gateway"
                     }
+                    if (name in setOf("execSQL", "compileStatement", "rawQuery") && relative !in approvedRoomGateways) {
+                        violations += "$relative: direct SQLite operation '$name' outside an approved gateway"
+                    }
                     super.visitCallExpression(expression)
                 }
             })
@@ -88,6 +91,7 @@ class KotlinArchitectureBoundaryTest {
             fun write(database: LocalDatabase, record: StoredRecord) {
                 database.records().put(record)
                 database.logBookEvents().clear()
+                database.execSQL("DELETE FROM records")
             }
         """.trimIndent()
         assertTrue(roomDaoViolations(
@@ -103,6 +107,7 @@ class KotlinArchitectureBoundaryTest {
                 database.records().put(record)
                 database.records().remove(record.id)
                 database.logBookEvents().clear()
+                database.execSQL("DELETE FROM records")
             }
         """.trimIndent()
         assertEquals(
@@ -110,6 +115,7 @@ class KotlinArchitectureBoundaryTest {
                 "packages/application/src/unsafe.kt: direct Room database accessor 'records' outside an approved gateway",
                 "packages/application/src/unsafe.kt: direct Room database accessor 'records' outside an approved gateway",
                 "packages/application/src/unsafe.kt: direct Room database accessor 'logBookEvents' outside an approved gateway",
+                "packages/application/src/unsafe.kt: direct SQLite operation 'execSQL' outside an approved gateway",
             ),
             roomDaoViolations(source, "packages/application/src/unsafe.kt"),
         )
