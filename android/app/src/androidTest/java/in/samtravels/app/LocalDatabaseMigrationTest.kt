@@ -2,6 +2,8 @@ package `in`.samtravels.app
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -12,6 +14,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 class LocalDatabaseMigrationTest {
     private fun createHistoricalDatabase(context: Context, name: String, fixture: String, version: Int) {
@@ -157,6 +163,60 @@ class LocalDatabaseMigrationTest {
             }
         } finally {
             raw.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun migratedLegacyRoomEventProducesTheSameCompleteProjectionAsDexieOracle() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val name = "room-migrated-timeline-parity.db"
+        createHistoricalDatabase(context, name, "persistence/room-v2.sql", 2)
+        val migrated = openMigrated(context, name)
+        try {
+            val persistedEvents = DriverWorkflowStore.listEvents(migrated)
+            assertEquals(1, persistedEvents.size)
+            assertEquals("event-legacy", persistedEvents.single().getString("eventId"))
+
+            val assets = instrumentation.context.assets
+            val oracle = JSONObject(assets.open("generated/timeline-projection-parity-oracle-v1.json")
+                .bufferedReader().use { it.readText() })
+            val bundle = assets.open("timeline-projection.js").bufferedReader().use { it.readText() }
+            val eventsJson = org.json.JSONArray().apply { persistedEvents.forEach { put(it) } }
+            val completed = CountDownLatch(1)
+            val output = AtomicReference<String?>()
+            lateinit var webView: WebView
+            instrumentation.runOnMainSync {
+                webView = WebView(context)
+                webView.settings.javaScriptEnabled = true
+                webView.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        view.evaluateJavascript(
+                            "JSON.stringify(TimelineParity.buildTimelineProjection({events:$eventsJson}))",
+                        ) { encoded ->
+                            output.set(org.json.JSONTokener(encoded).nextValue() as String)
+                            completed.countDown()
+                        }
+                    }
+                }
+                webView.loadDataWithBaseURL(
+                    "https://localhost/",
+                    "<html><head><script>$bundle</script></head><body></body></html>",
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
+            }
+            try {
+                assertEquals(true, completed.await(20, TimeUnit.SECONDS))
+                assertEquals("Migrated legacy projection differs from Dexie oracle",
+                    oracle.getString("migratedLegacy"), output.get())
+            } finally {
+                instrumentation.runOnMainSync { webView.destroy() }
+            }
+        } finally {
+            migrated.close()
             context.deleteDatabase(name)
         }
     }
