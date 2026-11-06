@@ -1,6 +1,9 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { DexieRecordRepository } from "../packages/storage-browser/src";
+import { FeatureLifecycleCoordinator } from "../packages/application/src/feature-lifecycle-coordinator";
+import { registerFeatures } from "../packages/core/src/features";
 import {
   BROWSER_BACKUP_PARTICIPANTS,
   assertBrowserBackupTableCoverage,
@@ -284,6 +287,95 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
       source: "web", revision: 1, data: { retained: true },
     });
     await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("backup_unregistered_feature_record:feature:orphan-addon:row");
+  });
+
+  it("backs up retained feature records after disable and retirement", async () => {
+    const feature = {
+      id: "retained-backup-addon", label: "Retained Backup Add-on", dataPolicy: "persistent" as const,
+      contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1, migrations: [],
+        backup: { participantId: "retained-backup-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "retained-backup-addon-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const unregister = registerBrowserFeatureBackupParticipant({
+      feature, participantId: "retained-backup-addon-records", recordIdPrefix: "feature:retained-backup-addon:",
+      validateRecord() {},
+    });
+    try {
+      const timestamp = "2026-11-06T00:00:00.000Z";
+      await browserDatabase.records.put({
+        id: "feature:retained-backup-addon:row", schemaVersion: 1,
+        createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { retained: true },
+      });
+      const lifecycle = new FeatureLifecycleCoordinator(
+        new DexieRecordRepository(), registerFeatures([feature]),
+      );
+      await lifecycle.transition("retained-backup-addon", "disable");
+      await lifecycle.transition("retained-backup-addon", "retire");
+      const snapshot = await exportBrowserSnapshot("0.1.0");
+      expect(snapshot.data.records).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "feature:retained-backup-addon:row" }),
+      ]));
+      expect((await lifecycle.list()).get("retained-backup-addon")?.state).toBe("retired");
+    } finally { unregister(); }
+  });
+
+  it("recovers feature-owned records when restore is interrupted after writes", async () => {
+    const feature = {
+      id: "failure-addon", label: "Failure Add-on", dataPolicy: "persistent" as const,
+      contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1, migrations: [],
+        backup: { participantId: "failure-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "failure-addon-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const unregister = registerBrowserFeatureBackupParticipant({
+      feature, participantId: "failure-addon-records", recordIdPrefix: "feature:failure-addon:",
+      validateRecord() {},
+    });
+    try {
+      const timestamp = "2026-11-06T00:00:00.000Z";
+      await browserDatabase.records.put({
+        id: "feature:failure-addon:row", schemaVersion: 1, createdAt: timestamp,
+        updatedAt: timestamp, source: "web", revision: 1, data: { value: "snapshot" },
+      });
+      const source = await exportBrowserSnapshot("0.1.0");
+      await browserDatabase.records.put({
+        id: "feature:failure-addon:row", schemaVersion: 1, createdAt: timestamp,
+        updatedAt: "2026-11-06T00:01:00.000Z", source: "web", revision: 2, data: { value: "current" },
+      });
+      const database = browserDatabase as unknown as { transaction: (...args: any[]) => any };
+      const originalTransaction = database.transaction;
+      let injected = false;
+      database.transaction = function (...args: any[]) {
+        if (args[0] === "rw" && !injected) {
+          injected = true;
+          const scope = args[2];
+          args[2] = async (...scopeArgs: any[]) => {
+            await scope(...scopeArgs);
+            throw new Error("sample_addon_restore_interrupted");
+          };
+        }
+        return originalTransaction.apply(this, args);
+      };
+      try {
+        await expect(restoreBrowserSnapshot({
+          data: source.data, manifest: source.manifest, confirmed: true,
+        })).rejects.toThrow("sample_addon_restore_interrupted");
+      } finally {
+        database.transaction = originalTransaction;
+      }
+      expect((await browserDatabase.records.get("feature:failure-addon:row"))?.data).toEqual({ value: "current" });
+      expect(await listBrowserRecoveryCheckpoints()).toEqual([
+        expect.objectContaining({ status: "rollback_complete" }),
+      ]);
+    } finally { unregister(); }
   });
 
 });
