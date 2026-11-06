@@ -1,10 +1,6 @@
 import {
-  dispatchFeatureIntegration,
-  initializeRuntimeRegistry,
   type CalculationContract,
   type FeatureExtensionDefinition,
-  type FeatureIntegrationHandler,
-  type RuntimeRegistry,
 } from "../../core/src/index";
 import type { DriverEvent } from "../../domain/src/driver-workflow";
 
@@ -107,43 +103,3 @@ export const LOGBOOK_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.free
   calculations: [TRIP_DURATION_CALCULATION],
 });
 
-export function initializeApplicationRuntimeRegistry(): RuntimeRegistry {
-  return initializeRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
-}
-
-/**
- * Return the one validated application registry. Construction is lazy so the
- * web entry point can fail closed before mounting while consumers share it.
- */
-let applicationRuntimeRegistry: RuntimeRegistry | undefined;
-
-export function getApplicationRuntimeRegistry(): RuntimeRegistry {
-  if (!applicationRuntimeRegistry) {
-    applicationRuntimeRegistry = initializeApplicationRuntimeRegistry();
-  }
-  return applicationRuntimeRegistry;
-}
-
-/**
- * Dispatch a committed Work event through the registered Log Book contract.
- * The durable Work event log remains the replay authority when a consumer is absent.
- */
-export async function dispatchCommittedWorkEvent(
-  registry: RuntimeRegistry,
-  event: DriverEvent,
-  consumer: FeatureIntegrationHandler<DriverEvent>,
-): Promise<void> {
-  await dispatchFeatureIntegration(
-    registry.integrations,
-    {
-      integrationId: LOGBOOK_WORK_EVENT_INTEGRATION.id,
-      contractVersion: LOGBOOK_WORK_EVENT_INTEGRATION.version,
-      eventName: LOGBOOK_WORK_EVENT_INTEGRATION.eventName,
-      payloadVersion: LOGBOOK_WORK_EVENT_INTEGRATION.payloadVersion,
-      eventId: event.eventId,
-      occurredAt: event.committedAt,
-      payload: event,
-    },
-    { [LOGBOOK_WORK_EVENT_INTEGRATION.id]: consumer },
-  );
-}
