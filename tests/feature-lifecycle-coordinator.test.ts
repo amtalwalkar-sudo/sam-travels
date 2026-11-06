@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FeatureLifecycleCoordinator } from "../packages/application/src/feature-lifecycle-coordinator";
 import { registerFeatures } from "../packages/core/src/features";
+import { initializeRuntimeRegistry } from "../packages/core/src/runtime-registry";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 
@@ -93,6 +94,32 @@ describe("application feature lifecycle coordinator", () => {
     expect(states.get("performance")?.state).toBe("enabled");
     expect(await repository.get("platform:feature-lifecycle")).toBeUndefined();
   });
+  it("retains backup ownership for persistent features after disable and retirement", async () => {
+    const persistentFeature = {
+      id: "backup-retained-addon",
+      label: "Backup Retained Add-on",
+      dataPolicy: "persistent" as const,
+      contractVersion: 1,
+      dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1,
+        migrations: [],
+        backup: { participantId: "backup-retained-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "backup-retained-addon-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const runtime = initializeRuntimeRegistry({ features: [persistentFeature] });
+    const repository = new MemoryAtomicRepository();
+    const coordinator = new FeatureLifecycleCoordinator(repository, runtime.features);
+    await coordinator.transition("backup-retained-addon", "disable");
+    expect(runtime.backupParticipants.get("backup-retained-addon-records")?.featureId)
+      .toBe("backup-retained-addon");
+    await coordinator.transition("backup-retained-addon", "retire");
+    expect(runtime.backupParticipants.get("backup-retained-addon-records")?.required).toBe(true);
+    expect((await coordinator.list()).get("backup-retained-addon")?.state).toBe("retired");
+  });
+
   it("retains feature-owned records after disable and retirement", async () => {
     const repository = new MemoryAtomicRepository();
     const feature = {

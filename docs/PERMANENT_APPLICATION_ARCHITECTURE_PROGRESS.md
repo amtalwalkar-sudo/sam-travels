@@ -71,10 +71,23 @@ Stage 2 is additive and reuses the Stage 1 generated catalogue and existing appl
 
 ### Stage 2 implementation audit and completion gate
 
-Before changing runtime behavior, inspect extension descriptors, dependency declarations, registry validation/registration, bootstrap error handling, fixtures, and Stage 5 participant/lifecycle adapters. Classify existing support and gaps; implement only necessary gaps.
+The source audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md). Initial implementation is on branch `feat/dependency-activation-isolation`:
 
-Stage 2 is complete only after tests prove valid dependency-first activation, missing/incompatible/cyclic dependency rejection, optional dependency handling, independent-feature isolation, no partial registration after injected failure, deterministic diagnostics, and unchanged Stage 5 persistence/backup/restore/recovery behavior. Web, Android and integrated CI must pass.
+- Added an explicit optional-dependency marker while preserving required-by-default dependency declarations.
+- Added a deterministic activation planner that separates declaration validation from dependency resolution, reports active/blocked/rejected outcomes, records unavailable optional dependencies, detects cycles, and computes dependency-first order.
+- Added focused planner tests for missing required dependencies, optional absence, incompatible versions, cycles, independent-feature isolation, deterministic ordering, invalid declarations, and persistent ownership visibility.
+- The planner is not yet wired into the application runtime bootstrap. Contribution-level failure isolation and the full Stage 2 proof remain outstanding; no Stage 2 completion or CI claim is made.
 
+The runtime integration slice is now implemented on this branch:
+
+- The existing core runtime registry calls the activation planner and returns both the complete valid declaration inventory and the operationally active subset. The existing application bootstrap already calls this factory before presentation mounts, so no second application registry was introduced.
+- Startup order is the planner's deterministic dependency-first order. Optional dependencies do not create required activation edges or startup-order cycles.
+- Extension, integration and calculation contributions are grouped by feature owner, validated into temporary per-owner registries, and published only after the complete owner group passes. A failed group is withheld as a whole; independent owners remain available. Duplicate contribution identities across owners reject every conflicting owner rather than depending on declaration order.
+- Persistent backup participants are derived from all valid persistent declarations, not only active features. Blocked persistent features therefore retain their required backup/restore participant; lifecycle disable/retire does not remove the participant inventory.
+- The application lifecycle coordinator continues to receive the full feature declaration map, preserving Stage 5 lifecycle and retention rules.
+- Regression coverage was added/updated for invalid declaration isolation, optional dependency behavior, contribution atomicity, unrelated-owner availability, persistent backup ownership while blocked, and backup ownership after disable/retire.
+
+Verification is now pending through the repository CI workflow. Stage 2 is not complete until focused and full web, Android and integrated regression gates pass, and the restore/recovery/upgrade guarantees are confirmed unchanged.
 ## Implementation discipline
 
 Complete one stage at a time. Each stage must have a focused implementation, tests, CI evidence and progress update before the next stage begins. Do not onboard the first real business feature as part of this architecture project; use disposable fixtures only when required to prove contracts.

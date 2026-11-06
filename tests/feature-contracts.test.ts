@@ -290,14 +290,83 @@ describe("runtime registry bootstrap", () => {
       integrations: [], calculations: [],
     });
     expect(runtime.features.has("custom-addon")).toBe(true);
-    expect(runtime.startupOrder.at(-1)?.id).toBe("custom-addon");
+    expect(runtime.startupOrder.map(feature => feature.id)).toContain("custom-addon");
   });
 
-  it("fails bootstrap without exposing a partial registry when an add-on is invalid", () => {
-    expect(() => initializeRuntimeRegistry({
-      features: [{ id: "broken-addon", label: "Broken", dataPolicy: "persistent", contractVersion: 1, dependencies: [] }],
+  it("rejects an invalid add-on without preventing unrelated features from booting", () => {
+    const runtime = initializeRuntimeRegistry({
+      features: [
+        { id: "broken-addon", label: "Broken", dataPolicy: "persistent", contractVersion: 1, dependencies: [] },
+        { id: "healthy-addon", label: "Healthy", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
+      ],
       integrations: [], calculations: [],
-    })).toThrow("Persistent feature is missing its persistence contract");
+    });
+    expect(runtime.activation.results.get("broken-addon")?.state).toBe("rejected");
+    expect(runtime.activeFeatures.has("healthy-addon")).toBe(true);
+    expect(runtime.features.has("healthy-addon")).toBe(true);
+  });
+
+  it("keeps backup participants for persistent features whose required dependency is blocked", () => {
+    const runtime = initializeRuntimeRegistry({
+      features: [{
+        id: "persistent-blocked",
+        label: "Persistent Blocked",
+        dataPolicy: "persistent",
+        contractVersion: 1,
+        dependencies: ["not-installed"],
+        persistence: {
+          schemaVersion: 1, migrations: [],
+          backup: { participantId: "persistent-blocked-backup", snapshotVersion: 1, required: true },
+          restore: { validatorId: "persistent-blocked-restore-v1", required: true },
+          lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
+        },
+      }],
+    });
+    expect(runtime.activation.results.get("persistent-blocked")?.state).toBe("blocked");
+    expect(runtime.features.has("persistent-blocked")).toBe(true);
+    expect(runtime.activeFeatures.has("persistent-blocked")).toBe(false);
+    expect(runtime.backupParticipants.get("persistent-blocked-backup")).toMatchObject({
+      featureId: "persistent-blocked", required: true,
+    });
+  });
+
+  it("withholds all contributions owned by a feature when one top-level contract fails", () => {
+    const invalidIntegration: FeatureIntegrationContract = {
+      id: "performance.invalid-event.v1",
+      version: 1,
+      producerFeatureId: "work",
+      consumerFeatureId: "performance",
+      eventName: "",
+      payloadVersion: 1,
+      validatePayload: () => true,
+    };
+    const performanceCalculation: CalculationContract<{ businessDate: string }, number> = {
+      id: "performance.fixture-total.v1",
+      ownerFeatureId: "performance",
+      version: 1,
+      inputSchemaVersion: 1,
+      outputSchemaVersion: 1,
+      unit: "fixture-units",
+      effectiveDateField: "businessDate",
+      rounding: { mode: "none", decimalPlaces: 0 },
+      calculate: () => 3,
+      regressionCases: [{ name: "valid", input: { businessDate: "2026-11-06" }, expected: 3 }],
+    };
+    const independentCalculation: CalculationContract<{ businessDate: string }, number> = {
+      ...performanceCalculation,
+      id: "finance.independent-total.v1",
+      ownerFeatureId: "finance",
+    };
+    const runtime = initializeRuntimeRegistry({
+      integrations: [invalidIntegration],
+      calculations: [performanceCalculation, independentCalculation],
+    });
+    expect(runtime.integrations.has(invalidIntegration.id)).toBe(false);
+    expect(runtime.calculations.has(performanceCalculation.id)).toBe(false);
+    expect(runtime.calculations.has(independentCalculation.id)).toBe(true);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "performance", code: "invalid_integration",
+    }));
   });
 
   it("validates and exposes feature, integration, and calculation registries together", () => {

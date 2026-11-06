@@ -57,7 +57,7 @@ describe("feature extension architecture", () => {
     expect(runtime.features.get("insights")?.dependencies).toEqual([{ id: "logbook", contractVersion: 1 }]);
     expect(runtime.integrations.get(workIntegration.id)).toBeDefined();
     expect(runtime.calculations.get(totalCalculation.id)).toBeDefined();
-    expect(runtime.startupOrder.at(-1)?.id).toBe("insights");
+    expect(runtime.startupOrder.findIndex(feature => feature.id === "logbook")).toBeLessThan(runtime.startupOrder.findIndex(feature => feature.id === "insights"));
   });
 
   it("executes a newly registered calculation by its exact registered version", async () => {
@@ -95,47 +95,114 @@ describe("feature extension architecture", () => {
     expect(runtime.calculations.has("logbook.fixture-count.v1")).toBe(true);
   });
 
-  it("rejects a contribution assigned to a different feature owner", () => {
-    expect(() => initializeRuntimeRegistry({
+  it("withholds every contribution from a feature when one owned contribution is invalid", () => {
+    const runtime = initializeRuntimeRegistry({
       extensions: [{
         ...insightsExtension,
         calculations: [{ ...totalCalculation, ownerFeatureId: "logbook" }],
       }],
-    })).toThrow("calculation is outside its owner boundary");
-    expect(() => initializeRuntimeRegistry({
+    });
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.integrations.has(workIntegration.id)).toBe(false);
+    expect(runtime.calculations.has(totalCalculation.id)).toBe(false);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "insights",
+      code: "invalid_extension",
+    }));
+  });
+
+  it("isolates invalid extension identities, versions, entry points and missing owners", () => {
+    const invalidVersion = initializeRuntimeRegistry({
+      extensions: [{ ...insightsExtension, version: 0 }],
+    });
+    expect(invalidVersion.extensions.has(insightsExtension.id)).toBe(false);
+    expect(invalidVersion.contributionFailures).toContainEqual(expect.objectContaining({ featureId: "insights" }));
+
+    const invalidEntryPoint = initializeRuntimeRegistry({
+      extensions: [{ ...insightsExtension, publicEntryPoint: "packages/features/insights/private.ts" }],
+    });
+    expect(invalidEntryPoint.extensions.has(insightsExtension.id)).toBe(false);
+
+    const missingOwner = initializeRuntimeRegistry({
+      extensions: [{ ...insightsExtension, featureId: "missing", feature: undefined }],
+    });
+    expect(missingOwner.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "missing", code: "invalid_extension",
+    }));
+
+    const duplicate = initializeRuntimeRegistry({
+      extensions: [insightsExtension, { ...insightsExtension, feature: undefined }],
+    });
+    expect(duplicate.extensions.has(insightsExtension.id)).toBe(false);
+    expect(duplicate.contributionFailures).toContainEqual(expect.objectContaining({ featureId: "insights" }));
+  });
+
+  it("prevents an extension from redeclaring a built-in feature identity", () => {
+    const runtime = initializeRuntimeRegistry({
       extensions: [{
         ...insightsExtension,
-        integrations: [{
-          ...workIntegration,
-          producerFeatureId: "work",
-          consumerFeatureId: "performance",
-        }],
+        featureId: "work",
+        feature: { ...addonFeature, id: "work" },
+        publicEntryPoint: "packages/features/work/index.ts",
+        integrations: [],
+        calculations: [],
       }],
-    })).toThrow("integration is outside its owner boundary");
+    });
+    expect(runtime.features.get("work")?.label).toBe("Work");
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "work", code: "invalid_extension",
+    }));
   });
 
-  it("fails closed for invalid identities, versions, entry points and missing owners", () => {
-    expect(() => initializeRuntimeRegistry({
-      extensions: [{ ...insightsExtension, version: 0 }],
-    })).toThrow("Invalid feature extension version");
-    expect(() => initializeRuntimeRegistry({
-      extensions: [{ ...insightsExtension, publicEntryPoint: "packages/features/insights/private.ts" }],
-    })).toThrow("Invalid feature public entry point");
-    expect(() => initializeRuntimeRegistry({
-      extensions: [{ ...insightsExtension, featureId: "missing", feature: undefined }],
-    })).toThrow("unregistered feature");
-    expect(() => initializeRuntimeRegistry({
-      extensions: [insightsExtension, { ...insightsExtension, feature: undefined }],
-    })).toThrow("Missing or duplicate feature extension id");
-  });
-
-  it("rejects a feature definition whose id differs from its extension owner", () => {
-    expect(() => initializeRuntimeRegistry({
+  it("does not register a feature declaration whose id differs from its extension owner", () => {
+    const runtime = initializeRuntimeRegistry({
       extensions: [{
         ...insightsExtension,
         feature: { ...addonFeature, id: "other" },
       }],
-    })).toThrow("does not match its owner");
+    });
+    expect(runtime.features.has("other")).toBe(false);
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "insights", code: "invalid_extension",
+    }));
+  });
+
+  it("keeps unrelated feature contributions available when another feature group fails", () => {
+    const healthyFeature: FeatureDefinition = {
+      id: "healthy-insights",
+      label: "Healthy Insights",
+      dataPolicy: "non-persistent",
+      contractVersion: 1,
+      dependencies: [{ id: "logbook", contractVersion: 1 }],
+    };
+    const healthyExtension: FeatureExtensionDefinition = {
+      id: "healthy-insights.core.v1",
+      version: 1,
+      featureId: "healthy-insights",
+      publicEntryPoint: "packages/features/healthy-insights/index.ts",
+      feature: healthyFeature,
+      calculations: [{
+        ...totalCalculation,
+        id: "healthy-insights.daily-total.v1",
+        ownerFeatureId: "healthy-insights",
+      }],
+    };
+    const runtime = initializeRuntimeRegistry({
+      extensions: [
+        {
+          ...insightsExtension,
+          calculations: [{ ...totalCalculation, calculate: () => -1 }],
+        },
+        healthyExtension,
+      ],
+    });
+    expect(runtime.calculations.has(totalCalculation.id)).toBe(false);
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.calculations.has("healthy-insights.daily-total.v1")).toBe(true);
+    expect(runtime.extensions.has(healthyExtension.id)).toBe(true);
+    expect(runtime.activeFeatures.has("healthy-insights")).toBe(true);
   });
 
   it("exposes an immutable extension registry", () => {
