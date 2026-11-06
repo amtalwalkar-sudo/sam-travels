@@ -12,9 +12,9 @@ export class RecordApplicationService{
   assertRecordEnvelope(record);await this.repository.put(record);return record;
  }
  async update<T>(id:string,data:T,now=new Date().toISOString()):Promise<RecordEnvelope<T>>{
-  const previous=await this.repository.get<T>(id);if(!previous)throw new Error("Record not found: "+id);
+  const previous=await this.repository.get<T>(id);if(!previous)throw new Error("Record not found: "+id);assertRecordEnvelope(previous);
   const next:RecordEnvelope<T>={...previous,updatedAt:now,revision:previous.revision+1,data};
   assertRecordEnvelope(next);await this.repository.put(next);return next;
  }
- async get<T>(id:string){return this.repository.get<T>(id)}
+ async get<T>(id:string){const record=await this.repository.get<T>(id);if(record)assertRecordEnvelope(record);return record}
 }
