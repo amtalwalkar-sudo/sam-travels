@@ -163,7 +163,7 @@ export function initializeRuntimeRegistry(
     const ownerDataQueries = dataQueriesByOwner.get(owner) ?? [];\n    const ownerPresentation = presentationByOwner.get(owner) ?? [];
     try {
       // Stage every registry for this owner locally. Nothing is published until
-      // all three validators succeed, preventing partial feature contribution.
+      // every validator succeeds, preventing partial feature contribution.
       const stagedExtensions = registerFeatureExtensions(features, ownerExtensions);
       const stagedIntegrations = registerFeatureIntegrations(activeFeatures, ownerIntegrations);
       const stagedCalculations = registerCalculations(activeFeatures, ownerCalculations);
