@@ -81,12 +81,12 @@ export class CrossFeatureDataCoordinator {
     return Object.freeze(items);
   }
 
-  async calculate<Input, Output>(request: {
+  async calculate<Input, Output, Record = any>(request: {
     queryIds: readonly string[];
     context: FeatureDataQueryContext;
     calculationId: string;
     expected: { version: number; inputSchemaVersion: number; outputSchemaVersion: number };
-    buildInput(sources: readonly AvailableFeatureDataQueryResult[]): Input;
+    buildInput(sources: readonly AvailableFeatureDataQueryResult<Record>[]): Input;
     allowStale?: boolean;
     allowIncomplete?: boolean;
   }): Promise<OrchestratedCalculationResult<Output>> {
@@ -102,7 +102,7 @@ export class CrossFeatureDataCoordinator {
 
     const sources = collected.filter(
       (item): item is AvailableFeatureDataQueryResult => item.status === "available",
-    );
+    ) as readonly AvailableFeatureDataQueryResult<Record>[];
     if (!request.allowIncomplete && sources.some(source => !source.complete)) {
       return Object.freeze({ status: "blocked", reason: "source_incomplete", sources });
     }
