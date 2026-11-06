@@ -33,11 +33,23 @@ function decodeStates(
     }
     states.set(state.featureId, state);
   }
-  for (const featureId of features.keys()) {
-    const state = states.get(featureId);
-    if (!state) continue; // New features are initialized by the policy's enabled default.
-    if (state.contractVersion !== features.get(featureId)!.contractVersion) {
-      throw new Error("Stale feature lifecycle contract: " + featureId);
+  for (const [featureId, state] of states) {
+    const feature = features.get(featureId);
+    if (!feature) {
+      throw new Error("feature_lifecycle_unknown_persisted_feature: " + featureId);
+    }
+    if (state.contractVersion !== feature.contractVersion || state.featureId !== featureId ||
+        !["enabled", "disabled", "retired"].includes(state.state)) {
+      throw new Error("Stale or invalid feature lifecycle contract: " + featureId);
+    }
+  }
+  for (const [featureId, feature] of features) {
+    if (!states.has(featureId)) {
+      states.set(featureId, Object.freeze({
+        featureId,
+        contractVersion: feature.contractVersion,
+        state: "enabled",
+      }));
     }
   }
   return states;
