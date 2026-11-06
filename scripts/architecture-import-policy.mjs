@@ -20,7 +20,7 @@ export function createAliasResolver(tsconfig) {
 const normalizePath = (value) => {
   const absolute = value.startsWith("/");
   const parts = [];
-  for (const part of value.replaceAll("\\\\", "/").split("/")) {
+  for (const part of value.split("/")) {
     if (part === "" || part === ".") continue;
     if (part === "..") parts.pop();
     else parts.push(part);
