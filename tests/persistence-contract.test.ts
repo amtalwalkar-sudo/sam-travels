@@ -31,6 +31,7 @@ describe("formal persistence contracts and historical fixtures", () => {
   });
 
   it("rejects malformed records at the browser persistence adapter", async () => {
+    await browserDatabase.open();
     const repository = new DexieRecordRepository();
     await expect(repository.put(malformedRecord as never)).rejects.toThrow("record_data_required");
     expect(await browserDatabase.records.count()).toBe(0);
