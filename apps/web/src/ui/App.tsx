@@ -4,7 +4,8 @@ import { nativeOverlayAvailable } from "../driver-workflow";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
-import { useDriverWorkspace } from "./use-driver-workspace";\nimport { FeatureScreenHost } from "./FeatureScreenHost";
+import { useDriverWorkspace } from "./use-driver-workspace";
+import { FeatureScreenHost } from "./FeatureScreenHost";
 
 const shellDefinition = defineApplicationShell({
   id: "sam-travels.primary-shell",
@@ -150,6 +151,7 @@ export function App() {
             </section>
 
             <BackupPanel />
+            <FeatureScreenHost mountPoint="Drive" context={{ activeScreen }} />
         </div>
         {activeScreen === "Timeline" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /><FeatureScreenHost mountPoint="Timeline" context={{ activeScreen }} /></section>
