@@ -192,6 +192,7 @@ internal object NativeBackupCoverage {
         discoverParticipants().forEach { participant ->
             adapter(participant).export(database, participant.id, isInternal).forEach { row -> result.put(row) }
         }
+        validateBusinessRecords(result, requireExplicitOwnerTags = true)
         return result
     }
 
