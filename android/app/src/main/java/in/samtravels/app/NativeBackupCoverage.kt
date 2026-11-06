@@ -74,7 +74,16 @@ internal object NativeBackupCoverage {
             }
         override fun validate(row: JSONObject) {
             StoredRecordsAdapter.validate(row)
-            require(isWorkRecord(row.optString("id"))) { "backup_work_record_owner_mismatch" }
+            val id = row.optString("id")
+            val payload = JSONObject(row.getString("json"))
+            when {
+                id == "driver-state" -> DriverWorkflowContract.validateState(payload.optJSONObject("value") ?: error("invalid_driver_state"))
+                id == "driver-intent:" + payload.optJSONObject("command")?.optString("eventId") -> DriverWorkflowContract.validateIntent(payload)
+                id.startsWith("driver-outbox:") -> DriverWorkflowContract.validateOutbox(payload)
+                id == "legacy-driver-state" -> Unit // Preserved legacy Work payload; not interpreted as the current state contract.
+                else -> error("backup_work_record_owner_mismatch")
+            }
+            require(isWorkRecord(id)) { "backup_work_record_owner_mismatch" }
         }
         override fun clear(database: LocalDatabase) {
             database.records().list().filter { isWorkRecord(it.id) }.forEach { database.records().remove(it.id) }
@@ -108,6 +117,7 @@ internal object NativeBackupCoverage {
                 "backup_invalid_logbook_event_envelope"
             }
             val payload = JSONObject(row.getString("json"))
+            DriverWorkflowContract.validateEvent(payload)
             require(payload.optString("eventId") == row.optString("id")) {
                 "backup_logbook_event_identity_mismatch"
             }
