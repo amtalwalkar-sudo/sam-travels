@@ -8,8 +8,8 @@
 | Stage | Status | Evidence |
 |---|---|---|
 | Stage 0 — Repository audit and scope freeze | Complete | Frozen scope and evidence-based baseline audit merged to main in PR #19. |
-| Stage 1 — Deterministic feature discovery and declarations | Implementation prepared; CI verification pending | Dedicated implementation PR; static catalogue, manifests, scaffold integration and tests. |
-| Stage 2 — Dependency activation and failure isolation | Not started | Requires Stage 1 completion and separate activation-policy implementation. |
+| Stage 1 — Deterministic feature discovery and declarations | **Complete** | PR #20 merged by squash (merge commit `4d4b2006887e2c919fed8d118c2762868975bb8e`). CI run #839 / `42299197556`: architecture, web, Android and integrated regression jobs all passed. |
+| Stage 2 — Dependency activation and failure isolation | **In progress** | Stage 1 merged; implementation audit of runtime dependency validation, activation/registration, failure handling and Stage 5 integration is beginning. |
 | Stage 3 — Multi-source data coordination | Not started | Reuse existing query/repository/calculation contracts; add only audited gaps. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | Not started | Preserve unrestricted custom UI acceptance criterion. |
 | Stage 5 — Diagnostics and change impact | Not started | Extend existing diagnostics and architecture checks. |
@@ -42,6 +42,38 @@ Stage 1 introduces explicit feature manifests and deterministic build-time disco
 ### Stage 1 completion gate
 
 Stage 1 is complete only when the implementation PR's architecture, web tests/build, Android build/instrumentation and integrated regression checks pass, and the final merged-main checks are green. A prepared PR or a local source review alone is not completion evidence.
+
+## Stage 1 — Verified completion evidence
+
+- PR [#20 — deterministic build-time feature discovery](https://github.com/amtalwalkar-sudo/sam-travels/pull/20) was merged by squash.
+- Verified PR head: `3bf45fd9bcc60ff803ad87320e16fc06558bd70b`.
+- Merged commit: `4d4b2006887e2c919fed8d118c2762868975bb8e`.
+- GitHub Actions run #839 / ID `42299197556`: architecture, web regression/build, Android, and integrated regression jobs all completed successfully.
+- Android passed Gradle debug/debug-test/release assembly, unit tests, and the required Room/workflow/backup reliability gate. The PR-only “publish unsigned release APK from merged main” step was skipped by workflow design, not failed.
+- A post-merge main verification remains a distinct check and will be recorded if/when the workflow produces it.
+
+## Stage 2 — Dependency activation and failure isolation
+
+Stage 2 is additive and reuses the Stage 1 generated catalogue and existing application-owned Stage 5 runtime registry. It must not introduce a second registry, replacement lifecycle, or parallel persistence/backup/recovery path.
+
+### Activation policy
+
+- Validate declarations and the dependency graph before exposing any feature contribution.
+- Reject an invalid feature with an actionable diagnostic; never partially register it.
+- Activate a feature only when required dependencies and contract versions validate.
+- Block dependents when a required dependency is missing, invalid, incompatible, or inactive.
+- Keep unrelated valid features eligible for activation; an optional feature failure must not silently disable unrelated features.
+- Optional dependencies may be absent without blocking the declaring feature, but their unavailable state must remain explicit and diagnosable.
+- Reject dependency cycles before activation.
+- Use deterministic, dependency-first activation order.
+- A failed activation leaves that feature's contributions unavailable and must not corrupt unrelated valid registrations.
+- Preserve Stage 5 data ownership, backup/restore participant integrity, migrations, recovery checkpoints, upgrades, disablement and retirement semantics.
+
+### Stage 2 implementation audit and completion gate
+
+Before changing runtime behavior, inspect extension descriptors, dependency declarations, registry validation/registration, bootstrap error handling, fixtures, and Stage 5 participant/lifecycle adapters. Classify existing support and gaps; implement only necessary gaps.
+
+Stage 2 is complete only after tests prove valid dependency-first activation, missing/incompatible/cyclic dependency rejection, optional dependency handling, independent-feature isolation, no partial registration after injected failure, deterministic diagnostics, and unchanged Stage 5 persistence/backup/restore/recovery behavior. Web, Android and integrated CI must pass.
 
 ## Implementation discipline
 
