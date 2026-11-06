@@ -26,9 +26,16 @@ This contract supplements the existing architecture, persistence, recovery, feat
 
 ### Tests / exit gate
 - Positive fixtures for authorized gateways and imports.
-- Negative fixtures for direct Dexie/IndexedDB access, Room DAO access outside approved gateways, direct business writes, path-alias bypasses, and transitive/feature-boundary violations.
-- Run architecture checker suite and ensure it fails closed on malformed/unresolved relevant source.
+- Negative fixtures for direct IndexedDB, Dexie, Web Storage, Cache API, browser persistence-library imports, Room DAO access outside approved gateways, direct SQLite mutation, direct business writes, and path-alias bypasses.
+- AST fixtures prove comments/string literals do not spoof access checks; malformed TypeScript fails closed.
+- Run architecture checker suite and the full web and Android CI gates.
 - No production behavior or schema change unless strictly needed to close a demonstrated bypass.
+
+### Verification evidence
+- **Verified code commit:** `42fd818ac12a5a69860863b1549d736892df4d91`
+- **CI run:** Sam Travels CI #631 (`42190831986`)
+- **Result:** architecture, web regression/build, Android compile/unit/instrumentation/reliability jobs all succeeded.
+- **Scope:** no Workflow/Timeline UI, navigation, styling, or shell work; the only UI-file touch moved non-secret Dropbox convenience settings behind a dedicated persistence adapter. PR #12 remains unchanged.
 
 ## Stage 2 — Formal persistence and schema contracts
 
@@ -91,7 +98,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 
 | Stage | Deliverable | Evidence required | Status |
 |---|---|---|---|
-| 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI | Not yet verified |
+| 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI #631 on `42fd818ac12a5a69860863b1549d736892df4d91` | Verified |
 | 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests | Not yet verified |
 | 3 | Actual IndexedDB + Room persisted-record parity | Web integration + Android instrumentation comparison | Not yet verified |
 | 4 | Transaction/recovery guarantees | Failure-injection, replay, restart, restore tests | Not yet verified |
