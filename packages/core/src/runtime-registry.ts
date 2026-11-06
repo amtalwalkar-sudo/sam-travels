@@ -64,7 +64,7 @@ export function initializeRuntimeRegistry(
   const extensionDefinitions = [...(definitions.extensions ?? [])];
   const featureDeclarations = [
     ...(definitions.features ?? []),
-    ...extensionDefinitions.flatMap(extension => extension.feature ? [extension.feature] : []),
+    ...extensionDefinitions.flatMap(extension => extension.feature && extension.feature.id === extension.featureId ? [extension.feature] : []),
   ];
   const activation = planFeatureActivation(featureDeclarations);
   const features = activation.declarations;
@@ -125,6 +125,14 @@ export function initializeRuntimeRegistry(
     ...calculationsByOwner.keys(),
   ]);
   for (const owner of [...owners].sort()) {
+    if (!features.has(owner)) {
+      failures.push(Object.freeze({
+        featureId: owner,
+        code: "invalid_extension",
+        message: "Feature contributions reference an unregistered or invalid owner.",
+      }));
+      continue;
+    }
     if (!activeFeatures.has(owner) || duplicateOwners.has(owner)) continue;
     const ownerExtensions = extensionsByOwner.get(owner) ?? [];
     const ownerIntegrations = integrationsByOwner.get(owner) ?? [];
