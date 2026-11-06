@@ -1,0 +1,99 @@
+package `in`.samtravels.app
+
+import org.json.JSONObject
+import java.time.Duration
+import java.time.OffsetDateTime
+
+/** Native mirror of the persisted Work command, intent, state and Log Book event contracts. */
+internal object DriverWorkflowContract {
+    private val eventTypes = setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel")
+    private val states = setOf("idle", "shift_active", "trip_active", "approach_active", "needs_attention")
+    private val surfaces = setOf("pwa", "native_overlay")
+    private val intentStatuses = setOf("pending_location", "needs_attention", "recorded", "rejected")
+
+    fun validateCommand(command: JSONObject) {
+        require(command.optInt("schemaVersion", -1) == 1) { "invalid_command" }
+        require(command.optString("commandId").isNotBlank() && command.optString("eventId").isNotBlank() &&
+            command.optString("idempotencyKey").isNotBlank()) { "invalid_command_identity" }
+        require(command.optString("eventType") in eventTypes) { "invalid_event_type" }
+        require(command.optString("originSurface") in surfaces) { "invalid_command_surface" }
+        require(command.optString("expectedPriorState") in states) { "invalid_prior_state" }
+        require(integer(command, "expectedRevision") >= 0L) { "invalid_revision" }
+        parseInstant(command.optString("transitionAt"), "invalid_transition_timestamp")
+    }
+
+    fun validateIntent(intent: JSONObject) {
+        validateCommand(intent.optJSONObject("command") ?: error("invalid_driver_intent"))
+        require(intent.optString("status") in intentStatuses) { "invalid_driver_intent_status" }
+        val createdAt = parseInstant(intent.optString("createdAt"), "invalid_driver_intent_timestamp")
+        val updatedAt = parseInstant(intent.optString("updatedAt"), "invalid_driver_intent_timestamp")
+        require(!updatedAt.isBefore(createdAt)) { "invalid_driver_intent_timestamp" }
+        require(!intent.has("reason") || intent.isNull("reason") || intent.opt("reason") is String) {
+            "invalid_driver_intent_reason"
+        }
+    }
+
+    fun validateState(state: JSONObject) {
+        require(state.optInt("schemaVersion", -1) == 1 && integer(state, "revision") >= 0L &&
+            state.optString("state") in states) { "invalid_driver_state" }
+        listOf("shiftStartedAt", "tripStartedAt", "approachStartedAt").forEach { key ->
+            if (state.has(key) && !state.isNull(key)) parseInstant(state.optString(key), "invalid_driver_state_timestamp")
+        }
+        if (state.has("lastEventId")) require(state.optString("lastEventId").isNotBlank()) {
+            "invalid_driver_state_event_id"
+        }
+    }
+
+    fun validateEvent(event: JSONObject) {
+        val command = event.optJSONObject("command") ?: error("invalid_driver_event")
+        validateCommand(command)
+        require(event.optString("eventId") == command.optString("eventId")) { "driver_event_identity_mismatch" }
+        val revision = integer(event, "revision")
+        require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }
+        parseInstant(event.optString("committedAt"), "invalid_driver_event_timestamp")
+        val gps = event.optJSONObject("gps") ?: error("invalid_driver_event_gps")
+        val latitude = number(gps, "latitude")
+        val longitude = number(gps, "longitude")
+        val accuracy = number(gps, "horizontalAccuracyM")
+        require(latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
+            accuracy in 0.0..50.0 && gps.optString("provider").isNotBlank()) {
+            "invalid_driver_event_gps"
+        }
+        val fixAt = parseInstant(gps.optString("fixAt"), "invalid_driver_event_gps")
+        val transitionAt = parseInstant(command.optString("transitionAt"), "invalid_driver_event_gps")
+        require(kotlin.math.abs(Duration.between(transitionAt, fixAt).toMillis()) <= 30_000L) {
+            "invalid_driver_event_gps"
+        }
+    }
+
+    fun validateOutbox(row: JSONObject) {
+        require(row.optString("id").isNotBlank() && row.optString("eventId").isNotBlank() &&
+            integer(row, "revision") >= 1L && row.optString("integrationId") == "logbook.work-driver-events.v1" &&
+            integer(row, "contractVersion") == 1L &&
+            row.optString("eventName") == "work.driver-event-committed" &&
+            integer(row, "payloadVersion") == 1L && row.opt("delivered") is Boolean) {
+            "invalid_driver_outbox"
+        }
+        parseInstant(row.optString("createdAt"), "invalid_driver_outbox_timestamp")
+    }
+
+    private fun integer(json: JSONObject, key: String): Long {
+        val value = json.opt(key) as? Number ?: throw IllegalArgumentException("invalid_" + key)
+        val number = value.toDouble()
+        require(number.isFinite() && number % 1.0 == 0.0 && number in 0.0..9_007_199_254_740_991.0) {
+            "invalid_" + key
+        }
+        return number.toLong()
+    }
+
+    private fun number(json: JSONObject, key: String): Double {
+        val value = json.opt(key) as? Number ?: throw IllegalArgumentException("invalid_" + key)
+        return value.toDouble().also {
+            require(it.isFinite()) { "invalid_" + key }
+        }
+    }
+
+    private fun parseInstant(value: String, errorCode: String) =
+        runCatching { OffsetDateTime.parse(value).toInstant() }
+            .getOrElse { throw IllegalArgumentException(errorCode) }
+}
