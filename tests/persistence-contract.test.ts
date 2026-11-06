@@ -53,6 +53,7 @@ describe("formal persistence contracts and historical fixtures", () => {
   });
 
   it("rejects duplicate identities and unsupported future backup manifests before checkpointing", async () => {
+    await browserDatabase.open();
     await expect(restoreBrowserSnapshot({
       data: duplicateBackup.data as never,
       manifest: duplicateBackup.manifest as never,
