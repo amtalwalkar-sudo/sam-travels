@@ -69,25 +69,22 @@ Stage 2 is additive and reuses the Stage 1 generated catalogue and existing appl
 - A failed activation leaves that feature's contributions unavailable and must not corrupt unrelated valid registrations.
 - Preserve Stage 5 data ownership, backup/restore participant integrity, migrations, recovery checkpoints, upgrades, disablement and retirement semantics.
 
-### Stage 2 implementation audit and completion gate
+### Stage 2 — Dependency activation and contribution isolation — complete
 
-The source audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md). Initial implementation is on branch `feat/dependency-activation-isolation`:
+Implementation is merged into `main` through [PR #21](https://github.com/amtalwalkar-sudo/sam-travels/pull/21).
 
-- Added an explicit optional-dependency marker while preserving required-by-default dependency declarations.
-- Added a deterministic activation planner that separates declaration validation from dependency resolution, reports active/blocked/rejected outcomes, records unavailable optional dependencies, detects cycles, and computes dependency-first order.
-- Added focused planner tests for missing required dependencies, optional absence, incompatible versions, cycles, independent-feature isolation, deterministic ordering, invalid declarations, and persistent ownership visibility.
-- The planner is not yet wired into the application runtime bootstrap. Contribution-level failure isolation and the full Stage 2 proof remain outstanding; no Stage 2 completion or CI claim is made.
+- Added optional dependency declarations while preserving required-by-default behavior.
+- Integrated deterministic feature activation into the existing application-owned runtime registry. The runtime retains the full valid feature declaration inventory separately from the operationally active subset.
+- Activation reports active, blocked and rejected outcomes with stable machine-readable diagnostics; required dependency failures propagate to dependents, optional dependency absence remains explicit, cycles are rejected, and startup order is deterministic and dependency-first.
+- Extension, integration and calculation contributions are staged per feature owner and published atomically. A failing owner group is withheld in full, duplicate contribution identities are rejected deterministically, and unrelated valid owners remain available.
+- Backup/restore participants are derived from all valid persistent declarations, including blocked owners. The lifecycle coordinator continues to use the full declaration inventory, so disable/retire does not discard persistent ownership or backup participation.
+- No second registry or replacement Stage 5 lifecycle, persistence, backup, restore, recovery or upgrade mechanism was introduced.
 
-The runtime integration slice is now implemented on this branch:
+**Merged commit:** `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`
 
-- The existing core runtime registry calls the activation planner and returns both the complete valid declaration inventory and the operationally active subset. The existing application bootstrap already calls this factory before presentation mounts, so no second application registry was introduced.
-- Startup order is the planner's deterministic dependency-first order. Optional dependencies do not create required activation edges or startup-order cycles.
-- Extension, integration and calculation contributions are grouped by feature owner, validated into temporary per-owner registries, and published only after the complete owner group passes. A failed group is withheld as a whole; independent owners remain available. Duplicate contribution identities across owners reject every conflicting owner rather than depending on declaration order.
-- Persistent backup participants are derived from all valid persistent declarations, not only active features. Blocked persistent features therefore retain their required backup/restore participant; lifecycle disable/retire does not remove the participant inventory.
-- The application lifecycle coordinator continues to receive the full feature declaration map, preserving Stage 5 lifecycle and retention rules.
-- Regression coverage was added/updated for invalid declaration isolation, optional dependency behavior, contribution atomicity, unrelated-owner availability, persistent backup ownership while blocked, and backup ownership after disable/retire.
+**CI proof:** [PR workflow run #849](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42303475095), for head `e1d2b9f9d6f728bf00fdd5b3340a9d0fe1e6acfa), completed successfully. Architecture, focused Stage 2 tests, backup/recovery reliability tests, the full web suite (210 tests across 37 files), TypeScript/web build, Android build and emulator regression gate, and the integrated regression gate all passed.
 
-Verification is now pending through the repository CI workflow. Stage 2 is not complete until focused and full web, Android and integrated regression gates pass, and the restore/recovery/upgrade guarantees are confirmed unchanged.
+Stage 2 is complete. Continue with Stage 3 — cross-feature data orchestration and calculation framework — without replacing the registry or lifecycle contracts established here.
 ## Implementation discipline
 
 Complete one stage at a time. Each stage must have a focused implementation, tests, CI evidence and progress update before the next stage begins. Do not onboard the first real business feature as part of this architecture project; use disposable fixtures only when required to prove contracts.
