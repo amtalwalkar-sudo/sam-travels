@@ -194,4 +194,89 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     })).rejects.toThrow("backup_record_count_mismatch:records");
     expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
   });
+  it("onboards an isolated persistent feature through participant-owned IndexedDB backup and clean-store restore", async () => {
+    const feature = {
+      id: "sample-addon", label: "Sample Add-on", dataPolicy: "persistent" as const,
+      contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1, migrations: [],
+        backup: { participantId: "sample-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "sample-addon-records-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const unregister = registerBrowserFeatureBackupParticipant({
+      feature, participantId: "sample-addon-records", recordIdPrefix: "feature:sample-addon:",
+      validateRecord(record) {
+        if (!record.data || typeof record.data !== "object" ||
+            typeof (record.data as { kind?: unknown }).kind !== "string") throw new Error("sample_addon_invalid_record");
+      },
+      validateSnapshot(records) {
+        const owned = records.filter(record => record.id.startsWith("feature:sample-addon:"));
+        const ids = new Set(owned.map(record => record.id));
+        for (const record of owned) {
+          const parentId = (record.data as { parentId?: unknown }).parentId;
+          if (parentId !== undefined && (typeof parentId !== "string" || !ids.has(parentId))) {
+            throw new Error("sample_addon_relationship_missing");
+          }
+        }
+      },
+    });
+    try {
+      const timestamp = "2026-11-06T00:00:00.000Z";
+      await browserDatabase.records.bulkPut([
+        { id: "feature:sample-addon:parent", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1, data: { kind: "parent" } },
+        { id: "feature:sample-addon:child", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1, data: { kind: "child", parentId: "feature:sample-addon:parent" } },
+      ]);
+      const snapshot = await exportBrowserSnapshot("0.1.0");
+      expect(snapshot.manifest.participants).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: "sample-addon-records", featureId: "sample-addon", snapshotVersion: 1 }),
+      ]));
+      await browserDatabase.records.clear();
+      const restored = await restoreBrowserSnapshot({
+        data: snapshot.data, manifest: snapshot.manifest as import("../packages/core/src/backup").SnapshotManifest, confirmed: true,
+      });
+      expect((await browserDatabase.records.get("feature:sample-addon:parent"))?.data).toEqual({ kind: "parent" });
+      expect((await browserDatabase.records.get("feature:sample-addon:child"))?.data).toEqual({ kind: "child", parentId: "feature:sample-addon:parent" });
+      expect(restored.restoredCounts.records).toBe(2);
+    } finally { unregister(); }
+  });
+
+  it("rejects a feature-owned snapshot with a broken relationship before checkpointing", async () => {
+    const feature = {
+      id: "relationship-addon", label: "Relationship Add-on", dataPolicy: "persistent" as const,
+      contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1, migrations: [],
+        backup: { participantId: "relationship-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "relationship-addon-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const unregister = registerBrowserFeatureBackupParticipant({
+      feature, participantId: "relationship-addon-records", recordIdPrefix: "feature:relationship-addon:",
+      validateRecord() {},
+      validateSnapshot(records) {
+        const owned = records.filter(record => record.id.startsWith("feature:relationship-addon:"));
+        const ids = new Set(owned.map(record => record.id));
+        for (const record of owned) {
+          const parentId = (record.data as { parentId?: unknown }).parentId;
+          if (typeof parentId === "string" && !ids.has(parentId)) throw new Error("relationship_addon_parent_missing");
+        }
+      },
+    });
+    try {
+      const timestamp = "2026-11-06T00:00:00.000Z";
+      await browserDatabase.records.put({
+        id: "feature:relationship-addon:child", schemaVersion: 1, createdAt: timestamp,
+        updatedAt: timestamp, source: "web", revision: 1, data: { parentId: "feature:relationship-addon:missing" },
+      });
+      const snapshot = await exportBrowserSnapshot("0.1.0");
+      await expect(restoreBrowserSnapshot({
+        data: snapshot.data, manifest: snapshot.manifest as import("../packages/core/src/backup").SnapshotManifest, confirmed: true,
+      })).rejects.toThrow("relationship_addon_parent_missing");
+      expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
+    } finally { unregister(); }
+  });
+
 });
