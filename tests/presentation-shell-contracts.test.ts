@@ -6,6 +6,7 @@ const navigation = [
   { screen: "Drive", label: "Drive", icon: "drive" },
   { screen: "Timeline", label: "Timeline", icon: "timeline" },
   { screen: "Performance", label: "Performance", icon: "performance" },
+  { screen: "Admin", label: "Admin", icon: "admin" },
 ] as const;
 
 describe("framework-neutral presentation shell contract", () => {
@@ -23,7 +24,7 @@ describe("framework-neutral presentation shell contract", () => {
       navigation,
     });
 
-    expect(original.navigation.map(item => item.screen)).toEqual(["Drive", "Timeline", "Performance"]);
+    expect(original.navigation.map(item => item.screen)).toEqual(["Drive", "Timeline", "Performance", "Admin"]);
     expect(replacement.navigation).toEqual(original.navigation);
     expect(replacement.initialScreen).toBe("Timeline");
     expect(Object.isFrozen(replacement)).toBe(true);
