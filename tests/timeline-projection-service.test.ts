@@ -78,6 +78,7 @@ describe("PWA and Android Timeline application-boundary parity", () => {
 
   it("emits the complete deterministic parity oracle from IndexedDB-backed ordinary, edge, and migrated legacy datasets", async () => {
     const repository = new DexieDriverWorkflowRepository();
+    await browserDatabase.table("driverEvents").bulkPut(events);
     const normal = await new TimelineProjectionService(repository).project();
     await browserDatabase.table("driverEvents").clear();
     await browserDatabase.table("driverEvents").bulkPut(events.slice(0, 2));
