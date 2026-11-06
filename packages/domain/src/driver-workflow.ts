@@ -73,8 +73,12 @@ export function assertDriverEventContract(value: unknown): asserts value is Driv
  }
 }
 export function validateDriverCommand(command: DriverTransitionCommand): DriverResult<DriverTransitionCommand> {
- if (command.schemaVersion!==1 || !command.commandId.trim() || !command.eventId.trim() || !command.idempotencyKey.trim() || !Number.isInteger(command.expectedRevision) || !Number.isFinite(Date.parse(command.transitionAt)) || !["shift_start","shift_end","trip_start","trip_end","ride_cancel"].includes(command.eventType) || !["pwa","native_overlay"].includes(command.originSurface)) return {ok:false,error:"invalid_command"};
- return {ok:true,value:command};
+ try {
+  assertDriverCommandContract(command);
+  return {ok:true,value:command};
+ } catch {
+  return {ok:false,error:"invalid_command"};
+ }
 }
 export function transitionTarget(state:DriverWorkflowState,event:DriverEventType):DriverWorkflowState|null {
  const allowed:Record<DriverWorkflowState,Partial<Record<DriverEventType,DriverWorkflowState>>>={idle:{shift_start:"shift_active"},shift_active:{shift_end:"idle",trip_start:"trip_active"},trip_active:{trip_end:"shift_active",ride_cancel:"shift_active"},approach_active:{trip_start:"trip_active",ride_cancel:"shift_active"},needs_attention:{}};
