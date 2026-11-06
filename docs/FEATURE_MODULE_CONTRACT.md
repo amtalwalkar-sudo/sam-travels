@@ -19,7 +19,7 @@ Initial feature areas:
 - Admin
 - Backup and Recovery
 
-These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`; currently Work is the only registered persistent product feature. Finance, Vehicle, Performance, Admin, and Log Book remain non-persistent placeholders until their own data models and persistence adapters are implemented.
+These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`. The current built-in registry has Platform, Work/Shift, and Log Book registered as persistent; Finance, Vehicle, Performance, Admin, and Backup remain non-persistent placeholders until their own data models and persistence adapters are implemented. A placeholder cannot enable business writes without a complete persistent-feature contract and registration.
 
 ## Capability ownership
 
