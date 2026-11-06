@@ -46,57 +46,10 @@ function featureTarget(file) {
   return match?.[1] ?? null;
 }
 
-function isPublicFeatureEntry(resolved) {
-  const value = normalize(resolved);
-  const extension = path.posix.extname(value);
-  const withoutExtension = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(extension)
-    ? value.slice(0, -extension.length)
-    : value;
-  const normalized = withoutExtension.endsWith("/") ? withoutExtension.slice(0, -1) : withoutExtension;
-  const parts = normalized.split("/");
-  return parts[0] === "packages" && parts[1] === "features" &&
-    (parts.length === 3 || (parts.length === 4 && parts[3] === "index"));
-}
-
-function targetLayer(resolved) {
-  const p = "/" + normalize(resolved);
-  if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/presentation/src/")) return "presentation";
-  if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/")) return "ui";
-  return null;
-}
 
 
-function aliasResolver(tsconfig) {
-  const compiler = tsconfig.compilerOptions ?? {};
-  const baseUrl = compiler.baseUrl ?? ".";
-  const paths = compiler.paths ?? {};
-  return (specifier) => {
-    for (const [pattern, destinations] of Object.entries(paths)) {
-      const star = pattern.indexOf("*");
-      const prefix = star < 0 ? pattern : pattern.slice(0, star);
-      const suffix = star < 0 ? "" : pattern.slice(star + 1);
-      if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) continue;
-      const capture = specifier.slice(prefix.length, specifier.length - suffix.length || undefined);
-      const destination = destinations[0];
-      if (typeof destination !== "string") continue;
-      const replaced = destination.replace("*", capture);
-      return normalize(path.posix.join(baseUrl, replaced));
-    }
-    return null;
-  };
-}
 
-function resolveImport(specifier, fromFile, resolveAlias) {
-  if (specifier.startsWith(".")) {
-    return normalize(path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier)));
-  }
-  return resolveAlias(specifier);
-}
+
 
 function detectCycles(graph) {
   const visiting = new Set();
