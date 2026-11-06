@@ -103,6 +103,18 @@ export function initializeRuntimeRegistry(
   for (const [owner, values] of integrationsByOwner) for (const value of values) countIdentity("integration", value.id, owner);
   for (const [owner, values] of calculationsByOwner) for (const value of values) countIdentity("calculation", value.id, owner);
   const duplicateOwners = new Set<FeatureId>();
+  for (const extension of extensionDefinitions) {
+    if (extension.feature && activation.diagnostics.some(diagnostic =>
+      diagnostic.code === "duplicate_feature" && diagnostic.featureId === extension.feature!.id,
+    ) && activeFeatures.has(extension.featureId)) {
+      duplicateOwners.add(extension.featureId);
+      failures.push(Object.freeze({
+        featureId: extension.featureId,
+        code: "invalid_extension",
+        message: "Extension cannot redeclare an existing feature identity.",
+      }));
+    }
+  }
   for (const [key, owners] of identityOwners) {
     if (owners.size < 2) continue;
     for (const owner of owners) {
