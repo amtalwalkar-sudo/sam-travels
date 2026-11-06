@@ -8,3 +8,4 @@ export * from "./runtime-registry";
 export * from "./feature-lifecycle-coordinator";
 
 export * from "./feature-extension-upgrade-coordinator";
+export * from "./cross-feature-data-coordinator";
