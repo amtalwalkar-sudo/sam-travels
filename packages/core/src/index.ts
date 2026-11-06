@@ -7,6 +7,7 @@ export * from "./feature-activation";
 export * from "./credentials";
 export * from "./commands";
 export * from "./feature-contracts";
+export * from "./feature-data";
 export * from "./feature-extension";
 export * from "./runtime-registry";
 export * from "./readonly-registry";
