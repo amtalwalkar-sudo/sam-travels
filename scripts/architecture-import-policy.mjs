@@ -77,3 +77,9 @@ export function isPublicFeatureEntry(resolved) {
   return parts[0] === "packages" && parts[1] === "features" &&
     (parts.length === 3 || (parts.length === 4 && parts[3] === "index"));
 }
+
+const browserPersistenceModules = new Set(["dexie", "idb", "idb-keyval", "localforage"]);
+
+export function isBrowserPersistenceModule(specifier) {
+  return browserPersistenceModules.has(specifier.split("/")[0]);
+}
