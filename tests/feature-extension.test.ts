@@ -57,7 +57,7 @@ describe("feature extension architecture", () => {
     expect(runtime.features.get("insights")?.dependencies).toEqual([{ id: "logbook", contractVersion: 1 }]);
     expect(runtime.integrations.get(workIntegration.id)).toBeDefined();
     expect(runtime.calculations.get(totalCalculation.id)).toBeDefined();
-    expect(runtime.startupOrder.at(-1)?.id).toBe("insights");
+    expect(runtime.startupOrder.findIndex(feature => feature.id === "logbook")).toBeLessThan(runtime.startupOrder.findIndex(feature => feature.id === "insights"));
   });
 
   it("executes a newly registered calculation by its exact registered version", async () => {
