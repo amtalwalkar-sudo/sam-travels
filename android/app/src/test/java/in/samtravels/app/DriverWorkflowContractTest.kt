@@ -41,6 +41,16 @@ class DriverWorkflowContractTest {
     }
 
     @Test
+    fun preservesLegacyLogBookEventPayloadsWithoutTreatingThemAsCurrentCommands() {
+        DriverWorkflowContract.validateStoredEvent(
+            JSONObject("""{"eventId":"event-legacy","kind":"trip_completed"}"""),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            DriverWorkflowContract.validateStoredEvent(JSONObject("""{"eventId":"event-legacy"}"""))
+        }
+    }
+
+    @Test
     fun rejectsUnknownEventStateAndIntentDiscriminants() {
         assertThrows(IllegalArgumentException::class.java) {
             DriverWorkflowContract.validateCommand(command().put("eventType", "unknown"))
