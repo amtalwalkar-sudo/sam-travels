@@ -1,7 +1,6 @@
 package `in`.samtravels.app
 
 import androidx.room.Room
-import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -81,7 +80,7 @@ class RoomStorePlugin : Plugin() {
         executor.execute {
             try {
                 val rows = db.records().list()
-                val arr = JSArray()
+                val arr = JSONArray()
                 rows.forEach { arr.put(validatedEnvelope(it)) }
                 val out = JSObject()
                 out.put("records", arr)
