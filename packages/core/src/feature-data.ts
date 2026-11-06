@@ -162,7 +162,12 @@ export async function executeFeatureDataQuery<Record>(
   if (!snapshot.records.every(contract.validateRecord)) {
     return Object.freeze({ ...base, status: "invalid", reason: "source_record_validation_failed" });
   }
-  const records = Object.freeze(snapshot.records.map(record => Object.freeze(record)));
+  let records: readonly Record[];
+  try {
+    records = Object.freeze(snapshot.records.map(record => cloneFrozenSourceData(record)));
+  } catch {
+    return Object.freeze({ ...base, status: "invalid", reason: "source_record_not_immutable_data" });
+  }
   return Object.freeze({
     ...base,
     status: "available",
