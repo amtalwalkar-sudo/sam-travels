@@ -2,6 +2,7 @@ import {
   dispatchFeatureIntegration,
   initializeRuntimeRegistry,
   type CalculationContract,
+  type FeatureExtensionDefinition,
   type FeatureIntegrationHandler,
   type RuntimeRegistry,
 } from "../../core/src/index";
@@ -96,17 +97,23 @@ export const TRIP_DURATION_CALCULATION: CalculationContract<TripDurationInput, n
   ],
 };
 
+/** Production Log Book is registered through the same extension path as future modules. */
+export const LOGBOOK_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.freeze({
+  id: "logbook.core.v1",
+  version: 1,
+  featureId: "logbook",
+  publicEntryPoint: "packages/features/logbook/index.ts",
+  integrations: [LOGBOOK_WORK_EVENT_INTEGRATION],
+  calculations: [TRIP_DURATION_CALCULATION],
+});
+
 export function initializeApplicationRuntimeRegistry(): RuntimeRegistry {
-  return initializeRuntimeRegistry({
-    integrations: [LOGBOOK_WORK_EVENT_INTEGRATION],
-    calculations: [TRIP_DURATION_CALCULATION],
-  });
+  return initializeRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
 }
 
 /**
- * Return the one validated registry used by the running application.
- * Construction is lazy so the web entry point can fail closed before mounting,
- * while feature consumers share the exact same immutable registry instance.
+ * Return the one validated application registry. Construction is lazy so the
+ * web entry point can fail closed before mounting while consumers share it.
  */
 let applicationRuntimeRegistry: RuntimeRegistry | undefined;
 
@@ -119,8 +126,7 @@ export function getApplicationRuntimeRegistry(): RuntimeRegistry {
 
 /**
  * Dispatch a committed Work event through the registered Log Book contract.
- * The caller supplies the consumer port; the durable Work event log remains
- * the source of truth and can be replayed if a consumer is temporarily absent.
+ * The durable Work event log remains the replay authority when a consumer is absent.
  */
 export async function dispatchCommittedWorkEvent(
   registry: RuntimeRegistry,

@@ -29,6 +29,8 @@ The capability's public entry point is its only supported cross-capability impor
 
 ## Add-on and change-isolation rules
 
+The cohesive package descriptor and onboarding sequence are implemented in [FEATURE_EXTENSION_ARCHITECTURE.md](FEATURE_EXTENSION_ARCHITECTURE.md). New capabilities and additive contributions to existing capabilities must use the validated extension registry; feature-owned calculations and integrations are bundled with an explicit owner and public entry point. The application bootstrap validates all contributions together and returns one immutable registry or fails closed.
+
 - A new module or calculation must be registerable without rewriting stable modules.
 - UI/UX, navigation, forms, and presentation can be replaced without changing domain rules or persistence contracts.
 - A form can be redesigned or added without changing the module's stable application wiring.
