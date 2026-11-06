@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -18,7 +19,7 @@ class LocalDatabaseMigrationTest {
         val file = context.getDatabasePath(name)
         file.parentFile?.mkdirs()
         val legacy = SQLiteDatabase.openOrCreateDatabase(file, null)
-        val sql = context.assets.open(fixture).bufferedReader().use { it.readText() }
+        val sql = InstrumentationRegistry.getInstrumentation().context.assets.open(fixture).bufferedReader().use { it.readText() }
         sql.split(";").map(String::trim).filter(String::isNotEmpty).forEach(legacy::execSQL)
         legacy.version = version
         legacy.close()
