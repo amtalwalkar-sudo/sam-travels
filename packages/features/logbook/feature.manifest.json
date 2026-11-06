@@ -1,0 +1,7 @@
+{
+  "manifestVersion": 1,
+  "id": "logbook",
+  "extensionVersion": 1,
+  "entryPoint": "packages/features/logbook/index.ts",
+  "extensionExport": "LOGBOOK_FEATURE_EXTENSION"
+}
