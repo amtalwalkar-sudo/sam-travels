@@ -246,6 +246,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
+  validateCustomFeatureBackupRecords(data.records);
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
