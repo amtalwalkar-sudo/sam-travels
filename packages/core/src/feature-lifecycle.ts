@@ -1,4 +1,5 @@
 import type { FeatureDefinition, FeatureId } from "./features";
+import { createReadonlyRegistry } from "./readonly-registry";
 
 export type FeatureLifecycleState = "enabled" | "disabled" | "retired";
 export type FeatureLifecycleAction = "enable" | "disable" | "retire";
@@ -18,15 +19,13 @@ function dependencyId(dependency: FeatureDefinition["dependencies"][number]): Fe
   return typeof dependency === "string" ? dependency : dependency.id;
 }
 
-function activeDependents(
+function dependentFeatures(
   featureId: FeatureId,
   context: FeatureLifecycleContext,
-): FeatureId[] {
+): FeatureDefinition[] {
   return [...context.features.values()]
     .filter(candidate => candidate.id !== featureId)
-    .filter(candidate => candidate.dependencies.some(dependency => dependencyId(dependency) === featureId))
-    .filter(candidate => context.states.get(candidate.id)?.state !== "retired")
-    .map(candidate => candidate.id);
+    .filter(candidate => candidate.dependencies.some(dependency => dependencyId(dependency) === featureId));
 }
 
 function currentRecord(feature: FeatureDefinition, context: FeatureLifecycleContext): FeatureLifecycleRecord {
@@ -40,6 +39,9 @@ function currentRecord(feature: FeatureDefinition, context: FeatureLifecycleCont
   }
   if (record.featureId !== feature.id || record.contractVersion !== feature.contractVersion) {
     throw new Error("Stale feature lifecycle contract: " + feature.id);
+  }
+  if (!["enabled", "disabled", "retired"].includes(record.state)) {
+    throw new Error("Invalid feature lifecycle state: " + feature.id);
   }
   return record;
 }
@@ -66,7 +68,10 @@ export function transitionFeatureLifecycle(
     if (current.state !== "enabled") {
       throw new Error("Only an enabled feature can be disabled: " + featureId);
     }
-    const dependents = activeDependents(featureId, context);
+    const dependents = dependentFeatures(featureId, context)
+      .filter(candidate => context.states.get(candidate.id)?.state !== "disabled" &&
+        context.states.get(candidate.id)?.state !== "retired")
+      .map(candidate => candidate.id);
     if (dependents.length) {
       throw new Error("Cannot disable feature with active dependents: " + dependents.join(", "));
     }
@@ -90,7 +95,9 @@ export function transitionFeatureLifecycle(
   if (current.state !== "disabled") {
     throw new Error("Feature must be disabled before retirement: " + featureId);
   }
-  const dependents = activeDependents(featureId, context);
+  const dependents = dependentFeatures(featureId, context)
+    .filter(candidate => context.states.get(candidate.id)?.state !== "retired")
+    .map(candidate => candidate.id);
   if (dependents.length) {
     throw new Error("Cannot retire feature with registered dependents: " + dependents.join(", "));
   }
@@ -113,5 +120,5 @@ export function createInitialFeatureLifecycleStates(
       state: "enabled",
     }));
   }
-  return states;
+  return createReadonlyRegistry(states);
 }
