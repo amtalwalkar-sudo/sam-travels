@@ -19,7 +19,7 @@ Initial feature areas:
 - Admin
 - Backup and Recovery
 
-These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`; currently Work is the only registered persistent product feature. Finance, Vehicle, Performance, Admin, and Log Book remain non-persistent placeholders until their own data models and persistence adapters are implemented.
+These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`. The current built-in registry has Platform, Work/Shift, and Log Book registered as persistent; Finance, Vehicle, Performance, Admin, and Backup remain non-persistent placeholders until their own data models and persistence adapters are implemented. A placeholder cannot enable business writes without a complete persistent-feature contract and registration.
 
 ## Capability ownership
 
@@ -28,6 +28,8 @@ A capability is the unit of ownership and change. Its domain rules, use cases, r
 The capability's public entry point is its only supported cross-capability import surface. Internal files remain private implementation details. Shared core contains only concepts that are truly common and stable; it must not accumulate capability-specific logic.
 
 ## Add-on and change-isolation rules
+
+The cohesive package descriptor and onboarding sequence are implemented in [FEATURE_EXTENSION_ARCHITECTURE.md](FEATURE_EXTENSION_ARCHITECTURE.md). New capabilities and additive contributions to existing capabilities must use the validated extension registry; feature-owned calculations and integrations are bundled with an explicit owner and public entry point. The application bootstrap validates all contributions together and returns one immutable registry or fails closed.
 
 - A new module or calculation must be registerable without rewriting stable modules.
 - UI/UX, navigation, forms, and presentation can be replaced without changing domain rules or persistence contracts.
