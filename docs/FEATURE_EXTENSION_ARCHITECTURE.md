@@ -21,12 +21,28 @@ Runtime bootstrap combines built-in features, optional new feature definitions, 
 
 A calculation may only be contributed by its declared owner feature. An integration must involve its owning feature as producer or consumer. Cross-feature consumers still declare producer dependencies. Duplicate IDs, unknown owners, invalid versions, and non-public entry points fail closed. The runtime checks the canonical entry-point path, and the architecture CI gate verifies that the referenced public file actually exists in the checked-in feature package.
 
+## Reusable feature scaffolding
+
+Create a new feature package and its initial registry test from the checked-in templates:
+
+```bash
+npm run feature:create -- finance-insights "Finance Insights"
+```
+
+The generator creates:
+- `packages/features/<feature-id>/index.ts` — the only supported public import surface.
+- `packages/features/<feature-id>/runtime.ts` — a versioned feature definition and extension descriptor.
+- `packages/features/<feature-id>/README.md` — the ownership and implementation checklist.
+- `tests/features/<feature-id>.extension.test.ts` — a smoke test through the application-owned registry.
+
+The generator validates a lowercase kebab-case ID and non-empty label, refuses to overwrite existing paths, and does not modify the application composition root. The generated feature is deliberately `non-persistent`; it cannot enable business writes. A feature that stores business data must first complete the full persistent-feature, migration, backup, restore, lifecycle, and adapter contracts. Add the descriptor to the outer composition root only after its contract and tests are ready. Templates are starting structure, not a substitute for feature-specific design or acceptance testing.
+
 ## Adding a new feature
 
-1. Create `packages/features/<feature-id>/` with a public `index.ts`.
-2. Keep domain rules and calculations in the feature's domain/application-owned implementation; keep forms and screens as replaceable adapters.
-3. Define the feature contract and explicit dependencies. Use `non-persistent` only while the feature truly owns no persisted business data.
-4. If the feature persists business data, provide the complete versioned persistence, migration, backup, restore, and lifecycle contract before enabling writes.
+1. Run the reusable feature scaffold generator and review all generated files.
+2. Define the feature contract and explicit dependencies. Keep `non-persistent` only while the feature truly owns no persisted business data.
+3. If the feature persists business data, provide the complete versioned persistence, migration, backup, restore, and lifecycle contract before enabling writes.
+4. Keep domain rules and calculations in the feature's domain/application-owned implementation; keep forms and screens as replaceable adapters.
 5. Publish one `FeatureExtensionDefinition` with its stable ID, version, owner, public entry point, feature definition, calculations, and integrations.
 6. Add regression fixtures for every calculation and contract tests for every integration.
 7. Export the descriptor from the feature's public entry point. The outer application composition root supplies it to the application-layer registry initializer; the feature must not initialize the global registry.
