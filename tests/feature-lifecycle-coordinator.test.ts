@@ -25,7 +25,7 @@ describe("application feature lifecycle coordinator", () => {
     await coordinator.transition("performance", "disable");
     await coordinator.transition("logbook", "disable");
     const stored = await repository.get<{ states: Array<{ featureId: string; state: string }> }>("platform:feature-lifecycle");
-    expect(stored?.revision).toBe(1);
+    expect(stored?.revision).toBe(2);
     expect(stored?.data.states.find(state => state.featureId === "logbook")?.state).toBe("disabled");
   });
 
