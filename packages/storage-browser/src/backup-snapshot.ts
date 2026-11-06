@@ -56,7 +56,10 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
       return participant;
     });
   const platformParticipants = BROWSER_BACKUP_PARTICIPANTS.filter(item => item.featureId === "platform");
-  const customParticipants = [...customBrowserFeatureBackupAdapters.values()].map(adapter => ({\n    id: adapter.participantId, featureId: adapter.feature.id, schemaVersion: adapter.feature.persistence!.backup.snapshotVersion, tableNames: ["records"] as BrowserSnapshotTable[],\n  }));\n  const resolved = [...platformParticipants, ...featureParticipants, ...customParticipants];
+  const customParticipants = [...customBrowserFeatureBackupAdapters.values()].map(adapter => ({
+    id: adapter.participantId, featureId: adapter.feature.id, schemaVersion: adapter.feature.persistence!.backup.snapshotVersion, tableNames: ["records"] as BrowserSnapshotTable[],
+  }));
+  const resolved = [...platformParticipants, ...featureParticipants, ...customParticipants];
   const ids = resolved.map(item => item.id);
   if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
   return resolved;
