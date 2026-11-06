@@ -15,6 +15,8 @@ A feature extension is one cohesive, versioned descriptor containing:
 - The feature-owned versioned calculations.
 - The feature-owned versioned cross-feature integrations.
 
+The application layer owns runtime construction, validation, singleton lifecycle, and generic cross-feature event coordination. The outer application entry point statically composes feature extension descriptors and passes them to the application layer before mounting presentation. Feature packages publish descriptors only; they never initialize or own the global application registry. The application layer does not import feature packages, preserving explicit acyclic dependency direction.
+
 Runtime bootstrap combines built-in features, optional new feature definitions, and extension contributions locally. It validates the complete feature graph, ownership of every contribution, integration dependencies, calculation regression fixtures, persistence contracts, and backup participants before returning one immutable registry. Any invalid contribution fails startup; no partial registry is exposed.
 
 A calculation may only be contributed by its declared owner feature. An integration must involve its owning feature as producer or consumer. Cross-feature consumers still declare producer dependencies. Duplicate IDs, unknown owners, invalid versions, and non-public entry points fail closed. The runtime checks the canonical entry-point path, and the architecture CI gate verifies that the referenced public file actually exists in the checked-in feature package.
@@ -27,8 +29,9 @@ A calculation may only be contributed by its declared owner feature. An integrat
 4. If the feature persists business data, provide the complete versioned persistence, migration, backup, restore, and lifecycle contract before enabling writes.
 5. Publish one `FeatureExtensionDefinition` with its stable ID, version, owner, public entry point, feature definition, calculations, and integrations.
 6. Add regression fixtures for every calculation and contract tests for every integration.
-7. Register the extension at application bootstrap. Do not add direct cross-feature imports or duplicate platform business logic.
-8. Verify the feature through architecture, web, Android, migration, backup/restore, offline, recovery, and integrated regression gates as applicable.
+7. Export the descriptor from the feature's public entry point. The outer application composition root supplies it to the application-layer registry initializer; the feature must not initialize the global registry.
+8. Do not add direct cross-feature imports or duplicate platform business logic.
+9. Verify the feature through architecture, web, Android, migration, backup/restore, offline, recovery, and integrated regression gates as applicable.
 
 ## Adding a calculation to an existing feature
 

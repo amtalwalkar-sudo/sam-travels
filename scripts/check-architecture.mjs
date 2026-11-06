@@ -252,24 +252,26 @@ for (const section of requiredFeatureContractSections) {
   if (!featureContract.includes(section)) failures.push(`docs/FEATURE_MODULE_CONTRACT.md: missing required section "${section}"`);
 }
 
-// The application must validate one shared runtime registry before mounting UI.
+// Application package owns the shared registry; the outer entry point supplies extensions.
 const applicationEntry = await readFile(path.join(root, "apps/web/src/main.tsx"), "utf8");
+const applicationRegistry = await readFile(path.join(root, "packages/application/src/runtime-registry.ts"), "utf8");
 const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-driver-workspace.ts"), "utf8");
-const registryCall = applicationEntry.indexOf("getApplicationRuntimeRegistry();");
+const registryCall = applicationEntry.indexOf("initializeApplicationRuntimeRegistry(");
 const uiMount = applicationEntry.indexOf("createRoot(");
-if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) {
-  failures.push("apps/web/src/main.tsx: the validated application runtime registry must be initialized before UI mounting");
-}
-if (!workspaceConsumer.includes("getApplicationRuntimeRegistry()")) {
-  failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application registry singleton");
+if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
+if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !applicationRegistry.includes("let applicationRuntimeRegistry") || !applicationRegistry.includes("Application runtime registry has not been initialized")) failures.push("packages/application/src/runtime-registry.ts: application layer must own validated registry construction and singleton lifecycle");
+if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("getApplicationRuntimeRegistry()")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application-layer registry singleton");
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("packages/features/")) continue;
+  const content = await readFile(absolute, "utf8");
+  if (/initializeApplicationRuntimeRegistry|\bgetApplicationRuntimeRegistry\b|let applicationRuntimeRegistry/.test(content)) failures.push(relative + ": feature modules may publish descriptors but must not own application registry lifecycle");
 }
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("apps/web/src/")) continue;
   const content = await readFile(absolute, "utf8");
-  if (content.includes("initializeApplicationRuntimeRegistry(")) {
-    failures.push(relative + ": application consumers must use the shared runtime registry, not create independent registries");
-  }
+  if (content.includes("initializeApplicationRuntimeRegistry(") && relative !== "apps/web/src/main.tsx") failures.push(relative + ": only the application composition root may initialize the shared registry");
 }
 
 if (failures.length) {

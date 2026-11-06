@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateTripDurationMinutes,
-  dispatchCommittedWorkEvent,
-  initializeApplicationRuntimeRegistry,
-  getApplicationRuntimeRegistry,
+  LOGBOOK_FEATURE_EXTENSION,
   LOGBOOK_WORK_EVENT_INTEGRATION,
   TRIP_DURATION_CALCULATION,
 } from "../packages/features/logbook";
+import {
+  createApplicationRuntimeRegistry,
+  dispatchCommittedFeatureEvent,
+  getApplicationRuntimeRegistry,
+  initializeApplicationRuntimeRegistry,
+} from "../packages/application/src";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
 
 describe("production Log Book runtime registrations", () => {
   it("shares one immutable application registry across startup and feature consumers", () => {
+    const initialized = initializeApplicationRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
     const first = getApplicationRuntimeRegistry();
+    expect(first).toBe(initialized);
     const second = getApplicationRuntimeRegistry();
     expect(first).toBe(second);
     expect(Object.isFrozen(first)).toBe(true);
@@ -21,7 +27,7 @@ describe("production Log Book runtime registrations", () => {
   });
 
   it("boots the application with its real versioned integration and calculation contracts", () => {
-    const runtime = initializeApplicationRuntimeRegistry();
+    const runtime = createApplicationRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
     expect(runtime.integrations.get(LOGBOOK_WORK_EVENT_INTEGRATION.id)).toMatchObject({
       producerFeatureId: "work",
       consumerFeatureId: "logbook",
@@ -45,7 +51,7 @@ describe("production Log Book runtime registrations", () => {
   });
 
   it("runs the registered calculation version with mandatory regression fixtures", () => {
-    const runtime = initializeApplicationRuntimeRegistry();
+    const runtime = createApplicationRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
     const result = executeRegisteredCalculation(runtime.calculations, TRIP_DURATION_CALCULATION.id, {
       businessDate: "2026-11-04",
       startedAt: "2026-11-04T10:00:00.000Z",
@@ -62,7 +68,7 @@ describe("production Log Book runtime registrations", () => {
   });
 
   it("dispatches committed Work events through the registered Log Book integration", async () => {
-    const runtime = initializeApplicationRuntimeRegistry();
+    const runtime = createApplicationRuntimeRegistry({ extensions: [LOGBOOK_FEATURE_EXTENSION] });
     const event: DriverEvent = {
       eventId: "work-event-001",
       committedAt: "2026-11-04T12:00:00.000Z",
@@ -81,15 +87,15 @@ describe("production Log Book runtime registrations", () => {
       },
     };
     const received: string[] = [];
-    await dispatchCommittedWorkEvent(runtime, event, message => {
+    await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, message => {
       received.push(message.eventId);
     });
     expect(received).toEqual(["work-event-001"]);
-    await expect(dispatchCommittedWorkEvent(runtime, {
+    await expect(dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, {
       ...event,
       gps: { ...event.gps, latitude: 999 },
     }, () => undefined)).rejects.toThrow("Invalid feature integration payload");
-    await expect(dispatchCommittedWorkEvent(runtime, {
+    await expect(dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, {
       ...event,
       command: { ...event.command, eventId: "different-event-id" },
     }, () => undefined)).rejects.toThrow("Invalid feature integration payload");
