@@ -175,7 +175,10 @@ for (const absolute of sourceFiles) {
   const content = await readFile(absolute, "utf8");
     const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
     !relative.startsWith("packages/storage-browser/src/");
-  const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
+  const browserPersistenceGateways = new Set([
+    "apps/web/src/browser-secure-vault.ts",
+    "apps/web/src/backup-config-storage.ts",
+  ]);
   if (productionTypeScript && !browserPersistenceGateways.has(relative)) {
     for (const reference of analyzeBrowserPersistenceReferences(content, relative)) {
       failures.push(`${relative}:${reference.line}: direct browser persistence access "${reference.symbol}" is private to the browser persistence adapter`);
