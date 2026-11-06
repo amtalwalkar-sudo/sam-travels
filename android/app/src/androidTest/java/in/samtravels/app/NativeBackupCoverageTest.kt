@@ -52,7 +52,7 @@ class NativeBackupCoverageTest {
             assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getString("value"))
             assertEquals("shift_active", JSONObject(database.records().get("driver-state")!!.json).getJSONObject("value").getString("state"))
             assertEquals("event-1", JSONObject(database.records().get("driver-intent:event-1")!!.json).getString("eventId"))
-            assertEquals("event-1", JSONObject(database.records().get("driver-outbox:1")!!.json).getString("eventId"))
+            assertEquals("event-1", JSONObject(database.records().get("driver-outbox:2")!!.json).getString("eventId"))
             assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
         } finally { database.close() }
