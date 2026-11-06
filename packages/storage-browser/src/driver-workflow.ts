@@ -2,7 +2,7 @@ import type { Table } from "dexie";
 import type { DriverStateProjection } from "../../core/src/commands";
 import type { GpsFix } from "../../core/src/types";
 import type { DriverEvent,DriverIntent } from "../../domain/src/driver-workflow";
-import { EMPTY_DRIVER_STATE,assertDriverEventContract,assertDriverIntentContract,assertDriverStateContract,validateDriverCompletion } from "../../domain/src/driver-workflow";
+import { EMPTY_DRIVER_STATE,assertDriverEventContract,assertDriverIntentContract,assertDriverOutboxContract,assertDriverStateContract,validateDriverCompletion } from "../../domain/src/driver-workflow";
 import type { DriverWorkflowRepository } from "../../application/src/driver-workflow-service";
 import { browserDatabase } from "./database";
 type SnapshotRow={id:"driver-state";value:DriverStateProjection};
@@ -21,7 +21,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
   const snapshot=await browserDatabase.transaction("rw",states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;assertDriverStateContract(next);const event={eventId:id,command:intent.command,gps,committedAt:now,revision:next.revision};assertDriverEventContract(event);
    await events().add(event);await states().put({id:"driver-state",value:next});
-   await intents().put({...intent,status:"recorded",updatedAt:now,reason:undefined});await outbox().put({id:"driver-state:"+next.revision,eventId:id,revision:next.revision,integrationId:"logbook.work-driver-events.v1",contractVersion:1,eventName:"work.driver-event-committed",payloadVersion:1,delivered:false,createdAt:now});return next});
+   const completedIntent={...intent,status:"recorded" as const,updatedAt:now,reason:undefined};assertDriverIntentContract(completedIntent);await intents().put(completedIntent);const outboxRecord={id:"driver-state:"+next.revision,eventId:id,revision:next.revision,integrationId:"logbook.work-driver-events.v1",contractVersion:1,eventName:"work.driver-event-committed",payloadVersion:1,delivered:false,createdAt:now};assertDriverOutboxContract(outboxRecord);await outbox().put(outboxRecord);return next});
   this.listeners.forEach(fn=>fn(snapshot));return snapshot;
  }
  async markNeedsAttention(id:string,reason:string){await browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(i){assertDriverIntentContract(i);if(i.status!=="recorded"){const next={...i,status:"needs_attention" as const,reason,updatedAt:new Date().toISOString()};assertDriverIntentContract(next);await intents().put(next)}}})}
