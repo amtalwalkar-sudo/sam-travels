@@ -49,6 +49,11 @@ export function validateFeatureExtensionUpgrade(
   }
 
   assertMonotonicContract("Feature contract", previous.feature.contractVersion, next.feature.contractVersion);
+  const previousDependencies = JSON.stringify(previous.feature.dependencies);
+  const nextDependencies = JSON.stringify(next.feature.dependencies);
+  if (previousDependencies !== nextDependencies && next.feature.contractVersion === previous.feature.contractVersion) {
+    throw new Error("Feature dependency changes require a feature contract version increase");
+  }
   if (previous.feature.dataPolicy === "persistent" && next.feature.dataPolicy !== "persistent") {
     throw new Error("Persistent feature cannot become non-persistent during upgrade");
   }
@@ -60,12 +65,26 @@ export function validateFeatureExtensionUpgrade(
   }
   if (previousPersistence && nextPersistence) {
     assertMonotonicContract("Persistent schema", previousPersistence.schemaVersion, nextPersistence.schemaVersion);
+    assertMonotonicContract("Backup snapshot", previousPersistence.backup.snapshotVersion, nextPersistence.backup.snapshotVersion);
     if (nextPersistence.backup.participantId !== previousPersistence.backup.participantId) {
       throw new Error("Persistent backup participant identity cannot change during upgrade");
     }
     if (nextPersistence.restore.validatorId !== previousPersistence.restore.validatorId &&
         nextPersistence.schemaVersion === previousPersistence.schemaVersion) {
       throw new Error("Restore validator change requires a persistent schema version increase");
+    }
+    let expectedSchema = previousPersistence.schemaVersion;
+    const pendingMigrations = [...nextPersistence.migrations]
+      .filter(migration => migration.fromVersion >= previousPersistence.schemaVersion)
+      .sort((left, right) => left.fromVersion - right.fromVersion);
+    for (const migration of pendingMigrations) {
+      if (migration.fromVersion !== expectedSchema || migration.toVersion !== expectedSchema + 1 || !migration.id) {
+        throw new Error("Persistent schema upgrade has an incomplete migration chain");
+      }
+      expectedSchema = migration.toVersion;
+    }
+    if (expectedSchema !== nextPersistence.schemaVersion) {
+      throw new Error("Persistent schema upgrade has an incomplete migration chain");
     }
   }
 
@@ -76,6 +95,13 @@ export function validateFeatureExtensionUpgrade(
     if (!nextContract) throw new Error("Upgrade cannot silently remove integration contract: " + id);
     assertMonotonicContract("Integration " + id, oldContract.version, nextContract.version);
     assertMonotonicContract("Integration payload " + id, oldContract.payloadVersion, nextContract.payloadVersion);
+    if (oldContract.producerFeatureId !== nextContract.producerFeatureId ||
+        oldContract.consumerFeatureId !== nextContract.consumerFeatureId ||
+        oldContract.eventName !== nextContract.eventName) {
+      if (nextContract.version === oldContract.version) {
+        throw new Error("Integration identity changes require an integration version increase: " + id);
+      }
+    }
     if (nextContract.payloadVersion !== oldContract.payloadVersion &&
         nextContract.version === oldContract.version) {
       throw new Error("Integration payload change requires an integration version increase: " + id);
@@ -90,8 +116,11 @@ export function validateFeatureExtensionUpgrade(
     assertMonotonicContract("Calculation " + id, oldContract.version, nextContract.version);
     assertMonotonicContract("Calculation input schema " + id, oldContract.inputSchemaVersion, nextContract.inputSchemaVersion);
     assertMonotonicContract("Calculation output schema " + id, oldContract.outputSchemaVersion, nextContract.outputSchemaVersion);
+    const calculationRulesChanged = nextContract.unit !== oldContract.unit ||
+      nextContract.effectiveDateField !== oldContract.effectiveDateField ||
+      JSON.stringify(nextContract.rounding) !== JSON.stringify(oldContract.rounding);
     if ((nextContract.inputSchemaVersion !== oldContract.inputSchemaVersion ||
-         nextContract.outputSchemaVersion !== oldContract.outputSchemaVersion) &&
+         nextContract.outputSchemaVersion !== oldContract.outputSchemaVersion || calculationRulesChanged) &&
         nextContract.version === oldContract.version) {
       throw new Error("Calculation schema change requires a calculation version increase: " + id);
     }
