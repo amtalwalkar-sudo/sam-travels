@@ -164,6 +164,7 @@ const androidPersistenceGateways = new Set([
   "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
   "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
   "android/app/src/main/java/in/samtravels/app/NativeBackupCoverage.kt",
+  "android/app/src/main/java/in/samtravels/app/NativeFeatureBackupParticipants.kt",
 ]);
 
 for (const absolute of sourceFiles) {
