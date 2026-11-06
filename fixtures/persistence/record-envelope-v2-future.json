@@ -1,0 +1,9 @@
+{
+  "id": "future-trip-001",
+  "schemaVersion": 2,
+  "createdAt": "2025-04-03T08:00:00.000Z",
+  "updatedAt": "2025-04-03T08:15:00.000Z",
+  "source": "web",
+  "revision": 1,
+  "data": { "eventType": "trip_completed" }
+}
