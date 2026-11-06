@@ -122,7 +122,7 @@ describe("feature extension architecture", () => {
       extensions: [{ ...insightsExtension, publicEntryPoint: "packages/features/insights/private.ts" }],
     })).toThrow("Invalid feature public entry point");
     expect(() => initializeRuntimeRegistry({
-      extensions: [{ ...insightsExtension, featureId: "missing" }],
+      extensions: [{ ...insightsExtension, featureId: "missing", feature: undefined }],
     })).toThrow("unregistered feature");
     expect(() => initializeRuntimeRegistry({
       extensions: [insightsExtension, { ...insightsExtension, feature: undefined }],

@@ -15,7 +15,6 @@ import {
 import {
   registerFeatureExtensions,
   type FeatureExtensionDefinition,
-  type RegisteredFeatureExtension,
 } from "./feature-extension";
 
 export type RuntimeContractDefinitions = {
@@ -29,7 +28,7 @@ export type RuntimeContractDefinitions = {
 
 export type RuntimeRegistry = {
   features: ReadonlyMap<FeatureId, FeatureDefinition>;
-  extensions: ReadonlyMap<string, RegisteredFeatureExtension>;
+  extensions: ReadonlyMap<string, FeatureExtensionDefinition>;
   startupOrder: readonly FeatureDefinition[];
   integrations: ReadonlyMap<string, FeatureIntegrationContract>;
   backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
