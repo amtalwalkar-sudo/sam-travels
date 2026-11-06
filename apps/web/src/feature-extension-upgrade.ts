@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import {
   FeatureExtensionUpgradeCoordinator,
   type FeatureMigrationHandler,
@@ -10,6 +11,7 @@ import {
   DexieFeatureExtensionUpgradeTransaction,
   type BrowserFeatureMigrationContext,
 } from "../../../packages/storage-browser/src";
+import { RoomFeatureExtensionUpgradeTransaction } from "./room-feature-extension-upgrade";
 
 /**
  * Installed-extension update entry point for the browser application.
@@ -24,8 +26,8 @@ export async function upgradeInstalledBrowserFeatureExtension(input: {
   currentSchemaVersion: number;
   handlers: Readonly<Record<string, FeatureMigrationHandler<BrowserFeatureMigrationContext>>>;
 }): Promise<number> {
-  return new FeatureExtensionUpgradeCoordinator().apply({
-    ...input,
-    transaction: new DexieFeatureExtensionUpgradeTransaction(),
-  });
+  const transaction = Capacitor.isNativePlatform()
+    ? new RoomFeatureExtensionUpgradeTransaction()
+    : new DexieFeatureExtensionUpgradeTransaction();
+  return new FeatureExtensionUpgradeCoordinator().apply({ ...input, transaction });
 }
