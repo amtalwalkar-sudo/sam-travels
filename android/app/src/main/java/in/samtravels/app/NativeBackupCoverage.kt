@@ -211,6 +211,9 @@ internal object NativeBackupCoverage {
 
     fun exportBusinessRecords(database: LocalDatabase, isInternal: (String) -> Boolean): JSONArray {
         assertRoomSchemaCovered(database)
+        database.records().list().filter { it.id.startsWith("feature:") }.forEach { row ->
+            require(isFeatureOwnedRecord(row.id)) { "backup_unregistered_feature_record:" + row.id }
+        }
         val result = JSONArray()
         discoverParticipants().forEach { participant ->
             adapter(participant).export(database, participant.id, isInternal).forEach { row -> result.put(row) }
