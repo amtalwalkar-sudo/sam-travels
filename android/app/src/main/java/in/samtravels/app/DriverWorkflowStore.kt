@@ -169,6 +169,7 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
             require(
                 intent.optString("status") == "needs_attention" ||
                     intent.optString("status") == "pending_location",
@@ -196,6 +197,7 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
             if (intent.optString("status") != "recorded") {
                 val now = Instant.now().toString()
                 DriverWorkflowContract.validateIntent(intent)
