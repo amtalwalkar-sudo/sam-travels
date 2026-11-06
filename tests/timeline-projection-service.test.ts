@@ -100,4 +100,14 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     expect(edge.logicalShifts[0].metrics.passenger_trip_time.status).toBe("pending");
     expect(migratedLegacy.integrityIssues.map(issue => issue.code)).toContain("invalid_event");
   });
+
+  it("rejects malformed persisted events before Timeline business projection", async () => {
+    await browserDatabase.table("driverEvents").put({
+      eventId: "malformed-event",
+      command: {},
+      committedAt: "not-an-instant",
+      revision: 1,
+    } as unknown as DriverEvent);
+    await expect(new DexieDriverWorkflowRepository().listEvents()).rejects.toThrow();
+  });
 });
