@@ -6,18 +6,18 @@ import ts from "typescript";
  * strings, and regular expressions are intentionally ignored by the AST.
  */
 export function analyzeModuleReferences(source, fileName = "fixture.ts") {
-  const scriptKind = /\\.tsx$/i.test(fileName)
+  const scriptKind = /\.tsx$/i.test(fileName)
     ? ts.ScriptKind.TSX
-    : /\\.jsx$/i.test(fileName)
+    : /\.jsx$/i.test(fileName)
       ? ts.ScriptKind.JSX
-      : /\\.(?:js|mjs|cjs)$/i.test(fileName)
+      : /\.(?:js|mjs|cjs)$/i.test(fileName)
         ? ts.ScriptKind.JS
         : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind);
   const references = [];
   const diagnostics = (sourceFile.parseDiagnostics ?? []).map((diagnostic) => ({
     code: diagnostic.code,
-    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\\n"),
+    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
     line: diagnostic.file?.getLineAndCharacterOfPosition(diagnostic.start ?? 0).line + 1,
   }));
   const add = (node, kind) => {
@@ -55,8 +55,8 @@ export function analyzeModuleReferences(source, fileName = "fixture.ts") {
  * constructors and method calls without matching comments or string contents.
  */
 export function analyzeBrowserPersistenceReferences(source, fileName = "fixture.ts") {
-  const scriptKind = /\\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX :
-    /\\.(?:js|jsx|mjs|cjs)$/i.test(fileName) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
+  const scriptKind = /\.tsx$/i.test(fileName) ? ts.ScriptKind.TSX :
+    /\.(?:js|jsx|mjs|cjs)$/i.test(fileName) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
   const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, scriptKind);
   const references = [];
   const guardedNames = new Set([
