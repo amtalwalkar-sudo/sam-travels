@@ -224,7 +224,7 @@ for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("packages/features/")) continue;
   const content = await readFile(absolute, "utf8");
-  for (const match of content.matchAll(/publicEntryPoint\\s*:\\s*["']([^"']+)["']/g)) {
+  for (const match of content.matchAll(/publicEntryPoint\s*:\s*["']([^"']+)["']/g)) {
     const entryPoint = normalize(match[1]);
     if (!checkedInSourcePaths.has(entryPoint)) {
       failures.push(`${relative}: feature public entry point "${entryPoint}" does not resolve to a checked-in source file`);
