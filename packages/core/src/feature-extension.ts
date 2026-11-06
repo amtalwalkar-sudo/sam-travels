@@ -33,11 +33,14 @@ export function registerFeatureExtensions(
     if (!Number.isSafeInteger(source.version) || source.version < 1) {
       throw new Error("Invalid feature extension version: " + source.id);
     }
-    if (!source.featureId?.trim() || !features.has(source.featureId)) {
+    if (!source.featureId?.trim()) {
       throw new Error("Feature extension references an unregistered feature: " + source.id);
     }
     if (source.feature && source.feature.id !== source.featureId) {
       throw new Error("Feature extension definition does not match its owner: " + source.id);
+    }
+    if (!features.has(source.featureId)) {
+      throw new Error("Feature extension references an unregistered feature: " + source.id);
     }
     const expectedEntryPoint = `packages/features/${source.featureId}/index.ts`;
     if (source.publicEntryPoint !== expectedEntryPoint) {

@@ -125,7 +125,7 @@ describe("feature extension architecture", () => {
       extensions: [{ ...insightsExtension, featureId: "missing" }],
     })).toThrow("unregistered feature");
     expect(() => initializeRuntimeRegistry({
-      extensions: [insightsExtension, insightsExtension],
+      extensions: [insightsExtension, { ...insightsExtension, feature: undefined }],
     })).toThrow("Missing or duplicate feature extension id");
   });
 
