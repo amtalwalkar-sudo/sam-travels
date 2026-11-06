@@ -1,13 +1,13 @@
 # UI/UX and Application Shell Foundation Contract
 
-Status: approved foundation contract; implementation and enforcement are to be delivered in later, separately reviewed slices.
+Status: approved presentation-boundary contract; its former shell composition and visual-system prescriptions are superseded by the clean-slate Stage 4 decision recorded below.
 Scope: the Sam Travels single-driver PWA and Android application surfaces. This contract governs presentation architecture and user interaction. It does not define business rules, calculations, persistence semantics, or feature-specific workflows.
 
 ## Governing principle
 
 The UI/UX and application shell form a replaceable, independently testable presentation system. They may evolve without changing business logic, calculations, persistence, recovery, platform ownership, or feature contracts.
 
-The application must present one coherent design language while allowing each section to use the layout and interaction patterns appropriate to its work.
+The application may use any visual language. Consistency is optional and must never constrain a feature's custom presentation.
 
 ## Authority, precedence, and conflict resolution
 
@@ -45,23 +45,19 @@ If a UI requirement appears to conflict with one of these authorities, preserve 
 
 ## 3. Design system
 
-- A shared design language governs colour roles, typography, spacing, sizing, shape, elevation, iconography, motion, and visual states.
-- Shared design decisions are expressed as semantic tokens and reusable primitives, not copied literal values scattered through screens.
-- Themes are presentation configuration. Theme changes must not alter application state or business behaviour.
-- Components consume semantic tokens; feature screens must not create competing global design systems.
-- The exact visual theme, palette, typography choices, and component styling remain undecided until the visual-design phase.
+- Design systems, themes, tokens, component libraries and styling conventions are optional implementation choices, not platform requirements.
+- A feature may bring its own complete visual system or use no shared system.
+- Any shared presentation primitives are conveniences only and cannot constrain custom screens.
 
 ## 4. Screen and component standards
 
-- Screens are compositions of independently reusable components and section-level layouts.
-- Common patterns for lists, details, summaries, forms, empty states, loading states, errors, and offline states are defined centrally.
-- Shared components have one cohesive responsibility, explicit inputs/outputs, documented state ownership, and stable public contracts.
-- Feature-specific composition is permitted; duplicated generic components or unexplained visual exceptions are not.
-- A screen may use a specialised layout when it materially improves its task, while retaining the shared design language and interaction conventions.
+- Screens may be fully custom compositions, including bespoke components, layouts, interaction models and styling.
+- No standard screen template, common component vocabulary or visual convention is required.
+- Shared components may be used when useful but are never mandatory.
 
 ## 5. Interaction standards
 
-- Navigation, back behaviour, focus, keyboard handling, gestures, dialogs, menus, confirmations, and submission feedback follow shared interaction contracts.
+- Navigation, back behaviour, focus, keyboard handling, gestures, dialogs, menus, confirmations, and submission feedback must respect platform and application safety contracts; visual and interaction implementations may otherwise be custom.
 - Destructive or consequential actions clearly communicate scope and require confirmation appropriate to their impact.
 - Input validation is presented consistently and remains distinct from domain validation and business acceptance.
 - Pending, successful, failed, rejected, and uncertain outcomes must not be visually conflated.
@@ -204,3 +200,14 @@ Before the foundation is considered implemented, automated and reviewed evidence
 ## Implementation policy
 
 First reconcile this contract with existing architecture, feature, form, lifecycle, recovery, security, and platform contracts. Then implement enforcement and shell/presentation foundations in small, reviewable slices. Do not begin feature-specific visual redesign or add business rules and calculations as part of this documentation change. The shell implementation must preserve authoritative startup/recovery gates and platform-specific ownership.
+
+
+## Clean-slate presentation decision — Stage 4 (authoritative)
+
+The product owner has explicitly approved discarding the existing presentation implementation and its visual design. The former shell, layouts, navigation controls, component styling, and UI abstractions are not preservation constraints. They may be replaced rather than migrated. This decision does **not** authorize removal or semantic redesign of application workflows, feature contracts, business rules, durable data, lifecycle gates, persistence, backup/restore, recovery, migrations, upgrades, security, or native platform ownership.
+
+The replacement primary navigation is fixed at exactly four bottom destinations, in this order: **Drive, Timeline, Performance, Admin**. An expandable **Settings (gear) control** belongs in the upper corner and is not a fifth bottom destination. The four destinations are product-owned shell navigation; feature-owned custom screens may be mounted within approved destinations but may not silently add or replace primary destinations.
+
+Each feature may supply a completely custom screen and interaction experience. No mandatory screen template, design system, theme, component library, form renderer, or visual language is imposed. The shell is a replaceable host and must not inspect, reshape, or constrain a custom screen's internal composition. Presentation code continues to consume authoritative application state and request actions through approved application ports; it must not own business rules or durable state.
+
+The four-menu and settings arrangement is a product-level shell requirement, not a framework limitation. The PWA shell and native Android overlay remain separate presentation surfaces. This decision supersedes any earlier requirement in this document that a shared design language, shared component patterns, or the prior shell implementation be preserved.
