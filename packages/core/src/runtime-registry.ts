@@ -12,6 +12,10 @@ import {
   type FeatureIntegrationContract,
 } from "./feature-contracts";
 import {
+  registerFeatureDataQueries,
+  type FeatureDataQueryContract,
+} from "./feature-data";
+import {
   registerFeatureExtensions,
   type FeatureExtensionDefinition,
   type RegisteredFeatureExtension,
@@ -28,11 +32,12 @@ export type RuntimeContractDefinitions = {
   extensions?: FeatureExtensionDefinition[];
   integrations?: FeatureIntegrationContract[];
   calculations?: CalculationContract<any, any>[];
+  dataQueries?: FeatureDataQueryContract<any>[];
 };
 
 export type RuntimeContributionFailure = Readonly<{
   featureId: FeatureId;
-  code: "invalid_extension" | "invalid_integration" | "invalid_calculation" | "duplicate_contribution";
+  code: "invalid_extension" | "invalid_integration" | "invalid_calculation" | "invalid_data_query" | "duplicate_contribution";
   message: string;
 }>;
 
@@ -48,6 +53,7 @@ export type RuntimeRegistry = {
   /** Includes every valid persistent owner, whether active, blocked, or disabled. */
   backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
   calculations: ReadonlyMap<string, CalculationContract<any, any>>;
+  dataQueries: ReadonlyMap<string, FeatureDataQueryContract<any>>;
   contributionFailures: readonly RuntimeContributionFailure[];
 };
 
@@ -74,6 +80,7 @@ export function initializeRuntimeRegistry(
   const extensionsByOwner = new Map<FeatureId, FeatureExtensionDefinition[]>();
   const integrationsByOwner = new Map<FeatureId, FeatureIntegrationContract[]>();
   const calculationsByOwner = new Map<FeatureId, CalculationContract<any, any>[]>();
+  const dataQueriesByOwner = new Map<FeatureId, FeatureDataQueryContract<any>[]>();
   const failures: RuntimeContributionFailure[] = [];
   const add = <T>(map: Map<FeatureId, T[]>, owner: FeatureId, value: T) => {
     const values = map.get(owner) ?? [];
@@ -85,9 +92,11 @@ export function initializeRuntimeRegistry(
     add(extensionsByOwner, extension.featureId, extension);
     for (const integration of extension.integrations ?? []) add(integrationsByOwner, extension.featureId, integration);
     for (const calculation of extension.calculations ?? []) add(calculationsByOwner, extension.featureId, calculation);
+    for (const query of extension.dataQueries ?? []) add(dataQueriesByOwner, extension.featureId, query);
   }
   for (const integration of definitions.integrations ?? []) add(integrationsByOwner, integration.consumerFeatureId, integration);
   for (const calculation of definitions.calculations ?? []) add(calculationsByOwner, calculation.ownerFeatureId, calculation);
+  for (const query of definitions.dataQueries ?? []) add(dataQueriesByOwner, query.ownerFeatureId, query);
 
   // A duplicated contribution identity is ambiguous across owners. Reject all
   // owners of that identity rather than allowing declaration order to win.
@@ -101,6 +110,7 @@ export function initializeRuntimeRegistry(
   for (const [owner, values] of extensionsByOwner) for (const value of values) countIdentity("extension", value.id, owner);
   for (const [owner, values] of integrationsByOwner) for (const value of values) countIdentity("integration", value.id, owner);
   for (const [owner, values] of calculationsByOwner) for (const value of values) countIdentity("calculation", value.id, owner);
+  for (const [owner, values] of dataQueriesByOwner) for (const value of values) countIdentity("data-query", value.id, owner);
   const duplicateOwners = new Set<FeatureId>();
   for (const extension of extensionDefinitions) {
     if (extension.feature && activation.diagnostics.some(diagnostic =>
@@ -129,11 +139,13 @@ export function initializeRuntimeRegistry(
   const extensions = new Map<string, RegisteredFeatureExtension>();
   const integrations = new Map<string, FeatureIntegrationContract>();
   const calculations = new Map<string, CalculationContract<any, any>>();
+  const dataQueries = new Map<string, FeatureDataQueryContract<any>>();
 
   const owners = new Set<FeatureId>([
     ...extensionsByOwner.keys(),
     ...integrationsByOwner.keys(),
     ...calculationsByOwner.keys(),
+    ...dataQueriesByOwner.keys(),
   ]);
   for (const owner of [...owners].sort()) {
     if (!features.has(owner)) {
@@ -148,19 +160,23 @@ export function initializeRuntimeRegistry(
     const ownerExtensions = extensionsByOwner.get(owner) ?? [];
     const ownerIntegrations = integrationsByOwner.get(owner) ?? [];
     const ownerCalculations = calculationsByOwner.get(owner) ?? [];
+    const ownerDataQueries = dataQueriesByOwner.get(owner) ?? [];
     try {
       // Stage every registry for this owner locally. Nothing is published until
       // all three validators succeed, preventing partial feature contribution.
       const stagedExtensions = registerFeatureExtensions(features, ownerExtensions);
       const stagedIntegrations = registerFeatureIntegrations(activeFeatures, ownerIntegrations);
       const stagedCalculations = registerCalculations(activeFeatures, ownerCalculations);
+      const stagedDataQueries = registerFeatureDataQueries(activeFeatures, ownerDataQueries);
       for (const [id, value] of stagedExtensions) extensions.set(id, value);
       for (const [id, value] of stagedIntegrations) integrations.set(id, value);
       for (const [id, value] of stagedCalculations) calculations.set(id, value);
+      for (const [id, value] of stagedDataQueries) dataQueries.set(id, value);
     } catch (error) {
       const hasExtensions = ownerExtensions.length > 0;
       const hasIntegrations = ownerIntegrations.length > 0;
-      const code = hasExtensions ? "invalid_extension" : hasIntegrations ? "invalid_integration" : "invalid_calculation";
+      const hasCalculations = ownerCalculations.length > 0;
+      const code = hasExtensions ? "invalid_extension" : hasIntegrations ? "invalid_integration" : hasCalculations ? "invalid_calculation" : "invalid_data_query";
       failures.push(Object.freeze({
         featureId: owner,
         code,
@@ -182,6 +198,7 @@ export function initializeRuntimeRegistry(
     integrations: createReadonlyRegistry(integrations),
     backupParticipants,
     calculations: createReadonlyRegistry(calculations),
+    dataQueries: createReadonlyRegistry(dataQueries),
     contributionFailures: Object.freeze(failures.sort((a, b) =>
       a.featureId < b.featureId ? -1 : a.featureId > b.featureId ? 1 : a.code < b.code ? -1 : a.code > b.code ? 1 : 0,
     )),

@@ -9,8 +9,8 @@
 |---|---|---|
 | Stage 0 — Repository audit and scope freeze | Complete | Frozen scope and evidence-based baseline audit merged to main in PR #19. |
 | Stage 1 — Deterministic feature discovery and declarations | **Complete** | PR #20 merged by squash (merge commit `4d4b2006887e2c919fed8d118c2762868975bb8e`). CI run #839 / `42299197556`: architecture, web, Android and integrated regression jobs all passed. |
-| Stage 2 — Dependency activation and failure isolation | **In progress** | Stage 1 merged; implementation audit of runtime dependency validation, activation/registration, failure handling and Stage 5 integration is beginning. |
-| Stage 3 — Multi-source data coordination | Not started | Reuse existing query/repository/calculation contracts; add only audited gaps. |
+| Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
+| Stage 3 — Cross-feature data orchestration and calculation framework | **Implementation in progress** | Typed feature-owned query contracts and an application coordinator are being added to the existing runtime. Focused tests and CI gate are included; completion awaits PR and merged-main CI evidence. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | Not started | Preserve unrestricted custom UI acceptance criterion. |
 | Stage 5 — Diagnostics and change impact | Not started | Extend existing diagnostics and architecture checks. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
@@ -85,6 +85,36 @@ Implementation is merged into `main` through [PR #21](https://github.com/amtalwa
 **CI proof:** [PR workflow run #849](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42303475095), for head `e1d2b9f9d6f728bf00fdd5b3340a9d0fe1e6acfa), completed successfully. Architecture, focused Stage 2 tests, backup/recovery reliability tests, the full web suite (210 tests across 37 files), TypeScript/web build, Android build and emulator regression gate, and the integrated regression gate all passed.
 
 Stage 2 is complete. Continue with Stage 3 — cross-feature data orchestration and calculation framework — without replacing the registry or lifecycle contracts established here.
+
+## Stage 3 — Cross-feature data orchestration and calculation framework
+
+### Audited starting point
+
+- Existing Stage 2 already stages feature-owned extensions, integrations and calculations atomically in the one application-owned runtime registry.
+- Existing calculation contracts already enforce versions, input/output schema versions, business-effective dates, rounding policy, immutable inputs, and mandatory regression fixtures.
+- Existing Timeline projection already accepts source snapshots and distinguishes available, pending, unavailable and invalid metrics. The missing capability was a reusable application-level multi-source query contract/coordinator with shared reporting context and source provenance.
+- Existing Stage 5 persistence, lifecycle, backup/restore, recovery and upgrade mechanisms remain unchanged.
+
+### Stage 3 implementation added on this branch
+
+- Added typed feature-owned data query contracts with owner, contract version, output schema version, provider query and record validator.
+- Added shared query context for date periods, effective dates, as-of timestamps and optional adapter-supported snapshot tokens.
+- Added explicit source outcomes: available, pending, unavailable and invalid. Available snapshots carry completeness, freshness, observation time and optional snapshot token; no missing/incomplete source is silently converted to zero.
+- Query records are validated and copied into deeply immutable JSON-shaped data before they cross the feature boundary.
+- Added the query contribution to the existing extension declaration and the existing runtime registry. It is staged with that feature owner's other contributions; no second registry or independent lifecycle was created.
+- Added an application-level `CrossFeatureDataCoordinator` that executes requested sources concurrently under the same reporting context, handles provider failure without exposing adapter details, checks cross-source snapshot consistency where tokens are supported, and retains source ownership/version/provenance.
+- Added an orchestration path into the existing registered calculation executor. By default, calculations are blocked when any source is unavailable/invalid/pending, incomplete or not fresh. Explicit opt-ins can allow stale or incomplete sources; source status remains visible in the result.
+- Calculation results carry the existing calculation/schema versions and effective date alongside the exact source query results and consistency classification.
+- Added focused fixture tests for multiple owners, shared snapshot context, calculation provenance, incomplete/pending/unavailable/invalid states, provider failure, snapshot mismatch, invalid periods, and duplicate/missing query requests.
+- Added a dedicated Stage 3 CI test gate before the existing Stage 2 and backup/recovery gates.
+
+### Stage 3 boundaries
+
+- No business feature has been onboarded; all new coverage uses disposable fixtures.
+- No universal event bus, formula engine, cache, cross-feature direct table access, presentation/UI work, or replacement of existing calculation contracts was introduced.
+- Query contracts are read-only coordination interfaces. Source adapters remain owned by their feature/platform boundaries.
+- Stage 3 is not complete until focused tests, full web tests/build, architecture checks, Android build/emulator regression, integrated regression and merged-main CI all pass.
+
 ## Implementation discipline
 
 Complete one stage at a time. Each stage must have a focused implementation, tests, CI evidence and progress update before the next stage begins. Do not onboard the first real business feature as part of this architecture project; use disposable fixtures only when required to prove contracts.

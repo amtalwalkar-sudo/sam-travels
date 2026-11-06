@@ -27,6 +27,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Gate Stage 3 cross-feature data coordination and calculation provenance
+        run: npm test -- tests/cross-feature-data-coordinator.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts
       - name: Gate deterministic feature activation and contribution isolation
         run: npm test -- tests/feature-activation.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts tests/feature-lifecycle-coordinator.test.ts
       - name: Gate offline workflow and backup reliability regressions
