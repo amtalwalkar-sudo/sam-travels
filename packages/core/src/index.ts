@@ -11,3 +11,4 @@ export * from "./runtime-registry";
 export * from "./readonly-registry";
 export * from "./persistence-contract";
 export * from "./feature-lifecycle";
+export * from "./feature-compatibility";
