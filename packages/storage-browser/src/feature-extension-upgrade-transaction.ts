@@ -3,7 +3,6 @@ import type { FeatureExtensionCompatibilitySnapshot } from "../../core/src/featu
 import type { RecordEnvelope } from "../../core/src/types";
 import { assertRecordEnvelope } from "../../core/src/persistence-contract";
 import { browserDatabase } from "./database";
-import { DexieRecordRepository } from "./index";
 
 export type BrowserFeatureMigrationContext = Readonly<{ records: RecordRepository }>;
 
@@ -20,7 +19,12 @@ export class DexieFeatureExtensionUpgradeTransaction {
     }) => Promise<Result>,
   ): Promise<Result> {
     return browserDatabase.transaction("rw", browserDatabase.records, async () => operation({
-      migrationContext: { records: new DexieRecordRepository() },
+      migrationContext: { records: {
+        async get<T>(id: string) { const row = await browserDatabase.records.get(id); if (row) assertRecordEnvelope(row); return row as RecordEnvelope<T> | undefined; },
+        async put<T>(record: RecordEnvelope<T>) { assertRecordEnvelope(record); await browserDatabase.records.put(record as RecordEnvelope<unknown>); },
+        async list<T>() { const rows = await browserDatabase.records.toArray(); rows.forEach(assertRecordEnvelope); return rows as Array<RecordEnvelope<T>>; },
+        async remove(id: string) { await browserDatabase.records.delete(id); },
+      } },
       persistInstalledExtension: async snapshot => {
         const id = "installed-extension:" + snapshot.extension.id;
         const previous = await browserDatabase.records.get(id);
