@@ -210,4 +210,17 @@ class NativeBackupCoverageTest {
         }
     }
 
+    @Test fun refusesToExportFeatureRecordsWithoutTheirRegisteredOwnerAdapter() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            database.records().put(StoredRecord(
+                "feature:orphan-addon:row", """{"retained":true}""", 1, "2026-11-06T00:00:00.000Z",
+            ))
+            assertEquals("backup_unregistered_feature_record:feature:orphan-addon:row",
+                runCatching { NativeBackupCoverage.exportBusinessRecords(database) { false } }.exceptionOrNull()?.message)
+        } finally { database.close() }
+    }
+
 }
