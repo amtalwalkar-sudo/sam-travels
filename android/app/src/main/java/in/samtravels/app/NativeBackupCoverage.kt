@@ -82,7 +82,8 @@ internal object NativeBackupCoverage {
     }
 
     private fun isWorkRecord(id: String): Boolean =
-        id == "driver-state" || id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
+        id == "driver-state" || id == "legacy-driver-state" ||
+            id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
 
     private fun isInternalRecord(id: String): Boolean =
         id.startsWith("__sam_travels_recovery_checkpoint__:") || id.startsWith("__sam_travels_recovery_journal__:")
