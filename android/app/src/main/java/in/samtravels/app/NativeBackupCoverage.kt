@@ -118,7 +118,7 @@ internal object NativeBackupCoverage {
                 "backup_invalid_logbook_event_envelope"
             }
             val payload = JSONObject(row.getString("json"))
-            DriverWorkflowContract.validateEvent(payload)
+            DriverWorkflowContract.validateStoredEvent(payload)
             require(payload.optString("eventId") == row.optString("id")) {
                 "backup_logbook_event_identity_mismatch"
             }
