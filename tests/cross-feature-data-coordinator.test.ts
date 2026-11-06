@@ -204,7 +204,7 @@ describe("cross-feature data coordination", () => {
     const result = await service.collect(["finance.amounts.v1"], context);
     if (result[0].status !== "available") throw new Error("Expected available source");
     sourceRecord.nested.revision = 9;
-    expect(result[0].records[0].nested.revision).toBe(1);
+    expect(result[0].records[0].nested?.revision).toBe(1);
     expect(Object.isFrozen(result[0].records[0].nested)).toBe(true);
     expect(Object.isFrozen(sourceRecord.nested)).toBe(false);
   });
