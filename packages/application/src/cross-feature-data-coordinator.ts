@@ -1,6 +1,7 @@
 import {
   executeFeatureDataQuery,
   executeRegisteredCalculation,
+  validateFeatureDataQueryContext,
   type CalculationExecutionResult,
   type FeatureDataQueryContext,
   type FeatureDataQueryResult,
@@ -35,7 +36,8 @@ export class CrossFeatureDataCoordinator {
     queryIds: readonly string[],
     context: FeatureDataQueryContext,
   ): Promise<readonly DataSourceCollectionItem[]> {
-    validateFeatureDataQueryContext(context);\n    if (new Set(queryIds).size !== queryIds.length) {
+    validateFeatureDataQueryContext(context);
+    if (new Set(queryIds).size !== queryIds.length) {
       throw new Error("Duplicate feature data query requested");
     }
     const items = await Promise.all(queryIds.map(async queryId => {
