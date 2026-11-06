@@ -31,10 +31,10 @@ class NativeBackupCoverageTest {
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
-            database.records().put(StoredRecord("platform-1", """{"id":"platform-1","value":"sample"}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-state", """{"value":{"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
-            database.records().put(StoredRecord("driver-outbox:1", """{"eventId":"event-1"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("platform-1", """{"id":"platform-1","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{"value":"sample"}}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-state", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1","command":{"schemaVersion":1,"commandId":"command-1","eventId":"event-1","eventType":"shift_end","originSurface":"pwa","transitionAt":"2026-11-04T00:00:00.000Z","expectedPriorState":"shift_active","expectedRevision":1,"idempotencyKey":"idem-1"},"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord("driver-outbox:1", """{"id":"driver-state:2","eventId":"event-1","revision":2,"integrationId":"logbook.work-driver-events.v1","contractVersion":1,"eventName":"work.driver-event-committed","payloadVersion":1,"delivered":false,"createdAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
             assertEquals(5, exported.length())
@@ -61,13 +61,13 @@ class NativeBackupCoverageTest {
     @Test fun convertsLegacySharedRecordsToCurrentFeatureOwnershipBeforeRestore() {
         val legacy = JSONArray()
             .put(JSONObject().put("id", "driver-state")
-                .put("json", """{"value":{"revision":1,"state":"shift_active"}}""")
+                .put("json", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""")
                 .put("schemaVersion", 1).put("updatedAt", "now"))
             .put(JSONObject().put("id", "driver-event:event-legacy")
                 .put("json", """{"eventId":"event-legacy","kind":"trip_completed"}""")
                 .put("schemaVersion", 1).put("updatedAt", "now"))
             .put(JSONObject().put("id", "platform-record")
-                .put("json", """{"id":"platform-record","value":1}""")
+                .put("json", """{"id":"platform-record","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"import","revision":1,"data":{"value":1}}""")
                 .put("schemaVersion", 1).put("updatedAt", "now"))
             .put(JSONObject().put("id", "event-already-logbook")
                 .put("json", """{"eventId":"event-already-logbook","kind":"trip_completed"}""")
@@ -98,8 +98,8 @@ class NativeBackupCoverageTest {
 
     @Test fun rejectsParticipantSnapshotVersionMismatch() {
         val valid = JSONArray().put(JSONObject().put("id", "platform-row")
-            .put("json", """{"id":"platform-row","value":1}""")
-            .put("schemaVersion", 1).put("updatedAt", "now")
+            .put("json", """{"id":"platform-row","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{"value":1}}""")
+            .put("schemaVersion", 1).put("updatedAt", "2026-11-04T00:00:00.000Z")
             .put("participantId", "platform-records"))
         val altered = valid.getJSONObject(0).put("schemaVersion", 2)
         val failure = runCatching { NativeBackupCoverage.validateBusinessRecords(valid) }.exceptionOrNull()
@@ -111,7 +111,7 @@ class NativeBackupCoverageTest {
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
-            val unknown = JSONArray().put(JSONObject().put("id", "x").put("json", """{"id":"x"}""")
+            val unknown = JSONArray().put(JSONObject().put("id", "x").put("json", """{"id":"x","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{}}""")
                 .put("schemaVersion", 1).put("updatedAt", "now").put("participantId", "unknown"))
             val failure = runCatching { NativeBackupCoverage.validateBusinessRecords(unknown) }.exceptionOrNull()
             assertEquals("backup_unknown_participant:unknown", failure?.message)
