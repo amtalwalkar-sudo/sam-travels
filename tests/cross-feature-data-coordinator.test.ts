@@ -7,7 +7,7 @@ import {
 } from "../packages/core/src";
 import { CrossFeatureDataCoordinator } from "../packages/application/src/cross-feature-data-coordinator";
 
-type AmountRecord = { amount: number };
+type AmountRecord = { amount: number; nested?: { revision: number } };
 type CalculationInput = { businessDate: string; total: number };
 
 const calculation: CalculationContract<CalculationInput, number> = {
