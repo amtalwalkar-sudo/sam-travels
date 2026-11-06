@@ -1,4 +1,4 @@
-import type { DriverStateProjection, DriverTransitionCommand, DriverEventType, DriverWorkflowState } from "../../core/src/commands";
+import { DRIVER_EVENT_TYPES, type DriverStateProjection, type DriverTransitionCommand, type DriverEventType, type DriverWorkflowState } from "../../core/src/commands";
 import type { GpsFix } from "../../core/src/types";
 import { validateGpsFix } from "../../core/src/gps";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
