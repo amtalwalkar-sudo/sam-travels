@@ -11,6 +11,29 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
+/** Shared transaction primitive used by the native repository and Room instrumentation tests. */
+internal suspend fun compareAndSetStoredRecord(
+    database: LocalDatabase,
+    id: String,
+    expectedRevision: Int,
+    record: JSONObject,
+): Boolean {
+    require(id.isNotBlank() && record.optString("id") == id) { "atomic_record_identity_mismatch" }
+    require(expectedRevision >= -1) { "atomic_record_expected_revision_invalid" }
+    return database.withTransaction {
+        val current = database.records().get(id)
+        val currentRevision = current?.let { JSONObject(it.json).optInt("revision", -1) } ?: -1
+        if (currentRevision != expectedRevision) {
+            false
+        } else {
+            database.records().put(StoredRecord(
+                id, record.toString(), record.optInt("schemaVersion", -1), record.optString("updatedAt"),
+            ))
+            true
+        }
+    }
+}
+
 @CapacitorPlugin(name = "RoomStore")
 class RoomStorePlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
@@ -93,21 +116,7 @@ class RoomStorePlugin : Plugin() {
         executor.execute {
             try {
                 NativeStartupRecovery.ensure(db)
-                val committed = db.withTransaction {
-                    val current = db.records().get(id)
-                    val currentRevision = current?.let {
-                        JSONObject(it.json).optInt("revision", -1)
-                    } ?: -1
-                    if (currentRevision != expected) {
-                        false
-                    } else {
-                        db.records().put(StoredRecord(
-                            id, record.toString(), record.optInt("schemaVersion", -1),
-                            record.optString("updatedAt"),
-                        ))
-                        true
-                    }
-                }
+                val committed = compareAndSetStoredRecord(db, id, expected, record)
                 val out = JSObject()
                 out.put("committed", committed)
                 call.resolve(out)
