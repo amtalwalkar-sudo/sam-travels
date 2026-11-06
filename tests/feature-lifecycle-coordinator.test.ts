@@ -22,6 +22,7 @@ describe("application feature lifecycle coordinator", () => {
   it("persists a valid transition before returning success", async () => {
     const repository = new MemoryAtomicRepository();
     const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures());
+    await coordinator.transition("performance", "disable");
     await coordinator.transition("logbook", "disable");
     const stored = await repository.get<{ states: Array<{ featureId: string; state: string }> }>("platform:feature-lifecycle");
     expect(stored?.revision).toBe(1);
@@ -53,7 +54,7 @@ describe("application feature lifecycle coordinator", () => {
     }
     const repository = new RacingRepository();
     const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures());
-    const result = await coordinator.transition("logbook", "disable");
+    const result = await coordinator.transition("admin", "disable");
     expect(result.state).toBe("disabled");
     expect((await repository.get("platform:feature-lifecycle"))?.revision).toBe(2);
   });
