@@ -182,6 +182,15 @@ function validateSnapshotRows(data: BrowserSnapshotData): void {
   data.driverOutbox.forEach(assertDriverOutboxContract);
 }
 
+function validateCustomFeatureBackupRecords(rows: unknown[]): void {
+  const typedRecords = rows as import("../../core/src/types").RecordEnvelope<unknown>[];
+  for (const adapter of customBrowserFeatureBackupAdapters.values()) {
+    const owned = typedRecords.filter(record => record.id.startsWith(adapter.recordIdPrefix));
+    owned.forEach(record => adapter.validateRecord(record, typedRecords));
+    adapter.validateSnapshot?.(typedRecords);
+  }
+}
+
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   assertSnapshotManifest(manifest);
   if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
@@ -225,12 +234,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     if (!id || ids.has(id)) throw new Error("backup_duplicate_record_id");
     ids.add(id);
   }
-  const typedRecords = data.records as import("../../core/src/types").RecordEnvelope<unknown>[];
-  for (const adapter of customBrowserFeatureBackupAdapters.values()) {
-    const owned = typedRecords.filter(record => record.id.startsWith(adapter.recordIdPrefix));
-    owned.forEach(record => adapter.validateRecord(record, typedRecords));
-    adapter.validateSnapshot?.(typedRecords);
-  }
+  validateCustomFeatureBackupRecords(data.records);
 }
 
 export async function exportBrowserSnapshot(applicationVersion: string): Promise<{
