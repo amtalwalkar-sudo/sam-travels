@@ -1,0 +1,94 @@
+[
+  {
+    "eventId": "parity-shift-start",
+    "command": {
+      "schemaVersion": 1,
+      "commandId": "parity-shift-start",
+      "eventId": "parity-shift-start",
+      "eventType": "shift_start",
+      "originSurface": "pwa",
+      "transitionAt": "2026-11-04T18:00:00.000Z",
+      "expectedPriorState": "idle",
+      "expectedRevision": 0,
+      "idempotencyKey": "parity-shift-start"
+    },
+    "gps": {
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "horizontalAccuracyM": 8,
+      "fixAt": "2026-11-04T18:00:00.000Z",
+      "provider": "parity-fixture"
+    },
+    "committedAt": "2026-11-04T18:00:00.000Z",
+    "revision": 1
+  },
+  {
+    "eventId": "parity-trip-start",
+    "command": {
+      "schemaVersion": 1,
+      "commandId": "parity-trip-start",
+      "eventId": "parity-trip-start",
+      "eventType": "trip_start",
+      "originSurface": "pwa",
+      "transitionAt": "2026-11-04T22:20:00.000Z",
+      "expectedPriorState": "shift_active",
+      "expectedRevision": 1,
+      "idempotencyKey": "parity-trip-start"
+    },
+    "gps": {
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "horizontalAccuracyM": 8,
+      "fixAt": "2026-11-04T22:20:00.000Z",
+      "provider": "parity-fixture"
+    },
+    "committedAt": "2026-11-04T22:20:00.000Z",
+    "revision": 2
+  },
+  {
+    "eventId": "parity-trip-end",
+    "command": {
+      "schemaVersion": 1,
+      "commandId": "parity-trip-end",
+      "eventId": "parity-trip-end",
+      "eventType": "trip_end",
+      "originSurface": "pwa",
+      "transitionAt": "2026-11-04T22:50:00.000Z",
+      "expectedPriorState": "trip_active",
+      "expectedRevision": 2,
+      "idempotencyKey": "parity-trip-end"
+    },
+    "gps": {
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "horizontalAccuracyM": 8,
+      "fixAt": "2026-11-04T22:50:00.000Z",
+      "provider": "parity-fixture"
+    },
+    "committedAt": "2026-11-04T22:50:00.000Z",
+    "revision": 3
+  },
+  {
+    "eventId": "parity-shift-end",
+    "command": {
+      "schemaVersion": 1,
+      "commandId": "parity-shift-end",
+      "eventId": "parity-shift-end",
+      "eventType": "shift_end",
+      "originSurface": "pwa",
+      "transitionAt": "2026-11-04T23:30:00.000Z",
+      "expectedPriorState": "shift_active",
+      "expectedRevision": 3,
+      "idempotencyKey": "parity-shift-end"
+    },
+    "gps": {
+      "latitude": 19.076,
+      "longitude": 72.8777,
+      "horizontalAccuracyM": 8,
+      "fixAt": "2026-11-04T23:30:00.000Z",
+      "provider": "parity-fixture"
+    },
+    "committedAt": "2026-11-04T23:30:00.000Z",
+    "revision": 4
+  }
+]

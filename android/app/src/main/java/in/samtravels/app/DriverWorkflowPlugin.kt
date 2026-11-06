@@ -28,8 +28,7 @@ class DriverWorkflowPlugin:Plugin(){
  private val main=Handler(Looper.getMainLooper())
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
- private fun state():JSONObject=db.records().get("driver-state")?.let{JSONObject(it.json).optJSONObject("value")}?:JSONObject().put("schemaVersion",1).put("revision",0).put("state","idle")
- private fun save(key:String,value:JSONObject){db.records().put(StoredRecord(key,value.toString(),1,java.time.Instant.now().toString()))}
+ private fun state():JSONObject=DriverWorkflowStore.snapshot(db)
  @PluginMethod fun enableOverlay(call:PluginCall){
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"overlayLocationPermissionCallback");return}
   startOverlay(call)
@@ -56,7 +55,7 @@ class DriverWorkflowPlugin:Plugin(){
   executor.execute{try{val intent=DriverWorkflowStore.queue(db,command);val out=JSObject();out.put("intent",intent);call.resolve(out)}
    catch(e:Exception){LocalDiagnostics.record(context,"workflow","queue_intent","workflow","operation_failed");call.reject("Driver intent enqueue failed: "+(e.message?:"unknown failure"),"INTENT_ENQUEUE_FAILED",e)}}
  }
- @PluginMethod fun listPending(call:PluginCall){executor.execute{try{val arr=JSONArray();db.records().list().filter{it.id.startsWith("driver-intent:")}.forEach{val j=JSONObject(it.json);if(j.optString("status")=="pending_location"||j.optString("status")=="needs_attention")arr.put(j)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
+ @PluginMethod fun listPending(call:PluginCall){executor.execute{try{val arr=JSONArray();DriverWorkflowStore.listPending(db).forEach{arr.put(it)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
  @PluginMethod fun captureLocation(call:PluginCall){
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"locationPermissionCallback");return}
   requestOneFix(call)
@@ -97,7 +96,7 @@ class DriverWorkflowPlugin:Plugin(){
   executor.execute{try{val intent=DriverWorkflowStore.reactivate(db,id);val out=JSObject();out.put("intent",intent);call.resolve(out)}
    catch(e:Exception){LocalDiagnostics.record(context,"recovery","retry_intent","recovery","retry_failed");call.reject("Unable to resume pending intent: "+(e.message?:"unknown failure"),"INTENT_RECOVERY_FAILED",e)}}
  }
- @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{val arr=JSONArray();db.logBookEvents().list().forEach{arr.put(JSONObject(it.json))};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
+ @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{val arr=JSONArray();DriverWorkflowStore.listEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
  @PluginMethod fun markNeedsAttention(call:PluginCall){
   val id=call.getString("eventId");val reason=call.getString("reason")?:"location_unavailable"
   if(id.isNullOrBlank()){call.reject("Event id required");return}

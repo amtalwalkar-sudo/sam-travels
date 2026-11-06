@@ -217,4 +217,58 @@ class DriverWorkflowStoreTest {
             context.deleteDatabase(databaseName)
         }
     }
+
+    @Test fun workRepositoryGatewayExposesSnapshotPendingIntentsAndCommittedEvents() {
+        DriverWorkflowStore.queue(db, command("gateway-event"))
+        assertEquals("idle", DriverWorkflowStore.snapshot(db).getString("state"))
+        assertEquals(1, DriverWorkflowStore.listIntents(db).size)
+        assertEquals(1, DriverWorkflowStore.listPending(db).size)
+        assertEquals("gateway-event", DriverWorkflowStore.firstPendingLocation(db)
+            ?.getJSONObject("command")?.getString("eventId"))
+        assertEquals("gateway-event", DriverWorkflowStore.firstRecoverableIntent(db)
+            ?.getJSONObject("command")?.getString("eventId"))
+
+        DriverWorkflowStore.complete(db, "gateway-event", gps())
+        assertEquals(0, DriverWorkflowStore.listPending(db).size)
+        assertEquals(1, DriverWorkflowStore.listEvents(db).size)
+        assertEquals("gateway-event", DriverWorkflowStore.listEvents(db).single().getString("eventId"))
+        assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
+        assertTrue(DriverWorkflowStore.firstPendingLocation(db) == null)
+        assertTrue(DriverWorkflowStore.firstRecoverableIntent(db) == null)
+    }
+
+
+    @Test fun roomEventReadMatchesTheSharedTimelineParityFixture() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val fixture = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
+            .open("timeline-parity-events-v1.json")
+            .bufferedReader().use { it.readText() }
+        val expected = org.json.JSONArray(fixture)
+        for (index in 0 until expected.length()) {
+            val event = expected.getJSONObject(index)
+            db.logBookEvents().put(
+                LogBookEventRecord(
+                    event.getString("eventId"),
+                    event.toString(),
+                    1,
+                    event.getString("committedAt"),
+                ),
+            )
+        }
+
+        val actual = DriverWorkflowStore.listEvents(db)
+        assertEquals(expected.length(), actual.size)
+        for (index in 0 until expected.length()) {
+            val expectedEvent = expected.getJSONObject(index)
+            val actualEvent = actual[index]
+            assertEquals(expectedEvent.getString("eventId"), actualEvent.getString("eventId"))
+            assertEquals(expectedEvent.getInt("revision"), actualEvent.getInt("revision"))
+            assertEquals(expectedEvent.getString("committedAt"), actualEvent.getString("committedAt"))
+            assertEquals(expectedEvent.getJSONObject("command").getString("eventType"),
+                actualEvent.getJSONObject("command").getString("eventType"))
+            assertEquals(expectedEvent.getJSONObject("command").getString("transitionAt"),
+                actualEvent.getJSONObject("command").getString("transitionAt"))
+        }
+    }
+
 }

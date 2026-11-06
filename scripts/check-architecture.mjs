@@ -199,6 +199,41 @@ for (const absolute of sourceFiles) {
   }
 }
 
+
+/**
+ * Persistent data access is confined to the platform adapter/gateway layer.
+ * Business/domain/features and bridge presentation code must use public
+ * repository/application contracts rather than reaching into Room or Dexie.
+ */
+const androidPersistenceGateways = new Set([
+  "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
+  "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+  "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
+  "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
+  "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
+  "android/app/src/main/java/in/samtravels/app/NativeBackupCoverage.kt",
+]);
+
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  const content = await readFile(absolute, "utf8");
+  const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
+    !relative.startsWith("packages/storage-browser/src/");
+  if (productionTypeScript && /(?:from|import\s*\()\s*["']dexie(?:\/[^"']*)?["']/.test(content)) {
+    failures.push(relative + ": Dexie is a storage adapter dependency and may only be imported by packages/storage-browser");
+  }
+  const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
+  if (productionTypeScript && /\bbrowserDatabase\b/.test(content) &&
+      !browserPersistenceGateways.has(relative)) {
+    failures.push(relative + ": browserDatabase is private to the browser persistence adapter");
+  }
+  if (relative.startsWith("android/app/src/main/") &&
+      /\b[A-Za-z_]\w*\.(?:records|logBookEvents)\(\)/.test(content) &&
+      !androidPersistenceGateways.has(relative)) {
+    failures.push(relative + ": Room DAO access must remain inside an approved persistence/backup gateway");
+  }
+}
+
 // Android/Kotlin rules supplement TypeScript dependency direction checks.
 const kotlinSources = sourceFiles.filter(file => file.endsWith(".kt") || file.endsWith(".java"));
 for (const absolute of kotlinSources) {

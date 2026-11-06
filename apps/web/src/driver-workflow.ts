@@ -9,6 +9,7 @@ import type {
   GpsFix,
 } from "../../../packages/features/work-shift";
 import { DexieDriverWorkflowRepository } from "../../../packages/storage-browser/src/driver-workflow";
+import { TimelineProjectionService, type TimelineEvidenceSource } from "../../../packages/application/src/timeline-projection-service";
 
 type NativeApi = {
   getSnapshot(): Promise<{ snapshot: DriverStateProjection }>;
@@ -132,18 +133,26 @@ export class NativeEventLocationProvider implements EventLocationProvider {
 export async function createDriverWorkflow(): Promise<{
   repository: DriverWorkflowRepository;
   location: EventLocationProvider;
+  timeline: TimelineProjectionService;
 }> {
-  if (Capacitor.isNativePlatform()) {
-    return {
-      repository: new NativeDriverWorkflowRepository(),
-      location: new NativeEventLocationProvider(),
-    };
-  }
-
+  const repository = Capacitor.isNativePlatform()
+    ? new NativeDriverWorkflowRepository()
+    : new DexieDriverWorkflowRepository();
   return {
-    repository: new DexieDriverWorkflowRepository(),
-    location: new BrowserEventLocationProvider(),
+    repository,
+    location: Capacitor.isNativePlatform()
+      ? new NativeEventLocationProvider()
+      : new BrowserEventLocationProvider(),
+    timeline: createTimelineProjectionService(repository),
   };
+}
+
+/** Construct the shared headless projection service around the active platform repository. */
+export function createTimelineProjectionService(
+  repository: Pick<DriverWorkflowRepository, "listEvents">,
+  evidence?: TimelineEvidenceSource,
+): TimelineProjectionService {
+  return new TimelineProjectionService(repository, evidence);
 }
 
 export const nativeOverlayAvailable = () => Capacitor.isNativePlatform();
