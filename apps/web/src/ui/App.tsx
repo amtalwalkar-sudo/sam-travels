@@ -4,7 +4,7 @@ import { nativeOverlayAvailable } from "../driver-workflow";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
-import { useDriverWorkspace } from "./use-driver-workspace";
+import { useDriverWorkspace } from "./use-driver-workspace";\nimport { FeatureScreenHost } from "./FeatureScreenHost";
 
 const shellDefinition = defineApplicationShell({
   id: "sam-travels.primary-shell",
@@ -50,7 +50,7 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   const descriptions: Record<Exclude<Screen, "Drive">, string> = {
     Timeline: "Your trip and work activity will appear here.",
     Performance: "Your driving and business performance will appear here.",
-    Admin: "Workspace settings and management will appear here.",
+    Admin: "Workspace administration will appear here.",
   };
 
   return (
@@ -152,10 +152,10 @@ export function App() {
             <BackupPanel />
         </div>
         {activeScreen === "Timeline" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /><FeatureScreenHost mountPoint="Timeline" context={{ activeScreen }} /></section>
         )}
         {(activeScreen === "Performance" || activeScreen === "Admin") && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /><FeatureScreenHost mountPoint={activeScreen} context={{ activeScreen }} /></section>
         )}
       </div>
 
