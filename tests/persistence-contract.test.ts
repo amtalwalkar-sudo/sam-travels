@@ -1,3 +1,4 @@
+import { assertDriverCommandContract, assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../packages/domain/src/driver-workflow";
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
@@ -69,6 +70,32 @@ describe("formal persistence contracts and historical fixtures", () => {
     expect(result.restoredCounts).toEqual({
       records: 0, driverState: 0, driverIntents: 0, driverEvents: 0, driverOutbox: 0,
     });
+  });
+
+  it("validates persisted Work commands, intents, states, events and outbox discriminants", () => {
+    const command = {
+      schemaVersion: 1, commandId: "command-1", eventId: "event-1", eventType: "shift_start",
+      originSurface: "pwa", transitionAt: "2026-11-06T08:00:00Z",
+      expectedPriorState: "idle", expectedRevision: 0, idempotencyKey: "idem-1",
+    };
+    const event = {
+      eventId: "event-1", command,
+      gps: { latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: "2026-11-06T08:00:00Z", provider: "test" },
+      committedAt: "2026-11-06T08:00:01Z", revision: 1,
+    };
+    assertDriverCommandContract(command);
+    assertDriverIntentContract({ command, status: "pending_location", createdAt: command.transitionAt, updatedAt: command.transitionAt });
+    assertDriverStateContract({ schemaVersion: 1, revision: 0, state: "idle" });
+    assertDriverEventContract(event);
+    assertDriverOutboxContract({
+      id: "driver-state:1", eventId: "event-1", revision: 1,
+      integrationId: "logbook.work-driver-events.v1", contractVersion: 1,
+      eventName: "work.driver-event-committed", payloadVersion: 1,
+      delivered: false, createdAt: "2026-11-06T08:00:01Z",
+    });
+    expect(() => assertDriverCommandContract({ ...command, eventType: "unknown" })).toThrow("invalid_command");
+    expect(() => assertDriverIntentContract({ command, status: "unknown", createdAt: command.transitionAt, updatedAt: command.transitionAt })).toThrow("invalid_driver_intent");
+    expect(() => assertDriverEventContract({ ...event, revision: 2 })).toThrow("invalid_driver_event");
   });
 
   it("rejects duplicate identities and unsupported future backup manifests before checkpointing", async () => {
