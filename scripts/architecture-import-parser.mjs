@@ -89,6 +89,10 @@ export function analyzeBrowserPersistenceReferences(source, fileName = "fixture.
       node.expression.text === "navigator" && node.name.text === "storage") {
       add("navigator.storage", node);
     }
+    if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) &&
+      new Set(["indexedDB", "localStorage", "sessionStorage"]).has(node.argumentExpression.text)) {
+      add(node.argumentExpression.text, node);
+    }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
