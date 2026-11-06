@@ -84,6 +84,12 @@ export function App() {
         </button>
       </header>
 
+      {settingsOpen && <aside id="application-settings" className="settings-panel" aria-label="Application settings">
+        <div className="settings-panel-heading"><div><small>APPLICATION</small><h2>Settings</h2></div><button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
+        <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}><i />Internet {enabled ? "On" : "Off"}</button>
+        <p>Connection is optional. Your workspace remains local-first.</p>
+      </aside>}
+
       <div className="screen-scroll">
         <div hidden={activeScreen !== "Drive"}>
             <section className="screen-heading">
