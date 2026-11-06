@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "./architecture-import-parser.mjs";
+import { createAliasResolver, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "./architecture-import-policy.mjs";
 
 const root = process.cwd();
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
@@ -124,7 +125,7 @@ await walk(root);
 let resolveAlias = () => null;
 try {
   const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8"));
-  resolveAlias = aliasResolver(tsconfig);
+  resolveAlias = createAliasResolver(tsconfig);
 } catch {
   failures.push("tsconfig.json: architecture checker could not parse TypeScript path aliases");
 }
@@ -188,16 +189,7 @@ for (const absolute of sourceFiles) {
       failures.push(`${relative}: persistence adapters must not depend on UI or Capacitor "${specifier}"`);
     }
 
-    const forbidden =
-      (from === "core" && ["domain", "application", "storage", "ui", "feature", "presentation"].includes(target)) ||
-      (from === "domain" && ["application", "storage", "ui", "presentation"].includes(target)) ||
-      (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
-      (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
-      (from === "storage" && ["ui", "presentation"].includes(target)) ||
-      (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
-      (from === "feature" && ["storage", "ui", "presentation"].includes(target)) ||
-      (from === "ui" && target === "storage");
-    if (forbidden) {
+    if (isForbiddenLayerDependency(from, target)) {
       failures.push(`${relative}: ${from} layer must not import ${target ?? "a forbidden adapter"} via "${specifier}"`);
     }
 
