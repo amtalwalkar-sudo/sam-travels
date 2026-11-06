@@ -10,8 +10,8 @@
 | Stage 0 — Repository audit and scope freeze | Complete | Frozen scope and evidence-based baseline audit merged to main in PR #19. |
 | Stage 1 — Deterministic feature discovery and declarations | **Complete** | PR #20 merged by squash (merge commit `4d4b2006887e2c919fed8d118c2762868975bb8e`). CI run #839 / `42299197556`: architecture, web, Android and integrated regression jobs all passed. |
 | Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
-| Stage 3 — Cross-feature data orchestration and calculation framework | **Implementation in progress** | Typed feature-owned query contracts and an application coordinator are being added to the existing runtime. Focused tests and CI gate are included; completion awaits PR and merged-main CI evidence. |
-| Stage 4 — Independent UI/UX architecture and feature UI registration | Not started | Preserve unrestricted custom UI acceptance criterion. |
+| Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
+| Stage 4 — Independent UI/UX architecture and feature UI registration | **Audit in progress** | Stage 3 gate cleared. Stage 4 starts with an evidence-based presentation audit; no implementation before findings are reviewed. Unrestricted custom feature UI is required. |
 | Stage 5 — Diagnostics and change impact | Not started | Extend existing diagnostics and architecture checks. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
 
@@ -114,6 +114,26 @@ Stage 2 is complete. Continue with Stage 3 — cross-feature data orchestration 
 - No universal event bus, formula engine, cache, cross-feature direct table access, presentation/UI work, or replacement of existing calculation contracts was introduced.
 - Query contracts are read-only coordination interfaces. Source adapters remain owned by their feature/platform boundaries.
 - Stage 3 is not complete until focused tests, full web tests/build, architecture checks, Android build/emulator regression, integrated regression and merged-main CI all pass.
+
+## Stage 3 — Verified completion evidence
+
+- PR [#22 — cross-feature data orchestration and calculation provenance](https://github.com/amtalwalkar-sudo/sam-travels/pull/22) was squash-merged.
+- Merged commit: `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`.
+- Merged-main workflow run [#868](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42308456833) completed successfully on that exact commit.
+- All four merged-main jobs passed: Architecture, Web, Android and Integrated regression.
+- The Web job passed the Stage 3 coordinator gate, Stage 2 activation/isolation gate, offline/backup reliability gate, complete web regression suite and production build.
+- The Android job passed Gradle assembly/unit tests, Android reliability/emulator gate and published the unsigned release APK from merged main.
+- Stage 3 is complete. No real business feature was onboarded; Stage 5 lifecycle, persistence, backup/restore, recovery and upgrade mechanisms remain authoritative and unchanged.
+
+## Stage 4 — Independent UI/UX architecture and feature UI registration
+
+### Entry gate and approved design decision
+
+Stage 3 merged-main CI is green. Stage 4 may now begin. The approved presentation requirement is **unrestricted custom feature UI**: a feature may supply a completely custom screen, layout, visual system, and interaction experience. The architecture defines safe integration and lifecycle boundaries; it must not constrain features to predefined screen templates or force a shared visual design system. The shell and individual presentation subsystems must remain replaceable independently of feature business logic and data contracts.
+
+### Audit in progress
+
+The evidence-based starting audit is recorded in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md). Per the frozen implementation policy, Stage 4 implementation begins only after the audit findings and gap-based plan have been reviewed.
 
 ## Implementation discipline
 
