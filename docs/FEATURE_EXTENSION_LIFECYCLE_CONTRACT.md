@@ -1,6 +1,6 @@
 # Feature Extension Lifecycle and Compatibility Contract
 
-Status: Stage 5 implementation contract. Runtime enforcement and end-to-end acceptance remain in progress.
+Status: Stage 5 implementation contract. Runtime enforcement is implemented; final cross-platform CI verification is pending.
 
 ## Purpose
 
@@ -56,6 +56,14 @@ A version increase is not proof that changed executable behavior is safe. The co
 Invalid lifecycle state, stale contract state, unresolved dependents, incompatible versions, missing migration steps, or missing required persistence contracts fail closed. No partial registry or partially accepted transition may be exposed.
 
 The application coordinator must persist lifecycle and upgrade state atomically with the authoritative store where possible. If a multi-store/platform operation cannot be atomic, it must use the existing checkpoint, recovery, and reconciliation contracts. An interrupted operation must leave the prior valid state recoverable.
+
+## Implemented platform extension points
+
+- Browser add-ons register executable backup participants through `registerBrowserFeatureBackupParticipant`. Each participant declares its persistent feature contract, namespaced record prefix, row validator, and optional whole-feature relationship validator. The existing IndexedDB snapshot transaction includes the namespaced records; unknown `feature:` namespaces fail closed.
+- Android add-ons register equivalent Room participants through `NativeBackupCoverage.registerFeatureRecordParticipant`. Their adapter owns export, validation, clear, restore, namespace checks, and relationship validation against the shared Room records table. Unknown feature namespaces fail closed.
+- The browser application update entry point is `upgradeInstalledBrowserFeatureExtension`. It selects the Dexie transaction adapter for browser storage and the staged Room transaction adapter on Android.
+- Android Room applies staged migration writes, deletes, and installed-extension metadata in one transaction after checking every touched record's expected revision. A conflict aborts the batch; migration exceptions never publish the staged changes.
+- The isolated add-on tests exercise clean-store restore, participant manifests, relationship validation, missing-adapter rejection, and retained records after disable/retire. The Work/Shift to Log Book end-to-end regression is exercised by the existing durable workflow restart/replay test.
 
 ## Mandatory persistent-feature onboarding acceptance
 
