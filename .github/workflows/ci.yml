@@ -31,6 +31,13 @@ jobs:
         run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
       - name: Run complete web regression suite
         run: npm test
+      - name: Publish Dexie-generated complete Timeline parity oracle
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeline-projection-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated/timeline-projection-parity-oracle-v1.json
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run build
   android:
     runs-on: ubuntu-latest
@@ -47,6 +54,11 @@ jobs:
       - run: npm run cap:sync
       - name: Build the shared headless Timeline projection for Android parity tests
         run: npm run build:timeline-parity
+      - name: Download the exact Dexie projection oracle for Android comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: timeline-projection-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
