@@ -37,6 +37,10 @@ export type FeatureActivationPlan = Readonly<{
   diagnostics: readonly FeatureActivationDiagnostic[];
 }>;
 
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function dependencyParts(dependency: FeatureDependency): {
   id: FeatureId;
   contractVersion?: number;
@@ -63,7 +67,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
 
   for (const id of declarations.keys()) states.set(id, "active");
 
-  const sorted = [...additional].sort((a, b) => String(a?.id ?? "").localeCompare(String(b?.id ?? "")));
+  const sorted = [...additional].sort((a, b) => compareText(String(a?.id ?? ""), String(b?.id ?? "")));
   for (const source of sorted) {
     const id = source?.id;
     if (typeof id !== "string" || !id.trim()) {
@@ -71,7 +75,6 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
       continue;
     }
     if (declarations.has(id)) {
-      states.set(id, "rejected");
       diagnostics.push({ code: "duplicate_feature", featureId: id, message: "Feature identifier is already registered." });
       continue;
     }
@@ -115,7 +118,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     visiting.delete(id);
     visited.add(id);
   };
-  for (const id of [...declarations.keys()].sort()) visitCycle(id);
+  for (const id of [...declarations.keys()].sort(compareText)) visitCycle(id);
   for (const id of [...cycleMembers].sort()) {
     states.set(id, "rejected");
     diagnostics.push({ code: "dependency_cycle", featureId: id, message: "Feature participates in a dependency cycle." });
@@ -125,7 +128,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
   let changed = true;
   while (changed) {
     changed = false;
-    for (const [id, feature] of [...declarations].sort(([a], [b]) => a.localeCompare(b))) {
+    for (const [id, feature] of [...declarations].sort(([a], [b]) => compareText(a, b))) {
       if (states.get(id) !== "active") continue;
       for (const raw of feature.dependencies) {
         const dependency = dependencyParts(raw);
@@ -158,6 +161,13 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
           }
           continue;
         }
+        if (dependency.optional && states.get(dependency.id) !== "active") {
+          const set = optionalUnavailable.get(id) ?? new Set<FeatureId>();
+          set.add(dependency.id);
+          optionalUnavailable.set(id, set);
+          diagnostics.push({ code: "optional_dependency_unavailable", featureId: id, dependencyId: dependency.id, message: "Optional dependency is not active; feature remains active." });
+          continue;
+        }
         if (!dependency.optional && states.get(dependency.id) !== "active") {
           states.set(id, "blocked");
           diagnostics.push({ code: "required_dependency_unavailable", featureId: id, dependencyId: dependency.id, message: "Required dependency is not active." });
@@ -187,7 +197,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     ordered.add(id);
     startupOrder.push(feature);
   };
-  for (const id of [...activeFeatures.keys()].sort()) visitActive(id);
+  for (const id of [...activeFeatures.keys()].sort(compareText)) visitActive(id);
 
   // Keep diagnostics stable and avoid repeated identical graph reports.
   const uniqueDiagnostics = new Map<string, FeatureActivationDiagnostic>();
@@ -196,7 +206,7 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     if (!uniqueDiagnostics.has(key)) uniqueDiagnostics.set(key, Object.freeze(diagnostic));
   }
   const stableDiagnostics = [...uniqueDiagnostics.values()].sort((a, b) =>
-    a.featureId.localeCompare(b.featureId) || a.code.localeCompare(b.code) || (a.dependencyId ?? "").localeCompare(b.dependencyId ?? ""),
+    compareText(a.featureId, b.featureId) || compareText(a.code, b.code) || compareText(a.dependencyId ?? "", b.dependencyId ?? ""),
   );
 
   const results = new Map<FeatureId, FeatureActivationResult>();
