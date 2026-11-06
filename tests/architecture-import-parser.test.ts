@@ -2,7 +2,19 @@ import { describe, expect, it } from "vitest";
 import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "../scripts/architecture-import-parser.mjs";
 import { createAliasResolver, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "../scripts/architecture-import-policy.mjs";
 
-describe("compiler-backed architecture import parser", () => {\n  it("resolves configured aliases before enforcing forbidden storage-layer dependencies", () => {\n    const resolveAlias = createAliasResolver({ compilerOptions: { baseUrl: ".", paths: { "@storage/*": ["packages/storage-browser/src/*"] } } });\n    const resolved = resolveImport("@storage/index", "packages/application/src/feature.ts", resolveAlias);\n    expect(resolved).toBe("packages/storage-browser/src/index");\n    expect(targetLayer(resolved)).toBe("storage");\n    expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);\n  });\n\n  it("allows only public feature entry points across feature packages", () => {\n    expect(isPublicFeatureEntry("packages/features/work/index.ts")).toBe(true);\n    expect(isPublicFeatureEntry("packages/features/work/internal/store.ts")).toBe(false);\n  });
+describe("compiler-backed architecture import parser", () => {
+  it("resolves configured aliases before enforcing forbidden storage-layer dependencies", () => {
+    const resolveAlias = createAliasResolver({ compilerOptions: { baseUrl: ".", paths: { "@storage/*": ["packages/storage-browser/src/*"] } } });
+    const resolved = resolveImport("@storage/index", "packages/application/src/feature.ts", resolveAlias);
+    expect(resolved).toBe("packages/storage-browser/src/index");
+    expect(targetLayer(resolved)).toBe("storage");
+    expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);
+  });
+
+  it("allows only public feature entry points across feature packages", () => {
+    expect(isPublicFeatureEntry("packages/features/work/index.ts")).toBe(true);
+    expect(isPublicFeatureEntry("packages/features/work/internal/store.ts")).toBe(false);
+  });
   it("collects static, re-export, dynamic, and CommonJS module references", () => {
     const source = [
       'import type { Port } from "../application/port";',
