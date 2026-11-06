@@ -1,5 +1,10 @@
 # Development Plan
 
+## Permanent application architecture enhancement
+
+The approved, frozen scope is [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and evidence-based gap matrix are [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). Implementation proceeds only through the approved stages and gates; Stage 5 remains authoritative and the first real business-feature onboarding remains deferred.
+
+
 Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
 
 ## Phase 1 — Architecture and contracts (approved)
