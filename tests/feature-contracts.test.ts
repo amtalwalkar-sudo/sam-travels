@@ -293,11 +293,41 @@ describe("runtime registry bootstrap", () => {
     expect(runtime.startupOrder.at(-1)?.id).toBe("custom-addon");
   });
 
-  it("fails bootstrap without exposing a partial registry when an add-on is invalid", () => {
-    expect(() => initializeRuntimeRegistry({
-      features: [{ id: "broken-addon", label: "Broken", dataPolicy: "persistent", contractVersion: 1, dependencies: [] }],
+  it("rejects an invalid add-on without preventing unrelated features from booting", () => {
+    const runtime = initializeRuntimeRegistry({
+      features: [
+        { id: "broken-addon", label: "Broken", dataPolicy: "persistent", contractVersion: 1, dependencies: [] },
+        { id: "healthy-addon", label: "Healthy", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
+      ],
       integrations: [], calculations: [],
-    })).toThrow("Persistent feature is missing its persistence contract");
+    });
+    expect(runtime.activation.results.get("broken-addon")?.state).toBe("rejected");
+    expect(runtime.activeFeatures.has("healthy-addon")).toBe(true);
+    expect(runtime.features.has("healthy-addon")).toBe(true);
+  });
+
+  it("keeps backup participants for persistent features whose required dependency is blocked", () => {
+    const runtime = initializeRuntimeRegistry({
+      features: [{
+        id: "persistent-blocked",
+        label: "Persistent Blocked",
+        dataPolicy: "persistent",
+        contractVersion: 1,
+        dependencies: ["not-installed"],
+        persistence: {
+          schemaVersion: 1, migrations: [],
+          backup: { participantId: "persistent-blocked-backup", snapshotVersion: 1, required: true },
+          restore: { validatorId: "persistent-blocked-restore-v1", required: true },
+          lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
+        },
+      }],
+    });
+    expect(runtime.activation.results.get("persistent-blocked")?.state).toBe("blocked");
+    expect(runtime.features.has("persistent-blocked")).toBe(true);
+    expect(runtime.activeFeatures.has("persistent-blocked")).toBe(false);
+    expect(runtime.backupParticipants.get("persistent-blocked-backup")).toMatchObject({
+      featureId: "persistent-blocked", required: true,
+    });
   });
 
   it("validates and exposes feature, integration, and calculation registries together", () => {
