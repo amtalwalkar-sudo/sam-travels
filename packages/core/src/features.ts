@@ -139,7 +139,10 @@ function assertAcyclic(registry: Map<FeatureId, FeatureDefinition>): void {
     if (visited.has(id)) return;
     visiting.add(id);
     const feature = registry.get(id)!;
-    for (const dependency of feature.dependencies) visit(dependencyId(dependency));
+    for (const dependency of feature.dependencies) {
+      if (typeof dependency !== "string" && dependency.optional) continue;
+      visit(dependencyId(dependency));
+    }
     visiting.delete(id);
     visited.add(id);
   };
@@ -181,8 +184,12 @@ export function registerFeatures(additional: FeatureDefinition[] = []): Readonly
     for (const dependency of feature.dependencies) {
       const id = dependencyId(dependency);
       const target = registry.get(id);
-      if (!target) throw new Error("Missing dependency " + id + " for " + feature.id);
+      if (!target) {
+        if (typeof dependency !== "string" && dependency.optional) continue;
+        throw new Error("Missing dependency " + id + " for " + feature.id);
+      }
       if (typeof dependency !== "string" && target.contractVersion !== dependency.contractVersion) {
+        if (dependency.optional) continue;
         throw new Error("Incompatible dependency contract " + id + " for " + feature.id);
       }
       if (id === feature.id) throw new Error("Feature cannot depend on itself: " + id);
@@ -238,7 +245,10 @@ export function resolveFeatureStartupOrder(
     if (visited.has(id)) return;
     const feature = registry.get(id);
     if (!feature) throw new Error("Unknown feature: " + id);
-    for (const dependency of feature.dependencies) visit(dependencyId(dependency));
+    for (const dependency of feature.dependencies) {
+      if (typeof dependency !== "string" && dependency.optional) continue;
+      visit(dependencyId(dependency));
+    }
     visited.add(id);
     ordered.push(feature);
   };
