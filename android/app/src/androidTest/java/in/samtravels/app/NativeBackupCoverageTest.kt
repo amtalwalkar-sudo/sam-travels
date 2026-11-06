@@ -223,4 +223,39 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
+    @Test fun rollsBackFeatureOwnedRoomRestoreWhenAnInjectedFailureInterruptsReplacement() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val registration = NativeBackupCoverage.registerFeatureRecordParticipant(
+            id = "failure-addon-records",
+            featureId = "failure-addon",
+            snapshotVersion = 1,
+            recordIdPrefix = "feature:failure-addon:",
+            validateRelationships = {},
+        )
+        try {
+            val timestamp = "2026-11-06T00:00:00.000Z"
+            database.records().put(StoredRecord(
+                "feature:failure-addon:row", """{"value":"snapshot"}""", 1, timestamp,
+            ))
+            val snapshot = NativeBackupCoverage.exportBusinessRecords(database) { false }
+            database.records().put(StoredRecord(
+                "feature:failure-addon:row", """{"value":"current"}""", 1, "2026-11-06T00:01:00.000Z",
+            ))
+            val failure = runCatching {
+                database.runInTransaction {
+                    NativeBackupCoverage.replaceBusinessRecords(database, snapshot)
+                    throw IllegalStateException("sample_addon_restore_interrupted")
+                }
+            }.exceptionOrNull()
+            assertEquals("sample_addon_restore_interrupted", failure?.message)
+            assertEquals("current", JSONObject(database.records().get("feature:failure-addon:row")!!.json)
+                .getString("value"))
+        } finally {
+            registration.close()
+            database.close()
+        }
+    }
+
 }
