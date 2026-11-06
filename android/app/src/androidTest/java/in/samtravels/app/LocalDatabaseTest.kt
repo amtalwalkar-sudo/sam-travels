@@ -49,5 +49,4 @@ class LocalDatabaseTest {
    } finally { db.close() }
   } finally { context.deleteDatabase(name) }
  }
- }
 }
