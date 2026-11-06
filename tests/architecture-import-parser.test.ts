@@ -11,7 +11,15 @@ describe("compiler-backed architecture import parser", () => {
     expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);
   });
 
-  it("rejects persistence-library imports outside the storage adapter", () => {\n    expect(isBrowserPersistenceModule("idb")).toBe(true);\n    expect(isBrowserPersistenceModule("idb-keyval")).toBe(true);\n    expect(isBrowserPersistenceModule("localforage")).toBe(true);\n    expect(isBrowserPersistenceModule("dexie")).toBe(true);\n    expect(isBrowserPersistenceModule("@/application/port")).toBe(false);\n  });\n\n  it("allows only public feature entry points across feature packages", () => {
+  it("rejects persistence-library imports outside the storage adapter", () => {
+    expect(isBrowserPersistenceModule("idb")).toBe(true);
+    expect(isBrowserPersistenceModule("idb-keyval")).toBe(true);
+    expect(isBrowserPersistenceModule("localforage")).toBe(true);
+    expect(isBrowserPersistenceModule("dexie")).toBe(true);
+    expect(isBrowserPersistenceModule("@/application/port")).toBe(false);
+  });
+
+  it("allows only public feature entry points across feature packages", () => {
     expect(isPublicFeatureEntry("packages/features/work/index.ts")).toBe(true);
     expect(isPublicFeatureEntry("packages/features/work/internal/store.ts")).toBe(false);
   });
