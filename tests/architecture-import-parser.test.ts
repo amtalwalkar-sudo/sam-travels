@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "../scripts/architecture-import-parser.mjs";
-import { createAliasResolver, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "../scripts/architecture-import-policy.mjs";
+import { createAliasResolver, isBrowserPersistenceModule, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "../scripts/architecture-import-policy.mjs";
 
 describe("compiler-backed architecture import parser", () => {
   it("resolves configured aliases before enforcing forbidden storage-layer dependencies", () => {
@@ -11,7 +11,7 @@ describe("compiler-backed architecture import parser", () => {
     expect(isForbiddenLayerDependency("application", targetLayer(resolved))).toBe(true);
   });
 
-  it("allows only public feature entry points across feature packages", () => {
+  it("rejects persistence-library imports outside the storage adapter", () => {\n    expect(isBrowserPersistenceModule("idb")).toBe(true);\n    expect(isBrowserPersistenceModule("idb-keyval")).toBe(true);\n    expect(isBrowserPersistenceModule("localforage")).toBe(true);\n    expect(isBrowserPersistenceModule("dexie")).toBe(true);\n    expect(isBrowserPersistenceModule("@/application/port")).toBe(false);\n  });\n\n  it("allows only public feature entry points across feature packages", () => {
     expect(isPublicFeatureEntry("packages/features/work/index.ts")).toBe(true);
     expect(isPublicFeatureEntry("packages/features/work/internal/store.ts")).toBe(false);
   });
