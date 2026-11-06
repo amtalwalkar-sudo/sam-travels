@@ -1,6 +1,7 @@
 package `in`.samtravels.app
 
 import androidx.room.Room
+import androidx.room.withTransaction
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -65,6 +66,53 @@ class RoomStorePlugin : Plugin() {
                 call.resolve()
             } catch (error: Exception) {
                 call.reject("Room write failed", error)
+            }
+        }
+    }
+
+    /** Revision comparison and replacement execute under one Room transaction. */
+    @PluginMethod
+    fun compareAndSet(call: PluginCall) {
+        val record = call.getObject("record")
+        if (record == null) {
+            call.reject("Record envelope required")
+            return
+        }
+        val id = record.optString("id")
+        val expected = call.getInt("expectedRevision")
+        if (id.isBlank() || expected == null || expected < -1) {
+            call.reject("Valid id and expected revision required")
+            return
+        }
+        try {
+            RecordEnvelopeContract.validate(record)
+        } catch (error: Exception) {
+            call.reject("Invalid record envelope", error)
+            return
+        }
+        executor.execute {
+            try {
+                NativeStartupRecovery.ensure(db)
+                val committed = db.withTransaction {
+                    val current = db.records().get(id)
+                    val currentRevision = current?.let {
+                        JSONObject(it.json).optInt("revision", -1)
+                    } ?: -1
+                    if (currentRevision != expected) {
+                        false
+                    } else {
+                        db.records().put(StoredRecord(
+                            id, record.toString(), record.optInt("schemaVersion", -1),
+                            record.optString("updatedAt"),
+                        ))
+                        true
+                    }
+                }
+                val out = JSObject()
+                out.put("committed", committed)
+                call.resolve(out)
+            } catch (error: Exception) {
+                call.reject("Room compare-and-set failed", error)
             }
         }
     }
