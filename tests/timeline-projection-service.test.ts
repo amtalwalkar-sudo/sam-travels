@@ -8,6 +8,7 @@ import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerifi
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { TimelineProjectionService } from "../packages/application/src/timeline-projection-service";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
+import { buildTimelineProjection } from "../packages/domain/src/timeline";
 
 const events = fixture as unknown as DriverEvent[];
 
@@ -86,7 +87,8 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     await browserDatabase.table("driverEvents").clear();
     const legacy = [{ eventId: "event-legacy", kind: "trip_completed", committedAt: "2026-11-04T10:01:00Z", revision: 1 }];
     await browserDatabase.table("driverEvents").bulkPut(legacy as unknown as DriverEvent[]);
-    const migratedLegacy = await new TimelineProjectionService(repository).project();
+    const migratedLegacyRows = await browserDatabase.table("driverEvents").toArray();
+    const migratedLegacy = buildTimelineProjection({ events: migratedLegacyRows as unknown as DriverEvent[] });
 
     const outputDirectory = join(process.cwd(), "android/app/src/androidTest/assets/generated");
     mkdirSync(outputDirectory, { recursive: true });
