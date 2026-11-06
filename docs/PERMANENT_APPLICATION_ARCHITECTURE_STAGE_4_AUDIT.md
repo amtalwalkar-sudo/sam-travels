@@ -1,6 +1,6 @@
 # Permanent Application Architecture — Stage 4 Presentation Audit
 
-**Status:** Initial evidence-based audit; review required before Stage 4 implementation.  
+**Status:** Reviewed and approved for implementation; clean-slate presentation decision confirmed by product owner.  
 **Baseline:** `main` at `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd` (Stage 3 merged-main CI run #868 succeeded).  
 **Scope:** Independent application shell, unrestricted custom feature presentation, screen/navigation contributions, presentation composition and verification.  
 **Non-scope:** Business feature onboarding, business rules/calculations, persistence redesign, platform lifecycle redesign, Stage 5 replacement, final visual redesign.
@@ -70,6 +70,10 @@ Each slice must be independently reviewed and tested. The stage is complete only
 - No real business feature onboarding and no AI development of business features.
 - No claim that automated tests establish physical-device usability or full accessibility acceptance.
 
-## 6. Review checkpoint
+## 6. Review checkpoint and approved clean-slate adjustment
 
-This audit is the initial Stage 4 starting point. Review the classifications and proposed slices before implementation. Any adjustment must preserve the approved unrestricted custom UI decision and the frozen architecture scope.
+The product owner reviewed the audit and explicitly approved discarding the existing presentation completely while retaining proven application and data foundations. Stage 4 implementation is authorized.
+
+The final shell requirement is exactly four bottom destinations in this order: Drive, Timeline, Performance, Admin, plus an expandable Settings gear in the upper corner (not a fifth bottom destination). The old visual shell, screen composition, navigation controls, styling and UI abstractions are disposable. Existing application workflows, contracts, business semantics, lifecycle, persistence, backup/restore, recovery, upgrades and platform ownership are not disposable.
+
+The unrestricted custom-screen requirement remains: no predefined screen templates, mandatory design system or imposed feature visual language. Update the former UI/UX shell contract to make this decision authoritative and remove contradictions. Implementation may proceed in slices 4A–4E without further product clarification.
