@@ -100,3 +100,19 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+  integrated-regression:
+    name: Integrated regression gate
+    if: always()
+    needs: [architecture, web, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every architecture, web, and Android gate
+        env:
+          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+        run: |
+          test "$ARCHITECTURE_RESULT" = "success"
+          test "$WEB_RESULT" = "success"
+          test "$ANDROID_RESULT" = "success"
