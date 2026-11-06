@@ -6,33 +6,40 @@ import java.time.OffsetDateTime
 /** Must match BACKUP_SNAPSHOT_SCHEMA_VERSION in packages/core/src/persistence-contract.ts. */
 internal object BackupSnapshotContract {
     const val CURRENT_SCHEMA_VERSION = 1
+    private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991.0
 
     fun validateManifest(manifest: JSONObject) {
-        require(manifest.optInt("schemaVersion", -1) == CURRENT_SCHEMA_VERSION) {
+        require(integer(manifest.opt("schemaVersion")) == CURRENT_SCHEMA_VERSION.toDouble()) {
             "backup_unsupported_schema"
         }
-        require(manifest.optString("applicationVersion").isNotBlank() &&
-            manifest.optString("businessTimezone").isNotBlank()) {
-            "backup_invalid_manifest"
-        }
-        runCatching { OffsetDateTime.parse(manifest.optString("createdAt")) }
+        val appVersion = manifest.opt("applicationVersion") as? String
+        val timezone = manifest.opt("businessTimezone") as? String
+        require(!appVersion.isNullOrBlank() && !timezone.isNullOrBlank()) { "backup_invalid_manifest" }
+        runCatching { OffsetDateTime.parse(manifest.opt("createdAt") as? String ?: "") }
             .getOrElse { throw IllegalArgumentException("backup_invalid_manifest") }
-        require(manifest.optLong("snapshotRevision", -1L) >= 0L) {
-            "backup_invalid_snapshot_revision"
-        }
+        val revision = integer(manifest.opt("snapshotRevision"))
+        require(revision >= 0.0) { "backup_invalid_snapshot_revision" }
         val counts = manifest.optJSONObject("recordCounts") ?: error("backup_invalid_record_counts")
-        require(counts.has("records") && counts.optLong("records", -1L) >= 0L) {
-            "backup_invalid_record_counts"
-        }
+        val records = integer(counts.opt("records"))
+        require(records >= 0.0) { "backup_invalid_record_counts" }
     }
 
     fun validateSnapshot(snapshot: JSONObject) {
-        require(snapshot.optInt("schemaVersion", -1) == CURRENT_SCHEMA_VERSION) {
+        require(integer(snapshot.opt("schemaVersion")) == CURRENT_SCHEMA_VERSION.toDouble()) {
             "backup_unsupported_schema"
         }
-        require(snapshot.optLong("snapshotRevision", -1L) >= 0L) {
+        require(integer(snapshot.opt("snapshotRevision")) >= 0.0) {
             "backup_invalid_snapshot_revision"
         }
         require(snapshot.optJSONArray("records") != null) { "backup_records_missing" }
+    }
+
+    private fun integer(value: Any?): Double {
+        val number = value as? Number ?: throw IllegalArgumentException("backup_invalid_manifest")
+        val result = number.toDouble()
+        require(result.isFinite() && result % 1.0 == 0.0 && result <= MAX_SAFE_INTEGER) {
+            "backup_invalid_manifest"
+        }
+        return result
     }
 }
