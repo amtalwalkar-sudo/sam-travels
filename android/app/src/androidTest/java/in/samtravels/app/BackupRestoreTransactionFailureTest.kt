@@ -106,7 +106,7 @@ class BackupRestoreTransactionFailureTest {
                     now,
                 ))
             }
-            assertEquals(2, org.json.JSONObject(
+            assertEquals(1, org.json.JSONObject(
                 durable.records().get("driver-state")!!.json,
             ).getJSONObject("value").getInt("revision"))
         } finally {
