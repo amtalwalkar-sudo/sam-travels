@@ -133,7 +133,6 @@ function validateSnapshotRows(data: BrowserSnapshotData): void {
 
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   assertSnapshotManifest(manifest);
-  validateSnapshotRows(data);
   if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
@@ -168,6 +167,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     }
   }
   const ids = new Set<string>();
+  validateSnapshotRows(data);
   for (const row of data.records) {
     assertRecordEnvelope(row);
     const id = row.id;
