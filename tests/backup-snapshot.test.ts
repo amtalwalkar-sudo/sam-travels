@@ -9,6 +9,7 @@ import {
   listBrowserRecoveryCheckpoints,
   markBrowserRestoreVerified,
   restoreBrowserSnapshot,
+  registerBrowserFeatureBackupParticipant,
   rollbackBrowserRecoveryCheckpoint,
 } from "../packages/storage-browser/src";
 
