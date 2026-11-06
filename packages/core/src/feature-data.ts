@@ -53,6 +53,9 @@ export type FeatureDataQueryResult<Record = unknown> =
       reason: string;
     }>;
 
+export type AvailableFeatureDataQueryResult<Record = unknown> =
+  Extract<FeatureDataQueryResult<Record>, { status: "available" }>;
+
 function cloneFrozenSourceData<T>(value: T, seen = new WeakSet<object>()): T {
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
   if (typeof value === "number") {
