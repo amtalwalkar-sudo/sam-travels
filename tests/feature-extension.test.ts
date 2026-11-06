@@ -151,6 +151,42 @@ describe("feature extension architecture", () => {
     }));
   });
 
+  it("keeps unrelated feature contributions available when another feature group fails", () => {
+    const healthyFeature: FeatureDefinition = {
+      id: "healthy-insights",
+      label: "Healthy Insights",
+      dataPolicy: "non-persistent",
+      contractVersion: 1,
+      dependencies: [{ id: "logbook", contractVersion: 1 }],
+    };
+    const healthyExtension: FeatureExtensionDefinition = {
+      id: "healthy-insights.core.v1",
+      version: 1,
+      featureId: "healthy-insights",
+      publicEntryPoint: "packages/features/healthy-insights/index.ts",
+      feature: healthyFeature,
+      calculations: [{
+        ...totalCalculation,
+        id: "healthy-insights.daily-total.v1",
+        ownerFeatureId: "healthy-insights",
+      }],
+    };
+    const runtime = initializeRuntimeRegistry({
+      extensions: [
+        {
+          ...insightsExtension,
+          calculations: [{ ...totalCalculation, calculate: () => -1 }],
+        },
+        healthyExtension,
+      ],
+    });
+    expect(runtime.calculations.has(totalCalculation.id)).toBe(false);
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.calculations.has("healthy-insights.daily-total.v1")).toBe(true);
+    expect(runtime.extensions.has(healthyExtension.id)).toBe(true);
+    expect(runtime.activeFeatures.has("healthy-insights")).toBe(true);
+  });
+
   it("exposes an immutable extension registry", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [insightsExtension] });
     expect(Object.isFrozen(runtime.extensions)).toBe(true);
