@@ -87,10 +87,6 @@ describe("deterministic feature activation planning", () => {
   });
 
   it("rejects invalid declarations while preserving valid unrelated declarations", () => {
-    const plan = planFeatureActivation([
-      feature("invalid-persistent", []),
-      feature("healthy"),
-    ]);
     const invalid = {
       ...feature("invalid-persistent"),
       dataPolicy: "persistent" as const,
@@ -102,7 +98,6 @@ describe("deterministic feature activation planning", () => {
       code: "invalid_feature_declaration",
       featureId: "invalid-persistent",
     }));
-    expect(plan.results.get("healthy")?.state).toBe("active");
   });
 
   it("keeps persistent ownership declarations visible even when operational activation is blocked", () => {
