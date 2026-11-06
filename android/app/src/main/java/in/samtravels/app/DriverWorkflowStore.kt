@@ -88,6 +88,7 @@ object DriverWorkflowStore {
                 .put("status", "pending_location")
                 .put("createdAt", now)
                 .put("updatedAt", now)
+            DriverWorkflowContract.validateIntent(intent)
             save(db, key, intent, now)
             result = intent
         }
@@ -180,7 +181,9 @@ object DriverWorkflowStore {
             ) { "stale_revision" }
 
             val now = Instant.now().toString()
+            DriverWorkflowContract.validateIntent(intent)
             intent.put("status", "pending_location").put("updatedAt", now).remove("reason")
+            DriverWorkflowContract.validateIntent(intent)
             save(db, key, intent, now)
             result = intent
         }
@@ -194,7 +197,9 @@ object DriverWorkflowStore {
             val intent = JSONObject(row.json)
             if (intent.optString("status") != "recorded") {
                 val now = Instant.now().toString()
+                DriverWorkflowContract.validateIntent(intent)
                 intent.put("status", "needs_attention").put("reason", reason).put("updatedAt", now)
+                DriverWorkflowContract.validateIntent(intent)
                 save(db, key, intent, now)
             }
         }
@@ -206,21 +211,21 @@ object DriverWorkflowStore {
             .filter { it.id.startsWith("driver-intent:") }
             .mapNotNull { row ->
                 runCatching { JSONObject(row.json) }.getOrNull()?.takeIf {
-                    it.optString("status") == "pending_location" ||
-                        it.optString("status") == "needs_attention"
+                    runCatching { DriverWorkflowContract.validateIntent(it) }.isSuccess &&
+                        (it.optString("status") == "pending_location" || it.optString("status") == "needs_attention")
                 }
             }
 
     /** Read the immutable committed event stream through its owning repository boundary. */
     fun listEvents(db: LocalDatabase): List<JSONObject> =
-        db.logBookEvents().list().map { JSONObject(it.json) }
+        db.logBookEvents().list().map { JSONObject(it.json).also(DriverWorkflowContract::validateEvent) }
 
 
     /** Enumerate Work-owned durable intents; callers receive detached JSON values. */
     fun listIntents(db: LocalDatabase): List<JSONObject> =
         db.records().list()
             .filter { it.id.startsWith("driver-intent:") }
-            .mapNotNull { runCatching { JSONObject(it.json) }.getOrNull() }
+            .mapNotNull { runCatching { JSONObject(it.json) }.getOrNull()?.takeIf { intent -> runCatching { DriverWorkflowContract.validateIntent(intent) }.isSuccess } }
 
     /** Find the original pending-location intent eligible for service-start recovery. */
     fun firstPendingLocation(db: LocalDatabase): JSONObject? =
