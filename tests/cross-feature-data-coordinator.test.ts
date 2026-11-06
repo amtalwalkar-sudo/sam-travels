@@ -209,4 +209,27 @@ describe("cross-feature data coordination", () => {
     expect(Object.isFrozen(sourceRecord.nested)).toBe(false);
   });
 
+  it("registers extension-owned queries through the existing atomic feature contribution path", () => {
+    const extension: FeatureExtensionDefinition = {
+      id: "fixture-finance-extension.v1",
+      version: 1,
+      featureId: "finance",
+      publicEntryPoint: "packages/features/finance/index.ts",
+      dataQueries: [query("finance.amounts.v1", "finance", async () => available(4))],
+    };
+    const runtime = initializeRuntimeRegistry({ extensions: [extension] });
+    expect(runtime.dataQueries.has("finance.amounts.v1")).toBe(true);
+    expect(runtime.extensions.get(extension.id)?.dataQueryIds).toEqual(["finance.amounts.v1"]);
+
+    const invalid = initializeRuntimeRegistry({
+      extensions: [{
+        ...extension,
+        id: "fixture-invalid-finance-extension.v1",
+        dataQueries: [query("finance.invalid-owner.v1", "vehicle", async () => available(1))],
+      }],
+    });
+    expect(invalid.extensions.has("fixture-invalid-finance-extension.v1")).toBe(false);
+    expect(invalid.dataQueries.has("finance.invalid-owner.v1")).toBe(false);
+  });
+
 });
