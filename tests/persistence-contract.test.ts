@@ -7,7 +7,7 @@ import futureRecord from "../fixtures/persistence/record-envelope-v2-future.json
 import duplicateBackup from "../fixtures/persistence/backup-v1-duplicate-identities.json";
 import futureManifest from "../fixtures/persistence/backup-v2-future-manifest.json";
 import { assertRecordEnvelope } from "../packages/core/src/persistence-contract";
-import { browserDatabase } from "../packages/storage-browser/src/database";
+import { BROWSER_DATABASE_SCHEMA_VERSION, browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { restoreBrowserSnapshot } from "../packages/storage-browser/src/backup-snapshot";
 
@@ -44,7 +44,7 @@ describe("formal persistence contracts and historical fixtures", () => {
     await historical.close();
 
     await browserDatabase.open();
-    expect(browserDatabase.verno).toBe(5);
+    expect(browserDatabase.verno).toBe(BROWSER_DATABASE_SCHEMA_VERSION);
     expect(await browserDatabase.records.get("historical-trip-001")).toMatchObject(validRecord);
     expect(browserDatabase.tables.map(table => table.name)).toEqual(expect.arrayContaining([
       "records", "driverState", "driverIntents", "driverEvents", "driverOutbox",
