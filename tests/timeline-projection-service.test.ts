@@ -4,18 +4,10 @@ import fixture from "../android/app/src/androidTest/assets/timeline-parity-event
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
-import { TimelineProjectionService, type TimelineEventSource } from "../packages/application/src/timeline-projection-service";
+import { TimelineProjectionService } from "../packages/application/src/timeline-projection-service";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 
 const events = fixture as unknown as DriverEvent[];
-
-class AndroidRoomBridgeFixture implements TimelineEventSource {
-  async listEvents(): Promise<DriverEvent[]> {
-    // The Android instrumentation test loads this same asset through the actual
-    // Room gateway. This adapter models the JSON payload returned by that bridge.
-    return events.map(event => structuredClone(event));
-  }
-}
 
 describe("PWA and Android Timeline application-boundary parity", () => {
   beforeEach(async () => {
@@ -23,13 +15,13 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     await browserDatabase.open();
   });
 
-  it("projects identical business output from Dexie and the Android Room bridge contract", async () => {
-    await browserDatabase.table("driverEvents").bulkPut(events);
-    const pwa = new TimelineProjectionService(new DexieDriverWorkflowRepository());
-    const android = new TimelineProjectionService(new AndroidRoomBridgeFixture());
-
-    const [pwaResult, androidResult] = await Promise.all([pwa.project(), android.project()]);
-    expect(pwaResult).toEqual(androidResult);
+  it("projects business output from events persisted and read back through Dexie", async () => {
+    // Repeated delivery uses the stable event identity and must not create another stored event.
+    await browserDatabase.table("driverEvents").bulkPut([...events, events[0]]);
+    const repository = new DexieDriverWorkflowRepository();
+    const persisted = await repository.listEvents();
+    expect(persisted).toHaveLength(events.length);
+    const pwaResult = await new TimelineProjectionService(repository).project();
     expect(pwaResult.logicalShifts.map(shift => shift.anchorDate)).toEqual(["2026-11-04", "2026-11-05"]);
     expect(pwaResult.logicalShifts.map(shift => shift.metrics.passenger_trip_time)).toEqual([
       { status: "available", value: 10, unit: "minutes" },
@@ -40,16 +32,13 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     });
   });
 
-  it("keeps unavailable Finance and Vehicle sources identical across platforms", async () => {
+  it("preserves explicit unavailable states for Finance and Vehicle evidence after a real Dexie read", async () => {
     await browserDatabase.table("driverEvents").bulkPut(events);
-    const pwa = new TimelineProjectionService(new DexieDriverWorkflowRepository());
-    const android = new TimelineProjectionService(new AndroidRoomBridgeFixture());
-    const [left, right] = await Promise.all([pwa.project(), android.project()]);
-    for (const shift of left.logicalShifts) {
+    const result = await new TimelineProjectionService(new DexieDriverWorkflowRepository()).project();
+    for (const shift of result.logicalShifts) {
       expect(shift.metrics.total_fare.status).toBe("unavailable");
       expect(shift.metrics.business_km.status).toBe("unavailable");
     }
-    expect(left).toEqual(right);
   });
   it("rebuilds the same Timeline projection after snapshot restore and database restart", async () => {
     await browserDatabase.table("driverEvents").bulkPut(events);
