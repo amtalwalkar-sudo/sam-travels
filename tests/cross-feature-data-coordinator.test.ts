@@ -176,4 +176,37 @@ describe("cross-feature data coordination", () => {
     });
     expect(result).toMatchObject({ status: "blocked", reason: "query_not_registered" });
   });
+  it("blocks stale sources unless explicitly allowed", async () => {
+    const service = coordinator([
+      query("finance.amounts.v1", "finance", async () => available(12, { freshness: "stale" })),
+    ]);
+    const request = {
+      queryIds: ["finance.amounts.v1"],
+      context,
+      calculationId: calculation.id,
+      expected: { version: 1, inputSchemaVersion: 1, outputSchemaVersion: 1 },
+      buildInput: () => ({ businessDate: context.effectiveDate, total: 12 }),
+    };
+    await expect(service.calculate(request)).resolves.toMatchObject({
+      status: "blocked",
+      reason: "source_not_fresh",
+    });
+    await expect(service.calculate({ ...request, allowStale: true })).resolves.toMatchObject({
+      status: "calculated",
+    });
+  });
+
+  it("deeply isolates collected source records from adapter mutation", async () => {
+    const sourceRecord = { amount: 7, nested: { revision: 1 } };
+    const service = coordinator([
+      query("finance.amounts.v1", "finance", async () => available(7, { records: [sourceRecord] })),
+    ]);
+    const result = await service.collect(["finance.amounts.v1"], context);
+    if (result[0].status !== "available") throw new Error("Expected available source");
+    sourceRecord.nested.revision = 9;
+    expect(result[0].records[0].nested.revision).toBe(1);
+    expect(Object.isFrozen(result[0].records[0].nested)).toBe(true);
+    expect(Object.isFrozen(sourceRecord.nested)).toBe(false);
+  });
+
 });
