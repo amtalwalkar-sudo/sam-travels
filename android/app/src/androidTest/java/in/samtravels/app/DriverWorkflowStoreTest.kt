@@ -241,79 +241,102 @@ class DriverWorkflowStoreTest {
     }
 
 
-    @Test fun roomPersistedEventsRunThroughTheSharedTimelineProjection() {
+    @Test fun durableRoomRestoreAndReopenMatchesTheCompleteDexieProjectionOracle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
-        val fixture = instrumentation.context.assets.open("timeline-parity-events-v1.json")
-            .bufferedReader().use { it.readText() }
-        val expectedEvents = org.json.JSONArray(fixture)
-        for (index in 0 until expectedEvents.length()) {
-            val event = expectedEvents.getJSONObject(index)
-            val row = LogBookEventRecord(
-                event.getString("eventId"),
-                event.toString(),
-                1,
-                event.getString("committedAt"),
-            )
-            db.logBookEvents().put(row)
-            // Replayed delivery replaces the same stable identity; it must not add a second event.
-            if (index == 0) db.logBookEvents().put(row)
-        }
+        val assets = instrumentation.context.assets
+        val oracle = JSONObject(assets.open("generated/timeline-projection-parity-oracle-v1.json")
+            .bufferedReader().use { it.readText() })
+        val bundle = assets.open("timeline-projection.js").bufferedReader().use { it.readText() }
 
-        // The projector receives only events returned by the real Room gateway after persistence.
-        val persistedEvents = DriverWorkflowStore.listEvents(db)
-        assertEquals(expectedEvents.length(), persistedEvents.size)
-        val eventJson = org.json.JSONArray().apply { persistedEvents.forEach { put(it) } }
-        val bundle = instrumentation.context.assets.open("timeline-projection.js")
-            .bufferedReader().use { it.readText() }
-        val completed = CountDownLatch(1)
-        val projectionJson = AtomicReference<String?>()
-        lateinit var webView: WebView
-
-        instrumentation.runOnMainSync {
-            webView = WebView(context)
-            webView.settings.javaScriptEnabled = true
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    view.evaluateJavascript(
-                        "JSON.stringify(TimelineParity.buildTimelineProjection({events:$eventJson}))",
-                    ) { encoded ->
-                        projectionJson.set(org.json.JSONTokener(encoded).nextValue() as String)
-                        completed.countDown()
+        fun runSharedProjection(rows: List<JSONObject>): String {
+            val eventJson = org.json.JSONArray().apply { rows.forEach { put(it) } }
+            val completed = CountDownLatch(1)
+            val projectionJson = AtomicReference<String?>()
+            lateinit var webView: WebView
+            instrumentation.runOnMainSync {
+                webView = WebView(context)
+                webView.settings.javaScriptEnabled = true
+                webView.webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView, url: String) {
+                        view.evaluateJavascript(
+                            "JSON.stringify(TimelineParity.buildTimelineProjection({events:$eventJson}))",
+                        ) { encoded ->
+                            projectionJson.set(org.json.JSONTokener(encoded).nextValue() as String)
+                            completed.countDown()
+                        }
                     }
                 }
+                webView.loadDataWithBaseURL(
+                    "https://localhost/",
+                    "<html><head><script>$bundle</script></head><body></body></html>",
+                    "text/html",
+                    "UTF-8",
+                    null,
+                )
             }
-            webView.loadDataWithBaseURL(
-                "https://localhost/",
-                "<html><head><script>$bundle</script></head><body></body></html>",
-                "text/html",
-                "UTF-8",
-                null,
-            )
+            try {
+                assertTrue("Shared Timeline projection did not finish", completed.await(20, TimeUnit.SECONDS))
+                return projectionJson.get() ?: error("Timeline projection returned no result")
+            } finally {
+                instrumentation.runOnMainSync { webView.destroy() }
+            }
         }
 
+        val fixture = assets.open("timeline-parity-events-v1.json").bufferedReader().use { it.readText() }
+        val expectedEvents = org.json.JSONArray(fixture)
+        val databaseName = "timeline-parity-durable-restore.db"
+        context.deleteDatabase(databaseName)
+        val builder = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+            .allowMainThreadQueries()
+
+        var durable = builder.build()
         try {
-            assertTrue("Shared Timeline projection did not finish", completed.await(20, TimeUnit.SECONDS))
-            val projection = JSONObject(projectionJson.get() ?: error("Timeline projection returned no result"))
-            assertEquals(1, projection.getInt("schemaVersion"))
-            assertEquals("Asia/Kolkata", projection.getString("timeZone"))
-            assertEquals(2, projection.getJSONArray("calendarDays").length())
-            val shifts = projection.getJSONArray("logicalShifts")
-            assertEquals(2, shifts.length())
-            val first = shifts.getJSONObject(0).getJSONObject("metrics")
-            val second = shifts.getJSONObject(1).getJSONObject("metrics")
-            assertEquals(270.0, first.getJSONObject("shift_duration").getDouble("value"), 0.0)
-            assertEquals(60.0, second.getJSONObject("shift_duration").getDouble("value"), 0.0)
-            assertEquals(10.0, first.getJSONObject("passenger_trip_time").getDouble("value"), 0.0)
-            assertEquals(20.0, second.getJSONObject("passenger_trip_time").getDouble("value"), 0.0)
-            assertEquals(1, first.getJSONObject("completed_ride_count").getInt("value"))
-            assertEquals(0, second.getJSONObject("completed_ride_count").getInt("value"))
-            assertEquals("unavailable", first.getJSONObject("total_fare").getString("status"))
-            assertEquals("unavailable", first.getJSONObject("business_km").getString("status"))
-            assertEquals(0, projection.getJSONArray("integrityIssues").length())
+            for (index in 0 until expectedEvents.length()) {
+                val event = expectedEvents.getJSONObject(index)
+                val row = LogBookEventRecord(
+                    event.getString("eventId"), event.toString(), 1, event.getString("committedAt"),
+                )
+                durable.logBookEvents().put(row)
+                if (index == 0) durable.logBookEvents().put(row)
+            }
+            val exported = NativeBackupCoverage.exportBusinessRecords(durable) { false }
+            assertEquals(expectedEvents.length(), exported.length())
+
+            // Exercise the native replacement/restore adapter, not just a second insert.
+            NativeBackupCoverage.replaceBusinessRecords(durable, org.json.JSONArray())
+            assertTrue(durable.logBookEvents().list().isEmpty())
+            NativeBackupCoverage.replaceBusinessRecords(durable, exported)
         } finally {
-            instrumentation.runOnMainSync { webView.destroy() }
+            durable.close()
+        }
+
+        // A real on-disk Room close/reopen separates the persisted source from the projection.
+        durable = builder.build()
+        try {
+            val persisted = DriverWorkflowStore.listEvents(durable)
+            assertEquals(expectedEvents.length(), persisted.size)
+            val normalOutput = runSharedProjection(persisted)
+            assertEquals("Complete normal projection differs from Dexie oracle", oracle.getString("normal"), normalOutput)
+
+            // Pending shift/trip edge dataset is independently persisted and reopened.
+            durable.logBookEvents().clear()
+            for (index in 0 until 2) {
+                val event = expectedEvents.getJSONObject(index)
+                durable.logBookEvents().put(LogBookEventRecord(
+                    event.getString("eventId"), event.toString(), 1, event.getString("committedAt"),
+                ))
+            }
+            durable.close()
+            durable = builder.build()
+            val edgeOutput = runSharedProjection(DriverWorkflowStore.listEvents(durable))
+            assertEquals("Complete pending-edge projection differs from Dexie oracle", oracle.getString("edge"), edgeOutput)
+        } finally {
+            durable.close()
+            context.deleteDatabase(databaseName)
         }
     }
+
 
 }
