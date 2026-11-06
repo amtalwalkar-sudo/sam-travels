@@ -3,6 +3,7 @@ import {
   type CalculationContract,
   type FeatureDataQueryContract,
   type FeatureDataSourceSnapshot,
+  type FeatureExtensionDefinition,
   initializeRuntimeRegistry,
 } from "../packages/core/src";
 import { CrossFeatureDataCoordinator } from "../packages/application/src/cross-feature-data-coordinator";
