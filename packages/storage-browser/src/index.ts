@@ -4,3 +4,5 @@ export * from "./driver-workflow";
 export * from "./backup-snapshot";
 
 export * from "./local-diagnostics";
+
+export * from "./feature-extension-upgrade-transaction";
