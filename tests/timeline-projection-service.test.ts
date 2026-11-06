@@ -84,7 +84,7 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     await browserDatabase.table("driverEvents").bulkPut(events.slice(0, 2));
     const edge = await new TimelineProjectionService(repository).project();
     await browserDatabase.table("driverEvents").clear();
-    const legacy = [{ eventId: "event-legacy", kind: "trip_completed" }];
+    const legacy = [{ eventId: "event-legacy", kind: "trip_completed", committedAt: "2026-11-04T10:01:00Z", revision: 1 }];
     await browserDatabase.table("driverEvents").bulkPut(legacy as unknown as DriverEvent[]);
     const migratedLegacy = await new TimelineProjectionService(repository).project();
 
