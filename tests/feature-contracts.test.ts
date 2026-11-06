@@ -340,17 +340,29 @@ describe("runtime registry bootstrap", () => {
       payloadVersion: 1,
       validatePayload: () => true,
     };
+    const performanceCalculation: CalculationContract<{ businessDate: string }, number> = {
+      id: "performance.fixture-total.v1",
+      ownerFeatureId: "performance",
+      version: 1,
+      inputSchemaVersion: 1,
+      outputSchemaVersion: 1,
+      unit: "fixture-units",
+      effectiveDateField: "businessDate",
+      rounding: { mode: "none", decimalPlaces: 0 },
+      calculate: () => 3,
+      regressionCases: [{ name: "valid", input: { businessDate: "2026-11-06" }, expected: 3 }],
+    };
     const independentCalculation: CalculationContract<{ businessDate: string }, number> = {
-      ...calculation,
+      ...performanceCalculation,
       id: "finance.independent-total.v1",
       ownerFeatureId: "finance",
     };
     const runtime = initializeRuntimeRegistry({
       integrations: [invalidIntegration],
-      calculations: [calculation, independentCalculation],
+      calculations: [performanceCalculation, independentCalculation],
     });
     expect(runtime.integrations.has(invalidIntegration.id)).toBe(false);
-    expect(runtime.calculations.has(calculation.id)).toBe(false);
+    expect(runtime.calculations.has(performanceCalculation.id)).toBe(false);
     expect(runtime.calculations.has(independentCalculation.id)).toBe(true);
     expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
       featureId: "performance", code: "invalid_integration",
