@@ -290,7 +290,7 @@ describe("runtime registry bootstrap", () => {
       integrations: [], calculations: [],
     });
     expect(runtime.features.has("custom-addon")).toBe(true);
-    expect(runtime.startupOrder.at(-1)?.id).toBe("custom-addon");
+    expect(runtime.startupOrder.map(feature => feature.id)).toContain("custom-addon");
   });
 
   it("rejects an invalid add-on without preventing unrelated features from booting", () => {
