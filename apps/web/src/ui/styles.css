@@ -124,3 +124,16 @@ button{font:inherit}
 .trip-history-evidence>div{display:grid;gap:5px;min-width:0}
 .trip-history-evidence small{font-size:9px;letter-spacing:.04em;color:#87949d}
 .trip-history-evidence span{font-size:12px;color:#425966}
+
+/* Stage 4 clean-shell controls: fixed four-destination navigation plus expandable settings. */
+.settings-trigger{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #dce4e9;border-radius:13px;background:#fff;color:#35566a;cursor:pointer}
+.settings-trigger svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.settings-trigger:focus-visible,.settings-panel button:focus-visible{outline:2px solid #648ba0;outline-offset:3px}
+.settings-panel{position:absolute;z-index:40;top:74px;right:12px;width:min(340px,calc(100% - 24px));padding:18px;border:1px solid #dce5ea;border-radius:18px;background:#fff;box-shadow:0 18px 48px rgba(18,38,50,.18)}
+.settings-panel-heading{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.settings-panel-heading small{font-size:9px;letter-spacing:.1em;font-weight:800;color:#87949c}
+.settings-panel-heading h2{margin:5px 0 0;font-size:20px;color:#203642}
+.settings-panel-heading>button{width:32px;height:32px;border:0;border-radius:50%;background:#f0f3f5;color:#526875;font-size:22px;line-height:1;cursor:pointer}
+.settings-panel>p{margin:12px 0 0;color:#71808a;font-size:11px;line-height:1.5}
+.bottom-navigation-item{min-height:58px}
+@media(max-width:380px){.settings-panel{right:8px;width:calc(100% - 16px)}}
