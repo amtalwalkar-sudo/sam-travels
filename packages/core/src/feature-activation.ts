@@ -205,7 +205,8 @@ export function planFeatureActivation(additional: readonly FeatureDefinition[] =
     ordered.add(id);
     startupOrder.push(feature);
   };
-  for (const id of [...activeFeatures.keys()].sort(compareText)) visitActive(id);
+  // Preserve the stable built-in declaration order; add-ons were already sorted above.
+  for (const id of activeFeatures.keys()) visitActive(id);
 
   // Keep diagnostics stable and avoid repeated identical graph reports.
   const uniqueDiagnostics = new Map<string, FeatureActivationDiagnostic>();
