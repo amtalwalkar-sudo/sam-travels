@@ -1,5 +1,6 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const manifestName = "feature.manifest.json";
 const catalogRelativePath = "apps/web/src/generated-feature-catalog.ts";
@@ -10,9 +11,6 @@ function assertManifest(manifest, directoryName) {
   }
   if (manifest.id !== directoryName || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(manifest.id)) {
     throw new Error("Feature manifest ID must match its lowercase kebab-case directory: " + directoryName);
-  }
-  if (!Number.isSafeInteger(manifest.extensionVersion) || manifest.extensionVersion < 1) {
-    throw new Error("Invalid extension version in feature manifest: " + directoryName);
   }
   if (manifest.entryPoint !== "packages/features/" + directoryName + "/index.ts") {
     throw new Error("Feature manifest must use its canonical public entry point: " + directoryName);
@@ -52,7 +50,7 @@ export async function generateFeatureCatalog({ root = process.cwd(), check = fal
   const directories = (await readdir(featureRoot, { withFileTypes: true }))
     .filter(entry => entry.isDirectory())
     .map(entry => entry.name)
-    .sort((left, right) => left.localeCompare(right));
+    .sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
   const features = [];
 
   for (const directoryName of directories) {
@@ -110,7 +108,7 @@ export async function generateFeatureCatalog({ root = process.cwd(), check = fal
   return generated;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const check = process.argv.includes("--check");
   try {
     await generateFeatureCatalog({ check });
