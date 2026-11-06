@@ -1,5 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import fixture from "../android/app/src/androidTest/assets/timeline-parity-events-v1.json";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified } from "../packages/storage-browser/src";
@@ -73,4 +75,28 @@ describe("PWA and Android Timeline application-boundary parity", () => {
     await markBrowserRestoreVerified(restored.checkpointId);
   });
 
+
+  it("emits the complete deterministic parity oracle from IndexedDB-backed ordinary, edge, and migrated legacy datasets", async () => {
+    const repository = new DexieDriverWorkflowRepository();
+    const normal = await new TimelineProjectionService(repository).project();
+    await browserDatabase.table("driverEvents").clear();
+    await browserDatabase.table("driverEvents").bulkPut(events.slice(0, 2));
+    const edge = await new TimelineProjectionService(repository).project();
+    await browserDatabase.table("driverEvents").clear();
+    const legacy = [{ eventId: "event-legacy", kind: "trip_completed" }];
+    await browserDatabase.table("driverEvents").bulkPut(legacy as unknown as DriverEvent[]);
+    const migratedLegacy = await new TimelineProjectionService(repository).project();
+
+    const outputDirectory = join(process.cwd(), "android/app/src/androidTest/assets/generated");
+    mkdirSync(outputDirectory, { recursive: true });
+    writeFileSync(join(outputDirectory, "timeline-projection-parity-oracle-v1.json"), JSON.stringify({
+      normal: JSON.stringify(normal),
+      edge: JSON.stringify(edge),
+      migratedLegacy: JSON.stringify(migratedLegacy),
+    }));
+    expect(normal.logicalShifts).toHaveLength(2);
+    expect(edge.logicalShifts[0].metrics.shift_duration.status).toBe("pending");
+    expect(edge.logicalShifts[0].metrics.passenger_trip_time.status).toBe("pending");
+    expect(migratedLegacy.integrityIssues.map(issue => issue.code)).toContain("invalid_event");
+  });
 });
