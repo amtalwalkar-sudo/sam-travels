@@ -35,7 +35,7 @@ export class CrossFeatureDataCoordinator {
     queryIds: readonly string[],
     context: FeatureDataQueryContext,
   ): Promise<readonly DataSourceCollectionItem[]> {
-    if (new Set(queryIds).size !== queryIds.length) {
+    validateFeatureDataQueryContext(context);\n    if (new Set(queryIds).size !== queryIds.length) {
       throw new Error("Duplicate feature data query requested");
     }
     const items = await Promise.all(queryIds.map(async queryId => {
