@@ -1,3 +1,4 @@
+import { assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../../domain/src/driver-workflow";
 import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
@@ -118,8 +119,21 @@ function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): 
 }
 const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Table<Checkpoint, string>;
 
+function validateSnapshotRows(data: BrowserSnapshotData): void {
+  for (const row of data.driverState) {
+    if (!row || typeof row !== "object" || (row as { id?: unknown }).id !== "driver-state") {
+      throw new Error("backup_invalid_driver_state_row");
+    }
+    assertDriverStateContract((row as { value?: unknown }).value);
+  }
+  data.driverIntents.forEach(assertDriverIntentContract);
+  data.driverEvents.forEach(assertDriverEventContract);
+  data.driverOutbox.forEach(assertDriverOutboxContract);
+}
+
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   assertSnapshotManifest(manifest);
+  validateSnapshotRows(data);
   if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
@@ -170,6 +184,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   data.records.forEach(assertRecordEnvelope);
+  validateSnapshotRows(data);
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
