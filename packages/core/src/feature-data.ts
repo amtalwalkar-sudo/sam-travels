@@ -53,6 +53,34 @@ export type FeatureDataQueryResult<Record = unknown> =
       reason: string;
     }>;
 
+function cloneFrozenSourceData<T>(value: T, seen = new WeakSet<object>()): T {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Source records must contain finite numbers");
+    return value;
+  }
+  if (typeof value !== "object") throw new Error("Source records must be JSON-compatible");
+  const source = value as object;
+  if (seen.has(source)) throw new Error("Source records cannot contain cycles");
+  seen.add(source);
+  let copy: object;
+  if (Array.isArray(value)) {
+    copy = value.map(item => cloneFrozenSourceData(item, seen));
+  } else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error("Source records must contain only plain objects and arrays");
+    }
+    const record: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+      record[key] = cloneFrozenSourceData(item, seen);
+    }
+    copy = record;
+  }
+  seen.delete(source);
+  return Object.freeze(copy) as T;
+}
+
 function validDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
