@@ -45,12 +45,10 @@ internal object NativeBackupCoverage {
             if (row.optString("participantId") == "platform-records") {
                 RecordEnvelopeContract.validate(payload)
                 require(row.optInt("schemaVersion", -1) == payload.optInt("schemaVersion", -2) &&
-                    row.optString("updatedAt") == payload.optString("updatedAt")) {
+                    row.optString("updatedAt") == payload.optString("updatedAt") &&
+                    payload.optString("id") == row.optString("id")) {
                     "backup_record_storage_envelope_mismatch"
                 }
-            }
-            if (payload.has("id")) require(payload.optString("id") == row.optString("id")) {
-                "backup_record_identity_mismatch"
             }
         }
         override fun clear(database: LocalDatabase) {
@@ -79,7 +77,10 @@ internal object NativeBackupCoverage {
             when {
                 id == "driver-state" -> DriverWorkflowContract.validateState(payload.optJSONObject("value") ?: error("invalid_driver_state"))
                 id == "driver-intent:" + payload.optJSONObject("command")?.optString("eventId") -> DriverWorkflowContract.validateIntent(payload)
-                id.startsWith("driver-outbox:") -> DriverWorkflowContract.validateOutbox(payload)
+                id.startsWith("driver-outbox:") -> {
+                    DriverWorkflowContract.validateOutbox(payload)
+                    require(id == "driver-outbox:" + payload.optLong("revision", -1L)) { "driver_outbox_identity_mismatch" }
+                }
                 id == "legacy-driver-state" -> Unit // Preserved legacy Work payload; not interpreted as the current state contract.
                 else -> error("backup_work_record_owner_mismatch")
             }
