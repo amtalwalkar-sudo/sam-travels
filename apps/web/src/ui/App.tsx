@@ -63,7 +63,7 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
 }
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
+  const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);\n  const [settingsOpen, setSettingsOpen] = useState(false);
   const workspace = useDriverWorkspace();
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
@@ -79,8 +79,8 @@ export function App() {
           <div className="brand-mark">ST</div>
           <div><strong>Sam Travels</strong><span>{activeScreen}</span></div>
         </div>
-        <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
-          <i />Internet {enabled ? "On" : "Off"}
+        <button className="settings-trigger" type="button" onClick={() => setSettingsOpen(open => !open)} aria-label="Settings" aria-expanded={settingsOpen} aria-controls="application-settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2A1.7 1.7 0 0 0 7.8 17l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2A1.7 1.7 0 0 0 5.4 6.8l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a1.7 1.7 0 0 1 3.4 0v.2A1.7 1.7 0 0 0 17 4.4l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 1.9Z" /></svg>
         </button>
       </header>
 
@@ -158,7 +158,7 @@ export function App() {
           <button
             key={item.label}
             className={activeScreen === item.screen ? "bottom-navigation-item active" : "bottom-navigation-item"}
-            onClick={() => setActiveScreen(item.screen)}
+            onClick={() => { setActiveScreen(item.screen); setSettingsOpen(false); }}
             aria-current={activeScreen === item.label ? "page" : undefined}
           >
             <NavigationIcon name={item.icon} />
