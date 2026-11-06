@@ -19,12 +19,22 @@ export type FeatureExtensionDefinition = Readonly<{
   calculations?: readonly CalculationContract<any, any>[];
 }>;
 
-/** Validate and freeze extension descriptors against the complete feature graph. */
+/** Safe, immutable extension metadata; executable contributions live in their own registries. */
+export type RegisteredFeatureExtension = Readonly<{
+  id: string;
+  version: number;
+  featureId: FeatureId;
+  publicEntryPoint: string;
+  integrationIds: readonly string[];
+  calculationIds: readonly string[];
+}>;
+
+/** Validate extension contributions and expose metadata only after all ownership checks pass. */
 export function registerFeatureExtensions(
   features: ReadonlyMap<FeatureId, FeatureDefinition>,
   definitions: readonly FeatureExtensionDefinition[],
-): ReadonlyMap<string, FeatureExtensionDefinition> {
-  const registry = new Map<string, FeatureExtensionDefinition>();
+): ReadonlyMap<string, RegisteredFeatureExtension> {
+  const registry = new Map<string, RegisteredFeatureExtension>();
 
   for (const source of definitions) {
     if (!source.id?.trim() || registry.has(source.id)) {
@@ -63,9 +73,12 @@ export function registerFeatureExtensions(
     }
 
     registry.set(source.id, Object.freeze({
-      ...source,
-      integrations: Object.freeze(integrations),
-      calculations: Object.freeze(calculations),
+      id: source.id,
+      version: source.version,
+      featureId: source.featureId,
+      publicEntryPoint: source.publicEntryPoint,
+      integrationIds: Object.freeze(integrations.map(integration => integration.id)),
+      calculationIds: Object.freeze(calculations.map(calculation => calculation.id)),
     }));
   }
 

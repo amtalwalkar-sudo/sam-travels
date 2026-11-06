@@ -142,7 +142,8 @@ describe("feature extension architecture", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [insightsExtension] });
     expect(Object.isFrozen(runtime.extensions)).toBe(true);
     expect((runtime.extensions as unknown as { set?: unknown }).set).toBeUndefined();
-    expect(Object.isFrozen(runtime.extensions.get(insightsExtension.id)?.integrations)).toBe(true);
-    expect(Object.isFrozen(runtime.extensions.get(insightsExtension.id)?.calculations)).toBe(true);
+    expect(Object.isFrozen(runtime.extensions.get(insightsExtension.id)?.integrationIds)).toBe(true);
+    expect(Object.isFrozen(runtime.extensions.get(insightsExtension.id)?.calculationIds)).toBe(true);
+    expect(runtime.extensions.get(insightsExtension.id)?.calculationIds).toEqual([totalCalculation.id]);
   });
 });
