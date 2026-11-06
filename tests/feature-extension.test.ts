@@ -137,6 +137,24 @@ describe("feature extension architecture", () => {
     expect(duplicate.contributionFailures).toContainEqual(expect.objectContaining({ featureId: "insights" }));
   });
 
+  it("prevents an extension from redeclaring a built-in feature identity", () => {
+    const runtime = initializeRuntimeRegistry({
+      extensions: [{
+        ...insightsExtension,
+        featureId: "work",
+        feature: { ...addonFeature, id: "work" },
+        publicEntryPoint: "packages/features/work/index.ts",
+        integrations: [],
+        calculations: [],
+      }],
+    });
+    expect(runtime.features.get("work")?.label).toBe("Work");
+    expect(runtime.extensions.has(insightsExtension.id)).toBe(false);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "work", code: "invalid_extension",
+    }));
+  });
+
   it("does not register a feature declaration whose id differs from its extension owner", () => {
     const runtime = initializeRuntimeRegistry({
       extensions: [{
