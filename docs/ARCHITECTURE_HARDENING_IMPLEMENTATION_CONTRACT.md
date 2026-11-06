@@ -74,6 +74,12 @@ This contract supplements the existing architecture, persistence, recovery, feat
 - Compare deterministic serialized business outputs against one parity oracle with explainable mismatch diagnostics.
 - Fixture-only parity remains useful but is not sufficient for this gate.
 
+### Stage 3 implementation evidence under test
+- `tests/timeline-projection-service.test.ts` writes the shared historical event dataset into Dexie, reads it back through `DexieDriverWorkflowRepository`, and runs the headless application projection; repeated delivery is checked against the stable IndexedDB event identity.
+- `vite.timeline-parity.config.ts` builds the exact shared `packages/domain/src/timeline.ts` projector as a browser-executable IIFE for Android instrumentation. CI builds this artifact before Gradle instrumentation tests.
+- Android instrumentation writes the equivalent event dataset into Room, reads it back through `DriverWorkflowStore.listEvents`, and executes the same bundled TypeScript projector in an Android WebView. Assertions cover the 04:00 Asia/Kolkata shift split, duration and trip allocation, event counts, unavailable evidence states, and integrity diagnostics.
+- Web restore/reopen coverage continues to prove projection rebuilding from restored persisted records. Stage 3 remains under test until the full Stage 3 dataset matrix and all CI gates pass.
+
 ## Stage 4 — Recovery and transaction guarantees
 
 ### Required implementation
@@ -107,7 +113,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 | Stage | Deliverable | Evidence required | Status |
 |---|---|---|---|
 | 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI #631 on `42fd818ac12a5a69860863b1549d736892df4d91` | Verified |
-| 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests | Not yet verified |
+| 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests; CI run `42197902329` passed all architecture, web, and Android gates on Stage 2 head `af2da94a4defccafa46e12143b08591650bb670e` | Verified |
 | 3 | Actual IndexedDB + Room persisted-record parity | Web integration + Android instrumentation comparison | Not yet verified |
 | 4 | Transaction/recovery guarantees | Failure-injection, replay, restart, restore tests | Not yet verified |
 | 5 | Integrated regression gate | Full CI green on PR head | Not yet verified |
