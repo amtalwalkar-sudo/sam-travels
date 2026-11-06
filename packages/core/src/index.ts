@@ -2,3 +2,5 @@ export * from"./types";export * from"./repositories";export * from"./gps";export
 export * from "./feature-contracts";
 export * from "./runtime-registry";
 export * from "./readonly-registry";
+
+export * from "./persistence-contract";
