@@ -74,11 +74,14 @@ This contract supplements the existing architecture, persistence, recovery, feat
 - Compare deterministic serialized business outputs against one parity oracle with explainable mismatch diagnostics.
 - Fixture-only parity remains useful but is not sufficient for this gate.
 
-### Stage 3 implementation evidence under test
-- `tests/timeline-projection-service.test.ts` writes the shared historical event dataset into Dexie, reads it back through `DexieDriverWorkflowRepository`, and runs the headless application projection; repeated delivery is checked against the stable IndexedDB event identity.
-- `vite.timeline-parity.config.ts` builds the exact shared `packages/domain/src/timeline.ts` projector as a browser-executable IIFE for Android instrumentation. CI builds this artifact before Gradle instrumentation tests.
-- Android instrumentation writes the equivalent event dataset into Room, reads it back through `DriverWorkflowStore.listEvents`, and executes the same bundled TypeScript projector in an Android WebView. Assertions cover the 04:00 Asia/Kolkata shift split, duration and trip allocation, event counts, unavailable evidence states, and integrity diagnostics.
-- Web restore/reopen coverage continues to prove projection rebuilding from restored persisted records. Stage 3 remains under test until the full Stage 3 dataset matrix and all CI gates pass.
+### Stage 3 implementation evidence — verified
+- `tests/timeline-projection-service.test.ts` persists ordinary, pending-edge, and historical legacy rows in Dexie/IndexedDB. Current v1 rows are read through `DexieDriverWorkflowRepository`; the legacy compatibility fixture is read from the persisted IndexedDB table and projected without weakening current ingress validation. Replayed delivery is checked against stable IndexedDB identity, and malformed current records are rejected at the repository read boundary.
+- The web regression suite emits `timeline-projection-parity-oracle-v1.json`, containing complete deterministic serialized outputs for ordinary, pending shift/trip edge, and migrated-legacy datasets. CI uploads this oracle; the Android job explicitly depends on the web job and downloads that exact artifact, preventing parallel-job races or separately-authored expected values.
+- `vite.timeline-parity.config.ts` builds the exact shared `packages/domain/src/timeline.ts` projector as a browser-executable IIFE for Android instrumentation.
+- Android instrumentation persists ordinary records to an on-disk Room database, verifies duplicate delivery does not create extra rows, exports and replaces/restores the feature-owned records inside Room transactions, closes and reopens the database, reads events through `DriverWorkflowStore.listEvents`, and executes the same projector in Android WebView. It compares the complete serialized output—not selected metrics—to the Dexie-generated oracle.
+- Android also persists and reopens a pending shift/trip edge dataset and compares the full output to the same oracle. A Room v2 historical fixture now contains a legacy event; the ordered 2→3 migration carries it into `logbook_events`, and instrumentation compares its full projection/invalid-event diagnostics with the Dexie legacy-row oracle. Malformed persisted events fail closed at both Dexie and Room read boundaries.
+- The web restore/reopen test compares complete projection values before and after snapshot restore and database restart. Android native snapshot adapter replacement/restore is followed by physical database close/reopen before projection.
+- **Stage 3 verification:** CI run #741 (`42203502104`) on code commit `6e11d75c3d9860f2d6632a6a443d33e7f1e4f869` passed architecture enforcement, the complete web regression suite and production build, Android assemble/unit/instrumentation compilation, and the required Android emulator Room/workflow/backup reliability gate. The Android parity and historical migration instrumentation tests ran as part of that gate.
 
 ## Stage 4 — Recovery and transaction guarantees
 
@@ -114,7 +117,7 @@ This contract supplements the existing architecture, persistence, recovery, feat
 |---|---|---|---|
 | 1 | AST/compiler-backed persistence ownership enforcement | Positive/negative architecture fixtures and CI #631 on `42fd818ac12a5a69860863b1549d736892df4d91` | Verified |
 | 2 | Versioned persistence/schema contracts and migration fixtures | Historical fixture migration, validation, rollback tests; CI run `42197902329` passed all architecture, web, and Android gates on Stage 2 head `af2da94a4defccafa46e12143b08591650bb670e` | Verified |
-| 3 | Actual IndexedDB + Room persisted-record parity | Web integration + Android instrumentation comparison | Not yet verified |
+| 3 | Actual IndexedDB + Room persisted-record parity | Full Dexie-generated projection oracle; durable Room restore/reopen; pending-edge and Room v2 migrated-legacy comparisons; malformed-record rejection; CI #741 (`42203502104`) on `6e11d75c3d9860f2d6632a6a443d33e7f1e4f869` | Verified |
 | 4 | Transaction/recovery guarantees | Failure-injection, replay, restart, restore tests | Not yet verified |
 | 5 | Integrated regression gate | Full CI green on PR head | Not yet verified |
 
