@@ -9,8 +9,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class FeatureExtensionUpgradeTransactionTest {
+    private fun commit(
+        database: LocalDatabase,
+        records: JSONArray,
+        deletes: JSONArray,
+        expectedRevisions: JSONObject,
+    ): Boolean = runBlocking {
+        commitFeatureUpgradeBatch(database, records, deletes, expectedRevisions)
+    }
+
     private fun envelope(id: String, revision: Int, value: String) = JSONObject()
         .put("id", id)
         .put("schemaVersion", 1)
@@ -36,7 +46,7 @@ class FeatureExtensionUpgradeTransactionTest {
             val expected = JSONObject()
                 .put("feature:upgrade-addon:existing", 1)
                 .put("feature:upgrade-addon:new", -1)
-            assertTrue(commitFeatureUpgradeBatch(database, writes, JSONArray(), expected))
+            assertTrue(commit(database, writes, JSONArray(), expected))
             assertEquals("migrated", JSONObject(database.records().get("feature:upgrade-addon:existing")!!.json)
                 .getJSONObject("data").getString("value"))
             assertEquals("created", JSONObject(database.records().get("feature:upgrade-addon:new")!!.json)
@@ -48,14 +58,14 @@ class FeatureExtensionUpgradeTransactionTest {
             val conflictExpected = JSONObject()
                 .put("feature:upgrade-addon:existing", 0)
                 .put("feature:upgrade-addon:new", 1)
-            assertFalse(commitFeatureUpgradeBatch(database, conflictingWrites, JSONArray(), conflictExpected))
+            assertFalse(commit(database, conflictingWrites, JSONArray(), conflictExpected))
             assertEquals("migrated", JSONObject(database.records().get("feature:upgrade-addon:existing")!!.json)
                 .getJSONObject("data").getString("value"))
             assertEquals("created", JSONObject(database.records().get("feature:upgrade-addon:new")!!.json)
                 .getJSONObject("data").getString("value"))
 
             val deleteExpected = JSONObject().put("feature:upgrade-addon:new", 1)
-            assertTrue(commitFeatureUpgradeBatch(
+            assertTrue(commit(
                 database, JSONArray(), JSONArray().put("feature:upgrade-addon:new"), deleteExpected,
             ))
             assertTrue(database.records().get("feature:upgrade-addon:new") == null)
