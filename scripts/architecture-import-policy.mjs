@@ -17,7 +17,16 @@ export function createAliasResolver(tsconfig) {
   };
 }
 
-const normalizePath = (value) => value.replaceAll("\\", "/").replace(/\/+/g, "/");
+const normalizePath = (value) => {
+  const absolute = value.startsWith("/");
+  const parts = [];
+  for (const part of value.replaceAll("\\\\", "/").split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") parts.pop();
+    else parts.push(part);
+  }
+  return (absolute ? "/" : "") + parts.join("/");
+};
 const joinPath = (...parts) => normalizePath(parts.join("/"));
 
 export function resolveImport(specifier, fromFile, resolveAlias) {
