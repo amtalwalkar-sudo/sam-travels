@@ -1,5 +1,6 @@
 import { createReadonlyRegistry } from "./readonly-registry";
 import type { CalculationContract, FeatureIntegrationContract } from "./feature-contracts";
+import type { FeatureDataQueryContract } from "./feature-data";
 import type { FeatureDefinition, FeatureId } from "./features";
 
 /**
@@ -17,6 +18,7 @@ export type FeatureExtensionDefinition = Readonly<{
   feature?: FeatureDefinition;
   integrations?: readonly FeatureIntegrationContract[];
   calculations?: readonly CalculationContract<any, any>[];
+  dataQueries?: readonly FeatureDataQueryContract<any>[];
 }>;
 
 /** Safe, immutable extension metadata; executable contributions live in their own registries. */
@@ -27,6 +29,7 @@ export type RegisteredFeatureExtension = Readonly<{
   publicEntryPoint: string;
   integrationIds: readonly string[];
   calculationIds: readonly string[];
+  dataQueryIds: readonly string[];
 }>;
 
 /** Validate extension contributions and expose metadata only after all ownership checks pass. */
@@ -66,6 +69,12 @@ export function registerFeatureExtensions(
     }
 
     const calculations = [...(source.calculations ?? [])];
+    const dataQueries = [...(source.dataQueries ?? [])];
+    for (const query of dataQueries) {
+      if (query.ownerFeatureId !== source.featureId) {
+        throw new Error("Feature extension data query is outside its owner boundary: " + source.id);
+      }
+    }
     for (const calculation of calculations) {
       if (calculation.ownerFeatureId !== source.featureId) {
         throw new Error("Feature extension calculation is outside its owner boundary: " + source.id);
@@ -79,6 +88,7 @@ export function registerFeatureExtensions(
       publicEntryPoint: source.publicEntryPoint,
       integrationIds: Object.freeze(integrations.map(integration => integration.id)),
       calculationIds: Object.freeze(calculations.map(calculation => calculation.id)),
+      dataQueryIds: Object.freeze(dataQueries.map(query => query.id)),
     }));
   }
 
