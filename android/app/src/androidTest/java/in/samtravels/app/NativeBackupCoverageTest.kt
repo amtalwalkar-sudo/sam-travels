@@ -152,4 +152,62 @@ class NativeBackupCoverageTest {
     class UnregisteredRoomEntity
     @NativeBackupParticipant(id = "future-feature", featureId = "future-feature", roomTable = "future_records", snapshotVersion = 1, adapterId = "unimplemented-adapter")
     class UnsupportedAdapterEntity
+    @Test fun isolatedPersistentFeatureUsesRoomOwnedBackupAdapterAndRestoresIntoCleanStore() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val registration = NativeBackupCoverage.registerFeatureRecordParticipant(
+            id = "sample-addon-records",
+            featureId = "sample-addon",
+            snapshotVersion = 1,
+            recordIdPrefix = "feature:sample-addon:",
+            validateRelationships = { rows ->
+                val ids = rows.map { it.getString("id") }.toSet()
+                rows.forEach { row ->
+                    val parentId = JSONObject(row.getString("json")).optString("parentId")
+                    require(parentId.isBlank() || parentId in ids) { "sample_addon_parent_missing" }
+                }
+            },
+        )
+        try {
+            val timestamp = "2026-11-06T00:00:00.000Z"
+            database.records().put(StoredRecord(
+                "feature:sample-addon:parent",
+                """{"kind":"parent"}""", 1, timestamp,
+            ))
+            database.records().put(StoredRecord(
+                "feature:sample-addon:child",
+                """{"kind":"child","parentId":"feature:sample-addon:parent"}""", 1, timestamp,
+            ))
+            val snapshot = NativeBackupCoverage.exportBusinessRecords(database) { false }
+            assertTrue((0 until snapshot.length()).any {
+                snapshot.getJSONObject(it).optString("participantId") == "sample-addon-records"
+            })
+            NativeBackupCoverage.validateBusinessRecords(snapshot)
+
+            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            assertTrue(database.records().get("feature:sample-addon:parent") == null)
+            assertTrue(database.records().get("feature:sample-addon:child") == null)
+            NativeBackupCoverage.replaceBusinessRecords(database, snapshot)
+            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getString("kind"))
+            assertEquals("feature:sample-addon:parent",
+                JSONObject(database.records().get("feature:sample-addon:child")!!.json).getString("parentId"))
+
+            val broken = JSONArray()
+            for (index in 0 until snapshot.length()) {
+                val row = JSONObject(snapshot.getJSONObject(index).toString())
+                if (row.optString("id") == "feature:sample-addon:child") {
+                    row.put("json", JSONObject(row.getString("json")).put("parentId", "feature:sample-addon:missing").toString())
+                }
+                broken.put(row)
+            }
+            assertEquals("sample_addon_parent_missing",
+                runCatching { NativeBackupCoverage.validateBusinessRecords(broken) }.exceptionOrNull()?.message)
+            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getString("kind"))
+        } finally {
+            registration.close()
+            database.close()
+        }
+    }
+
 }
