@@ -56,18 +56,69 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
       return participant;
     });
   const platformParticipants = BROWSER_BACKUP_PARTICIPANTS.filter(item => item.featureId === "platform");
-  const resolved = [...platformParticipants, ...featureParticipants];
+  const customParticipants = [...customBrowserFeatureBackupAdapters.values()].map(adapter => ({
+    id: adapter.participantId, featureId: adapter.feature.id, schemaVersion: adapter.feature.persistence!.backup.snapshotVersion, tableNames: ["records"] as BrowserSnapshotTable[],
+  }));
+  const resolved = [...platformParticipants, ...featureParticipants, ...customParticipants];
   const ids = resolved.map(item => item.id);
   if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
   return resolved;
 }
 
-const requiredFeatureParticipants = [...registerBackupParticipants(registerFeatures()).values()];
-const PARTICIPANT_MANIFEST = requiredFeatureParticipants.map(({ id, featureId, snapshotVersion, restoreValidatorId }) => ({
-  id, featureId, snapshotVersion, restoreValidatorId,
-}));
-const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
-  .flatMap(participant => participant.tableNames);
+export type BrowserFeatureBackupAdapter = Readonly<{
+  feature: import("../../core/src/features").FeatureDefinition;
+  participantId: string;
+  recordIdPrefix: string;
+  validateRecord(record: import("../../core/src/types").RecordEnvelope<unknown>, allFeatureRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
+  validateSnapshot?(allRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
+}>;
+
+const customBrowserFeatureBackupAdapters = new Map<string, BrowserFeatureBackupAdapter>();
+
+/** Register executable feature-owned backup and restore validation for namespaced records. */
+export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureBackupAdapter): () => void {
+  const featureRegistry = registerFeatures([adapter.feature]);
+  const contract = featureRegistry.get(adapter.feature.id)?.persistence;
+  if (!contract || contract.backup.participantId !== adapter.participantId ||
+      !adapter.recordIdPrefix.startsWith("feature:" + adapter.feature.id + ":")) {
+    throw new Error("backup_feature_adapter_contract_mismatch:" + adapter.feature.id);
+  }
+  const discovered = registerBackupParticipants(featureRegistry).get(adapter.participantId);
+  if (!discovered || discovered.featureId !== adapter.feature.id ||
+      discovered.snapshotVersion !== contract.backup.snapshotVersion ||
+      discovered.restoreValidatorId !== contract.restore.validatorId) {
+    throw new Error("backup_feature_adapter_registration_mismatch:" + adapter.feature.id);
+  }
+  if (customBrowserFeatureBackupAdapters.has(adapter.participantId)) {
+    throw new Error("backup_duplicate_participant_id:" + adapter.participantId);
+  }
+  for (const existing of customBrowserFeatureBackupAdapters.values()) {
+    if (existing.recordIdPrefix === adapter.recordIdPrefix ||
+        existing.recordIdPrefix.startsWith(adapter.recordIdPrefix) ||
+        adapter.recordIdPrefix.startsWith(existing.recordIdPrefix)) {
+      throw new Error("backup_feature_record_namespace_overlap");
+    }
+  }
+  customBrowserFeatureBackupAdapters.set(adapter.participantId, Object.freeze({ ...adapter }));
+  return () => { customBrowserFeatureBackupAdapters.delete(adapter.participantId); };
+}
+
+function currentParticipantManifest() {
+  const required = [...registerBackupParticipants(registerFeatures()).values()].map(
+    ({ id, featureId, snapshotVersion, restoreValidatorId }) => ({ id, featureId, snapshotVersion, restoreValidatorId }),
+  );
+  for (const adapter of customBrowserFeatureBackupAdapters.values()) {
+    required.push({
+      id: adapter.participantId,
+      featureId: adapter.feature.id,
+      snapshotVersion: adapter.feature.persistence!.backup.snapshotVersion,
+      restoreValidatorId: adapter.feature.persistence!.restore.validatorId,
+    });
+  }
+  return required.sort((a, b) => a.id.localeCompare(b.id));
+}
+const TABLE_NAMES: BrowserSnapshotTable[] = [...new Set(resolveBrowserBackupParticipants()
+  .flatMap(participant => participant.tableNames))];
 const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta", "diagnostics"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
@@ -131,13 +182,28 @@ function validateSnapshotRows(data: BrowserSnapshotData): void {
   data.driverOutbox.forEach(assertDriverOutboxContract);
 }
 
+function validateCustomFeatureBackupRecords(rows: unknown[]): void {
+  const typedRecords = rows as import("../../core/src/types").RecordEnvelope<unknown>[];
+  for (const record of typedRecords) {
+    if (record.id.startsWith("feature:") &&
+        ![...customBrowserFeatureBackupAdapters.values()].some(adapter => record.id.startsWith(adapter.recordIdPrefix))) {
+      throw new Error("backup_unregistered_feature_record:" + record.id);
+    }
+  }
+  for (const adapter of customBrowserFeatureBackupAdapters.values()) {
+    const owned = typedRecords.filter(record => record.id.startsWith(adapter.recordIdPrefix));
+    owned.forEach(record => adapter.validateRecord(record, typedRecords));
+    adapter.validateSnapshot?.(typedRecords);
+  }
+}
+
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   assertSnapshotManifest(manifest);
   if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
       items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
-    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(PARTICIPANT_MANIFEST))) {
+    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(currentParticipantManifest()))) {
       throw new Error("backup_participant_manifest_mismatch");
     }
   }
@@ -174,6 +240,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     if (!id || ids.has(id)) throw new Error("backup_duplicate_record_id");
     ids.add(id);
   }
+  validateCustomFeatureBackupRecords(data.records);
 }
 
 export async function exportBrowserSnapshot(applicationVersion: string): Promise<{
@@ -185,6 +252,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
+  validateCustomFeatureBackupRecords(data.records);
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
@@ -193,7 +261,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
     recordCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, data[name].length])),
-    participants: PARTICIPANT_MANIFEST,
+    participants: currentParticipantManifest(),
   };
   return { data, manifest, plaintext: new TextEncoder().encode(JSON.stringify(data)) };
 }

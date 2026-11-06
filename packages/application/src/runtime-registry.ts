@@ -44,3 +44,22 @@ export async function dispatchCommittedFeatureEvent<Payload extends { eventId: s
     payload: event,
   }, { [integration.id]: consumer });
 }
+
+
+import type { AtomicRecordRepository } from "../../core/src/repositories";
+import { FeatureLifecycleCoordinator } from "./feature-lifecycle-coordinator";
+
+let applicationFeatureLifecycle: FeatureLifecycleCoordinator | undefined;
+
+/** Bind lifecycle operations to the same authoritative repository used by records. */
+export function initializeApplicationFeatureLifecycle(repository: AtomicRecordRepository): FeatureLifecycleCoordinator {
+  if (applicationFeatureLifecycle) throw new Error("Application feature lifecycle is already initialized");
+  applicationFeatureLifecycle = new FeatureLifecycleCoordinator(repository, getApplicationRuntimeRegistry().features);
+  return applicationFeatureLifecycle;
+}
+
+/** Lifecycle actions are unavailable until the authoritative store is initialized. */
+export function getApplicationFeatureLifecycle(): FeatureLifecycleCoordinator {
+  if (!applicationFeatureLifecycle) throw new Error("Application feature lifecycle has not been initialized");
+  return applicationFeatureLifecycle;
+}
