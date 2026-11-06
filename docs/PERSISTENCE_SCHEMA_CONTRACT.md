@@ -46,7 +46,7 @@ Work persistence is not a generic record envelope: it uses its own explicit v1 d
 - Committed events: event identity must match the command, revision must equal expected revision + 1, commit timestamp must be valid, and GPS evidence must satisfy coordinate, accuracy and transition-window constraints.
 - Outbox rows: stable revision-derived identity, supported integration/event/payload contract versions, boolean delivery state, and valid creation instant.
 
-Browser and native storage validate these discriminants at enqueue/commit, persisted reads, backup export and restore. Malformed persisted state is surfaced as a contract failure rather than silently skipped.
+Browser and native storage validate these discriminants at enqueue/commit, persisted reads, backup export and restore. Malformed persisted state is surfaced as a contract failure rather than silently skipped. Legacy Room Log Book rows with the historical `eventId` + `kind` shape remain immutable history under an explicit compatibility validator; they are not misrepresented as current command/GPS events.
 
 ## Physical database migrations
 
