@@ -330,6 +330,33 @@ describe("runtime registry bootstrap", () => {
     });
   });
 
+  it("withholds all contributions owned by a feature when one top-level contract fails", () => {
+    const invalidIntegration: FeatureIntegrationContract = {
+      id: "performance.invalid-event.v1",
+      version: 1,
+      producerFeatureId: "work",
+      consumerFeatureId: "performance",
+      eventName: "",
+      payloadVersion: 1,
+      validatePayload: () => true,
+    };
+    const independentCalculation: CalculationContract<{ businessDate: string }, number> = {
+      ...calculation,
+      id: "finance.independent-total.v1",
+      ownerFeatureId: "finance",
+    };
+    const runtime = initializeRuntimeRegistry({
+      integrations: [invalidIntegration],
+      calculations: [calculation, independentCalculation],
+    });
+    expect(runtime.integrations.has(invalidIntegration.id)).toBe(false);
+    expect(runtime.calculations.has(calculation.id)).toBe(false);
+    expect(runtime.calculations.has(independentCalculation.id)).toBe(true);
+    expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
+      featureId: "performance", code: "invalid_integration",
+    }));
+  });
+
   it("validates and exposes feature, integration, and calculation registries together", () => {
     const runtime = initializeRuntimeRegistry();
     expect(runtime.features.size).toBe(8);
