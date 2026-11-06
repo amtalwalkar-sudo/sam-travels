@@ -1,0 +1,10 @@
+{
+  "id": "historical-trip-001",
+  "schemaVersion": 1,
+  "createdAt": "2025-04-03T08:00:00.000Z",
+  "updatedAt": "2025-04-03T08:15:00.000Z",
+  "businessDate": "2025-04-03",
+  "source": "import",
+  "revision": 2,
+  "data": { "eventType": "trip_completed", "fare": 240 }
+}

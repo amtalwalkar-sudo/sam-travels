@@ -5,13 +5,24 @@ import java.time.Instant
 
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
-    fun snapshot(db: LocalDatabase): JSONObject =
-        db.records().get("driver-state")
+    fun snapshot(db: LocalDatabase): JSONObject {
+        val state = db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
             ?: JSONObject().put("schemaVersion", 1).put("revision", 0).put("state", "idle")
+        DriverWorkflowContract.validateState(state)
+        return state
+    }
 
     private fun save(db: LocalDatabase, key: String, value: JSONObject, now: String) {
         db.records().put(StoredRecord(key, value.toString(), 1, now))
+    }
+
+    private fun sameCommand(left: JSONObject, right: JSONObject): Boolean {
+        val fields = listOf(
+            "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
+            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey",
+        )
+        return fields.all { field -> left.opt(field).toString() == right.opt(field).toString() }
     }
 
     fun queue(db: LocalDatabase, command: JSONObject): JSONObject {
@@ -20,6 +31,7 @@ object DriverWorkflowStore {
             val eventId = command.optString("eventId")
             val commandId = command.optString("commandId")
             val idempotencyKey = command.optString("idempotencyKey")
+            DriverWorkflowContract.validateCommand(command)
             require(
                 command.optInt("schemaVersion", -1) == 1 &&
                     eventId.isNotBlank() && commandId.isNotBlank() && idempotencyKey.isNotBlank(),
@@ -37,22 +49,26 @@ object DriverWorkflowStore {
             val oldRow = db.records().get(key)
             if (oldRow != null) {
                 val old = JSONObject(oldRow.json)
+                DriverWorkflowContract.validateIntent(old)
                 val previousCommand = old.optJSONObject("command")
-                require(
-                    previousCommand != null &&
-                        previousCommand.optInt("schemaVersion", -1) == command.optInt("schemaVersion", -2) &&
-                        previousCommand.optString("eventId") == eventId &&
-                        previousCommand.optString("commandId") == commandId &&
-                        previousCommand.optString("idempotencyKey") == idempotencyKey &&
-                        previousCommand.optString("eventType") == command.optString("eventType") &&
-                        previousCommand.optString("transitionAt") == command.optString("transitionAt") &&
-                        previousCommand.optString("originSurface") == command.optString("originSurface") &&
-                        previousCommand.optInt("expectedRevision", -1) == command.optInt("expectedRevision", -2) &&
-                        previousCommand.optString("expectedPriorState") == command.optString("expectedPriorState"),
-                ) { "duplicate_event_id_conflict" }
+                require(previousCommand != null && sameCommand(previousCommand, command)) {
+                    "duplicate_event_id_conflict"
+                }
                 result = old
                 return@runInTransaction
             }
+
+            val identityConflict = db.records().list()
+                .filter { it.id.startsWith("driver-intent:") }
+                .any { stored ->
+                    val existingIntent = JSONObject(stored.json)
+                    DriverWorkflowContract.validateIntent(existingIntent)
+                    val existingCommand = existingIntent.getJSONObject("command")
+                    existingCommand.optString("eventId") != eventId &&
+                        (existingCommand.optString("commandId") == commandId ||
+                            existingCommand.optString("idempotencyKey") == idempotencyKey)
+                }
+            require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
             require(
@@ -84,6 +100,7 @@ object DriverWorkflowStore {
                 .put("status", "pending_location")
                 .put("createdAt", now)
                 .put("updatedAt", now)
+            DriverWorkflowContract.validateIntent(intent)
             save(db, key, intent, now)
             result = intent
         }
@@ -96,9 +113,32 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
+            val command = intent.getJSONObject("command")
+            if (intent.optString("status") == "recorded") {
+                val storedEvent = db.logBookEvents().list().firstOrNull { it.eventId == eventId }
+                    ?: error("recorded_event_missing")
+                val event = JSONObject(storedEvent.json)
+                DriverWorkflowContract.validateStoredEvent(event)
+                require(sameCommand(event.getJSONObject("command"), command)) {
+                    "recorded_event_identity_conflict"
+                }
+                val revision = event.optInt("revision", -1)
+                val current = snapshot(db)
+                require(revision >= 1 && revision <= current.optInt("revision")) {
+                    "recorded_event_revision_invalid"
+                }
+                val outboxRow = db.records().get("driver-outbox:$revision")
+                    ?: error("recorded_outbox_missing")
+                val outbox = JSONObject(outboxRow.json)
+                DriverWorkflowContract.validateOutbox(outbox)
+                require(outbox.optString("eventId") == eventId) { "recorded_outbox_identity_conflict" }
+                committed = current
+                return@runInTransaction
+            }
             require(intent.optString("status") == "pending_location") { "intent_not_pending" }
 
-            val command = intent.getJSONObject("command")
+            
             require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))) { "gps_recovery_window_expired" }
             val current = snapshot(db)
             require(
@@ -125,21 +165,21 @@ object DriverWorkflowStore {
             }
 
             val now = Instant.now().toString()
+            DriverWorkflowContract.validateState(next)
             val eventRecord = JSONObject()
                 .put("eventId", eventId)
                 .put("command", command)
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
+            DriverWorkflowContract.validateEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
+            DriverWorkflowContract.validateIntent(intent)
             db.logBookEvents().put(LogBookEventRecord(eventId, eventRecord.toString(), 1, now))
             save(db, "driver-state", JSONObject().put("value", next), now)
             save(db, key, intent, now)
-            save(
-                db,
-                "driver-outbox:$revision",
-                JSONObject()
+            val outbox = JSONObject()
                     .put("id", "driver-state:$revision")
                     .put("eventId", eventId)
                     .put("revision", revision)
@@ -148,9 +188,9 @@ object DriverWorkflowStore {
                     .put("eventName", "work.driver-event-committed")
                     .put("payloadVersion", 1)
                     .put("delivered", false)
-                    .put("createdAt", now),
-                now,
-            )
+                    .put("createdAt", now)
+            DriverWorkflowContract.validateOutbox(outbox)
+            save(db, "driver-outbox:$revision", outbox, now)
             committed = next
         }
         return committed ?: error("transition_not_committed")
@@ -162,6 +202,7 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
             require(
                 intent.optString("status") == "needs_attention" ||
                     intent.optString("status") == "pending_location",
@@ -175,7 +216,9 @@ object DriverWorkflowStore {
             ) { "stale_revision" }
 
             val now = Instant.now().toString()
+            DriverWorkflowContract.validateIntent(intent)
             intent.put("status", "pending_location").put("updatedAt", now).remove("reason")
+            DriverWorkflowContract.validateIntent(intent)
             save(db, key, intent, now)
             result = intent
         }
@@ -187,9 +230,12 @@ object DriverWorkflowStore {
             val key = "driver-intent:$eventId"
             val row = db.records().get(key) ?: error("intent_not_found")
             val intent = JSONObject(row.json)
+            DriverWorkflowContract.validateIntent(intent)
             if (intent.optString("status") != "recorded") {
                 val now = Instant.now().toString()
+                DriverWorkflowContract.validateIntent(intent)
                 intent.put("status", "needs_attention").put("reason", reason).put("updatedAt", now)
+                DriverWorkflowContract.validateIntent(intent)
                 save(db, key, intent, now)
             }
         }
@@ -199,23 +245,22 @@ object DriverWorkflowStore {
     fun listPending(db: LocalDatabase): List<JSONObject> =
         db.records().list()
             .filter { it.id.startsWith("driver-intent:") }
-            .mapNotNull { row ->
-                runCatching { JSONObject(row.json) }.getOrNull()?.takeIf {
-                    it.optString("status") == "pending_location" ||
-                        it.optString("status") == "needs_attention"
-                }
+            .map { JSONObject(it.json).also(DriverWorkflowContract::validateIntent) }
+            .filter {
+                it.optString("status") == "pending_location" ||
+                    it.optString("status") == "needs_attention"
             }
 
     /** Read the immutable committed event stream through its owning repository boundary. */
     fun listEvents(db: LocalDatabase): List<JSONObject> =
-        db.logBookEvents().list().map { JSONObject(it.json) }
+        db.logBookEvents().list().map { JSONObject(it.json).also(DriverWorkflowContract::validateStoredEvent) }
 
 
     /** Enumerate Work-owned durable intents; callers receive detached JSON values. */
     fun listIntents(db: LocalDatabase): List<JSONObject> =
         db.records().list()
             .filter { it.id.startsWith("driver-intent:") }
-            .mapNotNull { runCatching { JSONObject(it.json) }.getOrNull() }
+            .map { JSONObject(it.json).also(DriverWorkflowContract::validateIntent) }
 
     /** Find the original pending-location intent eligible for service-start recovery. */
     fun firstPendingLocation(db: LocalDatabase): JSONObject? =

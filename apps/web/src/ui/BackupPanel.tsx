@@ -10,19 +10,18 @@ import {
   rollbackRecoveryCheckpoint,
 } from "../backup-runtime";
 import { createDropboxBackupSession, defaultDropboxRedirectUri, type DropboxBackupSession } from "../backup-service";
+import { readDropboxBrowserConfig, writeDropboxBrowserConfig } from "../backup-config-storage";
 
 type BackupEntry = { name: string; path: string; serverModified: string; size: number };
 type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
-  const [clientId, setClientId] = useState(() => {
-    const fallback = import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "";
-    try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").clientId ?? fallback; } catch { return fallback; }
-  });
-  const [redirectUri, setRedirectUri] = useState(() => {
-    const fallback = import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? defaultDropboxRedirectUri();
-    try { return JSON.parse(localStorage.getItem("sam-travels.dropbox-config") ?? "{}").redirectUri ?? fallback; } catch { return fallback; }
-  });
+  const [clientId, setClientId] = useState(() =>
+    readDropboxBrowserConfig().clientId ?? (import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "")
+  );
+  const [redirectUri, setRedirectUri] = useState(() =>
+    readDropboxBrowserConfig().redirectUri ?? (import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? defaultDropboxRedirectUri())
+  );
   const [vaultPassphrase, setVaultPassphrase] = useState("");
   const [backupPassphrase, setBackupPassphrase] = useState("");
   const [recoveryKey, setRecoveryKey] = useState("");
@@ -39,7 +38,7 @@ export function BackupPanel() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    try { localStorage.setItem("sam-travels.dropbox-config", JSON.stringify({ clientId, redirectUri })); } catch { /* optional non-secret convenience only */ }
+    writeDropboxBrowserConfig({ clientId, redirectUri });
   }, [clientId, redirectUri]);
 
   useEffect(() => {

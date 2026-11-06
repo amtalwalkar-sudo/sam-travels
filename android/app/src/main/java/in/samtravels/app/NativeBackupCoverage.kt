@@ -42,8 +42,13 @@ internal object NativeBackupCoverage {
                 "backup_invalid_record_envelope"
             }
             val payload = JSONObject(row.getString("json"))
-            if (payload.has("id")) require(payload.optString("id") == row.optString("id")) {
-                "backup_record_identity_mismatch"
+            if (row.optString("participantId") == "platform-records") {
+                RecordEnvelopeContract.validate(payload)
+                require(row.optInt("schemaVersion", -1) == payload.optInt("schemaVersion", -2) &&
+                    row.optString("updatedAt") == payload.optString("updatedAt") &&
+                    payload.optString("id") == row.optString("id")) {
+                    "backup_record_storage_envelope_mismatch"
+                }
             }
         }
         override fun clear(database: LocalDatabase) {
@@ -67,7 +72,19 @@ internal object NativeBackupCoverage {
             }
         override fun validate(row: JSONObject) {
             StoredRecordsAdapter.validate(row)
-            require(isWorkRecord(row.optString("id"))) { "backup_work_record_owner_mismatch" }
+            val id = row.optString("id")
+            val payload = JSONObject(row.getString("json"))
+            when {
+                id == "driver-state" -> DriverWorkflowContract.validateState(payload.optJSONObject("value") ?: error("invalid_driver_state"))
+                id == "driver-intent:" + payload.optJSONObject("command")?.optString("eventId") -> DriverWorkflowContract.validateIntent(payload)
+                id.startsWith("driver-outbox:") -> {
+                    DriverWorkflowContract.validateOutbox(payload)
+                    require(id == "driver-outbox:" + payload.optLong("revision", -1L)) { "driver_outbox_identity_mismatch" }
+                }
+                id == "legacy-driver-state" -> Unit // Preserved legacy Work payload; not interpreted as the current state contract.
+                else -> error("backup_work_record_owner_mismatch")
+            }
+            require(isWorkRecord(id)) { "backup_work_record_owner_mismatch" }
         }
         override fun clear(database: LocalDatabase) {
             database.records().list().filter { isWorkRecord(it.id) }.forEach { database.records().remove(it.id) }
@@ -79,7 +96,8 @@ internal object NativeBackupCoverage {
     }
 
     private fun isWorkRecord(id: String): Boolean =
-        id == "driver-state" || id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
+        id == "driver-state" || id == "legacy-driver-state" ||
+            id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
 
     private fun isInternalRecord(id: String): Boolean =
         id.startsWith("__sam_travels_recovery_checkpoint__:") || id.startsWith("__sam_travels_recovery_journal__:")
@@ -100,6 +118,7 @@ internal object NativeBackupCoverage {
                 "backup_invalid_logbook_event_envelope"
             }
             val payload = JSONObject(row.getString("json"))
+            DriverWorkflowContract.validateStoredEvent(payload)
             require(payload.optString("eventId") == row.optString("id")) {
                 "backup_logbook_event_identity_mismatch"
             }
@@ -189,6 +208,7 @@ internal object NativeBackupCoverage {
         discoverParticipants().forEach { participant ->
             adapter(participant).export(database, participant.id, isInternal).forEach { row -> result.put(row) }
         }
+        validateBusinessRecords(result, requireExplicitOwnerTags = true)
         return result
     }
 
@@ -250,6 +270,17 @@ internal object NativeBackupCoverage {
         }
     }
 
+    /** Validate the manifest revision against the authoritative driver-state row before restore mutation. */
+    fun validateSnapshotRevision(records: JSONArray, snapshotRevision: Int) {
+        require(snapshotRevision >= 0) { "backup_snapshot_revision_mismatch" }
+        val stateRow = (0 until records.length()).map { records.getJSONObject(it) }
+            .firstOrNull { it.optString("participantId") == "work-driver-state" && it.optString("id") == "driver-state" }
+        val storedRevision = if (stateRow == null) 0 else {
+            JSONObject(stateRow.getString("json")).optJSONObject("value")?.optInt("revision", -1) ?: -1
+        }
+        require(storedRevision == snapshotRevision) { "backup_snapshot_revision_mismatch" }
+    }
+
     /** Caller owns the surrounding Room transaction. */
     fun replaceBusinessRecords(database: LocalDatabase, records: JSONArray) {
         validateBusinessRecords(records)
@@ -261,5 +292,90 @@ internal object NativeBackupCoverage {
             val owner = participantId(row, participants)
             adapter(byId.getValue(owner)).restore(database, row)
         }
+    }
+}
+
+
+/** Durable Room restore journal and startup recovery for unverified replacements. */
+internal object NativeBackupRecovery {
+    const val CHECKPOINT_PREFIX = "__sam_travels_recovery_checkpoint__:"
+    const val JOURNAL_PREFIX = "__sam_travels_recovery_journal__:"
+
+    fun isInternalRecord(id: String): Boolean =
+        id.startsWith(CHECKPOINT_PREFIX) || id.startsWith(JOURNAL_PREFIX)
+
+    fun rollback(database: LocalDatabase, id: String) {
+        val checkpointRow = database.records().get(CHECKPOINT_PREFIX + id)
+            ?: error("recovery_checkpoint_missing")
+        val journalRow = database.records().get(JOURNAL_PREFIX + id)
+            ?: error("recovery_journal_missing")
+        val journal = JSONObject(journalRow.json)
+        require(
+            journal.optString("status") == "checkpoint" ||
+                journal.optString("status") == "restored_unverified" ||
+                journal.optString("status") == "rollback_complete",
+        ) { "checkpoint_not_rollback_eligible" }
+        val oldRecords = JSONObject(checkpointRow.json).getJSONArray("records")
+
+        database.runInTransaction {
+            NativeBackupCoverage.replaceBusinessRecords(database, oldRecords)
+            journal.put("status", "rollback_complete")
+            database.records().put(
+                StoredRecord(JOURNAL_PREFIX + id, journal.toString(), 1, java.time.Instant.now().toString()),
+            )
+        }
+
+        val restored = NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord)
+        require(canonicalRecords(restored) == canonicalRecords(oldRecords)) {
+            "checkpoint_rollback_integrity_mismatch"
+        }
+    }
+
+    fun recoverPending(database: LocalDatabase): List<String> {
+        val pending = database.records().list()
+            .filter { it.id.startsWith(JOURNAL_PREFIX) }
+            .map { JSONObject(it.json) }
+            .filter {
+                it.optString("status") == "checkpoint" ||
+                    it.optString("status") == "restored_unverified"
+            }
+            .sortedByDescending { it.optString("createdAt") }
+        val recovered = mutableListOf<String>()
+        pending.forEach { journal ->
+            val id = journal.getString("id")
+            rollback(database, id)
+            recovered.add(id)
+        }
+        return recovered
+    }
+
+    private fun canonicalRecords(records: JSONArray): Map<String, Triple<String, Int, String>> =
+        (0 until records.length()).associate { index ->
+            val row = records.getJSONObject(index)
+            val key = row.getString("participantId") + ":" + row.getString("id")
+            key to Triple(row.getString("json"), row.getInt("schemaVersion"), row.getString("updatedAt"))
+        }
+}
+
+
+/**
+ * Process-wide startup gate shared by the driver plugin, overlay service, and
+ * backup plugin. An unverified restore is rolled back only when a new process
+ * first opens the authoritative database. A failed recovery never opens the gate.
+ */
+internal object NativeStartupRecovery {
+    @Volatile private var ready = false
+
+    @Synchronized
+    fun ensure(database: LocalDatabase): List<String> {
+        if (ready) return emptyList()
+        val recovered = NativeBackupRecovery.recoverPending(database)
+        ready = true
+        return recovered
+    }
+
+    @Synchronized
+    fun invalidate() {
+        ready = false
     }
 }

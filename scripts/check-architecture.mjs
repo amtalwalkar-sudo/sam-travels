@@ -1,5 +1,7 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { analyzeBrowserPersistenceReferences, analyzeModuleReferences } from "./architecture-import-parser.mjs";
+import { createAliasResolver, isBrowserPersistenceModule, isForbiddenLayerDependency, isPublicFeatureEntry, resolveImport, targetLayer } from "./architecture-import-policy.mjs";
 
 const root = process.cwd();
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".kt", ".java"]);
@@ -44,61 +46,10 @@ function featureTarget(file) {
   return match?.[1] ?? null;
 }
 
-function isPublicFeatureEntry(resolved) {
-  const value = normalize(resolved);
-  const extension = path.posix.extname(value);
-  const withoutExtension = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"].includes(extension)
-    ? value.slice(0, -extension.length)
-    : value;
-  const normalized = withoutExtension.endsWith("/") ? withoutExtension.slice(0, -1) : withoutExtension;
-  const parts = normalized.split("/");
-  return parts[0] === "packages" && parts[1] === "features" &&
-    (parts.length === 3 || (parts.length === 4 && parts[3] === "index"));
-}
 
-function targetLayer(resolved) {
-  const p = "/" + normalize(resolved);
-  if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/presentation/src/")) return "presentation";
-  if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/")) return "ui";
-  return null;
-}
 
-function readImportSpecifiers(content) {
-  const pattern = /\b(?:import|export)\s*(?:type\s+)?(?:[^"'()]*?\bfrom\s*)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|\brequire\s*\(\s*["']([^"']+)["']\s*\)/g;
-  return [...content.matchAll(pattern)].map((match) => match[1] ?? match[2] ?? match[3]);
-}
 
-function aliasResolver(tsconfig) {
-  const compiler = tsconfig.compilerOptions ?? {};
-  const baseUrl = compiler.baseUrl ?? ".";
-  const paths = compiler.paths ?? {};
-  return (specifier) => {
-    for (const [pattern, destinations] of Object.entries(paths)) {
-      const star = pattern.indexOf("*");
-      const prefix = star < 0 ? pattern : pattern.slice(0, star);
-      const suffix = star < 0 ? "" : pattern.slice(star + 1);
-      if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) continue;
-      const capture = specifier.slice(prefix.length, specifier.length - suffix.length || undefined);
-      const destination = destinations[0];
-      if (typeof destination !== "string") continue;
-      const replaced = destination.replace("*", capture);
-      return normalize(path.posix.join(baseUrl, replaced));
-    }
-    return null;
-  };
-}
 
-function resolveImport(specifier, fromFile, resolveAlias) {
-  if (specifier.startsWith(".")) {
-    return normalize(path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier)));
-  }
-  return resolveAlias(specifier);
-}
 
 function detectCycles(graph) {
   const visiting = new Set();
@@ -127,7 +78,7 @@ await walk(root);
 let resolveAlias = () => null;
 try {
   const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8"));
-  resolveAlias = aliasResolver(tsconfig);
+  resolveAlias = createAliasResolver(tsconfig);
 } catch {
   failures.push("tsconfig.json: architecture checker could not parse TypeScript path aliases");
 }
@@ -146,7 +97,21 @@ for (const absolute of sourceFiles) {
   const fromFeature = featureName(relative);
   if (fromFeature) featureGraph.set(fromFeature, featureGraph.get(fromFeature) ?? new Set());
 
-  for (const specifier of readImportSpecifiers(content)) {
+  const isTypeScriptSource = /\.(?:ts|tsx|js|jsx|mjs|cjs)$/.test(relative);
+  const parsed = isTypeScriptSource
+    ? analyzeModuleReferences(content, relative)
+    : { references: [], diagnostics: [] };
+  for (const diagnostic of parsed.diagnostics) {
+    failures.push(`${relative}:${diagnostic.line ? `:${diagnostic.line}` : ""} TypeScript parser error ${diagnostic.code}: ${diagnostic.message}`);
+  }
+
+  for (const reference of parsed.references) {
+    const specifier = reference.specifier;
+    const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
+      !relative.startsWith("packages/storage-browser/src/");
+    if (productionTypeScript && isBrowserPersistenceModule(specifier)) {
+      failures.push(`${relative}:${reference.line}: browser persistence library "${specifier}" is private to the browser persistence adapter`);
+    }
     const resolved = resolveImport(specifier, relative, resolveAlias);
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
@@ -177,16 +142,7 @@ for (const absolute of sourceFiles) {
       failures.push(`${relative}: persistence adapters must not depend on UI or Capacitor "${specifier}"`);
     }
 
-    const forbidden =
-      (from === "core" && ["domain", "application", "storage", "ui", "feature", "presentation"].includes(target)) ||
-      (from === "domain" && ["application", "storage", "ui", "presentation"].includes(target)) ||
-      (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
-      (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
-      (from === "storage" && ["ui", "presentation"].includes(target)) ||
-      (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
-      (from === "feature" && ["storage", "ui", "presentation"].includes(target)) ||
-      (from === "ui" && target === "storage");
-    if (forbidden) {
+    if (isForbiddenLayerDependency(from, target)) {
       failures.push(`${relative}: ${from} layer must not import ${target ?? "a forbidden adapter"} via "${specifier}"`);
     }
 
@@ -217,15 +173,16 @@ const androidPersistenceGateways = new Set([
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   const content = await readFile(absolute, "utf8");
-  const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
+    const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
     !relative.startsWith("packages/storage-browser/src/");
-  if (productionTypeScript && /(?:from|import\s*\()\s*["']dexie(?:\/[^"']*)?["']/.test(content)) {
-    failures.push(relative + ": Dexie is a storage adapter dependency and may only be imported by packages/storage-browser");
-  }
-  const browserPersistenceGateways = new Set(["apps/web/src/browser-secure-vault.ts"]);
-  if (productionTypeScript && /\bbrowserDatabase\b/.test(content) &&
-      !browserPersistenceGateways.has(relative)) {
-    failures.push(relative + ": browserDatabase is private to the browser persistence adapter");
+  const browserPersistenceGateways = new Set([
+    "apps/web/src/browser-secure-vault.ts",
+    "apps/web/src/backup-config-storage.ts",
+  ]);
+  if (productionTypeScript && !browserPersistenceGateways.has(relative)) {
+    for (const reference of analyzeBrowserPersistenceReferences(content, relative)) {
+      failures.push(`${relative}:${reference.line}: direct browser persistence access "${reference.symbol}" is private to the browser persistence adapter`);
+    }
   }
   if (relative.startsWith("android/app/src/main/") &&
       /\b[A-Za-z_]\w*\.(?:records|logBookEvents)\(\)/.test(content) &&

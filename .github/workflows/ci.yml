@@ -28,11 +28,19 @@ jobs:
           node-version: 22
       - run: npm install
       - name: Gate offline workflow and backup reliability regressions
-        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
+        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
       - name: Run complete web regression suite
         run: npm test
+      - name: Publish Dexie-generated complete Timeline parity oracle
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeline-projection-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated/timeline-projection-parity-oracle-v1.json
+          if-no-files-found: error
+          retention-days: 7
       - run: npm run build
   android:
+    needs: web
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +53,13 @@ jobs:
           java-version: 21
       - run: npm install
       - run: npm run cap:sync
+      - name: Build the shared headless Timeline projection for Android parity tests
+        run: npm run build:timeline-parity
+      - name: Download the exact Dexie projection oracle for Android comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: timeline-projection-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -85,3 +100,19 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 30
+
+  integrated-regression:
+    name: Integrated regression gate
+    if: always()
+    needs: [architecture, web, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every architecture, web, and Android gate
+        env:
+          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+        run: |
+          test "$ARCHITECTURE_RESULT" = "success"
+          test "$WEB_RESULT" = "success"
+          test "$ANDROID_RESULT" = "success"

@@ -1,3 +1,5 @@
+import { assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../../domain/src/driver-workflow";
+import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
@@ -117,8 +119,21 @@ function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): 
 }
 const checkpointTable = () => browserDatabase.table("backupCheckpoints") as Table<Checkpoint, string>;
 
+function validateSnapshotRows(data: BrowserSnapshotData): void {
+  for (const row of data.driverState) {
+    if (!row || typeof row !== "object" || (row as { id?: unknown }).id !== "driver-state") {
+      throw new Error("backup_invalid_driver_state_row");
+    }
+    assertDriverStateContract((row as { value?: unknown }).value);
+  }
+  data.driverIntents.forEach(assertDriverIntentContract);
+  data.driverEvents.forEach(assertDriverEventContract);
+  data.driverOutbox.forEach(assertDriverOutboxContract);
+}
+
 function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
-  if (manifest.schemaVersion !== 1) throw new Error("backup_unsupported_schema");
+  assertSnapshotManifest(manifest);
+  if (manifest.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) throw new Error("backup_unsupported_schema");
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
       items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
@@ -152,11 +167,10 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     }
   }
   const ids = new Set<string>();
+  validateSnapshotRows(data);
   for (const row of data.records) {
-    if (!row || typeof row !== "object" || typeof (row as { id?: unknown }).id !== "string") {
-      throw new Error("backup_invalid_record");
-    }
-    const id = (row as { id: string }).id;
+    assertRecordEnvelope(row);
+    const id = row.id;
     if (!id || ids.has(id)) throw new Error("backup_duplicate_record_id");
     ids.add(id);
   }
@@ -169,10 +183,12 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
 }> {
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
+  data.records.forEach(assertRecordEnvelope);
+  validateSnapshotRows(data);
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const manifest = {
     applicationVersion,
-    schemaVersion: 1,
+    schemaVersion: BACKUP_SNAPSHOT_SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
@@ -249,6 +265,15 @@ export async function discardVerifiedBrowserCheckpoint(checkpointId: string): Pr
 
 export async function listBrowserRecoveryCheckpoints(): Promise<Array<Pick<Checkpoint, "id" | "createdAt" | "status">>> {
   return (await checkpointTable().toArray()).map(({ id, createdAt, status }) => ({ id, createdAt, status }));
+}
+
+/** Recover restore transactions left at checkpoint/restored_unverified by process death. */
+export async function recoverBrowserRestoreTransactions(): Promise<{ recovered: number }> {
+  const pending = (await checkpointTable().toArray()).filter(checkpoint =>
+    checkpoint.status === "checkpoint" || checkpoint.status === "restored_unverified",
+  );
+  for (const checkpoint of pending) await rollbackBrowserRecoveryCheckpoint(checkpoint.id);
+  return { recovered: pending.length };
 }
 
 export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): Promise<void> {

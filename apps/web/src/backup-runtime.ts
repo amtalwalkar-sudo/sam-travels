@@ -17,6 +17,7 @@ import {
   markBrowserRestoreVerified,
   discardVerifiedBrowserCheckpoint,
   rollbackBrowserRecoveryCheckpoint,
+  recoverBrowserRestoreTransactions,
   type BrowserSnapshotData,
 } from "../../../packages/storage-browser/src";
 
@@ -29,12 +30,15 @@ type RoomBackupApi = {
   markRestoreVerified(input: { checkpointId: string }): Promise<void>;
   discardVerifiedCheckpoint(input: { checkpointId: string }): Promise<void>;
   rollbackCheckpoint(input: { checkpointId: string }): Promise<void>;
+  recoverPendingCheckpoints(): Promise<{ recovered: string[] }>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
 type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void>; configureBackgroundBackup(input: { clientId: string; redirectUri: string }): Promise<void>; scheduleBackgroundBackup(): Promise<void> };
 const NativeBackupKeyVault = registerPlugin<NativeBackupKeyVaultApi>("BackupKeyVault");
 
 type RecoverySecret = { passphrase: string } | { recoveryKey: string };
+
+let startupRecovery: Promise<void> | undefined;
 
 /** Consume a deep-link callback persisted by MainActivity when Android resumes the app. */
 export async function configureNativeBackgroundBackup(clientId: string, redirectUri: string): Promise<void> {
@@ -58,6 +62,7 @@ export async function createBackupForCurrentRuntime(input: {
   passphrase: string;
   recoveryKey?: string;
 }): Promise<{ backup: BackupPackage; recoveryKey: string }> {
+  await recoverPendingBackupTransactions();
   if (Capacitor.isNativePlatform()) {
     const { snapshot, manifest } = await NativeBackup.exportSnapshot();
     return createEncryptedBackup({
@@ -90,38 +95,47 @@ export async function restoreBackupForCurrentRuntime(input: {
     ? await decryptBackupWithPassphrase(input.backup, input.secret.passphrase, argon2id)
     : await decryptBackupWithRecoveryKey(input.backup, input.secret.recoveryKey);
   const snapshot = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)) as unknown;
+  await recoverPendingBackupTransactions();
 
-  if (Capacitor.isNativePlatform()) {
-    const result = await NativeBackup.restoreSnapshot({
-      snapshot: snapshot as RoomSnapshot,
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const result = await NativeBackup.restoreSnapshot({
+        snapshot: snapshot as RoomSnapshot,
+        manifest: input.backup.manifest,
+        confirmed: true,
+      });
+      return { checkpointId: result.checkpointId, restoredCount: result.restoredCount };
+    }
+
+    const result = await restoreBrowserSnapshot({
+      data: snapshot as BrowserSnapshotData,
       manifest: input.backup.manifest,
       confirmed: true,
     });
-    return { checkpointId: result.checkpointId, restoredCount: result.restoredCount };
+    return {
+      checkpointId: result.checkpointId,
+      restoredCount: Object.values(result.restoredCounts).reduce((total, count) => total + count, 0),
+    };
+  } catch (error) {
+    startupRecovery = undefined;
+    throw error;
   }
-
-  const result = await restoreBrowserSnapshot({
-    data: snapshot as BrowserSnapshotData,
-    manifest: input.backup.manifest,
-    confirmed: true,
-  });
-  return {
-    checkpointId: result.checkpointId,
-    restoredCount: Object.values(result.restoredCounts).reduce((total, count) => total + count, 0),
-  };
 }
 
 export async function listRecoveryCheckpoints(): Promise<Array<{ id: string; createdAt: string; status: string }>> {
+  await recoverPendingBackupTransactions();
   if (Capacitor.isNativePlatform()) return (await NativeBackup.listCheckpoints()).checkpoints;
   return listBrowserRecoveryCheckpoints();
 }
 
 export async function markRestoreVerified(checkpointId: string): Promise<void> {
+  await recoverPendingBackupTransactions();
   if (Capacitor.isNativePlatform()) return NativeBackup.markRestoreVerified({ checkpointId });
   return markBrowserRestoreVerified(checkpointId);
 }
 
 export async function discardVerifiedRecoveryCheckpoint(checkpointId: string): Promise<void> {
+  await recoverPendingBackupTransactions();
   if (Capacitor.isNativePlatform()) return NativeBackup.discardVerifiedCheckpoint({ checkpointId });
   return discardVerifiedBrowserCheckpoint(checkpointId);
 }
@@ -155,6 +169,32 @@ export async function restoreDropboxBackup(input: {
 }
 
 export async function rollbackRecoveryCheckpoint(checkpointId: string): Promise<void> {
-  if (Capacitor.isNativePlatform()) return NativeBackup.rollbackCheckpoint({ checkpointId });
-  return rollbackBrowserRecoveryCheckpoint(checkpointId);
+  await recoverPendingBackupTransactions();
+  try {
+    if (Capacitor.isNativePlatform()) return await NativeBackup.rollbackCheckpoint({ checkpointId });
+    return await rollbackBrowserRecoveryCheckpoint(checkpointId);
+  } catch (error) {
+    startupRecovery = undefined;
+    throw error;
+  }
+}
+
+
+/** Reconcile unverified restore transactions before operational repositories are exposed. */
+export async function recoverPendingBackupTransactions(): Promise<void> {
+  if (!startupRecovery) {
+    startupRecovery = (async () => {
+      if (Capacitor.isNativePlatform()) {
+        await NativeBackup.recoverPendingCheckpoints();
+      } else {
+        await recoverBrowserRestoreTransactions();
+      }
+    })();
+  }
+  try {
+    await startupRecovery;
+  } catch (error) {
+    startupRecovery = undefined;
+    throw error;
+  }
 }

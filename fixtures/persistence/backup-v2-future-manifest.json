@@ -1,0 +1,8 @@
+{
+  "applicationVersion": "99.0.0",
+  "schemaVersion": 2,
+  "createdAt": "2025-04-03T08:00:00.000Z",
+  "businessTimezone": "Asia/Kolkata",
+  "snapshotRevision": 0,
+  "recordCounts": { "records": 0, "driverState": 0, "driverIntents": 0, "driverEvents": 0, "driverOutbox": 0 }
+}

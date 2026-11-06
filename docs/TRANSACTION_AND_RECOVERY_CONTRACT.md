@@ -46,6 +46,20 @@ If the completion transaction fails, none of its writes may be exposed as commit
 
 Bridge notifications, UI rendering, and other external side effects occur only after the authoritative commit. They are not part of the database transaction. Persist required follow-up work in a durable outbox in the same transaction as the business change; deliver it at least once and mark delivery only after the receiver acknowledges durable handling.
 
+## Shared transaction lifecycle and projection authority
+
+Every state-changing command follows one ordered lifecycle on both IndexedDB and Room:
+
+1. **Validate** the versioned command/event envelope, required evidence, timestamps, and allowed transition before mutation.
+2. **Resolve identity and ordering** using stable event ID, command ID, idempotency key, expected prior state, and expected revision. An exact replay resolves to its durable prior outcome; reuse of an identity with a different payload is rejected; stale or competing commands do not overwrite newer state.
+3. **Commit authoritative data atomically**: immutable source event/evidence, next state and revision, terminal intent status, and durable outbox work share one database transaction. A failure at any write boundary exposes none of those completion writes as committed; the previously durable intent remains retryable.
+4. **Rebuild derived projections** from the committed source event stream after the authoritative transaction. Timeline, trip-history, summaries, and caches are read models only: they are not accepted as command input, are not a source of truth, and are reconstructible after process/database restart or restore.
+5. **Acknowledge durable completion** only after the authoritative commit succeeds. Notifications and projection refreshes are post-commit effects; replay may repeat delivery but must not repeat the business effect.
+
+Restore uses the same ordering discipline. Validate/decrypt the complete backup before mutation; capture a consistent pre-restore checkpoint; replace all registered participants atomically; read back and compare the committed dataset; and retain the checkpoint until verification is explicitly recorded. If the process stops after replacement but before verification, startup recovery rolls back the unverified restore from the checkpoint. If replacement transaction aborts before commit, the old dataset remains authoritative and no partial replacement is exposed.
+
+Startup recovery is a process boundary, not a repeated read-side action. Browser runtime memoizes successful reconciliation for the current page process and retries after a failed recovery; a page reload starts a new recovery pass. Android uses one process-wide gate shared by the Backup plugin, DriverWorkflow plugin, generic Room record gateway, and native overlay service. No native Room-backed read/write, driver state/intent/event operation, or backup export/restore may pass the gate before checkpoint reconciliation succeeds. A successful restore in the current process is not mistaken for a process-death interruption by another plugin or service; if rollback itself fails, the gate is invalidated and operational access remains blocked until recovery succeeds. Before replacement, native restore also verifies that the snapshot/manifest revision matches the revision inside the authoritative driver-state record.
+
 ## Event-scoped GPS and interruption
 
 - Only the defined lifecycle actions request location: shift start/end, trip start/end, and ride cancellation. No continuous tracking, periodic polling, or background location listener is permitted between events.
@@ -128,5 +142,8 @@ Recovery must be non-destructive. Corruption, migration failure, or an unknown t
 10. Recreate WebView/overlay and reboot with pending work; verify authoritative state and pending statuses recover without internet.
 11. Verify all GPS/database work is off the UI/main thread and no continuous/periodic location collection exists.
 12. Exercise database corruption/migration failure; verify source preservation and a recoverable error path.
+13. Inject failure at each event, state/revision, intent-status, and outbox write; verify transaction rollback on IndexedDB and Room.
+14. Reopen each platform with a restore checkpoint in `checkpoint` or `restored_unverified`; verify startup recovery restores the pre-restore authoritative dataset and retains the checkpoint.
+15. Rebuild Timeline and trip-history read models from authoritative events after restart and restore; verify no derived projection/cache is required to recover business state.
 
 No test or release claim is satisfied by an emulator-only happy path; include deterministic automated transaction/failure-injection tests and physical-device Android validation for platform lifecycle behavior.

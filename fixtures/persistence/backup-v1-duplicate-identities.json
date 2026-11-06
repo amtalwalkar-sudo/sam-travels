@@ -1,0 +1,20 @@
+{
+  "data": {
+    "records": [
+      { "id": "duplicate", "schemaVersion": 1, "createdAt": "2025-04-03T08:00:00.000Z", "updatedAt": "2025-04-03T08:00:00.000Z", "source": "web", "revision": 1, "data": {} },
+      { "id": "duplicate", "schemaVersion": 1, "createdAt": "2025-04-03T08:00:00.000Z", "updatedAt": "2025-04-03T08:00:00.000Z", "source": "web", "revision": 1, "data": {} }
+    ],
+    "driverState": [],
+    "driverIntents": [],
+    "driverEvents": [],
+    "driverOutbox": []
+  },
+  "manifest": {
+    "applicationVersion": "0.1.0",
+    "schemaVersion": 1,
+    "createdAt": "2025-04-03T08:00:00.000Z",
+    "businessTimezone": "Asia/Kolkata",
+    "snapshotRevision": 0,
+    "recordCounts": { "records": 2, "driverState": 0, "driverIntents": 0, "driverEvents": 0, "driverOutbox": 0 }
+  }
+}
