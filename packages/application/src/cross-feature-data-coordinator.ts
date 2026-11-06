@@ -2,6 +2,7 @@ import {
   executeFeatureDataQuery,
   executeRegisteredCalculation,
   validateFeatureDataQueryContext,
+  type AvailableFeatureDataQueryResult,
   type CalculationExecutionResult,
   type FeatureDataQueryContext,
   type FeatureDataQueryResult,
@@ -16,7 +17,7 @@ export type OrchestratedCalculationResult<Output = unknown> =
   | Readonly<{
       status: "calculated";
       calculation: CalculationExecutionResult<Output>;
-      sources: readonly FeatureDataQueryResult[];
+      sources: readonly AvailableFeatureDataQueryResult[];
       consistency: "shared_snapshot" | "best_effort";
     }>
   | Readonly<{
@@ -62,7 +63,7 @@ export class CrossFeatureDataCoordinator {
     }));
 
     const tokens = items
-      .filter((item): item is FeatureDataQueryResult => item.status === "available")
+      .filter((item): item is AvailableFeatureDataQueryResult => item.status === "available")
       .map(item => item.snapshotToken)
       .filter((token): token is string => !!token);
     if (new Set(tokens).size > 1) {
@@ -85,19 +86,23 @@ export class CrossFeatureDataCoordinator {
     context: FeatureDataQueryContext;
     calculationId: string;
     expected: { version: number; inputSchemaVersion: number; outputSchemaVersion: number };
-    buildInput(sources: readonly FeatureDataQueryResult[]): Input;
+    buildInput(sources: readonly AvailableFeatureDataQueryResult[]): Input;
     allowStale?: boolean;
     allowIncomplete?: boolean;
   }): Promise<OrchestratedCalculationResult<Output>> {
     const collected = await this.collect(request.queryIds, request.context);
-    const unavailable = collected.find(item => item.status !== "available");
-    if (unavailable) return Object.freeze({
-      status: unavailable.status === "invalid" ? "invalid" : "blocked",
-      reason: unavailable.reason,
+    const failures = collected.filter(
+      (item): item is Exclude<DataSourceCollectionItem, { status: "available" }> => item.status !== "available",
+    );
+    if (failures.length > 0) return Object.freeze({
+      status: failures[0].status === "invalid" ? "invalid" : "blocked",
+      reason: failures[0].reason,
       sources: collected,
     });
 
-    const sources = collected as readonly FeatureDataQueryResult[];
+    const sources = collected.filter(
+      (item): item is AvailableFeatureDataQueryResult => item.status === "available",
+    );
     if (!request.allowIncomplete && sources.some(source => !source.complete)) {
       return Object.freeze({ status: "blocked", reason: "source_incomplete", sources });
     }
