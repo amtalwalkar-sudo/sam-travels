@@ -1,11 +1,11 @@
 import { Capacitor } from "@capacitor/core";
 import {
   FeatureExtensionUpgradeCoordinator,
-  type FeatureMigrationHandler,
 } from "../../../packages/application/src";
 import type {
   FeatureExtensionCompatibilitySnapshot,
 } from "../../../packages/core/src/feature-compatibility";
+import type { FeatureMigrationHandler } from "../../../packages/core/src/features";
 import type { RuntimeContractDefinitions } from "../../../packages/core/src/runtime-registry";
 import {
   DexieFeatureExtensionUpgradeTransaction,
