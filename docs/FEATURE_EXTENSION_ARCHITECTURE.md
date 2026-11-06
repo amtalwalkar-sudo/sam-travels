@@ -58,6 +58,12 @@ The generator validates a lowercase kebab-case ID and non-empty label, refuses t
 5. Integrate consumers only through explicitly versioned contracts. Existing metrics must retain their outputs unless an approved rule change explicitly says otherwise.
 6. Preserve calculation ID, version, input/output schema versions, and effective date with results where historical provenance is required.
 
+## Public feature API boundary
+
+Every production consumer outside a feature package—including the application composition root, application services, and presentation—must import that feature through its package-level public entry point (`packages/features/<feature-id>` or its explicit `index.ts`). Private implementation modules such as `runtime.ts`, `projection.ts`, storage adapters, and internal domain files must not be imported directly from outside their owning feature. Imports between two different feature packages follow the same rule. Imports within one feature may use its private files.
+
+The architecture CI gate resolves relative and aliased imports and rejects any external deep import into a feature package. This keeps implementation free to change without forcing unrelated consumers to change. A feature's public index is a deliberate compatibility surface; adding or removing an export is therefore a reviewed contract change.
+
 ## Isolation and compatibility
 
 - A feature extension never edits another feature's private data or implementation.
@@ -71,6 +77,6 @@ The generator validates a lowercase kebab-case ID and non-empty label, refuses t
 
 ## Verification and release claims
 
-Automated CI must verify extension registration, duplicate/unknown IDs, dependency cycles, ownership boundaries, calculation fixtures, integration compatibility, and existing regression suites. Persistent extensions additionally require migration and backup/restore compatibility tests.
+Automated CI must verify extension registration, duplicate/unknown IDs, dependency cycles, ownership boundaries, calculation fixtures, integration compatibility, public feature API imports, and existing regression suites. Persistent extensions additionally require migration and backup/restore compatibility tests.
 
 A green CI run proves only the automated checks executed on that commit. Physical-device and live external-service acceptance remain separate release gates.

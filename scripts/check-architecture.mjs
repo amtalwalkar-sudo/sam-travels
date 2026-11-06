@@ -46,11 +46,6 @@ function featureTarget(file) {
   return match?.[1] ?? null;
 }
 
-
-
-
-
-
 function detectCycles(graph) {
   const visiting = new Set();
   const visited = new Set();
@@ -102,7 +97,7 @@ for (const absolute of sourceFiles) {
     ? analyzeModuleReferences(content, relative)
     : { references: [], diagnostics: [] };
   for (const diagnostic of parsed.diagnostics) {
-    failures.push(`${relative}:${diagnostic.line ? `:${diagnostic.line}` : ""} TypeScript parser error ${diagnostic.code}: ${diagnostic.message}`);
+    failures.push(`${relative}${diagnostic.line ? `:${diagnostic.line}` : ""} TypeScript parser error ${diagnostic.code}: ${diagnostic.message}`);
   }
 
   for (const reference of parsed.references) {
@@ -116,10 +111,12 @@ for (const absolute of sourceFiles) {
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
 
-    if (fromFeature && toFeature && fromFeature !== toFeature) {
+    // Every consumer outside a feature must use that feature's public entry point.
+    // This includes the application composition root and UI, not only feature-to-feature imports.
+    if (toFeature && fromFeature !== toFeature) {
       if (!isPublicFeatureEntry(resolved)) {
-        failures.push(`${relative}: cross-feature import must use the public entry point for "${toFeature}", not "${specifier}"`);
-      } else {
+        failures.push(`${relative}:${reference.line}: imports of feature "${toFeature}" must use its public index.ts entry point, not "${specifier}"`);
+      } else if (fromFeature) {
         featureGraph.get(fromFeature).add(toFeature);
       }
     }
@@ -155,7 +152,6 @@ for (const absolute of sourceFiles) {
   }
 }
 
-
 /**
  * Persistent data access is confined to the platform adapter/gateway layer.
  * Business/domain/features and bridge presentation code must use public
@@ -173,7 +169,7 @@ const androidPersistenceGateways = new Set([
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   const content = await readFile(absolute, "utf8");
-    const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
+  const productionTypeScript = /^(?:packages|apps\/web\/src)\//.test(relative) &&
     !relative.startsWith("packages/storage-browser/src/");
   const browserPersistenceGateways = new Set([
     "apps/web/src/browser-secure-vault.ts",
@@ -220,6 +216,12 @@ for (const cycle of detectCycles(featureGraph)) {
 
 /** Every declared extension entry point must resolve to a checked-in public file. */
 const checkedInSourcePaths = new Set(sourceFiles.map(file => normalize(path.relative(root, file))));
+for (const featureId of featureGraph.keys()) {
+  const publicEntry = `packages/features/${featureId}/index.ts`;
+  if (!checkedInSourcePaths.has(publicEntry)) {
+    failures.push(`packages/features/${featureId}: missing public entry point ${publicEntry}`);
+  }
+}
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("packages/features/")) continue;
