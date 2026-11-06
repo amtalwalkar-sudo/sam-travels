@@ -153,7 +153,8 @@ export async function executeFeatureDataQuery<Record>(
     !Array.isArray(snapshot.records) ||
     typeof snapshot.complete !== "boolean" ||
     !["fresh", "stale", "unknown"].includes(snapshot.freshness) ||
-    !Number.isFinite(Date.parse(snapshot.observedAt)) ||\n    (snapshot.snapshotToken !== undefined && (typeof snapshot.snapshotToken !== "string" || !snapshot.snapshotToken.trim()))
+    !Number.isFinite(Date.parse(snapshot.observedAt)) ||
+    (snapshot.snapshotToken !== undefined && (typeof snapshot.snapshotToken !== "string" || !snapshot.snapshotToken.trim()))
   ) return Object.freeze({ ...base, status: "invalid", reason: "source_snapshot_metadata_invalid" });
   if (context.snapshotToken && snapshot.snapshotToken && snapshot.snapshotToken !== context.snapshotToken) {
     return Object.freeze({ ...base, status: "invalid", reason: "source_snapshot_token_mismatch" });
