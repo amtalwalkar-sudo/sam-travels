@@ -19,7 +19,9 @@ internal object RecordEnvelopeContract {
         val updatedAt = parseInstant(record.optString("updatedAt"))
         require(!updatedAt.isBefore(createdAt)) { "record_invalid_timestamps" }
         require(record.optString("source") in sources) { "record_invalid_source" }
-        require(record.optLong("revision", -1L) in 1..Int.MAX_VALUE.toLong()) {
+        val revision = record.opt("revision") as? Number
+        require(revision != null && revision.toDouble().isFinite() && revision.toDouble() % 1.0 == 0.0 &&
+            revision.toDouble() in 1.0..9_007_199_254_740_991.0) {
             "record_invalid_revision"
         }
         require(record.has("data")) { "record_data_required" }
