@@ -8,32 +8,43 @@ import java.time.OffsetDateTime
 internal object RecordEnvelopeContract {
     const val CURRENT_SCHEMA_VERSION = 1
     private val sources = setOf("web", "android", "import", "integration")
+    private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991.0
 
     fun validate(record: JSONObject) {
-        val id = record.optString("id")
-        require(id.isNotBlank() && id == id.trim()) { "record_identity_required" }
-        require(record.optInt("schemaVersion", -1) == CURRENT_SCHEMA_VERSION) {
-            "record_unsupported_schema_version"
-        }
-        val createdAt = parseInstant(record.optString("createdAt"))
-        val updatedAt = parseInstant(record.optString("updatedAt"))
+        val id = record.opt("id") as? String
+        require(id != null && id.isNotBlank() && id == id.trim()) { "record_identity_required" }
+        val schemaVersion = number(record, "schemaVersion")
+        require(schemaVersion == CURRENT_SCHEMA_VERSION.toDouble()) { "record_unsupported_schema_version" }
+
+        val createdAt = parseInstant(record.opt("createdAt") as? String ?: "")
+        val updatedAt = parseInstant(record.opt("updatedAt") as? String ?: "")
         require(!updatedAt.isBefore(createdAt)) { "record_invalid_timestamps" }
-        require(record.optString("source") in sources) { "record_invalid_source" }
-        val revision = record.opt("revision") as? Number
-        require(revision != null && revision.toDouble().isFinite() && revision.toDouble() % 1.0 == 0.0 &&
-            revision.toDouble() in 1.0..9_007_199_254_740_991.0) {
-            "record_invalid_revision"
-        }
+
+        val source = record.opt("source") as? String
+        require(source in sources) { "record_invalid_source" }
+        val revision = number(record, "revision")
+        require(revision >= 1.0 && revision <= MAX_SAFE_INTEGER) { "record_invalid_revision" }
         require(record.has("data")) { "record_data_required" }
+
         if (record.has("businessDate") && !record.isNull("businessDate")) {
-            val date = record.optString("businessDate")
-            require(runCatching { LocalDate.parse(date).toString() == date }.getOrDefault(false)) {
+            val date = record.opt("businessDate") as? String
+            require(date != null && runCatching { LocalDate.parse(date).toString() == date }.getOrDefault(false)) {
                 "record_invalid_business_date"
             }
         }
         if (record.has("deletedAt") && !record.isNull("deletedAt")) {
-            parseInstant(record.optString("deletedAt"))
+            parseInstant(record.opt("deletedAt") as? String ?: "")
         }
+    }
+
+    private fun number(record: JSONObject, key: String): Double {
+        val value = record.opt(key) as? Number
+            ?: throw IllegalArgumentException(if (key == "schemaVersion") "record_unsupported_schema_version" else "record_invalid_revision")
+        val number = value.toDouble()
+        require(number.isFinite() && number % 1.0 == 0.0 && number <= MAX_SAFE_INTEGER) {
+            if (key == "schemaVersion") "record_unsupported_schema_version" else "record_invalid_revision"
+        }
+        return number
     }
 
     private fun parseInstant(value: String) =
