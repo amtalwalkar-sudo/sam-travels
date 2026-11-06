@@ -12,6 +12,66 @@ export function isWithinGpsRecoveryWindow(transitionAt: string, nowMs = Date.now
  return Number.isFinite(transitionMs) && Math.abs(nowMs - transitionMs) <= GPS_RECOVERY_WINDOW_MS;
 }
 export const EMPTY_DRIVER_STATE: DriverStateProjection = { schemaVersion: 1, revision: 0, state: "idle" };
+const DRIVER_STATES = ["idle", "shift_active", "trip_active", "approach_active", "needs_attention"] as const;
+const DRIVER_INTENT_STATUSES = ["pending_location", "needs_attention", "recorded", "rejected"] as const;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+function validInstant(value: unknown): value is string {
+ return typeof value === "string" && ISO_INSTANT.test(value) && Number.isFinite(Date.parse(value));
+}
+export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
+ if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_command");
+ const command = value as Record<string, unknown>;
+ if (command.schemaVersion !== 1 || typeof command.commandId !== "string" || !command.commandId.trim() ||
+     typeof command.eventId !== "string" || !command.eventId.trim() ||
+     typeof command.idempotencyKey !== "string" || !command.idempotencyKey.trim() ||
+     typeof command.eventType !== "string" || !DRIVER_EVENT_TYPES.includes(command.eventType as DriverEventType) ||
+     typeof command.originSurface !== "string" || !["pwa", "native_overlay"].includes(command.originSurface) ||
+     typeof command.expectedPriorState !== "string" || !DRIVER_STATES.includes(command.expectedPriorState as DriverWorkflowState) ||
+     !Number.isSafeInteger(command.expectedRevision) || (command.expectedRevision as number) < 0 ||
+     !validInstant(command.transitionAt)) throw new Error("invalid_command");
+}
+export function assertDriverStateContract(value: unknown): asserts value is DriverStateProjection {
+ if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_state");
+ const state = value as Record<string, unknown>;
+ if (state.schemaVersion !== 1 || !Number.isSafeInteger(state.revision) || (state.revision as number) < 0 ||
+     typeof state.state !== "string" || !DRIVER_STATES.includes(state.state as DriverWorkflowState)) {
+  throw new Error("invalid_driver_state");
+ }
+ for (const key of ["shiftStartedAt", "tripStartedAt", "approachStartedAt"] as const) {
+  if (state[key] !== undefined && !validInstant(state[key])) throw new Error("invalid_driver_state_timestamp");
+ }
+ if (state.lastEventId !== undefined && (typeof state.lastEventId !== "string" || !state.lastEventId.trim())) {
+  throw new Error("invalid_driver_state_event_id");
+ }
+}
+export function assertDriverIntentContract(value: unknown): asserts value is DriverIntent {
+ if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_intent");
+ const intent = value as Record<string, unknown>;
+ assertDriverCommandContract(intent.command);
+ if (typeof intent.status !== "string" || !DRIVER_INTENT_STATUSES.includes(intent.status as DriverIntentStatus) ||
+     !validInstant(intent.createdAt) || !validInstant(intent.updatedAt) ||
+     Date.parse(intent.updatedAt) < Date.parse(intent.createdAt) ||
+     (intent.reason !== undefined && typeof intent.reason !== "string")) {
+  throw new Error("invalid_driver_intent");
+ }
+}
+export function assertDriverEventContract(value: unknown): asserts value is DriverEvent {
+ if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_event");
+ const event = value as Record<string, unknown>;
+ assertDriverCommandContract(event.command);
+ if (event.eventId !== (event.command as DriverTransitionCommand).eventId ||
+     !validInstant(event.committedAt) ||
+     !Number.isSafeInteger(event.revision) || (event.revision as number) < 1) {
+  throw new Error("invalid_driver_event");
+ }
+ const gps = event.gps as Record<string, unknown> | undefined;
+ if (!gps || typeof gps !== "object" || typeof gps.provider !== "string" || !gps.provider.trim() ||
+     !validInstant(gps.fixAt) || typeof gps.latitude !== "number" || typeof gps.longitude !== "number" ||
+     typeof gps.horizontalAccuracyM !== "number" ||
+     !validateGpsFix(gps as unknown as GpsFix, (event.command as DriverTransitionCommand).transitionAt, Date.parse(gps.fixAt)).accepted) {
+  throw new Error("invalid_driver_event_gps");
+ }
+}
 export function validateDriverCommand(command: DriverTransitionCommand): DriverResult<DriverTransitionCommand> {
  if (command.schemaVersion!==1 || !command.commandId.trim() || !command.eventId.trim() || !command.idempotencyKey.trim() || !Number.isInteger(command.expectedRevision) || !Number.isFinite(Date.parse(command.transitionAt)) || !["shift_start","shift_end","trip_start","trip_end","ride_cancel"].includes(command.eventType) || !["pwa","native_overlay"].includes(command.originSurface)) return {ok:false,error:"invalid_command"};
  return {ok:true,value:command};
