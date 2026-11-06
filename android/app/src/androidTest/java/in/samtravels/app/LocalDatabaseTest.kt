@@ -19,6 +19,7 @@ class LocalDatabaseTest {
    assertEquals(record,db.records().get("test-1"))
    assertEquals(3,db.openHelper.readableDatabase.version)
   } finally { db.close() }
+ }
 
  @Test fun atomicRecordCompareAndSetPersistsAcrossDatabaseReopen() = runBlocking {
   val context=ApplicationProvider.getApplicationContext<Context>()
