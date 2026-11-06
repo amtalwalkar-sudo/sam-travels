@@ -87,6 +87,7 @@ describe("feature extension compatibility preflight", () => {
 
   it("rejects persistent-to-non-persistent downgrade", () => {
     expect(() => validateFeatureExtensionUpgrade(snapshot(), snapshot({
+      extension: { ...extension, version: 2 },
       feature: { ...feature, dataPolicy: "non-persistent", persistence: undefined },
     }))).toThrow("cannot become non-persistent");
   });
