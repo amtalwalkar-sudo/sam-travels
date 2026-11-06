@@ -17,7 +17,7 @@ export function createAliasResolver(tsconfig) {
   };
 }
 
-const normalizePath = (value) => value.replaceAll("\\", "/").replace(/\\/+/g, "/");
+const normalizePath = (value) => value.replaceAll("\\", "/").replace(/\/+/g, "/");
 const joinPath = (...parts) => normalizePath(parts.join("/"));
 
 export function resolveImport(specifier, fromFile, resolveAlias) {
@@ -61,7 +61,7 @@ export function isForbiddenLayerDependency(from, target) {
 
 export function isPublicFeatureEntry(resolved) {
   const value = normalizePath(resolved);
-  const extension = value.match(/\\.(?:ts|tsx|js|jsx|mjs|cjs)$/)?.[0] ?? "";
+  const extension = value.match(/\.(?:ts|tsx|js|jsx|mjs|cjs)$/)?.[0] ?? "";
   const withoutExtension = extension ? value.slice(0, -extension.length) : value;
   const normalized = withoutExtension.endsWith("/") ? withoutExtension.slice(0, -1) : withoutExtension;
   const parts = normalized.split("/");
