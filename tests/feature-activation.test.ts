@@ -100,6 +100,28 @@ describe("deterministic feature activation planning", () => {
     }));
   });
 
+  it("rejects every duplicate add-on declaration regardless of input order", () => {
+    const first = feature("duplicate-addon");
+    const second = { ...feature("duplicate-addon"), label: "Different duplicate" };
+    const forward = planFeatureActivation([first, second]);
+    const reverse = planFeatureActivation([second, first]);
+    expect(forward.results.get("duplicate-addon")?.state).toBe("rejected");
+    expect(reverse.results.get("duplicate-addon")?.state).toBe("rejected");
+    expect(forward.declarations.has("duplicate-addon")).toBe(false);
+    expect(reverse.declarations.has("duplicate-addon")).toBe(false);
+    expect(forward.diagnostics).toEqual(reverse.diagnostics);
+  });
+
+  it("does not make optional dependency cycles required activation cycles", () => {
+    const plan = planFeatureActivation([
+      feature("optional-cycle-a", [{ id: "optional-cycle-b", contractVersion: 1, optional: true }]),
+      feature("optional-cycle-b", [{ id: "optional-cycle-a", contractVersion: 1, optional: true }]),
+    ]);
+    expect(plan.results.get("optional-cycle-a")?.state).toBe("active");
+    expect(plan.results.get("optional-cycle-b")?.state).toBe("active");
+    expect(plan.diagnostics.some(item => item.code === "dependency_cycle")).toBe(false);
+  });
+
   it("keeps persistent ownership declarations visible even when operational activation is blocked", () => {
     const persistent: FeatureDefinition = {
       id: "persistent-blocked",
