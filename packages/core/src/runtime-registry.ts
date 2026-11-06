@@ -16,6 +16,10 @@ import {
   type FeatureDataQueryContract,
 } from "./feature-data";
 import {
+  registerFeaturePresentationScreens,
+  type FeaturePresentationScreen,
+} from "./feature-presentation";
+import {
   registerFeatureExtensions,
   type FeatureExtensionDefinition,
   type RegisteredFeatureExtension,
