@@ -114,8 +114,8 @@ function currentParticipantManifest() {
   }
   return required.sort((a, b) => a.id.localeCompare(b.id));
 }
-const TABLE_NAMES: BrowserSnapshotTable[] = resolveBrowserBackupParticipants()
-  .flatMap(participant => participant.tableNames);
+const TABLE_NAMES: BrowserSnapshotTable[] = [...new Set(resolveBrowserBackupParticipants()
+  .flatMap(participant => participant.tableNames))];
 const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta", "diagnostics"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
