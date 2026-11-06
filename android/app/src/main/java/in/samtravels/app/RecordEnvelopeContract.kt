@@ -26,7 +26,7 @@ internal object RecordEnvelopeContract {
         require(revision >= 1.0 && revision <= MAX_SAFE_INTEGER) { "record_invalid_revision" }
         require(record.has("data")) { "record_data_required" }
 
-        if (record.has("businessDate") && !record.isNull("businessDate")) {
+        if (record.has("businessDate")) {
             val date = record.opt("businessDate") as? String
             require(date != null && runCatching { LocalDate.parse(date).toString() == date }.getOrDefault(false)) {
                 "record_invalid_business_date"
