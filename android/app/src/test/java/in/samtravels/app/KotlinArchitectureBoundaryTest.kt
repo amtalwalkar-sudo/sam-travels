@@ -74,7 +74,7 @@ class KotlinArchitectureBoundaryTest {
                 override fun visitCallExpression(expression: KtCallExpression) {
                     val name = expression.calleeExpression?.text
                     if (name in setOf("records", "logBookEvents") && relative !in approvedRoomGateways) {
-                        violations += "$relative: direct Room DAO call '$name' outside an approved gateway"
+                        violations += "$relative: direct Room database accessor '$name' outside an approved gateway"
                     }
                     super.visitCallExpression(expression)
                 }
@@ -84,7 +84,12 @@ class KotlinArchitectureBoundaryTest {
 
     @Test
     fun authorizedGatewayFixtureAllowsRoomDaoCalls() {
-        val source = "fun read(database: LocalDatabase) = database.records().list()"
+        val source = """
+            fun write(database: LocalDatabase, record: StoredRecord) {
+                database.records().put(record)
+                database.logBookEvents().clear()
+            }
+        """.trimIndent()
         assertTrue(roomDaoViolations(
             source,
             "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
@@ -92,10 +97,20 @@ class KotlinArchitectureBoundaryTest {
     }
 
     @Test
-    fun unauthorizedFixtureRejectsRoomDaoCalls() {
-        val source = "fun read(database: LocalDatabase) = database.records().list()"
+    fun unauthorizedFixtureRejectsRoomReadsAndWrites() {
+        val source = """
+            fun write(database: LocalDatabase, record: StoredRecord) {
+                database.records().put(record)
+                database.records().remove(record.id)
+                database.logBookEvents().clear()
+            }
+        """.trimIndent()
         assertEquals(
-            listOf("packages/application/src/unsafe.kt: direct Room DAO call 'records' outside an approved gateway"),
+            listOf(
+                "packages/application/src/unsafe.kt: direct Room database accessor 'records' outside an approved gateway",
+                "packages/application/src/unsafe.kt: direct Room database accessor 'records' outside an approved gateway",
+                "packages/application/src/unsafe.kt: direct Room database accessor 'logBookEvents' outside an approved gateway",
+            ),
             roomDaoViolations(source, "packages/application/src/unsafe.kt"),
         )
     }
