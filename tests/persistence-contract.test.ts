@@ -52,6 +52,25 @@ describe("formal persistence contracts and historical fixtures", () => {
     ]));
   });
 
+  it("accepts the explicitly supported legacy v1 backup without a participant manifest", async () => {
+    await browserDatabase.open();
+    const result = await restoreBrowserSnapshot({
+      data: { records: [], driverState: [], driverIntents: [], driverEvents: [], driverOutbox: [] },
+      manifest: {
+        applicationVersion: "0.1.0",
+        schemaVersion: 1,
+        createdAt: "2025-04-03T08:00:00.000Z",
+        businessTimezone: "Asia/Kolkata",
+        snapshotRevision: 0,
+        recordCounts: { records: 0, driverState: 0, driverIntents: 0, driverEvents: 0, driverOutbox: 0 },
+      },
+      confirmed: true,
+    });
+    expect(result.restoredCounts).toEqual({
+      records: 0, driverState: 0, driverIntents: 0, driverEvents: 0, driverOutbox: 0,
+    });
+  });
+
   it("rejects duplicate identities and unsupported future backup manifests before checkpointing", async () => {
     await browserDatabase.open();
     await expect(restoreBrowserSnapshot({
