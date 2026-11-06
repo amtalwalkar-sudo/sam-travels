@@ -36,6 +36,18 @@ Validation occurs in the application service and browser/Android persistence wri
 
 Unknown record schema versions are rejected. Do not coerce, strip fields, or fall back to a guessed version. A future record version needs an explicit deterministic migration before it becomes the current version.
 
+## Work command, intent, state, event and outbox contracts
+
+Work persistence is not a generic record envelope: it uses its own explicit v1 discriminants in `packages/domain/src/driver-workflow.ts` and the native mirror `DriverWorkflowContract.kt`.
+
+- Commands: schema version 1; non-empty command/event/idempotency identities; event type from the five supported shift/trip/cancel discriminants; origin surface `pwa` or `native_overlay`; valid prior-state enum; non-negative safe revision; timezone-qualified transition instant.
+- Intents: command plus status enum (`pending_location`, `needs_attention`, `recorded`, `rejected`), valid created/updated instants, monotonic update time, and optional string reason.
+- State projections: schema version 1, non-negative revision, known workflow state, and valid optional transition timestamps/event identity.
+- Committed events: event identity must match the command, revision must equal expected revision + 1, commit timestamp must be valid, and GPS evidence must satisfy coordinate, accuracy and transition-window constraints.
+- Outbox rows: stable revision-derived identity, supported integration/event/payload contract versions, boolean delivery state, and valid creation instant.
+
+Browser and native storage validate these discriminants at enqueue/commit, persisted reads, backup export and restore. Malformed persisted state is surfaced as a contract failure rather than silently skipped.
+
 ## Physical database migrations
 
 ### Browser IndexedDB / Dexie
