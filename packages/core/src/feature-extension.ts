@@ -1,6 +1,7 @@
 import { createReadonlyRegistry } from "./readonly-registry";
 import type { CalculationContract, FeatureIntegrationContract } from "./feature-contracts";
 import type { FeatureDataQueryContract } from "./feature-data";
+import type { FeaturePresentationScreen } from "./feature-presentation";
 import type { FeatureDefinition, FeatureId } from "./features";
 
 /**
@@ -19,6 +20,7 @@ export type FeatureExtensionDefinition = Readonly<{
   integrations?: readonly FeatureIntegrationContract[];
   calculations?: readonly CalculationContract<any, any>[];
   dataQueries?: readonly FeatureDataQueryContract<any>[];
+  presentationScreens?: readonly FeaturePresentationScreen[];
 }>;
 
 /** Safe, immutable extension metadata; executable contributions live in their own registries. */
@@ -30,6 +32,7 @@ export type RegisteredFeatureExtension = Readonly<{
   integrationIds: readonly string[];
   calculationIds: readonly string[];
   dataQueryIds: readonly string[];
+  presentationScreenIds: readonly string[];
 }>;
 
 /** Validate extension contributions and expose metadata only after all ownership checks pass. */
@@ -70,6 +73,12 @@ export function registerFeatureExtensions(
 
     const calculations = [...(source.calculations ?? [])];
     const dataQueries = [...(source.dataQueries ?? [])];
+    const presentationScreens = [...(source.presentationScreens ?? [])];
+    for (const screen of presentationScreens) {
+      if (screen.ownerFeatureId !== source.featureId) {
+        throw new Error("Feature presentation screen is outside its owner boundary: " + source.id);
+      }
+    }
     for (const query of dataQueries) {
       if (query.ownerFeatureId !== source.featureId) {
         throw new Error("Feature extension data query is outside its owner boundary: " + source.id);
@@ -89,6 +98,7 @@ export function registerFeatureExtensions(
       integrationIds: Object.freeze(integrations.map(integration => integration.id)),
       calculationIds: Object.freeze(calculations.map(calculation => calculation.id)),
       dataQueryIds: Object.freeze(dataQueries.map(query => query.id)),
+      presentationScreenIds: Object.freeze(presentationScreens.map(screen => screen.id)),
     }));
   }
 
