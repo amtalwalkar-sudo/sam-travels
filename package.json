@@ -10,11 +10,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs && npm run features:check",
     "verify": "npm run check:architecture && npm test && npm run build",
     "feature:create": "node scripts/create-feature.mjs",
     "cap:sync": "npm run build && cap sync android",
-    "build:timeline-parity": "vite build --config vite.timeline-parity.config.ts"
+    "build:timeline-parity": "vite build --config vite.timeline-parity.config.ts",
+    "features:discover": "node scripts/discover-features.mjs",
+    "features:check": "node scripts/discover-features.mjs --check"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
