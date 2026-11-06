@@ -38,7 +38,8 @@ export function validateFeatureExtensionUpgrade(
   const after = next.extension;
 
   if (before.id !== after.id) throw new Error("Extension identity cannot change during upgrade");
-  if (before.featureId !== after.featureId || previous.feature.id !== next.feature.id) {
+  if (before.featureId !== after.featureId || previous.feature.id !== next.feature.id ||
+      before.featureId !== previous.feature.id || after.featureId !== next.feature.id) {
     throw new Error("Extension owner identity cannot change during upgrade");
   }
   if (before.publicEntryPoint !== after.publicEntryPoint) {
