@@ -93,4 +93,30 @@ describe("application feature lifecycle coordinator", () => {
     expect(states.get("performance")?.state).toBe("enabled");
     expect(await repository.get("platform:feature-lifecycle")).toBeUndefined();
   });
+  it("retains feature-owned records after disable and retirement", async () => {
+    const repository = new MemoryAtomicRepository();
+    const feature = {
+      id: "retained-addon", label: "Retained Add-on", dataPolicy: "persistent" as const,
+      contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }],
+      persistence: {
+        schemaVersion: 1, migrations: [],
+        backup: { participantId: "retained-addon-records", snapshotVersion: 1, required: true as const },
+        restore: { validatorId: "retained-addon-v1", required: true as const },
+        lifecycle: { disableRetainsData: true as const, removalRequiresMigration: true as const },
+      },
+    };
+    const timestamp = "2026-11-06T00:00:00.000Z";
+    await repository.put({
+      id: "feature:retained-addon:business-row", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: { value: "must-survive" },
+    });
+    const coordinator = new FeatureLifecycleCoordinator(repository, registerFeatures([feature]));
+    await coordinator.transition("retained-addon", "disable");
+    await coordinator.transition("retained-addon", "retire");
+    expect((await repository.get<{ value: string }>("feature:retained-addon:business-row"))?.data)
+      .toEqual({ value: "must-survive" });
+    expect((await coordinator.list()).get("retained-addon")?.state).toBe("retired");
+  });
+
 });
