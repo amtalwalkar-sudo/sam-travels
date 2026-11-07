@@ -52,3 +52,38 @@ describe("browser IndexedDB repository", () => {
     expect((await repository.get("platform:feature-lifecycle"))?.revision).toBe(2);
   });
 });
+
+
+  it("commits a multi-record revision batch atomically in IndexedDB", async () => {
+    const repo = new DexieRecordRepository(), now = new Date().toISOString();
+    const first = { id: "finance-loan", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { value: 1 } };
+    const ledger = { id: "finance-payments", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { value: 1 } };
+    expect(await repo.compareAndSetMany([
+      { id: first.id, expectedRevision: null, next: first },
+      { id: ledger.id, expectedRevision: null, next: ledger },
+    ])).toBe(true);
+    const firstNext = { ...first, revision: 2, data: { value: 2 } };
+    const ledgerNext = { ...ledger, revision: 2, data: { value: 2 } };
+    expect(await repo.compareAndSetMany([
+      { id: first.id, expectedRevision: 1, next: firstNext },
+      { id: ledger.id, expectedRevision: 0, next: ledgerNext },
+    ])).toBe(false);
+    expect((await repo.get(first.id))?.revision).toBe(1);
+    expect((await repo.get(ledger.id))?.revision).toBe(1);
+    expect(await repo.compareAndSetMany([
+      { id: first.id, expectedRevision: 1, next: firstNext },
+      { id: ledger.id, expectedRevision: 1, next: ledgerNext },
+    ])).toBe(true);
+    expect((await repo.get(first.id))?.revision).toBe(2);
+    expect((await repo.get(ledger.id))?.revision).toBe(2);
+  });
+
+  it("rejects duplicate identities in an atomic revision batch", async () => {
+    const repo = new DexieRecordRepository(), now = new Date().toISOString();
+    const record = { id: "duplicate", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { value: 1 } };
+    await expect(repo.compareAndSetMany([
+      { id: record.id, expectedRevision: null, next: record },
+      { id: record.id, expectedRevision: null, next: record },
+    ])).rejects.toThrow("atomic_record_batch_invalid");
+    expect(await repo.get(record.id)).toBeUndefined();
+  });
