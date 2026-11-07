@@ -32,8 +32,7 @@ internal object NativeVehicleBackup {
                 ) && data.optInt("schemaVersion", -1) == 1) { "vehicle_record_invalid" }
                 val registration = data.optString("registrationNumber")
                 val canonical = registration.uppercase().filterNot { it.isWhitespace() || it == '-' }
-                require(registration.isNotBlank() && registration == canonical &&
-                    registration.all { it in 'A'..'Z' || it in '0'..'9' }) { "vehicle_record_invalid" }
+                require(registration.isNotBlank() && registration == canonical) { "vehicle_record_invalid" }
                 require(id == RECORD_PREFIX + registration) { "vehicle_backup_record_identity_invalid" }
                 require(listOf("make", "model", "vehicleType", "fuelType", "ownership")
                     .all { data.optString(it).isNotBlank() }) { "vehicle_record_invalid" }
