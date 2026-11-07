@@ -84,13 +84,19 @@ export class FinanceLoanPrepaymentService {
       this.repository.get<unknown>(prepaymentRecordId(loanId)),
     ]);
     if (rawLedger) assertFinancePaymentLedgerV1(rawLedger.data, loanId);
-    if (rawState) this.validateState(rawState.data, loan.data, loanId);
+    if (rawState) {
+      this.validateState(rawState.data, loan.data, loanId);
+      const state = rawState.data as FinanceLoanPrepaymentStateV1;
+      if (state.baseScheduleVersion !== loan.data.currentScheduleVersion) {
+        throw new Error("finance_loan_prepayment_base_schedule_changed");
+      }
+    }
     return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
       state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined };
   }
 
   private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
-    amountPaise: number; mode: FinanceLoanPrepaymentModeV1 }): FinanceLoanPrepaymentPreviewV1 {
+    amountPaise: number; mode: FinanceLoanPrepaymentModeV1 }, createdAtOverride?: string): FinanceLoanPrepaymentPreviewV1 {
     if (!input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 ||
         (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
@@ -98,7 +104,6 @@ export class FinanceLoanPrepaymentService {
     }
     const schedule = scheduleFrom(snapshot);
     const entries = snapshot.ledger?.data.entries ?? [];
-    const reversed = new Set(entries.filter(entry => entry.kind === "reversal").map(entry => entry.paymentId));
     const allocations = new Map<number, number>();
     for (const payment of activePayments(entries)) for (const allocation of payment.allocations) {
       if (allocation.scheduleVersion === schedule.version) {
@@ -120,7 +125,7 @@ export class FinanceLoanPrepaymentService {
     }
     const remainingDueDates = schedule.rows.filter(row => row.dueDate > input.businessDate).map(row => row.dueDate);
     if (!remainingDueDates.length) throw new Error("finance_loan_prepayment_no_remaining_installments");
-    const createdAt = this.now();
+    const createdAt = createdAtOverride ?? this.now();
     const revision = this.buildRevision({
       version: schedule.version + 1, commandId: input.commandId, effectiveDate: input.businessDate,
       createdAt, mode: input.mode, principalBeforePaise: principalBeforePaise as number,
@@ -156,7 +161,7 @@ export class FinanceLoanPrepaymentService {
             replay.effectiveDate !== requested.businessDate) throw new Error("finance_loan_prepayment_idempotency_conflict");
         return replay;
       }
-      const fresh = this.previewFrom(snapshot, requested);
+      const fresh = this.previewFrom(snapshot, requested, requested.revision.createdAt);
       if (fresh.loanRevision !== requested.loanRevision ||
           fresh.paymentLedgerRevision !== requested.paymentLedgerRevision ||
           fresh.prepaymentStateRevision !== requested.prepaymentStateRevision ||

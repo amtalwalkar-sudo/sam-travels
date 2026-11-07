@@ -31,3 +31,5 @@ export * from "./platform-context";
 
 export * from "./finance-loan-payment-service";
 export * from "./finance-loan-payment-runtime";
+export * from "./finance-loan-prepayment-service";
+export * from "./finance-loan-prepayment-runtime";
