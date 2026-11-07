@@ -2,6 +2,7 @@ export {
   assertMaintenanceRecordV1,
   calculateMaintenanceVisitTotal,
   maintenanceRecordId,
+  maintenanceRateHistoryRecordId,
   assertMaintenanceRecordIdentity,
   isMaintenanceDate,
   MAINTENANCE_RECORD_ID_PREFIX,
@@ -15,7 +16,8 @@ export type {
   MaintenanceVisitV1,
   MaintenanceExpenseItemV1,
   GeneralMaintenanceExpenseV1,
-  MaintenanceRateV1,
+  MaintenanceRateEntryV1,
+  MaintenanceRateHistoryV1,
 } from "./records";
 export {
   buildMaintenanceRateHistory,
