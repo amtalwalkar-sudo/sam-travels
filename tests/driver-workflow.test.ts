@@ -177,7 +177,7 @@ describe("durable single-driver workflow",()=>{
    expect(result.integrationPending).toBe(false);
   }
   expect(delivered).toEqual(["e2e-shift_start","e2e-trip_start","e2e-trip_end"]);
-  expect(readTripHistoryProjection()).toMatchObject([{status:"completed",startedAt:"2026-11-03T10:05:00.000Z",endedAt:"2026-11-03T10:35:30.000Z"}]);
+  expect(readTripHistoryProjection()).toMatchObject([{status:"completed",startedAt:"2026-11-03T10:05:00.000Z",endedAt:"2026-11-03T10:35:30.000Z",driverContext:{schemaVersion:1,driverId:"driver-17",assignmentId:"assignment-23",vehicleId:"feature:vehicle:MH01AB1234"}}]);
 
   const duration=executeRegisteredCalculation(runtime.calculations,TRIP_DURATION_CALCULATION.id,{
    businessDate:"2026-11-03",
