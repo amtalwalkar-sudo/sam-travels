@@ -13,15 +13,8 @@ export type VehicleRecordV1 = Readonly<{
   lifecycleState: VehicleLifecycleState;
 }>;
 
-/** Canonical identity: uppercase and remove all whitespace and hyphens. */
-export function normalizeVehicleRegistrationNumber(value: string): string {
-  if (typeof value !== "string") throw new Error("vehicle_registration_number_invalid");
-  const normalized = value.toUpperCase().replace(/[\s-]+/g, "");
-  if (!normalized) {
-    throw new Error("vehicle_registration_number_invalid");
-  }
-  return normalized;
-}
+import { normalizeVehicleRegistrationNumber } from "../../domain/src/vehicle-identity";
+export { normalizeVehicleRegistrationNumber } from "../../domain/src/vehicle-identity";
 
 function requiredText(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
