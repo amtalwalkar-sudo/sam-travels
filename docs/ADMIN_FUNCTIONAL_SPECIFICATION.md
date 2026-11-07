@@ -281,7 +281,15 @@ On closure:
 - Historical loan start dates, EMI due dates, payment dates, prepayments, and closure dates are allowed, including dates before the business start date.
 - Preserve closed loans and their history when a vehicle becomes inactive or is sold.
 
-The precise EMI rate convention, schedule-date convention, and rounding policy must be stated in the Finance calculation contract and tested before the Loan calculation is implemented. Do not silently choose a lender-specific convention or change existing financial calculations.
+### EMI schedule and rounding — approved
+
+- EMI due dates fall on the **1st day of each calendar month**.
+- The first EMI date is the first scheduled due date and must be a calendar month's first day; subsequent scheduled due dates are the 1st of each following month.
+- The automatically calculated EMI amount is rounded to the **nearest whole rupee** for the scheduled EMI.
+- Keep the unrounded calculation precision available internally. Apply the shared integer-minor-unit money storage and named rounding rules for persisted amounts and other financial calculations; do not use binary floating point as the source of truth.
+- Keep the scheduled EMI and actual amount paid as separate values. Actual payments may differ from the rounded scheduled amount.
+
+The Finance calculation contract must still state the exact annual-to-monthly interest-rate conversion and reducing-balance/interest accrual convention, and provide regression fixtures, before Loan calculations are implemented. Do not silently choose a lender-specific convention or change existing financial calculations.
 
 ## 9. Maintenance
 
@@ -364,7 +372,14 @@ Keep the two measures separate:
 
 Do not silently combine or double-count them. Any future Performance/Finance metric that consumes either measure requires an explicit, versioned integration and calculation approval.
 
-**Rate-change history is an implementation prerequisite:** the approved product decision establishes a separately editable rate per vehicle and the ₹2.50/km default, but does not yet specify whether a rate edit applies retrospectively or from a chosen effective date. Before implementing rate changes, define and approve an effective-date/history policy that preserves explainability of historical daily accruals. Do not silently rewrite historical results.
+**Rate-change and history policy — approved**
+
+- Admin may change a vehicle's standard maintenance rate at any time.
+- A saved rate change applies to new daily per-kilometre calculations from the date the new rate is saved (using the existing Asia/Kolkata business-date rules).
+- Previously calculated daily maintenance accrual records remain unchanged when the rate is edited. Do not retrospectively recalculate or rewrite historical accruals because of a rate change.
+- New daily calculations use the latest saved rate for that vehicle.
+- A rate change for one vehicle never changes another vehicle's rate or accruals.
+- Preserve enough rate-change history to explain which rate was used for each daily accrual.
 
 ## 10. Shared date, record, and data-integrity rules
 
