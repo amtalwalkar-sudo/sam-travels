@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FinanceLoanService } from "../packages/application/src/finance-loan-service";
+import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../packages/features/finance";
 
 class MemoryRepository implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -43,7 +44,7 @@ describe("FinanceLoanService", () => {
     const repository = new MemoryRepository();
     const service = new FinanceLoanService(repository, {
       async getById(id) { return id === vehicle.id ? vehicle as RecordEnvelope<{ lifecycleState: string }> : undefined; },
-    }, () => "2026-01-10T10:00:00.000Z");
+    }, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, () => "2026-01-10T10:00:00.000Z");
     return { repository, service };
   };
 
