@@ -91,7 +91,7 @@ internal object NativeFeatureBackupManifestCompatibility {
         if (canonical(incoming) == canonical(expected)) return
         val incomingIds = (0 until incoming.length()).map { incoming.getJSONObject(it).getString("id") }.toSet()
         val omitted = (0 until expected.length()).map { expected.getJSONObject(it) }
-            .filter { it.getString("id") in setOf("business-settings-records", "vehicle-records") && it.getString("id") !in incomingIds }
+            .filter { it.getString("id") in setOf("business-settings-records", "vehicle-records", "driver-records") && it.getString("id") !in incomingIds }
         val hasRecordsForOmitted = records?.let { rows ->
             omitted.any { participant ->
                 val id = participant.getString("id")

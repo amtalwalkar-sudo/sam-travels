@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "driver-records",
+  "entryPoint": "packages/features/driver-records/index.ts",
+  "extensionExport": "DRIVER_RECORDS_FEATURE_EXTENSION"
+}
