@@ -37,6 +37,8 @@ describe("Business Settings backup participant", () => {
   });
 
   afterEach(() => {
+    unregisterVehicle?.();
+    unregisterVehicle = undefined;
     unregister?.();
     unregister = undefined;
   });
