@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FinanceLoanPaymentService, proposeFinancePaymentAllocationV1 } from "../packages/application/src/finance-loan-payment-service";
 import type { FinanceLoanRecordV1 } from "../packages/application/src/finance-loan-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
@@ -14,6 +14,16 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>); return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    if (!mutations.length || new Set(mutations.map(item => item.id)).size !== mutations.length) throw new Error("atomic_record_batch_invalid");
+    for (const item of mutations) {
+      const current = this.rows.get(item.id);
+      if (item.expectedRevision === null ? current !== undefined : current?.revision !== item.expectedRevision) return false;
+      if (item.next.id !== item.id || item.next.revision !== (item.expectedRevision ?? 0) + 1) throw new Error("atomic_record_batch_invalid");
+    }
+    for (const item of mutations) this.rows.set(item.id, item.next as RecordEnvelope<unknown>);
+    return true;
   }
 }
 const loanId = "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000";
@@ -39,7 +49,8 @@ const loanEnvelope: RecordEnvelope<FinanceLoanRecordV1> = { id: loanId, schemaVe
   source: "web", revision: 1, data: loanData };
 function setup() {
   const repo = new MemoryRepository(); let clock = 0;
-  const service = new FinanceLoanPaymentService(repo, { async get(id) { return id === loanId ? loanEnvelope : undefined; } },
+  void repo.put(loanEnvelope);
+  const service = new FinanceLoanPaymentService(repo, { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
     () => "2026-11-08T04:00:0" + (clock++ % 10) + ".000Z");
   return { repo, service };
 }

@@ -1,4 +1,4 @@
-import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
 
@@ -150,7 +150,7 @@ export function proposeFinancePaymentAllocationV1(
 
 /** Finance-owned per-loan CAS ledger. All payment and allocation facts are committed as one record revision. */
 export class FinanceLoanPaymentService {
-  constructor(private readonly repository: AtomicRecordRepository, private readonly loans: LoanDirectory,
+  constructor(private readonly repository: AtomicRecordBatchRepository, private readonly loans: LoanDirectory,
     private readonly now: () => string = () => new Date().toISOString()) {}
 
   private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
@@ -174,11 +174,11 @@ export class FinanceLoanPaymentService {
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 || !METHODS.has(input.method)) {
       throw new Error("finance_payment_input_invalid");
     }
-    const { loan } = await this.load(input.loanId);
-    const rows = scheduleRows(loan.data, input.scheduleVersion);
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+      const { loan, ledger } = await this.load(input.loanId);
+      const rows = scheduleRows(loan.data, input.scheduleVersion);
+      const entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         const requestedAllocations = input.allocations.map(item => ({ installmentNumber: item.installmentNumber, amountPaise: item.amountPaise }))
@@ -224,7 +224,13 @@ export class FinanceLoanPaymentService {
       const id = ledgerId(input.loanId), next: RecordEnvelope<FinancePaymentLedgerV1> = {
         id, schemaVersion: 1, createdAt: ledger?.createdAt ?? createdAt, updatedAt: createdAt,
         businessDate: input.businessDate, source: input.source, revision: (ledger?.revision ?? 0) + 1, data };
-      if (await this.repository.compareAndSet(id, ledger?.revision ?? null, next)) return payment;
+      const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
+        ...loan, updatedAt: createdAt, revision: loan.revision + 1,
+      };
+      if (await this.repository.compareAndSetMany([
+        { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
+        { id, expectedRevision: ledger?.revision ?? null, next },
+      ])) return payment;
     }
     throw new Error("finance_payment_concurrent_write_retry_exhausted");
   }
@@ -232,7 +238,7 @@ export class FinanceLoanPaymentService {
     reason: string; source: RecordEnvelope<unknown>["source"] }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !input.reason.trim()) throw new Error("finance_payment_reversal_input_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+      const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         if (replay.kind !== "reversal" || replay.id !== input.id || replay.paymentId !== input.paymentId ||
@@ -253,7 +259,13 @@ export class FinanceLoanPaymentService {
       const id = ledgerId(input.loanId), next: RecordEnvelope<FinancePaymentLedgerV1> = {
         id, schemaVersion: 1, createdAt: ledger?.createdAt ?? createdAt, updatedAt: createdAt,
         businessDate: input.businessDate, source: input.source, revision: (ledger?.revision ?? 0) + 1, data };
-      if (await this.repository.compareAndSet(id, ledger?.revision ?? null, next)) return reversal;
+      const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
+        ...loan, updatedAt: createdAt, revision: loan.revision + 1,
+      };
+      if (await this.repository.compareAndSetMany([
+        { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
+        { id, expectedRevision: ledger?.revision ?? null, next },
+      ])) return reversal;
     }
     throw new Error("finance_payment_concurrent_write_retry_exhausted");
   }
