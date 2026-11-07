@@ -65,7 +65,7 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
   for (const entry of ledger.entries) if (entry.kind === "reversal") {
     const original = payments.get(entry.paymentId);
     if (!original || original.amountPaise !== entry.amountPaise ||
-        ledger.entries.filter(candidate => candidate.kind === "reversal" && candidate.paymentId === entry.paymentId).length !== 1) {
+        ledger.entries.filter((candidate: FinancePaymentEntryV1) => candidate.kind === "reversal" && candidate.paymentId === entry.paymentId).length !== 1) {
       throw new Error("finance_payment_reversal_link_invalid");
     }
   }
@@ -80,9 +80,13 @@ function scheduleRows(loan: FinanceLoanRecordV1, version: number): readonly Sche
   if (!Array.isArray(rows)) throw new Error("finance_payment_schedule_invalid");
   return rows;
 }
-function activePayments(entries: readonly FinancePaymentEntryV1[]): Extract<FinancePaymentEntryV1, {kind:"payment"}>[] {
-  const reversed = new Set(entries.filter((e): e is Extract<FinancePaymentEntryV1, {kind:"reversal"}> => e.kind === "reversal").map(e => e.paymentId));
-  return entries.filter((e): e is Extract<FinancePaymentEntryV1, {kind:"payment"}> => e.kind === "payment" && !reversed.has(e.id));
+type PaymentEntry = Extract<FinancePaymentEntryV1, { kind: "payment" }>;
+function activePayments(entries: readonly FinancePaymentEntryV1[]): PaymentEntry[] {
+  const reversed = new Set<string>();
+  for (const entry of entries) if (entry.kind === "reversal") reversed.add(entry.paymentId);
+  const active: PaymentEntry[] = [];
+  for (const entry of entries) if (entry.kind === "payment" && !reversed.has(entry.id)) active.push(entry);
+  return active;
 }
 function allocationTotals(entries: readonly FinancePaymentEntryV1[], version: number): Map<number, number> {
   const totals = new Map<number, number>();
