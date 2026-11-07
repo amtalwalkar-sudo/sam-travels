@@ -17,7 +17,6 @@ type Allocation = { installmentNumber: number; amountPaise: number };
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number };
 type ScheduleView = { version: number; effectiveDate: string; label: string; rows: readonly ScheduleRow[]; regularEmiPaise: number };
 const METHODS: FinancePaymentMethodV1[] = ["cash", "bank_transfer", "cheque", "upi", "other"];
-const PREPAYMENT_MODES: FinanceLoanPrepaymentModeV1[] = ["reduce_tenure", "reduce_emi"];
 function money(paise: number) { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(paise / 100); }
 function indiaDate() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
 function activePayments(entries: readonly FinancePaymentEntryV1[]) {
@@ -212,7 +211,7 @@ export function LoanPaymentsPanel({ loan }: { loan: LoanEnvelope }) {
     </form>}
     {prepayments.length > 0 && <div className="loan-payment-list">
       <strong>Principal prepayment history</strong>
-      {prepayments.map((item, index) => <div className="loan-payment-row" key={item.commandId}>
+      {prepayments.map(item => <div className="loan-payment-row" key={item.commandId}>
         <div><strong>{item.effectiveDate} · {money(item.prepaymentAmountPaise)}</strong>
           <small>{item.mode === "reduce_tenure" ? "Reduce tenure" : "Reduce EMI"} · principal {money(item.principalBeforePaise)} → {money(item.principalAfterPaise)}</small>
           <small>Schedule v{item.version} · EMI {money(item.output.regularEmiPaise)} · interest saved {money(item.output.interestSavedPaise)}</small>
