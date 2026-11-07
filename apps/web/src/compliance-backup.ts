@@ -17,20 +17,23 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
     recordIdPrefix: PREFIX,
     validateRecord(record: RecordEnvelope<unknown>, allRecords: readonly RecordEnvelope<unknown>[]) {
       assertComplianceRecordIdentity(record.id);
-      assertComplianceRecordV1(record.data);
-      const vehicle = allRecords.find(item => item.id === record.data.vehicleId);
+      const data = record.data;
+      assertComplianceRecordV1(data);
+      const vehicle = allRecords.find(item => item.id === data.vehicleId);
       if (!vehicle) throw new Error("compliance_vehicle_not_found");
-      assertVehicleRecordV1(vehicle.data);
-      if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+      const vehicleData = vehicle.data;
+      assertVehicleRecordV1(vehicleData);
+      if (vehicle.id !== "feature:vehicle:" + vehicleData.registrationNumber) {
         throw new Error("compliance_vehicle_identity_mismatch");
       }
-      if (record.data.renewedFromRecordId) {
-        const previous = allRecords.find(item => item.id === record.data.renewedFromRecordId);
+      if (data.renewedFromRecordId) {
+        const previous = allRecords.find(item => item.id === data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
-        assertComplianceRecordV1(previous.data);
-        if (previous.data.vehicleId !== record.data.vehicleId ||
-            previous.data.complianceName !== record.data.complianceName ||
-            record.data.validFrom <= previous.data.validTo) {
+        const previousData = previous.data;
+        assertComplianceRecordV1(previousData);
+        if (previousData.vehicleId !== data.vehicleId ||
+            previousData.complianceName !== data.complianceName ||
+            data.validFrom <= previousData.validTo) {
           throw new Error("compliance_renewal_source_mismatch");
         }
       }
@@ -45,18 +48,23 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
         ids.add(record.id);
       }
       for (const record of owned) {
-        const vehicle = records.find(item => item.id === record.data.vehicleId);
+        const data = record.data;
+        assertComplianceRecordV1(data);
+        const vehicle = records.find(item => item.id === data.vehicleId);
         if (!vehicle) throw new Error("compliance_vehicle_not_found");
-        assertVehicleRecordV1(vehicle.data);
-        if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+        const vehicleData = vehicle.data;
+        assertVehicleRecordV1(vehicleData);
+        if (vehicle.id !== "feature:vehicle:" + vehicleData.registrationNumber) {
           throw new Error("compliance_vehicle_identity_mismatch");
         }
-        if (!record.data.renewedFromRecordId) continue;
-        const previous = owned.find(item => item.id === record.data.renewedFromRecordId);
+        if (!data.renewedFromRecordId) continue;
+        const previous = owned.find(item => item.id === data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
-        if (previous.data.vehicleId !== record.data.vehicleId ||
-            previous.data.complianceName !== record.data.complianceName ||
-            record.data.validFrom <= previous.data.validTo) {
+        const previousData = previous.data;
+        assertComplianceRecordV1(previousData);
+        if (previousData.vehicleId !== data.vehicleId ||
+            previousData.complianceName !== data.complianceName ||
+            data.validFrom <= previousData.validTo) {
           throw new Error("compliance_renewal_source_mismatch");
         }
       }
