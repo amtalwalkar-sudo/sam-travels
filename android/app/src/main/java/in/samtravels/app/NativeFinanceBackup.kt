@@ -91,7 +91,8 @@ internal object NativeFinanceBackup {
         var paymentTotal = 0L
         for (index in 0 until rows.length()) {
             val row = rows.getJSONObject(index)
-            val interest = BigInteger.valueOf(opening).multiply(BigInteger.valueOf(rate))\n                .add(BigInteger.valueOf(60000L)).divide(BigInteger.valueOf(120000L)).longValueExact()
+            val interest = BigInteger.valueOf(opening).multiply(BigInteger.valueOf(rate))
+                .add(BigInteger.valueOf(60000L)).divide(BigInteger.valueOf(120000L)).longValueExact()
             val amount = integer(row, "installmentAmountPaise", 1)
             val principalPart = integer(row, "principalComponentPaise", 1)
             val closing = integer(row, "closingPrincipalPaise")
