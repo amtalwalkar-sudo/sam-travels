@@ -8,16 +8,23 @@ import {
   initializeApplicationDriverRecordsService,
   initializeApplicationDriverAssignmentService,
   initializeApplicationComplianceService,
+  initializeApplicationMaintenanceService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { assertComplianceRecordV1 } from "../../../packages/features/compliance";
+import {
+  assertMaintenanceRecordV1,
+  calculateMaintenanceVisitTotal,
+  maintenanceBusinessDateFromInstant,
+} from "../../../packages/features/maintenance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { registerBusinessSettingsBrowserBackupParticipant } from "./business-settings-backup";
 import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
 import { registerDriverRecordsBrowserBackupParticipant } from "./driver-records-backup";
 import { registerComplianceBrowserBackupParticipant } from "./compliance-backup";
+import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
 import { createPlatformRepository } from "./native-store";
 import { App } from "./ui/App";
 import "./ui/styles.css";
@@ -29,12 +36,17 @@ async function bootstrap(): Promise<void> {
   registerVehicleBrowserBackupParticipant();
   registerDriverRecordsBrowserBackupParticipant();
   registerComplianceBrowserBackupParticipant();
+  registerMaintenanceBrowserBackupParticipant();
   const repository = await createPlatformRepository();
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  initializeApplicationMaintenanceService(
+    repository, assertMaintenanceRecordV1, vehicles,
+    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
+  );
   initializeApplicationFeatureLifecycle(repository);
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
