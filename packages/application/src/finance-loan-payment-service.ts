@@ -34,38 +34,71 @@ function ledgerId(loanId: string): string {
   }
   return FINANCE_PAYMENT_RECORD_PREFIX + uuid.toLowerCase();
 }
+function validInstant(value: string): boolean {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
 function assertLedger(value: unknown, loanId: string): asserts value is FinancePaymentLedgerV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("finance_payment_ledger_invalid");
   const ledger = value as FinancePaymentLedgerV1;
   if (ledger.schemaVersion !== 1 || ledger.loanId !== loanId || !Array.isArray(ledger.entries)) {
     throw new Error("finance_payment_ledger_invalid");
   }
-  const ids = new Set<string>(), commands = new Set<string>(), payments = new Map<string, FinancePaymentEntryV1>();
+  const ids = new Set<string>(), commands = new Set<string>();
+  const payments = new Map<string, PaymentEntry>(), reversals = new Map<string, FinancePaymentEntryV1>();
   for (const entry of ledger.entries) {
-    if (!entry || typeof entry !== "object" || !entry.id || ids.has(entry.id) ||
-        !entry.commandId || commands.has(entry.commandId) || entry.loanId !== loanId ||
-        !validDate(entry.businessDate) || !Number.isSafeInteger(entry.amountPaise) || entry.amountPaise <= 0) {
+    if (!entry || typeof entry !== "object" || typeof entry.id !== "string" || !entry.id.trim() || ids.has(entry.id) ||
+        typeof entry.commandId !== "string" || !entry.commandId.trim() || commands.has(entry.commandId) ||
+        entry.loanId !== loanId || !validDate(entry.businessDate) ||
+        !Number.isSafeInteger(entry.amountPaise) || entry.amountPaise <= 0 ||
+        !validInstant(entry.createdAt) || entry.status !== "committed" ||
+        typeof entry.source !== "string" || !entry.source.trim()) {
       throw new Error("finance_payment_entry_invalid");
     }
-    ids.add(entry.id); commands.add(entry.commandId);
+    ids.add(entry.id);
+    commands.add(entry.commandId);
     if (entry.kind === "payment") {
-      if (!Array.isArray(entry.allocations)) throw new Error("finance_payment_allocation_invalid");
-      let allocatedAmount = 0;
-      for (const allocation of entry.allocations) allocatedAmount += allocation.amountPaise;
-      if (!METHODS.has(entry.method) || !Number.isSafeInteger(entry.scheduleVersion) || entry.scheduleVersion < 1 ||
+      if (!Array.isArray(entry.allocations) || !METHODS.has(entry.method) ||
+          !Number.isSafeInteger(entry.scheduleVersion) || entry.scheduleVersion < 1 ||
           !Number.isSafeInteger(entry.unallocatedCreditPaise) || entry.unallocatedCreditPaise < 0 ||
+          (entry.reference !== undefined && (typeof entry.reference !== "string" || !entry.reference.trim())) ||
+          (entry.note !== undefined && (typeof entry.note !== "string" || !entry.note.trim()))) {
+        throw new Error("finance_payment_allocation_invalid");
+      }
+      let allocatedAmount = 0;
+      const installments = new Set<number>();
+      for (const allocation of entry.allocations) {
+        if (!allocation || typeof allocation !== "object" ||
+            typeof allocation.id !== "string" || !allocation.id.trim() || ids.has(allocation.id) ||
+            allocation.paymentId !== entry.id || allocation.loanId !== loanId ||
+            allocation.scheduleVersion !== entry.scheduleVersion ||
+            !Number.isSafeInteger(allocation.installmentNumber) || allocation.installmentNumber < 1 ||
+            !Number.isSafeInteger(allocation.amountPaise) || allocation.amountPaise <= 0 ||
+            !validInstant(allocation.createdAt) || typeof allocation.source !== "string" ||
+            !allocation.source.trim() || installments.has(allocation.installmentNumber)) {
+          throw new Error("finance_payment_allocation_invalid");
+        }
+        ids.add(allocation.id);
+        installments.add(allocation.installmentNumber);
+        allocatedAmount += allocation.amountPaise;
+        if (!Number.isSafeInteger(allocatedAmount)) throw new Error("finance_payment_allocation_invalid");
+      }
+      if (allocatedAmount > entry.amountPaise ||
           allocatedAmount + entry.unallocatedCreditPaise !== entry.amountPaise) {
         throw new Error("finance_payment_allocation_invalid");
       }
       payments.set(entry.id, entry);
-    } else if (entry.kind !== "reversal" || !entry.paymentId || !entry.reason.trim()) {
-      throw new Error("finance_payment_reversal_invalid");
+    } else if (entry.kind === "reversal") {
+      if (typeof entry.paymentId !== "string" || !entry.paymentId.trim() ||
+          typeof entry.reason !== "string" || !entry.reason.trim() ||
+          reversals.has(entry.paymentId)) throw new Error("finance_payment_reversal_invalid");
+      reversals.set(entry.paymentId, entry);
+    } else {
+      throw new Error("finance_payment_entry_kind_invalid");
     }
   }
-  for (const entry of ledger.entries) if (entry.kind === "reversal") {
-    const original = payments.get(entry.paymentId);
-    if (!original || original.amountPaise !== entry.amountPaise ||
-        ledger.entries.filter((candidate: FinancePaymentEntryV1) => candidate.kind === "reversal" && candidate.paymentId === entry.paymentId).length !== 1) {
+  for (const [paymentId, reversal] of reversals) {
+    const original = payments.get(paymentId);
+    if (!original || original.amountPaise !== reversal.amountPaise) {
       throw new Error("finance_payment_reversal_link_invalid");
     }
   }
@@ -148,8 +181,18 @@ export class FinanceLoanPaymentService {
       const { ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
+        const requestedAllocations = input.allocations.map(item => ({ installmentNumber: item.installmentNumber, amountPaise: item.amountPaise }))
+          .sort((left, right) => left.installmentNumber - right.installmentNumber);
+        const storedAllocations = replay.kind === "payment" ? replay.allocations
+          .map(item => ({ installmentNumber: item.installmentNumber, amountPaise: item.amountPaise }))
+          .sort((left, right) => left.installmentNumber - right.installmentNumber) : [];
         if (replay.kind !== "payment" || replay.id !== input.id || replay.amountPaise !== input.amountPaise ||
-            replay.businessDate !== input.businessDate || replay.scheduleVersion !== input.scheduleVersion) throw new Error("finance_payment_idempotency_conflict");
+            replay.businessDate !== input.businessDate || replay.scheduleVersion !== input.scheduleVersion ||
+            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined) ||
+            replay.note !== (input.note?.trim() || undefined) ||
+            JSON.stringify(storedAllocations) !== JSON.stringify(requestedAllocations)) {
+          throw new Error("finance_payment_idempotency_conflict");
+        }
         return replay;
       }
       const totals = allocationTotals(entries, input.scheduleVersion), seen = new Set<number>();
@@ -192,12 +235,16 @@ export class FinanceLoanPaymentService {
       const { ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
-        if (replay.kind !== "reversal" || replay.paymentId !== input.paymentId) throw new Error("finance_payment_idempotency_conflict");
+        if (replay.kind !== "reversal" || replay.id !== input.id || replay.paymentId !== input.paymentId ||
+            replay.businessDate !== input.businessDate || replay.reason !== input.reason.trim()) {
+          throw new Error("finance_payment_idempotency_conflict");
+        }
         return replay;
       }
       const payment = entries.find((entry): entry is Extract<FinancePaymentEntryV1,{kind:"payment"}> => entry.kind === "payment" && entry.id === input.paymentId);
       if (!payment) throw new Error("finance_payment_not_found");
       if (entries.some(entry => entry.kind === "reversal" && entry.paymentId === input.paymentId)) throw new Error("finance_payment_already_reversed");
+      if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const createdAt = this.now(), reversal: FinancePaymentEntryV1 = { kind: "reversal", id: input.id,
         commandId: input.commandId, loanId: input.loanId, paymentId: input.paymentId, businessDate: input.businessDate,
         reason: input.reason.trim(), amountPaise: payment.amountPaise, createdAt, source: input.source, status: "committed" };

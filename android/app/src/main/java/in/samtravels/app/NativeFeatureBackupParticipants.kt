@@ -91,15 +91,19 @@ internal object NativeFeatureBackupManifestCompatibility {
         if (canonical(incoming) == canonical(expected)) return
         val incomingIds = (0 until incoming.length()).map { incoming.getJSONObject(it).getString("id") }.toSet()
         val omitted = (0 until expected.length()).map { expected.getJSONObject(it) }
-            .filter { it.getString("id") in setOf("business-settings-records", "vehicle-records", "driver-records", "compliance-records", "maintenance-records", "finance-records") && it.getString("id") !in incomingIds }
+            .filter { it.getString("id") in setOf("business-settings-records", "vehicle-records", "driver-records", "compliance-records", "maintenance-records", "finance-records", "finance-payment-records") && it.getString("id") !in incomingIds }
         val hasRecordsForOmitted = records?.let { rows ->
             omitted.any { participant ->
                 val id = participant.getString("id")
                 val featureId = participant.getString("featureId")
+                val ownedPrefix = when (id) {
+                    "finance-payment-records" -> "feature:finance:payments:"
+                    else -> if (featureId != "platform") "feature:$featureId:" else ""
+                }
                 (0 until rows.length()).any { index ->
                     val row = rows.optJSONObject(index) ?: return@any false
                     row.optString("participantId") == id ||
-                        (featureId != "platform" && row.optString("id").startsWith("feature:$featureId:"))
+                        (ownedPrefix.isNotEmpty() && row.optString("id").startsWith(ownedPrefix))
                 }
             }
         } ?: false

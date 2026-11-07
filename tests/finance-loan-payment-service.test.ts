@@ -66,6 +66,10 @@ describe("FinanceLoanPaymentService", () => {
     const original = await service.record(input);
     expect(await service.record(input)).toEqual(original);
     await expect(service.record({ ...input, amountPaise: 11000 })).rejects.toThrow("finance_payment_idempotency_conflict");
+    await expect(service.record({ ...input, method: "cash" })).rejects.toThrow("finance_payment_idempotency_conflict");
+    await expect(service.record({ ...input, note: "different intent" })).rejects.toThrow("finance_payment_idempotency_conflict");
+    await expect(service.record({ ...input, allocations: [{ installmentNumber: 1, amountPaise: 9000 }] }))
+      .rejects.toThrow("finance_payment_idempotency_conflict");
     expect(await service.list(loanId)).toHaveLength(1);
   });
   it("rejects over-allocation and invalid historical amount", async () => {
@@ -76,6 +80,18 @@ describe("FinanceLoanPaymentService", () => {
       allocations: [{ installmentNumber: 1, amountPaise: 1000 }] })).rejects.toThrow("finance_payment_installment_overallocated");
     await expect(service.record({ ...base, id: "payment-3", commandId: "command-3", amountPaise: 0, allocations: [] })).rejects.toThrow("finance_payment_input_invalid");
   });
+  it("serializes concurrent payments so an EMI cannot be over-allocated", async () => {
+    const { service } = setup();
+    const results = await Promise.allSettled([
+      service.record({ ...base, id: "payment-a", commandId: "command-a", amountPaise: 10000,
+        allocations: [{ installmentNumber: 1, amountPaise: 10000 }] }),
+      service.record({ ...base, id: "payment-b", commandId: "command-b", amountPaise: 10000,
+        allocations: [{ installmentNumber: 1, amountPaise: 10000 }] }),
+    ]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+    expect(await service.list(loanId)).toHaveLength(1);
+  });
   it("records a full reversal append-only and restores the installment allocation capacity", async () => {
     const { service } = setup();
     await service.record({ ...base, id: "payment-1", commandId: "command-1", amountPaise: 10000,
@@ -83,6 +99,12 @@ describe("FinanceLoanPaymentService", () => {
     const reversal = await service.reverse({ id: "reversal-1", commandId: "reversal-command-1", loanId,
       paymentId: "payment-1", businessDate: "2026-11-08", reason: "Entered twice", source: "web" });
     expect(reversal.kind).toBe("reversal");
+    await expect(service.reverse({ id: "reversal-1", commandId: "reversal-command-1", loanId,
+      paymentId: "payment-1", businessDate: "2026-11-08", reason: "Different reason", source: "web" }))
+      .rejects.toThrow("finance_payment_idempotency_conflict");
+    await expect(service.reverse({ id: "reversal-1", commandId: "reversal-command-1", loanId,
+      paymentId: "payment-1", businessDate: "2026-11-09", reason: "Entered twice", source: "web" }))
+      .rejects.toThrow("finance_payment_idempotency_conflict");
     expect(await service.propose({ loanId, scheduleVersion: 1, businessDate: "2026-11-08", amountPaise: 10000 }))
       .toEqual([{ installmentNumber: 1, amountPaise: 10000 }]);
     await expect(service.reverse({ id: "reversal-2", commandId: "reversal-command-2", loanId,

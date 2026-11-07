@@ -8,19 +8,56 @@ const LOAN_PREFIX = "feature:finance:loan:";
 const PAYMENT_PREFIX = "feature:finance:payments:";
 const PREFIX = "feature:finance:";
 function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly RecordEnvelope<unknown>[]) {
-  const ledger = record.data as { loanId: string; entries: readonly { kind: string; scheduleVersion?: number; allocations?: readonly { scheduleVersion: number; installmentNumber: number }[] }[] };
+  const ledger = record.data as {
+    loanId: string;
+    entries: readonly {
+      kind: string; id: string; businessDate: string; scheduleVersion?: number;
+      allocations?: readonly { scheduleVersion: number; installmentNumber: number; amountPaise: number }[];
+    }[];
+  };
   assertFinancePaymentLedgerV1(record.data, ledger.loanId);
-  if (!ledger.loanId.startsWith(LOAN_PREFIX) || record.id !== PAYMENT_PREFIX + ledger.loanId.slice(LOAN_PREFIX.length)) throw new Error("finance_payment_ledger_identity_invalid");
+  if (!ledger.loanId.startsWith(LOAN_PREFIX) || record.id !== PAYMENT_PREFIX + ledger.loanId.slice(LOAN_PREFIX.length)) {
+    throw new Error("finance_payment_ledger_identity_invalid");
+  }
   const loan = records.find(item => item.id === ledger.loanId);
   if (!loan) throw new Error("finance_payment_loan_not_found");
   assertFinanceLoanRecordV1(loan.data);
   const loanData = loan.data as FinanceLoanRecordV1;
+  const reversed = new Set(ledger.entries.filter(entry => entry.kind === "reversal")
+    .map(entry => (entry as { paymentId?: string }).paymentId));
+  const allocationTotals = new Map<string, number>();
   for (const entry of ledger.entries) if (entry.kind === "payment") {
     const version = loanData.scheduleVersions.find(item => item.version === entry.scheduleVersion);
     if (!version) throw new Error("finance_payment_schedule_version_not_found");
-    const rows = (version.output as { rows?: readonly { installmentNumber: number }[] }).rows ?? [];
-    for (const allocation of entry.allocations ?? []) if (allocation.scheduleVersion !== entry.scheduleVersion ||
-      !rows.some(row => row.installmentNumber === allocation.installmentNumber)) throw new Error("finance_payment_allocation_schedule_reference_invalid");
+    const rows = (version.output as { rows?: readonly {
+      installmentNumber: number; dueDate: string; installmentAmountPaise: number;
+    }[] }).rows ?? [];
+    for (const allocation of entry.allocations ?? []) {
+      if (allocation.scheduleVersion !== entry.scheduleVersion) {
+        throw new Error("finance_payment_allocation_schedule_reference_invalid");
+      }
+      const row = rows.find(item => item.installmentNumber === allocation.installmentNumber);
+      if (!row) throw new Error("finance_payment_allocation_schedule_reference_invalid");
+      if (row.dueDate > (entry.businessDate ?? "")) {
+        throw new Error("finance_payment_allocation_future_installment");
+      }
+      if (!reversed.has(entry.id)) {
+        const key = entry.scheduleVersion + ":" + allocation.installmentNumber;
+        allocationTotals.set(key, (allocationTotals.get(key) ?? 0) + allocation.amountPaise);
+        if (!Number.isSafeInteger(allocationTotals.get(key))) {
+          throw new Error("finance_payment_allocation_total_invalid");
+        }
+      }
+    }
+  }
+  for (const [key, total] of allocationTotals) {
+    const [versionNumber, installmentNumber] = key.split(":").map(Number);
+    const version = loanData.scheduleVersions.find(item => item.version === versionNumber);
+    const rows = (version?.output as { rows?: readonly { installmentNumber: number; installmentAmountPaise: number }[] } | undefined)?.rows ?? [];
+    const row = rows.find(item => item.installmentNumber === installmentNumber);
+    if (!row || total > row.installmentAmountPaise) {
+      throw new Error("finance_payment_installment_overallocated");
+    }
   }
 }
 export function registerFinanceBrowserBackupParticipant(): () => void {
