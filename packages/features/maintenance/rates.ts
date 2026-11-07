@@ -17,6 +17,7 @@ export type MaintenanceRateHistoryEntry = Readonly<{
   ratePaisePerKm: number;
   savedAt: string;
   isDefault: boolean;
+  commandId?: string;
   source?: "web" | "android" | "import" | "integration";
 }>;
 
