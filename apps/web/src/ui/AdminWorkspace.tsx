@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./AdminWorkspace.css";
-import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";\nimport { LoanPaymentsPanel } from "./LoanPaymentsPanel";
+import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
+import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import {
   getApplicationFinanceLoanService,
   getApplicationRecordSource,
