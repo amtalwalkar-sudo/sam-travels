@@ -20,6 +20,7 @@ import {
   calculateMaintenanceVisitTotal,
   maintenanceBusinessDateFromInstant,
 } from "../../../packages/features/maintenance";
+import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../../../packages/features/finance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { registerBusinessSettingsBrowserBackupParticipant } from "./business-settings-backup";
 import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
@@ -45,7 +46,7 @@ async function bootstrap(): Promise<void> {
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
-  initializeApplicationFinanceLoanService(repository, vehicles);
+  initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
