@@ -46,6 +46,36 @@ class NativeDriverRecordsBackupTest {
         } finally { registration.close() }
     }
 
+    private fun assignmentRow(driverId: String, activeTwice: Boolean = false): JSONObject {
+        val timestamp = "2026-11-07T00:00:00.000Z"
+        val assignments = JSONArray().put(JSONObject().put("assignmentId", "assignment-1")
+            .put("vehicleId", "feature:vehicle:MH01AB1234").put("assignedAt", timestamp))
+        if (activeTwice) assignments.put(JSONObject().put("assignmentId", "assignment-2")
+            .put("vehicleId", "feature:vehicle:MH02CD5678").put("assignedAt", "2026-11-08T00:00:00.000Z"))
+        val id = "feature:driver-records:assignment:$driverId"
+        val data = JSONObject().put("schemaVersion", 1).put("driverId", driverId).put("assignments", assignments)
+        val envelope = JSONObject().put("id", id).put("schemaVersion", 1)
+            .put("createdAt", timestamp).put("updatedAt", timestamp)
+            .put("source", "web").put("revision", 1).put("data", data)
+        return JSONObject().put("id", id).put("json", envelope.toString())
+            .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "driver-records")
+    }
+
+    @Test fun validatesAssignmentHistoryAndRejectsTwoActiveAssignments() {
+        val registration = NativeDriverRecordsBackup.register()
+        try {
+            NativeBackupCoverage.validateBusinessRecords(
+                JSONArray().put(assignmentRow("driver-001")), requireExplicitOwnerTags = true,
+            )
+            assertEquals("driver_multiple_active_assignments", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(
+                    JSONArray().put(assignmentRow("driver-001", activeTwice = true)),
+                    requireExplicitOwnerTags = true,
+                )
+            }.exceptionOrNull()?.message)
+        } finally { registration.close() }
+    }
+
     @Test fun acceptsLegacyManifestOnlyWhenNoDriverRecordsExist() {
         val registration = NativeDriverRecordsBackup.register()
         try {
