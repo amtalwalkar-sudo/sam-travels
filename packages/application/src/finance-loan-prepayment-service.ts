@@ -208,6 +208,11 @@ export class FinanceLoanPrepaymentService {
             replay.effectiveDate !== requested.businessDate) throw new Error("finance_loan_prepayment_idempotency_conflict");
         return replay;
       }
+      if (snapshot.loan.revision !== requested.loanRevision ||
+          (snapshot.ledger?.revision ?? null) !== requested.paymentLedgerRevision ||
+          (snapshot.state?.revision ?? null) !== requested.prepaymentStateRevision) {
+        throw new Error("finance_loan_prepayment_preview_stale");
+      }
       const fresh = this.previewFrom(snapshot, requested, requested.revision.createdAt);
       if (fresh.loanRevision !== requested.loanRevision ||
           fresh.paymentLedgerRevision !== requested.paymentLedgerRevision ||

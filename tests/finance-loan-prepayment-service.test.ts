@@ -67,6 +67,8 @@ describe("FinanceLoanPrepaymentService", () => {
     const state = await repository.get<{ currentScheduleVersion: number }>(FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanId.slice("feature:finance:loan:".length));
     expect(state?.revision).toBe(1);
     expect(state?.data.currentScheduleVersion).toBe(2);
+    expect(await service.getScheduleVersionForDate(loanId, "2026-01-14")).toBe(1);
+    expect(await service.getScheduleVersionForDate(loanId, "2026-01-15")).toBe(2);
     const ledger = await repository.get<FinancePaymentLedgerV1>("feature:finance:payments:" + loanId.slice("feature:finance:loan:".length));
     expect(ledger?.revision).toBe(1);
     expect(ledger?.data.entries).toHaveLength(0);
