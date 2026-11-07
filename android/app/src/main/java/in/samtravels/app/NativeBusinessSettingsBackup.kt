@@ -24,7 +24,7 @@ internal object NativeBusinessSettingsBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows ->
+        validateRelationships = { rows, _ ->
             require(rows.size <= 1) { "business_settings_backup_singleton_duplicate" }
             rows.forEach { row ->
                 require(row.optString("id") == RECORD_ID) {
