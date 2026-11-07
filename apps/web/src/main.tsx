@@ -6,6 +6,7 @@ import {
   initializeApplicationBusinessSettingsService,
   initializeApplicationVehicleService,
   initializeApplicationDriverRecordsService,
+  createApplicationDriverAssignmentService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -27,7 +28,9 @@ async function bootstrap(): Promise<void> {
   const repository = await createPlatformRepository();
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   initializeApplicationVehicleService(repository, assertVehicleRecordV1);
-  initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
+  const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
+  const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  createApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   initializeApplicationFeatureLifecycle(repository);
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
