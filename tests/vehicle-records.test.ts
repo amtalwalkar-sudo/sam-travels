@@ -38,7 +38,15 @@ describe("Vehicle record v1", () => {
       .toThrow("vehicle_record_invalid");
   });
 
-  it("normalizes registration identity across case, spaces, and hyphens", () => {\n    expect(normalizeVehicleRegistrationNumber("MH 01 AB 1234")).toBe("MH01AB1234");\n    expect(normalizeVehicleRegistrationNumber("mh01ab1234")).toBe("MH01AB1234");\n    expect(normalizeVehicleRegistrationNumber("MH-01-AB-1234")).toBe("MH01AB1234");\n    expect(() => assertVehicleRecordV1({ ...validVehicle, registrationNumber: "MH 01 AB 1234" }))\n      .toThrow("vehicle_record_invalid");\n  });\n\n  it("rejects fields outside the approved Vehicle v1 payload", () => {
+  it("normalizes registration identity across case, spaces, and hyphens", () => {
+    expect(normalizeVehicleRegistrationNumber("MH 01 AB 1234")).toBe("MH01AB1234");
+    expect(normalizeVehicleRegistrationNumber("mh01ab1234")).toBe("MH01AB1234");
+    expect(normalizeVehicleRegistrationNumber("MH-01-AB-1234")).toBe("MH01AB1234");
+    expect(() => assertVehicleRecordV1({ ...validVehicle, registrationNumber: "MH 01 AB 1234" }))
+      .toThrow("vehicle_record_invalid");
+  });
+
+  it("rejects fields outside the approved Vehicle v1 payload", () => {
     expect(() => assertVehicleRecordV1({ ...validVehicle, loanBalancePaise: 100 }))
       .toThrow("vehicle_record_invalid");
   });
