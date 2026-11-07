@@ -53,7 +53,7 @@ internal object NativeComplianceBackup {
                 }.getOrDefault(false)
                 require(validPeriod) { "compliance_record_invalid" }
                 val cost = data.opt("totalCostPaise")
-                require((cost is Int || cost is Long) && cost.toLong() >= 0L) {
+                require(cost is Number && (cost is Int || cost is Long) && cost.toLong() >= 0L) {
                     "compliance_record_invalid"
                 }
                 if (data.has("supportingDocumentRef")) {
