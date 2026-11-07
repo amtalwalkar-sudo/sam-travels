@@ -107,6 +107,10 @@ export class FinanceLoanPrepaymentService {
     if (input.businessDate < snapshot.loan.data.details.loanStartDate) {
       throw new Error("finance_loan_prepayment_before_loan_start");
     }
+    const lastPrepayment = snapshot.state?.data.revisions[snapshot.state.data.revisions.length - 1];
+    if (lastPrepayment && input.businessDate < lastPrepayment.effectiveDate) {
+      throw new Error("finance_loan_prepayment_date_precedes_history");
+    }
     const schedule = scheduleFrom(snapshot);
     const entries = snapshot.ledger?.data.entries ?? [];
     const allocations = new Map<number, number>();

@@ -74,6 +74,15 @@ describe("FinanceLoanPrepaymentService", () => {
     expect(ledger?.data.entries).toHaveLength(0);
     expect(await service.commit({ preview, source: "web" })).toEqual(committed);
   });
+  it("rejects a second prepayment dated before the prior prepayment", async () => {
+    const { service } = setup();
+    const firstPreview = await service.preview({ loanId, commandId: "prepay-first",
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_tenure" });
+    await service.commit({ preview: firstPreview, source: "web" });
+    await expect(service.preview({ loanId, commandId: "prepay-backdated",
+      businessDate: "2026-01-14", amountPaise: 500_000, mode: "reduce_emi" }))
+      .rejects.toThrow("finance_loan_prepayment_date_precedes_history");
+  });
   it("rejects a principal prepayment dated before the loan starts", async () => {
     const { service } = setup();
     await expect(service.preview({ loanId, commandId: "prepay-before-start",
