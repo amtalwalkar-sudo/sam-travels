@@ -13,7 +13,9 @@ type ReamortizedOutput = Readonly<{ openingPrincipalPaise: number; regularEmiPai
   totalInterestPaise: number; totalScheduledPaymentsPaise: number; interestSavedPaise: number;
   finalDueDate: string; remainingInstallmentCount: number }>;
 export type FinanceLoanPrepaymentRevisionV1 = Readonly<{
-  version: number; commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  expectedPaymentLedgerRevision: number | null; source: string;
+  commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
   principalBeforePaise: number; prepaymentAmountPaise: number; principalAfterPaise: number;
   calculationId: string; calculationVersion: 1; inputSchemaVersion: 1; outputSchemaVersion: 1;
   input: Readonly<{ principalPaise: number; baselinePrincipalPaise: number; annualInterestRateBasisPoints: number;
@@ -24,7 +26,9 @@ export type FinanceLoanPrepaymentStateV1 = Readonly<{ schemaVersion: 1; kind: "l
   loanId: string; baseScheduleVersion: number; currentScheduleVersion: number;
   revisions: readonly FinanceLoanPrepaymentRevisionV1[] }>;
 export type FinanceLoanPrepaymentRevisionBuilder = (input: {
-  version: number; commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  expectedPaymentLedgerRevision: number | null; source: string;
+  commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
   principalBeforePaise: number; prepaymentAmountPaise: number; annualInterestRateBasisPoints: number;
   regularEmiPaise: number; remainingDueDates: readonly string[];
 }) => FinanceLoanPrepaymentRevisionV1;
@@ -32,7 +36,7 @@ export type FinanceLoanPrepaymentStateValidator = (value: unknown, loan: Finance
 type Snapshot = { loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1>;
   state?: RecordEnvelope<FinanceLoanPrepaymentStateV1> };
 export type FinanceLoanPrepaymentPreviewV1 = Readonly<{
-  loanId: string; commandId: string; businessDate: string; mode: FinanceLoanPrepaymentModeV1;
+  loanId: string; commandId: string; businessDate: string; source: string; mode: FinanceLoanPrepaymentModeV1;
   amountPaise: number; principalBeforePaise: number; principalAfterPaise: number;
   currentScheduleVersion: number; nextScheduleVersion: number; remainingInstallmentCount: number;
   regularEmiPaise: number; finalDueDate: string; interestSavedPaise: number;
@@ -98,10 +102,10 @@ export class FinanceLoanPrepaymentService {
   }
 
   private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
-    amountPaise: number; mode: FinanceLoanPrepaymentModeV1 }, createdAtOverride?: string): FinanceLoanPrepaymentPreviewV1 {
+    amountPaise: number; mode: FinanceLoanPrepaymentModeV1; source: string }, createdAtOverride?: string): FinanceLoanPrepaymentPreviewV1 {
     if (!input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 ||
-        (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
+        !input.source.trim() || (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
       throw new Error("finance_loan_prepayment_input_invalid");
     }
     if (input.businessDate < snapshot.loan.data.details.loanStartDate) {
@@ -136,14 +140,17 @@ export class FinanceLoanPrepaymentService {
     if (!remainingDueDates.length) throw new Error("finance_loan_prepayment_no_remaining_installments");
     const createdAt = createdAtOverride ?? this.now();
     const revision = this.buildRevision({
-      version: schedule.version + 1, commandId: input.commandId, effectiveDate: input.businessDate,
+      version: schedule.version + 1, previousScheduleVersion: schedule.version,
+      expectedLoanRevision: snapshot.loan.revision,
+      expectedPaymentLedgerRevision: snapshot.ledger?.revision ?? null, source: input.source,
+      commandId: input.commandId, effectiveDate: input.businessDate,
       createdAt, mode: input.mode, principalBeforePaise: principalBeforePaise as number,
       prepaymentAmountPaise: input.amountPaise,
       annualInterestRateBasisPoints: snapshot.loan.data.details.annualInterestRateBasisPoints,
       regularEmiPaise: schedule.regularEmiPaise, remainingDueDates,
     });
     return {
-      loanId: input.loanId, commandId: input.commandId, businessDate: input.businessDate, mode: input.mode,
+      loanId: input.loanId, commandId: input.commandId, businessDate: input.businessDate, source: input.source, mode: input.mode,
       amountPaise: input.amountPaise, principalBeforePaise: principalBeforePaise as number,
       principalAfterPaise: (principalBeforePaise as number) - input.amountPaise,
       currentScheduleVersion: schedule.version, nextScheduleVersion: schedule.version + 1,
@@ -198,18 +205,21 @@ export class FinanceLoanPrepaymentService {
   }
 
   async preview(input: { loanId: string; commandId: string; businessDate: string; amountPaise: number;
-    mode: FinanceLoanPrepaymentModeV1 }): Promise<FinanceLoanPrepaymentPreviewV1> {
+    mode: FinanceLoanPrepaymentModeV1; source: string }): Promise<FinanceLoanPrepaymentPreviewV1> {
     return this.previewFrom(await this.load(input.loanId), input);
   }
 
   async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"] }) {
     const requested = input.preview;
+    if (requested.source !== requested.revision.source || input.source !== requested.source) {
+      throw new Error("finance_loan_prepayment_source_provenance_invalid");
+    }
     for (let attempt = 0; attempt < 12; attempt++) {
       const snapshot = await this.load(requested.loanId);
       const replay = snapshot.state?.data.revisions.find(item => item.commandId === requested.commandId);
       if (replay) {
         if (replay.prepaymentAmountPaise !== requested.amountPaise || replay.mode !== requested.mode ||
-            replay.effectiveDate !== requested.businessDate) throw new Error("finance_loan_prepayment_idempotency_conflict");
+            replay.effectiveDate !== requested.businessDate || replay.source !== requested.source) throw new Error("finance_loan_prepayment_idempotency_conflict");
         return replay;
       }
       if (snapshot.loan.revision !== requested.loanRevision ||
