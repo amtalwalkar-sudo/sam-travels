@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./AdminWorkspace.css";
+import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
 import {
   getApplicationFinanceLoanService,
   getApplicationRecordSource,
@@ -184,7 +185,7 @@ export function AdminWorkspace() {
           <span>{section}</span><span aria-hidden="true">{expanded === section ? "−" : "+"}</span>
         </button>
         {expanded === section && <div className="admin-section-content">
-          {section === "Loan" ? <>
+          {section === "Business setup" ? <BusinessSetupSection /> : section === "Vehicle" ? <VehicleSection /> : section === "Loan" ? <>
             <div className="admin-vehicle-context">
               <label htmlFor="admin-vehicle">Selected vehicle</label>
               <select id="admin-vehicle" value={selectedVehicleId}
