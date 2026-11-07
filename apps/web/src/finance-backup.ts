@@ -33,7 +33,7 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
         assertFinanceLoanRecordV1(loan.data);
         if (ids.has(loan.id)) throw new Error("finance_backup_duplicate_loan_identity");
         ids.add(loan.id);
-        const vehicle = records.find(item => item.id === loan.data.details.vehicleId);
+        const vehicle = records.find(item => item.id === data.details.vehicleId);
         if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
         assertVehicleRecordV1(vehicle.data);
         if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
