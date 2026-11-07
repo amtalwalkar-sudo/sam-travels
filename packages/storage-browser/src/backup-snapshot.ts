@@ -37,6 +37,7 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
     tableNames: ["driverState", "driverIntents", "driverOutbox"],
   },
   { id: "logbook-events", featureId: "logbook", schemaVersion: 1, tableNames: ["driverEvents"] },
+  { id: "finance-records", featureId: "finance", schemaVersion: 1, tableNames: ["records"] },
 ]);
 
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {

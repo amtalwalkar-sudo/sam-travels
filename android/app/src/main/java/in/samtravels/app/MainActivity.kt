@@ -11,6 +11,7 @@ class MainActivity : BridgeActivity() {
         NativeDriverRecordsBackup.ensureRegistered()
         NativeComplianceBackup.ensureRegistered()
         NativeMaintenanceBackup.ensureRegistered()
+        NativeFinanceBackup.ensureRegistered()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(DeviceReadinessPlugin::class.java)

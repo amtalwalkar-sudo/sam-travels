@@ -23,3 +23,6 @@ export * from "./compliance-service";
 export * from "./compliance-runtime";
 export * from "./maintenance-service";
 export * from "./maintenance-runtime";
+
+export * from "./finance-loan-service";
+export * from "./finance-loan-runtime";

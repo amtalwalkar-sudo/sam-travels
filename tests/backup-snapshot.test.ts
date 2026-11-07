@@ -34,6 +34,12 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
         schemaVersion: 1,
         tableNames: ["driverEvents"],
       },
+      {
+        id: "finance-records",
+        featureId: "finance",
+        schemaVersion: 1,
+        tableNames: ["records"],
+      },
     ]);
     expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
   });
