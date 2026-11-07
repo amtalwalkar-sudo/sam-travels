@@ -224,7 +224,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     driverEvents: row => String(row.eventId ?? ""),
     driverOutbox: row => String(row.id ?? ""),
   };
-  for (const name of TABLE_NAMES) {
+  for (const name of tableNames()) {
     const ids = new Set<string>();
     for (const row of data[name]) {
       if (!row || typeof row !== "object") throw new Error("backup_invalid_row:" + name);
@@ -301,13 +301,13 @@ export async function restoreBrowserSnapshot(input: {
     if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
-      restoredCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, verified[name].length])),
+      restoredCounts: Object.fromEntries(tableNames().map(name => [name, verified[name].length])),
     };
   } catch (error) {
     await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
       for (let index = 0; index < tables.length; index += 1) {
         await tables[index].clear();
-        const rows = current[TABLE_NAMES[index]];
+        const rows = current[tableNames()[index]];
         if (rows.length) await tables[index].bulkPut(rows);
       }
       await checkpointTable().put({ ...checkpoint, status: "rollback_complete" });
@@ -354,7 +354,7 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
   await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
     for (let index = 0; index < tables.length; index += 1) {
       await tables[index].clear();
-      const rows = checkpoint.snapshot[TABLE_NAMES[index]];
+      const rows = checkpoint.snapshot[tableNames()[index]];
       if (rows.length) await tables[index].bulkPut(rows);
     }
     await checkpointTable().put({ ...checkpoint, status: "rollback_complete" });
