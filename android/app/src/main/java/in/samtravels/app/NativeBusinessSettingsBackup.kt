@@ -12,6 +12,12 @@ internal object NativeBusinessSettingsBackup {
     private const val FEATURE_ID = "business-settings"
     private const val RECORD_ID = "feature:business-settings:business"
     private const val RECORD_PREFIX = "feature:business-settings:"
+    @Volatile private var processRegistration: AutoCloseable? = null
+
+    @Synchronized
+    fun ensureRegistered() {
+        if (processRegistration == null) processRegistration = register()
+    }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
         id = PARTICIPANT_ID,
