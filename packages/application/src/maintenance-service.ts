@@ -231,6 +231,7 @@ export class MaintenanceService {
   }
 
   async getActualExpenseTotal(vehicleId: string): Promise<number> {
+    await this.requireVehicle(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
     return owned.reduce((total, record) => {
@@ -243,6 +244,7 @@ export class MaintenanceService {
   }
 
   async getDateReminders(vehicleId: string, asOf: string): Promise<readonly RecordEnvelope<MaintenanceVisitV1>[]> {
+    await this.requireVehicle(vehicleId);
     if (!isValidDate(asOf)) throw new Error("maintenance_business_date_invalid");
     const records = await this.records.list();
     return Object.freeze(records.filter(record =>
