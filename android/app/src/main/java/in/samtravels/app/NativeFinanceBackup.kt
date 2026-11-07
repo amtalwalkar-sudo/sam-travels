@@ -229,9 +229,22 @@ internal object NativeFinanceBackup {
                             "finance_payment_entry_invalid"
                         }
                         val scheduleVersion = integer(entry, "scheduleVersion", 1).toInt()
-                        require(scheduleVersion <= scheduleVersions.length()) { "finance_payment_schedule_version_not_found" }
-                        val scheduleRows = scheduleVersions.getJSONObject(scheduleVersion - 1)
-                            .getJSONObject("output").getJSONArray("rows")
+                        val scheduleRows = if (scheduleVersion <= scheduleVersions.length()) {
+                            scheduleVersions.getJSONObject(scheduleVersion - 1)
+                                .getJSONObject("output").getJSONArray("rows")
+                        } else {
+                            val prepaymentId = PREPAYMENT_PREFIX + suffix.lowercase()
+                            val prepaymentRow = allRows.firstOrNull {
+                                it.optString("participantId") == PREPAYMENT_PARTICIPANT_ID &&
+                                    it.optString("id") == prepaymentId
+                            } ?: error("finance_payment_schedule_version_not_found")
+                            val state = JSONObject(prepaymentRow.getString("json")).getJSONObject("data")
+                            val revisions = state.getJSONArray("revisions")
+                            val revision = (0 until revisions.length()).map { revisions.getJSONObject(it) }
+                                .firstOrNull { it.optInt("version", -1) == scheduleVersion }
+                                ?: error("finance_payment_schedule_version_not_found")
+                            revision.getJSONObject("output").getJSONArray("rows")
+                        }
                         val allocations = entry.getJSONArray("allocations")
                         var allocatedTotal = 0L
                         val installmentSet = mutableSetOf<Int>()
