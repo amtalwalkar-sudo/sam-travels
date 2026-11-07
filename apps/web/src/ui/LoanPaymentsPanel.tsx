@@ -47,7 +47,7 @@ export function LoanPaymentsPanel({ loan }: { loan: LoanEnvelope }) {
       const proposal = await getApplicationFinanceLoanPaymentService().propose({
         loanId: loan.id, scheduleVersion: Number(scheduleVersion), businessDate: date, amountPaise,
       });
-      setAllocations([...proposal]);
+      setAllocations(proposal.map(item => ({ installmentNumber: item.installmentNumber, amountPaise: item.amountPaise })));
       setMessage(proposal.length ? "Suggested oldest-due-first allocation. You can adjust the amounts before saving." : "No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Allocation could not be suggested."); }
     finally { setBusy(false); }
