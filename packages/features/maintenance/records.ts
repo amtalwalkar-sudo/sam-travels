@@ -61,11 +61,17 @@ export const DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM = 250;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const VEHICLE_ID = /^feature:vehicle:[^\s:]+$/;
 
-export function maintenanceRecordId(kind: "visit" | "expense" | "rate", uuid: string): string {
+export function maintenanceRecordId(kind: "visit" | "expense", uuid: string): string {
   if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("maintenance_record_uuid_invalid");
-  const prefix = kind === "visit" ? MAINTENANCE_VISIT_ID_PREFIX
-    : kind === "expense" ? MAINTENANCE_EXPENSE_ID_PREFIX : MAINTENANCE_RATE_ID_PREFIX;
+  const prefix = kind === "visit" ? MAINTENANCE_VISIT_ID_PREFIX : MAINTENANCE_EXPENSE_ID_PREFIX;
   return prefix + uuid.toLowerCase();
+}
+
+export function maintenanceRateHistoryRecordId(vehicleId: string): string {
+  if (typeof vehicleId !== "string" || !VEHICLE_ID.test(vehicleId)) {
+    throw new Error("maintenance_vehicle_identity_invalid");
+  }
+  return MAINTENANCE_RATE_ID_PREFIX + encodeURIComponent(vehicleId);
 }
 
 export function assertMaintenanceRecordIdentity(id: string): void {
