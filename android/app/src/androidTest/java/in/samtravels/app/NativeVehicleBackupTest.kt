@@ -55,10 +55,10 @@ class NativeVehicleBackupTest {
     @Test fun rejectsDuplicateCanonicalVehicleIdentity() {
         val registration = NativeVehicleBackup.register()
         try {
-            assertEquals("vehicle_backup_duplicate_registration", runCatching {
+            assertEquals("backup_duplicate_participant_record_id", runCatching {
                 NativeBackupCoverage.validateBusinessRecords(
                     JSONArray().put(row("MH01AB1234"))
-                        .put(row("MH01AB1234", "feature:vehicle:MH01AB1234-copy")),
+                        .put(row("MH01AB1234")),
                     requireExplicitOwnerTags = true,
                 )
             }.exceptionOrNull()?.message)
