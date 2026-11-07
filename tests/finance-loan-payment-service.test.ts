@@ -62,7 +62,7 @@ describe("FinanceLoanPaymentService", () => {
       .toEqual([{ installmentNumber: 1, amountPaise: 10000 }]);
   });
   it("supports partial EMI coverage and retains excess as explicit unallocated credit", async () => {
-    const { service } = setup();
+    const { repo, service } = setup();
     const first = await service.record({ ...base, id: "payment-1", commandId: "command-1",
       allocations: [{ installmentNumber: 1, amountPaise: 7000 }] });
     expect(first).toMatchObject({ unallocatedCreditPaise: 8000, amountPaise: 15000 });
@@ -93,7 +93,7 @@ describe("FinanceLoanPaymentService", () => {
     await expect(service.record({ ...base, id: "payment-3", commandId: "command-3", amountPaise: 0, allocations: [] })).rejects.toThrow("finance_payment_input_invalid");
   });
   it("serializes concurrent payments so an EMI cannot be over-allocated", async () => {
-    const { service } = setup();
+    const { repo, service } = setup();
     const results = await Promise.allSettled([
       service.record({ ...base, id: "payment-a", commandId: "command-a", amountPaise: 10000,
         allocations: [{ installmentNumber: 1, amountPaise: 10000 }] }),
