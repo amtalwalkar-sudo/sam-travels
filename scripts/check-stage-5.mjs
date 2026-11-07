@@ -38,7 +38,7 @@ requireText("packages/storage-browser/src/database.ts", database, "BROWSER_DATAB
 requireText("android/app/src/main/java/in/samtravels/app/LocalDiagnostics.kt", android, "MAX_ENTRIES = 200");
 requireText("android/app/src/main/java/in/samtravels/app/LocalDiagnostics.kt", android, "recordEvent");
 requireText("android/app/src/main/java/in/samtravels/app/DiagnosticsPlugin.kt", plugin, "recordDiagnosticEvent");
-requireText("docs/STAGE_5_DIAGNOSTICS_AND_CHANGE_IMPACT.md", guide, "no automatic upload");
+requireText("docs/STAGE_5_DIAGNOSTICS_AND_CHANGE_IMPACT.md", guide, "No automatic upload");
 requireText("docs/STAGE_5_DIAGNOSTICS_AND_CHANGE_IMPACT.md", guide, "Change-impact preflight");
 
 if (failures.length) {
