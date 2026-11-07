@@ -40,7 +40,8 @@ export function registerMaintenanceBrowserBackupParticipant(): () => void {
         if (record.id !== maintenanceRateHistoryRecordId(data.vehicleId)) {
           throw new Error("maintenance_rate_history_identity_mismatch");
         }
-        if (data.entries[0].effectiveFrom !== maintenanceBusinessDateFromInstant(vehicle.createdAt)) {
+        if (data.entries[0].effectiveFrom !== maintenanceBusinessDateFromInstant(vehicle.createdAt) ||
+            data.entries[0].savedAt !== vehicle.createdAt) {
           throw new Error("maintenance_default_rate_effective_date_mismatch");
         }
       } else {
@@ -63,7 +64,8 @@ export function registerMaintenanceBrowserBackupParticipant(): () => void {
           if (rateVehicles.has(data.vehicleId)) throw new Error("maintenance_rate_history_duplicate_vehicle");
           rateVehicles.add(data.vehicleId);
           if (record.id !== maintenanceRateHistoryRecordId(data.vehicleId) ||
-              data.entries[0].effectiveFrom !== maintenanceBusinessDateFromInstant(vehicle.createdAt)) {
+              data.entries[0].effectiveFrom !== maintenanceBusinessDateFromInstant(vehicle.createdAt) ||
+              data.entries[0].savedAt !== vehicle.createdAt) {
             throw new Error("maintenance_rate_history_identity_mismatch");
           }
         }
