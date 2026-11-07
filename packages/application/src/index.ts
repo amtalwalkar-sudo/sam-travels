@@ -21,3 +21,5 @@ export * from "./driver-assignment-service";
 export * from "./driver-assignment-runtime";
 export * from "./compliance-service";
 export * from "./compliance-runtime";
+export * from "./maintenance-service";
+export * from "./maintenance-runtime";
