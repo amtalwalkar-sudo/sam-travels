@@ -12,3 +12,5 @@ export * from "./cross-feature-data-coordinator";
 export * from "./feature-record-service";
 export * from "./business-settings-service";
 export * from "./business-settings-runtime";
+export * from "./vehicle-service";
+export * from "./vehicle-runtime";
