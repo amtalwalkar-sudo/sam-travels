@@ -3,7 +3,7 @@ import type { RecordEnvelope } from "../../core/src/types";
 import {
   normalizeVehicleRegistrationNumber,
   type VehicleRecordV1,
-} from "../../features/vehicle/records";
+} from "../../features/vehicle";
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
 
 export const VEHICLE_RECORD_ID_PREFIX = "feature:vehicle:";
