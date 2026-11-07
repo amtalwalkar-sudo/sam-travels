@@ -49,10 +49,11 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
     }
     ids.add(entry.id); commands.add(entry.commandId);
     if (entry.kind === "payment") {
+      let allocatedAmount = 0;
+      for (const allocation of entry.allocations ?? []) allocatedAmount += allocation.amountPaise;
       if (!METHODS.has(entry.method) || !Number.isSafeInteger(entry.scheduleVersion) || entry.scheduleVersion < 1 ||
           !Array.isArray(entry.allocations) || !Number.isSafeInteger(entry.unallocatedCreditPaise) ||
-          entry.unallocatedCreditPaise < 0 ||
-          entry.allocations.reduce((sum, a) => sum + a.amountPaise, 0) + entry.unallocatedCreditPaise !== entry.amountPaise) {
+          entry.unallocatedCreditPaise < 0 || allocatedAmount + entry.unallocatedCreditPaise !== entry.amountPaise) {
         throw new Error("finance_payment_allocation_invalid");
       }
       payments.set(entry.id, entry);
@@ -78,7 +79,7 @@ function scheduleRows(loan: FinanceLoanRecordV1, version: number): readonly Sche
   if (!Array.isArray(rows)) throw new Error("finance_payment_schedule_invalid");
   return rows;
 }
-function activePayments(entries: readonly FinancePaymentEntryV1[]): FinancePaymentEntryV1[] {
+function activePayments(entries: readonly FinancePaymentEntryV1[]): Extract<FinancePaymentEntryV1, {kind:"payment"}>[] {
   const reversed = new Set(entries.filter((e): e is Extract<FinancePaymentEntryV1, {kind:"reversal"}> => e.kind === "reversal").map(e => e.paymentId));
   return entries.filter((e): e is Extract<FinancePaymentEntryV1, {kind:"payment"}> => e.kind === "payment" && !reversed.has(e.id));
 }
