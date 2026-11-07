@@ -61,13 +61,14 @@ export class VehicleService {
     expectedRevision: number;
     data: VehicleRecordV1;
   }): Promise<RecordEnvelope<VehicleRecordV1>> {
-    if (vehicleRecordId(input.data.registrationNumber) !== input.id) {
+    const registrationNumber = normalizeVehicleRegistrationNumber(input.data.registrationNumber);
+    if (VEHICLE_RECORD_ID_PREFIX + registrationNumber !== input.id) {
       throw new Error("vehicle_registration_identity_immutable");
     }
     const current = await this.records.get(input.id);
     if (!current) throw new Error("feature_record_not_found:" + input.id);
     this.assertIdentity(current);
-    return this.records.update(input);
+    return this.records.update({ ...input, data: { ...input.data, registrationNumber } });
   }
 
   async list(): Promise<Array<RecordEnvelope<VehicleRecordV1>>> {
