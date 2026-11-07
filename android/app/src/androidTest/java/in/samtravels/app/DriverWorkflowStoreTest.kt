@@ -100,7 +100,7 @@ class DriverWorkflowStoreTest {
         val error = runCatching { DriverWorkflowStore.complete(db, "trip-without-driver", gps()) }.exceptionOrNull()
         assertEquals("work_driver_not_selected", error?.message)
         assertEquals(1, DriverWorkflowStore.snapshot(db).getInt("revision"))
-        assertEquals(1, db.logBookEvents().size)
+        assertEquals(1, db.logBookEvents().list().size)
         assertEquals("pending_location", JSONObject(db.records().get("driver-intent:trip-without-driver")!!.json)
             .getString("status"))
     }
