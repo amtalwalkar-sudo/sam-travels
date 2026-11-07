@@ -34,8 +34,16 @@ export class VehicleService {
     return this.records.create({ id: vehicleRecordId(registrationNumber), data, source });
   }
 
-  getByRegistrationNumber(registrationNumber: string): Promise<RecordEnvelope<VehicleRecordV1> | undefined> {
-    return this.records.get(vehicleRecordId(registrationNumber));
+  private assertIdentity(record: RecordEnvelope<VehicleRecordV1>): void {
+    if (record.id !== vehicleRecordId(record.data.registrationNumber)) {
+      throw new Error("vehicle_record_identity_mismatch");
+    }
+  }
+
+  async getByRegistrationNumber(registrationNumber: string): Promise<RecordEnvelope<VehicleRecordV1> | undefined> {
+    const record = await this.records.get(vehicleRecordId(registrationNumber));
+    if (record) this.assertIdentity(record);
+    return record;
   }
 
   async update(input: {
@@ -46,10 +54,15 @@ export class VehicleService {
     if (vehicleRecordId(input.data.registrationNumber) !== input.id) {
       throw new Error("vehicle_registration_identity_immutable");
     }
+    const current = await this.records.get(input.id);
+    if (!current) throw new Error("feature_record_not_found:" + input.id);
+    this.assertIdentity(current);
     return this.records.update(input);
   }
 
-  list(): Promise<Array<RecordEnvelope<VehicleRecordV1>>> {
-    return this.records.list();
+  async list(): Promise<Array<RecordEnvelope<VehicleRecordV1>>> {
+    const records = await this.records.list();
+    records.forEach(record => this.assertIdentity(record));
+    return records;
   }
 }
