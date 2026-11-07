@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { browserDatabase } from "../packages/storage-browser/src/database";\nimport { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { browserDatabase } from "../packages/storage-browser/src/database";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { FeatureLifecycleCoordinator } from "../packages/application/src/feature-lifecycle-coordinator";
 import { registerFeatures } from "../packages/core/src/features";
@@ -16,7 +17,8 @@ import {
   rollbackBrowserRecoveryCheckpoint,
 } from "../packages/storage-browser/src";
 
-describe("browser consistent backup snapshots and recovery checkpoints", () => {\n  let unregisterVehicle: (() => void) | undefined;
+describe("browser consistent backup snapshots and recovery checkpoints", () => {
+  let unregisterVehicle: (() => void) | undefined;
   it("derives the browser snapshot participant set from registered feature obligations", () => {
     expect(BROWSER_BACKUP_PARTICIPANTS).toEqual([
       { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
