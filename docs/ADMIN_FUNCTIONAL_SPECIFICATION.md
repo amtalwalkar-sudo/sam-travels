@@ -289,7 +289,7 @@ On closure:
 - Keep the unrounded calculation precision available internally. Apply the shared integer-minor-unit money storage and named rounding rules for persisted amounts and other financial calculations; do not use binary floating point as the source of truth.
 - Keep the scheduled EMI and actual amount paid as separate values. Actual payments may differ from the rounded scheduled amount.
 
-The Finance calculation contract must still state the exact annual-to-monthly interest-rate conversion and reducing-balance/interest accrual convention, and provide regression fixtures, before Loan calculations are implemented. Do not silently choose a lender-specific convention or change existing financial calculations.
+The Finance-owned [Loan Calculation Contract v1](FINANCE_LOAN_CALCULATION_CONTRACT.md) defines and regression-tests the approved annual-to-monthly conversion and standard monthly reducing-balance convention. Loan runtime implementation must use that exact version; it must not add a competing Admin formula or silently introduce lender-specific daily-interest conventions. Prepayment re-amortization and early-settlement calculations remain separately gated by Finance-owned contracts.
 
 ## 9. Maintenance
 
@@ -428,7 +428,7 @@ This document is a frozen product specification, not a claim that Admin has been
 
 1. Merge this documentation-only specification PR after review against the existing contracts.
 2. Before runtime work, prepare an implementation plan that maps each section's records and workflows to owning capabilities, public contracts, registry entries, migrations, backup/restore participants, and tests.
-3. Before Loan calculations are implemented, document and test the annual-to-monthly interest-rate conversion and reducing-balance/interest accrual convention in the Finance calculation contract. The monthly 1st due-date cadence and nearest-whole-rupee scheduled EMI rounding are already approved here. The vehicle maintenance rate-change effective-date/history policy is also approved here: saved changes apply to new daily calculations from the save date, and previously calculated daily accrual records remain unchanged.
+3. The Finance-owned [Loan Calculation Contract v1](FINANCE_LOAN_CALCULATION_CONTRACT.md) defines and regression-tests the approved annual-to-monthly conversion and reducing-balance convention. Merge that contract before Loan runtime implementation, and keep all Loan formulas in Finance. The monthly 1st due-date cadence and nearest-whole-rupee scheduled EMI rounding are approved here. The vehicle maintenance rate-change effective-date/history policy is also approved here: saved changes apply to new daily calculations from the save date, and previously calculated daily accrual records remain unchanged.
 4. Implement in reviewed, independently testable vertical slices. Do not build all screens first and defer data ownership, calculations, or recovery.
 5. Keep each implementation PR within its approved slice. No unrelated runtime/UI/schema changes belong in the documentation PR.
 6. Do not begin Admin runtime implementation until the documentation PR is merged and a separate implementation plan/slice is approved.
