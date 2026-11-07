@@ -105,6 +105,17 @@ describe("cross-feature data coordination", () => {
     expect(result.calculation.effectiveDate).toBe(context.effectiveDate);
     expect(result.sources.map(source => source.ownerFeatureId)).toEqual(["finance", "vehicle"]);
     expect(result.consistency).toBe("shared_snapshot");
+    expect(result.trace.traceId).toBeTruthy();
+    expect(result.trace.sources).toMatchObject([
+      { queryId: "finance.amounts.v1", ownerFeatureId: "finance", version: 1, status: "available" },
+      { queryId: "vehicle.amounts.v1", ownerFeatureId: "vehicle", version: 1, status: "available" },
+    ]);
+    expect(result.trace.calculation).toMatchObject({
+      calculationId: calculation.id, ownerFeatureId: "performance", version: 1,
+      inputSchemaVersion: 1, outputSchemaVersion: 1, effectiveDate: context.effectiveDate,
+    });
+    expect(JSON.stringify(result.trace)).not.toContain("snapshot-42");
+    expect(JSON.stringify(result.trace)).not.toContain('"value"');
   });
 
   it("does not calculate from incomplete or stale sources by default", async () => {
