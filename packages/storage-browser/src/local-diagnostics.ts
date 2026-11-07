@@ -56,3 +56,38 @@ export async function exportBrowserDiagnostics(): Promise<Array<{
     return [];
   }
 }
+
+
+import type { SafeDiagnosticEvent } from "../../core/src/diagnostics";
+
+/** Persist the shared core event shape without copying any feature payload or executable data. */
+export async function recordBrowserDiagnosticEvent(event: SafeDiagnosticEvent): Promise<void> {
+  try {
+    await browserDatabase.diagnostics.add({
+      id: event.occurredAt + ":stage5:" + (event.traceId ?? "untraced") + ":" + crypto.randomUUID(),
+      timestamp: event.occurredAt,
+      subsystem: "workflow",
+      operation: event.stage,
+      outcome: event.outcome === "failure" ? "failure" : "failure",
+      failureCategory: event.code,
+      recoveryResult: event.outcome,
+      appVersion: APP_VERSION,
+      schemaVersion: event.schemaVersion,
+      traceId: event.traceId,
+      stage: event.stage,
+      code: event.code,
+      ownerFeatureId: event.ownerFeatureId,
+      contributionId: event.contributionId,
+      contractVersion: event.contractVersion,
+      durationMs: event.durationMs,
+    });
+    const table = browserDatabase.diagnostics;
+    const excess = await table.count() - MAX_ENTRIES;
+    if (excess > 0) {
+      const oldest = await table.orderBy("timestamp").limit(excess).primaryKeys();
+      await table.bulkDelete(oldest);
+    }
+  } catch {
+    // Diagnostic storage is best-effort and must not change the observed operation.
+  }
+}
