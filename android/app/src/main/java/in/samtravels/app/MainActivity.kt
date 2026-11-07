@@ -10,7 +10,7 @@ class MainActivity : BridgeActivity() {
         NativeVehicleBackup.ensureRegistered()
         NativeDriverRecordsBackup.ensureRegistered()
         NativeComplianceBackup.ensureRegistered()
-        NativeMaintenanceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered()\n        NativeFinanceBackup.ensureRegistered()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(DeviceReadinessPlugin::class.java)
