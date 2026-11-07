@@ -142,14 +142,17 @@ export class MaintenanceService {
   }> {
     const vehicle = await this.requireVehicle(vehicleId);
     const id = rateHistoryId(vehicleId);
-    const record = await this.records.get(id);
-    if (record && (record.data.kind !== "rate_history" || record.data.vehicleId !== vehicleId)) {
-      throw new Error("maintenance_rate_history_identity_mismatch");
+    const storedRecord = await this.records.get(id);
+    let record: RecordEnvelope<MaintenanceRateHistoryV1> | undefined;
+    if (storedRecord) {
+      if (storedRecord.data.kind !== "rate_history" || storedRecord.data.vehicleId !== vehicleId) {
+        throw new Error("maintenance_rate_history_identity_mismatch");
+      }
+      record = storedRecord as RecordEnvelope<MaintenanceRateHistoryV1>;
     }
     const defaultEffectiveDate = this.businessDateFromInstant(vehicle.createdAt);
-    if (record?.data.kind === "rate_history" &&
-        (record.data.entries[0].effectiveFrom !== defaultEffectiveDate ||
-         record.data.entries[0].savedAt !== vehicle.createdAt)) {
+    if (record && (record.data.entries[0].effectiveFrom !== defaultEffectiveDate ||
+        record.data.entries[0].savedAt !== vehicle.createdAt)) {
       throw new Error("maintenance_default_rate_effective_date_mismatch");
     }
     const entries = record
@@ -160,7 +163,7 @@ export class MaintenanceService {
           savedAt: vehicle.createdAt,
           isDefault: true,
         }];
-    return { record: record as RecordEnvelope<MaintenanceRateHistoryV1> | undefined, entries };
+    return { record, entries };
   }
 
   async setRate(input: {
