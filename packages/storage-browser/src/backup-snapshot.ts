@@ -77,7 +77,13 @@ const customBrowserFeatureBackupAdapters = new Map<string, BrowserFeatureBackupA
 
 /** Register executable feature-owned backup and restore validation for namespaced records. */
 export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureBackupAdapter): () => void {
-  const featureRegistry = registerFeatures([adapter.feature]);
+  const existing = registerFeatures().get(adapter.feature.id);
+  const featureRegistry = existing
+    ? registerFeatures()
+    : registerFeatures([adapter.feature]);
+  if (existing && JSON.stringify(existing.persistence) !== JSON.stringify(adapter.feature.persistence)) {
+    throw new Error("backup_feature_adapter_contract_mismatch:" + adapter.feature.id);
+  }
   const contract = featureRegistry.get(adapter.feature.id)?.persistence;
   if (!contract || contract.backup.participantId !== adapter.participantId ||
       !adapter.recordIdPrefix.startsWith("feature:" + adapter.feature.id + ":")) {
