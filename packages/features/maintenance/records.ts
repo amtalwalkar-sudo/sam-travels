@@ -37,6 +37,7 @@ export type MaintenanceRateEntryV1 = Readonly<{
   ratePaisePerKm: number;
   savedAt: string;
   isDefault: boolean;
+  commandId?: string;
   source?: "web" | "android" | "import" | "integration";
 }>;
 
@@ -186,13 +187,14 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
     const entries = record.entries as unknown[];
     let previousDate = "";
     let previousSavedAt = "";
+    const commandIds = new Set<string>();
     entries.forEach((entry, index) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
         throw new Error("maintenance_rate_entry_invalid");
       }
       const item = entry as Record<string, unknown>;
       const required = ["effectiveFrom", "ratePaisePerKm", "savedAt", "isDefault"];
-      const optional = ["source"];
+      const optional = ["commandId", "source"];
       if (!hasExactKeys(item, required, optional) ||
           !isMaintenanceDate(item.effectiveFrom) || !validMoney(item.ratePaisePerKm) ||
           typeof item.savedAt !== "string" || !Number.isFinite(Date.parse(item.savedAt)) ||
@@ -203,8 +205,14 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
       if (index === 0) {
         if (item.isDefault !== true || item.ratePaisePerKm !== DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM ||
             item.source !== undefined) throw new Error("maintenance_default_rate_invalid");
-      } else if (item.isDefault !== false || item.source === undefined) {
+      } else if (item.isDefault !== false || item.source === undefined ||
+          typeof item.commandId !== "string" || !UUID.test(item.commandId)) {
         throw new Error("maintenance_rate_entry_invalid");
+      }
+      if (item.commandId !== undefined) {
+        const commandId = String(item.commandId).toLowerCase();
+        if (commandIds.has(commandId)) throw new Error("maintenance_rate_duplicate_command");
+        commandIds.add(commandId);
       }
       const effectiveFrom = item.effectiveFrom as string;
       const savedAt = item.savedAt as string;
