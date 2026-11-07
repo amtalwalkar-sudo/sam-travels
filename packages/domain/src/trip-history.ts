@@ -1,4 +1,4 @@
-import type { DriverEvent } from "./driver-workflow";
+import type { DriverContextV1, DriverEvent } from "./driver-workflow";
 
 export type TripHistoryStatus = "active" | "completed" | "cancelled" | "needs_attention";
 
@@ -7,6 +7,7 @@ export interface TripHistoryRecord {
   startEventId?: string;
   startedAt?: string;
   startGps?: DriverEvent["gps"];
+  driverContext?: DriverContextV1;
   endEventId?: string;
   endedAt?: string;
   endGps?: DriverEvent["gps"];
@@ -40,6 +41,7 @@ export function buildTripHistory(events: readonly DriverEvent[]): TripHistoryRec
         startEventId: event.eventId,
         startedAt: event.command.transitionAt,
         startGps: event.gps,
+        driverContext: event.driverContext,
         status: "active",
       };
       trips.push(active);

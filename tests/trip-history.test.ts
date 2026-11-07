@@ -34,6 +34,19 @@ describe("durable trip history projection", () => {
     expect(trips[2]).toMatchObject({ startEventId: "start-1", endEventId: "end-1" });
   });
 
+  it("copies immutable Driver and Vehicle context from the trip-start event", () => {
+    const driverContext = {
+      schemaVersion: 1 as const,
+      driverId: "driver-17",
+      assignmentId: "assignment-23",
+      vehicleId: "feature:vehicle:MH01AB1234",
+    };
+    const start = { ...event("start-context", 1, "trip_start", "2026-11-04T09:00:00.000Z"), driverContext };
+    const trip = buildTripHistory([start])[0];
+    expect(trip.driverContext).toEqual(driverContext);
+    expect(buildTripHistory([event("legacy-start", 1, "trip_start", "2026-11-04T10:00:00.000Z")])[0].driverContext).toBeUndefined();
+  });
+
   it("retains an unmatched close as a visible integrity issue instead of dropping it", () => {
     expect(buildTripHistory([
       event("orphan-end", 1, "trip_end", "2026-11-04T09:20:00.000Z"),

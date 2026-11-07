@@ -56,6 +56,10 @@ internal object DriverWorkflowContract {
         val command = event.optJSONObject("command") ?: error("invalid_driver_event")
         validateCommand(command)
         require((event.opt("eventId") as? String) == command.optString("eventId")) { "driver_event_identity_mismatch" }
+        if (event.has("driverContext")) {
+            require(command.optString("eventType") == "trip_start") { "driver_context_event_kind_mismatch" }
+            validateDriverContext(event.optJSONObject("driverContext") ?: error("invalid_driver_context"))
+        }
         val revision = integer(event, "revision")
         require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }
         parseInstant(event.optString("committedAt"), "invalid_driver_event_timestamp")
@@ -71,6 +75,18 @@ internal object DriverWorkflowContract {
         val transitionAt = parseInstant(command.optString("transitionAt"), "invalid_driver_event_gps")
         require(kotlin.math.abs(Duration.between(transitionAt, fixAt).toMillis()) <= 30_000L) {
             "invalid_driver_event_gps"
+        }
+    }
+
+    private fun validateDriverContext(context: JSONObject) {
+        val keys = context.keys().asSequence().toSet()
+        require(keys == setOf("schemaVersion", "driverId", "assignmentId", "vehicleId") &&
+            integer(context, "schemaVersion") == 1L &&
+            context.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+            context.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+            context.optString("vehicleId").startsWith("feature:vehicle:") &&
+            context.optString("vehicleId").trim() == context.optString("vehicleId")) {
+            "invalid_driver_context"
         }
     }
 
