@@ -3,6 +3,7 @@ package `in`.samtravels.app
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.YearMonth
+import java.math.BigInteger
 
 /** Finance-owned Room backup/restore validation for immutable original EMI schedules. */
 internal object NativeFinanceBackup {
@@ -52,7 +53,7 @@ internal object NativeFinanceBackup {
         require(!first.isBefore(start) && first.dayOfMonth == 1) { "finance_loan_dates_invalid" }
     }
 
-    private fun validateSchedule(version: JSONObject, expectedVersion: Int, details: JSONObject) {
+    private fun validateSchedule(version: JSONObject, expectedVersion: Int, loanData: JSONObject, details: JSONObject) {
         require(version.optInt("version", -1) == expectedVersion &&
             version.optString("calculationId") == CALCULATION_ID &&
             version.optInt("calculationVersion", -1) == 1 &&
@@ -90,7 +91,7 @@ internal object NativeFinanceBackup {
         var paymentTotal = 0L
         for (index in 0 until rows.length()) {
             val row = rows.getJSONObject(index)
-            val interest = (opening * rate + 60000L) / 120000L
+            val interest = BigInteger.valueOf(opening).multiply(BigInteger.valueOf(rate))\n                .add(BigInteger.valueOf(60000L)).divide(BigInteger.valueOf(120000L)).longValueExact()
             val amount = integer(row, "installmentAmountPaise", 1)
             val principalPart = integer(row, "principalComponentPaise", 1)
             val closing = integer(row, "closingPrincipalPaise")
@@ -99,7 +100,7 @@ internal object NativeFinanceBackup {
                 integer(row, "openingPrincipalPaise") == opening &&
                 integer(row, "interestPaise") == interest &&
                 principalPart == amount - interest && closing == opening - principalPart &&
-                amount <= opening + interest &&
+                amount <= Math.addExact(opening, interest) &&
                 row.optBoolean("finalAdjusted") == (index == rows.length() - 1)) {
                 "finance_loan_schedule_row_invalid"
             }
@@ -112,7 +113,7 @@ internal object NativeFinanceBackup {
             integer(output, "totalScheduledPaymentsPaise") == paymentTotal) {
             "finance_loan_schedule_totals_invalid"
         }
-        if (expectedVersion == details.optInt("currentScheduleVersion")) {
+        if (expectedVersion == loanData.optInt("currentScheduleVersion")) {
             require(principal == integer(details, "principalPaise", 1) &&
                 rate == integer(details, "annualInterestRateBasisPoints") &&
                 tenure == integer(details, "tenureMonths", 1) &&
@@ -164,7 +165,7 @@ internal object NativeFinanceBackup {
                     "finance_loan_schedule_history_invalid"
                 }
                 for (index in 0 until versions.length()) {
-                    validateSchedule(versions.getJSONObject(index), index + 1, data)
+                    validateSchedule(versions.getJSONObject(index), index + 1, data, details)
                 }
             }
         },
