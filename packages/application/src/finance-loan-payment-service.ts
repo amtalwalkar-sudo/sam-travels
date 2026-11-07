@@ -21,6 +21,7 @@ type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecord
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number };
 export type FinanceLoanScheduleResolver = {
   getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined>;
+  getScheduleVersionForDate(loanId: string, businessDate: string): Promise<number | undefined>;
 };
 const METHODS = new Set<FinancePaymentMethodV1>(["cash", "bank_transfer", "cheque", "upi", "other"]);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -163,6 +164,11 @@ export class FinanceLoanPaymentService {
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly scheduleResolver?: FinanceLoanScheduleResolver) {}
 
+  private async assertScheduleVersionForDate(loanId: string, version: number, businessDate: string): Promise<void> {
+    const expected = await this.scheduleResolver?.getScheduleVersionForDate(loanId, businessDate);
+    if (expected !== undefined && version !== expected) throw new Error("finance_payment_schedule_version_not_effective_for_date");
+  }
+
   private async resolveScheduleRows(loanId: string, loan: FinanceLoanRecordV1, version: number): Promise<readonly ScheduleRow[]> {
     const original = loan.scheduleVersions.find(item => item.version === version);
     if (original) return scheduleRows(loan, version);
@@ -183,6 +189,7 @@ export class FinanceLoanPaymentService {
   }
   async propose(input: { loanId: string; scheduleVersion: number; businessDate: string; amountPaise: number }) {
     const { loan, ledger } = await this.load(input.loanId);
+    await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
     const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
     return proposeFromScheduleRows(rows, ledger?.data.entries ?? [], input.scheduleVersion, input.businessDate, input.amountPaise);
   }
@@ -196,6 +203,7 @@ export class FinanceLoanPaymentService {
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId);
+      await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
       const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
       const entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
