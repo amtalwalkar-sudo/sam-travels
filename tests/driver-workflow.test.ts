@@ -18,6 +18,17 @@ import {
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
 
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
+async function seedDriverContext(){
+ const at="2026-11-03T09:00:00.000Z";
+ const records=browserDatabase.table("records");
+ await records.bulkPut([
+  {id:"work:selected-driver",schemaVersion:1,createdAt:at,updatedAt:at,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-17"}},
+  {id:"feature:driver-records:driver:driver-17",schemaVersion:1,createdAt:at,updatedAt:at,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-17",name:"Test Driver",lifecycleState:"active"}},
+  {id:"feature:driver-records:assignment:driver-17",schemaVersion:1,createdAt:at,updatedAt:at,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-17",assignments:[{assignmentId:"assignment-23",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:at}]}},
+  {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:at,updatedAt:at,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Test",model:"Car",vehicleType:"car",fuelType:"petrol",yearOfManufacture:2022,ownership:"owned",lifecycleState:"active"}},
+ ]);
+}
+
 describe("durable single-driver workflow",()=>{
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open()});
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
@@ -108,6 +119,19 @@ describe("durable single-driver workflow",()=>{
   expect((await repo.getIntent(expired.eventId))?.reason).toBe("gps_recovery_window_expired");
  });
 
+ it("rejects trip start without a selected active Driver and assignment without committing an event",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const shift=createDriverCommand(await repo.getSnapshot(),"shift_start","pwa","shift-for-trip","2026-11-03T10:00:00.000Z");
+  await repo.queueIntent({command:shift,status:"pending_location",createdAt:shift.transitionAt,updatedAt:shift.transitionAt});
+  await repo.completeIntent(shift.eventId,gps,shift.transitionAt);
+  const trip=createDriverCommand(await repo.getSnapshot(),"trip_start","pwa","trip-no-driver","2026-11-03T10:05:00.000Z");
+  await repo.queueIntent({command:trip,status:"pending_location",createdAt:trip.transitionAt,updatedAt:trip.transitionAt});
+  await expect(repo.completeIntent(trip.eventId,gps,trip.transitionAt)).rejects.toThrow("work_driver_not_selected");
+  expect((await repo.getSnapshot()).revision).toBe(1);
+  expect(await repo.listEvents()).toHaveLength(1);
+  expect((await repo.getIntent(trip.eventId))?.status).toBe("pending_location");
+ });
+
  it("automatically publishes committed Work events and retries failed consumer delivery",async()=>{
   const repo=new DexieDriverWorkflowRepository();
   const transitionAt=new Date().toISOString();
@@ -128,6 +152,7 @@ describe("durable single-driver workflow",()=>{
 
 
  it("proves Work-to-Log Book calculation and projection recovery across a database restart",async()=>{
+  await seedDriverContext();
   const repo=new DexieDriverWorkflowRepository();
   const runtime=createApplicationRuntimeRegistry({extensions:[LOGBOOK_FEATURE_EXTENSION]});
   let captureAt="2026-11-03T10:00:00.000Z";

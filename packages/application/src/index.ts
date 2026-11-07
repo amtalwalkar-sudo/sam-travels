@@ -19,5 +19,3 @@ export * from "./driver-records-runtime";
 
 export * from "./driver-assignment-service";
 export * from "./driver-assignment-runtime";
-
-export * from "./work-driver-selection-service";
