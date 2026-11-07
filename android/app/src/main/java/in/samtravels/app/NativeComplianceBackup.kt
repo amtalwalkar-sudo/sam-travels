@@ -21,7 +21,7 @@ internal object NativeComplianceBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows ->
+        validateRelationships = { rows, allRows ->
             val records = linkedMapOf<String, JSONObject>()
             rows.forEach { row ->
                 val id = row.optString("id")
@@ -63,9 +63,25 @@ internal object NativeComplianceBackup {
                 }
                 records[id] = data
             }
+            val vehicles = allRows.filter { it.optString("participantId") == "vehicle-records" }
+                .associate { row ->
+                    val vehicleId = row.optString("id")
+                    val envelope = JSONObject(row.getString("json"))
+                    val vehicle = envelope.getJSONObject("data")
+                    val registration = vehicle.optString("registrationNumber")
+                    require(vehicleId == "feature:vehicle:" + registration &&
+                        registration.isNotBlank() &&
+                        registration == registration.uppercase().filterNot { it.isWhitespace() || it == '-' }) {
+                        "compliance_vehicle_identity_mismatch"
+                    }
+                    vehicleId to vehicle
+                }
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = records.getValue(id)
+                require(vehicles.containsKey(data.optString("vehicleId"))) {
+                    "compliance_vehicle_not_found"
+                }
                 if (data.has("renewedFromRecordId")) {
                     val previousId = data.optString("renewedFromRecordId")
                     val previous = records[previousId] ?: error("compliance_renewal_source_not_found")
