@@ -1,4 +1,3 @@
-import type { FinanceLoanRecordV1 } from "./loan-records";
 import { calculateLoanPrepaymentReamortizationV1, LOAN_PREPAYMENT_CALCULATION_ID,
   type LoanPrepaymentCalculationInputV1, type LoanPrepaymentCalculationResultV1,
   type LoanPrepaymentModeV1 } from "./loan-prepayment-calculation";
@@ -38,7 +37,11 @@ export function assertFinanceLoanPrepaymentRecordIdentity(id: string): void {
     throw new Error("finance_loan_prepayment_record_identity_invalid");
   }
 }
-export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: FinanceLoanRecordV1,
+export type FinanceLoanPrepaymentLoanContextV1 = Readonly<{
+  details: Readonly<{ annualInterestRateBasisPoints: number }>;
+  scheduleVersions: readonly Readonly<{ version: number }>[];
+}>;
+export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: FinanceLoanPrepaymentLoanContextV1,
   expectedLoanId?: string): asserts value is FinanceLoanPrepaymentStateV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("finance_loan_prepayment_state_invalid");
   const state = value as Record<string, unknown>;
