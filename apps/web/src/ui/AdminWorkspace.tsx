@@ -248,10 +248,10 @@ export function AdminWorkspace() {
                       </details>
                       <details className="loan-schedule loan-version-history">
                         <summary>Schedule history ({loan.data.scheduleVersions.length} versions)</summary>
-                        {loan.data.scheduleVersions.map(item => <div className="loan-version" key={item.version}>
+                        {loan.data.scheduleVersions.map(item => { const historical = item.output as LoanAmortizationSchedule; return <div className="loan-version" key={item.version}>
                           <strong>Version {item.version}</strong><span>{item.createdAt}</span>
-                          <small>{money(item.output.regularEmiPaise)} EMI · {rate(item.input.annualInterestRateBasisPoints)} · {item.input.tenureMonths} months</small>
-                        </div>)}
+                          <small>{money(historical.regularEmiPaise)} EMI · {rate(item.input.annualInterestRateBasisPoints)} · {item.input.tenureMonths} months</small>
+                        </div>; })}
                       </details>
                       <div className="loan-workflow-boundary">
                         <strong>Payment and prepayment workflows are not enabled.</strong>
