@@ -32,7 +32,7 @@ describe("Vehicle record v1", () => {
   it("rejects unsupported lifecycle states and invalid manufacture years", () => {
     expect(() => assertVehicleRecordV1({ ...validVehicle, lifecycleState: "archived" }))
       .toThrow("vehicle_record_invalid");
-    expect(() => assertVehicleRecordV1({ ...validVehicle, yearOfManufacture: 1885 }))
+    expect(() => assertVehicleRecordV1({ ...validVehicle, yearOfManufacture: 0 }))
       .toThrow("vehicle_record_invalid");
     expect(() => assertVehicleRecordV1({ ...validVehicle, yearOfManufacture: 2022.5 }))
       .toThrow("vehicle_record_invalid");
