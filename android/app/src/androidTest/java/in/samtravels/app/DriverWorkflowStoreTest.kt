@@ -62,7 +62,7 @@ class DriverWorkflowStoreTest {
             .put("schemaVersion", 1).put("driverId", "driver-17")
             .put("assignments", org.json.JSONArray().put(JSONObject()
                 .put("assignmentId", "assignment-23").put("vehicleId", "feature:vehicle:MH01AB1234")
-                .put("assignedAt", "2026-11-07T10:00:00Z"))))
+                .put("assignedAt", java.time.Instant.now().minusSeconds(60).toString()))))
         saveRecord("feature:vehicle:MH01AB1234", JSONObject()
             .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
             .put("make", "Test").put("model", "Car").put("vehicleType", "car")

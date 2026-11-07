@@ -107,7 +107,7 @@ object DriverWorkflowStore {
         return result ?: error("intent_enqueue_failed")
     }
 
-    private fun resolveDriverContext(db: LocalDatabase): JSONObject {
+    private fun resolveDriverContext(db: LocalDatabase, transitionAt: String): JSONObject {
         val selectedRow = db.records().get("work:selected-driver") ?: error("work_driver_not_selected")
         val selectedEnvelope = JSONObject(selectedRow.json)
         val selected = selectedEnvelope.optJSONObject("data") ?: error("work_selected_driver_invalid")
@@ -139,12 +139,23 @@ object DriverWorkflowStore {
         val assignment = active.single()
         val assignmentId = assignment.optString("assignmentId")
         val vehicleId = assignment.optString("vehicleId")
+        require(Instant.parse(assignment.getString("assignedAt")) <= Instant.parse(transitionAt)) {
+            "driver_assignment_not_active_at_trip_start"
+        }
         require(assignmentId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "driver_assignment_invalid" }
         val vehicleRow = rows[vehicleId] ?: error("vehicle_not_active")
         val vehicleData = JSONObject(vehicleRow.json).optJSONObject("data") ?: error("vehicle_not_active")
-        require(vehicleData.optInt("schemaVersion", -1) == 1 &&
+        require(vehicleData.keys().asSequence().toSet() == setOf(
+            "schemaVersion", "registrationNumber", "make", "model", "vehicleType", "fuelType",
+            "yearOfManufacture", "ownership", "lifecycleState",
+        ) && vehicleData.optInt("schemaVersion", -1) == 1 &&
             vehicleData.optString("lifecycleState") == "active" &&
-            vehicleId == "feature:vehicle:" + vehicleData.optString("registrationNumber")) {
+            vehicleId == "feature:vehicle:" + vehicleData.optString("registrationNumber") &&
+            vehicleData.optString("registrationNumber").isNotBlank() &&
+            vehicleData.optString("registrationNumber") == vehicleData.optString("registrationNumber")
+                .uppercase().filterNot { it.isWhitespace() || it == '-' } &&
+            listOf("make", "model", "vehicleType", "fuelType", "ownership").all { vehicleData.optString(it).isNotBlank() } &&
+            vehicleData.optInt("yearOfManufacture", 0) >= 1) {
             "vehicle_not_active"
         }
         return JSONObject().put("schemaVersion", 1).put("driverId", driverId)
@@ -216,7 +227,7 @@ object DriverWorkflowStore {
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
-            if (eventType == "trip_start") eventRecord.put("driverContext", resolveDriverContext(db))
+            if (eventType == "trip_start") eventRecord.put("driverContext", resolveDriverContext(db, command.getString("transitionAt")))
             DriverWorkflowContract.validateEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 

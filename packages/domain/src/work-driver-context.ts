@@ -1,6 +1,7 @@
 import type { RecordEnvelope } from "../../core/src/types";
 import { driverRecordId } from "./driver-record-identity";
 import { assertDriverAssignmentHistoryV1, driverAssignmentHistoryId } from "./driver-assignment";
+import { normalizeVehicleRegistrationNumber } from "./vehicle-identity";
 export const WORK_SELECTED_DRIVER_RECORD_ID = "work:selected-driver";
 export type WorkSelectedDriverV1 = Readonly<{ schemaVersion: 1; driverId: string }>;
 export type DriverContextV1 = Readonly<{ schemaVersion: 1; driverId: string; assignmentId: string; vehicleId: string }>;
@@ -19,7 +20,7 @@ export function assertDriverContextV1(value: unknown): asserts value is DriverCo
  typeof row.vehicleId!=="string"||!row.vehicleId.startsWith("feature:vehicle:")||row.vehicleId.trim()!==row.vehicleId)
  throw new Error("invalid_driver_context");
 }
-export function resolveWorkDriverContext(records:readonly RecordEnvelope<unknown>[]):DriverContextV1{
+export function resolveWorkDriverContext(records:readonly RecordEnvelope<unknown>[],transitionAt?:string):DriverContextV1{
  const selected=records.find(record=>record.id===WORK_SELECTED_DRIVER_RECORD_ID);
  if(!selected)throw new Error("work_driver_not_selected");
  assertWorkSelectedDriverV1(selected.data);
@@ -36,11 +37,17 @@ export function resolveWorkDriverContext(records:readonly RecordEnvelope<unknown
  const active=history.data.assignments.filter(item=>item.unassignedAt===undefined);
  if(active.length!==1)throw new Error(active.length===0?"driver_assignment_missing":"driver_multiple_active_assignments");
  const assignment=active[0];
+ if(transitionAt!==undefined&&(!Number.isFinite(Date.parse(transitionAt))||Date.parse(assignment.assignedAt)>Date.parse(transitionAt)))throw new Error("driver_assignment_not_active_at_trip_start");
  const vehicle=records.find(record=>record.id===assignment.vehicleId);
  if(!vehicle||!vehicle.data||typeof vehicle.data!=="object")throw new Error("vehicle_not_active");
  const vehicleData=vehicle.data as Record<string,unknown>;
- if(vehicleData.schemaVersion!==1||vehicleData.lifecycleState!=="active"||
- typeof vehicleData.registrationNumber!=="string"||vehicle.id!=="feature:vehicle:"+vehicleData.registrationNumber)
+ const vehicleKeys=["fuelType","lifecycleState","make","model","ownership","registrationNumber","schemaVersion","vehicleType","yearOfManufacture"].sort();
+ if(Object.keys(vehicleData).sort().join(",")!==vehicleKeys.join(",")||vehicleData.schemaVersion!==1||
+ vehicleData.lifecycleState!=="active"||typeof vehicleData.registrationNumber!=="string"||
+ vehicleData.registrationNumber!==normalizeVehicleRegistrationNumber(vehicleData.registrationNumber)||
+ vehicle.id!=="feature:vehicle:"+vehicleData.registrationNumber||
+ !["make","model","vehicleType","fuelType","ownership"].every(key=>typeof vehicleData[key]==="string"&&(vehicleData[key] as string).trim())||
+ !Number.isSafeInteger(vehicleData.yearOfManufacture)||(vehicleData.yearOfManufacture as number)<1)
  throw new Error("vehicle_not_active");
  const context:DriverContextV1={schemaVersion:1,driverId,assignmentId:assignment.assignmentId,vehicleId:assignment.vehicleId};
  assertDriverContextV1(context);return context;
