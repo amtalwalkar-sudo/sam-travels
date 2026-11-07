@@ -7,7 +7,7 @@ The approved, frozen scope and staged implementation/acceptance criteria for the
 
 ## Product boundary
 
-Sam Travels is a **single-driver Driver Log Book + ERP**. It models one owner/operator's work, vehicle, trips, records, and business finances. Do not introduce multi-driver assignment, driver rosters, fleet dispatch, or fleet tenancy unless the product scope is explicitly changed.
+Sam Travels remains a **single-driver Driver Log Book + ERP** for its operational Drive/Work workflow. An explicit, bounded product-scope decision now authorizes Admin-maintained Driver records and vehicle assignments as defined in [docs/ADMIN_FUNCTIONAL_SPECIFICATION.md](docs/ADMIN_FUNCTIONAL_SPECIFICATION.md): each driver may have only one active vehicle assignment at a time, and assignment history is retained. This does not create a parallel Work/Shift or trip state machine and does not authorize fleet dispatch, fleet tenancy, or multi-driver tenancy. The Admin specification is the product-rule authority for these records and assignments.
 
 ## Architectural layers
 
@@ -84,7 +84,7 @@ The final event-wise Timeline product design is recorded in [docs/TIMELINE_DESIG
 
 Features are independently addable modules with stable domain/application contracts. UI can be redesigned without changing business rules; storage can be migrated behind repositories; calculations can evolve without coupling them to forms. Cross-feature communication uses typed application services/events rather than direct component imports.
 
-Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance, Admin, and Backup & Recovery. This is a proposed initial organization, not permission to expand into unrelated fleet-management scope.
+Initial feature areas: Work/Shift, Log Book/Trips, Finance, Vehicle, Performance, Admin, and Backup & Recovery. This is a product organization, not permission to expand into unrelated fleet-management scope. The approved Admin product requirements are recorded in [docs/ADMIN_FUNCTIONAL_SPECIFICATION.md](docs/ADMIN_FUNCTIONAL_SPECIFICATION.md); that document defines product behaviour but does not authorize implementation or weaken the owning technical contracts.
 
 ## Offline-first and consistency
 
