@@ -94,6 +94,24 @@ describe("FinanceLoanService", () => {
     })).rejects.toThrow("finance_loan_vehicle_identity_immutable");
   });
 
+
+  it("locks calculation inputs after immutable prepayment history exists", async () => {
+    const { repository, service } = setup();
+    const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
+    await repository.put({
+      id: "feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000",
+      schemaVersion: 1, createdAt: "2026-01-10T10:00:00.000Z",
+      updatedAt: "2026-01-10T10:00:00.000Z", businessDate: "2026-01-10",
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, kind: "loan-prepayment-state", loanId: created.id,
+        baseScheduleVersion: 1, currentScheduleVersion: 2, revisions: [{}] },
+    });
+    await expect(service.update({
+      id: created.id, expectedRevision: 1,
+      details: { ...details, annualInterestRateBasisPoints: 1350 },
+    })).rejects.toThrow("finance_loan_prepayment_schedule_locked");
+  });
+
   it("retains historical loan dates independent of business start date", async () => {
     const { service } = setup();
     const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });

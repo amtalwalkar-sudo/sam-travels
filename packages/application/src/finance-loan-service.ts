@@ -48,6 +48,7 @@ export type FinanceLoanVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
 };
 const PREFIX = "feature:finance:loan:";
+const PREPAYMENT_PREFIX = "feature:finance:prepayments:";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function recordId(uuid: string): string {
@@ -69,7 +70,7 @@ export class FinanceLoanService {
   private readonly records: FeatureRecordService<FinanceLoanRecordV1>;
 
   constructor(
-    repository: AtomicRecordRepository,
+    private readonly repository: AtomicRecordRepository,
     private readonly vehicles: FinanceLoanVehicleDirectory,
     validate: FinanceLoanRecordValidator,
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
@@ -141,6 +142,10 @@ export class FinanceLoanService {
     }
     await this.requireVehicle(input.details.vehicleId);
     const changed = this.calculationInputsChanged(current.data.details, input.details);
+    if (changed) {
+      const prepaymentState = await this.repository.get(PREPAYMENT_PREFIX + input.id.slice(PREFIX.length));
+      if (prepaymentState) throw new Error("finance_loan_prepayment_schedule_locked");
+    }
     const createdAt = this.now();
     const scheduleVersions = changed
       ? [...current.data.scheduleVersions,
