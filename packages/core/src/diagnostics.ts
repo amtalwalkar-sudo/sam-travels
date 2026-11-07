@@ -155,12 +155,10 @@ export function analyzeFeatureContractImpact(
   }
   for (const id of after.keys()) if (!before.has(id)) mark(id, "changed", "feature_added");
 
+  const changedIds = new Set(findings.keys());
   const direct = new Set<string>();
   for (const feature of proposed) {
-    if (feature.dependencies.some(dependency => {
-      const id = dependencyId(dependency);
-      return findings.has(id);
-    })) {
+    if (feature.dependencies.some(dependency => changedIds.has(dependencyId(dependency)))) {
       direct.add(feature.id);
       mark(feature.id, "direct_dependent", "depends_on_changed_feature");
     }
