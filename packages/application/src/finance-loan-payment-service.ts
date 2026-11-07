@@ -68,7 +68,10 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
     }
   }
 }
-export function assertFinancePaymentLedgerV1(value: unknown, loanId: string): asserts value is FinancePaymentLedgerV1 {\n  assertLedger(value, loanId);\n}\nfunction scheduleRows(loan: FinanceLoanRecordV1, version: number): readonly ScheduleRow[] {
+export function assertFinancePaymentLedgerV1(value: unknown, loanId: string): asserts value is FinancePaymentLedgerV1 {
+  assertLedger(value, loanId);
+}
+function scheduleRows(loan: FinanceLoanRecordV1, version: number): readonly ScheduleRow[] {
   const selected = loan.scheduleVersions.find(item => item.version === version);
   if (!selected) throw new Error("finance_payment_schedule_version_not_found");
   const rows = (selected.output as { rows?: readonly ScheduleRow[] }).rows;
