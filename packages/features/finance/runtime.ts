@@ -1,3 +1,4 @@
+import type { FeatureDefinition } from "../../core/src/features";
 import {
   type CalculationContract,
   type FeatureExtensionDefinition,
