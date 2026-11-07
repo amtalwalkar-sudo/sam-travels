@@ -1,6 +1,6 @@
 # Permanent Application Architecture — Stage 5 Diagnostics and Change-Impact Audit
 
-**Status:** Source audit complete; Stage 5 implementation is in progress on `feat/stage-5-diagnostics-impact-complete`.
+**Status:** Complete. Stage 5 merged as `efe1abea10eb86491a644fa8b926746b6b344028`; PR run #907 and merged-main run #908 passed all required gates.
 **Baseline:** `main` at `fed3f6c240b1a60af7a329068014a80e6c7ad6ad` (Stage 4 merged and verified).
 **Scope:** Feature registration/activation diagnostics, dependency and compatibility visibility, registered capability inventory, data-to-result execution traces, privacy-safe failure records, contract change-impact analysis, and developer/reference documentation.
 **Non-scope:** New business features, replacement registries, new lifecycle/persistence/backup/recovery systems, remote telemetry, generic observability vendors, universal event bus, or a formula/automation engine.
@@ -89,4 +89,4 @@ The implementation branch now adds:
 - A deterministic feature dependency impact report and an extension-upgrade surface report covering persistence, integrations, calculations, data queries and presentation screens. Upgrade preflight now also rejects silent removal of query and presentation contracts.
 - A dedicated architecture CI check for privacy, trace shape, platform adapters, compatibility coverage and documentation, plus focused tests.
 
-This update is not a completion declaration. Android build/instrumentation and all PR gates must pass, followed by merge and a green merged-main run. The existing authoritative upgrade transaction coordinator and persistence/backup/restore recovery paths remain in place; impact analysis is a read-only preflight aid.
+**Completion evidence:** [PR #26](https://github.com/amtalwalkar-sudo/sam-travels/pull/26) was merged. [PR run #907](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42319479369) and [merged-main run #908](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42320003718) passed Architecture, Web, Android and Integrated regression. The merged-main run published the release APK. The existing authoritative upgrade transaction coordinator and persistence/backup/restore recovery paths remain in place; impact analysis is a read-only preflight aid.
