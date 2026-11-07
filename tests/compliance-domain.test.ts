@@ -3,12 +3,10 @@ import {
   analyzeComplianceCoverage,
   calculateDailyComplianceCost,
   inclusiveValidityDays,
-} from "../packages/features/compliance/analysis";
-import {
   assertComplianceRecordV1,
   complianceRecordId,
   type ComplianceRecordV1,
-} from "../packages/features/compliance/records";
+} from "../packages/features/compliance";
 
 const vehicleId = "feature:vehicle:MH01AB1234";
 function record(id: string, overrides: Partial<ComplianceRecordV1> = {}) {
