@@ -183,7 +183,7 @@ internal object NativeBackupCoverage {
         return result
     }
 
-    fun validateParticipantManifest(incoming: JSONArray?) {
+    fun validateParticipantManifest(incoming: JSONArray?, records: JSONArray? = null) {
         if (incoming == null) return // Legacy native snapshot lacked participant inventory.
         val expected = participantManifest()
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
@@ -192,7 +192,25 @@ internal object NativeBackupCoverage {
                 item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
                 item.getString("restoreValidatorId")).joinToString("|")
         }.sorted()
-        require(canonical(incoming) == canonical(expected)) { "backup_participant_manifest_mismatch" }
+        if (canonical(incoming) == canonical(expected)) return
+
+        val hasBusinessSettingsRecord = records?.let { rows ->
+            (0 until rows.length()).any { index ->
+                val row = rows.optJSONObject(index) ?: return@any false
+                row.optString("participantId") == "business-settings-records" ||
+                    row.optString("id").startsWith("feature:business-settings:")
+            }
+        } ?: false
+        val compatibleExpected = JSONArray()
+        for (index in 0 until expected.length()) {
+            val item = expected.getJSONObject(index)
+            if (item.optString("id") != "business-settings-records") {
+                compatibleExpected.put(JSONObject(item.toString()))
+            }
+        }
+        require(!hasBusinessSettingsRecord && canonical(incoming) == canonical(compatibleExpected)) {
+            "backup_participant_manifest_mismatch"
+        }
     }
 
     fun registeredParticipantIds(): Set<String> = discoverParticipants().map { it.id }.toSet()
