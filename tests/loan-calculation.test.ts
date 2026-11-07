@@ -66,6 +66,22 @@ describe("Finance monthly reducing-balance loan calculation v1", () => {
     expect(schedule.rows[2].closingPrincipalPaise).toBe(0);
   });
 
+  it("rounds an exact half-rupee EMI tie upward", () => {
+    const input = {
+      ...standardInput,
+      principalPaise: 100,
+      annualInterestRateBasisPoints: 0,
+      tenureMonths: 2,
+      loanStartDate: "2026-01-01",
+      firstEmiDate: "2026-01-01",
+    };
+    expect(calculateLoanEmiQuote(input).regularEmiPaise).toBe(100);
+    const schedule = buildLoanAmortizationSchedule(input);
+    expect(schedule.rows).toHaveLength(1);
+    expect(schedule.rows[0].finalAdjusted).toBe(true);
+    expect(schedule.rows[0].closingPrincipalPaise).toBe(0);
+  });
+
   it("rounds monthly interest to paise using half-up arithmetic", () => {
     expect(calculateMonthlyInterestPaise(1, 60_000)).toBe(1);
     expect(calculateMonthlyInterestPaise(1, 59_999)).toBe(0);
