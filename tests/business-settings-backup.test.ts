@@ -9,15 +9,18 @@ import {
 import {
   BUSINESS_SETTINGS_FEATURE,
 } from "../packages/features/business-settings";
-import { assertBusinessSettingsRecordV1 } from "../packages/features/business-settings";\nimport { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { assertBusinessSettingsRecordV1 } from "../packages/features/business-settings";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 
 describe("Business Settings backup participant", () => {
-  let unregister: (() => void) | undefined;\n  let unregisterVehicle: (() => void) | undefined;
+  let unregister: (() => void) | undefined;
+  let unregisterVehicle: (() => void) | undefined;
 
   beforeEach(async () => {
     await browserDatabase.delete();
     await browserDatabase.open();
-    unregisterVehicle = registerVehicleBrowserBackupParticipant();\n    unregister = registerBrowserFeatureBackupParticipant({
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregister = registerBrowserFeatureBackupParticipant({
       feature: BUSINESS_SETTINGS_FEATURE,
       participantId: "business-settings-records",
       recordIdPrefix: "feature:business-settings:",
