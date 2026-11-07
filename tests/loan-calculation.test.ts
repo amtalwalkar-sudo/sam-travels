@@ -112,8 +112,17 @@ describe("Finance monthly reducing-balance loan calculation v1", () => {
       ownerFeatureId: "finance",
       version: 1,
       effectiveDate: "2026-01-10",
-      unit: "INR-paise-monthly-EMI-quote",
-      value: { regularEmiPaise: 888_500 },
+      unit: "INR-paise-monthly-amortization-schedule",
+      value: {
+        regularEmiPaise: 888_500,
+        totalInterestPaise: 661_846,
+        totalScheduledPaymentsPaise: 10_661_846,
+        rows: expect.arrayContaining([expect.objectContaining({
+          dueDate: "2026-02-01",
+          openingPrincipalPaise: 10_000_000,
+          closingPrincipalPaise: 9_211_500,
+        })]),
+      },
     });
     expect(() => executeRegisteredCalculation(
       runtime.calculations,
