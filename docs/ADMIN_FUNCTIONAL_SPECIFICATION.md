@@ -91,6 +91,7 @@ Historical records in Finance, Compliance, Maintenance, and other applicable for
 
 - Support multiple vehicle records and one or more active vehicles.
 - Prevent duplicate vehicle records for the same vehicle identity; registration number is the primary human-facing identifier.
+- Canonical registration identity is uppercase with all whitespace and hyphens removed. Equivalent entered formats resolve to the same vehicle, and the canonical value is stored and used for duplicate detection.
 - Retain inactive/sold vehicle records and all associated history.
 - Do not duplicate Compliance, Loan, or Maintenance data in the Vehicle record.
 - Vehicle-specific records are accessed through the selected-vehicle context.
