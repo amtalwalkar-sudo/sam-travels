@@ -83,6 +83,22 @@ export const LOAN_EMI_CALCULATION: CalculationContract<LoanCalculationInput, Loa
   ],
 };
 
+/** Finance promotes its existing built-in identity to the approved persistent contract. */
+export const FINANCE_FEATURE = Object.freeze({
+  id: "finance",
+  label: "Finance",
+  dataPolicy: "persistent",
+  contractVersion: 2,
+  dependencies: [{ id: "platform", contractVersion: 1 }],
+  persistence: {
+    schemaVersion: 1,
+    migrations: [],
+    backup: { participantId: "finance-records", snapshotVersion: 1, required: true },
+    restore: { validatorId: "finance-records-v1", required: true },
+    lifecycle: { disableRetainsData: true, removalRequiresMigration: true },
+  },
+} as const satisfies FeatureDefinition);
+
 export const FINANCE_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.freeze({
   id: "finance.calculations.v1",
   version: 1,
