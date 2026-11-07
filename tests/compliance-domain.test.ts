@@ -39,9 +39,10 @@ describe("Compliance v1 record contract", () => {
 });
 
 describe("Compliance inclusive date and coverage analysis", () => {
-  it("counts both endpoints, including leap days", () => {
+  it("counts both endpoints, including leap days, and rejects invalid dates", () => {
     expect(inclusiveValidityDays("2024-02-28", "2024-03-01")).toBe(3);
     expect(inclusiveValidityDays("2024-02-29", "2024-02-29")).toBe(1);
+    expect(() => inclusiveValidityDays("2024-02-30", "2024-03-01")).toThrow("compliance_date_invalid");
   });
 
   it("reports uncovered days without filling them", () => {
@@ -73,6 +74,11 @@ describe("Compliance inclusive date and coverage analysis", () => {
     expect(result.status).toBe("available");
     expect(result.total).toEqual({ numeratorPaise: "200", denominator: "1" });
     expect(result.breakdown).toHaveLength(2);
+  });
+
+  it("rejects an invalid business date instead of returning a zero total", () => {
+    expect(() => calculateDailyComplianceCost([], vehicleId, "2024-02-30"))
+      .toThrow("compliance_date_invalid");
   });
 
   it("withholds aggregate cost when same-item coverage overlaps", () => {
