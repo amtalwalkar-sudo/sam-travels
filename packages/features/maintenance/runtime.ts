@@ -7,7 +7,10 @@ export const MAINTENANCE_FEATURE = Object.freeze({
   label: "Maintenance",
   dataPolicy: "persistent",
   contractVersion: 1,
-  dependencies: [{ id: "vehicle", contractVersion: 1 }],
+  dependencies: [
+    { id: "vehicle", contractVersion: 1 },
+    { id: "logbook", contractVersion: 1 },
+  ],
   persistence: {
     schemaVersion: 1,
     migrations: [],
