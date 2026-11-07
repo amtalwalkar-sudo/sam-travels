@@ -52,8 +52,10 @@ internal object NativeComplianceBackup {
                         !LocalDate.parse(to).isBefore(LocalDate.parse(from))
                 }.getOrDefault(false)
                 require(validPeriod) { "compliance_record_invalid" }
-                require(data.has("totalCostPaise") && data.optLong("totalCostPaise", -1L) >= 0L &&
-                    data.optString("totalCostPaise") != "") { "compliance_record_invalid" }
+                val cost = data.opt("totalCostPaise")
+                require((cost is Int || cost is Long) && cost.toLong() >= 0L) {
+                    "compliance_record_invalid"
+                }
                 if (data.has("supportingDocumentRef")) {
                     require(data.optString("supportingDocumentRef").isNotBlank()) {
                         "compliance_record_document_reference_invalid"
