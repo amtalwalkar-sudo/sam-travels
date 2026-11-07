@@ -8,9 +8,10 @@ import {
 export function createApplicationComplianceService(
   repository: AtomicRecordRepository,
   validate: ComplianceRecordValidator,
+  vehicles: import("./compliance-service").VehicleDirectory,
   now?: () => string,
 ): ComplianceService {
-  return new ComplianceService(repository, validate, now);
+  return new ComplianceService(repository, validate, vehicles, now);
 }
 
 let applicationComplianceService: ComplianceService | undefined;
@@ -18,12 +19,13 @@ let applicationComplianceService: ComplianceService | undefined;
 export function initializeApplicationComplianceService(
   repository: AtomicRecordRepository,
   validate: ComplianceRecordValidator,
+  vehicles: import("./compliance-service").VehicleDirectory,
   now?: () => string,
 ): ComplianceService {
   if (applicationComplianceService) {
     throw new Error("Application Compliance service is already initialized");
   }
-  applicationComplianceService = createApplicationComplianceService(repository, validate, now);
+  applicationComplianceService = createApplicationComplianceService(repository, validate, vehicles, now);
   return applicationComplianceService;
 }
 
