@@ -1,9 +1,19 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import {
-  normalizeVehicleRegistrationNumber,
-  type VehicleRecordV1,
-} from "../../features/vehicle";
+import { normalizeVehicleRegistrationNumber } from "../../domain/src/vehicle-identity";
+
+export type VehicleLifecycleState = "active" | "inactive" | "sold";
+export type VehicleRecordV1 = Readonly<{
+  schemaVersion: 1;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  vehicleType: string;
+  fuelType: string;
+  yearOfManufacture: number;
+  ownership: string;
+  lifecycleState: VehicleLifecycleState;
+}>;
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
 
 export const VEHICLE_RECORD_ID_PREFIX = "feature:vehicle:";
