@@ -2,7 +2,7 @@ import type { FeatureExtensionDefinition } from "../../core/src/feature-extensio
 import type { FeatureDefinition } from "../../core/src/features";
 
 /** Persistent Business Settings capability; only the approved business start date is owned here. */
-export const BUSINESS_SETTINGS_FEATURE: FeatureDefinition = Object.freeze({
+export const BUSINESS_SETTINGS_FEATURE = Object.freeze({
   id: "business-settings",
   label: "Business Settings",
   dataPolicy: "persistent",
@@ -25,7 +25,7 @@ export const BUSINESS_SETTINGS_FEATURE: FeatureDefinition = Object.freeze({
       removalRequiresMigration: true,
     },
   },
-});
+} as const satisfies FeatureDefinition);
 
 export const BUSINESS_SETTINGS_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.freeze({
   id: "business-settings.persistence.v1",
