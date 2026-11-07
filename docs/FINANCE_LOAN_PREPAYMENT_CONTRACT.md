@@ -13,7 +13,7 @@ Define Finance-owned principal prepayments against an existing loan, including t
 
 A prepayment is a principal reduction, not an EMI payment, a payment allocation, a settlement, or a loan closure. The existing payment ledger remains the source of actual EMI payment facts. This contract does not authorize settlement or closure.
 
-The contract adds no new interest convention. It reuses the registered monthly reducing-balance calculation, its annual-to-monthly conversion, integer-paise arithmetic, and rounding rules unchanged.
+The contract adds no new interest convention. It reuses the registered monthly reducing-balance convention, annual-to-monthly conversion, integer-paise arithmetic, and monthly-interest rounding unchanged. It must **not** alter or overload `finance.loan-monthly-reducing-balance.v1`: that calculation derives EMI from a fixed tenure, so it cannot by itself implement Reduce Tenure with a fixed EMI. Before runtime implementation, Finance must register a separate, versioned prepayment re-amortization calculation contract that explicitly supports both modes and reproduces the approved monthly-interest and rounding rules. Reduce Tenure must solve the payoff horizon from the unchanged EMI; Reduce EMI must solve the EMI over the unchanged remaining installment count.
 
 ## 2. Approved user-visible behaviour
 
@@ -53,7 +53,7 @@ The original schedule and every prior re-amortized schedule are immutable. The p
 ### 4.1 Reduce Tenure
 
 - Keep the current regular EMI in paise unchanged.
-- Recalculate monthly interest and principal components from the reduced opening principal using the existing Finance monthly reducing-balance convention.
+- Use the separately registered prepayment re-amortization calculation to recalculate monthly interest and principal components from the reduced opening principal using the existing Finance monthly reducing-balance convention.
 - Continue at the unchanged regular EMI until the final adjusted installment.
 - End as soon as the remaining principal and accrued scheduled interest are fully repaid; the final installment may be smaller than the regular EMI.
 - The resulting number of installments / final due date may be shorter; it must not be longer than the no-prepayment baseline from the same effective point.
@@ -61,7 +61,7 @@ The original schedule and every prior re-amortized schedule are immutable. The p
 ### 4.2 Reduce EMI
 
 - Keep the number of remaining installments and their due dates unchanged from the current schedule after the effective date.
-- Recalculate a regular EMI that amortizes the reduced opening principal over exactly those remaining installments, using the existing registered calculation and rounding rules.
+- Use the separately registered prepayment re-amortization calculation to recalculate a regular EMI that amortizes the reduced opening principal over exactly those remaining installments, using the existing registered monthly-interest and rounding rules.
 - The final installment is adjusted under the same existing schedule rules.
 - The resulting regular EMI must not exceed the prior regular EMI, except that a documented rounding edge case must fail closed rather than silently increase it.
 
