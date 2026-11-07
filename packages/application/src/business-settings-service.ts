@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { assertBusinessSettingsRecordV1, type BusinessSettingsRecordV1 } from "../../features/business-settings/records";
+import { assertBusinessSettingsRecordV1, type BusinessSettingsRecordV1 } from "../../features/business-settings";
 import { FeatureRecordService } from "./feature-record-service";
 
 /** The business-wide singleton has a stable identity; edits never mint new records. */
