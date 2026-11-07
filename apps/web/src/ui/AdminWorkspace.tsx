@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
@@ -255,7 +255,7 @@ export function AdminWorkspace() {
                           <small>{money(historical.regularEmiPaise)} EMI · {rate(item.input.annualInterestRateBasisPoints)} · {item.input.tenureMonths} months</small>
                         </div>; })}
                       </details>
-                      <LoanPaymentsPanel loan={loan} />
+                      {createElement(LoanPaymentsPanel, { loan })}
                     </article>;
                   })}</div>}
               </>}
