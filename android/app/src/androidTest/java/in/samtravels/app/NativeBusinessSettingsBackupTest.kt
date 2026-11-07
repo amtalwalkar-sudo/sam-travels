@@ -50,7 +50,7 @@ class NativeBusinessSettingsBackupTest {
                         requireExplicitOwnerTags = true,
                     )
                 }.exceptionOrNull()?.message)
-            assertEquals("business_settings_backup_singleton_duplicate",
+            assertEquals("backup_duplicate_participant_record_id",
                 runCatching {
                     NativeBackupCoverage.validateBusinessRecords(
                         JSONArray().put(row("2020-01-01")).put(row("2020-01-02")),
