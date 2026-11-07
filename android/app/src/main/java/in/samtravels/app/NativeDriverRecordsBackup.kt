@@ -21,7 +21,7 @@ internal object NativeDriverRecordsBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows ->
+        validateRelationships = { rows, _ ->
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = JSONObject(row.getString("json")).getJSONObject("data")

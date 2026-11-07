@@ -7,14 +7,17 @@ import {
   initializeApplicationVehicleService,
   initializeApplicationDriverRecordsService,
   initializeApplicationDriverAssignmentService,
+  initializeApplicationComplianceService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
+import { assertComplianceRecordV1 } from "../../../packages/features/compliance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { registerBusinessSettingsBrowserBackupParticipant } from "./business-settings-backup";
 import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
 import { registerDriverRecordsBrowserBackupParticipant } from "./driver-records-backup";
+import { registerComplianceBrowserBackupParticipant } from "./compliance-backup";
 import { createPlatformRepository } from "./native-store";
 import { App } from "./ui/App";
 import "./ui/styles.css";
@@ -25,11 +28,13 @@ async function bootstrap(): Promise<void> {
   registerBusinessSettingsBrowserBackupParticipant();
   registerVehicleBrowserBackupParticipant();
   registerDriverRecordsBrowserBackupParticipant();
+  registerComplianceBrowserBackupParticipant();
   const repository = await createPlatformRepository();
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
+  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationFeatureLifecycle(repository);
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
