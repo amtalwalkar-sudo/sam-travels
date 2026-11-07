@@ -135,7 +135,7 @@ internal object NativeBackupCoverage {
     ).associateBy { it.adapterId }.toMutableMap()
     internal val dynamicFeatureParticipants = linkedMapOf<String, SnapshotParticipant>()
     internal val dynamicFeatureRecordPrefixes = linkedMapOf<String, String>()
-    internal val dynamicFeatureRelationshipValidators = linkedMapOf<String, (List<JSONObject>) -> Unit>()
+    internal val dynamicFeatureRelationshipValidators = linkedMapOf<String, (List<JSONObject>, List<JSONObject>) -> Unit>()
 
     internal fun isFeatureOwnedRecord(id: String): Boolean =
         dynamicFeatureRecordPrefixes.values.any { id.startsWith(it) }
