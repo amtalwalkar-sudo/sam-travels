@@ -1,5 +1,6 @@
 import {
   assertComplianceRecordV1,
+  isComplianceCalendarDate,
   type ComplianceRecordV1,
 } from "./records";
 
@@ -15,6 +16,7 @@ export type ComplianceOverlap = Readonly<{
 export type PaiseFraction = Readonly<{ numeratorPaise: string; denominator: string }>;
 
 function dayNumber(value: string): number {
+  if (!isComplianceCalendarDate(value)) throw new Error("compliance_date_invalid");
   return Date.parse(value + "T00:00:00.000Z") / 86_400_000;
 }
 
@@ -25,9 +27,7 @@ function dateFromDayNumber(value: number): string {
 export function inclusiveValidityDays(validFrom: string, validTo: string): number {
   const start = dayNumber(validFrom);
   const end = dayNumber(validTo);
-  if (!Number.isInteger(start) || !Number.isInteger(end) || end < start) {
-    throw new Error("compliance_validity_period_invalid");
-  }
+  if (end < start) throw new Error("compliance_validity_period_invalid");
   return end - start + 1;
 }
 
@@ -118,6 +118,7 @@ export function calculateDailyComplianceCost(
   breakdown: readonly Readonly<{ recordId: string; complianceName: string; cost: PaiseFraction }>[];
   overlaps: readonly ComplianceOverlap[];
 }> {
+  dayNumber(businessDate);
   const active = records.filter(record => {
     assertComplianceRecordV1(record.data);
     return record.data.vehicleId === vehicleId &&
