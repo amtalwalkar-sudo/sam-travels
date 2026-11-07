@@ -32,3 +32,10 @@ export type {
   LoanPrepaymentCalculationResultV1,
   LoanPrepaymentScheduleRowV1,
 } from "./loan-prepayment-calculation";
+
+export {
+  FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX, financeLoanPrepaymentRecordId,
+  assertFinanceLoanPrepaymentRecordIdentity, assertFinanceLoanPrepaymentStateV1,
+  createLoanPrepaymentRevisionV1,
+} from "./loan-prepayment-records";
+export type { FinanceLoanPrepaymentStateV1, LoanPrepaymentRevisionV1 } from "./loan-prepayment-records";
