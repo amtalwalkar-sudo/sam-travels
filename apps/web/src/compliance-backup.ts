@@ -4,6 +4,7 @@ import {
   assertComplianceRecordIdentity,
   assertComplianceRecordV1,
 } from "../../../packages/features/compliance";
+import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
 
 const PREFIX = "feature:compliance:";
@@ -17,6 +18,12 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
     validateRecord(record: RecordEnvelope<unknown>, allRecords: readonly RecordEnvelope<unknown>[]) {
       assertComplianceRecordIdentity(record.id);
       assertComplianceRecordV1(record.data);
+      const vehicle = allRecords.find(item => item.id === record.data.vehicleId);
+      if (!vehicle) throw new Error("compliance_vehicle_not_found");
+      assertVehicleRecordV1(vehicle.data);
+      if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+        throw new Error("compliance_vehicle_identity_mismatch");
+      }
       if (record.data.renewedFromRecordId) {
         const previous = allRecords.find(item => item.id === record.data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
@@ -38,6 +45,12 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
         ids.add(record.id);
       }
       for (const record of owned) {
+        const vehicle = records.find(item => item.id === record.data.vehicleId);
+        if (!vehicle) throw new Error("compliance_vehicle_not_found");
+        assertVehicleRecordV1(vehicle.data);
+        if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+          throw new Error("compliance_vehicle_identity_mismatch");
+        }
         if (!record.data.renewedFromRecordId) continue;
         const previous = owned.find(item => item.id === record.data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
