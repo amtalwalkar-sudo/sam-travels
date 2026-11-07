@@ -19,3 +19,5 @@ export * from "./driver-records-runtime";
 
 export * from "./driver-assignment-service";
 export * from "./driver-assignment-runtime";
+export * from "./compliance-service";
+export * from "./compliance-runtime";
