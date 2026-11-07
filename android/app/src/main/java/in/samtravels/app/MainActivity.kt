@@ -6,6 +6,7 @@ import com.getcapacitor.BridgeActivity
 
 class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        NativeBusinessSettingsBackup.register()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(DeviceReadinessPlugin::class.java)
