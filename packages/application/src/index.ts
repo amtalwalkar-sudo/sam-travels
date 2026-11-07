@@ -28,3 +28,6 @@ export * from "./finance-loan-service";
 export * from "./finance-loan-runtime";
 
 export * from "./platform-context";
+
+export * from "./finance-loan-payment-service";
+export * from "./finance-loan-payment-runtime";

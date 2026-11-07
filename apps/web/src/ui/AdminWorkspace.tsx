@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
+import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import {
   getApplicationFinanceLoanService,
   getApplicationRecordSource,
@@ -254,10 +255,7 @@ export function AdminWorkspace() {
                           <small>{money(historical.regularEmiPaise)} EMI · {rate(item.input.annualInterestRateBasisPoints)} · {item.input.tenureMonths} months</small>
                         </div>; })}
                       </details>
-                      <div className="loan-workflow-boundary">
-                        <strong>Payment and prepayment workflows are not enabled.</strong>
-                        <span>Actual payments, payment-adjusted balances, prepayments and loan closure will be added only after their Finance contracts are approved.</span>
-                      </div>
+                      {createElement(LoanPaymentsPanel, { loan })}
                     </article>;
                   })}</div>}
               </>}
