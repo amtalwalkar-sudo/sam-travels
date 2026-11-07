@@ -1,0 +1,173 @@
+/** Maintenance v1 records are vehicle-scoped and owned by the Maintenance capability. */
+export type MaintenanceExpenseItemV1 = Readonly<{
+  id: string;
+  description: string;
+  amountPaise: number;
+}>;
+
+export type MaintenanceVisitV1 = Readonly<{
+  schemaVersion: 1;
+  kind: "visit";
+  vehicleId: string;
+  maintenanceDate: string;
+  maintenanceType: string;
+  description: string;
+  items: readonly MaintenanceExpenseItemV1[];
+  totalPaise: number;
+  odometerKm?: number;
+  provider?: string;
+  nextServiceDate?: string;
+  nextServiceKm?: number;
+}>;
+
+export type GeneralMaintenanceExpenseV1 = Readonly<{
+  schemaVersion: 1;
+  kind: "expense";
+  vehicleId: string;
+  expenseDate: string;
+  expenseName: string;
+  description: string;
+  amountPaise: number;
+  odometerKm?: number;
+  provider?: string;
+}>;
+
+export type MaintenanceRateV1 = Readonly<{
+  schemaVersion: 1;
+  kind: "rate";
+  vehicleId: string;
+  effectiveFrom: string;
+  ratePaisePerKm: number;
+  previousRateRecordId?: string;
+}>;
+
+export type MaintenanceRecordV1 =
+  | MaintenanceVisitV1
+  | GeneralMaintenanceExpenseV1
+  | MaintenanceRateV1;
+
+export const MAINTENANCE_RECORD_ID_PREFIX = "feature:maintenance:";
+export const MAINTENANCE_VISIT_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "visit:";
+export const MAINTENANCE_EXPENSE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "expense:";
+export const MAINTENANCE_RATE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "rate:";
+export const DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM = 250;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const VEHICLE_ID = /^feature:vehicle:[^\s:]+$/;
+
+export function maintenanceRecordId(kind: "visit" | "expense" | "rate", uuid: string): string {
+  if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("maintenance_record_uuid_invalid");
+  const prefix = kind === "visit" ? MAINTENANCE_VISIT_ID_PREFIX
+    : kind === "expense" ? MAINTENANCE_EXPENSE_ID_PREFIX : MAINTENANCE_RATE_ID_PREFIX;
+  return prefix + uuid.toLowerCase();
+}
+
+export function assertMaintenanceRecordIdentity(id: string): void {
+  if (typeof id !== "string") throw new Error("maintenance_record_identity_invalid");
+  const match = /^(feature:maintenance:(?:visit|expense|rate):)(.+)$/.exec(id);
+  if (!match || !UUID.test(match[2]) || id !== match[1] + match[2].toLowerCase()) {
+    throw new Error("maintenance_record_identity_invalid");
+  }
+}
+
+export function isMaintenanceDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(value + "T00:00:00.000Z");
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+function validMoney(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+function validOptionalNumber(value: unknown): boolean {
+  return value === undefined || (Number.isSafeInteger(value) && (value as number) >= 0);
+}
+function validOptionalText(value: unknown): boolean {
+  return value === undefined || (typeof value === "string" && value.trim().length > 0);
+}
+function hasExactKeys(record: Record<string, unknown>, required: readonly string[], optional: readonly string[]) {
+  const keys = Object.keys(record);
+  const allowed = new Set([...required, ...optional]);
+  return required.every(key => Object.prototype.hasOwnProperty.call(record, key)) &&
+    keys.every(key => allowed.has(key));
+}
+
+export function calculateMaintenanceVisitTotal(items: readonly MaintenanceExpenseItemV1[]): number {
+  if (!Array.isArray(items) || items.length === 0) throw new Error("maintenance_visit_items_required");
+  const total = items.reduce((sum, item) => {
+    if (!item || typeof item !== "object" || !UUID.test(item.id) ||
+        typeof item.description !== "string" || !item.description.trim() ||
+        !validMoney(item.amountPaise)) throw new Error("maintenance_visit_item_invalid");
+    const next = sum + item.amountPaise;
+    if (!Number.isSafeInteger(next)) throw new Error("maintenance_visit_total_out_of_range");
+    return next;
+  }, 0);
+  if (new Set(items.map(item => item.id.toLowerCase())).size !== items.length) {
+    throw new Error("maintenance_visit_duplicate_item_id");
+  }
+  return total;
+}
+
+/** Strict discriminated payload validator used by application, backup and restore. */
+export function assertMaintenanceRecordV1(value: unknown): asserts value is MaintenanceRecordV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("maintenance_record_invalid");
+  }
+  const record = value as Record<string, unknown>;
+  if (record.schemaVersion !== 1 || typeof record.kind !== "string" ||
+      typeof record.vehicleId !== "string" || !VEHICLE_ID.test(record.vehicleId)) {
+    throw new Error("maintenance_record_invalid");
+  }
+
+  if (record.kind === "visit") {
+    const required = ["schemaVersion", "kind", "vehicleId", "maintenanceDate", "maintenanceType", "description", "items", "totalPaise"];
+    const optional = ["odometerKm", "provider", "nextServiceDate", "nextServiceKm"];
+    if (!hasExactKeys(record, required, optional) ||
+        !isMaintenanceDate(record.maintenanceDate) ||
+        typeof record.maintenanceType !== "string" || !record.maintenanceType.trim() ||
+        typeof record.description !== "string" || !record.description.trim() ||
+        !Array.isArray(record.items) || !validMoney(record.totalPaise) ||
+        !validOptionalNumber(record.odometerKm) || !validOptionalText(record.provider) ||
+        (record.nextServiceDate !== undefined && !isMaintenanceDate(record.nextServiceDate)) ||
+        !validOptionalNumber(record.nextServiceKm)) {
+      throw new Error("maintenance_visit_invalid");
+    }
+    if (calculateMaintenanceVisitTotal(record.items as MaintenanceExpenseItemV1[]) !== record.totalPaise) {
+      throw new Error("maintenance_visit_total_mismatch");
+    }
+    return;
+  }
+
+  if (record.kind === "expense") {
+    const required = ["schemaVersion", "kind", "vehicleId", "expenseDate", "expenseName", "description", "amountPaise"];
+    const optional = ["odometerKm", "provider"];
+    if (!hasExactKeys(record, required, optional) ||
+        !isMaintenanceDate(record.expenseDate) ||
+        typeof record.expenseName !== "string" || !record.expenseName.trim() ||
+        typeof record.description !== "string" || !record.description.trim() ||
+        !validMoney(record.amountPaise) ||
+        !validOptionalNumber(record.odometerKm) || !validOptionalText(record.provider)) {
+      throw new Error("maintenance_expense_invalid");
+    }
+    return;
+  }
+
+  if (record.kind === "rate") {
+    const required = ["schemaVersion", "kind", "vehicleId", "effectiveFrom", "ratePaisePerKm"];
+    const optional = ["previousRateRecordId"];
+    if (!hasExactKeys(record, required, optional) ||
+        !isMaintenanceDate(record.effectiveFrom) || !validMoney(record.ratePaisePerKm)) {
+      throw new Error("maintenance_rate_invalid");
+    }
+    if (record.previousRateRecordId !== undefined) {
+      const previousId = record.previousRateRecordId;
+      if (typeof previousId !== "string" || !previousId.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
+        throw new Error("maintenance_rate_predecessor_invalid");
+      }
+      assertMaintenanceRecordIdentity(previousId);
+    }
+    return;
+  }
+
+  throw new Error("maintenance_record_kind_invalid");
+}
