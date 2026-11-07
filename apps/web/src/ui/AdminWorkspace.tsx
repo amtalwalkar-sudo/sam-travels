@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Capacitor } from "@capacitor/core";
 import "./AdminWorkspace.css";
 import {
   getApplicationFinanceLoanService,
+  getApplicationRecordSource,
   getApplicationVehicleService,
   type FinanceLoanDetailsV1,
 } from "../../../../packages/application/src";
@@ -151,7 +151,7 @@ export function AdminWorkspace() {
         await service.create({
           uuid: crypto.randomUUID(),
           details,
-          source: Capacitor.isNativePlatform() ? "android" : "web",
+          source: getApplicationRecordSource(),
         });
         setMessage("Loan and original EMI schedule saved.");
       }
