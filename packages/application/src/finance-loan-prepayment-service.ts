@@ -150,13 +150,19 @@ export class FinanceLoanPrepaymentService {
     const snapshot = await this.load(loanId);
     const versions = snapshot.loan.data.scheduleVersions.map(item => {
       const output = item.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
-      return { version: item.version, effectiveDate: item.effectiveDate, label: "Original schedule",
-        rows: output.rows ?? [], regularEmiPaise: output.regularEmiPaise ?? 0 };
+      return { version: item.version, effectiveDate: item.effectiveDate, createdAt: item.createdAt,
+        label: "Original schedule", rows: output.rows ?? [], regularEmiPaise: output.regularEmiPaise ?? 0,
+        principalPaise: (item.output as { principalPaise?: number }).principalPaise ?? 0,
+        totalInterestPaise: (item.output as { totalInterestPaise?: number }).totalInterestPaise ?? 0,
+        totalScheduledPaymentsPaise: (item.output as { totalScheduledPaymentsPaise?: number }).totalScheduledPaymentsPaise ?? 0 };
     });
     for (const revision of snapshot.state?.data.revisions ?? []) {
-      versions.push({ version: revision.version, effectiveDate: revision.effectiveDate,
+      versions.push({ version: revision.version, effectiveDate: revision.effectiveDate, createdAt: revision.createdAt,
         label: revision.mode === "reduce_tenure" ? "Prepayment · Reduce Tenure" : "Prepayment · Reduce EMI",
-        rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise });
+        rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise,
+        principalPaise: revision.output.openingPrincipalPaise,
+        totalInterestPaise: revision.output.totalInterestPaise,
+        totalScheduledPaymentsPaise: revision.output.totalScheduledPaymentsPaise });
     }
     return { currentScheduleVersion: snapshot.state?.data.currentScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
       versions, prepayments: snapshot.state?.data.revisions ?? [] };
