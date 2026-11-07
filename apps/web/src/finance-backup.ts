@@ -1,11 +1,14 @@
 import type { RecordEnvelope } from "../../../packages/core/src/types";
-import { FINANCE_FEATURE, assertFinanceLoanRecordIdentity, assertFinanceLoanRecordV1 } from "../../../packages/features/finance";
+import { FINANCE_FEATURE, assertFinanceLoanRecordIdentity, assertFinanceLoanRecordV1,
+  FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX, assertFinanceLoanPrepaymentRecordIdentity,
+  assertFinanceLoanPrepaymentStateV1 } from "../../../packages/features/finance";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertFinancePaymentLedgerV1 } from "../../../packages/application/src";
 import type { FinanceLoanRecordV1 } from "../../../packages/application/src/finance-loan-service";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
 const LOAN_PREFIX = "feature:finance:loan:";
 const PAYMENT_PREFIX = "feature:finance:payments:";
+const PREPAYMENT_PREFIX = FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX;
 const PREFIX = "feature:finance:";
 function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly RecordEnvelope<unknown>[]) {
   const ledger = record.data as {
@@ -72,11 +75,23 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
         const data = vehicle.data; assertVehicleRecordV1(data);
         if (vehicle.id !== "feature:vehicle:" + data.registrationNumber) throw new Error("finance_loan_vehicle_identity_mismatch");
       } else if (record.id.startsWith(PAYMENT_PREFIX)) validatePaymentLinks(record, records);
-      else throw new Error("finance_backup_record_namespace_invalid");
+      else if (record.id.startsWith(PREPAYMENT_PREFIX)) {
+        assertFinanceLoanPrepaymentRecordIdentity(record.id);
+        const state = record.data as { loanId?: string };
+        if (typeof state.loanId !== "string" || !state.loanId.startsWith(LOAN_PREFIX) ||
+            record.id !== PREPAYMENT_PREFIX + state.loanId.slice(LOAN_PREFIX.length)) {
+          throw new Error("finance_loan_prepayment_record_identity_invalid");
+        }
+        const loan = records.find(item => item.id === state.loanId);
+        if (!loan) throw new Error("finance_loan_not_found");
+        assertFinanceLoanRecordV1(loan.data);
+        assertFinanceLoanPrepaymentStateV1(record.data, loan.data as FinanceLoanRecordV1, state.loanId);
+      } else throw new Error("finance_backup_record_namespace_invalid");
     },
     validateSnapshot(records) {
       const loans = records.filter(record => record.id.startsWith(LOAN_PREFIX));
       const payments = records.filter(record => record.id.startsWith(PAYMENT_PREFIX));
+      const prepayments = records.filter(record => record.id.startsWith(PREPAYMENT_PREFIX));
       const ids = new Set<string>();
       for (const loan of loans) {
         assertFinanceLoanRecordIdentity(loan.id); assertFinanceLoanRecordV1(loan.data);
@@ -92,6 +107,21 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
       for (const payment of payments) {
         if (paymentIds.has(payment.id)) throw new Error("finance_backup_duplicate_payment_ledger_identity");
         paymentIds.add(payment.id); validatePaymentLinks(payment, records);
+      }
+      const prepaymentIds = new Set<string>();
+      for (const prepayment of prepayments) {
+        if (prepaymentIds.has(prepayment.id)) throw new Error("finance_backup_duplicate_prepayment_state_identity");
+        prepaymentIds.add(prepayment.id);
+        assertFinanceLoanPrepaymentRecordIdentity(prepayment.id);
+        const state = prepayment.data as { loanId?: string };
+        if (typeof state.loanId !== "string" || !state.loanId.startsWith(LOAN_PREFIX) ||
+            prepayment.id !== PREPAYMENT_PREFIX + state.loanId.slice(LOAN_PREFIX.length)) {
+          throw new Error("finance_loan_prepayment_record_identity_invalid");
+        }
+        const loan = records.find(item => item.id === state.loanId);
+        if (!loan) throw new Error("finance_loan_not_found");
+        assertFinanceLoanRecordV1(loan.data);
+        assertFinanceLoanPrepaymentStateV1(prepayment.data, loan.data as FinanceLoanRecordV1, state.loanId);
       }
     },
   });
