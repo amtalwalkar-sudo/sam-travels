@@ -64,7 +64,7 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
   const commands = new Set<string>(); let previousCreatedAt = "";
   let previousEffectiveDate = "";
   let previousExpectedLoanRevision = 0;
-  let previousExpectedLedgerRevision = 0;
+  let previousCommittedLedgerRevision = 0;
   const baseSchedule = loan.scheduleVersions.find(item => item.version === base);
   if (!baseSchedule || !Array.isArray(baseSchedule.output.rows) || !Number.isSafeInteger(baseSchedule.output.regularEmiPaise)) {
     throw new Error("finance_loan_prepayment_base_schedule_invalid");
@@ -81,8 +81,10 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
     if (!exactKeys(r,keys) || r.version !== base + index + 1 ||
         r.previousScheduleVersion !== base + index ||
         !Number.isSafeInteger(r.expectedLoanRevision) || (r.expectedLoanRevision as number) <= previousExpectedLoanRevision ||
-        (r.expectedPaymentLedgerRevision !== null &&
-          (!Number.isSafeInteger(r.expectedPaymentLedgerRevision) || (r.expectedPaymentLedgerRevision as number) <= previousExpectedLedgerRevision)) ||
+        (r.expectedPaymentLedgerRevision === null
+          ? previousCommittedLedgerRevision !== 0
+          : (!Number.isSafeInteger(r.expectedPaymentLedgerRevision) ||
+            (r.expectedPaymentLedgerRevision as number) < previousCommittedLedgerRevision)) ||
         typeof r.source !== "string" || !r.source.trim() ||
         typeof r.commandId !== "string" || !r.commandId.trim() || commands.has(r.commandId) ||
         !validDate(r.effectiveDate) || (previousEffectiveDate !== "" && r.effectiveDate < previousEffectiveDate) ||
@@ -99,8 +101,7 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
     commands.add(r.commandId as string); previousCreatedAt = r.createdAt as string;
     previousEffectiveDate = r.effectiveDate as string;
     previousExpectedLoanRevision = r.expectedLoanRevision as number;
-    previousExpectedLedgerRevision = r.expectedPaymentLedgerRevision === null
-      ? previousExpectedLedgerRevision + 1 : r.expectedPaymentLedgerRevision as number;
+    previousCommittedLedgerRevision = (r.expectedPaymentLedgerRevision ?? 0) + 1;
     const priorDueRows = previousRows.filter(row => row.dueDate <= (r.effectiveDate as string));
     const expectedPrincipalBefore = priorDueRows.length
       ? priorDueRows[priorDueRows.length - 1].closingPrincipalPaise

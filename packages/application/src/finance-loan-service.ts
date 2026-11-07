@@ -13,6 +13,17 @@ export type FinanceLoanDetailsV1 = Readonly<{
   tenureMonths: number;
   firstEmiDate: string;
 }>;
+export type FinanceLoanScheduleRowV1 = Readonly<{
+  installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
+  interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
+  closingPrincipalPaise: number; finalAdjusted: boolean;
+}>;
+export type FinanceLoanScheduleOutputV1 = Readonly<{
+  currencyCode: "INR"; principalPaise: number; annualInterestRateBasisPoints: number;
+  tenureMonths: number; monthlyRateNumerator: number; monthlyRateDenominator: number;
+  regularEmiPaise: number; rows: readonly FinanceLoanScheduleRowV1[];
+  totalInterestPaise: number; totalScheduledPaymentsPaise: number;
+}>;
 export type FinanceLoanScheduleVersionV1 = Readonly<{
   version: number;
   createdAt: string;
@@ -28,7 +39,7 @@ export type FinanceLoanScheduleVersionV1 = Readonly<{
     loanStartDate: string;
     firstEmiDate: string;
   }>;
-  output: Readonly<{ rows: readonly unknown[] }>;
+  output: FinanceLoanScheduleOutputV1;
 }>;
 export type FinanceLoanRecordV1 = Readonly<{
   schemaVersion: 1;
