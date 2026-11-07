@@ -51,9 +51,6 @@ describe("browser IndexedDB repository", () => {
     expect(states.get("performance")?.state).toBe("disabled");
     expect((await repository.get("platform:feature-lifecycle"))?.revision).toBe(2);
   });
-});
-
-
   it("commits a multi-record revision batch atomically in IndexedDB", async () => {
     const repo = new DexieRecordRepository(), now = new Date().toISOString();
     const first = { id: "finance-loan", schemaVersion: 1, createdAt: now, updatedAt: now, source: "web" as const, revision: 1, data: { value: 1 } };
@@ -87,3 +84,5 @@ describe("browser IndexedDB repository", () => {
     ])).rejects.toThrow("atomic_record_batch_invalid");
     expect(await repo.get(record.id)).toBeUndefined();
   });
+
+});
