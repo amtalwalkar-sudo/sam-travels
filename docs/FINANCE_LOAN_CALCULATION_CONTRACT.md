@@ -27,7 +27,7 @@ This contract is deliberately independent of forms, navigation, vehicle selectio
 - annualInterestRateBasisPoints: nominal annual percentage rate in basis points. 100 basis points = 1.00 percentage point; 1200 basis points = 12.00% per annum.
 - tenureMonths: positive integer number of monthly instalments (maximum 1200 as a defensive calculation bound).
 - loanStartDate: ISO calendar date (YYYY-MM-DD) on which the loan begins.
-- firstEmiDate: ISO calendar date for the first due instalment. It must be the 1st day of a calendar month and later than loanStartDate. Subsequent due dates are the 1st of each following calendar month.
+- firstEmiDate: ISO calendar date for the first due instalment. It must be the 1st day of a calendar month and on or after loanStartDate. Subsequent due dates are the 1st of each following calendar month.
 
 The UI may display the rate as a percentage, but the domain boundary converts it to integer basis points before calculation. Currency is INR; no implicit currency conversion is performed.
 
@@ -66,7 +66,7 @@ The first EMI date anchors the monthly schedule. Every following due date is the
 
 Version 1 does not calculate daily interest, broken-period/stub interest between loan start and first EMI date, irregular payment-period interest, lender-specific day-count conventions, late fees, taxes, processing fees, or variable rates. A lender adjustment supplied as an actual payment remains separate actual-payment data; it must not silently change the standard calculation.
 
-Loan start date and first EMI date are retained as separate facts. The first EMI date must not be silently inferred from loan start date.
+Loan start date and first EMI date are retained as separate facts. The first EMI date must not be silently inferred from loan start date and may equal the loan start date.
 
 ## 5. Outputs and provenance
 
