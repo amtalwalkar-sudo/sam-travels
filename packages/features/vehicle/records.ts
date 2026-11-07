@@ -40,7 +40,7 @@ export function assertVehicleRecordV1(value: unknown): asserts value is VehicleR
       !requiredText(record.fuelType) ||
       !requiredText(record.ownership) ||
       !Number.isSafeInteger(record.yearOfManufacture) ||
-      (record.yearOfManufacture as number) < 1886 ||
+      (record.yearOfManufacture as number) < 1 ||
       !["active", "inactive", "sold"].includes(String(record.lifecycleState))) {
     throw new Error("vehicle_record_invalid");
   }
