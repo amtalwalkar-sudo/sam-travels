@@ -117,8 +117,9 @@ function currentParticipantManifest() {
   }
   return required.sort((a, b) => a.id.localeCompare(b.id));
 }
-const TABLE_NAMES: BrowserSnapshotTable[] = [...new Set(resolveBrowserBackupParticipants()
-  .flatMap(participant => participant.tableNames))];
+function tableNames(): BrowserSnapshotTable[] {
+  return [...new Set(resolveBrowserBackupParticipants().flatMap(participant => participant.tableNames))];
+}
 const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentialVaultMeta", "diagnostics"] as const;
 /**
  * Fail closed when a Dexie table is added without an explicit backup policy.
@@ -128,7 +129,7 @@ const EXCLUDED_TABLE_NAMES = ["backupCheckpoints", "credentialVault", "credentia
 export function assertBrowserBackupTableCoverage(
   actualTableNames: string[] = browserDatabase.tables.map(table => table.name),
 ): void {
-  const registered = new Set<string>([...TABLE_NAMES, ...EXCLUDED_TABLE_NAMES]);
+  const registered = new Set<string>([...tableNames(), ...EXCLUDED_TABLE_NAMES]);
   const actual = new Set(actualTableNames);
   const missing = [...registered].filter(name => !actual.has(name));
   const unclassified = [...actual].filter(name => !registered.has(name));
@@ -142,7 +143,7 @@ export function assertBrowserBackupTableCoverage(
 
 function liveTables() {
   assertBrowserBackupTableCoverage();
-  return TABLE_NAMES.map(name => browserDatabase.table(name) as Table<unknown, string>);
+  return tableNames().map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
 
 async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<BrowserSnapshotData> {
@@ -161,7 +162,7 @@ function rowKey(table: BrowserSnapshotTable, row: unknown): string {
 }
 
 function snapshotsEqual(left: BrowserSnapshotData, right: BrowserSnapshotData): boolean {
-  return TABLE_NAMES.every(name => {
+  return tableNames().every(name => {
     const canonical = (rows: unknown[]) => [...rows]
       .sort((a, b) => rowKey(name, a).localeCompare(rowKey(name, b)))
       .map(row => JSON.stringify(row));
@@ -207,7 +208,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
       throw new Error("backup_participant_manifest_mismatch");
     }
   }
-  for (const name of TABLE_NAMES) {
+  for (const name of tableNames()) {
     const rows = data[name];
     if (!Array.isArray(rows) || rows.length !== manifest.recordCounts[name]) {
       throw new Error("backup_record_count_mismatch:" + name);
@@ -260,7 +261,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
     createdAt: new Date().toISOString(),
     businessTimezone: "Asia/Kolkata",
     snapshotRevision: Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0,
-    recordCounts: Object.fromEntries(TABLE_NAMES.map(name => [name, data[name].length])),
+    recordCounts: Object.fromEntries(tableNames().map(name => [name, data[name].length])),
     participants: currentParticipantManifest(),
   };
   return { data, manifest, plaintext: new TextEncoder().encode(JSON.stringify(data)) };
@@ -290,7 +291,7 @@ export async function restoreBrowserSnapshot(input: {
     await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
       for (let index = 0; index < tables.length; index += 1) {
         await tables[index].clear();
-        const rows = input.data[TABLE_NAMES[index]];
+        const rows = input.data[tableNames()[index]];
         if (rows.length) await tables[index].bulkPut(rows);
       }
       await checkpointTable().put({ ...checkpoint, status: "restored_unverified" });
