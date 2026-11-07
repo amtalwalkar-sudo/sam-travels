@@ -14,8 +14,9 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
   const loan = records.find(item => item.id === ledger.loanId);
   if (!loan) throw new Error("finance_payment_loan_not_found");
   assertFinanceLoanRecordV1(loan.data);
+  const loanData = loan.data as FinanceLoanRecordV1;
   for (const entry of ledger.entries) if (entry.kind === "payment") {
-    const version = loan.data.scheduleVersions.find(item => item.version === entry.scheduleVersion);
+    const version = loanData.scheduleVersions.find(item => item.version === entry.scheduleVersion);
     if (!version) throw new Error("finance_payment_schedule_version_not_found");
     const rows = (version.output as { rows?: readonly { installmentNumber: number }[] }).rows ?? [];
     for (const allocation of entry.allocations ?? []) if (allocation.scheduleVersion !== entry.scheduleVersion ||
