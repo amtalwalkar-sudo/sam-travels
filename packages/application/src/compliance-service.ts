@@ -13,6 +13,9 @@ export type ComplianceRecordV1 = Readonly<{
   renewedFromRecordId?: string;
 }>;
 export type ComplianceRecordValidator = (value: unknown) => asserts value is ComplianceRecordV1;
+export type VehicleDirectory = {
+  getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
+};
 
 const PREFIX = "feature:compliance:";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -38,6 +41,7 @@ export class ComplianceService {
   constructor(
     repository: AtomicRecordRepository,
     validate: ComplianceRecordValidator,
+    private readonly vehicles: VehicleDirectory,
     now?: () => string,
   ) {
     this.records = new FeatureRecordService(repository, {
@@ -53,6 +57,8 @@ export class ComplianceService {
     source: FeatureRecordSource;
     businessDate?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
+    const vehicle = await this.vehicles.getById(input.data.vehicleId);
+    if (!vehicle) throw new Error("compliance_vehicle_not_found");
     const id = recordId(input.uuid);
     if (input.data.renewedFromRecordId) {
       assertRecordId(input.data.renewedFromRecordId);
