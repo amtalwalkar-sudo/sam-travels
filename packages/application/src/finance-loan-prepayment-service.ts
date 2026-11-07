@@ -7,9 +7,11 @@ import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
 export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
 export type FinanceLoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
 type ScheduleRow = Readonly<{ installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
-  installmentAmountPaise: number; closingPrincipalPaise: number }>;
-type ReamortizedOutput = Readonly<{ regularEmiPaise: number; rows: readonly ScheduleRow[];
-  totalInterestPaise: number; interestSavedPaise: number; finalDueDate: string; remainingInstallmentCount: number }>;
+  interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
+  closingPrincipalPaise: number; finalAdjusted: boolean }>;
+type ReamortizedOutput = Readonly<{ openingPrincipalPaise: number; regularEmiPaise: number; rows: readonly ScheduleRow[];
+  totalInterestPaise: number; totalScheduledPaymentsPaise: number; interestSavedPaise: number;
+  finalDueDate: string; remainingInstallmentCount: number }>;
 export type FinanceLoanPrepaymentRevisionV1 = Readonly<{
   version: number; commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
   principalBeforePaise: number; prepaymentAmountPaise: number; principalAfterPaise: number;
