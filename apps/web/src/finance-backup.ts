@@ -31,10 +31,17 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
   const allocationTotals = new Map<string, number>();
   for (const entry of ledger.entries) if (entry.kind === "payment") {
     const version = loanData.scheduleVersions.find(item => item.version === entry.scheduleVersion);
-    if (!version) throw new Error("finance_payment_schedule_version_not_found");
-    const rows = (version.output as { rows?: readonly {
-      installmentNumber: number; dueDate: string; installmentAmountPaise: number;
-    }[] }).rows ?? [];
+    let rows: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number }[] | undefined =
+      (version?.output as { rows?: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number }[] } | undefined)?.rows;
+    if (!rows) {
+      const prepaymentId = PREPAYMENT_PREFIX + ledger.loanId.slice(LOAN_PREFIX.length);
+      const prepayment = records.find(item => item.id === prepaymentId);
+      if (!prepayment) throw new Error("finance_payment_schedule_version_not_found");
+      assertFinanceLoanPrepaymentStateV1(prepayment.data, loanData, ledger.loanId);
+      const state = prepayment.data as { revisions: readonly { version: number; output: { rows: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number }[] } }[] };
+      rows = state.revisions.find(item => item.version === entry.scheduleVersion)?.output.rows;
+    }
+    if (!rows) throw new Error("finance_payment_schedule_version_not_found");
     for (const allocation of entry.allocations ?? []) {
       if (allocation.scheduleVersion !== entry.scheduleVersion) {
         throw new Error("finance_payment_allocation_schedule_reference_invalid");
