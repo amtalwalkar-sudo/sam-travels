@@ -27,7 +27,11 @@ export class DriverAssignmentService {
   }
 
   async getHistory(driverId: string): Promise<RecordEnvelope<DriverAssignmentHistoryV1> | undefined> {
-    return this.records.get(driverAssignmentHistoryId(driverId));
+    const record = await this.records.get(driverAssignmentHistoryId(driverId));
+    if (record && record.id !== driverAssignmentHistoryId(record.data.driverId)) {
+      throw new Error("driver_assignment_identity_mismatch");
+    }
+    return record;
   }
 
   async assign(input: {
@@ -67,7 +71,7 @@ export class DriverAssignmentService {
     driverId: string; expectedRevision: number; unassignedAt: string;
   }): Promise<RecordEnvelope<DriverAssignmentHistoryV1>> {
     const id = driverAssignmentHistoryId(input.driverId);
-    const current = await this.records.get(id);
+    const current = await this.getHistory(input.driverId);
     if (!current) throw new Error("driver_assignment_not_found");
     const active = current.data.assignments.find(item => item.unassignedAt === undefined);
     if (!active) throw new Error("driver_assignment_not_active");
@@ -82,6 +86,12 @@ export class DriverAssignmentService {
   }
 
   async list(): Promise<Array<RecordEnvelope<DriverAssignmentHistoryV1>>> {
-    return (await this.records.list()).filter(row => row.id.startsWith("feature:driver-records:assignment:"));
+    const records = await this.records.list();
+    records.forEach(record => {
+      if (record.id !== driverAssignmentHistoryId(record.data.driverId)) {
+        throw new Error("driver_assignment_identity_mismatch");
+      }
+    });
+    return records;
   }
 }
