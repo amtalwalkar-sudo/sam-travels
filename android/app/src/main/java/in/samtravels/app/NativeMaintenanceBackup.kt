@@ -132,9 +132,9 @@ internal object NativeMaintenanceBackup {
                 if (data.has("provider")) require(data.optString("provider").isNotBlank()) { "maintenance_expense_invalid" }
             }
             "rate_history" -> {
-                val encodedVehicle = URLEncoder.encode(vehicleIdFromData(data), StandardCharsets.UTF_8).replace("+", "%20")
+                val encodedVehicle = URLEncoder.encode(vehicleIdFromData(data), "UTF-8").replace("+", "%20")
                 require(id == RATE_PREFIX + encodedVehicle &&
-                    URLDecoder.decode(id.removePrefix(RATE_PREFIX), StandardCharsets.UTF_8) == vehicleIdFromData(data)) {
+                    URLDecoder.decode(id.removePrefix(RATE_PREFIX), "UTF-8") == vehicleIdFromData(data)) {
                     "maintenance_rate_history_identity_mismatch"
                 }
                 assertExactKeys(data, setOf("schemaVersion", "kind", "vehicleId", "entries"))
