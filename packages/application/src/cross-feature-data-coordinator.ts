@@ -11,6 +11,9 @@ import {
 } from "../../core/src/index";
 import type { RuntimeRegistry } from "../../core/src/runtime-registry";
 
+const safeTraceIdentifier = (value: string | undefined): string | undefined =>
+  value && /^[a-z0-9][a-z0-9._:-]{0,127}$/i.test(value) ? value : undefined;
+
 export type DataSourceCollectionItem =
   | FeatureDataQueryResult
   | Readonly<{ queryId: string; status: "unavailable"; reason: string }>;
@@ -104,13 +107,18 @@ export class CrossFeatureDataCoordinator {
     allowStale?: boolean;
     allowIncomplete?: boolean;
   }): Promise<OrchestratedCalculationResult<Output>> {
-    const generatedId = this.diagnostics.createTraceId?.() ??
-      (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : "trace-" + Date.now().toString(36));
-    const traceId = /^[a-z0-9][a-z0-9._:-]{0,127}$/i.test(generatedId) ? generatedId : "trace-invalid";
+    let generatedId: string;
+    try {
+      generatedId = this.diagnostics.createTraceId?.() ??
+        (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : "trace-" + Date.now().toString(36));
+    } catch {
+      generatedId = "trace-" + Date.now().toString(36);
+    }
+    const traceId = safeTraceIdentifier(generatedId) ?? "trace-invalid";
     const collected = await this.collect(request.queryIds, request.context);
     const traceSources = collected.map(item => Object.freeze({
-      queryId: item.queryId,
-      ...("ownerFeatureId" in item ? { ownerFeatureId: item.ownerFeatureId } : {}),
+      queryId: safeTraceIdentifier(item.queryId) ?? "unknown",
+      ...("ownerFeatureId" in item && safeTraceIdentifier(item.ownerFeatureId) ? { ownerFeatureId: safeTraceIdentifier(item.ownerFeatureId) } : {}),
       ...("version" in item ? { version: item.version } : {}),
       ...("outputSchemaVersion" in item ? { outputSchemaVersion: item.outputSchemaVersion } : {}),
       status: item.status,
@@ -127,7 +135,7 @@ export class CrossFeatureDataCoordinator {
       stages.push({ sequence: stages.length + 1, stage: "result", outcome: status });
       if (failures.some(item => item.status === "unavailable" || item.status === "pending")) await this.recordFailure("source_query", "source_query_failed", traceId);
       if (failures.some(item => item.status === "invalid")) await this.recordFailure("data_validation", "source_validation_failed", traceId);
-      const trace: CalculationTrace = Object.freeze({ schemaVersion: 1, traceId, outcome: status, stages: Object.freeze(stages), sources: Object.freeze(traceSources) });
+      const trace: CalculationTrace = Object.freeze({ schemaVersion: 1, traceId, outcome: status, stages: Object.freeze(stages.map(stage => Object.freeze(stage))), sources: Object.freeze(traceSources) });
       return Object.freeze({ status, reason, sources: collected, trace });
     };
     if (failures.length) return finishBlocked(failures.some(item => item.status === "invalid") ? "invalid" : "blocked", failures[0].reason);
@@ -146,7 +154,7 @@ export class CrossFeatureDataCoordinator {
         schemaVersion: 1, traceId, outcome: "calculated", stages: Object.freeze(stages),
         sources: Object.freeze(traceSources),
         calculation: Object.freeze({
-          calculationId: calculation.calculationId, ownerFeatureId: calculation.ownerFeatureId,
+          calculationId: safeTraceIdentifier(calculation.calculationId) ?? "unknown", ownerFeatureId: safeTraceIdentifier(calculation.ownerFeatureId) ?? "unknown",
           version: calculation.version, inputSchemaVersion: calculation.inputSchemaVersion,
           outputSchemaVersion: calculation.outputSchemaVersion, effectiveDate: calculation.effectiveDate,
         }),
