@@ -168,11 +168,11 @@ class NativeFinancePaymentBackupTest {
                     .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-prepayment-records"))
                 .put(JSONObject().put("id", paymentLedgerId).put("json", paymentRecord().json)
                     .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-payment-records"))
-            val ledger = JSONObject(valid.getJSONObject(2).getString("json"))
+            val ledger = JSONObject(valid.getJSONObject(3).getString("json"))
             val allocation = ledger.getJSONObject("data").getJSONArray("entries")
                 .getJSONObject(0).getJSONArray("allocations").getJSONObject(0)
             allocation.put("installmentNumber", 2)
-            valid.getJSONObject(2).put("json", ledger.toString())
+            valid.getJSONObject(3).put("json", ledger.toString())
             val failure = runCatching {
                 NativeBackupCoverage.validateBusinessRecords(valid, requireExplicitOwnerTags = true)
             }.exceptionOrNull()
