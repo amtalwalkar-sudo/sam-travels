@@ -16,10 +16,10 @@ Use `createRuntimeDiagnosticSnapshot(runtime)` from the core package to inspect 
 
 ## Change-impact preflight
 
-`analyzeFeatureContractImpact(previous, proposed)` is a pure deterministic dependency-closure report. It reports changed declarations and direct/transitive dependents using only explicitly declared dependency edges. It does not mutate declarations, execute migrations, activate features, or perform upgrades. Unknown relationships must remain unknown rather than inferred.
+`analyzeFeatureContractImpact(previous, proposed)` is a pure deterministic feature dependency-closure report. It reports changed declarations and direct/transitive dependents using only explicitly declared dependency edges. `analyzeFeatureExtensionUpgradeImpact(previous, next)` reports changes across extension identity, feature and persistence ownership, integrations, calculations, data queries and presentation contracts in one deterministic report. The upgrade validator also rejects silent removal of published data-query and presentation contracts. Neither report mutates declarations, executes migrations, activates features, or performs upgrades. Unknown relationships must remain unknown rather than inferred.
 
-The report is an impact aid, not a replacement for the authoritative extension-upgrade compatibility validator or transaction coordinator.
+These reports are impact aids, not replacements for the authoritative extension-upgrade compatibility validator or transaction coordinator.
 
 ## Completion gate
 
-Stage 5 is not complete until correlated source-to-calculation traces, browser and Android local-store schema integration, full contract-surface compatibility findings, privacy/retention enforcement, focused failure-injection tests, and Architecture/Web/Android/Integrated CI all pass on the pull request and merged main.
+Stage 5 is complete. PR #26 merged as `efe1abea10eb86491a644fa8b926746b6b344028`; PR run #907 and merged-main run #908 passed Architecture, the dedicated privacy/trace/platform/impact gate, Web regression/build, Android Gradle/unit/emulator reliability, and Integrated regression. The merged-main run published the release APK. Keep diagnostics local, bounded and best-effort; do not add remote upload or payload capture.
