@@ -3,7 +3,6 @@ import {
   getApplicationBusinessSettingsService,
   getApplicationRecordSource,
   getApplicationVehicleService,
-  type BusinessSettingsRecordV1,
   type VehicleRecordV1,
 } from "../../../../packages/application/src";
 import "./AdminWorkspace.css";
