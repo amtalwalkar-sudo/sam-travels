@@ -69,7 +69,7 @@ const initial: FeatureDefinition[] = [
     dependencies: [
       { id: "work", contractVersion: 1 },
       { id: "logbook", contractVersion: 1 },
-      { id: "finance", contractVersion: 1 },
+      { id: "finance", contractVersion: 2 },
     ],
   },
   { id: "admin", label: "Admin", dataPolicy: "non-persistent", contractVersion: 1, dependencies: [] },
