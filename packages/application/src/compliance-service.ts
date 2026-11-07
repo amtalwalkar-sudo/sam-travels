@@ -1,12 +1,32 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import {
-  assertComplianceRecordIdentity,
-  assertComplianceRecordV1,
-  complianceRecordId,
-  type ComplianceRecordV1,
-} from "../../features/compliance";
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+
+export type ComplianceRecordV1 = Readonly<{
+  schemaVersion: 1;
+  vehicleId: string;
+  complianceName: string;
+  validFrom: string;
+  validTo: string;
+  totalCostPaise: number;
+  supportingDocumentRef?: string;
+  renewedFromRecordId?: string;
+}>;
+export type ComplianceRecordValidator = (value: unknown) => asserts value is ComplianceRecordV1;
+
+const PREFIX = "feature:compliance:";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function recordId(uuid: string): string {
+  if (typeof uuid !== "string" || !UUID.test(uuid)) throw new Error("compliance_record_uuid_invalid");
+  return PREFIX + uuid.toLowerCase();
+}
+function assertRecordId(id: string): void {
+  if (typeof id !== "string" || !id.startsWith(PREFIX) ||
+      recordId(id.slice(PREFIX.length)) !== id) {
+    throw new Error("compliance_record_identity_invalid");
+  }
+}
 
 /**
  * Compliance owns vehicle legal-coverage records. A renewal is a new immutable
@@ -15,11 +35,15 @@ import { FeatureRecordService, type FeatureRecordSource } from "./feature-record
 export class ComplianceService {
   private readonly records: FeatureRecordService<ComplianceRecordV1>;
 
-  constructor(repository: AtomicRecordRepository, now?: () => string) {
+  constructor(
+    repository: AtomicRecordRepository,
+    validate: ComplianceRecordValidator,
+    now?: () => string,
+  ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "compliance",
-      recordIdPrefix: "feature:compliance:",
-      validate: assertComplianceRecordV1,
+      recordIdPrefix: PREFIX,
+      validate,
     }, now);
   }
 
@@ -29,9 +53,9 @@ export class ComplianceService {
     source: FeatureRecordSource;
     businessDate?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
-    const id = complianceRecordId(input.uuid);
+    const id = recordId(input.uuid);
     if (input.data.renewedFromRecordId) {
-      assertComplianceRecordIdentity(input.data.renewedFromRecordId);
+      assertRecordId(input.data.renewedFromRecordId);
       const previous = await this.records.get(input.data.renewedFromRecordId);
       if (!previous) throw new Error("compliance_renewal_source_not_found");
       if (previous.data.vehicleId !== input.data.vehicleId ||
@@ -43,27 +67,20 @@ export class ComplianceService {
       }
     }
     return this.records.create({
-      id,
-      data: input.data,
-      source: input.source,
-      businessDate: input.businessDate,
+      id, data: input.data, source: input.source, businessDate: input.businessDate,
     });
   }
 
   async get(id: string): Promise<RecordEnvelope<ComplianceRecordV1> | undefined> {
-    assertComplianceRecordIdentity(id);
-    const record = await this.records.get(id);
-    if (record && record.id !== complianceRecordId(id.slice("feature:compliance:".length))) {
-      throw new Error("compliance_record_identity_mismatch");
-    }
-    return record;
+    assertRecordId(id);
+    return this.records.get(id);
   }
 
   async list(): Promise<Array<RecordEnvelope<ComplianceRecordV1>>> {
     const records = await this.records.list();
     const byId = new Map(records.map(record => [record.id, record]));
     for (const record of records) {
-      assertComplianceRecordIdentity(record.id);
+      assertRecordId(record.id);
       if (record.data.renewedFromRecordId) {
         const previous = byId.get(record.data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
