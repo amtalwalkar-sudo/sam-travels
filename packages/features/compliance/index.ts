@@ -17,3 +17,9 @@ export type {
   ComplianceRecordRef,
   PaiseFraction,
 } from "./analysis";
+export { ComplianceService } from "../../application/src/compliance-service";
+export {
+  createApplicationComplianceService,
+  getApplicationComplianceService,
+  initializeApplicationComplianceService,
+} from "../../application/src/compliance-runtime";
