@@ -30,7 +30,16 @@ const second = {
 };
 
 function setup(repository = new MemoryRepository()) {
-  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1) };
+  const vehicles = {
+    async getById(id: string) {
+      return id === first.vehicleId ? {
+        id, schemaVersion: 1, createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z", source: "web" as const,
+        revision: 1, data: { lifecycleState: "active" },
+      } : undefined;
+    },
+  };
+  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1, vehicles) };
 }
 
 describe("ComplianceService", () => {
@@ -48,6 +57,14 @@ describe("ComplianceService", () => {
     expect(renewal).toMatchObject({ revision: 1, data: { renewedFromRecordId: previous.id } });
     expect(await service.list()).toHaveLength(2);
     expect((await service.get(previous.id))?.data.validTo).toBe("2024-12-31");
+  });
+
+  it("rejects records for an unknown vehicle", async () => {
+    const { service } = setup();
+    await expect(service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174010",
+      data: { ...first, vehicleId: "feature:vehicle:UNKNOWN" }, source: "web",
+    })).rejects.toThrow("compliance_vehicle_not_found");
   });
 
   it("rejects renewals without a matching, earlier predecessor", async () => {
