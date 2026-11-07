@@ -1,20 +1,11 @@
 import { DRIVER_EVENT_TYPES, type DriverStateProjection, type DriverTransitionCommand, type DriverEventType, type DriverWorkflowState } from "../../core/src/commands";
 import type { GpsFix } from "../../core/src/types";
 import { validateGpsFix } from "../../core/src/gps";
+import { assertDriverContextV1, type DriverContextV1 } from "./work-driver-context";
+export type { DriverContextV1 } from "./work-driver-context";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
 export type DriverIntent = { command: DriverTransitionCommand; status: DriverIntentStatus; createdAt: string; updatedAt: string; reason?: string };
-export type DriverContextV1 = Readonly<{ schemaVersion: 1; driverId: string; assignmentId: string; vehicleId: string }>;
 export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number; driverContext?: DriverContextV1 };
-export function assertDriverContextV1(value: unknown): asserts value is DriverContextV1 {
- if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_context");
- const context = value as Record<string, unknown>;
- const keys = Object.keys(context).sort();
- if (keys.join(",") !== "assignmentId,driverId,schemaVersion,vehicleId" || context.schemaVersion !== 1 ||
-     typeof context.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(context.driverId) ||
-     typeof context.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(context.assignmentId) ||
-     typeof context.vehicleId !== "string" || !context.vehicleId.startsWith("feature:vehicle:") ||
-     context.vehicleId.trim() !== context.vehicleId) throw new Error("invalid_driver_context");
-}
 export type DriverTransitionError = "invalid_command" | "stale_revision" | "invalid_transition" | "duplicate_command" | "gps_required" | "gps_invalid" | "intent_missing";
 export type DriverResult<T> = { ok: true; value: T } | { ok: false; error: DriverTransitionError };
 export const GPS_RECOVERY_WINDOW_MS = 30_000;

@@ -107,6 +107,50 @@ object DriverWorkflowStore {
         return result ?: error("intent_enqueue_failed")
     }
 
+    private fun resolveDriverContext(db: LocalDatabase): JSONObject {
+        val selectedRow = db.records().get("work:selected-driver") ?: error("work_driver_not_selected")
+        val selectedEnvelope = JSONObject(selectedRow.json)
+        val selected = selectedEnvelope.optJSONObject("data") ?: error("work_selected_driver_invalid")
+        require(selected.keys().asSequence().toSet() == setOf("schemaVersion", "driverId") &&
+            selected.optInt("schemaVersion", -1) == 1 &&
+            selected.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+            "work_selected_driver_invalid"
+        }
+        val driverId = selected.getString("driverId")
+        val rows = db.records().list().associateBy { it.id }
+        val driverRow = rows["feature:driver-records:driver:$driverId"] ?: error("driver_not_active")
+        val driverData = JSONObject(driverRow.json).optJSONObject("data") ?: error("driver_not_active")
+        require(driverData.optInt("schemaVersion", -1) == 1 &&
+            driverData.optString("driverId") == driverId &&
+            driverData.optString("name").isNotBlank() &&
+            driverData.optString("lifecycleState") == "active") { "driver_not_active" }
+
+        val historyRow = rows["feature:driver-records:assignment:$driverId"] ?: error("driver_assignment_missing")
+        val history = JSONObject(historyRow.json).optJSONObject("data") ?: error("driver_assignment_missing")
+        require(history.optInt("schemaVersion", -1) == 1 && history.optString("driverId") == driverId) {
+            "driver_assignment_history_invalid"
+        }
+        val assignments = history.optJSONArray("assignments") ?: error("driver_assignment_history_invalid")
+        val active = (0 until assignments.length()).map { assignments.getJSONObject(it) }
+            .filter { !it.has("unassignedAt") }
+        require(active.size == 1) {
+            if (active.isEmpty()) "driver_assignment_missing" else "driver_multiple_active_assignments"
+        }
+        val assignment = active.single()
+        val assignmentId = assignment.optString("assignmentId")
+        val vehicleId = assignment.optString("vehicleId")
+        require(assignmentId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "driver_assignment_invalid" }
+        val vehicleRow = rows[vehicleId] ?: error("vehicle_not_active")
+        val vehicleData = JSONObject(vehicleRow.json).optJSONObject("data") ?: error("vehicle_not_active")
+        require(vehicleData.optInt("schemaVersion", -1) == 1 &&
+            vehicleData.optString("lifecycleState") == "active" &&
+            vehicleId == "feature:vehicle:" + vehicleData.optString("registrationNumber")) {
+            "vehicle_not_active"
+        }
+        return JSONObject().put("schemaVersion", 1).put("driverId", driverId)
+            .put("assignmentId", assignmentId).put("vehicleId", vehicleId)
+    }
+
     fun complete(db: LocalDatabase, eventId: String, gps: JSONObject): JSONObject {
         var committed: JSONObject? = null
         db.runInTransaction {
@@ -172,6 +216,7 @@ object DriverWorkflowStore {
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
+            if (eventType == "trip_start") eventRecord.put("driverContext", resolveDriverContext(db))
             DriverWorkflowContract.validateEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 

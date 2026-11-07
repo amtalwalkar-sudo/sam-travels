@@ -75,6 +75,14 @@ internal object NativeBackupCoverage {
             val id = row.optString("id")
             val payload = JSONObject(row.getString("json"))
             when {
+                id == "work:selected-driver" -> {
+                    val data = payload.optJSONObject("data") ?: error("work_selected_driver_invalid")
+                    require(data.keys().asSequence().toSet() == setOf("schemaVersion", "driverId") &&
+                        data.optInt("schemaVersion", -1) == 1 &&
+                        data.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) {
+                        "work_selected_driver_invalid"
+                    }
+                }
                 id == "driver-state" -> DriverWorkflowContract.validateState(payload.optJSONObject("value") ?: error("invalid_driver_state"))
                 id == "driver-intent:" + payload.optJSONObject("command")?.optString("eventId") -> DriverWorkflowContract.validateIntent(payload)
                 id.startsWith("driver-outbox:") -> {
@@ -96,7 +104,7 @@ internal object NativeBackupCoverage {
     }
 
     private fun isWorkRecord(id: String): Boolean =
-        id == "driver-state" || id == "legacy-driver-state" ||
+        id == "driver-state" || id == "work:selected-driver" || id == "legacy-driver-state" ||
             id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")
 
     private fun isInternalRecord(id: String): Boolean =
