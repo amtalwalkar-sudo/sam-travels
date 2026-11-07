@@ -204,7 +204,18 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
       items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
-    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(currentParticipantManifest()))) {
+    const hasBusinessSettingsRecord = data.records.some(row =>
+      !!row && typeof row === "object" &&
+      String((row as { id?: unknown }).id ?? "").startsWith("feature:business-settings:"),
+    );
+    const expectedParticipants = currentParticipantManifest();
+    const incomingHasBusinessSettings = manifest.participants.some(item => item.id === "business-settings-records");
+    // Backups created before Business Settings became persistent remain restorable
+    // when they contain no record owned by that newly introduced participant.
+    const compatibleExpected = !incomingHasBusinessSettings && !hasBusinessSettingsRecord
+      ? expectedParticipants.filter(item => item.id !== "business-settings-records")
+      : expectedParticipants;
+    if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(compatibleExpected))) {
       throw new Error("backup_participant_manifest_mismatch");
     }
   }
