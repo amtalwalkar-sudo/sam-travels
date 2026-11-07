@@ -61,6 +61,20 @@ describe("FinanceLoanPaymentService", () => {
     expect(proposeFinancePaymentAllocationV1(loanData, [], 1, "2026-11-08", 25000))
       .toEqual([{ installmentNumber: 1, amountPaise: 10000 }]);
   });
+  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
+    const repo = new MemoryRepository();
+    void repo.put(loanEnvelope);
+    const service = new FinanceLoanPaymentService(repo,
+      { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
+      () => "2026-12-20T10:00:00.000Z",
+      {
+        async getScheduleRows() { return [{ installmentNumber: 1, dueDate: "2027-01-01", installmentAmountPaise: 9000 }]; },
+        async getScheduleVersionForDate(_id, businessDate) { return businessDate >= "2026-12-15" ? 2 : 1; },
+      });
+    await expect(service.record({ ...base, id: "payment-old-schedule", commandId: "old-schedule-command",
+      businessDate: "2026-12-20", scheduleVersion: 1, amountPaise: 1000, allocations: [] }))
+      .rejects.toThrow("finance_payment_schedule_version_not_effective_for_date");
+  });
   it("supports partial EMI coverage and retains excess as explicit unallocated credit", async () => {
     const { repo, service } = setup();
     const first = await service.record({ ...base, id: "payment-1", commandId: "command-1",
