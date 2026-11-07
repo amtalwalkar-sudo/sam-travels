@@ -32,19 +32,25 @@ export type GeneralMaintenanceExpenseV1 = Readonly<{
   provider?: string;
 }>;
 
-export type MaintenanceRateV1 = Readonly<{
-  schemaVersion: 1;
-  kind: "rate";
-  vehicleId: string;
+export type MaintenanceRateEntryV1 = Readonly<{
   effectiveFrom: string;
   ratePaisePerKm: number;
-  previousRateRecordId?: string;
+  savedAt: string;
+  isDefault: boolean;
+  source?: "web" | "android" | "import" | "integration";
+}>;
+
+export type MaintenanceRateHistoryV1 = Readonly<{
+  schemaVersion: 1;
+  kind: "rate_history";
+  vehicleId: string;
+  entries: readonly MaintenanceRateEntryV1[];
 }>;
 
 export type MaintenanceRecordV1 =
   | MaintenanceVisitV1
   | GeneralMaintenanceExpenseV1
-  | MaintenanceRateV1;
+  | MaintenanceRateHistoryV1;
 
 export const MAINTENANCE_RECORD_ID_PREFIX = "feature:maintenance:";
 export const MAINTENANCE_VISIT_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "visit:";
@@ -64,10 +70,24 @@ export function maintenanceRecordId(kind: "visit" | "expense" | "rate", uuid: st
 
 export function assertMaintenanceRecordIdentity(id: string): void {
   if (typeof id !== "string") throw new Error("maintenance_record_identity_invalid");
-  const match = /^(feature:maintenance:(?:visit|expense|rate):)(.+)$/.exec(id);
-  if (!match || !UUID.test(match[2]) || id !== match[1] + match[2].toLowerCase()) {
-    throw new Error("maintenance_record_identity_invalid");
+  const match = /^(feature:maintenance:(?:visit|expense):)(.+)$/.exec(id);
+  if (match) {
+    if (!UUID.test(match[2]) || id !== match[1] + match[2].toLowerCase()) {
+      throw new Error("maintenance_record_identity_invalid");
+    }
+    return;
   }
+  if (id.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
+    try {
+      const vehicleId = decodeURIComponent(id.slice(MAINTENANCE_RATE_ID_PREFIX.length));
+      if (encodeURIComponent(vehicleId) !== id.slice(MAINTENANCE_RATE_ID_PREFIX.length) ||
+          !VEHICLE_ID.test(vehicleId)) throw new Error();
+      return;
+    } catch {
+      throw new Error("maintenance_record_identity_invalid");
+    }
+  }
+  throw new Error("maintenance_record_identity_invalid");
 }
 
 export function isMaintenanceDate(value: unknown): value is string {
@@ -152,20 +172,43 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
     return;
   }
 
-  if (record.kind === "rate") {
-    const required = ["schemaVersion", "kind", "vehicleId", "effectiveFrom", "ratePaisePerKm"];
-    const optional = ["previousRateRecordId"];
-    if (!hasExactKeys(record, required, optional) ||
-        !isMaintenanceDate(record.effectiveFrom) || !validMoney(record.ratePaisePerKm)) {
-      throw new Error("maintenance_rate_invalid");
+  if (record.kind === "rate_history") {
+    if (!hasExactKeys(record, ["schemaVersion", "kind", "vehicleId", "entries"], []) ||
+        !Array.isArray(record.entries) || record.entries.length === 0) {
+      throw new Error("maintenance_rate_history_invalid");
     }
-    if (record.previousRateRecordId !== undefined) {
-      const previousId = record.previousRateRecordId;
-      if (typeof previousId !== "string" || !previousId.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
-        throw new Error("maintenance_rate_predecessor_invalid");
+    const entries = record.entries as unknown[];
+    let previousDate = "";
+    let previousSavedAt = "";
+    entries.forEach((entry, index) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        throw new Error("maintenance_rate_entry_invalid");
       }
-      assertMaintenanceRecordIdentity(previousId);
-    }
+      const item = entry as Record<string, unknown>;
+      const required = ["effectiveFrom", "ratePaisePerKm", "savedAt", "isDefault"];
+      const optional = ["source"];
+      if (!hasExactKeys(item, required, optional) ||
+          !isMaintenanceDate(item.effectiveFrom) || !validMoney(item.ratePaisePerKm) ||
+          typeof item.savedAt !== "string" || !Number.isFinite(Date.parse(item.savedAt)) ||
+          typeof item.isDefault !== "boolean" ||
+          (item.source !== undefined && !["web", "android", "import", "integration"].includes(String(item.source)))) {
+        throw new Error("maintenance_rate_entry_invalid");
+      }
+      if (index === 0) {
+        if (item.isDefault !== true || item.ratePaisePerKm !== DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM ||
+            item.source !== undefined) throw new Error("maintenance_default_rate_invalid");
+      } else if (item.isDefault !== false || item.source === undefined) {
+        throw new Error("maintenance_rate_entry_invalid");
+      }
+      const effectiveFrom = item.effectiveFrom as string;
+      const savedAt = item.savedAt as string;
+      if (effectiveFrom < previousDate ||
+          (effectiveFrom === previousDate && savedAt < previousSavedAt)) {
+        throw new Error("maintenance_rate_history_order_invalid");
+      }
+      previousDate = effectiveFrom;
+      previousSavedAt = savedAt;
+    });
     return;
   }
 
