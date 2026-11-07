@@ -14,3 +14,5 @@ export * from "./business-settings-service";
 export * from "./business-settings-runtime";
 export * from "./vehicle-service";
 export * from "./vehicle-runtime";
+export * from "./driver-records-service";
+export * from "./driver-records-runtime";
