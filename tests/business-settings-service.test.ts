@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
+import { assertBusinessSettingsRecordV1 } from "../packages/features/business-settings";
 import {
   BUSINESS_SETTINGS_RECORD_ID,
   BusinessSettingsService,
@@ -24,7 +25,7 @@ describe("BusinessSettingsService", () => {
   it("uses one stable business-wide record and updates it by revision", async () => {
     const repository = new MemoryRepository();
     let tick = 0;
-    const service = new BusinessSettingsService(repository, () => `2026-11-07T00:00:0${tick++}.000Z`);
+    const service = new BusinessSettingsService(repository, assertBusinessSettingsRecordV1, () => `2026-11-07T00:00:0${tick++}.000Z`);
     expect(await service.get()).toBeUndefined();
 
     const created = await service.setBusinessStartDate("2020-01-15", "web");
@@ -47,7 +48,7 @@ describe("BusinessSettingsService", () => {
 
   it("rejects invalid calendar dates without writing", async () => {
     const repository = new MemoryRepository();
-    const service = new BusinessSettingsService(repository);
+    const service = new BusinessSettingsService(repository, assertBusinessSettingsRecordV1);
     await expect(service.setBusinessStartDate("2025-02-29", "web")).rejects.toThrow("business_settings_record_invalid");
     expect(await repository.list()).toHaveLength(0);
   });
