@@ -211,17 +211,20 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   if (manifest.participants) {
     const canonical = (items: NonNullable<SnapshotManifest["participants"]>) =>
       items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
-    const hasBusinessSettingsRecord = data.records.some(row =>
-      !!row && typeof row === "object" &&
-      String((row as { id?: unknown }).id ?? "").startsWith("feature:business-settings:"),
-    );
     const expectedParticipants = currentParticipantManifest();
-    const incomingHasBusinessSettings = manifest.participants.some(item => item.id === "business-settings-records");
-    // Backups created before Business Settings became persistent remain restorable
-    // when they contain no record owned by that newly introduced participant.
-    const compatibleExpected = !incomingHasBusinessSettings && !hasBusinessSettingsRecord
-      ? expectedParticipants.filter(item => item.id !== "business-settings-records")
-      : expectedParticipants;
+    const incomingIds = new Set(manifest.participants.map(item => item.id));
+    const newlyIntroduced = [
+      { id: "business-settings-records", prefix: "feature:business-settings:" },
+      { id: "compliance-records", prefix: "feature:compliance:" },
+    ];
+    // Older snapshots may omit a newly introduced participant only when they
+    // contain no records owned by that participant.
+    const safelyOmitted = new Set(newlyIntroduced
+      .filter(participant => !incomingIds.has(participant.id) &&
+        !data.records.some(row => !!row && typeof row === "object" &&
+          String((row as { id?: unknown }).id ?? "").startsWith(participant.prefix)))
+      .map(participant => participant.id));
+    const compatibleExpected = expectedParticipants.filter(item => !safelyOmitted.has(item.id));
     if (JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(compatibleExpected))) {
       throw new Error("backup_participant_manifest_mismatch");
     }
