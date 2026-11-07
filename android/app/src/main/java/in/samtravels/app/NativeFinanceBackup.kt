@@ -340,7 +340,7 @@ internal object NativeFinanceBackup {
             }
             val revisions = data.getJSONArray("revisions")
             require(revisions.length() > 0 &&
-                integer(data, "currentScheduleVersion", 1) == baseVersion + revisions.length()) {
+                integer(data, "currentScheduleVersion", 1) == (baseVersion + revisions.length()).toLong()) {
                 "finance_loan_prepayment_schedule_history_invalid"
             }
             val commands = mutableSetOf<String>()
@@ -452,17 +452,22 @@ internal object NativeFinanceBackup {
                 recordIdPrefix = PAYMENT_PREFIX,
                 validateRelationships = ::validatePaymentRecords,
             )
-            val prepayments = NativeBackupCoverage.registerFeatureRecordParticipant(
-                id = PREPAYMENT_PARTICIPANT_ID,
-                featureId = FEATURE_ID,
-                snapshotVersion = 1,
-                recordIdPrefix = PREPAYMENT_PREFIX,
-                validateRelationships = ::validatePrepaymentRecords,
-            )
-            return AutoCloseable {
-                prepayments.close()
+            try {
+                val prepayments = NativeBackupCoverage.registerFeatureRecordParticipant(
+                    id = PREPAYMENT_PARTICIPANT_ID,
+                    featureId = FEATURE_ID,
+                    snapshotVersion = 1,
+                    recordIdPrefix = PREPAYMENT_PREFIX,
+                    validateRelationships = ::validatePrepaymentRecords,
+                )
+                return AutoCloseable {
+                    prepayments.close()
+                    payments.close()
+                    loans.close()
+                }
+            } catch (error: Throwable) {
                 payments.close()
-                loans.close()
+                throw error
             }
         } catch (error: Throwable) {
             loans.close()
