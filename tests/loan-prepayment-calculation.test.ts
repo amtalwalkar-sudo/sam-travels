@@ -12,12 +12,10 @@ describe("Finance loan prepayment re-amortization v1", () => {
     const result = calculateLoanPrepaymentReamortizationV1({
       baselinePrincipalPaise: 10_000_000, principalPaise: 9_000_000,
       annualInterestRateBasisPoints: 1200, regularEmiPaise: baselineEmi,
-      remainingDueDates: dates.slice(0, 12).concat(
-        Array.from({ length: 8 }, (_, index) => {
-          const month = index + 6;
-          return "2026-" + String(month).padStart(2, "0") + "-01";
-        }),
-      ), mode: "reduce_tenure",
+      remainingDueDates: Array.from({ length: 20 }, (_, index) => {
+        const date = new Date(Date.UTC(2026, 1 + index, 1));
+        return date.toISOString().slice(0, 10);
+      }), mode: "reduce_tenure",
     });
     expect(result.regularEmiPaise).toBe(baselineEmi);
     expect(result.remainingInstallmentCount).toBeLessThan(20);
