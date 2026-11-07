@@ -24,7 +24,7 @@ function activePayments(entries: readonly FinancePaymentEntryV1[]) {
   return entries.filter((entry): entry is Extract<FinancePaymentEntryV1, {kind:"payment"}> => entry.kind === "payment" && !reversed.has(entry.id));
 }
 
-export function LoanPaymentsPanel({ loan }: { loan: LoanEnvelope }) {
+export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {
   const [entries, setEntries] = useState<readonly FinancePaymentEntryV1[]>([]);
   const [schedules, setSchedules] = useState<readonly ScheduleView[]>([]);
   const [prepayments, setPrepayments] = useState<readonly FinanceLoanPrepaymentRevisionV1[]>([]);
@@ -134,6 +134,7 @@ export function LoanPaymentsPanel({ loan }: { loan: LoanEnvelope }) {
       setPrepaymentPreview(null); setPrepaymentAmount(""); setPrepaymentOpen(false);
       setMessage("Principal prepayment and revised schedule committed atomically.");
       await refresh();
+      onChanged?.();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prepayment could not be committed."); }
     finally { setBusy(false); }
   }
