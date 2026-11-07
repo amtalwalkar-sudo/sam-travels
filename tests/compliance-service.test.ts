@@ -32,7 +32,7 @@ const second = {
 function setup(repository = new MemoryRepository()) {
   const vehicles = {
     async getById(id: string) {
-      return id === first.vehicleId ? {
+      return [first.vehicleId, "feature:vehicle:MH02CD5678"].includes(id) ? {
         id, schemaVersion: 1, createdAt: "2024-01-01T00:00:00.000Z",
         updatedAt: "2024-01-01T00:00:00.000Z", source: "web" as const,
         revision: 1, data: { lifecycleState: "active" },
