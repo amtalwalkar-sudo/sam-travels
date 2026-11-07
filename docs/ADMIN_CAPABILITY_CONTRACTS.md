@@ -168,6 +168,15 @@ The exact `Expiring soon` threshold and reminder delivery mechanism must follow 
 
 **Calculation boundary:** use the merged Finance Calculation Contract v1 unchanged. Keep scheduled EMI separate from actual payments. Store the calculation ID/version, input/output schema versions, effective date, and the source inputs needed to explain the original schedule.
 
+**Immutable schedule revision policy:**
+- Every accepted loan-details revision that changes any calculation input (principal, fixed annual rate, loan start date, tenure, or first EMI date) creates a new immutable schedule version using the exact registered calculation version.
+- A schedule version stores its own immutable input snapshot, calculation ID/version, input/output schema versions, effective date, complete calculated output, and creation provenance. It must be possible to explain and reproduce the historical schedule without reading the current loan details.
+- The prior schedule version and its input snapshot are retained unchanged. Editing a loan never updates, deletes, or retroactively recalculates an earlier schedule.
+- The loan projection identifies one current schedule version and exposes earlier versions as read-only history. Version identity and ordering are stable; retries of the same accepted edit must not create duplicate versions.
+- A non-calculation detail edit does not create a new EMI schedule version. A calculation-input edit creates the new schedule and updates the current-version pointer atomically with the loan revision; failure leaves the prior loan revision and schedule current.
+- Historical schedule versions are calculations only, not evidence of payment. They must not infer, create, reallocate, or change actual payment records.
+- This policy governs original schedule revisions only. It does not authorize payment, prepayment, re-amortization, settlement, or closure workflows; those remain gated by their separate Finance contracts below.
+
 **Explicitly gated workflows:** payment writes/allocation (including partial/overpayment, reversal/correction, duplicates, and payment-to-EMI allocation); prepayment allocation and reduce-tenure/reduce-EMI re-amortization; early-settlement quote and closure transitions. Each requires its own Finance-owned lifecycle/calculation contract and tests before the corresponding command or UI action is enabled. The presence of fields/actions in the product specification is not permission to invent those semantics.
 
 ### 3.6 Maintenance — `maintenance`
