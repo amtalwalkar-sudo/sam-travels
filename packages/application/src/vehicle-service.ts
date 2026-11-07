@@ -50,6 +50,13 @@ export class VehicleService {
     }
   }
 
+  async getById(id: string): Promise<RecordEnvelope<VehicleRecordV1> | undefined> {
+    if (!id.startsWith(VEHICLE_RECORD_ID_PREFIX)) throw new Error("vehicle_record_identity_invalid");
+    const record = await this.records.get(id);
+    if (record) this.assertIdentity(record);
+    return record;
+  }
+
   async getByRegistrationNumber(registrationNumber: string): Promise<RecordEnvelope<VehicleRecordV1> | undefined> {
     const record = await this.records.get(vehicleRecordId(registrationNumber));
     if (record) this.assertIdentity(record);

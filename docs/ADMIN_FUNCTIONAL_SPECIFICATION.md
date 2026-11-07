@@ -124,6 +124,8 @@ Historical records in Finance, Compliance, Maintenance, and other applicable for
 - Admin may reassign a driver to another vehicle.
 - Reassignment closes the prior assignment and creates/activates the new assignment; it must not overwrite the historical assignment.
 - Retain assignment history, including the relevant vehicle and assignment period.
+- Work uses one explicitly selected active Driver at a time. A new trip must capture that Driver and the Driver’s active vehicle assignment as immutable trip-time context.
+- Changing the selected Driver or reassigning a Driver later must not rewrite previously recorded trips. A new trip cannot begin without an active selected Driver and a valid active vehicle assignment.
 - Reassignment must not alter or delete historical trips, payments, or other records already associated with their original driver/vehicle context.
 - Inactive drivers retain their records and assignment history.
 - The rule does not imply that a vehicle can have only one driver over its entire lifetime; successive assignments are retained.

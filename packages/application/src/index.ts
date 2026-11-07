@@ -16,3 +16,6 @@ export * from "./vehicle-service";
 export * from "./vehicle-runtime";
 export * from "./driver-records-service";
 export * from "./driver-records-runtime";
+
+export * from "./driver-assignment-service";
+export * from "./driver-assignment-runtime";

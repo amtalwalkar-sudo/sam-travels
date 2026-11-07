@@ -34,6 +34,23 @@ describe("Driver Records browser backup participant", () => {
     expect(snapshot.data.records).toHaveLength(1);
   });
 
+  it("backs up assignment history under the Driver feature participant", async () => {
+    const timestamp = "2026-11-07T00:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "feature:driver-records:assignment:driver-001", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId: "driver-001", assignments: [
+        { assignmentId: "assignment-1", vehicleId: "feature:vehicle:MH01AB1234", assignedAt: timestamp },
+      ] },
+    });
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    expect(snapshot.manifest.participants).toContainEqual({
+      id: "driver-records", featureId: "driver-records", snapshotVersion: 1,
+      restoreValidatorId: "driver-records-v1",
+    });
+    expect(snapshot.data.records).toHaveLength(1);
+  });
+
   it("rejects mismatched record identity before export", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
     await browserDatabase.records.put({

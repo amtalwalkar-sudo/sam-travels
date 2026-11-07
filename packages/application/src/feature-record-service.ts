@@ -26,7 +26,7 @@ export class FeatureRecordService<Data> {
   ) {
     const expectedPrefix = "feature:" + definition.featureId + ":";
     if (!definition.featureId?.trim() ||
-        definition.recordIdPrefix !== expectedPrefix ||
+        (definition.recordIdPrefix !== expectedPrefix && !definition.recordIdPrefix.startsWith(expectedPrefix)) ||
         typeof definition.validate !== "function") {
       throw new Error("feature_record_definition_invalid");
     }
