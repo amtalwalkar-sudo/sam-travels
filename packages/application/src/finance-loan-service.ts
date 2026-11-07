@@ -28,7 +28,7 @@ export type FinanceLoanScheduleVersionV1 = Readonly<{
     loanStartDate: string;
     firstEmiDate: string;
   }>;
-  output: Readonly<Record<string, unknown>>;
+  output: unknown;
 }>;
 export type FinanceLoanRecordV1 = Readonly<{
   schemaVersion: 1;
