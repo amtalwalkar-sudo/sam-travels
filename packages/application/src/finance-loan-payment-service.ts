@@ -148,7 +148,7 @@ export class FinanceLoanPaymentService {
       const createdAt = this.now();
       const allocations = input.allocations.map((allocation, index) => {
         const row = rows.find(item => item.installmentNumber === allocation.installmentNumber);
-        if (!row || row.dueDate > input.businessDate || seen.has(row.installmentNumber ||
+        if (!row || row.dueDate > input.businessDate || seen.has(row.installmentNumber) ||
             !Number.isSafeInteger(allocation.amountPaise) || allocation.amountPaise <= 0) {
           throw new Error("finance_payment_allocation_invalid");
         }
