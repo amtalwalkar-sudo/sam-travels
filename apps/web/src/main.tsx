@@ -27,7 +27,6 @@ async function bootstrap(): Promise<void> {
   registerDriverRecordsBrowserBackupParticipant();
   const repository = await createPlatformRepository();
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
-  initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   createApplicationDriverAssignmentService(repository, driverRecords, vehicles);
