@@ -19,6 +19,8 @@ jobs:
       - run: npm install
       - name: Enforce architecture boundaries
         run: npm run check:architecture
+      - name: Enforce Stage 5 privacy, trace, platform and impact contracts
+        run: npm run check:stage5
   web:
     runs-on: ubuntu-latest
     steps:

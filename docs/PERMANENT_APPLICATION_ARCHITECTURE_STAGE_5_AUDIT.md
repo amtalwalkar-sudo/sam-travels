@@ -1,6 +1,6 @@
 # Permanent Application Architecture — Stage 5 Diagnostics and Change-Impact Audit
 
-**Status:** Source audit complete; findings prepared for review before Stage 5 implementation.
+**Status:** Source audit complete; Stage 5 implementation is in progress on `feat/stage-5-diagnostics-impact-complete`.
 **Baseline:** `main` at `fed3f6c240b1a60af7a329068014a80e6c7ad6ad` (Stage 4 merged and verified).
 **Scope:** Feature registration/activation diagnostics, dependency and compatibility visibility, registered capability inventory, data-to-result execution traces, privacy-safe failure records, contract change-impact analysis, and developer/reference documentation.
 **Non-scope:** New business features, replacement registries, new lifecycle/persistence/backup/recovery systems, remote telemetry, generic observability vendors, universal event bus, or a formula/automation engine.
@@ -79,3 +79,14 @@ Slices remain additive and should be independently testable. If an existing cont
 ## 7. Review checkpoint
 
 This audit classifies current capabilities and identifies the additive gaps for Stage 5. Review the proposed 5A–5E slices and safeguards before implementation. The intended result is better developer visibility and safer change planning—not more runtime complexity for ordinary feature authors.
+
+## 9. Implementation update
+
+The implementation branch now adds:
+- A versioned, allowlisted core diagnostic event contract and safe runtime snapshot projection.
+- Correlated source-query, data-validation, calculation and result trace metadata. Trace records omit source rows, calculation values and snapshot tokens; diagnostic writes are best-effort.
+- Browser Dexie diagnostic schema version 6 with bounded shared-event persistence, and an Android local event adapter plus Capacitor recording method. Both remain local-only and bounded.
+- A deterministic feature dependency impact report and an extension-upgrade surface report covering persistence, integrations, calculations, data queries and presentation screens. Upgrade preflight now also rejects silent removal of query and presentation contracts.
+- A dedicated architecture CI check for privacy, trace shape, platform adapters, compatibility coverage and documentation, plus focused tests.
+
+This update is not a completion declaration. Android build/instrumentation and all PR gates must pass, followed by merge and a green merged-main run. The existing authoritative upgrade transaction coordinator and persistence/backup/restore recovery paths remain in place; impact analysis is a read-only preflight aid.

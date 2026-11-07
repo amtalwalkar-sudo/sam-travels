@@ -6,6 +6,17 @@ import com.getcapacitor.annotation.CapacitorPlugin
 @CapacitorPlugin(name = "LocalDiagnostics")
 class DiagnosticsPlugin : Plugin() {
     @PluginMethod
+    fun recordDiagnosticEvent(call: PluginCall) {
+        try {
+            LocalDiagnostics.recordEvent(context, call.data)
+            call.resolve()
+        } catch (_: Exception) {
+            // Recording is best-effort; never reject a business operation.
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
     fun exportLocalDiagnostics(call: PluginCall) {
         try {
             val out = JSObject()

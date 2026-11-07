@@ -12,7 +12,7 @@
 | Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | **Complete** | PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main CI run #881 passed Architecture, Web, Android and Integrated regression. Clean-slate shell, four fixed bottom destinations, expandable Settings and unrestricted owner-scoped custom screens are in main. |
-| Stage 5 — Diagnostics and change impact | **Audit complete; review checkpoint** | Source audit in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md). Existing activation diagnostics, Stage 3 provenance, local browser/Android diagnostics and upgrade preflight are retained; gaps and 5A–5E implementation slices are documented. Implementation awaits review of the audit findings. |
+| Stage 5 — Diagnostics and change impact | **In progress — implementation and CI gates on branch** | Branch `feat/stage-5-diagnostics-impact-complete` now includes versioned safe events, a read-only runtime projection, correlated source-to-calculation traces, browser and Android local event adapters, deterministic dependency impact analysis, extension-upgrade impact reports across persistence/integration/calculation/query/presentation surfaces, focused tests, and a dedicated privacy/impact architecture gate. Cross-platform CI and merged-main verification remain outstanding. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
 
 ## Stage 1 — Scope
@@ -167,11 +167,11 @@ Complete one stage at a time. Each stage must have a focused implementation, tes
 
 Stage 4 is complete and merged to main. PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`; merged-main CI run [#881](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42314701276) passed Architecture, Web, Android and Integrated regression on that exact commit. The current main branch has since advanced to `fed3f6c240b1a60af7a329068014a80e6c7ad6ad` with a successful CI run.
 
-### Stage 5 audit — complete; review checkpoint
+### Stage 5 audit — complete; implementation underway
 
 - Audit: [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md).
 - Confirmed existing foundations: deterministic feature activation diagnostics; contribution failure inventory; registered capability registries; Stage 3 query and calculation provenance; privacy-safe bounded browser/Android local diagnostics; pairwise extension-upgrade compatibility preflight.
 - Identified gaps: no unified safe diagnostic snapshot, no correlated source-to-result execution trace, narrow local diagnostic vocabulary, no complete downstream contract impact report, and no focused Stage 5 developer/reference guide or CI privacy/impact checks.
-- Proposed implementation slices: 5A diagnostic contracts and safe runtime projection; 5B correlated execution traces; 5C additive platform-local diagnostic integration; 5D deterministic side-effect-free contract impact analysis; 5E architecture enforcement, regression and reference documentation.
+- Implemented on the Stage 5 branch: 5A versioned safe events and runtime projection; 5B correlated query-to-calculation traces; 5C bounded browser/Android local event persistence; 5D deterministic feature dependency and extension-surface impact reports; 5E a dedicated CI privacy/trace/platform/impact checker and reference documentation.
 - Safeguards: local-only diagnostics, no raw exceptions/payloads/GPS/financial values/credentials, no new registry or event bus, no upgrade side effects, and no inferred undeclared dependency edges.
-- **Implementation has not started.** Per the review checkpoint, proceed with 5A–5E after the audit findings are reviewed.
+- Remaining completion evidence: focused Stage 5 tests, complete Web build/regression, Android build and local diagnostics integration tests, integrated CI, merge, and a fresh green merged-main run. No completion or merge claim is made until these gates pass.

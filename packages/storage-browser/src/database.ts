@@ -7,8 +7,8 @@ type OutboxRow={id:string;eventId:string;revision:number;delivered:boolean;creat
 type BackupCheckpointRow={id:string;createdAt:string;status:"checkpoint"|"restored_unverified"|"verified"|"rollback_complete";snapshot:Record<string,unknown[]>};
 type CredentialVaultRow={name:string;nonce:string;ciphertext:string;updatedAt:string};
 type CredentialVaultMetaRow={id:"credential-vault";salt:string;checkNonce:string;checkCiphertext:string};
-type DiagnosticRow={id:string;timestamp:string;subsystem:string;operation:string;outcome:"failure";failureCategory:string;recoveryResult:string;appVersion:string;schemaVersion:number};
-export const BROWSER_DATABASE_SCHEMA_VERSION = 5 as const;
+type DiagnosticRow={id:string;timestamp:string;subsystem:string;operation:string;outcome:"success"|"blocked"|"failure"|"invalid";failureCategory:string;recoveryResult:string;appVersion:string;schemaVersion:number;traceId?:string;stage?:string;code?:string;ownerFeatureId?:string;contributionId?:string;contractVersion?:number;durationMs?:number};
+export const BROWSER_DATABASE_SCHEMA_VERSION = 6 as const;
 class SamTravelsDatabase extends Dexie{
  records!:Table<RecordEnvelope<unknown>,string>;
  driverState!:Table<SnapshotRow,string>;

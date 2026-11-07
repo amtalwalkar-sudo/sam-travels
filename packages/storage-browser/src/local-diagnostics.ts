@@ -49,10 +49,55 @@ export async function recordBrowserDiagnostic(input: BrowserDiagnosticInput): Pr
 export async function exportBrowserDiagnostics(): Promise<Array<{
   timestamp: string; subsystem: string; operation: string; outcome: string;
   failureCategory: string; recoveryResult: string; appVersion: string; schemaVersion: number;
+  traceId?: string; stage?: string; code?: string; ownerFeatureId?: string;
+  contributionId?: string; contractVersion?: number; durationMs?: number;
 }>> {
   try {
-    return (await browserDatabase.diagnostics.orderBy("timestamp").toArray()).map(({timestamp,subsystem,operation,outcome,failureCategory,recoveryResult,appVersion,schemaVersion})=>({timestamp,subsystem,operation,outcome,failureCategory,recoveryResult,appVersion,schemaVersion}));
+    return (await browserDatabase.diagnostics.orderBy("timestamp").toArray()).map(row => ({
+      timestamp: row.timestamp, subsystem: row.subsystem, operation: row.operation,
+      outcome: row.outcome, failureCategory: row.failureCategory,
+      recoveryResult: row.recoveryResult, appVersion: row.appVersion,
+      schemaVersion: row.schemaVersion, traceId: row.traceId, stage: row.stage,
+      code: row.code, ownerFeatureId: row.ownerFeatureId,
+      contributionId: row.contributionId, contractVersion: row.contractVersion,
+      durationMs: row.durationMs,
+    }));
   } catch {
     return [];
+  }
+}
+
+
+import type { SafeDiagnosticEvent } from "../../core/src/diagnostics";
+
+/** Persist the shared core event shape without copying any feature payload or executable data. */
+export async function recordBrowserDiagnosticEvent(event: SafeDiagnosticEvent): Promise<void> {
+  try {
+    await browserDatabase.diagnostics.add({
+      id: event.occurredAt + ":stage5:" + (event.traceId ?? "untraced") + ":" + crypto.randomUUID(),
+      timestamp: event.occurredAt,
+      subsystem: "workflow",
+      operation: event.stage,
+      outcome: event.outcome,
+      failureCategory: event.code,
+      recoveryResult: event.outcome,
+      appVersion: APP_VERSION,
+      schemaVersion: event.schemaVersion,
+      traceId: event.traceId,
+      stage: event.stage,
+      code: event.code,
+      ownerFeatureId: event.ownerFeatureId,
+      contributionId: event.contributionId,
+      contractVersion: event.contractVersion,
+      durationMs: event.durationMs,
+    });
+    const table = browserDatabase.diagnostics;
+    const excess = await table.count() - MAX_ENTRIES;
+    if (excess > 0) {
+      const oldest = await table.orderBy("timestamp").limit(excess).primaryKeys();
+      await table.bulkDelete(oldest);
+    }
+  } catch {
+    // Diagnostic storage is best-effort and must not change the observed operation.
   }
 }
