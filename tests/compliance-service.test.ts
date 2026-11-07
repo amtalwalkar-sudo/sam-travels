@@ -77,7 +77,7 @@ describe("ComplianceService", () => {
       id: "feature:compliance:123e4567-e89b-42d3-a456-426614174001",
       schemaVersion: 1, createdAt: "2025-01-01T00:00:00.000Z",
       updatedAt: "2025-01-01T00:00:00.000Z", source: "web", revision: 1,
-      data: second,
+      data: { ...second, renewedFromRecordId: "feature:compliance:123e4567-e89b-42d3-a456-426614174099" },
     });
     await expect(service.list()).rejects.toThrow("compliance_renewal_source_not_found");
   });
