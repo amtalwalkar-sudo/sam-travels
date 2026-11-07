@@ -277,7 +277,7 @@ class NativeBackupCoverageTest {
             featureId = "failure-addon",
             snapshotVersion = 1,
             recordIdPrefix = "feature:failure-addon:",
-            validateRelationships = {},
+            validateRelationships = { _, _ -> },
         )
         try {
             val timestamp = "2026-11-06T00:00:00.000Z"
