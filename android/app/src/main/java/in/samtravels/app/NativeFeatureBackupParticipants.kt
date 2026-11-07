@@ -74,3 +74,36 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
         }
     }
 }
+
+
+/** Backward compatibility for snapshots created before a new empty feature participant existed. */
+internal object NativeFeatureBackupManifestCompatibility {
+    fun validate(incoming: JSONArray?, records: JSONArray?) {
+        if (incoming == null) return
+        val expected = NativeBackupCoverage.participantManifest()
+        fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            listOf(item.getString("id"), item.getString("featureId"),
+                item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
+                item.getString("restoreValidatorId")).joinToString("|")
+        }.sorted()
+        if (canonical(incoming) == canonical(expected)) return
+        val hasBusinessSettingsRecord = records?.let { rows ->
+            (0 until rows.length()).any { index ->
+                val row = rows.optJSONObject(index) ?: return@any false
+                row.optString("participantId") == "business-settings-records" ||
+                    row.optString("id").startsWith("feature:business-settings:")
+            }
+        } ?: false
+        val compatibleExpected = JSONArray()
+        for (index in 0 until expected.length()) {
+            val item = expected.getJSONObject(index)
+            if (item.optString("id") != "business-settings-records") {
+                compatibleExpected.put(JSONObject(item.toString()))
+            }
+        }
+        require(!hasBusinessSettingsRecord && canonical(incoming) == canonical(compatibleExpected)) {
+            "backup_participant_manifest_mismatch"
+        }
+    }
+}
