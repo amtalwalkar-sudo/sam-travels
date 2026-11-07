@@ -107,6 +107,9 @@ describe("MaintenanceService", () => {
     });
     expect(duplicate.revision).toBe(1);
     expect(duplicate.data.entries).toHaveLength(2);
+    await expect(service.setRate({
+      vehicleId, ratePaisePerKm: 350, commandId, source: "web",
+    })).rejects.toThrow("maintenance_rate_idempotency_conflict");
     expect((await service.getRateForDate(vehicleId, "2026-11-01")).ratePaisePerKm).toBe(250);
     expect((await service.getRateForDate(vehicleId, "2026-11-02")).ratePaisePerKm).toBe(300);
 
