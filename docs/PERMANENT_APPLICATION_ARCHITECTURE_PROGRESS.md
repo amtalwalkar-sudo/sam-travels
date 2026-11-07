@@ -12,7 +12,7 @@
 | Stage 2 — Dependency activation and failure isolation | **Complete** | PR #21 merged as `3f187ca43a6fe752f092a78df8b3cb655b4e8e74`; PR CI run #849 passed all architecture, web, Android and integrated gates. Post-merge main run #851 also succeeded. |
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | **Complete** | PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main CI run #881 passed Architecture, Web, Android and Integrated regression. Clean-slate shell, four fixed bottom destinations, expandable Settings and unrestricted owner-scoped custom screens are in main. |
-| Stage 5 — Diagnostics and change impact | **In progress — implementation and CI gates on branch** | Branch `feat/stage-5-diagnostics-impact-complete` now includes versioned safe events, a read-only runtime projection, correlated source-to-calculation traces, browser and Android local event adapters, deterministic dependency impact analysis, extension-upgrade impact reports across persistence/integration/calculation/query/presentation surfaces, focused tests, and a dedicated privacy/impact architecture gate. Cross-platform CI and merged-main verification remain outstanding. |
+| Stage 5 — Diagnostics and change impact | **Complete** | PR #26 merged as `efe1abea10eb86491a644fa8b926746b6b344028`. PR run #907 and merged-main run #908 / `42320003718` passed Architecture, Stage 5 privacy/impact gate, full Web regression/build, Android Gradle/unit/emulator reliability and Integrated regression. The merged-main run also published the release APK. |
 | Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
 
 ## Stage 1 — Scope
@@ -167,11 +167,14 @@ Complete one stage at a time. Each stage must have a focused implementation, tes
 
 Stage 4 is complete and merged to main. PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`; merged-main CI run [#881](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42314701276) passed Architecture, Web, Android and Integrated regression on that exact commit. The current main branch has since advanced to `fed3f6c240b1a60af7a329068014a80e6c7ad6ad` with a successful CI run.
 
-### Stage 5 audit — complete; implementation underway
+### Stage 5 — implementation and verification complete
 
 - Audit: [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md).
 - Confirmed existing foundations: deterministic feature activation diagnostics; contribution failure inventory; registered capability registries; Stage 3 query and calculation provenance; privacy-safe bounded browser/Android local diagnostics; pairwise extension-upgrade compatibility preflight.
 - Identified gaps: no unified safe diagnostic snapshot, no correlated source-to-result execution trace, narrow local diagnostic vocabulary, no complete downstream contract impact report, and no focused Stage 5 developer/reference guide or CI privacy/impact checks.
 - Implemented on the Stage 5 branch: 5A versioned safe events and runtime projection; 5B correlated query-to-calculation traces; 5C bounded browser/Android local event persistence; 5D deterministic feature dependency and extension-surface impact reports; 5E a dedicated CI privacy/trace/platform/impact checker and reference documentation.
 - Safeguards: local-only diagnostics, no raw exceptions/payloads/GPS/financial values/credentials, no new registry or event bus, no upgrade side effects, and no inferred undeclared dependency edges.
-- Remaining completion evidence: focused Stage 5 tests, complete Web build/regression, Android build and local diagnostics integration tests, integrated CI, merge, and a fresh green merged-main run. No completion or merge claim is made until these gates pass.
+- PR [#26 — Stage 5 diagnostics, execution traces and contract impact](https://github.com/amtalwalkar-sudo/sam-travels/pull/26) was squash-merged as `efe1abea10eb86491a644fa8b926746b6b344028`.
+- PR CI run [#907](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42319479369) passed Architecture, Web, Android and Integrated regression.
+- Merged-main CI run [#908](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42320003718) passed all four jobs on the exact merge commit. This includes the Stage 5 privacy/trace/platform/impact gate, full web suite and production build, Android Gradle assembly/unit tests, emulator reliability gate, and integrated regression.
+- The merged-main run published `sam-travels-release-apk` and the generated Room schema export. Stage 5 is complete; Stage 6 remains the next separately tracked verification stage.
