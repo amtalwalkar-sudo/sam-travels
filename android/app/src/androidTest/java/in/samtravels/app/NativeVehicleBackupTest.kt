@@ -52,6 +52,22 @@ class NativeVehicleBackupTest {
         }
     }
 
+    @Test fun acceptsLegacyManifestOnlyWhenNoVehicleRecordExists() {
+        val registration = NativeVehicleBackup.register()
+        try {
+            val current = NativeBackupCoverage.participantManifest()
+            val older = JSONArray()
+            for (index in 0 until current.length()) {
+                val item = current.getJSONObject(index)
+                if (item.getString("id") != "vehicle-records") older.put(JSONObject(item.toString()))
+            }
+            NativeBackupCoverage.validateParticipantManifest(older, JSONArray())
+            assertEquals("backup_participant_manifest_mismatch", runCatching {
+                NativeBackupCoverage.validateParticipantManifest(older, JSONArray().put(row("MH01AB1234")))
+            }.exceptionOrNull()?.message)
+        } finally { registration.close() }
+    }
+
     @Test fun rejectsDuplicateCanonicalVehicleIdentity() {
         val registration = NativeVehicleBackup.register()
         try {
