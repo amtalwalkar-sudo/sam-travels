@@ -17,11 +17,13 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
     recordIdPrefix: PREFIX,
     validateRecord(record: RecordEnvelope<unknown>, allRecords: readonly RecordEnvelope<unknown>[]) {
       assertFinanceLoanRecordIdentity(record.id);
-      assertFinanceLoanRecordV1(record.data);
-      const vehicle = allRecords.find(item => item.id === record.data.details.vehicleId);
+      const data = record.data;
+      assertFinanceLoanRecordV1(data);
+      const vehicle = allRecords.find(item => item.id === data.details.vehicleId);
       if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
-      assertVehicleRecordV1(vehicle.data);
-      if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+      const vehicleData = vehicle.data;
+      assertVehicleRecordV1(vehicleData);
+      if (vehicle.id !== "feature:vehicle:" + vehicleData.registrationNumber) {
         throw new Error("finance_loan_vehicle_identity_mismatch");
       }
     },
@@ -30,13 +32,15 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
       const ids = new Set<string>();
       for (const loan of loans) {
         assertFinanceLoanRecordIdentity(loan.id);
-        assertFinanceLoanRecordV1(loan.data);
+        const data = loan.data;
+        assertFinanceLoanRecordV1(data);
         if (ids.has(loan.id)) throw new Error("finance_backup_duplicate_loan_identity");
         ids.add(loan.id);
         const vehicle = records.find(item => item.id === data.details.vehicleId);
         if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
-        assertVehicleRecordV1(vehicle.data);
-        if (vehicle.id !== "feature:vehicle:" + vehicle.data.registrationNumber) {
+        const vehicleData = vehicle.data;
+        assertVehicleRecordV1(vehicleData);
+        if (vehicle.id !== "feature:vehicle:" + vehicleData.registrationNumber) {
           throw new Error("finance_loan_vehicle_identity_mismatch");
         }
       }
