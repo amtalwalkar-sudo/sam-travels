@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "vehicle",
+  "entryPoint": "packages/features/vehicle/index.ts",
+  "extensionExport": "VEHICLE_FEATURE_EXTENSION"
+}
