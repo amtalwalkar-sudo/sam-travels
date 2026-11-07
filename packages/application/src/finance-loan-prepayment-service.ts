@@ -102,6 +102,9 @@ export class FinanceLoanPrepaymentService {
         (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
       throw new Error("finance_loan_prepayment_input_invalid");
     }
+    if (input.businessDate < snapshot.loan.data.details.loanStartDate) {
+      throw new Error("finance_loan_prepayment_before_loan_start");
+    }
     const schedule = scheduleFrom(snapshot);
     const entries = snapshot.ledger?.data.entries ?? [];
     const allocations = new Map<number, number>();
