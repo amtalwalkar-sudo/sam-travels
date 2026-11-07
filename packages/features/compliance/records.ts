@@ -11,7 +11,7 @@ export type ComplianceRecordV1 = Readonly<{
 }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const VEHICLE_ID = /^feature:vehicle:[^\s:][^\s]*$/;
+const VEHICLE_ID = /^feature:vehicle:[^\s:]+$/;
 const COMPLIANCE_RECORD_PREFIX = "feature:compliance:";
 
 export function complianceRecordId(uuid: string): string {
@@ -21,7 +21,15 @@ export function complianceRecordId(uuid: string): string {
   return COMPLIANCE_RECORD_PREFIX + uuid.toLowerCase();
 }
 
-function isCalendarDate(value: unknown): value is string {
+export function assertComplianceRecordIdentity(id: string): void {
+  if (typeof id !== "string" || !id.startsWith(COMPLIANCE_RECORD_PREFIX)) {
+    throw new Error("compliance_record_identity_invalid");
+  }
+  const uuid = id.slice(COMPLIANCE_RECORD_PREFIX.length);
+  if (complianceRecordId(uuid) !== id) throw new Error("compliance_record_identity_invalid");
+}
+
+export function isComplianceCalendarDate(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const timestamp = Date.parse(value + "T00:00:00.000Z");
   return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
@@ -45,7 +53,8 @@ export function assertComplianceRecordV1(value: unknown): asserts value is Compl
       record.schemaVersion !== 1 ||
       typeof record.vehicleId !== "string" || !VEHICLE_ID.test(record.vehicleId) ||
       typeof record.complianceName !== "string" || !record.complianceName.trim() ||
-      !isCalendarDate(record.validFrom) || !isCalendarDate(record.validTo) ||
+      record.complianceName !== record.complianceName.trim() ||
+      !isComplianceCalendarDate(record.validFrom) || !isComplianceCalendarDate(record.validTo) ||
       record.validTo < record.validFrom ||
       !Number.isSafeInteger(record.totalCostPaise) || (record.totalCostPaise as number) < 0) {
     throw new Error("compliance_record_invalid");
@@ -54,11 +63,9 @@ export function assertComplianceRecordV1(value: unknown): asserts value is Compl
       (typeof record.supportingDocumentRef !== "string" || !record.supportingDocumentRef.trim())) {
     throw new Error("compliance_record_document_reference_invalid");
   }
-  if (record.renewedFromRecordId !== undefined &&
-      (typeof record.renewedFromRecordId !== "string" ||
-       !record.renewedFromRecordId.startsWith(COMPLIANCE_RECORD_PREFIX) ||
-       record.renewedFromRecordId.length <= COMPLIANCE_RECORD_PREFIX.length)) {
-    throw new Error("compliance_record_renewal_reference_invalid");
+  if (record.renewedFromRecordId !== undefined) {
+    try { assertComplianceRecordIdentity(record.renewedFromRecordId as string); }
+    catch { throw new Error("compliance_record_renewal_reference_invalid"); }
   }
 }
 
