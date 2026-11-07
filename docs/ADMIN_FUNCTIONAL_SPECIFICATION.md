@@ -428,7 +428,7 @@ This document is a frozen product specification, not a claim that Admin has been
 
 1. Merge this documentation-only specification PR after review against the existing contracts.
 2. Before runtime work, prepare an implementation plan that maps each section's records and workflows to owning capabilities, public contracts, registry entries, migrations, backup/restore participants, and tests.
-3. Resolve the explicitly identified implementation prerequisites (including maintenance-rate effective-date history and the Finance EMI convention) through focused decisions and update the owning contracts.
+3. Before Loan calculations are implemented, document and test the annual-to-monthly interest-rate conversion and reducing-balance/interest accrual convention in the Finance calculation contract. The monthly 1st due-date cadence and nearest-whole-rupee scheduled EMI rounding are already approved here. The vehicle maintenance rate-change effective-date/history policy is also approved here: saved changes apply to new daily calculations from the save date, and previously calculated daily accrual records remain unchanged.
 4. Implement in reviewed, independently testable vertical slices. Do not build all screens first and defer data ownership, calculations, or recovery.
 5. Keep each implementation PR within its approved slice. No unrelated runtime/UI/schema changes belong in the documentation PR.
 6. Do not begin Admin runtime implementation until the documentation PR is merged and a separate implementation plan/slice is approved.
