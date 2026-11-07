@@ -188,8 +188,8 @@ export class FinanceLoanPaymentService {
           .sort((left, right) => left.installmentNumber - right.installmentNumber) : [];
         if (replay.kind !== "payment" || replay.id !== input.id || replay.amountPaise !== input.amountPaise ||
             replay.businessDate !== input.businessDate || replay.scheduleVersion !== input.scheduleVersion ||
-            replay.method !== input.method || replay.reference !== input.reference?.trim() ||
-            replay.note !== input.note?.trim() ||
+            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined) ||
+            replay.note !== (input.note?.trim() || undefined) ||
             JSON.stringify(storedAllocations) !== JSON.stringify(requestedAllocations)) {
           throw new Error("finance_payment_idempotency_conflict");
         }
