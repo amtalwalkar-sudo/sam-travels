@@ -216,7 +216,7 @@ class NativeBackupCoverageTest {
             }
             assertEquals("sample_addon_parent_missing",
                 runCatching { NativeBackupCoverage.validateBusinessRecords(broken) }.exceptionOrNull()?.message)
-            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getString("kind"))
+            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getJSONObject("data").getString("kind"))
         } finally {
             registration.close()
             database.close()
