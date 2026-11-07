@@ -9,7 +9,8 @@ import {
   initializeApplicationDriverAssignmentService,
   initializeApplicationComplianceService,
   initializeApplicationMaintenanceService,
-  initializeApplicationFinanceLoanService,\n  initializeApplicationFinanceLoanPaymentService,
+  initializeApplicationFinanceLoanService,
+  initializeApplicationFinanceLoanPaymentService,
   initializeApplicationRecordSource,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
@@ -48,7 +49,8 @@ async function bootstrap(): Promise<void> {
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
-  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);\n  initializeApplicationFinanceLoanPaymentService(repository, financeLoans);
+  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
