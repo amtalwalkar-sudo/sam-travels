@@ -34,7 +34,7 @@ async function bootstrap(): Promise<void> {
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
-  initializeApplicationComplianceService(repository, assertComplianceRecordV1);
+  initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationFeatureLifecycle(repository);
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
