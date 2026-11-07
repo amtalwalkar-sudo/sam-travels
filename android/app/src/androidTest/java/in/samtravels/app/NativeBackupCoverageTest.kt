@@ -223,6 +223,38 @@ class NativeBackupCoverageTest {
         }
     }
 
+    @Test fun rejectsFeatureOwnedRowsThatDoNotSatisfyTheSharedRecordEnvelope() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val registration = NativeBackupCoverage.registerFeatureRecordParticipant(
+            id = "invalid-envelope-records",
+            featureId = "invalid-envelope",
+            snapshotVersion = 1,
+            recordIdPrefix = "feature:invalid-envelope:",
+            validateRelationships = {},
+        )
+        try {
+            val timestamp = "2026-11-06T00:00:00.000Z"
+            val invalid = JSONObject()
+                .put("id", "feature:invalid-envelope:row")
+                .put("schemaVersion", 1)
+                .put("createdAt", timestamp)
+                .put("updatedAt", timestamp)
+                .put("source", "untrusted")
+                .put("revision", 1)
+                .put("data", JSONObject().put("value", true))
+            database.records().put(StoredRecord(
+                "feature:invalid-envelope:row", invalid.toString(), 1, timestamp,
+            ))
+            assertEquals("record_invalid_source",
+                runCatching { NativeBackupCoverage.exportBusinessRecords(database) { false } }.exceptionOrNull()?.message)
+        } finally {
+            registration.close()
+            database.close()
+        }
+    }
+
     @Test fun refusesToExportFeatureRecordsWithoutTheirRegisteredOwnerAdapter() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
