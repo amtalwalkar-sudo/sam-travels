@@ -78,6 +78,36 @@ class NativeMaintenanceBackupTest {
     }
 
     @Test
+    fun acceptsOlderManifestWhenNoMaintenanceRecordsExist() = withParticipants {
+        val current = NativeBackupCoverage.participantManifest()
+        val older = JSONArray()
+        for (index in 0 until current.length()) {
+            val participant = current.getJSONObject(index)
+            if (participant.optString("id") != "maintenance-records") {
+                older.put(JSONObject(participant.toString()))
+            }
+        }
+        NativeFeatureBackupManifestCompatibility.validate(older, JSONArray())
+    }
+
+    @Test
+    fun rejectsOlderManifestWhenMaintenanceRecordsArePresent() = withParticipants {
+        val current = NativeBackupCoverage.participantManifest()
+        val older = JSONArray()
+        for (index in 0 until current.length()) {
+            val participant = current.getJSONObject(index)
+            if (participant.optString("id") != "maintenance-records") {
+                older.put(JSONObject(participant.toString()))
+            }
+        }
+        val records = JSONArray().put(visitRow())
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            NativeFeatureBackupManifestCompatibility.validate(older, records)
+        }
+        assertEquals("backup_participant_manifest_mismatch", failure.message)
+    }
+
+    @Test
     fun rejectsVisitTotalThatDoesNotMatchItems() = withParticipants {
         val records = JSONArray().put(vehicleRow()).put(visitRow(total = 200001L))
         val failure = assertThrows(IllegalArgumentException::class.java) {
