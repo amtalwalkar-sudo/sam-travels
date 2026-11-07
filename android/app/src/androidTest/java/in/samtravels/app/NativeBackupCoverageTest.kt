@@ -173,7 +173,7 @@ class NativeBackupCoverageTest {
             featureId = "sample-addon",
             snapshotVersion = 1,
             recordIdPrefix = "feature:sample-addon:",
-            validateRelationships = { rows ->
+            validateRelationships = { rows, _ ->
                 val ids = rows.map { it.getString("id") }.toSet()
                 rows.forEach { row ->
                     val parentId = JSONObject(row.getString("json")).getJSONObject("data").optString("parentId")
@@ -232,7 +232,7 @@ class NativeBackupCoverageTest {
             featureId = "invalid-envelope",
             snapshotVersion = 1,
             recordIdPrefix = "feature:invalid-envelope:",
-            validateRelationships = {},
+            validateRelationships = { _, _ -> },
         )
         try {
             val timestamp = "2026-11-06T00:00:00.000Z"
