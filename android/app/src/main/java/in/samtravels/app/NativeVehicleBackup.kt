@@ -19,7 +19,7 @@ internal object NativeVehicleBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows ->
+        validateRelationships = { rows, _ ->
             val identities = mutableSetOf<String>()
             rows.forEach { row ->
                 val id = row.optString("id")
