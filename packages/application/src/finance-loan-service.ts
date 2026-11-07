@@ -8,7 +8,7 @@ import {
   loanCalculationInputsChanged,
   type FinanceLoanRecordV1,
   type LoanDetailsV1,
-} from "../../features/finance/loan-records";
+} from "../../features/finance";
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
 
 export type FinanceLoanVehicleDirectory = {
