@@ -85,6 +85,8 @@ export class ComplianceService {
   async list(): Promise<Array<RecordEnvelope<ComplianceRecordV1>>> {
     const records = await this.records.list();
     const byId = new Map(records.map(record => [record.id, record]));
+    const vehicles = await Promise.all(records.map(record => this.vehicles.getById(record.data.vehicleId)));
+    if (vehicles.some(vehicle => !vehicle)) throw new Error("compliance_vehicle_not_found");
     for (const record of records) {
       assertRecordId(record.id);
       if (record.data.renewedFromRecordId) {
