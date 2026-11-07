@@ -8,7 +8,7 @@ import {
   initializeApplicationDriverRecordsService,
   initializeApplicationDriverAssignmentService,
   initializeApplicationComplianceService,
-  initializeApplicationMaintenanceService,
+  initializeApplicationMaintenanceService,\n  initializeApplicationFinanceLoanService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -24,7 +24,7 @@ import { registerBusinessSettingsBrowserBackupParticipant } from "./business-set
 import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
 import { registerDriverRecordsBrowserBackupParticipant } from "./driver-records-backup";
 import { registerComplianceBrowserBackupParticipant } from "./compliance-backup";
-import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
+import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";\nimport { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository } from "./native-store";
 import { App } from "./ui/App";
 import "./ui/styles.css";
@@ -36,12 +36,12 @@ async function bootstrap(): Promise<void> {
   registerVehicleBrowserBackupParticipant();
   registerDriverRecordsBrowserBackupParticipant();
   registerComplianceBrowserBackupParticipant();
-  registerMaintenanceBrowserBackupParticipant();
+  registerMaintenanceBrowserBackupParticipant();\n  registerFinanceBrowserBackupParticipant();
   const repository = await createPlatformRepository();
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
-  initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
+  initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);\n  initializeApplicationFinanceLoanService(repository, vehicles);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
