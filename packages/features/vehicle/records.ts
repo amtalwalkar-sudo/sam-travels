@@ -17,7 +17,7 @@ export type VehicleRecordV1 = Readonly<{
 export function normalizeVehicleRegistrationNumber(value: string): string {
   if (typeof value !== "string") throw new Error("vehicle_registration_number_invalid");
   const normalized = value.toUpperCase().replace(/[\s-]+/g, "");
-  if (!normalized || !/^[A-Z0-9]+$/.test(normalized)) {
+  if (!normalized) {
     throw new Error("vehicle_registration_number_invalid");
   }
   return normalized;
