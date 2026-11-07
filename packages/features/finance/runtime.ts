@@ -51,6 +51,22 @@ export const LOAN_EMI_CALCULATION: CalculationContract<LoanCalculationInput, Loa
         regularEmiPaise: 333300,
       },
     },
+    {
+      name: "half-rupee-emi-tie-rounds-up",
+      input: {
+        principalPaise: 100,
+        annualInterestRateBasisPoints: 0,
+        tenureMonths: 2,
+        loanStartDate: "2026-01-01",
+        firstEmiDate: "2026-01-01",
+      },
+      expected: {
+        currencyCode: "INR",
+        monthlyRateNumerator: 0,
+        monthlyRateDenominator: 120000,
+        regularEmiPaise: 100,
+      },
+    },
   ],
 };
 
