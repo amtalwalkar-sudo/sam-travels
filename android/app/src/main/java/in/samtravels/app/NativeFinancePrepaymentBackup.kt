@@ -34,9 +34,9 @@ internal object NativeFinancePrepaymentBackup {
             val envelope = JSONObject(row.getString("json"))
             RecordEnvelopeContract.validate(envelope)
             require(envelope.optString("id") == id) { "finance_loan_prepayment_record_identity_invalid" }
-            val suffix = id.removePrefix(PREPAYMENT_PREFIX)
-            require(id.startsWith(PREPAYMENT_PREFIX) && UUID.matches(suffix) &&
-                id == PREPAYMENT_PREFIX + suffix.lowercase() && identities.add(id)) {
+            val suffix = id.removePrefix(RECORD_ID_PREFIX)
+            require(id.startsWith(RECORD_ID_PREFIX) && UUID.matches(suffix) &&
+                id == RECORD_ID_PREFIX + suffix.lowercase() && identities.add(id)) {
                 "finance_loan_prepayment_record_identity_invalid"
             }
             val data = envelope.getJSONObject("data")
