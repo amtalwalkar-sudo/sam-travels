@@ -61,4 +61,27 @@ class NativeBusinessSettingsBackupTest {
             registration.close()
         }
     }
+
+    @Test fun acceptsOlderParticipantManifestOnlyWhenNoBusinessSettingsRecordExists() {
+        val registration = NativeBusinessSettingsBackup.register()
+        try {
+            val current = NativeBackupCoverage.participantManifest()
+            val older = JSONArray()
+            for (index in 0 until current.length()) {
+                val item = current.getJSONObject(index)
+                if (item.getString("id") != "business-settings-records") older.put(JSONObject(item.toString()))
+            }
+            NativeBackupCoverage.validateParticipantManifest(older, JSONArray())
+            assertEquals("backup_participant_manifest_mismatch",
+                runCatching {
+                    NativeBackupCoverage.validateParticipantManifest(
+                        older,
+                        JSONArray().put(row("2020-01-01")),
+                    )
+                }.exceptionOrNull()?.message)
+        } finally {
+            registration.close()
+        }
+    }
+
 }
