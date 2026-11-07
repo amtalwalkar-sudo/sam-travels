@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "compliance",
+  "entryPoint": "packages/features/compliance/index.ts",
+  "extensionExport": "COMPLIANCE_FEATURE_EXTENSION"
+}
