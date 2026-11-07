@@ -79,7 +79,8 @@ internal object NativeMaintenanceBackup {
         }
         when (kind) {
             "visit" -> {
-                require(id.startsWith(VISIT_PREFIX) && UUID.matches(id.removePrefix(VISIT_PREFIX))) {
+                require(id.startsWith(VISIT_PREFIX) && UUID.matches(id.removePrefix(VISIT_PREFIX)) &&
+                    id.removePrefix(VISIT_PREFIX) == id.removePrefix(VISIT_PREFIX).lowercase()) {
                     "maintenance_record_identity_invalid"
                 }
                 assertExactKeys(
@@ -116,7 +117,8 @@ internal object NativeMaintenanceBackup {
                 require(total == data.getLong("totalPaise")) { "maintenance_visit_total_mismatch" }
             }
             "expense" -> {
-                require(id.startsWith(EXPENSE_PREFIX) && UUID.matches(id.removePrefix(EXPENSE_PREFIX))) {
+                require(id.startsWith(EXPENSE_PREFIX) && UUID.matches(id.removePrefix(EXPENSE_PREFIX)) &&
+                    id.removePrefix(EXPENSE_PREFIX) == id.removePrefix(EXPENSE_PREFIX).lowercase()) {
                     "maintenance_record_identity_invalid"
                 }
                 assertExactKeys(
