@@ -112,8 +112,8 @@ class BackupPlugin : Plugin() {
                 BackupSnapshotContract.validateSnapshot(snapshot)
                 BackupSnapshotContract.validateManifest(manifest)
                 val rawRecords = snapshot.optJSONArray("records") ?: error("backup_records_missing")
-                NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"))
-                NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"))
+                NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"), rawRecords)
+                NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"), rawRecords)
                 val records = if (snapshot.optJSONArray("participants") == null)
                     NativeBackupCoverage.normalizeLegacyRecords(rawRecords) else rawRecords
                 NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
