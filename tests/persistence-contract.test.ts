@@ -1,7 +1,7 @@
 import { assertDriverCommandContract, assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../packages/domain/src/driver-workflow";
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import validRecord from "../fixtures/persistence/record-envelope-v1-valid.json";
 import malformedRecord from "../fixtures/persistence/record-envelope-v1-missing-data.json";
 import futureRecord from "../fixtures/persistence/record-envelope-v2-future.json";
@@ -11,9 +11,14 @@ import { assertRecordEnvelope } from "../packages/core/src/persistence-contract"
 import { BROWSER_DATABASE_SCHEMA_VERSION, browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { restoreBrowserSnapshot } from "../packages/storage-browser/src/backup-snapshot";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 
 describe("formal persistence contracts and historical fixtures", () => {
+  let unregisterVehicle: (() => void) | undefined;
+  beforeEach(() => { unregisterVehicle = registerVehicleBrowserBackupParticipant(); });
   afterEach(async () => {
+    unregisterVehicle?.();
+    unregisterVehicle = undefined;
     await browserDatabase.delete();
   });
 
