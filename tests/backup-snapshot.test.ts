@@ -47,9 +47,12 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
   });
 
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
   });
+
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
 
   it("exports all authoritative IndexedDB workflow tables at one transaction boundary", async () => {
     await browserDatabase.records.put({
