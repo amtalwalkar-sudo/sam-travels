@@ -113,7 +113,7 @@ describe("Finance monthly reducing-balance loan calculation v1", () => {
     expect(() => calculateLoanEmiQuote({ ...standardInput, tenureMonths: 0 })).toThrow("tenure");
     expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-02-02" })).toThrow("first day");
     expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-01-01" })).toThrow("cannot precede loan start");
-    expect(() => calculateLoanEmiQuote({ ...standardInput, firstEmiDate: "2026-01-10" })).not.toThrow();
+    expect(() => calculateLoanEmiQuote({ ...standardInput, loanStartDate: "2026-02-01", firstEmiDate: "2026-02-01" })).not.toThrow();
     expect(() => calculateLoanEmiQuote({ ...standardInput, loanStartDate: "2026-02-30" })).toThrow("loan start date");
   });
 
