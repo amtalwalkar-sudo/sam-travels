@@ -3,15 +3,18 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot } from "../packages/storage-browser/src";
 import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 
 describe("Driver Records browser backup participant", () => {
   let unregister: (() => void) | undefined;
+  let unregisterVehicle: (() => void) | undefined;
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
     unregister = registerDriverRecordsBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
   });
-  afterEach(() => { unregister?.(); unregister = undefined; });
+  afterEach(() => { unregister?.(); unregister = undefined; unregisterVehicle?.(); unregisterVehicle = undefined; });
 
   it("exports the required Driver Records participant and its profiles", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
