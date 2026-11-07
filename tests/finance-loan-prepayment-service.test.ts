@@ -59,7 +59,7 @@ describe("FinanceLoanPrepaymentService", () => {
   it("previews and atomically commits prepayment with loan and payment-ledger revisions", async () => {
     const { repository, service } = setup();
     const preview = await service.preview({ loanId, commandId: "prepay-command-1",
-      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_tenure" });
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_tenure", source: "web" });
     expect(preview.principalAfterPaise).toBe(9_000_000);
     const committed = await service.commit({ preview, source: "web" });
     expect(committed.version).toBe(2);
@@ -77,10 +77,10 @@ describe("FinanceLoanPrepaymentService", () => {
   it("rejects a second prepayment dated before the prior prepayment", async () => {
     const { service } = setup();
     const firstPreview = await service.preview({ loanId, commandId: "prepay-first",
-      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_tenure" });
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_tenure", source: "web" });
     await service.commit({ preview: firstPreview, source: "web" });
     await expect(service.preview({ loanId, commandId: "prepay-backdated",
-      businessDate: "2026-01-14", amountPaise: 500_000, mode: "reduce_emi" }))
+      businessDate: "2026-01-14", amountPaise: 500_000, mode: "reduce_emi", source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_date_precedes_history");
   });
   it("rejects a principal prepayment dated before the loan starts", async () => {
@@ -92,13 +92,13 @@ describe("FinanceLoanPrepaymentService", () => {
   it("rejects prepayment when any EMI due on the business date is not fully allocated", async () => {
     const { service } = setup();
     await expect(service.preview({ loanId, commandId: "prepay-command-2",
-      businessDate: "2026-02-01", amountPaise: 1_000_000, mode: "reduce_emi" }))
+      businessDate: "2026-02-01", amountPaise: 1_000_000, mode: "reduce_emi", source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_due_emi_not_fully_paid");
   });
   it("rejects a preview after the loan revision changes", async () => {
     const { repository, service } = setup();
     const preview = await service.preview({ loanId, commandId: "prepay-command-3",
-      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi" });
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi", source: "web" });
     const current = await repository.get<FinanceLoanRecordV1>(loanId);
     await repository.compareAndSet(loanId, current!.revision, { ...current!, revision: current!.revision + 1 });
     await expect(service.commit({ preview, source: "web" }))

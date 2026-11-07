@@ -15,10 +15,13 @@ const loan: FinanceLoanRecordV1 = {
   scheduleVersions: [createLoanScheduleVersion(1, details, "2026-01-10T10:00:00.000Z")],
 };
 function state(): FinanceLoanPrepaymentStateV1 {
+  const principalBeforePaise = loan.scheduleVersions[0].output.rows[1].closingPrincipalPaise;
   const revision = createLoanPrepaymentRevisionV1({
-    version: 2, commandId: "prepay-command-001", effectiveDate: "2026-03-15",
+    version: 2, previousScheduleVersion: 1, expectedLoanRevision: 1,
+    expectedPaymentLedgerRevision: null, source: "web",
+    commandId: "prepay-command-001", effectiveDate: "2026-03-15",
     createdAt: "2026-03-15T10:00:00.000Z", mode: "reduce_tenure",
-    principalBeforePaise: 10_000_000, prepaymentAmountPaise: 2_000_000,
+    principalBeforePaise, prepaymentAmountPaise: 2_000_000,
     annualInterestRateBasisPoints: details.annualInterestRateBasisPoints,
     regularEmiPaise: loan.scheduleVersions[0].output.regularEmiPaise,
     remainingDueDates: loan.scheduleVersions[0].output.rows.slice(2).map(row => row.dueDate),

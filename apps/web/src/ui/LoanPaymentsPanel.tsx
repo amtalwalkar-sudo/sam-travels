@@ -118,7 +118,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     try {
       const preview = await getApplicationFinanceLoanPrepaymentService().preview({
         loanId: loan.id, commandId: crypto.randomUUID(), businessDate: prepaymentDate,
-        amountPaise, mode: prepaymentMode,
+        amountPaise, mode: prepaymentMode, source: getApplicationRecordSource(),
       });
       setPrepaymentPreview(preview);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prepayment preview failed."); }
