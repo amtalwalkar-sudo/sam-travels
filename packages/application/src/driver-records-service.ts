@@ -22,7 +22,7 @@ export class DriverRecordsService {
   constructor(repository: AtomicRecordRepository, validate: DriverRecordValidator, now?: () => string) {
     this.records = new FeatureRecordService(repository, {
       featureId: "driver-records",
-      recordIdPrefix: "feature:driver-records:driver:",
+      recordIdPrefix: "feature:driver-records:",
       validate,
     }, now);
   }
