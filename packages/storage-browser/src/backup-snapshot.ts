@@ -110,7 +110,8 @@ export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureB
 }
 
 function currentParticipantManifest() {
-  const required = [...registerBackupParticipants(registerFeatures()).values()]\n    .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
+  const required = [...registerBackupParticipants(registerFeatures()).values()]
+    .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
     ({ id, featureId, snapshotVersion, restoreValidatorId }) => ({ id, featureId, snapshotVersion, restoreValidatorId }),
   );
   for (const adapter of customBrowserFeatureBackupAdapters.values()) {
