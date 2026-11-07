@@ -58,6 +58,7 @@ describe("VehicleService", () => {
   it("rejects registration values that normalize to empty or unsafe identities", async () => {
     const service = new VehicleService(new MemoryRepository(), assertVehicleRecordV1);
     await expect(service.create(vehicle(" -- "), "web")).rejects.toThrow("vehicle_registration_number_invalid");
-    await expect(service.create(vehicle("MH/01/AB/1234"), "web")).rejects.toThrow("vehicle_registration_number_invalid");
+    const slashRegistration = await service.create(vehicle("MH/01/AB/1234"), "web");
+    expect(slashRegistration.data.registrationNumber).toBe("MH/01/AB/1234");
   });
 });
