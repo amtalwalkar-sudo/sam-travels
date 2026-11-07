@@ -4,6 +4,7 @@ export const LOAN_PREPAYMENT_CALCULATION_ID = "finance.loan-prepayment-reamortiz
 export type LoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
 export type LoanPrepaymentCalculationInputV1 = Readonly<{
   principalPaise: number;
+  baselinePrincipalPaise: number;
   annualInterestRateBasisPoints: number;
   regularEmiPaise: number;
   remainingDueDates: readonly string[];
@@ -54,6 +55,7 @@ function monthAfter(value: string, offset: number): string {
 }
 function assertInput(input: LoanPrepaymentCalculationInputV1): void {
   if (!Number.isSafeInteger(input.principalPaise) || input.principalPaise <= 0 ||
+      !Number.isSafeInteger(input.baselinePrincipalPaise) || input.baselinePrincipalPaise <= input.principalPaise ||
       !Number.isSafeInteger(input.annualInterestRateBasisPoints) || input.annualInterestRateBasisPoints < 0 ||
       !Number.isSafeInteger(input.regularEmiPaise) || input.regularEmiPaise <= 0 ||
       !Array.isArray(input.remainingDueDates) || input.remainingDueDates.length < 1 ||
@@ -110,7 +112,7 @@ export function calculateLoanPrepaymentReamortizationV1(
 ): LoanPrepaymentCalculationResultV1 {
   assertInput(input);
   const baselineRows = buildFixedEmiSchedule(
-    input.principalPaise, input.annualInterestRateBasisPoints,
+    input.baselinePrincipalPaise, input.annualInterestRateBasisPoints,
     input.regularEmiPaise, input.remainingDueDates[0],
   );
   const baselineInterest = baselineRows.reduce((sum, row) => sum + BigInt(row.interestPaise), 0n);
