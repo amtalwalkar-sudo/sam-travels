@@ -8,6 +8,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         NativeBusinessSettingsBackup.ensureRegistered()
         NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(DeviceReadinessPlugin::class.java)
