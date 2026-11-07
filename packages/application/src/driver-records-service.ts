@@ -34,8 +34,16 @@ export class DriverRecordsService {
     return this.records.create({ id: driverRecordId(data.driverId), data, source });
   }
 
+  private assertIdentity(record: RecordEnvelope<DriverRecordV1>): void {
+    if (record.id !== driverRecordId(record.data.driverId)) {
+      throw new Error("driver_record_identity_mismatch");
+    }
+  }
+
   async get(driverId: string): Promise<RecordEnvelope<DriverRecordV1> | undefined> {
-    return this.records.get(driverRecordId(driverId));
+    const record = await this.records.get(driverRecordId(driverId));
+    if (record) this.assertIdentity(record);
+    return record;
   }
 
   async update(input: {
@@ -45,13 +53,16 @@ export class DriverRecordsService {
   }): Promise<RecordEnvelope<DriverRecordV1>> {
     const id = driverRecordId(input.driverId);
     if (input.data.driverId !== input.driverId) throw new Error("driver_identity_immutable");
+    const current = await this.records.get(id);
+    if (!current) throw new Error("feature_record_not_found:" + id);
+    this.assertIdentity(current);
     return this.records.update({ id, expectedRevision: input.expectedRevision, data: input.data });
   }
 
   async list(): Promise<Array<RecordEnvelope<DriverRecordV1>>> {
     const records = await this.records.list();
     for (const record of records) {
-      if (record.id !== driverRecordId(record.data.driverId)) throw new Error("driver_record_identity_mismatch");
+      this.assertIdentity(record);
     }
     return records;
   }
