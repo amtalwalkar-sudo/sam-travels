@@ -19,6 +19,9 @@ export type FinancePaymentEntryV1 =
 export type FinancePaymentLedgerV1 = Readonly<{ schemaVersion: 1; loanId: string; entries: readonly FinancePaymentEntryV1[] }>;
 type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> };
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number };
+export type FinanceLoanScheduleResolver = {
+  getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined>;
+};
 const METHODS = new Set<FinancePaymentMethodV1>(["cash", "bank_transfer", "cheque", "upi", "other"]);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 function validDate(value: string): boolean {
@@ -129,12 +132,12 @@ function allocationTotals(entries: readonly FinancePaymentEntryV1[], version: nu
   }
   return totals;
 }
-export function proposeFinancePaymentAllocationV1(
-  loan: FinanceLoanRecordV1, entries: readonly FinancePaymentEntryV1[], scheduleVersion: number,
+function proposeFromScheduleRows(
+  rows: readonly ScheduleRow[], entries: readonly FinancePaymentEntryV1[], scheduleVersion: number,
   businessDate: string, amountPaise: number,
 ): readonly { installmentNumber: number; amountPaise: number }[] {
   if (!validDate(businessDate) || !Number.isSafeInteger(amountPaise) || amountPaise <= 0) throw new Error("finance_payment_amount_or_date_invalid");
-  const rows = scheduleRows(loan, scheduleVersion), totals = allocationTotals(entries, scheduleVersion);
+  const totals = allocationTotals(entries, scheduleVersion);
   let remaining = amountPaise;
   const proposed: Array<{ installmentNumber: number; amountPaise: number }> = [];
   for (const row of rows) {
@@ -147,11 +150,26 @@ export function proposeFinancePaymentAllocationV1(
   }
   return proposed;
 }
+export function proposeFinancePaymentAllocationV1(
+  loan: FinanceLoanRecordV1, entries: readonly FinancePaymentEntryV1[], scheduleVersion: number,
+  businessDate: string, amountPaise: number,
+): readonly { installmentNumber: number; amountPaise: number }[] {
+  return proposeFromScheduleRows(scheduleRows(loan, scheduleVersion), entries, scheduleVersion, businessDate, amountPaise);
+}
 
 /** Finance-owned per-loan CAS ledger. All payment and allocation facts are committed as one record revision. */
 export class FinanceLoanPaymentService {
   constructor(private readonly repository: AtomicRecordBatchRepository, private readonly loans: LoanDirectory,
-    private readonly now: () => string = () => new Date().toISOString()) {}
+    private readonly now: () => string = () => new Date().toISOString(),
+    private readonly scheduleResolver?: FinanceLoanScheduleResolver) {}
+
+  private async resolveScheduleRows(loanId: string, loan: FinanceLoanRecordV1, version: number): Promise<readonly ScheduleRow[]> {
+    const original = loan.scheduleVersions.find(item => item.version === version);
+    if (original) return scheduleRows(loan, version);
+    const revised = await this.scheduleResolver?.getScheduleRows(loanId, version);
+    if (!revised) throw new Error("finance_payment_schedule_version_not_found");
+    return revised;
+  }
 
   private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
     const loan = await this.loans.get(loanId);
@@ -165,7 +183,8 @@ export class FinanceLoanPaymentService {
   }
   async propose(input: { loanId: string; scheduleVersion: number; businessDate: string; amountPaise: number }) {
     const { loan, ledger } = await this.load(input.loanId);
-    return proposeFinancePaymentAllocationV1(loan.data, ledger?.data.entries ?? [], input.scheduleVersion, input.businessDate, input.amountPaise);
+    const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
+    return proposeFromScheduleRows(rows, ledger?.data.entries ?? [], input.scheduleVersion, input.businessDate, input.amountPaise);
   }
   async record(input: { id: string; commandId: string; loanId: string; businessDate: string; amountPaise: number;
     method: FinancePaymentMethodV1; reference?: string; note?: string; scheduleVersion: number;
@@ -177,7 +196,7 @@ export class FinanceLoanPaymentService {
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId);
-      const rows = scheduleRows(loan.data, input.scheduleVersion);
+      const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
       const entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {

@@ -146,6 +146,13 @@ export class FinanceLoanPrepaymentService {
     };
   }
 
+  async getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined> {
+    const snapshot = await this.load(loanId);
+    const state = snapshot.state?.data;
+    if (!state || scheduleVersion <= state.baseScheduleVersion) return undefined;
+    return state.revisions.find(item => item.version === scheduleVersion)?.output.rows;
+  }
+
   async preview(input: { loanId: string; commandId: string; businessDate: string; amountPaise: number;
     mode: FinanceLoanPrepaymentModeV1 }): Promise<FinanceLoanPrepaymentPreviewV1> {
     return this.previewFrom(await this.load(input.loanId), input);
