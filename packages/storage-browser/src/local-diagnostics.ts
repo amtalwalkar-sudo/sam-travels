@@ -29,7 +29,7 @@ export async function recordBrowserDiagnostic(input: BrowserDiagnosticInput): Pr
       timestamp,
       subsystem: safeToken(input.subsystem, SUBSYSTEMS),
       operation: safeToken(input.operation, OPERATIONS),
-      outcome: "failure" | "success" | "blocked" | "invalid",
+      outcome: "failure",
       failureCategory: safeToken(input.failureCategory, FAILURE_CATEGORIES),
       recoveryResult: safeToken(input.recoveryResult, RECOVERY_RESULTS),
       appVersion: APP_VERSION,
