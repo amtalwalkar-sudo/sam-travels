@@ -64,7 +64,8 @@ internal object NativeMaintenanceBackup {
         runCatching { LocalDate.parse(value).toString() == value }.getOrDefault(false)
 
     private fun validInteger(value: Any?): Boolean =
-        value is Number && (value is Int || value is Long) && value.toLong() >= 0L
+        value is Number && (value is Int || value is Long) && value.toLong() >= 0L &&
+            value.toLong() <= 9_007_199_254_740_991L
 
     private fun assertExactKeys(data: JSONObject, required: Set<String>, optional: Set<String> = emptySet()) {
         val keys = data.keys().asSequence().toSet()
