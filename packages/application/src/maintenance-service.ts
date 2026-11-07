@@ -259,6 +259,44 @@ export class MaintenanceService {
     }, 0);
   }
 
+  async getServiceReminderStates(vehicleId: string, asOf: string): Promise<readonly Readonly<{
+    visit: RecordEnvelope<MaintenanceVisitV1>;
+    dateDue: boolean;
+    kilometreStatus: "not_applicable" | "odometer_unavailable" | "not_due" | "due";
+    latestOdometerKm?: number;
+  }>[]> {
+    await this.requireVehicle(vehicleId);
+    if (!isValidDate(asOf)) throw new Error("maintenance_business_date_invalid");
+    const records = await this.records.list();
+    const owned = records.filter(record => record.data.vehicleId === vehicleId);
+    const readings = owned.flatMap(record => {
+      if (record.data.kind === "visit" && record.data.odometerKm !== undefined) {
+        return [{ date: record.data.maintenanceDate, savedAt: record.updatedAt, km: record.data.odometerKm }];
+      }
+      if (record.data.kind === "expense" && record.data.odometerKm !== undefined) {
+        return [{ date: record.data.expenseDate, savedAt: record.updatedAt, km: record.data.odometerKm }];
+      }
+      return [];
+    }).sort((a, b) => a.date.localeCompare(b.date) || a.savedAt.localeCompare(b.savedAt));
+    const latest = readings[readings.length - 1];
+    const states = owned.filter(record => record.data.kind === "visit" &&
+      (record.data.nextServiceDate !== undefined || record.data.nextServiceKm !== undefined))
+      .map(record => {
+        const visit = record as RecordEnvelope<MaintenanceVisitV1>;
+        const dateDue = visit.data.nextServiceDate !== undefined && visit.data.nextServiceDate <= asOf;
+        const kilometreStatus = visit.data.nextServiceKm === undefined ? "not_applicable"
+          : !latest ? "odometer_unavailable"
+          : latest.km >= visit.data.nextServiceKm ? "due" : "not_due";
+        return Object.freeze({
+          visit,
+          dateDue,
+          kilometreStatus,
+          ...(latest ? { latestOdometerKm: latest.km } : {}),
+        });
+      });
+    return Object.freeze(states);
+  }
+
   async getDateReminders(vehicleId: string, asOf: string): Promise<readonly RecordEnvelope<MaintenanceVisitV1>[]> {
     await this.requireVehicle(vehicleId);
     if (!isValidDate(asOf)) throw new Error("maintenance_business_date_invalid");
