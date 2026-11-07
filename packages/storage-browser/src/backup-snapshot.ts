@@ -216,6 +216,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
     const newlyIntroduced = [
       { id: "business-settings-records", prefix: "feature:business-settings:" },
       { id: "compliance-records", prefix: "feature:compliance:" },
+      { id: "maintenance-records", prefix: "feature:maintenance:" },
     ];
     // Older snapshots may omit a newly introduced participant only when they
     // contain no records owned by that participant.
