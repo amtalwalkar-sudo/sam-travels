@@ -1,5 +1,4 @@
-import type { RecordEnvelope } from "../../core/src/types";
-import type { MaintenanceRateV1 } from "./records";
+import type { MaintenanceRateHistoryV1 } from "./records";
 import { DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM } from "./records";
 
 /** Convert an instant to the existing Asia/Kolkata business-date convention. */
@@ -14,33 +13,25 @@ export function maintenanceBusinessDateFromInstant(instant: string): string {
 }
 
 export type MaintenanceRateHistoryEntry = Readonly<{
-  recordId?: string;
   effectiveFrom: string;
   ratePaisePerKm: number;
+  savedAt: string;
   isDefault: boolean;
-  savedAt?: string;
+  source?: "web" | "android" | "import" | "integration";
 }>;
 
-/** Default rate starts on the vehicle's creation business date; edits append immutable history. */
+/** Default rate begins at vehicle creation; all subsequent changes are immutable history entries. */
 export function buildMaintenanceRateHistory(
   vehicleCreatedAt: string,
-  records: readonly RecordEnvelope<MaintenanceRateV1>[],
+  stored?: MaintenanceRateHistoryV1,
 ): readonly MaintenanceRateHistoryEntry[] {
-  const history: MaintenanceRateHistoryEntry[] = [{
+  if (stored) return Object.freeze(stored.entries.map(entry => Object.freeze({ ...entry })));
+  return Object.freeze([Object.freeze({
     effectiveFrom: maintenanceBusinessDateFromInstant(vehicleCreatedAt),
     ratePaisePerKm: DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM,
+    savedAt: vehicleCreatedAt,
     isDefault: true,
-  }, ...records.map(record => ({
-    recordId: record.id,
-    effectiveFrom: record.data.effectiveFrom,
-    ratePaisePerKm: record.data.ratePaisePerKm,
-    isDefault: false,
-    savedAt: record.createdAt,
-  }))];
-  return Object.freeze(history.sort((left, right) =>
-    left.effectiveFrom.localeCompare(right.effectiveFrom) ||
-    (left.savedAt ?? "").localeCompare(right.savedAt ?? ""),
-  ));
+  })]);
 }
 
 export function maintenanceRateForDate(
