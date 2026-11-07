@@ -17,3 +17,4 @@ export type {
   ComplianceRecordRef,
   PaiseFraction,
 } from "./analysis";
+export { COMPLIANCE_FEATURE, COMPLIANCE_FEATURE_EXTENSION } from "./runtime";
