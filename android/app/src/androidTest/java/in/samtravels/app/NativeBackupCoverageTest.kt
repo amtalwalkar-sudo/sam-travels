@@ -13,6 +13,18 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
+    private fun featureRecord(id: String, data: JSONObject, timestamp: String): StoredRecord {
+        val envelope = JSONObject()
+            .put("id", id)
+            .put("schemaVersion", 1)
+            .put("createdAt", timestamp)
+            .put("updatedAt", timestamp)
+            .put("source", "web")
+            .put("revision", 1)
+            .put("data", data)
+        return StoredRecord(id, envelope.toString(), 1, timestamp)
+    }
+
     @Test fun discoversTwoFeatureOwnedRoomEntitiesAndCoversEveryPhysicalTable() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
@@ -164,20 +176,19 @@ class NativeBackupCoverageTest {
             validateRelationships = { rows ->
                 val ids = rows.map { it.getString("id") }.toSet()
                 rows.forEach { row ->
-                    val parentId = JSONObject(row.getString("json")).optString("parentId")
+                    val parentId = JSONObject(row.getString("json")).getJSONObject("data").optString("parentId")
                     require(parentId.isBlank() || parentId in ids) { "sample_addon_parent_missing" }
                 }
             },
         )
         try {
             val timestamp = "2026-11-06T00:00:00.000Z"
-            database.records().put(StoredRecord(
-                "feature:sample-addon:parent",
-                """{"kind":"parent"}""", 1, timestamp,
+            database.records().put(featureRecord(
+                "feature:sample-addon:parent", JSONObject().put("kind", "parent"), timestamp,
             ))
-            database.records().put(StoredRecord(
+            database.records().put(featureRecord(
                 "feature:sample-addon:child",
-                """{"kind":"child","parentId":"feature:sample-addon:parent"}""", 1, timestamp,
+                JSONObject().put("kind", "child").put("parentId", "feature:sample-addon:parent"), timestamp,
             ))
             val snapshot = NativeBackupCoverage.exportBusinessRecords(database) { false }
             assertTrue((0 until snapshot.length()).any {
@@ -189,21 +200,55 @@ class NativeBackupCoverageTest {
             assertTrue(database.records().get("feature:sample-addon:parent") == null)
             assertTrue(database.records().get("feature:sample-addon:child") == null)
             NativeBackupCoverage.replaceBusinessRecords(database, snapshot)
-            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getString("kind"))
+            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getJSONObject("data").getString("kind"))
             assertEquals("feature:sample-addon:parent",
-                JSONObject(database.records().get("feature:sample-addon:child")!!.json).getString("parentId"))
+                JSONObject(database.records().get("feature:sample-addon:child")!!.json).getJSONObject("data").getString("parentId"))
 
             val broken = JSONArray()
             for (index in 0 until snapshot.length()) {
                 val row = JSONObject(snapshot.getJSONObject(index).toString())
                 if (row.optString("id") == "feature:sample-addon:child") {
-                    row.put("json", JSONObject(row.getString("json")).put("parentId", "feature:sample-addon:missing").toString())
+                    val envelope = JSONObject(row.getString("json"))
+                    envelope.getJSONObject("data").put("parentId", "feature:sample-addon:missing")
+                    row.put("json", envelope.toString())
                 }
                 broken.put(row)
             }
             assertEquals("sample_addon_parent_missing",
                 runCatching { NativeBackupCoverage.validateBusinessRecords(broken) }.exceptionOrNull()?.message)
-            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getString("kind"))
+            assertEquals("parent", JSONObject(database.records().get("feature:sample-addon:parent")!!.json).getJSONObject("data").getString("kind"))
+        } finally {
+            registration.close()
+            database.close()
+        }
+    }
+
+    @Test fun rejectsFeatureOwnedRowsThatDoNotSatisfyTheSharedRecordEnvelope() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val registration = NativeBackupCoverage.registerFeatureRecordParticipant(
+            id = "invalid-envelope-records",
+            featureId = "invalid-envelope",
+            snapshotVersion = 1,
+            recordIdPrefix = "feature:invalid-envelope:",
+            validateRelationships = {},
+        )
+        try {
+            val timestamp = "2026-11-06T00:00:00.000Z"
+            val invalid = JSONObject()
+                .put("id", "feature:invalid-envelope:row")
+                .put("schemaVersion", 1)
+                .put("createdAt", timestamp)
+                .put("updatedAt", timestamp)
+                .put("source", "untrusted")
+                .put("revision", 1)
+                .put("data", JSONObject().put("value", true))
+            database.records().put(StoredRecord(
+                "feature:invalid-envelope:row", invalid.toString(), 1, timestamp,
+            ))
+            assertEquals("record_invalid_source",
+                runCatching { NativeBackupCoverage.exportBusinessRecords(database) { false } }.exceptionOrNull()?.message)
         } finally {
             registration.close()
             database.close()
@@ -236,12 +281,12 @@ class NativeBackupCoverageTest {
         )
         try {
             val timestamp = "2026-11-06T00:00:00.000Z"
-            database.records().put(StoredRecord(
-                "feature:failure-addon:row", """{"value":"snapshot"}""", 1, timestamp,
+            database.records().put(featureRecord(
+                "feature:failure-addon:row", JSONObject().put("value", "snapshot"), timestamp,
             ))
             val snapshot = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            database.records().put(StoredRecord(
-                "feature:failure-addon:row", """{"value":"current"}""", 1, "2026-11-06T00:01:00.000Z",
+            database.records().put(featureRecord(
+                "feature:failure-addon:row", JSONObject().put("value", "current"), "2026-11-06T00:01:00.000Z",
             ))
             val failure = runCatching {
                 database.runInTransaction {
@@ -251,7 +296,7 @@ class NativeBackupCoverageTest {
             }.exceptionOrNull()
             assertEquals("sample_addon_restore_interrupted", failure?.message)
             assertEquals("current", JSONObject(database.records().get("feature:failure-addon:row")!!.json)
-                .getString("value"))
+                .getJSONObject("data").getString("value"))
         } finally {
             registration.close()
             database.close()

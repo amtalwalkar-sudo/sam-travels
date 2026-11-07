@@ -42,15 +42,20 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
             require(row.optString("participantId") == id && row.optString("id").startsWith(recordIdPrefix)) {
                 "backup_feature_record_owner_mismatch:$id"
             }
+            val envelope = JSONObject(row.getString("json"))
+            RecordEnvelopeContract.validate(envelope)
+            require(
+                envelope.optString("id") == row.optString("id") &&
+                    envelope.optInt("schemaVersion", -1) == row.optInt("schemaVersion", -2) &&
+                    envelope.optString("updatedAt") == row.optString("updatedAt"),
+            ) { "backup_record_storage_envelope_mismatch" }
         }
         override fun clear(database: LocalDatabase) {
             database.records().list().filter { it.id.startsWith(recordIdPrefix) }
                 .forEach { database.records().remove(it.id) }
         }
         override fun restore(database: LocalDatabase, row: JSONObject) {
-            require(row.optString("participantId") == id && row.optString("id").startsWith(recordIdPrefix)) {
-                "backup_feature_record_owner_mismatch:$id"
-            }
+            validate(row)
             NativeBackupCoverage.StoredRecordsAdapter.restore(database, row)
         }
     }
