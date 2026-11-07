@@ -55,7 +55,7 @@ describe("FinanceLoanPaymentService", () => {
     const first = await service.record({ ...base, id: "payment-1", commandId: "command-1",
       allocations: [{ installmentNumber: 1, amountPaise: 7000 }] });
     expect(first).toMatchObject({ unallocatedCreditPaise: 8000, amountPaise: 15000 });
-    const second = await service.record({ ...base, id: "payment-2", commandId: "command-2", amountPaise: 5000,
+    const second = await service.record({ ...base, businessDate: "2026-12-08", id: "payment-2", commandId: "command-2", amountPaise: 5000,
       allocations: [{ installmentNumber: 1, amountPaise: 3000 }, { installmentNumber: 2, amountPaise: 2000 }] });
     expect(second.unallocatedCreditPaise).toBe(0);
     expect(await service.list(loanId)).toHaveLength(2);
