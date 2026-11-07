@@ -62,6 +62,17 @@ describe("Compliance browser backup participant", () => {
     )).toBeDefined();
   });
 
+  it("restores a pre-Compliance backup when it contains no Compliance records", async () => {
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    const legacyManifest = {
+      ...snapshot.manifest,
+      participants: snapshot.manifest.participants?.filter(item => item.id !== "compliance-records"),
+    };
+    await expect(restoreBrowserSnapshot({
+      data: snapshot.data, manifest: legacyManifest as never, confirmed: true,
+    })).resolves.toMatchObject({ restoredCounts: { records: 0 } });
+  });
+
   it("rejects Compliance records whose Vehicle reference is missing", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
     await browserDatabase.records.put({
