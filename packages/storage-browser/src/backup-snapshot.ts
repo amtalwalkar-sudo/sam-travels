@@ -43,7 +43,7 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const features = registerFeatures();
   const discovered = registerBackupParticipants(features);
   const featureParticipants = [...discovered.values()]
-    .filter(contract => contract.required && contract.featureId !== "platform")
+    .filter(contract => contract.required && contract.featureId !== "platform" && !customBrowserFeatureBackupAdapters.has(contract.id))
     .map(contract => {
       const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === contract.id);
       if (
@@ -110,7 +110,7 @@ export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureB
 }
 
 function currentParticipantManifest() {
-  const required = [...registerBackupParticipants(registerFeatures()).values()].map(
+  const required = [...registerBackupParticipants(registerFeatures()).values()]\n    .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
     ({ id, featureId, snapshotVersion, restoreValidatorId }) => ({ id, featureId, snapshotVersion, restoreValidatorId }),
   );
   for (const adapter of customBrowserFeatureBackupAdapters.values()) {
