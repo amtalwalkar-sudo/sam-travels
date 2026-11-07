@@ -87,4 +87,18 @@ describe("Business Settings backup participant", () => {
     await expect(exportBrowserSnapshot("0.1.0"))
       .rejects.toThrow("business_settings_record_invalid");
   });
+
+  it("restores a pre-feature backup that has no Business Settings records or participant entry", async () => {
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    const legacyManifest = {
+      ...snapshot.manifest,
+      participants: snapshot.manifest.participants?.filter(item => item.id !== "business-settings-records"),
+    };
+    await expect(restoreBrowserSnapshot({
+      data: snapshot.data,
+      manifest: legacyManifest as never,
+      confirmed: true,
+    })).resolves.toMatchObject({ restoredCounts: { records: 0 } });
+  });
+
 });
