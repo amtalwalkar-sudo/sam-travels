@@ -146,6 +146,22 @@ export class FinanceLoanPrepaymentService {
     };
   }
 
+  async getScheduleHistory(loanId: string) {
+    const snapshot = await this.load(loanId);
+    const versions = snapshot.loan.data.scheduleVersions.map(item => {
+      const output = item.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
+      return { version: item.version, effectiveDate: item.effectiveDate, label: "Original schedule",
+        rows: output.rows ?? [], regularEmiPaise: output.regularEmiPaise ?? 0 };
+    });
+    for (const revision of snapshot.state?.data.revisions ?? []) {
+      versions.push({ version: revision.version, effectiveDate: revision.effectiveDate,
+        label: revision.mode === "reduce_tenure" ? "Prepayment · Reduce Tenure" : "Prepayment · Reduce EMI",
+        rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise });
+    }
+    return { currentScheduleVersion: snapshot.state?.data.currentScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
+      versions, prepayments: snapshot.state?.data.revisions ?? [] };
+  }
+
   async getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined> {
     const snapshot = await this.load(loanId);
     const state = snapshot.state?.data;
