@@ -1,7 +1,8 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
-import { exportBrowserDiagnostics, recordBrowserDiagnostic } from "../packages/storage-browser/src/local-diagnostics";
+import { exportBrowserDiagnostics, recordBrowserDiagnostic, recordBrowserDiagnosticEvent } from "../packages/storage-browser/src/local-diagnostics";
+import { createSafeDiagnosticEvent } from "../packages/core/src/diagnostics";
 
 describe("bounded privacy-safe local diagnostics", () => {
   afterEach(async () => { await browserDatabase.diagnostics.clear(); });
