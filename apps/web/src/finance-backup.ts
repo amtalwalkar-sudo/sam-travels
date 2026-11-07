@@ -2,6 +2,7 @@ import type { RecordEnvelope } from "../../../packages/core/src/types";
 import { FINANCE_FEATURE, assertFinanceLoanRecordIdentity, assertFinanceLoanRecordV1 } from "../../../packages/features/finance";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertFinancePaymentLedgerV1 } from "../../../packages/application/src";
+import type { FinanceLoanRecordV1 } from "../../../packages/application/src/finance-loan-service";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
 const LOAN_PREFIX = "feature:finance:loan:";
 const PAYMENT_PREFIX = "feature:finance:payments:";
@@ -27,7 +28,8 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
     validateRecord(record: RecordEnvelope<unknown>, records: readonly RecordEnvelope<unknown>[]) {
       if (record.id.startsWith(LOAN_PREFIX)) {
         assertFinanceLoanRecordIdentity(record.id); assertFinanceLoanRecordV1(record.data);
-        const vehicle = records.find(item => item.id === record.data.details.vehicleId);
+        const loanData = record.data as FinanceLoanRecordV1;
+        const vehicle = records.find(item => item.id === loanData.details.vehicleId);
         if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
         const data = vehicle.data; assertVehicleRecordV1(data);
         if (vehicle.id !== "feature:vehicle:" + data.registrationNumber) throw new Error("finance_loan_vehicle_identity_mismatch");
@@ -42,7 +44,8 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
         assertFinanceLoanRecordIdentity(loan.id); assertFinanceLoanRecordV1(loan.data);
         if (ids.has(loan.id)) throw new Error("finance_backup_duplicate_loan_identity");
         ids.add(loan.id);
-        const vehicle = records.find(item => item.id === loan.data.details.vehicleId);
+        const loanData = loan.data as FinanceLoanRecordV1;
+        const vehicle = records.find(item => item.id === loanData.details.vehicleId);
         if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
         const data = vehicle.data; assertVehicleRecordV1(data);
         if (vehicle.id !== "feature:vehicle:" + data.registrationNumber) throw new Error("finance_loan_vehicle_identity_mismatch");
