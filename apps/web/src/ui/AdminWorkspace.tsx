@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Capacitor } from "@capacitor/core";
+import "./AdminWorkspace.css";
 import {
   getApplicationFinanceLoanService,
   getApplicationVehicleService,
