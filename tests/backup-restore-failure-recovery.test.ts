@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import {
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
@@ -8,10 +9,14 @@ import {
 } from "../packages/storage-browser/src";
 
 describe("backup restore failure recovery", () => {
+  let unregisterVehicle: (() => void) | undefined;
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
   });
+
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
 
   it("does not return a partial backup when snapshot export is interrupted", async () => {
     const timestamp = "2026-11-04T00:00:00.000Z";

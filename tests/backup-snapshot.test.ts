@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { FeatureLifecycleCoordinator } from "../packages/application/src/feature-lifecycle-coordinator";
 import { registerFeatures } from "../packages/core/src/features";
@@ -17,6 +18,7 @@ import {
 } from "../packages/storage-browser/src";
 
 describe("browser consistent backup snapshots and recovery checkpoints", () => {
+  let unregisterVehicle: (() => void) | undefined;
   it("derives the browser snapshot participant set from registered feature obligations", () => {
     expect(BROWSER_BACKUP_PARTICIPANTS).toEqual([
       { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
@@ -45,9 +47,12 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
   });
 
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
   });
+
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
 
   it("exports all authoritative IndexedDB workflow tables at one transaction boundary", async () => {
     await browserDatabase.records.put({

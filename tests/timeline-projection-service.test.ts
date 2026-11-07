@@ -1,9 +1,10 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import fixture from "../android/app/src/androidTest/assets/timeline-parity-events-v1.json";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { TimelineProjectionService } from "../packages/application/src/timeline-projection-service";
@@ -13,10 +14,14 @@ import { buildTimelineProjection } from "../packages/domain/src/timeline";
 const events = fixture as unknown as DriverEvent[];
 
 describe("PWA and Android Timeline application-boundary parity", () => {
+  let unregisterVehicle: (() => void) | undefined;
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
   });
+
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
 
   it("projects business output from events persisted and read back through Dexie", async () => {
     // Repeated delivery uses the stable event identity and must not create another stored event.

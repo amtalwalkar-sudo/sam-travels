@@ -89,21 +89,27 @@ internal object NativeFeatureBackupManifestCompatibility {
                 item.getString("restoreValidatorId")).joinToString("|")
         }.sorted()
         if (canonical(incoming) == canonical(expected)) return
-        val hasBusinessSettingsRecord = records?.let { rows ->
-            (0 until rows.length()).any { index ->
-                val row = rows.optJSONObject(index) ?: return@any false
-                row.optString("participantId") == "business-settings-records" ||
-                    row.optString("id").startsWith("feature:business-settings:")
+        val incomingIds = (0 until incoming.length()).map { incoming.getJSONObject(it).getString("id") }.toSet()
+        val omitted = (0 until expected.length()).map { expected.getJSONObject(it) }
+            .filter { it.getString("id") in setOf("business-settings-records", "vehicle-records") && it.getString("id") !in incomingIds }
+        val hasRecordsForOmitted = records?.let { rows ->
+            omitted.any { participant ->
+                val id = participant.getString("id")
+                val featureId = participant.getString("featureId")
+                (0 until rows.length()).any { index ->
+                    val row = rows.optJSONObject(index) ?: return@any false
+                    row.optString("participantId") == id ||
+                        (featureId != "platform" && row.optString("id").startsWith("feature:$featureId:"))
+                }
             }
         } ?: false
+        val omittedIds = omitted.map { it.getString("id") }.toSet()
         val compatibleExpected = JSONArray()
         for (index in 0 until expected.length()) {
             val item = expected.getJSONObject(index)
-            if (item.optString("id") != "business-settings-records") {
-                compatibleExpected.put(JSONObject(item.toString()))
-            }
+            if (item.getString("id") !in omittedIds) compatibleExpected.put(JSONObject(item.toString()))
         }
-        require(!hasBusinessSettingsRecord && canonical(incoming) == canonical(compatibleExpected)) {
+        require(!hasRecordsForOmitted && canonical(incoming) == canonical(compatibleExpected)) {
             "backup_participant_manifest_mismatch"
         }
     }

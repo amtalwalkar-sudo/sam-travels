@@ -43,7 +43,7 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const features = registerFeatures();
   const discovered = registerBackupParticipants(features);
   const featureParticipants = [...discovered.values()]
-    .filter(contract => contract.required && contract.featureId !== "platform")
+    .filter(contract => contract.required && contract.featureId !== "platform" && !customBrowserFeatureBackupAdapters.has(contract.id))
     .map(contract => {
       const participant = BROWSER_BACKUP_PARTICIPANTS.find(item => item.id === contract.id);
       if (
@@ -77,7 +77,13 @@ const customBrowserFeatureBackupAdapters = new Map<string, BrowserFeatureBackupA
 
 /** Register executable feature-owned backup and restore validation for namespaced records. */
 export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureBackupAdapter): () => void {
-  const featureRegistry = registerFeatures([adapter.feature]);
+  const existing = registerFeatures().get(adapter.feature.id);
+  const featureRegistry = existing
+    ? registerFeatures()
+    : registerFeatures([adapter.feature]);
+  if (existing && JSON.stringify(existing.persistence) !== JSON.stringify(adapter.feature.persistence)) {
+    throw new Error("backup_feature_adapter_contract_mismatch:" + adapter.feature.id);
+  }
   const contract = featureRegistry.get(adapter.feature.id)?.persistence;
   if (!contract || contract.backup.participantId !== adapter.participantId ||
       !adapter.recordIdPrefix.startsWith("feature:" + adapter.feature.id + ":")) {
@@ -104,7 +110,8 @@ export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureB
 }
 
 function currentParticipantManifest() {
-  const required = [...registerBackupParticipants(registerFeatures()).values()].map(
+  const required = [...registerBackupParticipants(registerFeatures()).values()]
+    .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
     ({ id, featureId, snapshotVersion, restoreValidatorId }) => ({ id, featureId, snapshotVersion, restoreValidatorId }),
   );
   for (const adapter of customBrowserFeatureBackupAdapters.values()) {

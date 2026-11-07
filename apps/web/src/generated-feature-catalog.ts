@@ -3,9 +3,11 @@ import type { FeatureExtensionDefinition } from "../../../packages/core/src/feat
 import { BUSINESS_SETTINGS_FEATURE_EXTENSION as discoveredFeatureExtension1 } from "../../../packages/features/business-settings/index";
 import { FINANCE_FEATURE_EXTENSION as discoveredFeatureExtension2 } from "../../../packages/features/finance/index";
 import { LOGBOOK_FEATURE_EXTENSION as discoveredFeatureExtension3 } from "../../../packages/features/logbook/index";
+import { VEHICLE_FEATURE_EXTENSION as discoveredFeatureExtension4 } from "../../../packages/features/vehicle/index";
 
 export const DISCOVERED_FEATURE_EXTENSIONS: readonly FeatureExtensionDefinition[] = Object.freeze([
   discoveredFeatureExtension1,
   discoveredFeatureExtension2,
   discoveredFeatureExtension3,
+  discoveredFeatureExtension4,
 ]);
