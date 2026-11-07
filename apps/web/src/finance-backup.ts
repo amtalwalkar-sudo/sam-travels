@@ -11,7 +11,7 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
   const ledger = record.data as {
     loanId: string;
     entries: readonly {
-      kind: string; id?: string; businessDate?: string; scheduleVersion?: number;
+      kind: string; id: string; businessDate: string; scheduleVersion?: number;
       allocations?: readonly { scheduleVersion: number; installmentNumber: number; amountPaise: number }[];
     }[];
   };
