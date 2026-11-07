@@ -133,12 +133,27 @@ describe("MaintenanceService", () => {
     })).rejects.toThrow("maintenance_vehicle_not_found");
   });
 
-  it("returns date reminders without inventing missing odometer values", async () => {
+  it("projects date and kilometre reminders from recorded readings only", async () => {
     const { service } = setup();
     await service.createVisit({
       uuid: "123e4567-e89b-42d3-a456-426614174010",
-      data: { ...visitInput, nextServiceDate: "2026-11-01" }, source: "web",
+      data: { ...visitInput, nextServiceDate: "2026-11-01", nextServiceKm: 50000 },
+      source: "web",
     });
     expect(await service.getDateReminders(vehicleId, "2026-11-01")).toHaveLength(1);
+    const withoutReading = await service.getServiceReminderStates(vehicleId, "2026-11-01");
+    expect(withoutReading[0].kilometreStatus).toBe("not_due");
+    expect(withoutReading[0].latestOdometerKm).toBe(45000);
+
+    await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174012",
+      data: {
+        vehicleId, expenseDate: "2026-11-01", expenseName: "Odometer update",
+        description: "Recorded odometer reading", amountPaise: 0, odometerKm: 50200,
+      }, source: "web",
+    });
+    const afterReading = await service.getServiceReminderStates(vehicleId, "2026-11-01");
+    expect(afterReading[0].kilometreStatus).toBe("due");
+    expect(afterReading[0].latestOdometerKm).toBe(50200);
   });
 });
