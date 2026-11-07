@@ -4,7 +4,6 @@ import {
   getApplicationFinanceLoanService,
   getApplicationVehicleService,
   type FinanceLoanDetailsV1,
-  type FinanceLoanRecordV1,
 } from "../../../../packages/application/src";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 
@@ -73,12 +72,13 @@ function toDetails(form: LoanForm, vehicleId: string): FinanceLoanDetailsV1 {
 }
 
 export function AdminWorkspace() {
-  const [expanded, setExpanded] = useState<AdminSection>("Loan");
+  const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [form, setForm] = useState<LoanForm>(EMPTY_FORM);
   const [editing, setEditing] = useState<Loan | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -112,15 +112,18 @@ export function AdminWorkspace() {
   function beginCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setFormOpen(true);
     setMessage("");
   }
   function beginEdit(loan: Loan) {
     setEditing(loan);
+    setFormOpen(true);
     setForm(asForm(loan.data.details));
     setMessage("");
   }
   function cancelEdit() {
     setEditing(null);
+    setFormOpen(false);
     setForm(EMPTY_FORM);
     setMessage("");
   }
@@ -152,6 +155,7 @@ export function AdminWorkspace() {
         setMessage("Loan and original EMI schedule saved.");
       }
       setEditing(null);
+      setFormOpen(false);
       setForm(EMPTY_FORM);
       const [nextVehicles, nextLoans] = await Promise.all([
         getApplicationVehicleService().list(),
@@ -175,7 +179,7 @@ export function AdminWorkspace() {
       {SECTIONS.map(section => <div className="admin-section" key={section}>
         <button className={expanded === section ? "admin-section-trigger active" : "admin-section-trigger"}
           type="button" aria-expanded={expanded === section}
-          onClick={() => { setExpanded(current => current === section ? "Loan" : section); setMessage(""); }}>
+          onClick={() => { setExpanded(current => current === section ? null : section); setMessage(""); }}>
           <span>{section}</span><span aria-hidden="true">{expanded === section ? "−" : "+"}</span>
         </button>
         {expanded === section && <div className="admin-section-content">
@@ -200,7 +204,7 @@ export function AdminWorkspace() {
                 {!editing && selectedVehicle.data.lifecycleState === "active" &&
                   <button className="admin-primary" type="button" onClick={beginCreate}>Add loan</button>}
                 {editing && <p className="admin-hint">Editing {editing.data.details.loanName} · revision {editing.revision}</p>}
-                {(editing || (!editing && form.loanName !== "")) && <form className="loan-form" onSubmit={saveLoan}>
+                {formOpen && <form className="loan-form" onSubmit={saveLoan}>
                   <div className="loan-form-grid">
                     <label>Loan name<input required value={form.loanName} onChange={event => setForm({ ...form, loanName: event.target.value })} /></label>
                     <label>Lender name<input required value={form.lenderName} onChange={event => setForm({ ...form, lenderName: event.target.value })} /></label>
