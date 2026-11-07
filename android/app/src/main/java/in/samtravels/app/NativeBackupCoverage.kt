@@ -275,7 +275,7 @@ internal object NativeBackupCoverage {
         dynamicFeatureRelationshipValidators.forEach { (participantId, validator) ->
             val owned = (0 until records.length()).map { records.getJSONObject(it) }
                 .filter { it.optString("participantId") == participantId }
-            validator(owned)
+            validator(owned, (0 until records.length()).map { records.getJSONObject(it) })
         }
     }
 
