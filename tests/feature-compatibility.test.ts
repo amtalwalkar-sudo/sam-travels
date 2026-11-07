@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { registerFeatures } from "../packages/core/src/features";
-import { validateFeatureExtensionUpgrade, type FeatureExtensionCompatibilitySnapshot } from "../packages/core/src/feature-compatibility";
+import { analyzeFeatureExtensionUpgradeImpact, validateFeatureExtensionUpgrade, type FeatureExtensionCompatibilitySnapshot } from "../packages/core/src/feature-compatibility";
 import type { FeatureExtensionDefinition } from "../packages/core/src/feature-extension";
 
 const feature = registerFeatures().get("logbook")!;
@@ -90,5 +90,31 @@ describe("feature extension compatibility preflight", () => {
       extension: { ...extension, version: 2 },
       feature: { ...feature, dataPolicy: "non-persistent", persistence: undefined },
     }))).toThrow("cannot become non-persistent");
+  });
+
+  it("reports all changed extension contract surfaces deterministically", () => {
+    const previous = snapshot({ extension: {
+      ...extension, version: 1,
+      dataQueries: [{
+        id: "logbook.events.v1", ownerFeatureId: "logbook", version: 1, outputSchemaVersion: 1,
+        query: async () => ({ status: "unavailable", reason: "offline" } as const),
+        validateRecord: (value: unknown): value is { id: string } => !!value && typeof value === "object",
+      }],
+      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 1, mountPoint: "main", label: "Timeline", render: () => null }],
+    }});
+    const proposed = snapshot({ extension: {
+      ...extension, version: 2, integrations: [],
+      calculations: [{ ...extension.calculations![0], version: 2, outputSchemaVersion: 2 }],
+      dataQueries: [],
+      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 2, mountPoint: "secondary", label: "Timeline", render: () => null }],
+    }});
+    const report = analyzeFeatureExtensionUpgradeImpact(previous, proposed);
+    const changes = report.findings.map(item => item.surface + ":" + item.change);
+    expect(report.compatible).toBe(false);
+    expect(changes).toContain("integration:removed");
+    expect(changes).toContain("data_query:removed");
+    expect(changes).toContain("calculation:contract_metadata_changed");
+    expect(changes).toContain("presentation:contract_metadata_changed");
+    expect(analyzeFeatureExtensionUpgradeImpact(previous, proposed)).toEqual(report);
   });
 });
