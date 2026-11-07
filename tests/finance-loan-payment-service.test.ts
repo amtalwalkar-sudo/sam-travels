@@ -70,6 +70,7 @@ describe("FinanceLoanPaymentService", () => {
       allocations: [{ installmentNumber: 1, amountPaise: 3000 }, { installmentNumber: 2, amountPaise: 2000 }] });
     expect(second.unallocatedCreditPaise).toBe(0);
     expect(await service.list(loanId)).toHaveLength(2);
+    expect((await repo.get(loanId))?.revision).toBe(3);
   });
   it("replays a command idempotently and rejects conflicting command reuse", async () => {
     const { service } = setup();
@@ -102,6 +103,7 @@ describe("FinanceLoanPaymentService", () => {
     expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
     expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
     expect(await service.list(loanId)).toHaveLength(1);
+    expect((await repo.get(loanId))?.revision).toBe(2);
   });
   it("records a full reversal append-only and restores the installment allocation capacity", async () => {
     const { service } = setup();
