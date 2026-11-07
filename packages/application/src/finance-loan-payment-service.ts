@@ -49,11 +49,12 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
     }
     ids.add(entry.id); commands.add(entry.commandId);
     if (entry.kind === "payment") {
+      if (!Array.isArray(entry.allocations)) throw new Error("finance_payment_allocation_invalid");
       let allocatedAmount = 0;
-      for (const allocation of entry.allocations ?? []) allocatedAmount += allocation.amountPaise;
+      for (const allocation of entry.allocations) allocatedAmount += allocation.amountPaise;
       if (!METHODS.has(entry.method) || !Number.isSafeInteger(entry.scheduleVersion) || entry.scheduleVersion < 1 ||
-          !Array.isArray(entry.allocations) || !Number.isSafeInteger(entry.unallocatedCreditPaise) ||
-          entry.unallocatedCreditPaise < 0 || allocatedAmount + entry.unallocatedCreditPaise !== entry.amountPaise) {
+          !Number.isSafeInteger(entry.unallocatedCreditPaise) || entry.unallocatedCreditPaise < 0 ||
+          allocatedAmount + entry.unallocatedCreditPaise !== entry.amountPaise) {
         throw new Error("finance_payment_allocation_invalid");
       }
       payments.set(entry.id, entry);
