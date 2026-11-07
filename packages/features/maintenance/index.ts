@@ -25,3 +25,4 @@ export {
   maintenanceRateForDate,
 } from "./rates";
 export type { MaintenanceRateHistoryEntry } from "./rates";
+export { MAINTENANCE_FEATURE, MAINTENANCE_FEATURE_EXTENSION } from "./runtime";
