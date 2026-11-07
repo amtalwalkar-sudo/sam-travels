@@ -277,7 +277,8 @@ export class MaintenanceService {
         return [{ date: record.data.expenseDate, savedAt: record.updatedAt, km: record.data.odometerKm }];
       }
       return [];
-    }).sort((a, b) => a.date.localeCompare(b.date) || a.savedAt.localeCompare(b.savedAt));
+    }).filter(reading => reading.date <= asOf)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.savedAt.localeCompare(b.savedAt));
     const latest = readings[readings.length - 1];
     const states = owned.filter(record => record.data.kind === "visit" &&
       (record.data.nextServiceDate !== undefined || record.data.nextServiceKm !== undefined))
