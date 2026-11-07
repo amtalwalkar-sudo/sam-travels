@@ -96,7 +96,21 @@ describe("Maintenance browser backup participant", () => {
     })).resolves.toMatchObject({ restoredCounts: { records: 0 } });
   });
 
-  it("rejects Maintenance records with missing Vehicle references or invalid visit totals", async () => {
+  it("rejects Maintenance records with missing Vehicle references", async () => {
+    await browserDatabase.records.put({
+      id: "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174010",
+      schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1,
+      data: {
+        schemaVersion: 1, kind: "expense", vehicleId,
+        expenseDate: "2026-10-06", expenseName: "Towing",
+        description: "Roadside towing", amountPaise: 120000,
+      },
+    });
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("maintenance_vehicle_not_found");
+  });
+
+  it("rejects Maintenance visits whose derived total does not match the items", async () => {
     await browserDatabase.records.put({
       id: "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000",
       schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
