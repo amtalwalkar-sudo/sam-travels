@@ -156,7 +156,8 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
         !Array.isArray(record.items) || !validMoney(record.totalPaise) ||
         !validOptionalNumber(record.odometerKm) || !validOptionalText(record.provider) ||
         (record.nextServiceDate !== undefined && !isMaintenanceDate(record.nextServiceDate)) ||
-        !validOptionalNumber(record.nextServiceKm)) {
+        !validOptionalNumber(record.nextServiceKm) ||
+        (record.nextServiceDate !== undefined && record.nextServiceDate < record.maintenanceDate)) {
       throw new Error("maintenance_visit_invalid");
     }
     if (calculateMaintenanceVisitTotal(record.items as MaintenanceExpenseItemV1[]) !== record.totalPaise) {
@@ -204,7 +205,7 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
       }
       if (index === 0) {
         if (item.isDefault !== true || item.ratePaisePerKm !== DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM ||
-            item.source !== undefined) throw new Error("maintenance_default_rate_invalid");
+            item.source !== undefined || item.commandId !== undefined) throw new Error("maintenance_default_rate_invalid");
       } else if (item.isDefault !== false || item.source === undefined ||
           typeof item.commandId !== "string" || !UUID.test(item.commandId)) {
         throw new Error("maintenance_rate_entry_invalid");
