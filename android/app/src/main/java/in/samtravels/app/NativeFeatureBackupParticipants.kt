@@ -96,10 +96,14 @@ internal object NativeFeatureBackupManifestCompatibility {
             omitted.any { participant ->
                 val id = participant.getString("id")
                 val featureId = participant.getString("featureId")
+                val ownedPrefix = when (id) {
+                    "finance-payment-records" -> "feature:finance:payments:"
+                    else -> if (featureId != "platform") "feature:$featureId:" else ""
+                }
                 (0 until rows.length()).any { index ->
                     val row = rows.optJSONObject(index) ?: return@any false
                     row.optString("participantId") == id ||
-                        (featureId != "platform" && row.optString("id").startsWith("feature:$featureId:"))
+                        (ownedPrefix.isNotEmpty() && row.optString("id").startsWith(ownedPrefix))
                 }
             }
         } ?: false
