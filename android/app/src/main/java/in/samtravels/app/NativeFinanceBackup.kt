@@ -9,12 +9,9 @@ import java.math.BigInteger
 internal object NativeFinanceBackup {
     private const val LOAN_PARTICIPANT_ID = "finance-records"
     private const val PAYMENT_PARTICIPANT_ID = "finance-payment-records"
-    private const val PREPAYMENT_PARTICIPANT_ID = "finance-prepayment-records"
     private const val FEATURE_ID = "finance"
     private const val LOAN_PREFIX = "feature:finance:loan:"
     private const val PAYMENT_PREFIX = "feature:finance:payments:"
-    private const val PREPAYMENT_PREFIX = "feature:finance:prepayments:"
-    private const val PREPAYMENT_CALCULATION_ID = "finance.loan-prepayment-reamortization.v1"
     private const val CALCULATION_ID = "finance.loan-monthly-reducing-balance.v1"
     private val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}")
     private val PAYMENT_METHODS = setOf("cash", "bank_transfer", "cheque", "upi", "other")
@@ -233,9 +230,9 @@ internal object NativeFinanceBackup {
                             scheduleVersions.getJSONObject(scheduleVersion - 1)
                                 .getJSONObject("output").getJSONArray("rows")
                         } else {
-                            val prepaymentId = PREPAYMENT_PREFIX + suffix.lowercase()
+                            val prepaymentId = NativeFinancePrepaymentBackup.RECORD_ID_PREFIX + suffix.lowercase()
                             val prepaymentRow = allRows.firstOrNull {
-                                it.optString("participantId") == PREPAYMENT_PARTICIPANT_ID &&
+                                it.optString("participantId") == NativeFinancePrepaymentBackup.PARTICIPANT_ID &&
                                     it.optString("id") == prepaymentId
                             } ?: error("finance_payment_schedule_version_not_found")
                             val state = JSONObject(prepaymentRow.getString("json")).getJSONObject("data")
@@ -323,132 +320,6 @@ internal object NativeFinanceBackup {
         }
     }
 
-    private fun validatePrepaymentRecords(rows: List<JSONObject>, allRows: List<JSONObject>) {
-        val identities = mutableSetOf<String>()
-        rows.forEach { row ->
-            val id = row.optString("id")
-            val envelope = JSONObject(row.getString("json"))
-            RecordEnvelopeContract.validate(envelope)
-            require(envelope.optString("id") == id) { "finance_loan_prepayment_record_identity_invalid" }
-            val suffix = id.removePrefix(PREPAYMENT_PREFIX)
-            require(id.startsWith(PREPAYMENT_PREFIX) && UUID.matches(suffix) &&
-                id == PREPAYMENT_PREFIX + suffix.lowercase() && identities.add(id)) {
-                "finance_loan_prepayment_record_identity_invalid"
-            }
-            val data = envelope.getJSONObject("data")
-            require(data.keys().asSequence().toSet() == setOf("schemaVersion", "kind", "loanId",
-                "baseScheduleVersion", "currentScheduleVersion", "revisions") &&
-                data.optInt("schemaVersion", -1) == 1 && data.optString("kind") == "loan-prepayment-state") {
-                "finance_loan_prepayment_state_invalid"
-            }
-            val loanId = data.optString("loanId")
-            require(loanId == LOAN_PREFIX + suffix.lowercase()) { "finance_loan_prepayment_record_identity_invalid" }
-            val loanRow = allRows.firstOrNull {
-                it.optString("participantId") == LOAN_PARTICIPANT_ID && it.optString("id") == loanId
-            } ?: error("finance_loan_not_found")
-            val loanData = JSONObject(loanRow.getString("json")).getJSONObject("data")
-            val baseVersion = integer(data, "baseScheduleVersion", 1).toInt()
-            require(baseVersion <= loanData.getJSONArray("scheduleVersions").length()) {
-                "finance_loan_prepayment_base_schedule_not_found"
-            }
-            val revisions = data.getJSONArray("revisions")
-            require(revisions.length() > 0 &&
-                integer(data, "currentScheduleVersion", 1) == (baseVersion + revisions.length()).toLong()) {
-                "finance_loan_prepayment_schedule_history_invalid"
-            }
-            val commands = mutableSetOf<String>()
-            var previousCreatedAt = ""
-            for (index in 0 until revisions.length()) {
-                val revision = revisions.getJSONObject(index)
-                val before = integer(revision, "principalBeforePaise", 1)
-                val amount = integer(revision, "prepaymentAmountPaise", 1)
-                val after = integer(revision, "principalAfterPaise", 1)
-                val commandId = revision.optString("commandId")
-                val createdAt = revision.optString("createdAt")
-                val mode = revision.optString("mode")
-                require(revision.keys().asSequence().toSet() == setOf("version", "commandId", "effectiveDate",
-                    "createdAt", "mode", "principalBeforePaise", "prepaymentAmountPaise", "principalAfterPaise",
-                    "calculationId", "calculationVersion", "inputSchemaVersion", "outputSchemaVersion", "input", "output") &&
-                    integer(revision, "version", 1) == baseVersion + index + 1L &&
-                    commandId.isNotBlank() && commands.add(commandId) &&
-                    date(revision.optString("effectiveDate")).toString() == revision.optString("effectiveDate") &&
-                    validInstant(createdAt) && (previousCreatedAt.isEmpty() || createdAt >= previousCreatedAt) &&
-                    mode in setOf("reduce_tenure", "reduce_emi") && amount < before && after == before - amount &&
-                    revision.optString("calculationId") == PREPAYMENT_CALCULATION_ID &&
-                    integer(revision, "calculationVersion", 1) == 1L &&
-                    integer(revision, "inputSchemaVersion", 1) == 1L &&
-                    integer(revision, "outputSchemaVersion", 1) == 1L) {
-                    "finance_loan_prepayment_revision_invalid"
-                }
-                previousCreatedAt = createdAt
-                val input = revision.getJSONObject("input")
-                require(input.keys().asSequence().toSet() == setOf("principalPaise", "baselinePrincipalPaise",
-                    "annualInterestRateBasisPoints", "regularEmiPaise", "remainingDueDates", "mode") &&
-                    integer(input, "principalPaise", 1) == after &&
-                    integer(input, "baselinePrincipalPaise", 1) == before &&
-                    integer(input, "annualInterestRateBasisPoints") ==
-                        integer(loanData.getJSONObject("details"), "annualInterestRateBasisPoints") &&
-                    integer(input, "regularEmiPaise", 1) > 0 && input.optString("mode") == mode) {
-                    "finance_loan_prepayment_input_invalid"
-                }
-                val dates = input.getJSONArray("remainingDueDates")
-                require(dates.length() in 1..1200) { "finance_loan_prepayment_due_dates_invalid" }
-                val firstDue = date(dates.getString(0))
-                for (dateIndex in 0 until dates.length()) {
-                    require(date(dates.getString(dateIndex)) == YearMonth.from(firstDue)
-                        .plusMonths(dateIndex.toLong()).atDay(1)) { "finance_loan_prepayment_due_dates_invalid" }
-                }
-                val output = revision.getJSONObject("output")
-                require(output.optString("calculationId") == PREPAYMENT_CALCULATION_ID &&
-                    integer(output, "calculationVersion", 1) == 1L && output.optString("mode") == mode &&
-                    integer(output, "openingPrincipalPaise", 1) == after) {
-                    "finance_loan_prepayment_output_invalid"
-                }
-                val emi = integer(output, "regularEmiPaise", 1)
-                val priorEmi = integer(input, "regularEmiPaise", 1)
-                require(if (mode == "reduce_tenure") emi == priorEmi else emi <= priorEmi) {
-                    "finance_loan_prepayment_emi_invalid"
-                }
-                val scheduleRows = output.getJSONArray("rows")
-                require(scheduleRows.length() in 1..dates.length() &&
-                    (mode != "reduce_emi" || scheduleRows.length() == dates.length())) {
-                    "finance_loan_prepayment_rows_invalid"
-                }
-                var opening = after
-                var interestTotal = 0L
-                var paymentTotal = 0L
-                for (rowIndex in 0 until scheduleRows.length()) {
-                    val scheduleRow = scheduleRows.getJSONObject(rowIndex)
-                    val interest = BigInteger.valueOf(opening)
-                        .multiply(BigInteger.valueOf(integer(input, "annualInterestRateBasisPoints")))
-                        .add(BigInteger.valueOf(60000L)).divide(BigInteger.valueOf(120000L)).longValueExact()
-                    val payment = integer(scheduleRow, "installmentAmountPaise", 1)
-                    val principalPart = integer(scheduleRow, "principalComponentPaise", 1)
-                    val closing = integer(scheduleRow, "closingPrincipalPaise")
-                    require(scheduleRow.optInt("installmentNumber", -1) == rowIndex + 1 &&
-                        scheduleRow.optString("dueDate") == dates.getString(rowIndex) &&
-                        integer(scheduleRow, "openingPrincipalPaise", 1) == opening &&
-                        integer(scheduleRow, "interestPaise") == interest &&
-                        principalPart == payment - interest && closing == opening - principalPart &&
-                        scheduleRow.optBoolean("finalAdjusted") == (payment == opening + interest) &&
-                        (rowIndex == scheduleRows.length() - 1 || payment == emi)) {
-                        "finance_loan_prepayment_schedule_row_invalid"
-                    }
-                    interestTotal = Math.addExact(interestTotal, interest)
-                    paymentTotal = Math.addExact(paymentTotal, payment)
-                    opening = closing
-                }
-                require(opening == 0L &&
-                    integer(output, "remainingInstallmentCount", 1) == scheduleRows.length().toLong() &&
-                    output.optString("finalDueDate") == scheduleRows.getJSONObject(scheduleRows.length() - 1).optString("dueDate") &&
-                    integer(output, "totalInterestPaise") == interestTotal &&
-                    integer(output, "totalScheduledPaymentsPaise") == paymentTotal) {
-                    "finance_loan_prepayment_schedule_totals_invalid"
-                }
-            }
-        }
-    }
-
     fun register(): AutoCloseable {
         val loans = NativeBackupCoverage.registerFeatureRecordParticipant(
             id = LOAN_PARTICIPANT_ID,
@@ -466,13 +337,7 @@ internal object NativeFinanceBackup {
                 validateRelationships = ::validatePaymentRecords,
             )
             try {
-                val prepayments = NativeBackupCoverage.registerFeatureRecordParticipant(
-                    id = PREPAYMENT_PARTICIPANT_ID,
-                    featureId = FEATURE_ID,
-                    snapshotVersion = 1,
-                    recordIdPrefix = PREPAYMENT_PREFIX,
-                    validateRelationships = ::validatePrepaymentRecords,
-                )
+                val prepayments = NativeFinancePrepaymentBackup.register()
                 return AutoCloseable {
                     prepayments.close()
                     payments.close()
