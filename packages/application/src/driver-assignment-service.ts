@@ -21,7 +21,7 @@ export class DriverAssignmentService {
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "driver-records",
-      recordIdPrefix: "feature:driver-records:",
+      recordIdPrefix: "feature:driver-records:assignment:",
       validate: assertDriverAssignmentHistoryV1,
     }, now);
   }
@@ -46,6 +46,7 @@ export class DriverAssignmentService {
     const assignments = [...(current?.data.assignments ?? [])];
     if (assignments.some(item => item.assignmentId === input.assignmentId)) throw new Error("driver_assignment_duplicate_id");
     const active = assignments.find(item => item.unassignedAt === undefined);
+    if (active?.vehicleId === input.vehicleId) throw new Error("driver_already_assigned_to_vehicle");
     if (active) {
       if (Date.parse(input.assignedAt) < Date.parse(active.assignedAt)) throw new Error("driver_assignment_time_order_invalid");
       assignments[assignments.indexOf(active)] = { ...active, unassignedAt: input.assignedAt };
