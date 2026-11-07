@@ -55,3 +55,16 @@
 .admin-placeholder strong{font-size:13px;color:#34566a}
 .admin-placeholder p{margin:7px 0 0}
 @media(max-width:420px){.admin-intro{flex-direction:column}.loan-form-grid{grid-template-columns:1fr}.loan-record{padding:12px}.loan-record-heading{align-items:flex-start}.loan-record-heading .admin-secondary{padding:8px;font-size:10px}.loan-metrics strong{font-size:12px}}
+
+.admin-capability-panel{display:grid;gap:12px}
+.admin-capability-form{display:grid;gap:12px;padding:13px;background:#f7f9fa;border:1px solid #e7ecef;border-radius:12px}
+.admin-capability-form>label{display:grid;gap:6px;font-size:10px;color:#596d79;font-weight:700}
+.admin-capability-form input,.admin-capability-form select{width:100%;min-width:0;padding:11px 10px;border:1px solid #dce4e8;border-radius:9px;background:#fff;color:#253b48;font:inherit;font-size:12px}
+.admin-capability-records{display:grid;gap:8px}
+.admin-capability-record{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px;border:1px solid #e3e9ed;border-radius:10px;background:#fff}
+.admin-capability-record>div:first-child{min-width:0;display:grid;gap:4px}
+.admin-capability-record strong{font-size:12px;color:#294b5e}
+.admin-capability-record small{font-size:9px;color:#81909a;overflow-wrap:anywhere}
+.admin-capability-record-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.admin-capability-record-actions>span{font-size:9px;text-transform:uppercase;color:#70818c;background:#f1f4f6;border-radius:99px;padding:6px 8px}
+@media(max-width:420px){.admin-capability-record{align-items:flex-start}.admin-capability-record-actions{flex-direction:column;align-items:flex-end}.admin-capability-record-actions .admin-secondary{padding:8px}}
