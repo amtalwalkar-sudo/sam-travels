@@ -148,11 +148,11 @@ describe("MaintenanceService", () => {
     await service.createExpense({
       uuid: "123e4567-e89b-42d3-a456-426614174012",
       data: {
-        vehicleId, expenseDate: "2026-11-01", expenseName: "Odometer update",
+        vehicleId, expenseDate: "2026-12-01", expenseName: "Odometer update",
         description: "Recorded odometer reading", amountPaise: 0, odometerKm: 50200,
       }, source: "web",
     });
-    const afterReading = await service.getServiceReminderStates(vehicleId, "2026-11-01");
+    const afterReading = await service.getServiceReminderStates(vehicleId, "2026-12-01");
     expect(afterReading[0].kilometreStatus).toBe("due");
     expect(afterReading[0].latestOdometerKm).toBe(50200);
   });
