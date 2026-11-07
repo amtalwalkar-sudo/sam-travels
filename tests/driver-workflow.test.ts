@@ -126,7 +126,7 @@ describe("durable single-driver workflow",()=>{
   await repo.completeIntent(shift.eventId,gps,shift.transitionAt);
   const trip=createDriverCommand(await repo.getSnapshot(),"trip_start","pwa","trip-no-driver","2026-11-03T10:05:00.000Z");
   await repo.queueIntent({command:trip,status:"pending_location",createdAt:trip.transitionAt,updatedAt:trip.transitionAt});
-  await expect(repo.completeIntent(trip.eventId,gps,trip.transitionAt)).rejects.toThrow("work_driver_not_selected");
+  await expect(repo.completeIntent(trip.eventId,{...gps,fixAt:trip.transitionAt},trip.transitionAt)).rejects.toThrow("work_driver_not_selected");
   expect((await repo.getSnapshot()).revision).toBe(1);
   expect(await repo.listEvents()).toHaveLength(1);
   expect((await repo.getIntent(trip.eventId))?.status).toBe("pending_location");
