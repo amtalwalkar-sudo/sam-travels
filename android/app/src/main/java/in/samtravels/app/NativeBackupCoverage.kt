@@ -183,17 +183,8 @@ internal object NativeBackupCoverage {
         return result
     }
 
-    fun validateParticipantManifest(incoming: JSONArray?) {
-        if (incoming == null) return // Legacy native snapshot lacked participant inventory.
-        val expected = participantManifest()
-        fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
-            val item = array.getJSONObject(index)
-            listOf(item.getString("id"), item.getString("featureId"),
-                item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
-                item.getString("restoreValidatorId")).joinToString("|")
-        }.sorted()
-        require(canonical(incoming) == canonical(expected)) { "backup_participant_manifest_mismatch" }
-    }
+    fun validateParticipantManifest(incoming: JSONArray?, records: JSONArray? = null) =
+        NativeFeatureBackupManifestCompatibility.validate(incoming, records)
 
     fun registeredParticipantIds(): Set<String> = discoverParticipants().map { it.id }.toSet()
 

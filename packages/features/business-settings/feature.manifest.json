@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "business-settings",
+  "entryPoint": "packages/features/business-settings/index.ts",
+  "extensionExport": "BUSINESS_SETTINGS_FEATURE_EXTENSION"
+}
