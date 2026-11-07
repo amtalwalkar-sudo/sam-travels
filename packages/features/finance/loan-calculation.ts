@@ -62,8 +62,8 @@ function assertInput(input: LoanCalculationInput): void {
   }
   assertIsoDate(input.loanStartDate, "loan start date");
   assertIsoDate(input.firstEmiDate, "first EMI date");
-  if (Number(input.firstEmiDate.replaceAll("-", "")) <= Number(input.loanStartDate.replaceAll("-", ""))) {
-    throw new Error("First EMI date must be later than loan start date");
+  if (Number(input.firstEmiDate.replaceAll("-", "")) < Number(input.loanStartDate.replaceAll("-", ""))) {
+    throw new Error("First EMI date cannot precede loan start date");
   }
   if (!input.firstEmiDate.endsWith("-01")) {
     throw new Error("First EMI date must be the first day of a calendar month");
