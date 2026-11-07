@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "finance",
+  "entryPoint": "packages/features/finance/index.ts",
+  "extensionExport": "FINANCE_FEATURE_EXTENSION"
+}
