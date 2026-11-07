@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "maintenance",
+  "entryPoint": "packages/features/maintenance/index.ts",
+  "extensionExport": "MAINTENANCE_FEATURE_EXTENSION"
+}
