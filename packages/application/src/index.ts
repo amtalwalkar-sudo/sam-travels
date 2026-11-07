@@ -10,3 +10,4 @@ export * from "./feature-lifecycle-coordinator";
 export * from "./feature-extension-upgrade-coordinator";
 export * from "./cross-feature-data-coordinator";
 export * from "./feature-record-service";
+export * from "./business-settings-service";
