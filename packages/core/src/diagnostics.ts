@@ -31,6 +31,12 @@ export type SafeDiagnosticEvent = Readonly<{
 export function createSafeDiagnosticEvent(input: Omit<SafeDiagnosticEvent, "schemaVersion">): SafeDiagnosticEvent {
   const safeId = (value: string | undefined) =>
     value && /^[a-z0-9][a-z0-9._:-]{0,127}$/i.test(value) ? value : undefined;
+  const stages = new Set<DiagnosticStage>(["discovery", "activation", "dependency", "contribution", "source_query", "data_validation", "calculation", "presentation", "upgrade_preflight"]);
+  const codes = new Set<DiagnosticCode>(["feature_discovered", "feature_active", "feature_blocked", "feature_rejected", "dependency_unavailable", "contribution_invalid", "source_query_failed", "source_validation_failed", "calculation_failed", "presentation_unavailable", "upgrade_compatible", "upgrade_incompatible", "unknown"]);
+  const outcomes = new Set<DiagnosticOutcome>(["success", "blocked", "failure", "invalid"]);
+  const stage = stages.has(input.stage) ? input.stage : "discovery";
+  const code = codes.has(input.code) ? input.code : "unknown";
+  const outcome = outcomes.has(input.outcome) ? input.outcome : "failure";
   const timestamp = Number.isFinite(Date.parse(input.occurredAt))
     ? new Date(input.occurredAt).toISOString()
     : new Date(0).toISOString();
@@ -40,9 +46,9 @@ export function createSafeDiagnosticEvent(input: Omit<SafeDiagnosticEvent, "sche
   return Object.freeze({
     schemaVersion: DIAGNOSTIC_SCHEMA_VERSION,
     ...(safeId(input.traceId) ? { traceId: safeId(input.traceId) } : {}),
-    stage: input.stage,
-    code: input.code,
-    outcome: input.outcome,
+    stage,
+    code,
+    outcome,
     ...(safeId(input.ownerFeatureId) ? { ownerFeatureId: safeId(input.ownerFeatureId) } : {}),
     ...(safeId(input.contributionId) ? { contributionId: safeId(input.contributionId) } : {}),
     ...(Number.isSafeInteger(input.contractVersion) && (input.contractVersion ?? 0) > 0
