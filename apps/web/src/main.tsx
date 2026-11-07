@@ -10,6 +10,7 @@ import {
   initializeApplicationComplianceService,
   initializeApplicationMaintenanceService,
   initializeApplicationFinanceLoanService,
+  initializeApplicationRecordSource,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -28,13 +29,14 @@ import { registerDriverRecordsBrowserBackupParticipant } from "./driver-records-
 import { registerComplianceBrowserBackupParticipant } from "./compliance-backup";
 import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
 import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
-import { createPlatformRepository } from "./native-store";
+import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { App } from "./ui/App";
 import "./ui/styles.css";
 
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
 async function bootstrap(): Promise<void> {
   initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
+  initializeApplicationRecordSource(getPlatformRecordSource());
   registerBusinessSettingsBrowserBackupParticipant();
   registerVehicleBrowserBackupParticipant();
   registerDriverRecordsBrowserBackupParticipant();
