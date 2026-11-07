@@ -170,9 +170,14 @@ export class MaintenanceService {
     const id = rateHistoryId(input.vehicleId);
     const current = await this.records.get(id);
     if (current && current.data.kind !== "rate_history") throw new Error("maintenance_rate_history_identity_mismatch");
-    if (current?.data.kind === "rate_history" &&
-        current.data.entries.some(entry => entry.commandId === input.commandId.toLowerCase())) {
-      return current as RecordEnvelope<MaintenanceRateHistoryV1>;
+    if (current?.data.kind === "rate_history") {
+      const priorCommand = current.data.entries.find(entry => entry.commandId === input.commandId.toLowerCase());
+      if (priorCommand) {
+        if (priorCommand.ratePaisePerKm !== input.ratePaisePerKm) {
+          throw new Error("maintenance_rate_idempotency_conflict");
+        }
+        return current as RecordEnvelope<MaintenanceRateHistoryV1>;
+      }
     }
     const baseline = {
       effectiveFrom: this.businessDateFromInstant(vehicle.createdAt),
