@@ -49,9 +49,19 @@ export async function recordBrowserDiagnostic(input: BrowserDiagnosticInput): Pr
 export async function exportBrowserDiagnostics(): Promise<Array<{
   timestamp: string; subsystem: string; operation: string; outcome: string;
   failureCategory: string; recoveryResult: string; appVersion: string; schemaVersion: number;
+  traceId?: string; stage?: string; code?: string; ownerFeatureId?: string;
+  contributionId?: string; contractVersion?: number; durationMs?: number;
 }>> {
   try {
-    return (await browserDatabase.diagnostics.orderBy("timestamp").toArray()).map(({timestamp,subsystem,operation,outcome,failureCategory,recoveryResult,appVersion,schemaVersion})=>({timestamp,subsystem,operation,outcome,failureCategory,recoveryResult,appVersion,schemaVersion}));
+    return (await browserDatabase.diagnostics.orderBy("timestamp").toArray()).map(row => ({
+      timestamp: row.timestamp, subsystem: row.subsystem, operation: row.operation,
+      outcome: row.outcome, failureCategory: row.failureCategory,
+      recoveryResult: row.recoveryResult, appVersion: row.appVersion,
+      schemaVersion: row.schemaVersion, traceId: row.traceId, stage: row.stage,
+      code: row.code, ownerFeatureId: row.ownerFeatureId,
+      contributionId: row.contributionId, contractVersion: row.contractVersion,
+      durationMs: row.durationMs,
+    }));
   } catch {
     return [];
   }
