@@ -146,6 +146,11 @@ export class MaintenanceService {
     if (record && (record.data.kind !== "rate_history" || record.data.vehicleId !== vehicleId)) {
       throw new Error("maintenance_rate_history_identity_mismatch");
     }
+    const defaultEffectiveDate = this.businessDateFromInstant(vehicle.createdAt);
+    if (record?.data.kind === "rate_history" &&
+        record.data.entries[0].effectiveFrom !== defaultEffectiveDate) {
+      throw new Error("maintenance_default_rate_effective_date_mismatch");
+    }
     const entries = record
       ? record.data.entries
       : [{
@@ -170,6 +175,10 @@ export class MaintenanceService {
     const id = rateHistoryId(input.vehicleId);
     const current = await this.records.get(id);
     if (current && current.data.kind !== "rate_history") throw new Error("maintenance_rate_history_identity_mismatch");
+    if (current?.data.kind === "rate_history" &&
+        current.data.entries[0].effectiveFrom !== this.businessDateFromInstant(vehicle.createdAt)) {
+      throw new Error("maintenance_default_rate_effective_date_mismatch");
+    }
     if (current?.data.kind === "rate_history") {
       const priorCommand = current.data.entries.find(entry => entry.commandId === input.commandId.toLowerCase());
       if (priorCommand) {
