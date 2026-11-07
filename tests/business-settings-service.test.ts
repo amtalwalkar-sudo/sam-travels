@@ -4,7 +4,7 @@ import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   BUSINESS_SETTINGS_RECORD_ID,
   BusinessSettingsService,
-} from "../packages/features/business-settings/service";
+} from "../packages/application/src/business-settings-service";
 
 class MemoryRepository implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
