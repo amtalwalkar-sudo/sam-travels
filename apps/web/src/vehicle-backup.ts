@@ -1,5 +1,5 @@
 import type { RecordEnvelope } from "../../../packages/core/src/types";
-import { VEHICLE_FEATURE } from "../../../packages/core/src/features";
+import { VEHICLE_FEATURE } from "../../../packages/features/vehicle";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
 
