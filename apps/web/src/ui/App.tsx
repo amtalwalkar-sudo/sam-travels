@@ -4,6 +4,7 @@ import { BackupPanel } from "./BackupPanel";
 import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
+import { AdminWorkspace } from "./AdminWorkspace";
 import { ApplicationShell, NavigationIcon, primaryShellDefinition, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
@@ -107,9 +108,10 @@ export function App() {
         {activeScreen === "Timeline" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /><FeatureScreenHost mountPoint="Timeline" context={{ activeScreen }} /></section>
         )}
-        {(activeScreen === "Performance" || activeScreen === "Admin") && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>{activeScreen}</h1><ComingSoon screen={activeScreen} /><FeatureScreenHost mountPoint={activeScreen} context={{ activeScreen }} /></section>
+        {activeScreen === "Performance" && (
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
+        {activeScreen === "Admin" && <AdminWorkspace />}
     </ApplicationShell>
   );
 }
