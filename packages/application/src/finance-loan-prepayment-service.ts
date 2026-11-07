@@ -119,8 +119,8 @@ export class FinanceLoanPrepaymentService {
     const principalBeforePaise = dueRows.length
       ? dueRows[dueRows.length - 1].closingPrincipalPaise
       : schedule.rows[0]?.openingPrincipalPaise;
-    if (!Number.isSafeInteger(principalBeforePaise) || (principalBeforePaise as number) <= 0 ||
-        input.amountPaise >= (principalBeforePaise as number)) {
+    if (typeof principalBeforePaise !== "number" || !Number.isSafeInteger(principalBeforePaise) || principalBeforePaise <= 0 ||
+        input.amountPaise >= principalBeforePaise) {
       throw new Error("finance_loan_prepayment_amount_must_be_less_than_outstanding_principal");
     }
     const remainingDueDates = schedule.rows.filter(row => row.dueDate > input.businessDate).map(row => row.dueDate);
