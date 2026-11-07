@@ -5,13 +5,16 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.math.BigInteger
 
-/** Finance-owned Room backup/restore validation for immutable original EMI schedules. */
+/** Finance-owned Room backup/restore validation for Loan schedules and payment history. */
 internal object NativeFinanceBackup {
-    private const val PARTICIPANT_ID = "finance-records"
+    private const val LOAN_PARTICIPANT_ID = "finance-records"
+    private const val PAYMENT_PARTICIPANT_ID = "finance-payment-records"
     private const val FEATURE_ID = "finance"
-    private const val RECORD_PREFIX = "feature:finance:loan:"
+    private const val LOAN_PREFIX = "feature:finance:loan:"
+    private const val PAYMENT_PREFIX = "feature:finance:payments:"
     private const val CALCULATION_ID = "finance.loan-monthly-reducing-balance.v1"
     private val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}")
+    private val PAYMENT_METHODS = setOf("cash", "bank_transfer", "cheque", "upi", "other")
     @Volatile private var processRegistration: AutoCloseable? = null
 
     @Synchronized
@@ -22,6 +25,9 @@ internal object NativeFinanceBackup {
     private fun date(value: String): LocalDate = LocalDate.parse(value).also {
         require(it.toString() == value) { "finance_loan_date_invalid" }
     }
+
+    private fun validInstant(value: String): Boolean =
+        runCatching { java.time.Instant.parse(value) }.isSuccess
 
     private fun integer(value: JSONObject, key: String, minimum: Long = 0L): Long {
         val raw = value.opt(key)
@@ -59,9 +65,7 @@ internal object NativeFinanceBackup {
             version.optInt("calculationVersion", -1) == 1 &&
             version.optInt("inputSchemaVersion", -1) == 1 &&
             version.optInt("outputSchemaVersion", -1) == 1) { "finance_loan_schedule_version_invalid" }
-        require(runCatching { java.time.Instant.parse(version.optString("createdAt")) }.isSuccess) {
-            "finance_loan_schedule_created_at_invalid"
-        }
+        require(validInstant(version.optString("createdAt"))) { "finance_loan_schedule_created_at_invalid" }
         val input = version.getJSONObject("input")
         val inputKeys = setOf("principalPaise", "annualInterestRateBasisPoints", "tenureMonths", "loanStartDate", "firstEmiDate")
         require(input.keys().asSequence().toSet() == inputKeys) { "finance_loan_schedule_input_invalid" }
@@ -125,50 +129,207 @@ internal object NativeFinanceBackup {
         }
     }
 
-    fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
-        id = PARTICIPANT_ID,
-        featureId = FEATURE_ID,
-        snapshotVersion = 1,
-        recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows, allRows ->
-            val identities = mutableSetOf<String>()
-            rows.forEach { row ->
-                val id = row.optString("id")
-                val envelope = JSONObject(row.getString("json"))
-                RecordEnvelopeContract.validate(envelope)
-                require(envelope.optString("id") == id) { "finance_loan_record_identity_invalid" }
-                val suffix = id.removePrefix(RECORD_PREFIX)
-                require(id.startsWith(RECORD_PREFIX) && UUID.matches(suffix) &&
-                    id == RECORD_PREFIX + suffix.lowercase()) { "finance_loan_record_identity_invalid" }
-                require(identities.add(id)) { "finance_backup_duplicate_loan_identity" }
-                val data = envelope.getJSONObject("data")
-                require(data.keys().asSequence().toSet() ==
-                    setOf("schemaVersion", "kind", "details", "currentScheduleVersion", "scheduleVersions") &&
-                    data.optInt("schemaVersion", -1) == 1 && data.optString("kind") == "loan") {
-                    "finance_loan_record_invalid"
-                }
-                val details = data.getJSONObject("details")
-                validateDetails(details)
-                val vehicleId = details.optString("vehicleId")
-                val vehicle = allRows.firstOrNull {
-                    it.optString("participantId") == "vehicle-records" && it.optString("id") == vehicleId
-                } ?: error("finance_loan_vehicle_not_found")
-                val vehicleEnvelope = JSONObject(vehicle.getString("json"))
-                val vehicleData = vehicleEnvelope.getJSONObject("data")
-                val registration = vehicleData.optString("registrationNumber")
-                require(vehicleId == "feature:vehicle:" + registration &&
-                    registration.isNotBlank() &&
-                    registration == registration.uppercase().filterNot { it.isWhitespace() || it == '-' }) {
-                    "finance_loan_vehicle_identity_mismatch"
-                }
-                val versions = data.getJSONArray("scheduleVersions")
-                require(versions.length() >= 1 && data.optInt("currentScheduleVersion", -1) == versions.length()) {
-                    "finance_loan_schedule_history_invalid"
-                }
-                for (index in 0 until versions.length()) {
-                    validateSchedule(versions.getJSONObject(index), index + 1, data, details)
+    private fun validateLoanRecords(rows: List<JSONObject>, allRows: List<JSONObject>) {
+        val identities = mutableSetOf<String>()
+        rows.forEach { row ->
+            val id = row.optString("id")
+            val envelope = JSONObject(row.getString("json"))
+            RecordEnvelopeContract.validate(envelope)
+            require(envelope.optString("id") == id) { "finance_loan_record_identity_invalid" }
+            val suffix = id.removePrefix(LOAN_PREFIX)
+            require(id.startsWith(LOAN_PREFIX) && UUID.matches(suffix) &&
+                id == LOAN_PREFIX + suffix.lowercase()) { "finance_loan_record_identity_invalid" }
+            require(identities.add(id)) { "finance_backup_duplicate_loan_identity" }
+            val data = envelope.getJSONObject("data")
+            require(data.keys().asSequence().toSet() ==
+                setOf("schemaVersion", "kind", "details", "currentScheduleVersion", "scheduleVersions") &&
+                data.optInt("schemaVersion", -1) == 1 && data.optString("kind") == "loan") {
+                "finance_loan_record_invalid"
+            }
+            val details = data.getJSONObject("details")
+            validateDetails(details)
+            val vehicleId = details.optString("vehicleId")
+            val vehicle = allRows.firstOrNull {
+                it.optString("participantId") == "vehicle-records" && it.optString("id") == vehicleId
+            } ?: error("finance_loan_vehicle_not_found")
+            val vehicleEnvelope = JSONObject(vehicle.getString("json"))
+            val vehicleData = vehicleEnvelope.getJSONObject("data")
+            val registration = vehicleData.optString("registrationNumber")
+            require(vehicleId == "feature:vehicle:" + registration &&
+                registration.isNotBlank() &&
+                registration == registration.uppercase().filterNot { it.isWhitespace() || it == '-' }) {
+                "finance_loan_vehicle_identity_mismatch"
+            }
+            val versions = data.getJSONArray("scheduleVersions")
+            require(versions.length() >= 1 && data.optInt("currentScheduleVersion", -1) == versions.length()) {
+                "finance_loan_schedule_history_invalid"
+            }
+            for (index in 0 until versions.length()) {
+                validateSchedule(versions.getJSONObject(index), index + 1, data, details)
+            }
+        }
+    }
+
+    private fun validatePaymentRecords(rows: List<JSONObject>, allRows: List<JSONObject>) {
+        val ledgerIds = mutableSetOf<String>()
+        rows.forEach { row ->
+            val id = row.optString("id")
+            val envelope = JSONObject(row.getString("json"))
+            RecordEnvelopeContract.validate(envelope)
+            require(envelope.optString("id") == id) { "finance_payment_ledger_identity_invalid" }
+            val suffix = id.removePrefix(PAYMENT_PREFIX)
+            require(id.startsWith(PAYMENT_PREFIX) && UUID.matches(suffix) &&
+                id == PAYMENT_PREFIX + suffix.lowercase()) { "finance_payment_ledger_identity_invalid" }
+            require(ledgerIds.add(id)) { "finance_backup_duplicate_payment_ledger_identity" }
+
+            val data = envelope.getJSONObject("data")
+            require(data.keys().asSequence().toSet() == setOf("schemaVersion", "loanId", "entries") &&
+                data.optInt("schemaVersion", -1) == 1) { "finance_payment_ledger_invalid" }
+            val loanId = data.optString("loanId")
+            require(loanId == LOAN_PREFIX + suffix.lowercase()) { "finance_payment_ledger_identity_invalid" }
+            val loanRow = allRows.firstOrNull {
+                it.optString("participantId") == LOAN_PARTICIPANT_ID && it.optString("id") == loanId
+            } ?: error("finance_payment_loan_not_found")
+            val loanData = JSONObject(loanRow.getString("json")).getJSONObject("data")
+            val scheduleVersions = loanData.getJSONArray("scheduleVersions")
+
+            val ids = mutableSetOf<String>()
+            val commands = mutableSetOf<String>()
+            val payments = linkedMapOf<String, JSONObject>()
+            val reversals = mutableMapOf<String, JSONObject>()
+            val activeAllocations = mutableMapOf<Pair<Int, Int>, Long>()
+            val entries = data.getJSONArray("entries")
+
+            for (index in 0 until entries.length()) {
+                val entry = entries.getJSONObject(index)
+                val kind = entry.optString("kind")
+                val entryId = entry.optString("id")
+                val commandId = entry.optString("commandId")
+                require(entryId.isNotBlank() && ids.add(entryId) &&
+                    commandId.isNotBlank() && commands.add(commandId) &&
+                    entry.optString("loanId") == loanId &&
+                    validInstant(entry.optString("createdAt")) &&
+                    date(entry.optString("businessDate")).toString() == entry.optString("businessDate") &&
+                    integer(entry, "amountPaise", 1) > 0 &&
+                    entry.optString("status") == "committed" &&
+                    entry.optString("source").isNotBlank()) { "finance_payment_entry_invalid" }
+
+                when (kind) {
+                    "payment" -> {
+                        val allowed = setOf("kind", "id", "commandId", "loanId", "businessDate", "amountPaise",
+                            "method", "reference", "note", "scheduleVersion", "createdAt", "source",
+                            "allocations", "unallocatedCreditPaise", "status")
+                        require(entry.keys().asSequence().all { it in allowed } &&
+                            PAYMENT_METHODS.contains(entry.optString("method")) &&
+                            (!entry.has("reference") || entry.optString("reference").isNotBlank()) &&
+                            (!entry.has("note") || entry.optString("note").isNotBlank())) {
+                            "finance_payment_entry_invalid"
+                        }
+                        val scheduleVersion = integer(entry, "scheduleVersion", 1).toInt()
+                        require(scheduleVersion <= scheduleVersions.length()) { "finance_payment_schedule_version_not_found" }
+                        val scheduleRows = scheduleVersions.getJSONObject(scheduleVersion - 1)
+                            .getJSONObject("output").getJSONArray("rows")
+                        val allocations = entry.getJSONArray("allocations")
+                        var allocatedTotal = 0L
+                        val installmentSet = mutableSetOf<Int>()
+                        for (allocationIndex in 0 until allocations.length()) {
+                            val allocation = allocations.getJSONObject(allocationIndex)
+                            val installment = integer(allocation, "installmentNumber", 1).toInt()
+                            val amount = integer(allocation, "amountPaise", 1)
+                            val allocationId = allocation.optString("id")
+                            require(allocation.keys().asSequence().toSet() == setOf("id", "paymentId", "loanId",
+                                "scheduleVersion", "installmentNumber", "amountPaise", "createdAt", "source") &&
+                                allocationId.isNotBlank() && ids.add(allocationId) &&
+                                allocation.optString("paymentId") == entryId &&
+                                allocation.optString("loanId") == loanId &&
+                                integer(allocation, "scheduleVersion", 1) == scheduleVersion.toLong() &&
+                                validInstant(allocation.optString("createdAt")) &&
+                                allocation.optString("source").isNotBlank() &&
+                                installmentSet.add(installment)) { "finance_payment_allocation_invalid" }
+                            val scheduleRow = (0 until scheduleRows.length()).map { scheduleRows.getJSONObject(it) }
+                                .firstOrNull { it.optInt("installmentNumber", -1) == installment }
+                                ?: error("finance_payment_allocation_schedule_reference_invalid")
+                            require(scheduleRow.optString("dueDate") <= entry.optString("businessDate")) {
+                                "finance_payment_allocation_future_installment"
+                            }
+                            allocatedTotal = Math.addExact(allocatedTotal, amount)
+                            val key = scheduleVersion to installment
+                            activeAllocations[key] = Math.addExact(activeAllocations[key] ?: 0L, amount)
+                        }
+                        val paymentAmount = integer(entry, "amountPaise", 1)
+                        val unallocated = integer(entry, "unallocatedCreditPaise")
+                        require(allocatedTotal <= paymentAmount && allocatedTotal + unallocated == paymentAmount) {
+                            "finance_payment_allocation_total_invalid"
+                        }
+                        payments[entryId] = entry
+                    }
+                    "reversal" -> {
+                        val allowed = setOf("kind", "id", "commandId", "loanId", "paymentId", "businessDate",
+                            "reason", "amountPaise", "createdAt", "source", "status")
+                        require(entry.keys().asSequence().toSet() == allowed &&
+                            entry.optString("paymentId").isNotBlank() &&
+                            entry.optString("reason").isNotBlank() &&
+                            !reversals.containsKey(entry.optString("paymentId"))) {
+                            "finance_payment_reversal_invalid"
+                        }
+                        reversals[entry.optString("paymentId")] = entry
+                    }
+                    else -> error("finance_payment_entry_kind_invalid")
                 }
             }
-        },
-    )
+            reversals.forEach { (paymentId, reversal) ->
+                val payment = payments[paymentId] ?: error("finance_payment_reversal_link_invalid")
+                require(integer(reversal, "amountPaise", 1) == integer(payment, "amountPaise", 1)) {
+                    "finance_payment_reversal_link_invalid"
+                }
+            }
+            val reversedIds = reversals.keys
+            for ((key, total) in activeAllocations) {
+                val scheduleRows = scheduleVersions.getJSONObject(key.first - 1)
+                    .getJSONObject("output").getJSONArray("rows")
+                val rowForInstallment = (0 until scheduleRows.length()).map { scheduleRows.getJSONObject(it) }
+                    .first { it.optInt("installmentNumber", -1) == key.second }
+                // Reversed payments release their EMI coverage; recompute from active entries below.
+                val activeTotal = payments.filterKeys { it !in reversedIds }.values.sumOf { payment ->
+                    val allocations = payment.getJSONArray("allocations")
+                    (0 until allocations.length()).sumOf { allocationIndex ->
+                        val allocation = allocations.getJSONObject(allocationIndex)
+                        if (integer(allocation, "scheduleVersion", 1).toInt() == key.first &&
+                            integer(allocation, "installmentNumber", 1).toInt() == key.second) {
+                            integer(allocation, "amountPaise", 1)
+                        } else 0L
+                    }
+                }
+                require(activeTotal <= integer(rowForInstallment, "installmentAmountPaise", 1)) {
+                    "finance_payment_installment_overallocated"
+                }
+            }
+        }
+    }
+
+    fun register(): AutoCloseable {
+        val loans = NativeBackupCoverage.registerFeatureRecordParticipant(
+            id = LOAN_PARTICIPANT_ID,
+            featureId = FEATURE_ID,
+            snapshotVersion = 1,
+            recordIdPrefix = LOAN_PREFIX,
+            validateRelationships = ::validateLoanRecords,
+        )
+        try {
+            val payments = NativeBackupCoverage.registerFeatureRecordParticipant(
+                id = PAYMENT_PARTICIPANT_ID,
+                featureId = FEATURE_ID,
+                snapshotVersion = 1,
+                recordIdPrefix = PAYMENT_PREFIX,
+                validateRelationships = ::validatePaymentRecords,
+            )
+            return AutoCloseable {
+                payments.close()
+                loans.close()
+            }
+        } catch (error: Throwable) {
+            loans.close()
+            throw error
+        }
+    }
 }
