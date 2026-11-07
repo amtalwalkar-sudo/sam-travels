@@ -7,7 +7,11 @@ This document records the current implementation boundary. It is not permission 
 - Log Book trip duration: elapsed time between the committed trip start and end transition timestamps, expressed in minutes and rounded half-up to two decimal places.
 - Cancelled and incomplete trips remain distinct statuses in the event-derived trip history. They are not silently treated as completed trips by the duration calculation.
 
-## Finance approval required
+## Approved Loan calculation (narrow scope)
+
+The fixed-rate, standard monthly reducing-balance Loan EMI quote and original amortization schedule are approved under [Finance Loan Calculation Contract v1](FINANCE_LOAN_CALCULATION_CONTRACT.md). This is a narrow calculation approval only; Finance remains without a persistent transaction ledger. The contract explicitly excludes prepayment re-amortization, payment allocation, broken-period interest, and early-settlement quotes until those workflows receive their own timing, transition, and regression approvals.
+
+## Finance transaction approval still required
 
 Before registering a production Finance calculation, the product owner must approve:
 1. Which persisted transaction types count as income, expense, refund, cancellation fee, adjustment, and transfer.
