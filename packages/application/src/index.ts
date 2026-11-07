@@ -26,3 +26,5 @@ export * from "./maintenance-runtime";
 
 export * from "./finance-loan-service";
 export * from "./finance-loan-runtime";
+
+export * from "./platform-context";
