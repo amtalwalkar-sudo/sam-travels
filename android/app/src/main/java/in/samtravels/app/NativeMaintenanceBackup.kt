@@ -151,7 +151,8 @@ internal object NativeMaintenanceBackup {
                     if (index == 0) {
                         assertExactKeys(entry, setOf("effectiveFrom", "ratePaisePerKm", "savedAt", "isDefault"))
                         require(isDefault && entry.optLong("ratePaisePerKm", -1L) == DEFAULT_RATE &&
-                            entry.optString("effectiveFrom") == expectedDefaultDate) {
+                            entry.optString("effectiveFrom") == expectedDefaultDate &&
+                            entry.optString("savedAt") == vehicleCreatedAt) {
                             "maintenance_default_rate_invalid"
                         }
                     } else {
