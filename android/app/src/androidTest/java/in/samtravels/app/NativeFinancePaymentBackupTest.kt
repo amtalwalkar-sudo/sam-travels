@@ -106,6 +106,26 @@ class NativeFinancePaymentBackupTest {
         }
     }
 
+    @Test fun acceptsLoanOnlyManifestWhenNoPaymentLedgerWasPresent() {
+        val vehicleRegistration = NativeVehicleBackup.register()
+        val financeRegistration = NativeFinanceBackup.register()
+        try {
+            val current = NativeBackupCoverage.participantManifest()
+            val legacy = JSONArray()
+            for (index in 0 until current.length()) {
+                val item = current.getJSONObject(index)
+                if (item.getString("id") != "finance-payment-records") legacy.put(JSONObject(item.toString()))
+            }
+            val oldLoanSnapshot = JSONArray().put(JSONObject()
+                .put("id", loanId).put("json", loanRecord().json)
+                .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-records"))
+            NativeBackupCoverage.validateParticipantManifest(legacy, oldLoanSnapshot)
+        } finally {
+            financeRegistration.close()
+            vehicleRegistration.close()
+        }
+    }
+
     @Test fun rejectsPaymentAllocationThatReferencesAnUnknownInstallment() {
         val vehicleRegistration = NativeVehicleBackup.register()
         val financeRegistration = NativeFinanceBackup.register()
