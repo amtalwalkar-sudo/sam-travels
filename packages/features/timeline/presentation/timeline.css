@@ -20,6 +20,7 @@
 .timeline-event-time{font-size:10px;color:#65b9e8;font-weight:700;padding-top:2px}
 .timeline-event-content{display:grid;gap:4px;min-width:0}.timeline-event-content strong{font-size:12px;color:#fff;text-transform:capitalize}.timeline-event-content small{font-size:10px;line-height:1.4;color:#aab8c4;overflow-wrap:anywhere}
 .timeline-event.boundary{background:#263746;border-left-color:#65b9e8}
+.timeline-event.system{border-left-style:dashed;background:#263746}.timeline-event.system .timeline-event-content strong{font-size:10px;letter-spacing:.04em}
 .timeline-event.ride{border-color:#52758b}
 .timeline-event.cancelled{background:#302a25;border-left-color:#c69b70}
 .timeline-event.cancelled .timeline-event-content small{color:#d6b99a}
