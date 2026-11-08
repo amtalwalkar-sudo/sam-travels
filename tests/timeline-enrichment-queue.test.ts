@@ -103,4 +103,19 @@ describe("durable Timeline enrichment queue", () => {
     });
   });
 
+  it("reuses a fresh resolved coordinate label for another event", async () => {
+    const records = new DexieRecordRepository();
+    const reverse = vi.fn(async () => "Andheri, Mumbai");
+    const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
+    await queue.enqueue([event("event-cache-a")]);
+    await queue.drain();
+    await queue.enqueue([event("event-cache-b")]);
+
+    expect(await queue.locations(["event-cache-b"])).toMatchObject({
+      "event-cache-b": { status: "resolved", label: "Andheri, Mumbai" },
+    });
+    await queue.drain();
+    expect(reverse).toHaveBeenCalledTimes(1);
+  });
+
 });
