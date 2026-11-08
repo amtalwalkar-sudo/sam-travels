@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
+import type { TimelineLocationEnrichment } from "../../../application/src/timeline-reverse-geocoding";
 import "./timeline.css";
 
 type Mode = "today" | "week" | "date";
@@ -109,10 +110,11 @@ function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
   </section>;
 }
 
-function ShiftEvents({ events, shift, allEvents, now, calendarDate }: {
+function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }: {
   events: DriverEvent[];
   shift?: TimelineShiftProjection;
   allEvents: DriverEvent[];
+  locations: Readonly<Record<string, TimelineLocationEnrichment>>;
   now: number;
   calendarDate: string;
 }) {
@@ -197,7 +199,7 @@ function ShiftEvents({ events, shift, allEvents, now, calendarDate }: {
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{locations[event.eventId]?.status === "resolved" ? locations[event.eventId].label : locations[event.eventId]?.status === "network_disabled" ? "Location captured · Internet access disabled" : locations[event.eventId]?.status === "configuration_missing" ? "Location captured · Geoapify not configured" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
@@ -247,6 +249,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     return map;
   }, [model]);
   const allEvents = model?.events ?? [];
+  const locations = model?.locations ?? {};
   const groupedDays = dayGroups.map(day => {
     const shifts = new Map<string, DriverEvent[]>();
     for (const id of day.eventIds) {
@@ -305,8 +308,9 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
       <h3>{dateLabel(day.date)}</h3>
-      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} now={clock} calendarDate={day.date} />)}
+      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
     </section>)}
+    <p className="timeline-attribution">Location enrichment: <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a> · © OpenStreetMap contributors</p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
 }
