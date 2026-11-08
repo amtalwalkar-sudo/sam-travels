@@ -43,20 +43,22 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
         try {
             if (!internetAllowed()) return Result.success()
             val now = System.currentTimeMillis()
-            val due = db.records().list().filter { row ->
+            val allRows = db.records().list()
+            val dueRows = allRows.filter { row ->
                 if (!row.id.startsWith(PREFIX)) return@filter false
                 runCatching {
-                    val envelope = JSONObject(row.json)
-                    val data = envelope.getJSONObject("data")
+                    val data = JSONObject(row.json).getJSONObject("data")
                     val status = data.optString("status")
-                    (status == "pending" || status == "network_disabled" ||
+                    status == "pending" || status == "network_disabled" ||
                         (status == "retry_wait" && (data.optString("nextAttemptAt").isBlank() ||
-                            Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() <= now)))
+                            Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() <= now))
                 }.getOrDefault(false)
-            }.take(BATCH_LIMIT)
+            }
+            val hasMoreDue = dueRows.size > BATCH_LIMIT
+            val due = dueRows.take(BATCH_LIMIT)
 
             var retryableFailure = false
-            val hasDeferredRetry = db.records().list().any { row ->
+            val hasDeferredRetry = allRows.any { row ->
                 if (!row.id.startsWith(PREFIX)) return@any false
                 runCatching {
                     val data = JSONObject(row.json).getJSONObject("data")
@@ -93,7 +95,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
                 }
             }
-            return if (retryableFailure || hasDeferredRetry) Result.retry() else Result.success()
+            return if (retryableFailure || hasDeferredRetry || hasMoreDue) Result.retry() else Result.success()
         } catch (_: Exception) {
             return Result.retry()
         } finally {
