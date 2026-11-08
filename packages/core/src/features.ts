@@ -64,12 +64,7 @@ const initial: FeatureDefinition[] = [
     label: "Timeline",
     dataPolicy: "non-persistent",
     contractVersion: 1,
-    dependencies: [
-      { id: "work", contractVersion: 1 },
-      { id: "logbook", contractVersion: 1 },
-      { id: "finance", contractVersion: 2, optional: true },
-      { id: "vehicle", contractVersion: 1, optional: true },
-    ],
+    dependencies: [{ id: "work", contractVersion: 1 }],
   },
   { id: "finance", label: "Finance", dataPolicy: "persistent", contractVersion: 2, dependencies: [{ id: "platform", contractVersion: 1 }], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "finance-records", snapshotVersion: 1, required: true }, restore: { validatorId: "finance-records-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
   { id: "vehicle", label: "Vehicle", dataPolicy: "persistent", contractVersion: 1, dependencies: [{ id: "platform", contractVersion: 1 }], persistence: { schemaVersion: 1, migrations: [], backup: { participantId: "vehicle-records", snapshotVersion: 1, required: true }, restore: { validatorId: "vehicle-records-v1", required: true }, lifecycle: { disableRetainsData: true, removalRequiresMigration: true } } },
