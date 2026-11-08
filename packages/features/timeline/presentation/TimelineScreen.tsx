@@ -68,16 +68,21 @@ function metricLabel(metric: TimelineMetric): string {
   if (metric.status !== "available") {
     if (metric.status === "pending") return "In progress";
     if (metric.status === "invalid") return "Needs review";
+    if (metric.status === "not_applicable") return "Not applicable";
     return "Not available";
   }
   if (metric.unit === "count") return String(metric.value);
   if (metric.unit === "minutes") return durationLabel(metric.value);
   if (metric.unit === "km") return metric.value.toFixed(1) + " km";
-  if (metric.unit === "minor_currency_units" && metric.currency) {
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: metric.currency, maximumFractionDigits: 2 })
-      .format(metric.value / 100);
+  if (metric.unit === "minor_currency_units") {
+    if (metric.currency) {
+      return new Intl.NumberFormat("en-IN", { style: "currency", currency: metric.currency, maximumFractionDigits: 2 })
+        .format(metric.value / 100);
+    }
+    return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(metric.value / 100) + " · currency not supplied";
   }
-  return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(metric.value / 100) + " · currency not supplied";
+  return "Not available";
 }
 const METRICS: Array<[TimelineMetricId, string]> = [
   ["total_fare", "Total fare"], ["shift_duration", "Shift duration"],
