@@ -170,6 +170,22 @@ internal object NativeFinanceBackup {
             for (index in 0 until versions.length()) {
                 validateSchedule(versions.getJSONObject(index), index + 1, data, details)
             }
+            val paymentId = PAYMENT_PREFIX + suffix.lowercase()
+            val paymentRow = allRows.firstOrNull {
+                it.optString("participantId") == PAYMENT_PARTICIPANT_ID && it.optString("id") == paymentId
+            }
+            val settlementCount = paymentRow?.let {
+                val paymentData = JSONObject(it.getString("json")).getJSONObject("data")
+                val entries = paymentData.getJSONArray("entries")
+                (0 until entries.length()).count { entryIndex ->
+                    entries.getJSONObject(entryIndex).optString("kind") == "settlement"
+                }
+            } ?: 0
+            val lifecycleState = data.optString("lifecycleState", "active")
+            require((lifecycleState == "closed" && settlementCount == 1) ||
+                (lifecycleState == "active" && settlementCount == 0)) {
+                "finance_loan_settlement_lifecycle_mismatch"
+            }
         }
     }
 
