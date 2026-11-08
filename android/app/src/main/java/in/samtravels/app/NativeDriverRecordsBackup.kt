@@ -16,6 +16,41 @@ internal object NativeDriverRecordsBackup {
         if (processRegistration == null) processRegistration = register()
     }
 
+
+    /** Resolve the explicitly selected Work driver and its active vehicle behind the native persistence boundary. */
+    fun selectedWorkContext(db: LocalDatabase, requireVehicle: Boolean): JSONObject {
+        ensureRegistered()
+        val selected = db.records().list().mapNotNull { row ->
+            if (!row.id.startsWith(RECORD_PREFIX + "driver:")) null else {
+                val data = JSONObject(row.json).optJSONObject("data") ?: error("driver_record_invalid")
+                if (data.optBoolean("selectedForWork") && data.optString("lifecycleState") == "active") data else null
+            }
+        }
+        require(selected.size == 1) {
+            if (selected.isEmpty()) "Select one active Driver in Admin before using Work."
+            else "More than one Driver is selected for Work. Clear the extra selection in Admin."
+        }
+        val driver = selected.single()
+        val driverId = driver.optString("driverId")
+        val assignmentRow = db.records().get(RECORD_PREFIX + "assignment:" + driverId)
+        val assignments = assignmentRow?.let { JSONObject(it.json).optJSONObject("data")?.optJSONArray("assignments") }
+        var vehicleId: String? = null
+        if (assignments != null) for (index in 0 until assignments.length()) {
+            val item = assignments.optJSONObject(index) ?: continue
+            if (!item.has("unassignedAt") || item.isNull("unassignedAt")) vehicleId = item.optString("vehicleId")
+        }
+        if (requireVehicle) {
+            require(!vehicleId.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
+            val vehicleData = db.records().get(vehicleId!!)?.let { JSONObject(it.json).optJSONObject("data") }
+            require(vehicleData?.optString("lifecycleState") == "active") {
+                "The selected Driver's assigned vehicle is not active. Update the assignment in Admin."
+            }
+        }
+        return JSONObject().put("driverId", driverId).put("driverName", driver.optString("name")).apply {
+            if (!vehicleId.isNullOrBlank()) put("vehicleId", vehicleId)
+        }
+    }
+
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
         id = PARTICIPANT_ID,
         featureId = FEATURE_ID,
@@ -31,12 +66,13 @@ internal object NativeDriverRecordsBackup {
                 when {
                     id.startsWith(RECORD_PREFIX + "driver:") -> {
                         val required = setOf("schemaVersion", "driverId", "name", "lifecycleState")
-                        val allowed = required + setOf("licenceNumber", "licenceExpiryDate", "mobileNumber")
+                        val allowed = required + setOf("licenceNumber", "licenceExpiryDate", "mobileNumber", "selectedForWork")
                         require(keys.containsAll(required) && keys.all { it in allowed } &&
                             data.optInt("schemaVersion", -1) == 1 &&
                             id == RECORD_PREFIX + "driver:" + driverId &&
                             data.optString("name").isNotBlank() &&
-                            data.optString("lifecycleState") in setOf("active", "inactive")) { "driver_record_invalid" }
+                            data.optString("lifecycleState") in setOf("active", "inactive") &&
+                            (!data.has("selectedForWork") || data.opt("selectedForWork") is Boolean)) { "driver_record_invalid" }
                         listOf("licenceNumber", "mobileNumber").forEach { key ->
                             if (data.has(key)) require(data.optString(key).isNotBlank()) { "driver_record_invalid" }
                         }

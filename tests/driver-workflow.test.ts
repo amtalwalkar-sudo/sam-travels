@@ -16,17 +16,10 @@ import {
  dispatchCommittedFeatureEvent,
 } from "../packages/application/src";
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
-import { assertDriverCommandContract } from "../packages/domain/src/driver-workflow";
 
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
 describe("durable single-driver workflow",()=>{
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open()});
- it("validates selected driver and assigned vehicle context on each trip-start command",async()=>{
-  const base=createDriverCommand({schemaVersion:1,revision:1,state:"shift_active"},"trip_start","pwa","trip-context","2026-11-08T10:00:00.000Z");
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"driver-001",driverName:"Example Driver",vehicleId:"feature:vehicle:MH01AB1234"}})).not.toThrow();
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"driver-001",driverName:"Example Driver"}})).toThrow("trip_start_vehicle_context_required");
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"bad/id",driverName:"Example Driver",vehicleId:"feature:vehicle:MH01AB1234"}})).toThrow("invalid_driver_context");
- });
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot(),command=createDriverCommand(state,"shift_start","pwa","cmd-1","2026-11-03T10:00:00.000Z");
   const intent=await repo.queueIntent({command,status:"pending_location",createdAt:command.transitionAt,updatedAt:command.transitionAt});

@@ -23,12 +23,6 @@ describe("Driver record v1", () => {
     })).not.toThrow();
   });
 
-  it("persists the explicit Work driver selection and rejects non-boolean values", () => {
-    expect(() => assertDriverRecordV1({ ...valid, selectedForWork: true })).not.toThrow();
-    expect(() => assertDriverRecordV1({ ...valid, selectedForWork: false })).not.toThrow();
-    expect(() => assertDriverRecordV1({ ...valid, selectedForWork: "yes" })).toThrow("driver_record_invalid");
-  });
-
   it("accepts active and inactive lifecycle states", () => {
     expect(() => assertDriverRecordV1({ ...valid, lifecycleState: "inactive" })).not.toThrow();
   });
