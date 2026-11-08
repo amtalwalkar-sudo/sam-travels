@@ -30,6 +30,8 @@ export type DriverEventPublisher = (event: DriverEvent) => Promise<void>;
 export class DriverWorkflowService {
   private readonly pendingIntegrationEventIds = new Set<string>();
   private readonly deliveredIntegrationEventIds = new Set<string>();
+  private readonly statusListeners = new Set<() => void>();
+  private readonly backgroundTasks = new Map<string, Promise<void>>();
 
   constructor(
     private readonly repository: DriverWorkflowRepository,
@@ -56,6 +58,83 @@ export class DriverWorkflowService {
 
   subscribe(listener: (snapshot: DriverStateProjection) => void) {
     return this.repository.subscribe(listener);
+  }
+
+  /** Emits workflow-status changes so the UI can refresh pending intents without polling. */
+  subscribeStatus(listener: () => void) {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private notifyStatus() {
+    this.statusListeners.forEach(listener => listener());
+  }
+
+  /** Persist the intent, return promptly, and finish GPS acquisition/commit asynchronously. */
+  async dispatchBackground(command: DriverTransitionCommand): Promise<{
+    status: "pending_location" | "recorded";
+    snapshot: DriverStateProjection;
+  }> {
+    const checked = validateDriverCommand(command);
+    if (!checked.ok) throw new Error(checked.error);
+    const before = await this.repository.getSnapshot();
+    if (command.expectedRevision !== before.revision || command.expectedPriorState !== before.state) {
+      throw new Error("stale_revision");
+    }
+    const now = new Date().toISOString();
+    const intent: DriverIntent = { command, status: "pending_location", createdAt: now, updatedAt: now };
+    const queued = await this.repository.queueIntent(intent);
+    this.notifyStatus();
+    if (queued.status === "recorded") {
+      await this.publishById(command.eventId);
+      return { status: "recorded", snapshot: await this.snapshot() };
+    }
+    this.startBackgroundCompletion(queued);
+    return { status: "pending_location", snapshot: await this.snapshot() };
+  }
+
+  async retryBackground(eventId: string): Promise<{
+    status: "pending_location" | "recorded" | "needs_attention";
+    snapshot: DriverStateProjection;
+    reason?: string;
+  }> {
+    const existing = await this.repository.getIntent(eventId);
+    if (!existing) throw new Error("intent_missing");
+    if (existing.status === "recorded") {
+      await this.publishById(eventId);
+      return { status: "recorded", snapshot: await this.snapshot() };
+    }
+    if (!isWithinGpsRecoveryWindow(existing.command.transitionAt)) {
+      await this.repository.markNeedsAttention(eventId, "gps_recovery_window_expired");
+      this.notifyStatus();
+      return { status: "needs_attention", snapshot: await this.snapshot(), reason: "gps_recovery_window_expired" };
+    }
+    const intent = await this.repository.reactivateIntent(eventId);
+    this.notifyStatus();
+    this.startBackgroundCompletion(intent);
+    return { status: "pending_location", snapshot: await this.snapshot() };
+  }
+
+  private startBackgroundCompletion(intent: DriverIntent) {
+    const eventId = intent.command.eventId;
+    if (this.backgroundTasks.has(eventId)) return;
+    const task = (async () => {
+      try {
+        const gps = await this.location.capture(intent.command.transitionAt);
+        const current = await this.snapshot();
+        const plan = validateDriverCompletion(current, intent, gps);
+        if (!plan.ok) throw new Error(plan.error);
+        await this.repository.completeIntent(eventId, gps);
+        await this.publishById(eventId);
+      } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : "location_unavailable";
+        await this.repository.markNeedsAttention(eventId, reason);
+      } finally {
+        this.backgroundTasks.delete(eventId);
+        this.notifyStatus();
+      }
+    })();
+    this.backgroundTasks.set(eventId, task);
   }
 
   /** Replay committed events on startup so a process death cannot lose integration delivery. */
