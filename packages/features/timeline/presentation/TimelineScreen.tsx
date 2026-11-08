@@ -220,6 +220,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
+  const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
   const refreshSequence = useRef(0);
 
   useEffect(() => {
@@ -227,12 +228,12 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     return () => window.clearInterval(timer);
   }, []);
 
-  async function refresh(fromDate: string, toDate: string) {
+  async function refresh(fromDate: string, toDate: string, allowLocationLookup = locationLookupEnabled) {
     const requestId = ++refreshSequence.current;
     setLoading(true);
     setError("");
     try {
-      const result = await context.loadTimeline(fromDate, toDate);
+      const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup);
       if (requestId === refreshSequence.current) {
         setModel({ ...result.model, locations: {} });
         void result.locations.then((locations) => {
@@ -260,7 +261,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     return { from, to: moveDate(from, 6) };
   }, [mode, anchorDate, clock]);
 
-  useEffect(() => { void refresh(range.from, range.to); }, [context.loadTimeline, range.from, range.to]);
+  useEffect(() => { void refresh(range.from, range.to, locationLookupEnabled); }, [context.loadTimeline, range.from, range.to, locationLookupEnabled]);
 
   const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
     .filter(day => day.date >= range.from && day.date <= range.to)
@@ -303,7 +304,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         <small>YOUR WORKSPACE</small>
         <h2>Timeline</h2>
       </div>
-      <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to)} disabled={loading}>Refresh</button>
+      <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to, locationLookupEnabled)} disabled={loading}>Refresh</button>
+    </div>
+    <div className="timeline-location-consent">
+      <p>Optional location names send only GPS coordinates from events in this selected date range to OpenStreetMap when Internet Access is on. Your saved GPS records are not changed.</p>
+      <button type="button" aria-pressed={locationLookupEnabled}
+        onClick={() => setLocationLookupEnabled(enabled => !enabled)}>
+        {locationLookupEnabled ? "Turn off location names" : "Allow location names"}
+      </button>
     </div>
     <div className="timeline-filter" role="group" aria-label="Timeline date filter">
       <button type="button" className={mode === "today" ? "selected" : ""} onClick={() => setMode("today")}>Today</button>
