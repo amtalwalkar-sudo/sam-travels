@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import {
   getApplicationFinanceLoanPaymentService,
   getApplicationFinanceLoanPrepaymentService,
+  getApplicationFinanceLoanSettlementService,
   getApplicationRecordSource,
   type FinancePaymentEntryV1,
   type FinancePaymentMethodV1,
@@ -116,7 +117,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   async function previewSettlement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage(""); setSettlementPreview(null);
     try {
-      const preview = await getApplicationFinanceLoanPaymentService().previewSettlement({ loanId: loan.id, businessDate: settlementDate });
+      const preview = await getApplicationFinanceLoanSettlementService().preview({ loanId: loan.id, businessDate: settlementDate });
       setSettlementPreview(preview);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Settlement preview failed."); }
     finally { setBusy(false); }
@@ -126,13 +127,10 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!window.confirm("Settle and permanently close this Loan for " + money(settlementPreview.amountPaise) + "? This cannot be undone.")) return;
     setBusy(true); setMessage("");
     try {
-      await getApplicationFinanceLoanPaymentService().settle({
+      await getApplicationFinanceLoanSettlementService().commit({
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, businessDate: settlementDate,
         method: settlementMethod, ...(settlementReference.trim() ? { reference: settlementReference.trim() } : {}),
-        source: getApplicationRecordSource(), expectedLoanRevision: settlementPreview.loanRevision,
-        expectedPaymentLedgerRevision: settlementPreview.paymentLedgerRevision,
-        expectedAmountPaise: settlementPreview.amountPaise, expectedScheduleVersion: settlementPreview.scheduleVersion,
-        expectedPaidThroughInstallment: settlementPreview.paidThroughInstallment,
+        source: getApplicationRecordSource(), preview: settlementPreview,
       });
       setSettlementPreview(null); setSettlementOpen(false);
       setMessage("Final settlement recorded and Loan closed.");
