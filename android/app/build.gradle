@@ -18,8 +18,8 @@ android {
         applicationId 'in.samtravels.app'
         minSdk 23
         targetSdk 35
-        versionCode (project.findProperty("VERSION_CODE") ?: "2").toInteger()
-        versionName (project.findProperty("VERSION_NAME") ?: "0.2.0")
+        versionCode = (findProperty("VERSION_CODE") ?: "2").toString().toInteger()
+        versionName = (findProperty("VERSION_NAME") ?: "0.2.0").toString()
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
