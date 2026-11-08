@@ -131,6 +131,8 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
         connection.doOutput = true
         connection.setRequestProperty("Content-Type", "application/json")
         connection.setRequestProperty("Accept", "application/json")
+        // Native app requests use the already-allowlisted Capacitor origin.
+        connection.setRequestProperty("Origin", "https://localhost")
         return try {
             connection.outputStream.use {
                 it.write(JSONObject().put("latitude", latitude).put("longitude", longitude).toString().toByteArray(Charsets.UTF_8))
