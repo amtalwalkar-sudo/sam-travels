@@ -189,6 +189,19 @@ export class FinanceLoanPaymentService {
     return revised;
   }
 
+  private async assertSettlementDateNotBeforeHistory(loanId: string, businessDate: string,
+    entries: readonly FinancePaymentEntryV1[]): Promise<void> {
+    if (entries.some(entry => entry.businessDate > businessDate)) {
+      throw new Error("finance_payment_settlement_date_precedes_history");
+    }
+    const uuid = loanId.slice("feature:finance:loan:".length);
+    const prepayment = await this.repository.get<{ revisions?: readonly { effectiveDate: string }[] }>(
+      "feature:finance:prepayments:" + uuid);
+    if (prepayment?.data.revisions?.some(revision => revision.effectiveDate > businessDate)) {
+      throw new Error("finance_payment_settlement_date_precedes_history");
+    }
+  }
+
   private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
@@ -279,6 +292,7 @@ export class FinanceLoanPaymentService {
     if (!validDate(input.businessDate)) throw new Error("finance_payment_settlement_input_invalid");
     if (!this.scheduleResolver) throw new Error("finance_payment_schedule_resolver_required");
     const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+    await this.assertSettlementDateNotBeforeHistory(input.loanId, input.businessDate, entries);
     if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
       throw new Error("finance_loan_already_settled");
     }
@@ -318,6 +332,7 @@ export class FinanceLoanPaymentService {
       if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
         throw new Error("finance_loan_already_settled");
       }
+      await this.assertSettlementDateNotBeforeHistory(input.loanId, input.businessDate, entries);
       const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
       if (version === undefined) throw new Error("finance_payment_settlement_not_emi_date");
       const rows = await this.resolveScheduleRows(input.loanId, loan.data, version);
