@@ -34,7 +34,7 @@ jobs:
       - name: Gate deterministic feature activation and contribution isolation
         run: npm test -- tests/feature-activation.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts tests/feature-lifecycle-coordinator.test.ts
       - name: Gate offline workflow and backup reliability regressions
-        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
+        run: npm test -- tests/driver-workflow.test.ts tests/driver-workflow-parity.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
       - name: Run complete web regression suite
         run: npm test
       - name: Publish Dexie-generated complete Timeline parity oracle
@@ -61,6 +61,8 @@ jobs:
       - run: npm run cap:sync
       - name: Build the shared headless Timeline projection for Android parity tests
         run: npm run build:timeline-parity
+      - name: Stage the shared workflow parity contract for Android tests
+        run: mkdir -p android/app/src/androidTest/assets && cp tests/fixtures/driver-workflow-parity-v1.json android/app/src/androidTest/assets/driver-workflow-parity-v1.json
       - name: Download the exact Dexie projection oracle for Android comparison
         uses: actions/download-artifact@v4
         with:
