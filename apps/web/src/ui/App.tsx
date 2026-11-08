@@ -97,7 +97,9 @@ export function App() {
                   <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}{item.reason === "gps_recovery_window_expired" ? " · GPS window expired" : ""}</span>
                   {item.reason === "gps_recovery_window_expired"
                     ? <small className="pending-expired">Reissue as a new action when ready</small>
-                    : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
+                    : item.status === "pending_location"
+                      ? <small>GPS check running in the background</small>
+                      : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
               </div>}
               {nativeOverlayAvailable() && <div className="overlay-control">
