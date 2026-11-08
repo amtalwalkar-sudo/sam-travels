@@ -46,7 +46,7 @@ export class GeoapifyReverseGeocoder implements ReverseGeocoderAdapter {
 
 type CacheEntry = Readonly<{ label?: string; expiresAt: number; lookedUpAt: string }>;
 const ENRICHMENT_EVENT_TYPES = new Set([
-  "shift_start", "shift_end", "trip_create", "start_ride", "end_ride", "cancel_ride",
+  "shift_start", "shift_end", "trip_create", "start_ride", "end_ride", "cancel_ride", "trip_start", "trip_end", "ride_cancel", "trip_completed",
 ]);
 
 /**
