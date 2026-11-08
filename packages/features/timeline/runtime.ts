@@ -5,7 +5,10 @@ import type { TimelineLocationMap } from "../../application/src/timeline-reverse
 import { TimelineScreen } from "./presentation/TimelineScreen";
 
 export type TimelineScreenContext = Readonly<{
-  loadTimeline: (fromDate: string, toDate: string) => Promise<TimelineReadModel & Readonly<{ locations: TimelineLocationMap }>>;
+  loadTimeline: (fromDate: string, toDate: string) => Promise<Readonly<{
+    model: TimelineReadModel;
+    locations: Promise<TimelineLocationMap>;
+  }>>;
 }>;
 
 export const TIMELINE_PRESENTATION_SCREEN: FeaturePresentationScreen = Object.freeze({
