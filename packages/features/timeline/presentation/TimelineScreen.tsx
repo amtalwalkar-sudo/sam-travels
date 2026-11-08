@@ -246,6 +246,10 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
           }
         }).catch(() => {
           // Location enrichment is optional; the core Timeline remains usable.
+        }).finally(() => {
+          if (requestId === refreshSequence.current && activeRefresh.current === controller) {
+            activeRefresh.current = null;
+          }
         });
       }
     } catch (cause) {
@@ -253,10 +257,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
       }
     } finally {
-      if (requestId === refreshSequence.current) {
-        setLoading(false);
-        activeRefresh.current = null;
-      }
+      if (requestId === refreshSequence.current) setLoading(false);
     }
   }
 
