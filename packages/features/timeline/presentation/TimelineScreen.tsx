@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
-import type { TimelineLocationEnrichment } from "../../../application/src/timeline-reverse-geocoding";
+import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
 import "./timeline.css";
 
 type Mode = "today" | "week" | "date";
@@ -215,7 +215,8 @@ function dateLabel(value: string): string {
 export function TimelineScreen({ context }: { context: TimelineScreenContext }) {
   const [mode, setMode] = useState<Mode>("today");
   const [anchorDate, setAnchorDate] = useState(indiaDate(new Date()));
-  const [model, setModel] = useState<Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>> | null>(null);
+  type LoadedTimeline = Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>>;
+  const [model, setModel] = useState<(LoadedTimeline["model"] & { locations: TimelineLocationMap }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
@@ -231,8 +232,17 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     setLoading(true);
     setError("");
     try {
-      const nextModel = await context.loadTimeline(fromDate, toDate);
-      if (requestId === refreshSequence.current) setModel(nextModel);
+      const result = await context.loadTimeline(fromDate, toDate);
+      if (requestId === refreshSequence.current) {
+        setModel({ ...result.model, locations: {} });
+        void result.locations.then((locations) => {
+          if (requestId === refreshSequence.current) {
+            setModel((current) => current ? { ...current, locations } : current);
+          }
+        }).catch(() => {
+          // Location enrichment is optional; the core Timeline remains usable.
+        });
+      }
     } catch (cause) {
       if (requestId === refreshSequence.current) {
         setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
