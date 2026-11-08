@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import worker from "./index";
+import worker from "./src/index";
 import type { GeoapifyProxyEnv } from "./index";
 
 const ORIGIN = "https://app.example";
