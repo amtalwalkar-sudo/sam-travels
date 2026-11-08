@@ -6,7 +6,7 @@
 **Implementation authorization: Granted by the user's explicit implementation instruction on 8 November 2026.**
 **Scope: Read-only Timeline feature registration, authoritative Work-event query, projection, screen, and date navigation.**
 
-This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, reverse-geocoding activation, hosted-provider credentials, or a persistent Timeline cache. Optional location enrichment is implemented as a replaceable Geoapify adapter with an in-memory cache behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
+This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, or a persistent Timeline cache. It does authorize optional Geoapify reverse geocoding using deployment-supplied credentials, implemented as a replaceable adapter with an in-memory cache behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
