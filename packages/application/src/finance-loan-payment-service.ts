@@ -216,7 +216,6 @@ export class FinanceLoanPaymentService {
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId);
-      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
       const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
       const entries = ledger?.data.entries ?? [];
@@ -236,6 +235,7 @@ export class FinanceLoanPaymentService {
         }
         return replay;
       }
+      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const totals = allocationTotals(entries, input.scheduleVersion), seen = new Set<number>();
       let allocatedSum = 0;
       const createdAt = this.now();
@@ -363,7 +363,6 @@ export class FinanceLoanPaymentService {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !input.reason.trim()) throw new Error("finance_payment_reversal_input_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
-      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         if (replay.kind !== "reversal" || replay.id !== input.id || replay.paymentId !== input.paymentId ||
@@ -372,6 +371,7 @@ export class FinanceLoanPaymentService {
         }
         return replay;
       }
+      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const payment = entries.find((entry): entry is Extract<FinancePaymentEntryV1,{kind:"payment"}> => entry.kind === "payment" && entry.id === input.paymentId);
       if (!payment) throw new Error("finance_payment_not_found");
       if (entries.some(entry => entry.kind === "reversal" && entry.paymentId === input.paymentId)) throw new Error("finance_payment_already_reversed");
