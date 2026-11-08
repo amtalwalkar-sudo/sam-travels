@@ -13,7 +13,7 @@ export type TimelineLocationMap = Readonly<Record<string, TimelineLocationEnrich
 /** Replaceable adapter port. Implementations receive only one event's GPS coordinates. */
 export interface ReverseGeocoderAdapter {
   readonly provider: string;
-  reverse(latitude: number, longitude: number): Promise<string | undefined>;
+  reverse(latitude: number, longitude: number, signal?: AbortSignal): Promise<string | undefined>;
 }
 
 /*
@@ -25,10 +25,11 @@ export interface ReverseGeocoderAdapter {
 let nominatimQueue: Promise<void> = Promise.resolve();
 let lastNominatimRequestAt = 0;
 
-function scheduleNominatimRequest<T>(operation: () => Promise<T>): Promise<T> {
+function scheduleNominatimRequest<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   const result = nominatimQueue.then(async () => {
     const waitMs = Math.max(0, 1000 - (Date.now() - lastNominatimRequestAt));
     if (waitMs > 0) await new Promise<void>(resolve => setTimeout(resolve, waitMs));
+    if (signal?.aborted) throw new DOMException("The operation was aborted", "AbortError");
     lastNominatimRequestAt = Date.now();
     return operation();
   });
@@ -41,7 +42,7 @@ export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAda
   readonly provider = "openstreetmap_nominatim";
   constructor(private readonly request: typeof fetch = fetch) {}
 
-  async reverse(latitude: number, longitude: number): Promise<string | undefined> {
+  async reverse(latitude: number, longitude: number, signal?: AbortSignal): Promise<string | undefined> {
     return scheduleNominatimRequest(async () => {
       const url = new URL("https://nominatim.openstreetmap.org/reverse");
       url.searchParams.set("format", "jsonv2");
@@ -54,6 +55,7 @@ export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAda
         method: "GET",
         headers: { Accept: "application/json" },
         referrerPolicy: "strict-origin-when-cross-origin",
+        signal,
       });
       if (!response.ok) throw new Error("nominatim_http_" + response.status);
       const body = await response.json() as { address?: Record<string, unknown>; error?: string };
@@ -66,7 +68,7 @@ export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAda
       ].filter((part): part is string => typeof part === "string" && part.trim().length > 0);
       const unique = [...new Set(parts.map(part => part.trim()))];
       return unique.length ? unique.join(", ") : undefined;
-    });
+    }, signal);
   }
 }
 
@@ -90,9 +92,10 @@ export class TimelineReverseGeocodingService {
     private readonly negativeTtlMs = 60 * 60 * 1000,
   ) {}
 
-  async enrich(events: readonly DriverEvent[]): Promise<TimelineLocationMap> {
+  async enrich(events: readonly DriverEvent[], signal?: AbortSignal): Promise<TimelineLocationMap> {
     const result: Record<string, TimelineLocationEnrichment> = {};
     for (const event of events) {
+      if (signal?.aborted) break;
       const gps = event.gps;
       if (!ENRICHMENT_EVENT_TYPES.has(event.command.eventType) || !gps ||
           !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude)) continue;
@@ -105,7 +108,7 @@ export class TimelineReverseGeocodingService {
         continue;
       }
       try {
-        const label = await this.gateway.run(() => this.adapter.reverse(gps.latitude, gps.longitude));
+        const label = await this.gateway.run(() => this.adapter.reverse(gps.latitude, gps.longitude, signal));
         const lookedUpAt = new Date(this.now()).toISOString();
         this.cache.set(key, {
           label, lookedUpAt,
@@ -115,6 +118,7 @@ export class TimelineReverseGeocodingService {
           ? { status: "resolved", label, provider: "openstreetmap_nominatim", lookedUpAt }
           : { status: "not_found", provider: "openstreetmap_nominatim", lookedUpAt };
       } catch (cause) {
+        if (signal?.aborted || (cause instanceof Error && cause.name === "AbortError")) break;
         result[event.eventId] = {
           status: cause instanceof NetworkAccessDisabledError ? "network_disabled" : "unavailable",
           provider: "openstreetmap_nominatim",
