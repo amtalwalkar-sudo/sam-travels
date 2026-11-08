@@ -108,6 +108,8 @@ export function useDriverWorkspace() {
           }
         });
         const unsubscribeStatus = service.subscribeStatus(refreshWorkflowStatus);
+        void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
+        refreshWorkflowStatus();
         const resumeWorkflow = () => {
           if (document.visibilityState === "hidden") return;
           void service.replayCommittedEvents();
