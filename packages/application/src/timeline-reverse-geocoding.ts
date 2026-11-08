@@ -5,70 +5,41 @@ export type TimelineLocationStatus = "resolved" | "not_found" | "pending" | "net
 export type TimelineLocationEnrichment = Readonly<{
   status: TimelineLocationStatus;
   label?: string;
-  provider?: "openstreetmap_nominatim";
+  provider?: "geoapify";
   lookedUpAt?: string;
 }>;
 export type TimelineLocationMap = Readonly<Record<string, TimelineLocationEnrichment>>;
 
-/** Replaceable adapter port. Implementations receive only one event's GPS coordinates. */
 export interface ReverseGeocoderAdapter {
   readonly provider: string;
   reverse(latitude: number, longitude: number, signal?: AbortSignal): Promise<string | undefined>;
 }
 
-/*
- * Nominatim's public service permits at most one request per second. Keep one
- * module-wide queue so Timeline service instances in this app share the same
- * start-to-start throttle. Browser fetch supplies the page referrer; the app
- * does not attempt to spoof a User-Agent header.
- */
-let nominatimQueue: Promise<void> = Promise.resolve();
-let lastNominatimRequestAt = 0;
-
-function scheduleNominatimRequest<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-  const result = nominatimQueue.then(async () => {
-    const waitMs = Math.max(0, 1000 - (Date.now() - lastNominatimRequestAt));
-    if (waitMs > 0) await new Promise<void>(resolve => setTimeout(resolve, waitMs));
-    if (signal?.aborted) throw new DOMException("The operation was aborted", "AbortError");
-    lastNominatimRequestAt = Date.now();
-    return operation();
-  });
-  nominatimQueue = result.then(() => undefined, () => undefined);
-  return result;
+function configuredProxyUrl(): string {
+  const meta = import.meta as ImportMeta & { env?: Record<string, string | undefined> };
+  return meta.env?.VITE_GEOAPIFY_PROXY_URL?.trim() ?? "";
 }
 
-/** Public OpenStreetMap Nominatim adapter; no account or API key is required. */
-export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAdapter {
-  readonly provider = "openstreetmap_nominatim";
-  constructor(private readonly request: typeof fetch = fetch) {}
+/** Calls the Sam Travels proxy; the Geoapify credential never reaches the client. */
+export class GeoapifyProxyReverseGeocoder implements ReverseGeocoderAdapter {
+  readonly provider = "geoapify";
+  constructor(
+    private readonly endpoint = configuredProxyUrl(),
+    private readonly request: typeof fetch = fetch,
+  ) {}
 
   async reverse(latitude: number, longitude: number, signal?: AbortSignal): Promise<string | undefined> {
-    return scheduleNominatimRequest(async () => {
-      const url = new URL("https://nominatim.openstreetmap.org/reverse");
-      url.searchParams.set("format", "jsonv2");
-      url.searchParams.set("lat", String(latitude));
-      url.searchParams.set("lon", String(longitude));
-      url.searchParams.set("zoom", "18");
-      url.searchParams.set("addressdetails", "1");
-      url.searchParams.set("accept-language", "en");
-      const response = await this.request(url.toString(), {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        referrerPolicy: "strict-origin-when-cross-origin",
-        signal,
-      });
-      if (!response.ok) throw new Error("nominatim_http_" + response.status);
-      const body = await response.json() as { address?: Record<string, unknown>; error?: string };
-      if (body.error || !body.address) return undefined;
-      const address = body.address;
-      const parts = [
-        address.suburb, address.neighbourhood, address.city_district,
-        address.town, address.city, address.village, address.municipality,
-        address.county, address.state,
-      ].filter((part): part is string => typeof part === "string" && part.trim().length > 0);
-      const unique = [...new Set(parts.map(part => part.trim()))];
-      return unique.length ? unique.join(", ") : undefined;
-    }, signal);
+    if (!this.endpoint) throw new Error("geocoding_proxy_not_configured");
+    const url = new URL("reverse-geocode", this.endpoint.endsWith("/") ? this.endpoint : this.endpoint + "/");
+    const response = await this.request(url.toString(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ latitude, longitude }),
+      signal,
+    });
+    if (!response.ok) throw new Error("geoapify_proxy_http_" + response.status);
+    const body = await response.json() as { label?: unknown };
+    return typeof body.label === "string" && body.label.trim() ? body.label.trim() : undefined;
   }
 }
 
@@ -80,7 +51,7 @@ const ENRICHMENT_EVENT_TYPES = new Set([
 /**
  * Optional read-only enrichment. Positive and negative cache entries are
  * session-local; immutable source GPS evidence and Timeline business persistence
- * are untouched. Requests are serialized and throttled by the Nominatim adapter.
+ * are untouched. Calls are made sequentially and protected by the proxy rate limit.
  */
 export class TimelineReverseGeocodingService {
   private readonly cache = new Map<string, CacheEntry>();
@@ -103,8 +74,8 @@ export class TimelineReverseGeocodingService {
       const cached = this.cache.get(key);
       if (cached && cached.expiresAt > this.now()) {
         result[event.eventId] = cached.label
-          ? { status: "resolved", label: cached.label, provider: "openstreetmap_nominatim", lookedUpAt: cached.lookedUpAt }
-          : { status: "not_found", provider: "openstreetmap_nominatim", lookedUpAt: cached.lookedUpAt };
+          ? { status: "resolved", label: cached.label, provider: "geoapify", lookedUpAt: cached.lookedUpAt }
+          : { status: "not_found", provider: "geoapify", lookedUpAt: cached.lookedUpAt };
         continue;
       }
       try {
@@ -115,13 +86,13 @@ export class TimelineReverseGeocodingService {
           expiresAt: this.now() + (label ? this.successTtlMs : this.negativeTtlMs),
         });
         result[event.eventId] = label
-          ? { status: "resolved", label, provider: "openstreetmap_nominatim", lookedUpAt }
-          : { status: "not_found", provider: "openstreetmap_nominatim", lookedUpAt };
+          ? { status: "resolved", label, provider: "geoapify", lookedUpAt }
+          : { status: "not_found", provider: "geoapify", lookedUpAt };
       } catch (cause) {
         if (signal?.aborted || (cause instanceof Error && cause.name === "AbortError")) break;
         result[event.eventId] = {
           status: cause instanceof NetworkAccessDisabledError ? "network_disabled" : "unavailable",
-          provider: "openstreetmap_nominatim",
+          provider: "geoapify",
         };
       }
     }
