@@ -99,7 +99,22 @@ export function useDriverWorkspace() {
         );
 
         const refreshWorkflowStatus = () => {
-          void service.pending().then(items => { if (live) setPending(items); });
+          void service.pending().then(items => {
+            if (!live) return;
+            setPending(items);
+            const acquiring = items.some(item => item.status === "pending_location");
+            const attention = items.find(item => item.status === "needs_attention");
+            setDriverMessage(current => {
+              if (acquiring) return "Action saved · GPS verification continuing in the background";
+              if (attention) return attention.reason === "gps_recovery_window_expired"
+                ? "GPS evidence window expired · reissue the action when ready"
+                : "Action retained · " + (attention.reason ?? "location needs attention");
+              if (/GPS verification|Retry queued|Retrying the original pending action/.test(current)) {
+                return "Recorded securely on this device";
+              }
+              return current;
+            });
+          });
         };
         const unsubscribeState = service.subscribe((snapshot) => {
           if (live) {
@@ -165,9 +180,11 @@ export function useDriverWorkspace() {
     try {
       const result = await workflow.retryBackground(eventId);
       setDriver(result.snapshot);
-      setPending(await workflow.pending());
+      const items = await workflow.pending();
+      setPending(items);
+      const stillPending = items.some(item => item.command.eventId === eventId && item.status === "pending_location");
       setDriverMessage(
-        result.status === "recorded"
+        result.status === "recorded" || !stillPending && result.status !== "needs_attention"
           ? "Recovered action recorded"
           : result.reason === "gps_recovery_window_expired"
             ? "GPS evidence window expired · reissue the action when ready"
@@ -216,9 +233,11 @@ export function useDriverWorkspace() {
       const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID());
       const result = await workflow.dispatchBackground(command);
       setDriver(result.snapshot);
-      setPending(await workflow.pending());
+      const items = await workflow.pending();
+      setPending(items);
+      const stillPending = items.some(item => item.command.eventId === command.eventId && item.status === "pending_location");
       setDriverMessage(
-        result.status === "recorded"
+        result.status === "recorded" || !stillPending
           ? "Recorded securely on this device"
           : "Action saved · GPS verification continuing in the background",
       );
