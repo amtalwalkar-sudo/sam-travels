@@ -23,7 +23,7 @@ describe("durable single-driver workflow",()=>{
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open()});
  it("validates the exact immutable driverContext shape and event placement",()=>{
   const base=createDriverCommand({schemaVersion:1,revision:1,state:"shift_active"},"trip_start","pwa","trip-context","2026-11-08T10:00:00.000Z");
-  const context={schemaVersion:1 as const,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001"};
+  const context={schemaVersion:1 as const,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234"};
   expect(()=>assertDriverCommandContract({...base,driverContext:context})).not.toThrow();
   expect(()=>assertDriverCommandContract({...base,driverContext:{...context,driverName:"Example Driver"}})).toThrow("invalid_driver_context");
   expect(()=>assertDriverCommandContract({...base,eventType:"shift_start",driverContext:context})).toThrow("invalid_driver_context");
@@ -32,10 +32,10 @@ describe("durable single-driver workflow",()=>{
   const timestamp="2026-11-08T00:00:00.000Z";
   const records=[
    {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
-   {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001",assignedAt:timestamp}]}},
-   {id:"feature:vehicle:vehicle-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+   {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:timestamp}]}},
+   {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
   ];
-  expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001"});
+  expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234"});
   expect(()=>resolveDriverContextV1(records.slice(1))).toThrow("work_driver_selection_missing");
  });
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
@@ -150,8 +150,8 @@ describe("durable single-driver workflow",()=>{
   const timestamp="2026-11-08T00:00:00.000Z";
   await browserDatabase.records.bulkPut([
     {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
-    {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001",assignedAt:timestamp}]}},
-    {id:"feature:vehicle:vehicle-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+    {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:timestamp}]}},
+    {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
   ]);
 
   const runtime=createApplicationRuntimeRegistry({extensions:[LOGBOOK_FEATURE_EXTENSION]});
