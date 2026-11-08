@@ -89,10 +89,11 @@ function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
   </section>;
 }
 
-function ShiftEvents({ events, shift, allEvents }: {
+function ShiftEvents({ events, shift, allEvents, now }: {
   events: DriverEvent[];
   shift?: TimelineShiftProjection;
   allEvents: DriverEvent[];
+  now: number;
 }) {
   const ordered = [...events].sort((a, b) =>
     Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt));
@@ -122,11 +123,14 @@ function ShiftEvents({ events, shift, allEvents }: {
     if (kind === "cancel_ride" || kind === "ride_cancel") extra = "Cancellation fee · Not available";
     return { event, detail, extra };
   });
-  const ended = ordered.some(event => event.command.eventType === "shift_end");
+  const shiftEvents = shift ? allEvents.filter(event => shift.eventIds.includes(event.eventId)) : ordered;
+  const ended = shiftEvents.some(event => event.command.eventType === "shift_end");
+  const shiftStarted = shiftEvents.find(event => event.command.eventType === "shift_start");
+  const liveDuration = !ended && shiftStarted ? elapsed(shiftStarted.command.transitionAt, new Date(now).toISOString()) : undefined;
   return <section className="timeline-shift">
     <header className="timeline-shift-heading">
       <strong>{shift ? "SHIFT " + shift.anchorDate : "SHIFT ACTIVITY"}</strong>
-      <span>{ended ? "ENDED" : "IN PROGRESS"}</span>
+      <span>{ended ? "ENDED" : liveDuration === undefined ? "IN PROGRESS" : "ACTIVE · " + durationLabel(liveDuration)}</span>
     </header>
     <div className="timeline-events">
       {blocks.map(({ event, detail, extra }) => {
@@ -134,7 +138,8 @@ function ShiftEvents({ events, shift, allEvents }: {
         const cancelled = kind === "cancel_ride" || kind === "ride_cancel";
         const boundary = kind === "shift_start" || kind === "shift_end";
         const ride = kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end";
-        return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "")} key={event.eventId}>
+        const pickup = kind === "trip_create";
+        return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "") + (pickup ? " pickup" : "")} key={event.eventId}>
           <div className="timeline-event-time">{eventTimeFormatter.format(new Date(event.command.transitionAt))}</div>
           <div className="timeline-event-content">
             <strong>{eventTitle(event)}</strong>
@@ -158,6 +163,12 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [model, setModel] = useState<Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [clock, setClock] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function refresh() {
     setLoading(true);
@@ -229,7 +240,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
       <h3>{dateLabel(day.date)}</h3>
-      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} />)}
+      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} now={clock} />)}
     </section>)}
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
