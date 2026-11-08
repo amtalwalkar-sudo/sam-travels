@@ -60,6 +60,7 @@ describe("durable Timeline enrichment queue", () => {
     await queue.drain();
     expect(reverse).not.toHaveBeenCalled();
     expect(await queue.locations(["event-2"])).toMatchObject({ "event-2": { status: "network_disabled" } });
+    expect(await queue.nextWakeAt()).toBeUndefined();
 
     enabled = true;
     await queue.drain();
