@@ -34,7 +34,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const [settlementDate, setSettlementDate] = useState(indiaDate());
   const [settlementMethod, setSettlementMethod] = useState<FinancePaymentMethodV1>("bank_transfer");
   const [settlementReference, setSettlementReference] = useState("");
-  const [settlementPreview, setSettlementPreview] = useState<{ amountPaise: number; scheduleVersion: number; paidThroughInstallment: number } | null>(null);
+  const [settlementPreview, setSettlementPreview] = useState<{ amountPaise: number; scheduleVersion: number; paidThroughInstallment: number; loanRevision: number; paymentLedgerRevision: number | null } | null>(null);
   const [date, setDate] = useState(indiaDate());
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<FinancePaymentMethodV1>("bank_transfer");
@@ -129,7 +129,10 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       await getApplicationFinanceLoanPaymentService().settle({
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, businessDate: settlementDate,
         method: settlementMethod, ...(settlementReference.trim() ? { reference: settlementReference.trim() } : {}),
-        source: getApplicationRecordSource(),
+        source: getApplicationRecordSource(), expectedLoanRevision: settlementPreview.loanRevision,
+        expectedPaymentLedgerRevision: settlementPreview.paymentLedgerRevision,
+        expectedAmountPaise: settlementPreview.amountPaise, expectedScheduleVersion: settlementPreview.scheduleVersion,
+        expectedPaidThroughInstallment: settlementPreview.paidThroughInstallment,
       });
       setSettlementPreview(null); setSettlementOpen(false);
       setMessage("Final settlement recorded and Loan closed.");
