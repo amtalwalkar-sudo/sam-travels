@@ -36,7 +36,7 @@ export function buildTripHistory(events:readonly DriverEvent[]):TripHistoryRecor
    active.status="needs_attention";active.reason="cancel_after_start_ride";active.endEventId=event.eventId;active.endedAt=event.command.transitionAt;active.endGps=event.gps;active=undefined;continue;
   }
   if(!active){
-   const cancelled=(kind==="ride_cancel"&&event.command.expectedPriorState==="approach_active")||kind==="cancel_ride";
+   const cancelled=kind==="ride_cancel"&&event.command.expectedPriorState==="approach_active";
    trips.push({id:(cancelled?"cancelled-before-start:":"unmatched:")+event.eventId,endEventId:event.eventId,endedAt:event.command.transitionAt,endGps:event.gps,
     status:cancelled?"cancelled":"needs_attention",reason:cancelled?"cancelled_before_ride_start":"trip_close_without_start"});
    continue;
