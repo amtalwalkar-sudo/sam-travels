@@ -18,7 +18,7 @@ function response(body: unknown, status: number, origin: string, allowed: boolea
     headers.set("Access-Control-Allow-Headers", "Content-Type");
     headers.set("Access-Control-Max-Age", "86400");
   }
-  return new Response(JSON.stringify(body), { status, headers });
+  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers });
 }
 
 function localityLabel(properties: Record<string, unknown>): string | undefined {
