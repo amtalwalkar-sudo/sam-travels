@@ -101,9 +101,21 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
+            echo "Database location immediately after preparation:"
+            adb shell run-as in.samtravels.app pwd
+            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
             adb shell am force-stop in.samtravels.app
             adb shell am force-stop in.samtravels.app.test
-            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart
+            echo "Database location after force-stop, before any Gradle install/setup:"
+            adb shell run-as in.samtravels.app pwd
+            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
+            echo "Re-running only the Android debug APK installation tasks to isolate install-time data handling:"
+            gradle -p android :app:installDebug :app:installDebugAndroidTest
+            echo "Database location after Gradle APK installation:"
+            adb shell run-as in.samtravels.app pwd
+            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
+            echo "Recovering through the installed instrumentation runner without a second connectedDebugAndroidTest setup/install cycle:"
+            adb shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
