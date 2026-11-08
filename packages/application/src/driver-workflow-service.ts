@@ -56,6 +56,20 @@ export class DriverWorkflowService {
     return this.repository.listPending();
   }
 
+  /** Resume only already-persisted in-window intents after a PWA process restart. */
+  async resumePendingBackground() {
+    const pending = await this.repository.listPending();
+    for (const intent of pending) {
+      if (intent.status === "pending_location" && isWithinGpsRecoveryWindow(intent.command.transitionAt)) {
+        this.startBackgroundCompletion(intent);
+      } else if (intent.status === "pending_location") {
+        await this.repository.markNeedsAttention(intent.command.eventId, "gps_recovery_window_expired");
+      }
+    }
+    this.notifyStatus();
+    return this.repository.listPending();
+  }
+
   subscribe(listener: (snapshot: DriverStateProjection) => void) {
     return this.repository.subscribe(listener);
   }
