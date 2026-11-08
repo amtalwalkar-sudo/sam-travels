@@ -202,7 +202,7 @@ object DriverWorkflowStore {
             val eventType=command.optString("eventType")
             if(command.optInt("workflowVersion",1)==2) {
                 when(eventType) {
-                    "shift_start" -> command.put("driverContext",resolveWorkDriverContext(db,command.getString("transitionAt")))
+                    "shift_start" -> command.put("driverContext",WorkDriverContextResolver.resolve(db,command.getString("transitionAt")))
                     "trip_create" -> {
                         val shiftId=current.optString("shiftId")
                         val shiftContext=current.optJSONObject("shiftContext")?:error("work_shift_context_missing")
