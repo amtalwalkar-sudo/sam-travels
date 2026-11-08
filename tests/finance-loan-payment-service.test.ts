@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FinanceLoanPaymentService, proposeFinancePaymentAllocationV1 } from "../packages/application/src/finance-loan-payment-service";
+import { FinanceLoanSettlementService } from "../packages/application/src/finance-loan-settlement-service";
 import type { FinanceLoanRecordV1 } from "../packages/application/src/finance-loan-service";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
@@ -141,31 +142,28 @@ describe("FinanceLoanPaymentService", () => {
   it("settles on an EMI date, records one Finance settlement entry, and closes the Loan atomically", async () => {
     const repo = new MemoryRepository();
     await repo.put(loanEnvelope);
-    const service = new FinanceLoanPaymentService(repo,
-      { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
-      () => "2026-11-08T04:00:00.000Z",
-      {
-        async getScheduleRows() { return rows; },
-        async getScheduleVersionForDate(_id, date) { return date === "2026-11-01" ? 1 : undefined; },
-      });
-    await expect(service.previewSettlement({ loanId, businessDate: "2026-11-02" }))
+    const loans = { async get(id: string) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } };
+    const schedules = {
+      async getScheduleRows() { return rows; },
+      async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
+    };
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
+    const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z");
+    await expect(settlementService.preview({ loanId, businessDate: "2026-11-02" }))
       .rejects.toThrow("finance_payment_settlement_not_emi_date");
-    await expect(service.previewSettlement({ loanId, businessDate: "2026-11-01" }))
+    await expect(settlementService.preview({ loanId, businessDate: "2026-11-01" }))
       .rejects.toThrow("finance_payment_settlement_due_emi_not_fully_paid");
     await service.record({ ...base, id: "emi-payment-1", commandId: "emi-command-1",
       businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
-    const preview = await service.previewSettlement({ loanId, businessDate: "2026-11-01" });
+    const preview = await settlementService.preview({ loanId, businessDate: "2026-11-01" });
     expect(preview).toMatchObject({ amountPaise: 20000, scheduleVersion: 1, paidThroughInstallment: 1 });
     const settlementInput = { id: "settlement-1", commandId: "settlement-command-1", loanId,
-      businessDate: "2026-11-01", method: "bank_transfer" as const, source: "web" as const,
-      expectedLoanRevision: preview.loanRevision, expectedPaymentLedgerRevision: preview.paymentLedgerRevision,
-      expectedAmountPaise: preview.amountPaise, expectedScheduleVersion: preview.scheduleVersion,
-      expectedPaidThroughInstallment: preview.paidThroughInstallment };
-    const settlement = await service.settle(settlementInput);
+      businessDate: "2026-11-01", method: "bank_transfer" as const, source: "web" as const, preview };
+    const settlement = await settlementService.commit(settlementInput);
     expect(settlement).toMatchObject({ kind: "settlement", amountPaise: 20000, paidThroughInstallment: 1 });
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).toBe("closed");
-    expect(await service.settle(settlementInput)).toEqual(settlement);
-    await expect(service.settle({ ...settlementInput, id: "settlement-2", commandId: "settlement-command-2" }))
+    expect(await settlementService.commit(settlementInput)).toEqual(settlement);
+    await expect(settlementService.commit({ ...settlementInput, id: "settlement-2", commandId: "settlement-command-2" }))
       .rejects.toThrow("finance_loan_already_settled");
     await expect(service.record({ ...base, id: "after-close", commandId: "after-close-command", allocations: [] }))
       .rejects.toThrow("finance_loan_closed");
@@ -177,23 +175,20 @@ describe("FinanceLoanPaymentService", () => {
   it("rejects a settlement confirmation when the payment ledger changed after preview", async () => {
     const repo = new MemoryRepository();
     await repo.put(loanEnvelope);
-    const service = new FinanceLoanPaymentService(repo,
-      { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
-      () => "2026-11-08T04:00:00.000Z",
-      {
-        async getScheduleRows() { return rows; },
-        async getScheduleVersionForDate(_id, date) { return date === "2026-11-01" ? 1 : undefined; },
-      });
+    const loans = { async get(id: string) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } };
+    const schedules = {
+      async getScheduleRows() { return rows; },
+      async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
+    };
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
+    const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z");
     await service.record({ ...base, id: "emi-payment-stale", commandId: "emi-command-stale",
       businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
-    const preview = await service.previewSettlement({ loanId, businessDate: "2026-11-01" });
+    const preview = await settlementService.preview({ loanId, businessDate: "2026-11-01" });
     await service.record({ ...base, id: "credit-after-preview", commandId: "credit-after-preview-command",
       businessDate: "2026-11-01", amountPaise: 100, allocations: [] });
-    await expect(service.settle({ id: "stale-settlement", commandId: "stale-settlement-command", loanId,
-      businessDate: "2026-11-01", method: "bank_transfer", source: "web",
-      expectedLoanRevision: preview.loanRevision, expectedPaymentLedgerRevision: preview.paymentLedgerRevision,
-      expectedAmountPaise: preview.amountPaise, expectedScheduleVersion: preview.scheduleVersion,
-      expectedPaidThroughInstallment: preview.paidThroughInstallment }))
+    await expect(settlementService.commit({ id: "stale-settlement", commandId: "stale-settlement-command", loanId,
+      businessDate: "2026-11-01", method: "bank_transfer", source: "web", preview }))
       .rejects.toThrow("finance_payment_settlement_preview_stale");
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
