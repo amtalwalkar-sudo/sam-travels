@@ -1,6 +1,10 @@
 package `in`.samtravels.app
 
 import android.content.Context
+import android.content.BroadcastReceiver
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import androidx.room.Room
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -82,6 +86,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     if (label.isNullOrBlank()) data.remove("label") else data.put("label", label)
                     envelope.put("revision", envelope.optInt("revision") + 1).put("updatedAt", lookedUpAt)
                     db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, lookedUpAt))
+                    notifyEnrichmentChanged()
                 } catch (error: Exception) {
                     retryableFailure = true
                     val envelope = JSONObject(row.json)
@@ -94,6 +99,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                         .put("nextAttemptAt", Instant.ofEpochMilli(System.currentTimeMillis() + delay).toString())
                     envelope.put("revision", envelope.optInt("revision") + 1).put("updatedAt", updatedAt)
                     db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
+                    notifyEnrichmentChanged()
                 }
             }
             return if (retryableFailure || hasDeferredRetry || hasMoreDue) Result.retry() else Result.success()
@@ -102,6 +108,11 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
         } finally {
             runCatching { db.close() }
         }
+    }
+
+    private fun notifyEnrichmentChanged() {
+        applicationContext.sendBroadcast(Intent(TimelineEnrichmentPlugin.ACTION_CHANGED)
+            .setPackage(applicationContext.packageName))
     }
 
     private fun internetAllowed(): Boolean {
@@ -145,9 +156,38 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
 /** Small Capacitor bridge: feature UI requests scheduling after it has persisted explicit consent. */
 @com.getcapacitor.annotation.CapacitorPlugin(name = "TimelineEnrichment")
 class TimelineEnrichmentPlugin : com.getcapacitor.Plugin() {
+    private var receiver: BroadcastReceiver? = null
+
+    override fun load() {
+        super.load()
+        val listener = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                notifyListeners("enrichmentChanged", com.getcapacitor.JSObject())
+            }
+        }
+        receiver = listener
+        val filter = IntentFilter(ACTION_CHANGED)
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.registerReceiver(listener, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            context.registerReceiver(listener, filter)
+        }
+    }
+
+    override fun handleOnDestroy() {
+        receiver?.let { runCatching { context.unregisterReceiver(it) } }
+        receiver = null
+        super.handleOnDestroy()
+    }
+
     @com.getcapacitor.PluginMethod
     fun schedule(call: com.getcapacitor.PluginCall) {
         TimelineEnrichmentScheduler.schedule(context)
         call.resolve()
+    }
+
+    companion object {
+        const val ACTION_CHANGED = "in.samtravels.app.TIMELINE_ENRICHMENT_CHANGED"
     }
 }
