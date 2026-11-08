@@ -222,6 +222,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [clock, setClock] = useState(Date.now());
   const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
   const refreshSequence = useRef(0);
+  const activeRefresh = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -229,11 +230,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, []);
 
   async function refresh(fromDate: string, toDate: string, allowLocationLookup = locationLookupEnabled) {
+    activeRefresh.current?.abort();
+    const controller = new AbortController();
+    activeRefresh.current = controller;
     const requestId = ++refreshSequence.current;
     setLoading(true);
     setError("");
     try {
-      const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup);
+      const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup, controller.signal);
       if (requestId === refreshSequence.current) {
         setModel({ ...result.model, locations: {} });
         void result.locations.then((locations) => {
@@ -249,11 +253,18 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
       }
     } finally {
-      if (requestId === refreshSequence.current) setLoading(false);
+      if (requestId === refreshSequence.current) {
+        setLoading(false);
+        activeRefresh.current = null;
+      }
     }
   }
 
-  useEffect(() => () => { refreshSequence.current += 1; }, []);
+  useEffect(() => () => {
+    refreshSequence.current += 1;
+    activeRefresh.current?.abort();
+    activeRefresh.current = null;
+  }, []);
   const range = useMemo(() => {
     if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
     if (mode === "date") return { from: anchorDate, to: anchorDate };
