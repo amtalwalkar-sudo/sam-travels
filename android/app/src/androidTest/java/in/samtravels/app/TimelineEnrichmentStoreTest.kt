@@ -96,4 +96,32 @@ class TimelineEnrichmentStoreTest {
         }
     }
 
+    @Test fun nextWorkDelayHonoursPersistedBackoffAndIdleQueueSleeps() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val store = TimelineEnrichmentStore(database)
+            val now = Instant.parse(timestamp).toEpochMilli()
+            store.putRecord(envelope("timeline-enrichment:retry", JSONObject()
+                .put("eventId", "retry").put("latitude", 19.076).put("longitude", 72.8777)
+                .put("status", "retry_wait").put("provider", "geoapify").put("attempts", 1)
+                .put("nextAttemptAt", Instant.ofEpochMilli(now + 45_000).toString())))
+            assertEquals(45_000L, store.nextWorkDelayMillis(now))
+
+            store.putRecord(envelope("timeline-enrichment:pending", JSONObject()
+                .put("eventId", "pending").put("latitude", 19.076).put("longitude", 72.8777)
+                .put("status", "pending").put("provider", "geoapify").put("attempts", 0)))
+            assertEquals(0L, store.nextWorkDelayMillis(now))
+
+            store.putRecord(envelope("timeline-enrichment:pending", JSONObject()
+                .put("eventId", "pending").put("latitude", 19.076).put("longitude", 72.8777)
+                .put("status", "resolved").put("provider", "geoapify").put("attempts", 1)
+                .put("lookedUpAt", timestamp)))
+            assertEquals(45_000L, store.nextWorkDelayMillis(now))
+        } finally {
+            database.close()
+        }
+    }
+
 }
