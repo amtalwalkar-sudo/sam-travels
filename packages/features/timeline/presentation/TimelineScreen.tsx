@@ -200,7 +200,7 @@ function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }:
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : location?.status === "configuration_missing" ? "Location captured · Geoapify not configured" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
@@ -312,7 +312,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       <h3>{dateLabel(day.date)}</h3>
       {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
     </section>)}
-    <p className="timeline-attribution">Location enrichment: <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
+    <p className="timeline-attribution">Location names: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
 }
