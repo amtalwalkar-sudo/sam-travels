@@ -5,8 +5,6 @@ import type { DriverEvent } from "../../domain/src/driver-workflow";
 import type { ReverseGeocoderAdapter, TimelineLocationEnrichment, TimelineLocationMap } from "./timeline-reverse-geocoding";
 
 export const TIMELINE_ENRICHMENT_RECORD_PREFIX = "timeline-enrichment:";
-const SUCCESS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const NEGATIVE_TTL_MS = 60 * 60 * 1000;
 const MAX_BATCH_SIZE = 5;
 
 export type TimelineEnrichmentRecord = Readonly<{
@@ -43,6 +41,7 @@ export class TimelineEnrichmentQueue {
     private readonly adapter: ReverseGeocoderAdapter,
     private readonly now: () => number = Date.now,
   ) {}
+  private draining = false;
 
   async enqueue(events: readonly DriverEvent[]): Promise<void> {
     const now = new Date(this.now()).toISOString();
@@ -65,6 +64,9 @@ export class TimelineEnrichmentQueue {
   }
 
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
+    if (this.draining) return Object.freeze({});
+    this.draining = true;
+    try {
     const nowMs = this.now();
     const all = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
@@ -104,6 +106,9 @@ export class TimelineEnrichmentQueue {
       }
     }
     return Object.freeze(result);
+    } finally {
+      this.draining = false;
+    }
   }
 
   async locations(eventIds: readonly string[]): Promise<TimelineLocationMap> {
