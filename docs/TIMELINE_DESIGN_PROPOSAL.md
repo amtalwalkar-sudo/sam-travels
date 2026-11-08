@@ -36,6 +36,12 @@ If this proposal appears to conflict with an existing normative contract, the ex
 
 ## 3. Timeline architecture
 
+### Feature introduction and registration
+
+Timeline is introduced as a non-persistent feature through the existing Feature Extension Architecture: its own `feature.manifest.json`, public `index.ts`, extension descriptor (including its feature definition), and generated static feature catalogue. The application composition root supplies that catalogue to the existing runtime registry, which validates dependencies and registers the Timeline-owned presentation contribution.
+
+Do not add Timeline to the shared core built-in feature inventory, create a second feature registry, or add per-feature wiring to the application entry point. Declare only dependencies whose public source contracts are actually consumed; future source integrations must be added through the existing extension/integration contracts and their owning feature's public API. An unavailable or unwired source remains an explicit data gap, not a reason to recreate that source capability inside Timeline.
+
 The conceptual flow is:
 
 1. **Presentation** — renders the event sequence, filters, shift sections, ride/cancellation blocks, location labels and summaries.
@@ -56,12 +62,13 @@ The conceptual flow is:
 
 ### Implementation source audit — initial read-only slice
 
-The first implementation uses only the authoritative Work driver event log through the Work workflow's public event-list query. The shared Timeline projection remains disposable and is rebuilt for each read; no Timeline business data or cache is persisted.
+The first implementation reads the committed Work/Driver Operational Workflow event stream through the Work workflow's public event-list query. This is the authoritative operational transition stream used for chronological display; it is not a substitute for Log Book/Trips trip-history records. The shared Timeline projection remains disposable and is rebuilt for each read; no Timeline business data or cache is persisted.
 
 | Timeline content | Current authoritative source / implementation status |
 |---|---|
-| Shift boundaries, pickup creation, ride start/end and cancellation | Work driver event log; available through the same Work workflow repository on PWA (Dexie) and Android (Room). |
-| Pickup and passenger-trip intervals, ride/cancellation counts, logical-shift and calendar grouping | Derived by the existing pure Timeline projection from v2 Work events; no new lifecycle authority is introduced. |
+| Shift boundaries | Work/Shift lifecycle, exposed through the authoritative workflow event query on PWA (Dexie) and Android (Room). |
+| Pickup creation, ride start/end and cancellation transitions | Committed Driver Operational Workflow events read through the Work workflow's public event-list query. Timeline displays these transitions only; Log Book/Trips remains the owner of trip-history records and trip-linked financial records. Its public trip-history query is not yet wired to Timeline. |
+| Pickup/passenger-trip interval summaries, ride/cancellation counts, logical-shift and calendar grouping | Derived as read-only Timeline projections from committed workflow transitions. These summaries do not create or replace Log Book/Trips records. Legacy pickup evidence still requires its owning public query contract. |
 | Fare, cancellation fee, toll and parking amounts | No complete public trip-finance read contract is currently wired to Timeline. Values remain explicitly unavailable; no loan/payment records are misused as trip revenue. |
 | Odometer/business distance | No public odometer evidence query is currently wired to Timeline. Distance remains unavailable. |
 | Human-readable location names | GPS evidence is present on source events, but no reverse-geocoding integration is activated. The screen identifies captured/unavailable location evidence without displaying invented place names. |
