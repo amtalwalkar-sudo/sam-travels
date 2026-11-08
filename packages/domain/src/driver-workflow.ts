@@ -1,8 +1,6 @@
 import { DRIVER_EVENT_TYPES, type DriverStateProjection, type DriverTransitionCommand, type DriverEventType, type DriverWorkflowState } from "../../core/src/commands";
 import type { GpsFix } from "../../core/src/types";
 import { validateGpsFix } from "../../core/src/gps";
-import { assertDriverRecordV1, assertDriverAssignmentHistoryV1 } from "../../features/driver-records";
-import { assertVehicleRecordV1 } from "../../features/vehicle";
 import type { RecordEnvelope } from "../../core/src/types";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
 export type DriverIntent = { command: DriverTransitionCommand; status: DriverIntentStatus; createdAt: string; updatedAt: string; reason?: string };
@@ -29,23 +27,24 @@ export type DriverContextV1 = Readonly<{schemaVersion:1;driverId:string;assignme
 /** Resolve selected Driver, active assignment and active Vehicle from the authoritative records at commit time. */
 export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>[]): DriverContextV1 {
  const drivers=records.filter(record=>record.id.startsWith("feature:driver-records:driver:"));
- const selected=drivers.filter(record=>{assertDriverRecordV1(record.data);return record.data.selectedForWork===true&&record.data.lifecycleState==="active";});
+ const selected=drivers.filter(record=>{const data=record.data as Record<string,unknown>;return data.schemaVersion===1&&typeof data.driverId==="string"&&typeof data.name==="string"&&data.name.trim().length>0&&data.lifecycleState==="active"&&data.selectedForWork===true;});
  if(selected.length!==1)throw new Error(selected.length===0?"work_driver_selection_missing":"work_driver_selection_ambiguous");
  const driver=selected[0].data;
  if(selected[0].id!=="feature:driver-records:driver:"+driver.driverId)throw new Error("driver_record_identity_mismatch");
  const historyId="feature:driver-records:assignment:"+driver.driverId;
  const histories=records.filter(record=>record.id===historyId);
  if(histories.length!==1)throw new Error("work_driver_assignment_history_missing");
- assertDriverAssignmentHistoryV1(histories[0].data);
- const history=histories[0].data;
- if(history.driverId!==driver.driverId)throw new Error("driver_assignment_identity_mismatch");
- const active=history.assignments.filter(item=>item.unassignedAt===undefined);
+ const history=histories[0].data as Record<string,unknown>;
+ if(history.schemaVersion!==1||history.driverId!==driver.driverId||!Array.isArray(history.assignments))throw new Error("driver_assignment_identity_mismatch");
+ const assignments=history.assignments as Array<Record<string,unknown>>;
+ if(assignments.some(item=>!item||typeof item!=="object"||typeof item.assignmentId!=="string"||!/^[A-Za-z0-9_-]{1,128}$/.test(item.assignmentId)||typeof item.vehicleId!=="string"||!/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(item.vehicleId)||typeof item.assignedAt!=="string"||!Number.isFinite(Date.parse(item.assignedAt))||(item.unassignedAt!==undefined&&(typeof item.unassignedAt!=="string"||!Number.isFinite(Date.parse(item.unassignedAt))))))throw new Error("driver_assignment_invalid");
+ const active=assignments.filter(item=>item.unassignedAt===undefined);
  if(active.length!==1)throw new Error(active.length===0?"work_driver_assignment_missing":"work_driver_assignment_ambiguous");
  const assignment=active[0];
  const vehicles=records.filter(record=>record.id===assignment.vehicleId);
  if(vehicles.length!==1)throw new Error("work_driver_vehicle_missing");
- assertVehicleRecordV1(vehicles[0].data);
- if(vehicles[0].id!==assignment.vehicleId||vehicles[0].data.lifecycleState!=="active")throw new Error("work_driver_vehicle_inactive");
+ const vehicle=vehicles[0].data as Record<string,unknown>;
+ if(vehicle.schemaVersion!==1||typeof vehicle.registrationNumber!=="string"||vehicle.lifecycleState!=="active"||vehicles[0].id!==assignment.vehicleId)throw new Error("work_driver_vehicle_inactive");
  return Object.freeze({schemaVersion:1,driverId:driver.driverId,assignmentId:assignment.assignmentId,vehicleId:assignment.vehicleId});
 }
 
