@@ -223,12 +223,12 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         : <strong>{dateLabel(range.from)} – {dateLabel(range.to)}</strong>}
       <button type="button" onClick={next} aria-label="Next period">›</button>
     </div>}
-    {mode === "today" && <p className="timeline-date-label">{timeFormatterLabel(range.from)}</p>}
+    {mode === "today" && <p className="timeline-date-label">{dateLabel(range.from)}</p>}
     {error && <p className="timeline-error" role="alert">{error}</p>}
     {loading && !model && <p className="timeline-empty">Loading your activity…</p>}
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
-      <h3>{timeFormatterLabel(day.date)}</h3>
+      <h3>{dateLabel(day.date)}</h3>
       {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} />)}
     </section>)}
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
