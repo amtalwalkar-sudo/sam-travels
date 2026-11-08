@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
@@ -10,9 +11,10 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
+import { scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
 export function useDriverWorkspace() {
@@ -189,6 +191,10 @@ export function useDriverWorkspace() {
       await gateway.setEnabled(next);
       setEnabled(next);
       setError("");
+      if (next && enrichmentQueue) {
+        if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment();
+        else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save setting");
     }
@@ -240,10 +246,30 @@ export function useDriverWorkspace() {
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
-  const reverseGeocoder = useMemo(
-    () => gateway ? new TimelineReverseGeocodingService(gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
-    [gateway],
+  const enrichmentQueue = useMemo(
+    () => repo && gateway ? new TimelineEnrichmentQueue(repo, gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
+    [repo, gateway],
   );
+
+  // PWA work resumes on connectivity/lifecycle events. Android delegates
+  // durable execution to WorkManager; neither platform polls the network.
+  useEffect(() => {
+    if (!enrichmentQueue) return;
+    const resume = () => {
+      if (document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
+      if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment();
+      else void enrichmentQueue.drainDueRetries(5);
+    };
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    resume();
+    return () => {
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [enrichmentQueue, enabled]);
 
   const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => {
     if (!workflow) throw new Error("Work history is still loading");
@@ -253,9 +279,17 @@ export function useDriverWorkspace() {
       .filter(day => day.date >= fromDate && day.date <= toDate)
       .flatMap(day => day.eventIds));
     const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
-    const locations = allowLocationLookup && reverseGeocoder ? reverseGeocoder.enrich(visibleEvents, signal) : Promise.resolve({});
+    const locations = (async () => {
+      if (!enrichmentQueue) return {};
+      if (allowLocationLookup) {
+        await enrichmentQueue.enqueue(visibleEvents);
+        if (Capacitor.isNativePlatform()) await scheduleNativeTimelineEnrichment();
+        else if (navigator.onLine) await enrichmentQueue.drain(5, signal);
+      }
+      return enrichmentQueue.locations(visibleEvents.map(event => event.eventId));
+    })();
     return { model: readModel, locations };
-  }, [workflow, reverseGeocoder]);
+  }, [workflow, enrichmentQueue]);
 
 
   return {
