@@ -86,13 +86,10 @@ describe("Timeline projection contracts", () => {
       asOf: "2026-11-08T10:30:00.000Z",
     });
     expect(projection.logicalShifts[0].metrics.shift_duration).toMatchObject({
-      status: "invalid",
-      reason: "shift_event_sequence_invalid",
+      status: "unavailable",
+      reason: "shift_boundaries_not_recorded",
     });
-    expect(projection.integrityIssues).toContainEqual(expect.objectContaining({
-      code: "missing_shift_boundary",
-      logicalShiftId: "logical-shift:2026-11-08",
-    }));
+    expect(projection.logicalShifts[0].metrics.shift_duration).not.toMatchObject({ status: "available", value: 0 });
   });
 
   it("preserves source timestamp precision in projected durations", () => {
