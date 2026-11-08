@@ -275,6 +275,30 @@ export class FinanceLoanPaymentService {
     }
     throw new Error("finance_payment_concurrent_write_retry_exhausted");
   }
+  async previewSettlement(input: { loanId: string; businessDate: string }) {
+    if (!validDate(input.businessDate)) throw new Error("finance_payment_settlement_input_invalid");
+    if (!this.scheduleResolver) throw new Error("finance_payment_schedule_resolver_required");
+    const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+    if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
+      throw new Error("finance_loan_already_settled");
+    }
+    const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
+    if (version === undefined) throw new Error("finance_payment_settlement_not_emi_date");
+    const rows = await this.resolveScheduleRows(input.loanId, loan.data, version);
+    const settlementRow = rows.find(row => row.dueDate === input.businessDate);
+    if (!settlementRow || !Number.isSafeInteger(settlementRow.closingPrincipalPaise) ||
+        (settlementRow.closingPrincipalPaise as number) <= 0) throw new Error("finance_payment_settlement_not_emi_date");
+    const totals = allocationTotals(entries, version);
+    for (const row of rows.filter(row => row.dueDate <= input.businessDate)) {
+      if ((totals.get(row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
+        throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
+      }
+    }
+    return { amountPaise: settlementRow.closingPrincipalPaise as number, scheduleVersion: version,
+      paidThroughInstallment: settlementRow.installmentNumber, loanRevision: loan.revision,
+      paymentLedgerRevision: ledger?.revision ?? null };
+  }
+
   async settle(input: { id: string; commandId: string; loanId: string; businessDate: string;
     method: FinancePaymentMethodV1; reference?: string; source: RecordEnvelope<unknown>["source"] }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
