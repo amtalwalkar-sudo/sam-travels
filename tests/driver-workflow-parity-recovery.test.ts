@@ -76,13 +76,15 @@ describe("cross-adapter Work workflow parity and interruption recovery", () => {
       ["cancel_ride", "parity-trip-cancel"],
       ["shift_end", "parity-shift-end"],
     ] as const;
+    let currentFixAt = new Date().toISOString();
     const service = new DriverWorkflowService(repository, {
-      capture: async () => gpsAt(new Date().toISOString()),
+      capture: async () => gpsAt(currentFixAt),
     });
     const snapshots = [];
     for (let index = 0; index < transitions.length; index += 1) {
       const [eventType, eventId] = transitions[index];
-      const at = new Date(Date.now() + index * 100).toISOString();
+      const at = new Date().toISOString();
+      currentFixAt = at;
       const command = createDriverCommandV2(
         await repository.getSnapshot(),
         eventType,
