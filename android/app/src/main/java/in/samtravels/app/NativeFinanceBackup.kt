@@ -330,41 +330,8 @@ internal object NativeFinanceBackup {
                 }
             }
             val reversedIds = reversals.keys
-            val lifecycleState = loanData.optString("lifecycleState", "active")
-            require(lifecycleState in setOf("active", "closed") &&
-                ((lifecycleState == "closed" && settlements.size == 1) ||
-                    (lifecycleState == "active" && settlements.isEmpty()))) {
-                "finance_loan_settlement_lifecycle_mismatch"
-            }
-            val settlement = settlements.singleOrNull()
-            if (settlement != null) {
-                val version = integer(settlement, "scheduleVersion", 1).toInt()
-                val rowsForSettlement = scheduleRowsForVersion(version)
-                val settlementDate = settlement.optString("businessDate")
-                val paidThrough = integer(settlement, "paidThroughInstallment", 1).toInt()
-                val dueRows = (0 until rowsForSettlement.length()).map { rowsForSettlement.getJSONObject(it) }
-                    .filter { it.optString("dueDate") <= settlementDate }
-                val settlementRow = dueRows.firstOrNull { it.optInt("installmentNumber", -1) == paidThrough }
-                    ?: error("finance_payment_settlement_not_emi_date")
-                require(settlementRow.optString("dueDate") == settlementDate &&
-                    integer(settlement, "amountPaise", 1) == integer(settlementRow, "closingPrincipalPaise", 1)) {
-                    "finance_payment_settlement_amount_invalid"
-                }
-                for (dueRow in dueRows) {
-                    val installment = dueRow.optInt("installmentNumber", -1)
-                    val paid = payments.filterKeys { it !in reversedIds }.values.sumOf { payment ->
-                        val allocations = payment.getJSONArray("allocations")
-                        (0 until allocations.length()).sumOf { allocationIndex ->
-                            val allocation = allocations.getJSONObject(allocationIndex)
-                            if (integer(payment, "scheduleVersion", 1).toInt() == version &&
-                                integer(allocation, "installmentNumber", 1).toInt() == installment)
-                                integer(allocation, "amountPaise", 1) else 0L
-                        }
-                    }
-                    require(paid == integer(dueRow, "installmentAmountPaise", 1)) {
-                        "finance_payment_settlement_due_emi_not_fully_paid"
-                    }
-                }
+            NativeFinanceSettlementBackup.validate(loanData, settlements, payments, reversedIds) { version ->
+                scheduleRowsForVersion(version)
             }
             for ((key, total) in activeAllocations) {
                 val scheduleRows = scheduleRowsForVersion(key.first)
