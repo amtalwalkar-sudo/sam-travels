@@ -151,7 +151,7 @@ describe("Stage 4 recovery lifecycle", () => {
         data: { schemaVersion: 1, registrationNumber: "MH01GH3456", make: "Make", model: "Model", vehicleType: "Sedan", fuelType: "Petrol",
           yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
     ]);
-    await new WorkDriverSelectionService(new DexieRecordRepository(), repository).selectDriver("restore-driver");
+    await new WorkDriverSelectionService(new DexieRecordRepository(), repository, () => timestamp).selectDriver("restore-driver");
 
     const shiftAt = new Date(Date.now() - 4_000).toISOString();
     const shift = createDriverCommandV2(await repository.getSnapshot(), "shift_start", "pwa", "restore-active-shift", shiftAt);
