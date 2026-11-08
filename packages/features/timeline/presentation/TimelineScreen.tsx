@@ -29,10 +29,6 @@ function weekStart(value: string): string {
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return moveDate(value, -(weekday === 0 ? 6 : weekday - 1));
 }
-function eventDate(value: string): string {
-  const [year, month, day] = indiaDate(new Date(value)).split("-");
-  return year + "-" + month + "-" + day;
-}
 function eventTitle(event: DriverEvent): string {
   const names: Record<string, string> = {
     shift_start: "Shift started", shift_end: "Shift ended",
