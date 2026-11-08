@@ -29,6 +29,7 @@ export class GeoapifyProxyReverseGeocoder implements ReverseGeocoderAdapter {
   ) {}
 
   async reverse(latitude: number, longitude: number, signal?: AbortSignal): Promise<string | undefined> {
+    if (signal?.aborted) throw new DOMException("The operation was aborted", "AbortError");
     if (!this.endpoint) throw new Error("geocoding_proxy_not_configured");
     const url = new URL("reverse-geocode", this.endpoint.endsWith("/") ? this.endpoint : this.endpoint + "/");
     const response = await this.request(url.toString(), {
