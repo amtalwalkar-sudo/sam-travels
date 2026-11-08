@@ -127,6 +127,18 @@ export class TimelineEnrichmentQueue {
     return Object.freeze(result);
   }
 
+  /** Earliest persisted wake-up time for one-shot PWA scheduling; undefined means no work. */
+  async nextWakeAt(): Promise<number | undefined> {
+    const rows = (await this.records.list<TimelineEnrichmentRecord>())
+      .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
+      .filter(row => row.data.status === "pending" || row.data.status === "network_disabled" || row.data.status === "retry_wait");
+    if (!rows.length) return undefined;
+    const times = rows.map(row => row.data.status === "retry_wait" && row.data.nextAttemptAt
+      ? Date.parse(row.data.nextAttemptAt) : this.now());
+    const valid = times.filter(Number.isFinite);
+    return valid.length ? Math.min(...valid) : this.now();
+  }
+
   async drainDueRetries(limit = MAX_BATCH_SIZE, signal?: AbortSignal) {
     return this.drain(limit, signal);
   }
