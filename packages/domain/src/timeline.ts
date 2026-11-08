@@ -287,7 +287,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
     const pickupMetric:TimelineMetric=hasV2PickupEvents
-      ?s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_trip_interval_invalid"}:s.pendingPickup?{status:"pending",unit:"minutes"}:available(minutes(s.pickupMs),"minutes")
+      ?s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_trip_interval_invalid"}:s.pendingPickup?{status:"pending",unit:"minutes",reason:"trip_pickup_in_progress"}:available(minutes(s.pickupMs),"minutes")
       :!("records" in pickup)?pickup:
        s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:
        available(minutes(s.pickupMs),"minutes");
