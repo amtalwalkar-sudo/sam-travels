@@ -16,16 +16,27 @@ import {
  dispatchCommittedFeatureEvent,
 } from "../packages/application/src";
 import { executeRegisteredCalculation } from "../packages/core/src/feature-contracts";
-import { assertDriverCommandContract } from "../packages/domain/src/driver-workflow";
+import { assertDriverCommandContract, resolveDriverContextV1 } from "../packages/domain/src/driver-workflow";
 
 const gps:GpsFix={latitude:19.076,longitude:72.8777,horizontalAccuracyM:8,fixAt:"2026-11-03T10:00:00.000Z",provider:"browser-geolocation"};
 describe("durable single-driver workflow",()=>{
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open()});
- it("validates selected driver and assigned vehicle context on each trip-start command",async()=>{
+ it("validates the exact immutable driverContext shape and event placement",()=>{
   const base=createDriverCommand({schemaVersion:1,revision:1,state:"shift_active"},"trip_start","pwa","trip-context","2026-11-08T10:00:00.000Z");
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"driver-001",driverName:"Example Driver",vehicleId:"feature:vehicle:MH01AB1234"}})).not.toThrow();
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"driver-001",driverName:"Example Driver"}})).toThrow("trip_start_vehicle_context_required");
-  expect(()=>assertDriverCommandContract({...base,driverContext:{driverId:"bad/id",driverName:"Example Driver",vehicleId:"feature:vehicle:MH01AB1234"}})).toThrow("invalid_driver_context");
+  const context={schemaVersion:1 as const,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001"};
+  expect(()=>assertDriverCommandContract({...base,driverContext:context})).not.toThrow();
+  expect(()=>assertDriverCommandContract({...base,driverContext:{...context,driverName:"Example Driver"}})).toThrow("invalid_driver_context");
+  expect(()=>assertDriverCommandContract({...base,eventType:"shift_start",driverContext:context})).toThrow("invalid_driver_context");
+ });
+ it("resolves one active selected driver, assignment identity and active vehicle",()=>{
+  const timestamp="2026-11-08T00:00:00.000Z";
+  const records=[
+   {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
+   {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001",assignedAt:timestamp}]}},
+   {id:"feature:vehicle:vehicle-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web" as const,revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+  ];
+  expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001"});
+  expect(()=>resolveDriverContextV1(records.slice(1))).toThrow("work_driver_selection_missing");
  });
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot(),command=createDriverCommand(state,"shift_start","pwa","cmd-1","2026-11-03T10:00:00.000Z");

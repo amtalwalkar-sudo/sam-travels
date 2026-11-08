@@ -41,15 +41,19 @@ class DriverWorkflowContractTest {
     }
 
     @Test
-    fun validatesDriverContextAndRequiresVehicleForTripStartWhenContextIsPresent() {
+    fun validatesExactDriverContextSchemaAndEventPlacement() {
         val valid = command().put("eventType", "trip_start").put("driverContext", JSONObject(
-            """{"driverId":"driver-001","driverName":"Example Driver","vehicleId":"feature:vehicle:MH01AB1234"}""",
+            """{"schemaVersion":1,"driverId":"driver-001","assignmentId":"assignment-001","vehicleId":"feature:vehicle:vehicle-001"}""",
         ))
         DriverWorkflowContract.validateCommand(valid)
-        val missingVehicle = command().put("eventType", "trip_start").put("driverContext", JSONObject(
-            """{"driverId":"driver-001","driverName":"Example Driver"}""",
+        val invalid = command().put("eventType", "trip_start").put("driverContext", JSONObject(
+            """{"schemaVersion":1,"driverId":"driver-001","driverName":"Example Driver","vehicleId":"feature:vehicle:vehicle-001"}""",
         ))
-        assertThrows(IllegalArgumentException::class.java) { DriverWorkflowContract.validateCommand(missingVehicle) }
+        assertThrows(IllegalArgumentException::class.java) { DriverWorkflowContract.validateCommand(invalid) }
+        val misplaced = command().put("eventType", "shift_start").put("driverContext", JSONObject(
+            """{"schemaVersion":1,"driverId":"driver-001","assignmentId":"assignment-001","vehicleId":"feature:vehicle:vehicle-001"}""",
+        ))
+        assertThrows(IllegalArgumentException::class.java) { DriverWorkflowContract.validateCommand(misplaced) }
     }
 
     @Test
