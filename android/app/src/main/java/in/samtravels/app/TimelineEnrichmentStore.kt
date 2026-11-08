@@ -21,6 +21,24 @@ internal class TimelineEnrichmentStore(private val database: LocalDatabase) {
         }.getOrDefault(false)
     }
 
+    fun markPendingAsNetworkDisabled() {
+        listRecords().filter { it.id.startsWith(RECORD_PREFIX) }.forEach { row ->
+            runCatching {
+                val envelope = JSONObject(row.json)
+                val data = envelope.getJSONObject("data")
+                val status = data.optString("status")
+                if (status == "pending" || status == "retry_wait") {
+                    val updatedAt = Instant.now().toString()
+                    data.put("status", "network_disabled")
+                    data.remove("nextAttemptAt")
+                    data.put("lastFailure", "network_disabled")
+                    envelope.put("revision", envelope.optInt("revision") + 1).put("updatedAt", updatedAt)
+                    putRecord(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
+                }
+            }
+        }
+    }
+
     fun dueEnrichmentRows(nowMs: Long, limit: Int): Pair<List<StoredRecord>, Boolean> {
         val due = listRecords().filter { row ->
             if (!row.id.startsWith(RECORD_PREFIX)) return@filter false
