@@ -228,7 +228,7 @@ class DriverOverlayService:Service(){
      val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
       .put("horizontalAccuracyM",location.accuracy.toDouble())
       .put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString()).put("provider",location.provider?:"android")
-     val valid=runCatching{DriverTransitionPolicy.validateGpsEvidence(gps,transitionAt);true}.getOrDefault(false)
+     val valid=DriverTransitionPolicy.isAcceptableGpsEvidence(gps,transitionAt)
      if(valid)finish(location=location)
     }
    }
