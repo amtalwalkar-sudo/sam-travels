@@ -50,7 +50,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
             var retryableFailure = false
             val hasDeferredRetry = store.hasDeferredRetry(now)
             for (row in due) {
-                if (!store.internetAllowed()) return Result.success()
+                if (!store.internetAllowed()) { store.markPendingAsNetworkDisabled(); return Result.success() }
                 try {
                     val envelope = JSONObject(row.json)
                     val data = envelope.getJSONObject("data")
