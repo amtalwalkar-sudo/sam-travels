@@ -1,92 +1,83 @@
-# Work Driver Trip Snapshot Integration Contract v1
+# Work Driver and Trip Snapshot Integration Contract v2
 
-**Status:** Implementation contract for the approved Admin Driver / Work integration  
-**Owner:** Work/Shift capability (with read-only dependencies on Driver Records, Driver Assignment, and Vehicle)  
-**Scope:** Persist the selected active Driver and the active vehicle assignment as immutable context on each newly committed trip-start event.
-
-This contract implements the approved rules in `ADMIN_FUNCTIONAL_SPECIFICATION.md`. It does not create a second Work/Shift state machine, a fleet-dispatch capability, or a second source of truth for Driver or Vehicle records.
+**Status:** Approved implementation contract  
+**Owner:** Work/Shift  
+**Compatibility:** Additive v2 lifecycle; existing v1 event and intent payloads remain readable and retain their original meaning.
 
 ## 1. Authority and ownership
 
-- Work/Shift remains the sole owner of shift/trip transitions, GPS evidence, event identity, revision ordering, durable intents, and recovery.
-- Driver Records remains the owner of Driver profile and lifecycle.
-- Driver Assignment remains the owner of assignment history.
-- Vehicle remains the owner of Vehicle profile and lifecycle.
-- Work stores only the currently selected Driver reference as Work configuration. It must not copy or own Driver profiles or assignment history.
-- A trip-start event stores a point-in-time immutable snapshot. That snapshot is historical evidence, not a live foreign-key view.
+- Work/Shift owns the selected Driver reference, active shift, transition sequence, event identity, revision ordering, pending intents and recovery.
+- Admin Driver Records owns Driver profile and lifecycle. Admin Driver Assignment owns assignment history. Vehicle owns Vehicle profile and lifecycle.
+- Work stores only **work:selected-driver** with **{ schemaVersion: 1, driverId, lockedShiftId? }**; the optional lock is written and cleared atomically with shift start/end. It never copies the Admin profile or assignment history.
+- Work validates the selected Driver, active assignment and active Vehicle at the shift-start durable commit boundary.
+- Browser IndexedDB and Android Room enforce the same logical contract. UI is never an authority and may not resolve or persist historical context itself.
 
-## 2. Selected Driver
+## 2. Versioned lifecycle
 
-Work has at most one selected Driver at a time.
+New commands carry **workflowVersion: 2**. Existing v1 commands are not rewritten.
 
-- Selection must reference an existing Driver whose lifecycle is `active`.
-- Selection may be changed while no trip is active. Changing selection never edits existing events or trip snapshots.
-- A selected Driver becoming inactive, missing, or lacking a valid active assignment blocks the next trip start. It does not rewrite prior trips.
-- Selection is persisted in the existing authoritative record store: Room on Android and IndexedDB in browser-only PWA. Native Android must not dual-write business state to IndexedDB.
-- Selection is configuration, not a Work/Shift state transition and must not increment the Work event revision.
+| Current state | Command | Next state |
+|---|---|---|
+| idle | shift_start | shift_active |
+| shift_active | trip_create | going_to_pickup |
+| going_to_pickup | start_ride | trip_active |
+| trip_active | end_ride | shift_active |
+| going_to_pickup | cancel_ride | shift_active |
+| shift_active | shift_end | idle |
 
-## 3. Trip-start preconditions and capture
+Trip creation and Start Ride are distinct events. There is no pickup-arrival event. A created trip can only proceed to Start Ride or Cancel Ride. A completed/cancelled trip is closed; the next trip requires a new trip_create.
 
-A new `trip_start` may be committed only when all conditions hold at the durable commit boundary:
+The legacy trip_start, trip_end, and ride_cancel transitions remain accepted only with their original v1 interpretation. New PWA and native overlay actions use v2.
 
-1. Exactly one selected Driver reference exists.
-2. The Driver profile exists and is active.
-3. Exactly one assignment in that Driver's assignment history is active (no `unassignedAt`).
+## 3. Shift-start snapshot
+
+At the atomic shift_start commit, Work resolves the single selected Driver reference and validates:
+
+1. The Work-selected Driver reference exists and is well formed.
+2. The referenced Admin Driver exists and is active.
+3. Exactly one assignment is active at the transition instant.
 4. The assigned Vehicle exists and is active.
-5. The assignment references that Vehicle and the assignment identity is valid.
+5. Assignment and Vehicle identities are consistent.
 
-Capture the following immutable `driverContext` on the committed trip-start event:
+The committed shift_start event stores immutable driverContext:
 
-- `schemaVersion: 1`
-- `driverId`
-- `assignmentId`
-- `vehicleId`
+- schemaVersion: 1
+- driverId
+- assignmentId
+- vehicleId
 
-The trip's existing `command.transitionAt` is the effective trip-start timestamp; do not add a second competing timestamp.
+The active Work projection also retains shiftId (the shift-start event ID) and shiftContext. The selected Work record is atomically marked with lockedShiftId at shift start and unlocked at shift end; its revision participates in selection compare-and-set, preventing a selection/shift-start race. Driver/Vehicle selection is locked for the whole active shift. Admin edits, reassignment or later lifecycle changes do not rewrite the active shift snapshot or its historical events.
 
-The lookup, validation, and event commit must share the same durable transaction as the Work event/state/outbox writes. This closes the race where a Driver is reassigned, deactivated, or selection changes between preflight validation and trip commit. A failed precondition rejects the trip start without committing the event, advancing the Work revision, or leaving a partially attached snapshot.
+## 4. Trip-creation snapshot
 
-## 4. Immutability and projections
+At the atomic trip_create commit, Work copies the already captured active shift context; it does not re-resolve the current Admin profile or assignment. The event stores immutable tripContext:
 
-- The snapshot is written once with the committed `trip_start` event and is immutable thereafter.
-- `trip_end` and `ride_cancel` close the existing trip and do not replace its snapshot.
-- Reassignment, Driver selection changes, Vehicle lifecycle changes, or later edits to profile fields must not mutate old snapshots.
-- Trip-history projections copy the snapshot from the start event. They do not resolve current Driver/Vehicle records to reconstruct historical context.
-- Existing historical events and trips without `driverContext` remain valid and are represented as legacy/unknown context. Never fabricate a Driver or Vehicle for them.
+- schemaVersion: 1
+- shiftId
+- driverId
+- assignmentId
+- vehicleId
+- operationalDate
 
-## 5. Contract compatibility and validation
+operationalDate is calculated in Asia/Kolkata using the 04:00 boundary: local times before 04:00 belong to the previous operational date; 04:00 and later belong to the current date. The snapshot is fixed at trip creation, including when the trip crosses 04:00.
 
-- Extend the existing versioned Work event payload compatibly; the Work command/state machine schema remains version 1 unless a separate reviewed migration proves a version change is required.
-- `driverContext` is optional only for legacy trip-start events. Newly committed trip-start events must include it.
-- Validate the exact allowed keys, schema version, non-empty stable IDs, and event-kind placement. Reject `driverContext` on non-trip-start events.
-- Browser and native validators must enforce equivalent rules.
-- Backup export, restore, checkpoint recovery, and event replay must preserve and validate the snapshot. A restore must not silently drop or synthesize it.
-- Unknown or malformed context must fail validation before replacing live data.
+start_ride, end_ride, and cancel_ride retain the trip's original context by referencing the created trip projection; they do not look up current Admin records or replace the snapshot.
 
-## 6. Platform transaction requirements
+## 5. Atomicity and recovery
 
-### Android
+- Browser commit includes the records, state, intent, immutable event and outbox in one Dexie transaction.
+- Android commit includes the same logical writes in one Room transaction.
+- Context resolution, validation and event commit occur inside that transaction. A missing, inactive, ambiguous or malformed Driver/assignment/Vehicle rejects the command without advancing revision or partially writing an event.
+- Event IDs, command IDs and idempotency keys remain stable. Replays are idempotent.
+- A recorded event's command and snapshots are immutable. Duplicate IDs with changed payloads are rejected.
+- Existing v1 events and pending intents without these snapshots remain readable as legacy history. Never synthesize missing historical context or reinterpret a v1 trip_start as a v2 trip_create.
 
-Use the existing Room `LocalDatabase` transaction and `DriverWorkflowStore` commit path. Read the Work selection record and Driver/assignment/Vehicle feature records through the existing records table within that transaction. Do not introduce another database, a parallel workflow store, or a non-transactional preflight-only check.
+## 6. Required parity and regression checks
 
-### Browser-only PWA
-
-Use the existing Dexie Work event transaction and include the feature-records table in the same transaction. Read the selected Driver, Driver profile, assignment history, and Vehicle from that authoritative store inside the transaction.
-
-The public application boundary should expose typed selection and trip-context contracts; platform adapters implement the same atomic rule. Do not expose private table access to UI or other features.
-
-## 7. Required tests and release gates
-
-- Select active Driver; start trip; verify exact Driver/assignment/Vehicle snapshot.
-- Reject no selected Driver, inactive/missing Driver, missing assignment, multiple active assignments, inactive/missing Vehicle, and malformed references.
-- Change selected Driver after a completed trip; verify the old trip remains unchanged.
-- Reassign Driver after a completed trip; verify the old trip retains the original assignment and Vehicle.
-- Race selection/reassignment against trip commit; transaction ordering must produce either a valid snapshot or a rejected start, never a mixed snapshot.
-- Verify trip end/cancel preserves start context.
-- Verify legacy events without context remain readable.
-- Verify browser and native backup/restore/checkpoint/recovery preserve context and reject malformed context.
-- Run domain/application, browser persistence, Android unit, Android instrumentation, architecture, and integrated regression gates before merge.
-
-## 8. Explicit exclusions
-
-This contract does not authorize multi-driver selection, multiple simultaneous active Drivers, fleet dispatch, automatic Driver assignment, retroactive trip edits, current-profile snapshots, payment attribution, or changes to GPS/recovery semantics.
+- Work selection is persisted independently of Admin Driver records and cannot change during an active shift.
+- Both platforms reject shift start without one active selected Driver, one active assignment and one active Vehicle.
+- Both platforms capture the same shift context at shift start and the same trip context at trip creation.
+- Reassignment/profile changes after shift start do not rewrite the active shift or previously created trip snapshots.
+- Start Ride is accepted only from going_to_pickup; End Ride only from trip_active; Cancel Ride only from going_to_pickup.
+- Cancelled trips close without a ride-start timestamp. No replacement trip is created automatically.
+- Browser and Android recovery, backup/restore, replay and projections preserve v1 and v2 records without dropping or fabricating data.

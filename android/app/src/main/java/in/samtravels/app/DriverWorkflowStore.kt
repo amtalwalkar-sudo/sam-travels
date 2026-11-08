@@ -8,35 +8,21 @@ object DriverWorkflowStore {
 
     /** Read selected Driver and current vehicle context within the Work persistence gateway. */
     fun selectedWorkContext(db: LocalDatabase, requireVehicle: Boolean): JSONObject {
-        val selected = db.records().list().mapNotNull { row ->
-            if (!row.id.startsWith("feature:driver-records:driver:")) null else {
-                val data = JSONObject(row.json).optJSONObject("data") ?: error("driver_record_invalid")
-                if (data.optBoolean("selectedForWork") && data.optString("lifecycleState") == "active") data else null
-            }
+        val selected=db.records().get("work:selected-driver") ?: error("work_driver_not_selected")
+        val selection=JSONObject(selected.json).optJSONObject("data") ?: error("work_selected_driver_invalid")
+        require(selection.optInt("schemaVersion",-1)==1) { "work_selected_driver_invalid" }
+        val driverId=selection.optString("driverId")
+        require(driverId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "work_selected_driver_invalid" }
+        val driverRow=db.records().get("feature:driver-records:driver:$driverId") ?: error("driver_not_active")
+        val driver=JSONObject(driverRow.json).optJSONObject("data") ?: error("driver_not_active")
+        require(driver.optString("driverId")==driverId&&driver.optString("lifecycleState")=="active") { "driver_not_active" }
+        val result=JSONObject().put("driverId",driverId).put("driverName",driver.optString("name"))
+        if(requireVehicle) {
+            val activeContext=snapshot(db).optJSONObject("shiftContext")
+            if(activeContext!=null)result.put("vehicleId",activeContext.getString("vehicleId"))
+            else if(snapshot(db).optString("state")=="idle")result.put("vehicleId",WorkDriverContextResolver.resolve(db,Instant.now().toString()).getString("vehicleId"))
         }
-        require(selected.size == 1) {
-            if (selected.isEmpty()) "Select one active Driver in Admin before using Work."
-            else "More than one Driver is selected for Work. Clear the extra selection in Admin."
-        }
-        val driver = selected.single()
-        val driverId = driver.optString("driverId")
-        val assignmentRow = db.records().get("feature:driver-records:assignment:" + driverId)
-        val assignments = assignmentRow?.let { JSONObject(it.json).optJSONObject("data")?.optJSONArray("assignments") }
-        var vehicleId: String? = null
-        if (assignments != null) for (index in 0 until assignments.length()) {
-            val item = assignments.optJSONObject(index) ?: continue
-            if (!item.has("unassignedAt") || item.isNull("unassignedAt")) vehicleId = item.optString("vehicleId")
-        }
-        if (requireVehicle) {
-            require(!vehicleId.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
-            val vehicleData = db.records().get(vehicleId!!)?.let { JSONObject(it.json).optJSONObject("data") }
-            require(vehicleData?.optString("lifecycleState") == "active") {
-                "The selected Driver's assigned vehicle is not active. Update the assignment in Admin."
-            }
-        }
-        return JSONObject().put("driverId", driverId).put("driverName", driver.optString("name")).apply {
-            if (!vehicleId.isNullOrBlank()) put("vehicleId", vehicleId)
-        }
+        return result
     }
     /** Resolve Admin Driver, assignment and Vehicle from Room inside the trip completion transaction. */
     private fun resolveDriverContext(db: LocalDatabase): JSONObject {
@@ -66,6 +52,11 @@ object DriverWorkflowStore {
         return JSONObject().put("schemaVersion",1).put("driverId",driverId).put("assignmentId",assignmentId).put("vehicleId",vehicleId)
     }
 
+    internal fun operationalDateAt(value:String):String {
+        val local=java.time.OffsetDateTime.parse(value).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"))
+        return (if(local.hour<4)local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
+    }
+
     fun snapshot(db: LocalDatabase): JSONObject {
         val state = db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
@@ -81,7 +72,7 @@ object DriverWorkflowStore {
     private fun sameCommand(left: JSONObject, right: JSONObject): Boolean {
         val fields = listOf(
             "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
-            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "driverContext",
+            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "workflowVersion", "driverContext", "tripContext",
         )
         return fields.all { field -> (left.opt(field)?.toString() ?: "null") == (right.opt(field)?.toString() ?: "null") }
     }
@@ -99,7 +90,7 @@ object DriverWorkflowStore {
             ) { "invalid_command_identity" }
             Instant.parse(command.getString("transitionAt"))
             require(command.optInt("expectedRevision", -1) >= 0) { "invalid_revision" }
-            require(command.optString("eventType") in setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel")) {
+            require(command.optString("eventType") in setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")) {
                 "invalid_event_type"
             }
             require(command.optString("originSurface") in setOf("pwa", "native_overlay")) {
@@ -208,8 +199,21 @@ object DriverWorkflowStore {
             ) { "stale_revision" }
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"))
 
-            val eventType = command.optString("eventType")
-            if (eventType == "trip_start") { command.put("driverContext", resolveDriverContext(db)); intent.put("command", command) }
+            val eventType=command.optString("eventType")
+            if(command.optInt("workflowVersion",1)==2) {
+                when(eventType) {
+                    "shift_start" -> command.put("driverContext",WorkDriverContextResolver.resolve(db,command.getString("transitionAt")))
+                    "trip_create" -> {
+                        val shiftId=current.optString("shiftId")
+                        val shiftContext=current.optJSONObject("shiftContext")?:error("work_shift_context_missing")
+                        require(shiftId.isNotBlank()) { "work_shift_context_missing" }
+                        command.put("tripContext",JSONObject().put("schemaVersion",1).put("shiftId",shiftId)
+                            .put("driverId",shiftContext.getString("driverId")).put("assignmentId",shiftContext.getString("assignmentId"))
+                            .put("vehicleId",shiftContext.getString("vehicleId")).put("operationalDate",operationalDateAt(command.getString("transitionAt"))))
+                    }
+                }
+            } else if(eventType=="trip_start") command.put("driverContext",resolveDriverContext(db))
+            intent.put("command",command)
             DriverWorkflowContract.validateCommand(command)
             val nextState = DriverTransitionPolicy.target(current.optString("state"), eventType)
                 ?: error("invalid_transition")
@@ -219,15 +223,41 @@ object DriverWorkflowStore {
                 .put("revision", revision)
                 .put("state", nextState)
                 .put("lastEventId", eventId)
+            val now = Instant.now().toString()
 
             when (eventType) {
-                "shift_start" -> next.put("shiftStartedAt", command.getString("transitionAt"))
-                "shift_end" -> next.remove("shiftStartedAt")
-                "trip_start" -> next.put("tripStartedAt", command.getString("transitionAt"))
+                "shift_start" -> {
+                    next.put("shiftStartedAt",command.getString("transitionAt"))
+                    if(command.optInt("workflowVersion",1)==2) {
+                        val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
+                        val envelope=JSONObject(selectedRow.json)
+                        val selected=envelope.optJSONObject("data")?:error("work_selected_driver_invalid")
+                        require(!selected.has("lockedShiftId")||selected.isNull("lockedShiftId")) { "work_driver_selection_locked_during_shift" }
+                        selected.put("lockedShiftId",eventId)
+                        envelope.put("revision",envelope.optInt("revision",0)+1).put("updatedAt",now).put("data",selected)
+                        db.records().put(StoredRecord("work:selected-driver",envelope.toString(),selectedRow.schemaVersion,now))
+                        next.put("shiftId",eventId).put("shiftContext",command.getJSONObject("driverContext"))
+                    }
+                }
+                "shift_end" -> {
+                    next.remove("shiftStartedAt");next.remove("shiftId");next.remove("shiftContext")
+                    if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
+                        val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
+                        val envelope=JSONObject(selectedRow.json)
+                        val selected=envelope.optJSONObject("data")?:error("work_selected_driver_invalid")
+                        require(selected.optString("lockedShiftId")==current.optString("shiftId")) { "work_driver_shift_lock_mismatch" }
+                        selected.remove("lockedShiftId")
+                        envelope.put("revision",envelope.optInt("revision",0)+1).put("updatedAt",now).put("data",selected)
+                        db.records().put(StoredRecord("work:selected-driver",envelope.toString(),selectedRow.schemaVersion,now))
+                    }
+                }
+                "trip_start" -> next.put("tripStartedAt",command.getString("transitionAt"))
                 "trip_end", "ride_cancel" -> next.remove("tripStartedAt")
+                "trip_create" -> next.put("activeTripId",eventId).put("tripContext",command.getJSONObject("tripContext"))
+                "start_ride" -> next.put("tripStartedAt",command.getString("transitionAt"))
+                "end_ride", "cancel_ride" -> {next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")}
             }
 
-            val now = Instant.now().toString()
             DriverWorkflowContract.validateState(next)
             val eventRecord = JSONObject()
                 .put("eventId", eventId)

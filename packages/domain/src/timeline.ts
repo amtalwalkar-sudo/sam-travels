@@ -37,7 +37,7 @@ export type TimelineProjection = { schemaVersion:1; timeZone:"Asia/Kolkata"; log
 type TripSpan = { id:string; endedAt:number; status:"completed"|"cancelled"; ownerShiftId:string };
 type ShiftBuilder = {
   id:string; anchorDate:string; eventIds:Set<string>; shiftDurationMs:number; passengerTripMs:number; pickupMs:number;
-  completedRideCount:number; cancelledAttemptCount:number; pendingShift:boolean; pendingTrip:boolean;
+  completedRideCount:number; cancelledAttemptCount:number; pendingShift:boolean; pendingTrip:boolean; pendingPickup:boolean;
   invalidShift:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
 };
 const UNIT:Record<TimelineMetricId,TimelineMetricUnit> = {
@@ -68,7 +68,7 @@ function parseTime(value:string|undefined):number|undefined {
   if(typeof value!=="string")return undefined; const n=Date.parse(value); return Number.isFinite(n)?n:undefined;
 }
 function createShift(id:string):ShiftBuilder {
-  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
+  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,pendingPickup:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
 }
 type BusyInterval={start:number;end:number;kind:"pickup"|"passenger"};
 function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"|"pickupMs",busy?:Map<string,BusyInterval[]>):void {
@@ -106,7 +106,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
   const ensure=(id:string):ShiftBuilder=>{const found=shifts.get(id);if(found)return found;const created=createShift(id);shifts.set(id,created);return created;};
   for(const event of input.events) {
     const at=parseTime(event?.command?.transitionAt);
-    if(!event?.eventId||!Number.isSafeInteger(event.revision)||event.revision<1||at===undefined||!event.command?.eventType||!["shift_start","shift_end","trip_start","trip_end","ride_cancel"].includes(event.command.eventType)) {
+    if(!event?.eventId||!Number.isSafeInteger(event.revision)||event.revision<1||at===undefined||!event.command?.eventType||!["shift_start","shift_end","trip_start","trip_end","ride_cancel","trip_create","start_ride","end_ride","cancel_ride"].includes(event.command.eventType)) {
       issues.push({code:"invalid_event",eventId:event?.eventId});continue;
     }
     const previous=unique.get(event.eventId);
@@ -154,24 +154,48 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
 
   const busyIntervals=new Map<string,BusyInterval[]>();
   const trips:TripSpan[]=[];
-  let activeTrip:{event:DriverEvent}|undefined;
+  const hasV2PickupEvents=events.some(event=>event.command.eventType==="trip_create");
+  let activeTrip:{event:DriverEvent;stage:"pickup"|"ride";pickupStart:number;rideStart?:number}|undefined;
   for(const e of events) {
     const kind=e.command.eventType,at=Date.parse(e.command.transitionAt),id=shiftIdAt(at);
-    if(kind==="trip_start") {
+    if(kind==="trip_create") {
       if(activeTrip) {
         const prior=shiftIdAt(Date.parse(activeTrip.event.command.transitionAt));ensure(prior).invalidTrip=true;ensure(id).invalidTrip=true;
         issues.push({code:"overlapping_trip_start",eventId:e.eventId,logicalShiftId:id});
-      } else activeTrip={event:e};
-    } else if(kind==="trip_end"||kind==="ride_cancel") {
+      } else activeTrip={event:e,stage:"pickup",pickupStart:at};
+    } else if(kind==="trip_start") {
       if(activeTrip) {
-        const start=Date.parse(activeTrip.event.command.transitionAt),ownerId=shiftIdAt(start);
-        if(at<start){ensure(ownerId).invalidTrip=true;ensure(id).invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:e.eventId,logicalShiftId:ownerId});}
-        else {
-          const cancelled=kind==="ride_cancel";
+        const prior=shiftIdAt(Date.parse(activeTrip.event.command.transitionAt));ensure(prior).invalidTrip=true;ensure(id).invalidTrip=true;
+        issues.push({code:"overlapping_trip_start",eventId:e.eventId,logicalShiftId:id});
+      } else activeTrip={event:e,stage:"ride",pickupStart:at,rideStart:at};
+    } else if(kind==="start_ride") {
+      if(!activeTrip||activeTrip.stage!=="pickup"||at<activeTrip.pickupStart) {
+        ensure(id).invalidTrip=true;issues.push({code:"unmatched_trip_close",eventId:e.eventId,logicalShiftId:id});
+      } else {
+        addInterval(shifts,activeTrip.pickupStart,at,"pickupMs",busyIntervals);
+        activeTrip.stage="ride";activeTrip.rideStart=at;
+      }
+    } else if(kind==="end_ride"||kind==="trip_end"||kind==="cancel_ride"||kind==="ride_cancel") {
+      if(activeTrip) {
+        const invalidStage=(kind==="end_ride"&&activeTrip.stage!=="ride")||(kind==="cancel_ride"&&activeTrip.stage!=="pickup");
+        if(invalidStage){
+          ensure(id).invalidTrip=true;
+          issues.push({code:"invalid_trip_interval",eventId:e.eventId,logicalShiftId:shiftIdAt(Date.parse(activeTrip.event.command.transitionAt))});
+          activeTrip=undefined;
+          continue;
+        }
+        const ownerId=shiftIdAt(Date.parse(activeTrip.event.command.transitionAt));
+        const cancelled=kind==="cancel_ride"||kind==="ride_cancel";
+        const pickupCancellation=cancelled&&activeTrip.stage==="pickup";
+        const intervalStart=pickupCancellation?activeTrip.pickupStart:(activeTrip.rideStart??activeTrip.pickupStart);
+        if(at<intervalStart) {
+          ensure(ownerId).invalidTrip=true;ensure(id).invalidTrip=true;
+          issues.push({code:"invalid_trip_interval",eventId:e.eventId,logicalShiftId:ownerId});
+        } else {
           trips.push({id:activeTrip.event.eventId,endedAt:at,status:cancelled?"cancelled":"completed",ownerShiftId:ownerId});
           const owner=ensure(ownerId);
-          if(cancelled)owner.cancelledAttemptCount+=1;
-          else {owner.completedRideCount+=1;addInterval(shifts,start,at,"passengerTripMs",busyIntervals);}
+          if(cancelled) {owner.cancelledAttemptCount+=1;if(pickupCancellation)addInterval(shifts,intervalStart,at,"pickupMs",busyIntervals);}
+          else {owner.completedRideCount+=1;addInterval(shifts,intervalStart,at,"passengerTripMs",busyIntervals);}
         }
         activeTrip=undefined;
       } else if(kind==="ride_cancel"&&e.command.expectedPriorState==="approach_active") {
@@ -181,17 +205,15 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     }
   }
   if(activeTrip) {
-    const start=Date.parse(activeTrip.event.command.transitionAt),s=ensure(shiftIdAt(start));
-    if(asOf===undefined)s.pendingTrip=true;
-    else if(asOf<start){s.invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:activeTrip.event.eventId,logicalShiftId:s.id});}
+    const intervalStart=activeTrip.stage==="pickup"?activeTrip.pickupStart:(activeTrip.rideStart??activeTrip.pickupStart);
+    const owner=ensure(shiftIdAt(Date.parse(activeTrip.event.command.transitionAt)));
+    if(asOf===undefined){owner.pendingTrip=true;if(activeTrip.stage==="pickup")owner.pendingPickup=true;}
+    else if(asOf<intervalStart){owner.invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:activeTrip.event.eventId,logicalShiftId:owner.id});}
     else {
-      addInterval(shifts,start,asOf,"passengerTripMs",busyIntervals);
-      let cursor=start;
-      while(cursor<asOf) {
-        const id=shiftIdAt(cursor);
-        ensure(id).pendingTrip=true;
-        cursor=Math.min(asOf,nextBoundary(cursor));
-      }
+      if(activeTrip.stage==="ride")addInterval(shifts,intervalStart,asOf,"passengerTripMs",busyIntervals);
+      else {owner.pendingPickup=true;addInterval(shifts,intervalStart,asOf,"pickupMs",busyIntervals);}
+      let cursor=intervalStart;
+      while(cursor<asOf) {ensure(shiftIdAt(cursor)).pendingTrip=true;cursor=Math.min(asOf,nextBoundary(cursor));}
     }
   }
 
@@ -264,9 +286,11 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
       s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:available(minutes(s.shiftDurationMs),"minutes");
     const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
-    const pickupMetric:TimelineMetric=!("records" in pickup)?pickup:
-      s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:
-      available(minutes(s.pickupMs),"minutes");
+    const pickupMetric:TimelineMetric=hasV2PickupEvents
+      ?s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_trip_interval_invalid"}:s.pendingPickup?{status:"pending",unit:"minutes",reason:"trip_pickup_in_progress"}:available(minutes(s.pickupMs),"minutes")
+      :!("records" in pickup)?pickup:
+       s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:
+       available(minutes(s.pickupMs),"minutes");
     let idleMetric:TimelineMetric;
     if(s.invalidShift||s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation)idleMetric={status:"invalid",unit:"minutes",reason:"shift_or_activity_interval_invalid"};
     else if(duration.status!=="available")idleMetric=duration;

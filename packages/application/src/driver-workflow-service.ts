@@ -208,3 +208,13 @@ export function createDriverCommand(
     idempotencyKey: id,
   };
 }
+
+/** Versioned command constructor for the distinct pickup/ride lifecycle. */
+export function createDriverCommandV2(
+ snapshot:DriverStateProjection,eventType:DriverTransitionCommand["eventType"],
+ originSurface:DriverTransitionCommand["originSurface"],id:string,now=new Date().toISOString(),
+):DriverTransitionCommand {
+ if(!["shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride"].includes(eventType))throw new Error("invalid_lifecycle_v2_event");
+ return {schemaVersion:1,workflowVersion:2,commandId:id,eventId:id,eventType,originSurface,transitionAt:now,
+  expectedPriorState:snapshot.state,expectedRevision:snapshot.revision,idempotencyKey:id};
+}

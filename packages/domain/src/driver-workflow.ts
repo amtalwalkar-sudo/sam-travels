@@ -13,7 +13,7 @@ export function isWithinGpsRecoveryWindow(transitionAt: string, nowMs = Date.now
  return Number.isFinite(transitionMs) && Math.abs(nowMs - transitionMs) <= GPS_RECOVERY_WINDOW_MS;
 }
 export const EMPTY_DRIVER_STATE: DriverStateProjection = { schemaVersion: 1, revision: 0, state: "idle" };
-const DRIVER_STATES = ["idle", "shift_active", "trip_active", "approach_active", "needs_attention"] as const;
+const DRIVER_STATES = ["idle", "shift_active", "going_to_pickup", "trip_active", "approach_active", "needs_attention"] as const;
 const DRIVER_INTENT_STATUSES = ["pending_location", "needs_attention", "recorded", "rejected"] as const;
 function validInstant(value: unknown): value is string {
  if (typeof value !== "string") return false;
@@ -65,12 +65,26 @@ export function assertDriverCommandContract(value: unknown): asserts value is Dr
      !validInstant(command.transitionAt)) throw new Error("invalid_command");
  const context = command.driverContext;
  if (context !== undefined) {
-  if (command.eventType !== "trip_start" || !context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
+  if (!((command.eventType === "trip_start" && command.workflowVersion !== 2) || (command.eventType === "shift_start" && command.workflowVersion === 2)) || !context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
   const row = context as Record<string, unknown>;
   if (Object.keys(row).sort().join(",") !== "assignmentId,driverId,schemaVersion,vehicleId" ||
       row.schemaVersion !== 1 || typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
       typeof row.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
       typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) throw new Error("invalid_driver_context");
+ }
+ if (command.workflowVersion !== undefined && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
+ if (["trip_create","start_ride","end_ride","cancel_ride"].includes(String(command.eventType)) && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
+ if (command.workflowVersion === 2 && !["shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride"].includes(String(command.eventType))) throw new Error("invalid_workflow_version");
+ const tripContext = command.tripContext;
+ if (tripContext !== undefined) {
+  if (command.workflowVersion !== 2 || command.eventType !== "trip_create" || !tripContext || typeof tripContext !== "object" || Array.isArray(tripContext)) throw new Error("invalid_trip_context");
+  const row = tripContext as Record<string, unknown>;
+  if (Object.keys(row).sort().join(",") !== "assignmentId,driverId,operationalDate,schemaVersion,shiftId,vehicleId" ||
+      row.schemaVersion !== 1 || typeof row.shiftId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.shiftId) ||
+      typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
+      typeof row.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
+      typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId) ||
+      typeof row.operationalDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.operationalDate)) throw new Error("invalid_trip_context");
  }
 }
 export function assertDriverStateContract(value: unknown): asserts value is DriverStateProjection {
@@ -83,6 +97,24 @@ export function assertDriverStateContract(value: unknown): asserts value is Driv
  for (const key of ["shiftStartedAt", "tripStartedAt", "approachStartedAt"] as const) {
   if (state[key] !== undefined && !validInstant(state[key])) throw new Error("invalid_driver_state_timestamp");
  }
+ if (state.shiftId !== undefined && (typeof state.shiftId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.shiftId))) throw new Error("invalid_driver_state_shift_id");
+ if (state.shiftContext !== undefined) {
+  const row=state.shiftContext as Record<string,unknown>;
+  if (!row || Object.keys(row).sort().join(",")!=="assignmentId,driverId,schemaVersion,vehicleId" || row.schemaVersion!==1 ||
+      typeof row.driverId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
+      typeof row.assignmentId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
+      typeof row.vehicleId!=="string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) throw new Error("invalid_driver_state_context");
+ }
+ if (state.tripContext !== undefined) {
+  const row=state.tripContext as Record<string,unknown>;
+  if (!row || Object.keys(row).sort().join(",")!=="assignmentId,driverId,operationalDate,schemaVersion,shiftId,vehicleId" || row.schemaVersion!==1 ||
+      typeof row.shiftId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.shiftId) ||
+      typeof row.driverId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
+      typeof row.assignmentId!=="string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
+      typeof row.vehicleId!=="string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId) ||
+      typeof row.operationalDate!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.operationalDate)) throw new Error("invalid_driver_state_trip_context");
+ }
+ if (state.activeTripId !== undefined && (typeof state.activeTripId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.activeTripId))) throw new Error("invalid_driver_state_trip_id");
  if (state.lastEventId !== undefined && (typeof state.lastEventId !== "string" || !state.lastEventId.trim())) {
   throw new Error("invalid_driver_state_event_id");
  }
@@ -118,6 +150,9 @@ export function assertDriverEventContract(value: unknown): asserts value is Driv
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_event");
  const event = value as Record<string, unknown>;
  assertDriverCommandContract(event.command);
+ if ((event.command as DriverTransitionCommand).workflowVersion === 2 &&
+     (((event.command as DriverTransitionCommand).eventType === "shift_start" && !(event.command as DriverTransitionCommand).driverContext) ||
+      ((event.command as DriverTransitionCommand).eventType === "trip_create" && !(event.command as DriverTransitionCommand).tripContext))) throw new Error("missing_lifecycle_snapshot");
  if (event.eventId !== (event.command as DriverTransitionCommand).eventId ||
      !validInstant(event.committedAt) ||
      !Number.isSafeInteger(event.revision) || (event.revision as number) < 1 || (event.revision as number) !== (event.command as DriverTransitionCommand).expectedRevision + 1) {
@@ -140,7 +175,14 @@ export function validateDriverCommand(command: DriverTransitionCommand): DriverR
  }
 }
 export function transitionTarget(state:DriverWorkflowState,event:DriverEventType):DriverWorkflowState|null {
- const allowed:Record<DriverWorkflowState,Partial<Record<DriverEventType,DriverWorkflowState>>>={idle:{shift_start:"shift_active"},shift_active:{shift_end:"idle",trip_start:"trip_active"},trip_active:{trip_end:"shift_active",ride_cancel:"shift_active"},approach_active:{trip_start:"trip_active",ride_cancel:"shift_active"},needs_attention:{}};
+ const allowed:Record<DriverWorkflowState,Partial<Record<DriverEventType,DriverWorkflowState>>>={
+  idle:{shift_start:"shift_active"},
+  shift_active:{shift_end:"idle",trip_start:"trip_active",trip_create:"going_to_pickup"},
+  going_to_pickup:{start_ride:"trip_active",cancel_ride:"shift_active"},
+  trip_active:{trip_end:"shift_active",ride_cancel:"shift_active",end_ride:"shift_active"},
+  approach_active:{trip_start:"trip_active",ride_cancel:"shift_active"},
+  needs_attention:{},
+ };
  return allowed[state][event]??null;
 }
 export function validateDriverCompletion(snapshot:DriverStateProjection,intent:DriverIntent,gps:GpsFix|null,nowMs=Date.now()):DriverResult<DriverStateProjection>{
@@ -149,8 +191,9 @@ export function validateDriverCompletion(snapshot:DriverStateProjection,intent:D
  if(c.expectedRevision!==snapshot.revision||c.expectedPriorState!==snapshot.state)return{ok:false,error:"stale_revision"};
  const target=transitionTarget(snapshot.state,c.eventType);if(!target)return{ok:false,error:"invalid_transition"};
  if(!validateGpsFix(gps,c.transitionAt,nowMs).accepted)return{ok:false,error:"gps_invalid"};
- const next:DriverStateProjection={schemaVersion:1,revision:snapshot.revision+1,state:target,lastEventId:c.eventId};
- if(c.eventType==="shift_start")next.shiftStartedAt=c.transitionAt;else if(c.eventType==="shift_end")next.shiftStartedAt=undefined;
- if(c.eventType==="trip_start")next.tripStartedAt=c.transitionAt;else if(c.eventType==="trip_end"||c.eventType==="ride_cancel")next.tripStartedAt=undefined;
+ const next:DriverStateProjection={...snapshot,schemaVersion:1,revision:snapshot.revision+1,state:target,lastEventId:c.eventId};
+ if(c.eventType==="shift_start")next.shiftStartedAt=c.transitionAt;else if(c.eventType==="shift_end"){next.shiftStartedAt=undefined;next.shiftId=undefined;next.shiftContext=undefined;}
+ if(c.eventType==="trip_start"||c.eventType==="start_ride")next.tripStartedAt=c.transitionAt;
+ else if(c.eventType==="trip_end"||c.eventType==="ride_cancel"||c.eventType==="end_ride"||c.eventType==="cancel_ride"){next.tripStartedAt=undefined;next.activeTripId=undefined;next.tripContext=undefined;}
  return{ok:true,value:next};
 }

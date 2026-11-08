@@ -45,6 +45,7 @@ class DriverWorkflowStoreTest {
         .put("fixAt", java.time.Instant.now().toString())
         .put("provider", "android-test")
 
+
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
         DriverWorkflowStore.queue(db, command("event-1"))
         val next = DriverWorkflowStore.complete(db, "event-1", gps())

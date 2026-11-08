@@ -121,13 +121,14 @@ class DriverOverlayService:Service(){
   status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   root.addView(status)
   val shiftStart=Button(this).apply{text="Start shift";setOnClickListener{runTransition("shift_start")}}
-  val tripStart=Button(this).apply{text="Start trip";setOnClickListener{runTransition("trip_start")}}
-  val tripEnd=Button(this).apply{text="End trip";setOnClickListener{runTransition("trip_end")}}
-  val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("ride_cancel")}}
+  val tripCreate=Button(this).apply{text="Create trip";setOnClickListener{runTransition("trip_create")}}
+  val startRide=Button(this).apply{text="Start ride";setOnClickListener{runTransition("start_ride")}}
+  val endRide=Button(this).apply{text="End ride";setOnClickListener{runTransition("end_ride")}}
+  val cancel=Button(this).apply{text="Cancel ride";setOnClickListener{runTransition("cancel_ride")}}
   val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
-  actionButtons["shift_start"]=shiftStart;actionButtons["trip_start"]=tripStart;actionButtons["trip_end"]=tripEnd;actionButtons["ride_cancel"]=cancel;actionButtons["shift_end"]=shiftEnd
-  listOf(shiftStart,tripStart,tripEnd,cancel,shiftEnd).forEach{root.addView(it)}
+  actionButtons["shift_start"]=shiftStart;actionButtons["trip_create"]=tripCreate;actionButtons["start_ride"]=startRide;actionButtons["end_ride"]=endRide;actionButtons["cancel_ride"]=cancel;actionButtons["shift_end"]=shiftEnd
+  listOf(shiftStart,tripCreate,startRide,endRide,cancel,shiftEnd).forEach{root.addView(it)}
   root.addView(recoveryButton)
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
@@ -148,9 +149,10 @@ class DriverOverlayService:Service(){
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
    recoveryButton?.isEnabled=pending&&activeLocationEventId==null
    actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
-   actionButtons["trip_start"]?.isEnabled=!pending&&state=="shift_active"
-   actionButtons["trip_end"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
-   actionButtons["ride_cancel"]?.isEnabled=!pending&&(state=="trip_active"||state=="approach_active")
+   actionButtons["trip_create"]?.isEnabled=!pending&&state=="shift_active"&&s.has("shiftContext")
+   actionButtons["start_ride"]?.isEnabled=!pending&&state=="going_to_pickup"
+   actionButtons["end_ride"]?.isEnabled=!pending&&state=="trip_active"
+   actionButtons["cancel_ride"]?.isEnabled=!pending&&state=="going_to_pickup"
    actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
   }
  }catch(_:Exception){
@@ -190,7 +192,7 @@ class DriverOverlayService:Service(){
    val id=UUID.randomUUID().toString();val transitionAt=java.time.Instant.now().toString()
    val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event)
     .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
-    .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
+    .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id).put("workflowVersion",2)
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
   }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }

@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
-import { createPlatformRepository } from "../native-store";
+import { createPlatformRepository, getPlatformRecordSource } from "../native-store";
 import {
   createDriverWorkflow,
   disableNativeOverlay,
   enableNativeOverlay,
 } from "../driver-workflow";
-import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
@@ -26,6 +27,9 @@ export function useDriverWorkspace() {
   const [driverBusy, setDriverBusy] = useState(false);
   const [overlayMessage, setOverlayMessage] = useState("");
   const [driverMessage, setDriverMessage] = useState("Restoring driver state…");
+  const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
+  const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [selectionService, setSelectionService] = useState<WorkDriverSelectionService | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -65,6 +69,16 @@ export function useDriverWorkspace() {
         }
 
         const runtime = getApplicationRuntimeRegistry();
+        const platformRecords = await createPlatformRepository();
+        const selection = new WorkDriverSelectionService(platformRecords, repository);
+        const selected = await selection.getSelectedDriver();
+        const allRecords = await platformRecords.list<unknown>();
+        setDriverChoices(allRecords.filter(row => row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
+          .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
+          .filter(row => typeof row.driverId === "string" && typeof row.name === "string" && row.lifecycleState === "active")
+          .map(row => ({driverId:row.driverId!,name:row.name!})));
+        setSelectedDriverId(selected?.driverId ?? "");
+        setSelectionService(selection);
         const service = new DriverWorkflowService(repository, location, async (event) => {
           await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, async () => {
             rebuildTripHistoryProjection(await repository.listEvents());
@@ -157,6 +171,17 @@ export function useDriverWorkspace() {
     }
   }
 
+  async function selectDriver(driverId:string) {
+    if (!selectionService || !driverId) return;
+    try {
+      const selected = await selectionService.selectDriver(driverId, getPlatformRecordSource());
+      setSelectedDriverId(selected.driverId);
+      setDriverMessage("Work Driver selected");
+    } catch (cause) {
+      setDriverMessage(cause instanceof Error ? cause.message : "Unable to select Work Driver");
+    }
+  }
+
   async function toggleNetwork() {
     if (!gateway) return;
     try {
@@ -174,7 +199,7 @@ export function useDriverWorkspace() {
     setDriverBusy(true);
     setDriverMessage("Action received · saving pending intent");
     try {
-      const command = createDriverCommand(driver, eventType, "pwa", crypto.randomUUID());
+      const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID());
       const result = await workflow.dispatch(command);
       setDriver(result.snapshot);
       setPending(await workflow.pending());
@@ -211,13 +236,14 @@ export function useDriverWorkspace() {
     second: "2-digit",
     hour12: false,
   }).format(now);
-  const shiftOn = driver?.state === "shift_active" || driver?.state === "trip_active" || driver?.state === "approach_active";
-  const tripOn = driver?.state === "trip_active" || driver?.state === "approach_active";
+  const shiftOn = driver?.state !== undefined && driver.state !== "idle" && driver.state !== "needs_attention";
+  const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
   return {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
     shiftOn, tripOn, localClock, elapsed,
-    actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch },
+    actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver },
+    driverChoices, selectedDriverId,
   };
 }

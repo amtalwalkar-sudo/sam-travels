@@ -224,3 +224,19 @@ No implementation may invent these behaviours. Each requires an explicit product
 - `TRANSACTION_AND_RECOVERY_CONTRACT.md`, persistence, backup, security, and lifecycle contracts remain authoritative for their existing guarantees.
 - The UI/UX and application shell presentation contract owns presentation architecture and visual/component standards; it does not override these business rules.
 - Approval of this contract documents product requirements only. It does not claim that every listed behavior is implemented, tested, or accepted on a physical phone.
+
+
+## 3A. Versioned trip lifecycle implementation contract
+
+New PWA and Android commands use workflowVersion: 2 and the distinct sequence:
+
+- shift_start captures the immutable Work-selected Driver, active assignment and Vehicle context.
+- trip_create creates the trip immediately and enters going_to_pickup; it copies the active shift ID, Driver, assignment, Vehicle and operational date into the trip snapshot.
+- start_ride is a separate action from going_to_pickup and enters trip_active.
+- end_ride closes a ride and returns to shift_active.
+- cancel_ride closes a pickup-stage trip and returns to shift_active.
+- A new trip requires a new trip_create. No pickup-arrival event is introduced.
+
+The work:selected-driver reference is Work-owned. Driver profile, assignment history and Vehicle remain Admin/Vehicle-owned. Selection is locked for the full active shift. Browser IndexedDB and Android Room validate and commit the same snapshots atomically with the event, state, intent and outbox.
+
+Existing v1 trip_start, trip_end and ride_cancel events and pending intents remain readable with their original semantics. They are never reinterpreted as v2 events; missing historical snapshots are never invented. The detailed field contract, transaction boundary and parity tests are defined in WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md.

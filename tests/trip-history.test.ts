@@ -47,6 +47,7 @@ describe("durable trip history projection", () => {
     ]);
     expect(trips.map((trip) => trip.status).sort()).toEqual(["active", "needs_attention"]);
   });
+
   it("shows a cancellation from approach as a cancelled ride without inventing a trip start", () => {
     expect(buildTripHistory([
       event("cancel-before-start", 1, "ride_cancel", "2026-11-04T09:20:00.000Z", "approach_active"),
@@ -58,4 +59,13 @@ describe("durable trip history projection", () => {
     }]);
   });
 
+  it("does not invent a v2 trip when Cancel Ride has no preceding creation event", () => {
+    expect(buildTripHistory([
+      event("orphan-v2-cancel", 1, "cancel_ride", "2026-11-04T09:20:00.000Z", "going_to_pickup"),
+    ])).toMatchObject([{
+      id: "unmatched:orphan-v2-cancel",
+      status: "needs_attention",
+      reason: "trip_close_without_start",
+    }]);
+  });
 });

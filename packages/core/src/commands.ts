@@ -1,9 +1,9 @@
 export const DRIVER_COMMAND_SCHEMA_VERSION=1 as const;
 export const BRIDGE_CONTRACT_VERSION=1 as const;
-export const DRIVER_EVENT_TYPES=["shift_start","shift_end","trip_start","trip_end","ride_cancel"] as const;
+export const DRIVER_EVENT_TYPES=["shift_start","shift_end","trip_start","trip_end","ride_cancel","trip_create","start_ride","end_ride","cancel_ride"] as const;
 export type DriverEventType=typeof DRIVER_EVENT_TYPES[number];
 export type CommandSurface="pwa"|"native_overlay";
-export type DriverWorkflowState="idle"|"shift_active"|"trip_active"|"approach_active"|"needs_attention";
+export type DriverWorkflowState="idle"|"shift_active"|"going_to_pickup"|"trip_active"|"approach_active"|"needs_attention";
 export type DriverTransitionCommand={
  schemaVersion:typeof DRIVER_COMMAND_SCHEMA_VERSION;
  commandId:string;
@@ -14,7 +14,9 @@ export type DriverTransitionCommand={
  expectedPriorState:DriverWorkflowState;
  expectedRevision:number;
  idempotencyKey:string;
+ workflowVersion?:2;
  driverContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
+ tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
 };
 export type DriverStateProjection={
  schemaVersion:1;
@@ -24,6 +26,10 @@ export type DriverStateProjection={
  tripStartedAt?:string;
  approachStartedAt?:string;
  lastEventId?:string;
+ shiftId?:string;
+ shiftContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
+ activeTripId?:string;
+ tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
 };
 export type NativeBridgeRequest<T>={bridgeVersion:typeof BRIDGE_CONTRACT_VERSION;requestId:string;payload:T};
 export type NativeBridgeResponse<T>={bridgeVersion:typeof BRIDGE_CONTRACT_VERSION;requestId:string;result:T};
