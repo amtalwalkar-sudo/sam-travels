@@ -29,7 +29,7 @@ export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>
  const drivers=records.filter(record=>record.id.startsWith("feature:driver-records:driver:"));
  const selected=drivers.filter(record=>{const data=record.data as Record<string,unknown>;return data.schemaVersion===1&&typeof data.driverId==="string"&&typeof data.name==="string"&&data.name.trim().length>0&&data.lifecycleState==="active"&&data.selectedForWork===true;});
  if(selected.length!==1)throw new Error(selected.length===0?"work_driver_selection_missing":"work_driver_selection_ambiguous");
- const driver=selected[0].data;
+ const driver=selected[0].data as Record<string,unknown>;
  if(selected[0].id!=="feature:driver-records:driver:"+driver.driverId)throw new Error("driver_record_identity_mismatch");
  const historyId="feature:driver-records:assignment:"+driver.driverId;
  const histories=records.filter(record=>record.id===historyId);
@@ -41,11 +41,15 @@ export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>
  const active=assignments.filter(item=>item.unassignedAt===undefined);
  if(active.length!==1)throw new Error(active.length===0?"work_driver_assignment_missing":"work_driver_assignment_ambiguous");
  const assignment=active[0];
- const vehicles=records.filter(record=>record.id===assignment.vehicleId);
+ const assignmentId=assignment.assignmentId,vehicleId=assignment.vehicleId;
+ if(typeof assignmentId!=="string"||typeof vehicleId!=="string")throw new Error("driver_assignment_invalid");
+ const vehicles=records.filter(record=>record.id===vehicleId);
  if(vehicles.length!==1)throw new Error("work_driver_vehicle_missing");
  const vehicle=vehicles[0].data as Record<string,unknown>;
- if(vehicle.schemaVersion!==1||typeof vehicle.registrationNumber!=="string"||vehicle.lifecycleState!=="active"||vehicles[0].id!==assignment.vehicleId)throw new Error("work_driver_vehicle_inactive");
- return Object.freeze({schemaVersion:1,driverId:driver.driverId,assignmentId:assignment.assignmentId,vehicleId:assignment.vehicleId});
+ if(vehicle.schemaVersion!==1||typeof vehicle.registrationNumber!=="string"||vehicle.lifecycleState!=="active"||vehicles[0].id!==vehicleId)throw new Error("work_driver_vehicle_inactive");
+ const driverId=driver.driverId;
+ if(typeof driverId!=="string")throw new Error("driver_record_invalid");
+ return Object.freeze({schemaVersion:1,driverId,assignmentId,vehicleId});
 }
 
 export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
