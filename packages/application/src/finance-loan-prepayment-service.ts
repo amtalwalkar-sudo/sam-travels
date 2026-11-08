@@ -1,0 +1,272 @@
+import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
+import type { RecordEnvelope } from "../../core/src/types";
+import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
+  type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
+
+export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
+export type FinanceLoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
+type ScheduleRow = Readonly<{ installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
+  interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
+  closingPrincipalPaise: number; finalAdjusted: boolean }>;
+type ReamortizedOutput = Readonly<{ openingPrincipalPaise: number; regularEmiPaise: number; rows: readonly ScheduleRow[];
+  totalInterestPaise: number; totalScheduledPaymentsPaise: number; interestSavedPaise: number;
+  finalDueDate: string; remainingInstallmentCount: number }>;
+export type FinanceLoanPrepaymentRevisionV1 = Readonly<{
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  expectedPaymentLedgerRevision: number | null; source: string;
+  commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
+  principalBeforePaise: number; prepaymentAmountPaise: number; principalAfterPaise: number;
+  calculationId: string; calculationVersion: 1; inputSchemaVersion: 1; outputSchemaVersion: 1;
+  input: Readonly<{ principalPaise: number; baselinePrincipalPaise: number; annualInterestRateBasisPoints: number;
+    regularEmiPaise: number; remainingDueDates: readonly string[]; mode: FinanceLoanPrepaymentModeV1 }>;
+  output: ReamortizedOutput;
+}>;
+export type FinanceLoanPrepaymentStateV1 = Readonly<{ schemaVersion: 1; kind: "loan-prepayment-state";
+  loanId: string; baseScheduleVersion: number; currentScheduleVersion: number;
+  revisions: readonly FinanceLoanPrepaymentRevisionV1[] }>;
+export type FinanceLoanPrepaymentRevisionBuilder = (input: {
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  expectedPaymentLedgerRevision: number | null; source: string;
+  commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
+  principalBeforePaise: number; prepaymentAmountPaise: number; annualInterestRateBasisPoints: number;
+  regularEmiPaise: number; remainingDueDates: readonly string[];
+}) => FinanceLoanPrepaymentRevisionV1;
+export type FinanceLoanPrepaymentStateValidator = (value: unknown, loan: FinanceLoanRecordV1, loanId: string) => void;
+type Snapshot = { loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1>;
+  state?: RecordEnvelope<FinanceLoanPrepaymentStateV1> };
+export type FinanceLoanPrepaymentPreviewV1 = Readonly<{
+  loanId: string; commandId: string; businessDate: string; source: string; mode: FinanceLoanPrepaymentModeV1;
+  amountPaise: number; principalBeforePaise: number; principalAfterPaise: number;
+  currentScheduleVersion: number; nextScheduleVersion: number; remainingInstallmentCount: number;
+  regularEmiPaise: number; finalDueDate: string; interestSavedPaise: number;
+  loanRevision: number; paymentLedgerRevision: number | null; prepaymentStateRevision: number | null;
+  revision: FinanceLoanPrepaymentRevisionV1;
+}>;
+function validDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const time = Date.parse(value + "T00:00:00.000Z");
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
+function loanUuid(loanId: string): string {
+  const prefix = "feature:finance:loan:", uuid = loanId.slice(prefix.length);
+  if (!loanId.startsWith(prefix) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
+    throw new Error("finance_loan_prepayment_loan_id_invalid");
+  }
+  return uuid.toLowerCase();
+}
+function prepaymentRecordId(loanId: string): string { return FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanUuid(loanId); }
+function paymentRecordId(loanId: string): string { return FINANCE_PAYMENT_RECORD_PREFIX + loanUuid(loanId); }
+function activePayments(entries: readonly FinancePaymentEntryV1[]) {
+  const reversed = new Set(entries.filter(entry => entry.kind === "reversal").map(entry => entry.paymentId));
+  return entries.filter((entry): entry is Extract<FinancePaymentEntryV1,{kind:"payment"}> =>
+    entry.kind === "payment" && !reversed.has(entry.id));
+}
+function scheduleFrom(snapshot: Snapshot) {
+  const state = snapshot.state?.data;
+  if (state) {
+    const revision = state.revisions[state.revisions.length - 1];
+    return { version: state.currentScheduleVersion, rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise };
+  }
+  const version = snapshot.loan.data.currentScheduleVersion;
+  const selected = snapshot.loan.data.scheduleVersions.find(item => item.version === version);
+  if (!selected) throw new Error("finance_loan_schedule_version_not_found");
+  const output = selected.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
+  if (!Array.isArray(output.rows) || !Number.isSafeInteger(output.regularEmiPaise)) throw new Error("finance_loan_schedule_invalid");
+  return { version, rows: output.rows, regularEmiPaise: output.regularEmiPaise as number };
+}
+export class FinanceLoanPrepaymentService {
+  constructor(private readonly repository: AtomicRecordBatchRepository,
+    private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
+    private readonly validateState: FinanceLoanPrepaymentStateValidator,
+    private readonly buildRevision: FinanceLoanPrepaymentRevisionBuilder,
+    private readonly now: () => string = () => new Date().toISOString()) {}
+
+  private async load(loanId: string): Promise<Snapshot> {
+    const loan = await this.loans.get(loanId);
+    if (!loan) throw new Error("finance_loan_not_found");
+    const [rawLedger, rawState] = await Promise.all([
+      this.repository.get<unknown>(paymentRecordId(loanId)),
+      this.repository.get<unknown>(prepaymentRecordId(loanId)),
+    ]);
+    if (rawLedger) assertFinancePaymentLedgerV1(rawLedger.data, loanId);
+    if (rawState) {
+      this.validateState(rawState.data, loan.data, loanId);
+      const state = rawState.data as FinanceLoanPrepaymentStateV1;
+      if (state.baseScheduleVersion !== loan.data.currentScheduleVersion) {
+        throw new Error("finance_loan_prepayment_base_schedule_changed");
+      }
+    }
+    return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
+      state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined };
+  }
+
+  private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
+    amountPaise: number; mode: FinanceLoanPrepaymentModeV1; source: string }, createdAtOverride?: string): FinanceLoanPrepaymentPreviewV1 {
+    if (snapshot.loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
+    if (!input.commandId.trim() || !validDate(input.businessDate) ||
+        !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 ||
+        !input.source.trim() || (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
+      throw new Error("finance_loan_prepayment_input_invalid");
+    }
+    if (input.businessDate < snapshot.loan.data.details.loanStartDate) {
+      throw new Error("finance_loan_prepayment_before_loan_start");
+    }
+    const lastPrepayment = snapshot.state?.data.revisions[snapshot.state.data.revisions.length - 1];
+    if (lastPrepayment && input.businessDate < lastPrepayment.effectiveDate) {
+      throw new Error("finance_loan_prepayment_date_precedes_history");
+    }
+    const schedule = scheduleFrom(snapshot);
+    const entries = snapshot.ledger?.data.entries ?? [];
+    const allocations = new Map<number, number>();
+    for (const payment of activePayments(entries)) for (const allocation of payment.allocations) {
+      if (allocation.scheduleVersion === schedule.version) {
+        allocations.set(allocation.installmentNumber, (allocations.get(allocation.installmentNumber) ?? 0) + allocation.amountPaise);
+      }
+    }
+    const dueRows = schedule.rows.filter(row => row.dueDate <= input.businessDate);
+    for (const row of dueRows) {
+      if ((allocations.get(row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
+        throw new Error("finance_loan_prepayment_due_emi_not_fully_paid");
+      }
+    }
+    const principalBeforePaise = dueRows.length
+      ? dueRows[dueRows.length - 1].closingPrincipalPaise
+      : schedule.rows[0]?.openingPrincipalPaise;
+    if (typeof principalBeforePaise !== "number" || !Number.isSafeInteger(principalBeforePaise) || principalBeforePaise <= 0 ||
+        input.amountPaise >= principalBeforePaise) {
+      throw new Error("finance_loan_prepayment_amount_must_be_less_than_outstanding_principal");
+    }
+    const remainingDueDates = schedule.rows.filter(row => row.dueDate > input.businessDate).map(row => row.dueDate);
+    if (!remainingDueDates.length) throw new Error("finance_loan_prepayment_no_remaining_installments");
+    const createdAt = createdAtOverride ?? this.now();
+    const revision = this.buildRevision({
+      version: schedule.version + 1, previousScheduleVersion: schedule.version,
+      expectedLoanRevision: snapshot.loan.revision,
+      expectedPaymentLedgerRevision: snapshot.ledger?.revision ?? null, source: input.source,
+      commandId: input.commandId, effectiveDate: input.businessDate,
+      createdAt, mode: input.mode, principalBeforePaise: principalBeforePaise as number,
+      prepaymentAmountPaise: input.amountPaise,
+      annualInterestRateBasisPoints: snapshot.loan.data.details.annualInterestRateBasisPoints,
+      regularEmiPaise: schedule.regularEmiPaise, remainingDueDates,
+    });
+    return {
+      loanId: input.loanId, commandId: input.commandId, businessDate: input.businessDate, source: input.source, mode: input.mode,
+      amountPaise: input.amountPaise, principalBeforePaise: principalBeforePaise as number,
+      principalAfterPaise: (principalBeforePaise as number) - input.amountPaise,
+      currentScheduleVersion: schedule.version, nextScheduleVersion: schedule.version + 1,
+      remainingInstallmentCount: revision.output.remainingInstallmentCount,
+      regularEmiPaise: revision.output.regularEmiPaise, finalDueDate: revision.output.finalDueDate,
+      interestSavedPaise: revision.output.interestSavedPaise, loanRevision: snapshot.loan.revision,
+      paymentLedgerRevision: snapshot.ledger?.revision ?? null, prepaymentStateRevision: snapshot.state?.revision ?? null,
+      revision,
+    };
+  }
+
+  async getScheduleHistory(loanId: string) {
+    const snapshot = await this.load(loanId);
+    const versions = snapshot.loan.data.scheduleVersions.map(item => {
+      const output = item.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
+      return { version: item.version, effectiveDate: item.effectiveDate, createdAt: item.createdAt,
+        label: "Original schedule", rows: output.rows ?? [], regularEmiPaise: output.regularEmiPaise ?? 0,
+        principalPaise: (item.output as { principalPaise?: number }).principalPaise ?? 0,
+        totalInterestPaise: (item.output as { totalInterestPaise?: number }).totalInterestPaise ?? 0,
+        totalScheduledPaymentsPaise: (item.output as { totalScheduledPaymentsPaise?: number }).totalScheduledPaymentsPaise ?? 0 };
+    });
+    for (const revision of snapshot.state?.data.revisions ?? []) {
+      versions.push({ version: revision.version, effectiveDate: revision.effectiveDate, createdAt: revision.createdAt,
+        label: revision.mode === "reduce_tenure" ? "Prepayment · Reduce Tenure" : "Prepayment · Reduce EMI",
+        rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise,
+        principalPaise: revision.output.openingPrincipalPaise,
+        totalInterestPaise: revision.output.totalInterestPaise,
+        totalScheduledPaymentsPaise: revision.output.totalScheduledPaymentsPaise });
+    }
+    return { currentScheduleVersion: snapshot.state?.data.currentScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
+      versions, prepayments: snapshot.state?.data.revisions ?? [] };
+  }
+
+  async getScheduleVersionForDate(loanId: string, businessDate: string): Promise<number | undefined> {
+    if (!validDate(businessDate)) throw new Error("finance_payment_amount_or_date_invalid");
+    const snapshot = await this.load(loanId);
+    const versions = snapshot.loan.data.scheduleVersions.map(item => ({
+      version: item.version, effectiveDate: item.effectiveDate,
+    }));
+    for (const revision of snapshot.state?.data.revisions ?? []) {
+      versions.push({ version: revision.version, effectiveDate: revision.effectiveDate });
+    }
+    return versions.filter(item => item.effectiveDate <= businessDate)
+      .sort((left, right) => right.version - left.version)[0]?.version;
+  }
+
+  async getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined> {
+    const snapshot = await this.load(loanId);
+    const state = snapshot.state?.data;
+    if (!state || scheduleVersion <= state.baseScheduleVersion) return undefined;
+    return state.revisions.find(item => item.version === scheduleVersion)?.output.rows;
+  }
+
+  async preview(input: { loanId: string; commandId: string; businessDate: string; amountPaise: number;
+    mode: FinanceLoanPrepaymentModeV1; source: string }): Promise<FinanceLoanPrepaymentPreviewV1> {
+    return this.previewFrom(await this.load(input.loanId), input);
+  }
+
+  async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"] }) {
+    const requested = input.preview;
+    if (requested.source !== requested.revision.source || input.source !== requested.source) {
+      throw new Error("finance_loan_prepayment_source_provenance_invalid");
+    }
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const snapshot = await this.load(requested.loanId);
+      const replay = snapshot.state?.data.revisions.find(item => item.commandId === requested.commandId);
+      if (replay) {
+        if (replay.prepaymentAmountPaise !== requested.amountPaise || replay.mode !== requested.mode ||
+            replay.effectiveDate !== requested.businessDate || replay.source !== requested.source) throw new Error("finance_loan_prepayment_idempotency_conflict");
+        return replay;
+      }
+      if (snapshot.loan.revision !== requested.loanRevision ||
+          (snapshot.ledger?.revision ?? null) !== requested.paymentLedgerRevision ||
+          (snapshot.state?.revision ?? null) !== requested.prepaymentStateRevision) {
+        throw new Error("finance_loan_prepayment_preview_stale");
+      }
+      const fresh = this.previewFrom(snapshot, requested, requested.revision.createdAt);
+      if (fresh.loanRevision !== requested.loanRevision ||
+          fresh.paymentLedgerRevision !== requested.paymentLedgerRevision ||
+          fresh.prepaymentStateRevision !== requested.prepaymentStateRevision ||
+          fresh.currentScheduleVersion !== requested.currentScheduleVersion ||
+          JSON.stringify(fresh.revision) !== JSON.stringify(requested.revision)) {
+        throw new Error("finance_loan_prepayment_preview_stale");
+      }
+      const createdAt = fresh.revision.createdAt;
+      const stateData: FinanceLoanPrepaymentStateV1 = {
+        schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
+        baseScheduleVersion: snapshot.state?.data.baseScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
+        currentScheduleVersion: fresh.nextScheduleVersion,
+        revisions: [...(snapshot.state?.data.revisions ?? []), fresh.revision],
+      };
+      this.validateState(stateData, snapshot.loan.data, requested.loanId);
+      const stateId = prepaymentRecordId(requested.loanId);
+      const nextState: RecordEnvelope<FinanceLoanPrepaymentStateV1> = {
+        id: stateId, schemaVersion: 1, createdAt: snapshot.state?.createdAt ?? createdAt,
+        updatedAt: createdAt, businessDate: requested.businessDate, source: input.source,
+        revision: (snapshot.state?.revision ?? 0) + 1, data: stateData,
+      };
+      const loanNext: RecordEnvelope<FinanceLoanRecordV1> = {
+        ...snapshot.loan, updatedAt: createdAt, revision: snapshot.loan.revision + 1,
+      };
+      const ledgerId = paymentRecordId(requested.loanId);
+      const ledgerData: FinancePaymentLedgerV1 = snapshot.ledger?.data ??
+        { schemaVersion: 1, loanId: requested.loanId, entries: [] };
+      const ledgerNext: RecordEnvelope<FinancePaymentLedgerV1> = {
+        id: ledgerId, schemaVersion: 1, createdAt: snapshot.ledger?.createdAt ?? createdAt,
+        updatedAt: createdAt, businessDate: requested.businessDate, source: input.source,
+        revision: (snapshot.ledger?.revision ?? 0) + 1, data: ledgerData,
+      };
+      if (await this.repository.compareAndSetMany([
+        { id: snapshot.loan.id, expectedRevision: snapshot.loan.revision, next: loanNext },
+        { id: ledgerId, expectedRevision: snapshot.ledger?.revision ?? null, next: ledgerNext },
+        { id: stateId, expectedRevision: snapshot.state?.revision ?? null, next: nextState },
+      ])) return fresh.revision;
+    }
+    throw new Error("finance_loan_prepayment_concurrent_write_retry_exhausted");
+  }
+}

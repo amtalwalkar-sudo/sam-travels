@@ -11,6 +11,8 @@ import {
   initializeApplicationMaintenanceService,
   initializeApplicationFinanceLoanService,
   initializeApplicationFinanceLoanPaymentService,
+  initializeApplicationFinanceLoanPrepaymentService,
+  initializeApplicationFinanceLoanSettlementService,
   initializeApplicationRecordSource,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
@@ -22,7 +24,8 @@ import {
   calculateMaintenanceVisitTotal,
   maintenanceBusinessDateFromInstant,
 } from "../../../packages/features/maintenance";
-import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../../../packages/features/finance";
+import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged,
+  assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1 } from "../../../packages/features/finance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { registerBusinessSettingsBrowserBackupParticipant } from "./business-settings-backup";
 import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
@@ -50,7 +53,11 @@ async function bootstrap(): Promise<void> {
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
-  initializeApplicationFinanceLoanPaymentService(repository, financeLoans);
+  const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
+    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
+  );
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,

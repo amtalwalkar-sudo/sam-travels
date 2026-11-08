@@ -68,6 +68,12 @@ internal suspend fun commitFeatureUpgradeBatch(
             } ?: -1
             if (currentRevision != expected) return@withTransaction false
         }
+        writesById.forEach { (id, record) ->
+            val expected = expectedRevisions.optInt(id, Int.MIN_VALUE)
+            require(record.optInt("revision", -1) == if (expected == -1) 1 else expected + 1) {
+                "atomic_record_batch_revision_invalid"
+            }
+        }
         writesById.values.forEach { record ->
             database.records().put(StoredRecord(
                 record.getString("id"),

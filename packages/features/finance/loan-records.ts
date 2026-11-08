@@ -38,6 +38,7 @@ export type FinanceLoanRecordV1 = Readonly<{
   details: LoanDetailsV1;
   currentScheduleVersion: number;
   scheduleVersions: readonly LoanScheduleVersionV1[];
+  lifecycleState?: "active" | "closed";
 }>;
 
 export function financeLoanRecordId(uuid: string): string {
@@ -102,7 +103,10 @@ function assertDetails(value: unknown): asserts value is LoanDetailsV1 {
 export function assertFinanceLoanRecordV1(value: unknown): asserts value is FinanceLoanRecordV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("finance_loan_record_invalid");
   const record = value as Record<string, unknown>;
-  if (Object.keys(record).sort().join("|") !==
+  const allowedKeys = ["currentScheduleVersion", "details", "kind", "scheduleVersions", "schemaVersion", "lifecycleState"];
+  if (Object.keys(record).some(key => !allowedKeys.includes(key)) ||
+      (record.lifecycleState !== undefined && record.lifecycleState !== "active" && record.lifecycleState !== "closed") ||
+      Object.keys(record).filter(key => key !== "lifecycleState").sort().join("|") !==
       ["currentScheduleVersion", "details", "kind", "scheduleVersions", "schemaVersion"].sort().join("|") ||
       record.schemaVersion !== 1 || record.kind !== "loan" ||
       !Array.isArray(record.scheduleVersions) || record.scheduleVersions.length < 1) {

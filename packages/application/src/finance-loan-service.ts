@@ -13,6 +13,17 @@ export type FinanceLoanDetailsV1 = Readonly<{
   tenureMonths: number;
   firstEmiDate: string;
 }>;
+export type FinanceLoanScheduleRowV1 = Readonly<{
+  installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
+  interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
+  closingPrincipalPaise: number; finalAdjusted: boolean;
+}>;
+export type FinanceLoanScheduleOutputV1 = Readonly<{
+  currencyCode: "INR"; principalPaise: number; annualInterestRateBasisPoints: number;
+  tenureMonths: number; monthlyRateNumerator: number; monthlyRateDenominator: number;
+  regularEmiPaise: number; rows: readonly FinanceLoanScheduleRowV1[];
+  totalInterestPaise: number; totalScheduledPaymentsPaise: number;
+}>;
 export type FinanceLoanScheduleVersionV1 = Readonly<{
   version: number;
   createdAt: string;
@@ -28,7 +39,7 @@ export type FinanceLoanScheduleVersionV1 = Readonly<{
     loanStartDate: string;
     firstEmiDate: string;
   }>;
-  output: Readonly<{ rows: readonly unknown[] }>;
+  output: FinanceLoanScheduleOutputV1;
 }>;
 export type FinanceLoanRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -36,6 +47,7 @@ export type FinanceLoanRecordV1 = Readonly<{
   details: FinanceLoanDetailsV1;
   currentScheduleVersion: number;
   scheduleVersions: readonly FinanceLoanScheduleVersionV1[];
+  lifecycleState?: "active" | "closed";
 }>;
 export type FinanceLoanRecordValidator = (value: unknown) => asserts value is FinanceLoanRecordV1;
 export type FinanceLoanScheduleBuilder = (
@@ -48,6 +60,7 @@ export type FinanceLoanVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
 };
 const PREFIX = "feature:finance:loan:";
+const PREPAYMENT_PREFIX = "feature:finance:prepayments:";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function recordId(uuid: string): string {
@@ -69,7 +82,7 @@ export class FinanceLoanService {
   private readonly records: FeatureRecordService<FinanceLoanRecordV1>;
 
   constructor(
-    repository: AtomicRecordRepository,
+    private readonly repository: AtomicRecordRepository,
     private readonly vehicles: FinanceLoanVehicleDirectory,
     validate: FinanceLoanRecordValidator,
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
@@ -104,6 +117,7 @@ export class FinanceLoanService {
       details: Object.freeze({ ...input.details }),
       currentScheduleVersion: 1,
       scheduleVersions: [this.buildScheduleVersion(1, input.details, createdAt)],
+      lifecycleState: "active",
     };
     return this.records.create({
       id: recordId(input.uuid),
@@ -136,11 +150,16 @@ export class FinanceLoanService {
     assertRecordId(input.id);
     const current = await this.records.get(input.id);
     if (!current) throw new Error("finance_loan_not_found");
+    if (current.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
     if (current.data.details.vehicleId !== input.details.vehicleId) {
       throw new Error("finance_loan_vehicle_identity_immutable");
     }
     await this.requireVehicle(input.details.vehicleId);
     const changed = this.calculationInputsChanged(current.data.details, input.details);
+    if (changed) {
+      const prepaymentState = await this.repository.get(PREPAYMENT_PREFIX + input.id.slice(PREFIX.length));
+      if (prepaymentState) throw new Error("finance_loan_prepayment_schedule_locked");
+    }
     const createdAt = this.now();
     const scheduleVersions = changed
       ? [...current.data.scheduleVersions,
@@ -154,6 +173,7 @@ export class FinanceLoanService {
         ? current.data.currentScheduleVersion + 1
         : current.data.currentScheduleVersion,
       scheduleVersions,
+      lifecycleState: current.data.lifecycleState ?? "active",
     };
     return this.records.update({
       id: input.id,
