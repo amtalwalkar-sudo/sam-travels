@@ -15,6 +15,7 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
     loanId: string;
     entries: readonly {
       kind: string; id: string; businessDate: string; scheduleVersion?: number;
+      amountPaise: number; paidThroughInstallment?: number;
       allocations?: readonly { scheduleVersion: number; installmentNumber: number; amountPaise: number }[];
     }[];
   };
@@ -26,6 +27,12 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
   if (!loan) throw new Error("finance_payment_loan_not_found");
   assertFinanceLoanRecordV1(loan.data);
   const loanData = loan.data as FinanceLoanRecordV1;
+  const settlements = ledger.entries.filter(entry => entry.kind === "settlement");
+  const lifecycleState = loanData.lifecycleState ?? "active";
+  if ((lifecycleState === "closed" && settlements.length !== 1) ||
+      (lifecycleState === "active" && settlements.length !== 0)) {
+    throw new Error("finance_loan_settlement_lifecycle_mismatch");
+  }
   const reversed = new Set(ledger.entries.filter(entry => entry.kind === "reversal")
     .map(entry => (entry as { paymentId?: string }).paymentId));
   const allocationTotals = new Map<string, number>();
@@ -57,6 +64,30 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
         if (!Number.isSafeInteger(allocationTotals.get(key))) {
           throw new Error("finance_payment_allocation_total_invalid");
         }
+      }
+    }
+  }
+  const settlement = settlements[0];
+  if (settlement) {
+    const versionNumber = settlement.scheduleVersion;
+    const version = loanData.scheduleVersions.find(item => item.version === versionNumber);
+    let rows: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise: number }[] | undefined =
+      (version?.output as { rows?: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise: number }[] } | undefined)?.rows;
+    if (!rows) {
+      const prepaymentId = PREPAYMENT_PREFIX + ledger.loanId.slice(LOAN_PREFIX.length);
+      const prepayment = records.find(item => item.id === prepaymentId);
+      if (!prepayment) throw new Error("finance_payment_schedule_version_not_found");
+      const state = prepayment.data as { revisions: readonly { version: number; output: { rows: readonly { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise: number }[] } }[] };
+      rows = state.revisions.find(item => item.version === versionNumber)?.output.rows;
+    }
+    if (!rows) throw new Error("finance_payment_schedule_version_not_found");
+    const settlementRow = rows.find(row => row.dueDate === settlement.businessDate &&
+      row.installmentNumber === settlement.paidThroughInstallment);
+    if (!settlementRow || settlement.amountPaise !== settlementRow.closingPrincipalPaise ||
+        settlement.amountPaise <= 0) throw new Error("finance_payment_settlement_amount_invalid");
+    for (const row of rows.filter(item => item.dueDate <= settlement.businessDate)) {
+      if ((allocationTotals.get(versionNumber + ":" + row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
+        throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
       }
     }
   }
@@ -109,6 +140,14 @@ export function registerFinanceBrowserBackupParticipant(): () => void {
         if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
         const data = vehicle.data; assertVehicleRecordV1(data);
         if (vehicle.id !== "feature:vehicle:" + data.registrationNumber) throw new Error("finance_loan_vehicle_identity_mismatch");
+        const paymentId = PAYMENT_PREFIX + loan.id.slice(LOAN_PREFIX.length);
+        const payment = records.find(item => item.id === paymentId);
+        const settlementCount = ((payment?.data as { entries?: readonly { kind: string }[] } | undefined)?.entries ?? [])
+          .filter(entry => entry.kind === "settlement").length;
+        if ((loanData.lifecycleState === "closed" && settlementCount !== 1) ||
+            ((loanData.lifecycleState ?? "active") === "active" && settlementCount !== 0)) {
+          throw new Error("finance_loan_settlement_lifecycle_mismatch");
+        }
       }
       const paymentIds = new Set<string>();
       for (const payment of payments) {
