@@ -6,6 +6,8 @@ import type { ReverseGeocoderAdapter, TimelineLocationEnrichment, TimelineLocati
 
 export const TIMELINE_ENRICHMENT_RECORD_PREFIX = "timeline-enrichment:";
 const MAX_BATCH_SIZE = 5;
+const SUCCESS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const NEGATIVE_CACHE_TTL_MS = 60 * 60 * 1000;
 
 export type TimelineEnrichmentRecord = Readonly<{
   eventId: string;
@@ -44,7 +46,19 @@ export class TimelineEnrichmentQueue {
   private draining = false;
 
   async enqueue(events: readonly DriverEvent[]): Promise<void> {
-    const now = new Date(this.now()).toISOString();
+    const nowMs = this.now();
+    const now = new Date(nowMs).toISOString();
+    const resolvedCoordinates = new Map<string, TimelineEnrichmentRecord>();
+    const existing = (await this.records.list<TimelineEnrichmentRecord>())
+      .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX));
+    for (const row of existing) {
+      const data = row.data;
+      if ((data.status !== "resolved" && data.status !== "not_found") || !data.lookedUpAt) continue;
+      const age = nowMs - Date.parse(data.lookedUpAt);
+      const ttl = data.status === "resolved" ? SUCCESS_CACHE_TTL_MS : NEGATIVE_CACHE_TTL_MS;
+      if (!Number.isFinite(age) || age < 0 || age > ttl) continue;
+      resolvedCoordinates.set(this.coordinateKey(data.latitude, data.longitude), data);
+    }
     for (const event of events) {
       const gps = event.gps;
       if (!eligibleEvents.has(event.command.eventType) || !gps ||
@@ -54,10 +68,16 @@ export class TimelineEnrichmentQueue {
       if (await this.records.get<TimelineEnrichmentRecord>(id)) continue;
       const next: RecordEnvelope<TimelineEnrichmentRecord> = {
         id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1,
-        data: {
-          eventId: event.eventId, latitude: gps.latitude, longitude: gps.longitude,
-          status: "pending", provider: "geoapify", createdAt: now, attempts: 0,
-        },
+        data: (() => {
+          const cached = resolvedCoordinates.get(this.coordinateKey(gps.latitude, gps.longitude));
+          return {
+            eventId: event.eventId, latitude: gps.latitude, longitude: gps.longitude,
+            status: cached?.status ?? "pending", provider: "geoapify" as const,
+            createdAt: now, attempts: 0,
+            ...(cached?.label ? { label: cached.label } : {}),
+            ...(cached?.lookedUpAt ? { lookedUpAt: cached.lookedUpAt } : {}),
+          };
+        })(),
       };
       await this.records.put(next);
     }
@@ -141,6 +161,10 @@ export class TimelineEnrichmentQueue {
 
   async drainDueRetries(limit = MAX_BATCH_SIZE, signal?: AbortSignal) {
     return this.drain(limit, signal);
+  }
+
+  private coordinateKey(latitude: number, longitude: number) {
+    return latitude.toFixed(4) + "," + longitude.toFixed(4);
   }
 
   private async writeNext(
