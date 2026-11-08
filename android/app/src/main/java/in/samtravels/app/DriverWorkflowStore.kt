@@ -53,7 +53,7 @@ object DriverWorkflowStore {
     private fun sameCommand(left: JSONObject, right: JSONObject): Boolean {
         val fields = listOf(
             "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
-            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey",
+            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "driverContext",
         )
         return fields.all { field -> left.opt(field).toString() == right.opt(field).toString() }
     }
