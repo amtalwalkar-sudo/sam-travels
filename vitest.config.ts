@@ -1,1 +1,1 @@
-import{defineConfig}from"vitest/config";export default defineConfig({test:{environment:"node",include:["tests/**/*.test.ts"],clearMocks:true}});
+import{defineConfig}from"vitest/config";export default defineConfig({test:{environment:"node",include:["tests/**/*.test.ts","services/**/*.test.ts"],clearMocks:true}});
