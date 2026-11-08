@@ -10,7 +10,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, GeoapifyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 
@@ -240,10 +240,19 @@ export function useDriverWorkspace() {
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
+  const reverseGeocoder = useMemo(() => {
+    const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY;
+    const adapter = typeof apiKey === "string" && apiKey.trim() ? new GeoapifyReverseGeocoder(apiKey) : undefined;
+    return gateway ? new TimelineReverseGeocodingService(gateway, adapter) : undefined;
+  }, [gateway]);
+
   const loadTimeline = useCallback(async () => {
     if (!workflow) throw new Error("Work history is still loading");
-    return new TimelineProjectionService({ listEvents: () => workflow.events() }).read(new Date().toISOString());
-  }, [workflow]);
+    const readModel = await new TimelineProjectionService({ listEvents: () => workflow.events() })
+      .read(new Date().toISOString());
+    const locations = reverseGeocoder ? await reverseGeocoder.enrich(readModel.events) : {};
+    return { ...readModel, locations };
+  }, [workflow, reverseGeocoder]);
 
 
   return {
