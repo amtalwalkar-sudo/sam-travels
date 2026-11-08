@@ -369,10 +369,10 @@ describe("runtime registry bootstrap", () => {
     }));
   });
 
-  it("validates and exposes feature, integration, and calculation registries together", () => {
+  it("validates the built-in feature, integration, and calculation registries together", () => {
     const runtime = initializeRuntimeRegistry();
-    expect(runtime.features.size).toBe(9);
-    expect(runtime.features.has("timeline")).toBe(true);
+    expect(runtime.features.size).toBe(8);
+    expect(runtime.features.has("timeline")).toBe(false);
     expect(runtime.startupOrder[0].id).toBe("platform");
     expect(runtime.integrations.size).toBe(0);
     expect([...runtime.backupParticipants.keys()]).toEqual(["platform-records", "work-driver-state", "logbook-events", "finance-records", "vehicle-records"]);
