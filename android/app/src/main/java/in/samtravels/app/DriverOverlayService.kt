@@ -241,26 +241,30 @@ class DriverOverlayService:Service(){
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
   val effectiveReason=if(!DriverRecoveryPolicy.isWithinGpsWindow(transitionAt))"gps_recovery_window_expired" else reason
-  try{
-   NativeStartupRecovery.ensure(db)
-   startupRecoveryReady=true
-   startupRecoveryFailed=false
-   DriverWorkflowStore.markNeedsAttention(db,id,effectiveReason)
-  }catch(_:Exception){
-   startupRecoveryReady=false
-   startupRecoveryFailed=true
+  executor.execute{
+   try{
+    NativeStartupRecovery.ensure(db)
+    startupRecoveryReady=true
+    startupRecoveryFailed=false
+    DriverWorkflowStore.markNeedsAttention(db,id,effectiveReason)
+   }catch(_:Exception){
+    startupRecoveryReady=false
+    startupRecoveryFailed=true
+   }
+   main.post{refresh("Action retained · "+effectiveReason)}
   }
-  main.post{refresh("Action retained · "+effectiveReason)}
  }
  private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){
-  try{
-   val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
-    .put("horizontalAccuracyM",location.accuracy.toDouble()).put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
-    .put("provider",location.provider?:"android")
-   NativeStartupRecovery.ensure(db)
-   DriverWorkflowStore.complete(db,id,gps)
-   main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
-  }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
+  executor.execute{
+   try{
+    val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
+     .put("horizontalAccuracyM",location.accuracy.toDouble()).put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
+     .put("provider",location.provider?:"android")
+    NativeStartupRecovery.ensure(db)
+    DriverWorkflowStore.complete(db,id,gps)
+    main.post{refresh("Recorded · "+command.optString("eventType").replace("_"," "))}
+   }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
+  }
  }
  override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
 }
