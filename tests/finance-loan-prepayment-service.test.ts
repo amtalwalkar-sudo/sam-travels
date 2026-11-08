@@ -104,4 +104,12 @@ describe("FinanceLoanPrepaymentService", () => {
     await expect(service.commit({ preview, source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_preview_stale");
   });
+  it("rejects prepayment previews after the Loan has been closed", async () => {
+    const { repository, service } = setup();
+    await repository.put({ ...loanEnvelope, revision: 2,
+      data: { ...loanData, lifecycleState: "closed" } });
+    await expect(service.preview({ loanId, commandId: "prepay-after-close",
+      businessDate: "2026-01-15", amountPaise: 100_000, mode: "reduce_tenure", source: "web" }))
+      .rejects.toThrow("finance_loan_closed");
+  });
 });
