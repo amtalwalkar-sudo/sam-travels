@@ -10,7 +10,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, OpenStreetMapNominatimReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 
@@ -241,7 +241,7 @@ export function useDriverWorkspace() {
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
   const reverseGeocoder = useMemo(
-    () => gateway ? new TimelineReverseGeocodingService(gateway, new OpenStreetMapNominatimReverseGeocoder()) : undefined,
+    () => gateway ? new TimelineReverseGeocodingService(gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
     [gateway],
   );
 
