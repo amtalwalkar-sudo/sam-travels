@@ -142,8 +142,10 @@ internal object NativeFinanceBackup {
                 id == LOAN_PREFIX + suffix.lowercase()) { "finance_loan_record_identity_invalid" }
             require(identities.add(id)) { "finance_backup_duplicate_loan_identity" }
             val data = envelope.getJSONObject("data")
-            require(data.keys().asSequence().toSet() ==
-                setOf("schemaVersion", "kind", "details", "currentScheduleVersion", "scheduleVersions") &&
+            val loanKeys = data.keys().asSequence().toSet()
+            require(loanKeys.containsAll(setOf("schemaVersion", "kind", "details", "currentScheduleVersion", "scheduleVersions")) &&
+                loanKeys.all { it in setOf("schemaVersion", "kind", "details", "currentScheduleVersion", "scheduleVersions", "lifecycleState") } &&
+                (!data.has("lifecycleState") || data.optString("lifecycleState") in setOf("active", "closed")) &&
                 data.optInt("schemaVersion", -1) == 1 && data.optString("kind") == "loan") {
                 "finance_loan_record_invalid"
             }
@@ -215,6 +217,7 @@ internal object NativeFinanceBackup {
             val commands = mutableSetOf<String>()
             val payments = linkedMapOf<String, JSONObject>()
             val reversals = mutableMapOf<String, JSONObject>()
+            val settlements = mutableListOf<JSONObject>()
             val activeAllocations = mutableMapOf<Pair<Int, Int>, Long>()
             val entries = data.getJSONArray("entries")
 
@@ -279,6 +282,17 @@ internal object NativeFinanceBackup {
                         }
                         payments[entryId] = entry
                     }
+                    "settlement" -> {
+                        val allowed = setOf("kind", "id", "commandId", "loanId", "businessDate", "amountPaise",
+                            "method", "reference", "scheduleVersion", "paidThroughInstallment", "createdAt", "source", "status")
+                        require(entry.keys().asSequence().all { it in allowed } &&
+                            PAYMENT_METHODS.contains(entry.optString("method")) &&
+                            (!entry.has("reference") || entry.optString("reference").isNotBlank()) &&
+                            integer(entry, "scheduleVersion", 1) > 0 &&
+                            integer(entry, "paidThroughInstallment", 1) > 0 &&
+                            settlements.isEmpty()) { "finance_payment_settlement_invalid" }
+                        settlements += entry
+                    }
                     "reversal" -> {
                         val allowed = setOf("kind", "id", "commandId", "loanId", "paymentId", "businessDate",
                             "reason", "amountPaise", "createdAt", "source", "status")
@@ -300,6 +314,42 @@ internal object NativeFinanceBackup {
                 }
             }
             val reversedIds = reversals.keys
+            val lifecycleState = loanData.optString("lifecycleState", "active")
+            require(lifecycleState in setOf("active", "closed") &&
+                ((lifecycleState == "closed" && settlements.size == 1) ||
+                    (lifecycleState == "active" && settlements.isEmpty()))) {
+                "finance_loan_settlement_lifecycle_mismatch"
+            }
+            val settlement = settlements.singleOrNull()
+            if (settlement != null) {
+                val version = integer(settlement, "scheduleVersion", 1).toInt()
+                val rowsForSettlement = scheduleRowsForVersion(version)
+                val settlementDate = settlement.optString("businessDate")
+                val paidThrough = integer(settlement, "paidThroughInstallment", 1).toInt()
+                val dueRows = (0 until rowsForSettlement.length()).map { rowsForSettlement.getJSONObject(it) }
+                    .filter { it.optString("dueDate") <= settlementDate }
+                val settlementRow = dueRows.firstOrNull { it.optInt("installmentNumber", -1) == paidThrough }
+                    ?: error("finance_payment_settlement_not_emi_date")
+                require(settlementRow.optString("dueDate") == settlementDate &&
+                    integer(settlement, "amountPaise", 1) == integer(settlementRow, "closingPrincipalPaise", 1)) {
+                    "finance_payment_settlement_amount_invalid"
+                }
+                for (dueRow in dueRows) {
+                    val installment = dueRow.optInt("installmentNumber", -1)
+                    val paid = payments.filterKeys { it !in reversedIds }.values.sumOf { payment ->
+                        val allocations = payment.getJSONArray("allocations")
+                        (0 until allocations.length()).sumOf { allocationIndex ->
+                            val allocation = allocations.getJSONObject(allocationIndex)
+                            if (integer(payment, "scheduleVersion", 1).toInt() == version &&
+                                integer(allocation, "installmentNumber", 1).toInt() == installment)
+                                integer(allocation, "amountPaise", 1) else 0L
+                        }
+                    }
+                    require(paid == integer(dueRow, "installmentAmountPaise", 1)) {
+                        "finance_payment_settlement_due_emi_not_fully_paid"
+                    }
+                }
+            }
             for ((key, total) in activeAllocations) {
                 val scheduleRows = scheduleRowsForVersion(key.first)
                 val rowForInstallment = (0 until scheduleRows.length()).map { scheduleRows.getJSONObject(it) }
