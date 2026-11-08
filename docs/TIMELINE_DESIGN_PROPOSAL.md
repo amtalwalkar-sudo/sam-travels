@@ -1,12 +1,12 @@
 # Timeline Product Design
 
-**Status: Draft proposal — visual direction approved; remaining product design is open and not frozen.**
+**Status: Approved and frozen product-design baseline.**
 
-**Design approval: Mobile visual direction and shift-summary treatment approved on 5 November 2026; remaining product decisions are still open.**
-**Implementation authorization: Not granted.**
-**Scope: Product-design documentation only; no runtime implementation.**
+**Design approval: Complete Timeline product baseline frozen in the governing Architecture contract; the mobile visual direction and shift-summary treatment were explicitly approved on 5 November 2026.**
+**Implementation authorization: Granted by the user's explicit implementation instruction on 8 November 2026.**
+**Scope: Read-only Timeline feature registration, authoritative Work-event query, projection, screen, and date navigation.**
 
-This document is the working product-design proposal for the Timeline in the single-driver Sam Travels application. It records proposed product behavior, presentation, grouping, calculations, location-enrichment policy, cross-platform expectations, and acceptance criteria. Some individual rules have been agreed in principle, but the complete Timeline design is not approved or frozen. This document remains open for review and revision until the user explicitly approves the complete design. Documentation updates do not authorize code, schema, migration, UI, background-service, integration, or runtime implementation. Existing normative architecture contracts remain authoritative.
+This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, reverse-geocoding activation, hosted-provider credentials, or a persistent Timeline cache. Optional location enrichment remains deferred behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
