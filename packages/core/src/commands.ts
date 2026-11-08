@@ -14,7 +14,7 @@ export type DriverTransitionCommand={
  expectedPriorState:DriverWorkflowState;
  expectedRevision:number;
  idempotencyKey:string;
- driverContext?:{driverId:string;driverName:string;vehicleId?:string};
+ driverContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
 };
 export type DriverStateProjection={
  schemaVersion:1;

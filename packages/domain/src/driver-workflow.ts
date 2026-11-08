@@ -1,6 +1,9 @@
 import { DRIVER_EVENT_TYPES, type DriverStateProjection, type DriverTransitionCommand, type DriverEventType, type DriverWorkflowState } from "../../core/src/commands";
 import type { GpsFix } from "../../core/src/types";
 import { validateGpsFix } from "../../core/src/gps";
+import { assertDriverRecordV1, assertDriverAssignmentHistoryV1 } from "../../features/driver-records";
+import { assertVehicleRecordV1 } from "../../features/vehicle";
+import type { RecordEnvelope } from "../../core/src/types";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
 export type DriverIntent = { command: DriverTransitionCommand; status: DriverIntentStatus; createdAt: string; updatedAt: string; reason?: string };
 export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number };
@@ -21,6 +24,31 @@ function validInstant(value: unknown): value is string {
  const date = new Date(match[1] + "T00:00:00.000Z");
  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === match[1] && Number.isFinite(Date.parse(value));
 }
+export type DriverContextV1 = Readonly<{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string}>;
+
+/** Resolve selected Driver, active assignment and active Vehicle from the authoritative records at commit time. */
+export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>[]): DriverContextV1 {
+ const drivers=records.filter(record=>record.id.startsWith("feature:driver-records:driver:"));
+ const selected=drivers.filter(record=>{assertDriverRecordV1(record.data);return record.data.selectedForWork===true&&record.data.lifecycleState==="active";});
+ if(selected.length!==1)throw new Error(selected.length===0?"work_driver_selection_missing":"work_driver_selection_ambiguous");
+ const driver=selected[0].data;
+ if(selected[0].id!=="feature:driver-records:driver:"+driver.driverId)throw new Error("driver_record_identity_mismatch");
+ const historyId="feature:driver-records:assignment:"+driver.driverId;
+ const histories=records.filter(record=>record.id===historyId);
+ if(histories.length!==1)throw new Error("work_driver_assignment_history_missing");
+ assertDriverAssignmentHistoryV1(histories[0].data);
+ const history=histories[0].data;
+ if(history.driverId!==driver.driverId)throw new Error("driver_assignment_identity_mismatch");
+ const active=history.assignments.filter(item=>item.unassignedAt===undefined);
+ if(active.length!==1)throw new Error(active.length===0?"work_driver_assignment_missing":"work_driver_assignment_ambiguous");
+ const assignment=active[0];
+ const vehicles=records.filter(record=>record.id===assignment.vehicleId);
+ if(vehicles.length!==1)throw new Error("work_driver_vehicle_missing");
+ assertVehicleRecordV1(vehicles[0].data);
+ if(vehicles[0].id!==assignment.vehicleId||vehicles[0].data.lifecycleState!=="active")throw new Error("work_driver_vehicle_inactive");
+ return Object.freeze({schemaVersion:1,driverId:driver.driverId,assignmentId:assignment.assignmentId,vehicleId:assignment.vehicleId});
+}
+
 export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_command");
  const command = value as Record<string, unknown>;
@@ -34,14 +62,12 @@ export function assertDriverCommandContract(value: unknown): asserts value is Dr
      !validInstant(command.transitionAt)) throw new Error("invalid_command");
  const context = command.driverContext;
  if (context !== undefined) {
-  if (!context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
+  if (command.eventType !== "trip_start" || !context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
   const row = context as Record<string, unknown>;
-  if (typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
-      typeof row.driverName !== "string" || !row.driverName.trim() ||
-      (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:")))) {
-   throw new Error("invalid_driver_context");
-  }
-  if (command.eventType === "trip_start" && typeof row.vehicleId !== "string") throw new Error("trip_start_vehicle_context_required");
+  if (Object.keys(row).sort().join(",") !== "assignmentId,driverId,schemaVersion,vehicleId" ||
+      row.schemaVersion !== 1 || typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
+      typeof row.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
+      typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) throw new Error("invalid_driver_context");
  }
 }
 export function assertDriverStateContract(value: unknown): asserts value is DriverStateProjection {
