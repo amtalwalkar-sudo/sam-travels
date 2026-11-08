@@ -182,13 +182,16 @@ export function useDriverWorkspace() {
       setDriver(result.snapshot);
       const items = await workflow.pending();
       setPending(items);
-      const stillPending = items.some(item => item.command.eventId === eventId && item.status === "pending_location");
+      const actionItem = items.find(item => item.command.eventId === eventId);
+      const stillPending = actionItem?.status === "pending_location";
       setDriverMessage(
-        result.status === "recorded" || !stillPending && result.status !== "needs_attention"
+        result.status === "recorded" || (!stillPending && !actionItem)
           ? "Recovered action recorded"
-          : result.reason === "gps_recovery_window_expired"
+          : (result.reason ?? actionItem?.reason) === "gps_recovery_window_expired"
             ? "GPS evidence window expired · reissue the action when ready"
-            : "Retry queued · GPS is being checked in the background",
+            : actionItem?.status === "needs_attention"
+              ? "Action retained · " + (actionItem.reason ?? "location needs attention")
+              : "Retry queued · GPS is being checked in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "recovery", operation: "retry_pending_action", failureCategory: "recovery", recoveryResult: "retry_failed" });
@@ -235,11 +238,14 @@ export function useDriverWorkspace() {
       setDriver(result.snapshot);
       const items = await workflow.pending();
       setPending(items);
-      const stillPending = items.some(item => item.command.eventId === command.eventId && item.status === "pending_location");
+      const actionItem = items.find(item => item.command.eventId === command.eventId);
+      const stillPending = actionItem?.status === "pending_location";
       setDriverMessage(
-        result.status === "recorded" || !stillPending
+        result.status === "recorded" || (!stillPending && !actionItem)
           ? "Recorded securely on this device"
-          : "Action saved · GPS verification continuing in the background",
+          : actionItem?.status === "needs_attention"
+            ? "Action retained · " + (actionItem.reason ?? "location needs attention")
+            : "Action saved · GPS verification continuing in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "workflow", operation: "dispatch_transition", failureCategory: "workflow", recoveryResult: "operation_failed" });
