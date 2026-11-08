@@ -98,11 +98,11 @@ class DriverWorkflowPlugin:Plugin(){
    timeout=Runnable{finish("Location request timed out; intent remains pending")}
    listener=LocationListener{location:Location->
     if(!finished){
-     val age= kotlin.math.abs(location.time-transitionMs)
-     val fresh=age<=DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS&&location.time<=System.currentTimeMillis()+5_000L
-     val valid=location.latitude.isFinite()&&location.longitude.isFinite()&&location.latitude in -90.0..90.0&&
-      location.longitude in -180.0..180.0&&location.accuracy.isFinite()&&location.accuracy in 0f..50f&&fresh
-     if(valid)finish(location=location)
+     val candidate=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
+      .put("horizontalAccuracyM",location.accuracy.toDouble())
+      .put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
+      .put("provider",location.provider?:"android")
+     if(DriverTransitionPolicy.isAcceptableGpsEvidence(candidate,transitionAtValue))finish(location=location)
     }
    }
    try{
