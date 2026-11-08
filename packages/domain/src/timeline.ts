@@ -4,11 +4,11 @@ export const TIMELINE_TIME_ZONE = "Asia/Kolkata" as const;
 export const LOGICAL_SHIFT_BOUNDARY_MINUTES = 240 as const;
 export const TIMELINE_V1_METRIC_IDS = ["shift_duration","pickup_time","passenger_trip_time","idle_time","total_fare","toll_total","parking_total","business_km","completed_ride_count","cancelled_attempt_count"] as const;
 export type TimelineMetricId = typeof TIMELINE_V1_METRIC_IDS[number];
-export type TimelineMetricStatus = "available" | "pending" | "unavailable" | "invalid";
+export type TimelineMetricStatus = "available" | "pending" | "unavailable" | "not_applicable" | "invalid";
 export type TimelineMetricUnit = "minutes" | "count" | "minor_currency_units" | "km";
 export type TimelineMetric =
   | { status:"available"; value:number; unit:TimelineMetricUnit; currency?:string }
-  | { status:"pending"|"unavailable"|"invalid"; reason:string; unit:TimelineMetricUnit };
+  | { status:"pending"|"unavailable"|"not_applicable"|"invalid"; reason:string; unit:TimelineMetricUnit };
 export type TimelineSourceSnapshot<T> =
   | { status:"available"; records:readonly T[] }
   | { status:"pending"; reason?:string }
