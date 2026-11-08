@@ -2,6 +2,7 @@
 export {
   DriverWorkflowService,
   createDriverCommand,
+  createDriverCommandV2,
 } from "../../application/src/driver-workflow-service";
 export type {
   DriverWorkflowRepository,

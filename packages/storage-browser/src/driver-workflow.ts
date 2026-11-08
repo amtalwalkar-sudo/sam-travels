@@ -5,6 +5,7 @@ import type { DriverEvent,DriverIntent } from "../../domain/src/driver-workflow"
 import { EMPTY_DRIVER_STATE,assertDriverEventContract,assertDriverIntentContract,assertDriverOutboxContract,assertDriverStateContract,validateDriverCompletion } from "../../domain/src/driver-workflow";
 import type { DriverWorkflowRepository } from "../../application/src/driver-workflow-service";
 import { browserDatabase } from "./database";
+import { operationalDateAt, resolveWorkDriverContext } from "../../domain/src/work-driver-context";
 import { resolveDriverContextV1 } from "../../domain/src/driver-workflow";
 type SnapshotRow={id:"driver-state";value:DriverStateProjection};
 type OutboxRow={id:string;eventId:string;revision:number;integrationId:string;contractVersion:number;eventName:string;payloadVersion:number;delivered:boolean;createdAt:string};
@@ -21,7 +22,35 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async reactivateIntent(id:string){return browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(!i)throw new Error("intent_missing");assertDriverIntentContract(i);if(i.status!=="needs_attention"&&i.status!=="pending_location")throw new Error("intent_not_recoverable");const s=await this.getSnapshot();if(i.command.expectedRevision!==s.revision||i.command.expectedPriorState!==s.state)throw new Error("stale_revision");const next={...i,status:"pending_location" as const,updatedAt:new Date().toISOString(),reason:undefined};assertDriverIntentContract(next);await intents().put(next);return next})}
  async listPending(){const pending=await intents().where("status").anyOf("pending_location","needs_attention").toArray();pending.forEach(assertDriverIntentContract);return pending}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
-  const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;assertDriverStateContract(next);const command=intent.command.eventType==="trip_start" ? {...intent.command,driverContext:resolveDriverContextV1(await browserDatabase.records.toArray())} : intent.command;
+  const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;assertDriverStateContract(next);let command=intent.command;
+   if(command.workflowVersion===2&&command.eventType==="shift_start")command={...command,driverContext:resolveWorkDriverContext(await browserDatabase.records.toArray(),command.transitionAt)};
+   else if(command.workflowVersion===2&&command.eventType==="trip_create"){
+    if(!current.shiftId||!current.shiftContext)throw new Error("work_shift_context_missing");
+    command={...command,tripContext:{schemaVersion:1,shiftId:current.shiftId,...current.shiftContext,operationalDate:operationalDateAt(command.transitionAt)}};
+   } else if(command.eventType==="trip_start")command={...command,driverContext:resolveDriverContextV1(await browserDatabase.records.toArray())};
+   if(command.workflowVersion===2){
+    if(command.eventType==="shift_start"){
+     const selected=await browserDatabase.records.get("work:selected-driver");
+     if(!selected)throw new Error("work_driver_not_selected");
+     const data=selected.data as {schemaVersion:number;driverId:string;lockedShiftId?:string};
+     if(data.lockedShiftId)throw new Error("work_driver_selection_locked_during_shift");
+     await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:{...data,lockedShiftId:command.eventId}});
+     next.shiftId=command.eventId;next.shiftContext=command.driverContext;
+    } else if(command.eventType==="shift_end"){
+     const selected=await browserDatabase.records.get("work:selected-driver");
+     if(current.shiftId){
+      if(!selected)throw new Error("work_driver_not_selected");
+      const data=selected.data as {schemaVersion:number;driverId:string;lockedShiftId?:string};
+      if(data.lockedShiftId!==current.shiftId)throw new Error("work_driver_shift_lock_mismatch");
+      const unlocked={...data};delete unlocked.lockedShiftId;
+      await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:unlocked});
+     }
+     next.shiftId=undefined;next.shiftContext=undefined;
+    } else if(command.eventType==="trip_create"){next.activeTripId=command.eventId;next.tripContext=command.tripContext;}
+    else if(command.eventType==="start_ride")next.tripStartedAt=command.transitionAt;
+    else if(command.eventType==="end_ride"||command.eventType==="cancel_ride"){next.activeTripId=undefined;next.tripContext=undefined;next.tripStartedAt=undefined;}
+   }
+   assertDriverStateContract(next);
    intent.command=command;
    const event={eventId:id,command,gps,committedAt:now,revision:next.revision};assertDriverEventContract(event);
    await events().add(event);await states().put({id:"driver-state",value:next});

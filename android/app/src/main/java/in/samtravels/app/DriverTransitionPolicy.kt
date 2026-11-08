@@ -9,6 +9,10 @@ object DriverTransitionPolicy {
     fun target(state: String, event: String): String? = when (event) {
         "shift_start" -> if (state == "idle") "shift_active" else null
         "shift_end" -> if (state == "shift_active") "idle" else null
+        "trip_create" -> if (state == "shift_active") "going_to_pickup" else null
+        "start_ride" -> if (state == "going_to_pickup") "trip_active" else null
+        "end_ride" -> if (state == "trip_active") "shift_active" else null
+        "cancel_ride" -> if (state == "going_to_pickup") "shift_active" else null
         "trip_start" -> if (state == "shift_active" || state == "approach_active") "trip_active" else null
         "trip_end", "ride_cancel" -> if (state == "trip_active" || state == "approach_active") "shift_active" else null
         else -> null

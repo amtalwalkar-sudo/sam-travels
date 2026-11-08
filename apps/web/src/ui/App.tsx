@@ -32,9 +32,9 @@ export function App() {
   const workspace = useDriverWorkspace();
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
-    overlayMessage, driverMessage, shiftOn, tripOn, localClock, elapsed,
+    overlayMessage, driverMessage, shiftOn, tripOn, localClock, elapsed, driverChoices, selectedDriverId,
   } = workspace;
-  const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch } = workspace.actions;
+  const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver } = workspace.actions;
 
   return (
     <ApplicationShell activeScreen={activeScreen} onNavigate={setActiveScreen}
@@ -73,16 +73,24 @@ export function App() {
                 <div><small>TRIP ELAPSED</small><strong>{elapsed(driver?.tripStartedAt)}</strong></div>
               </div>
               <p className="driver-message" aria-live="polite">{driverMessage}</p>
+              {!shiftOn && <label className="driver-selection">Work Driver
+                <select value={selectedDriverId} onChange={(event) => void selectDriver(event.target.value)} disabled={driverBusy}>
+                  <option value="">Select an active Driver</option>
+                  {driverChoices.map((choice) => <option key={choice.driverId} value={choice.driverId}>{choice.name}</option>)}
+                </select>
+              </label>}
               <div className="driver-actions">
-                {!shiftOn && <button className="primary-action" disabled={!driver || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_start")}>Start shift</button>}
+                {!shiftOn && <button className="primary-action" disabled={!driver || !selectedDriverId || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_start")}>Start shift</button>}
                 {shiftOn && !tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_start")}>Start trip</button>
+                  <button className="primary-action" disabled={!driver?.shiftContext || driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_create")}>Create trip</button>
                   <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("shift_end")}>End shift</button>
+                  {!driver?.shiftContext && <small className="driver-note">This shift uses legacy v1 history. End it and start a new shift to create v2 trips with a fixed Driver and Vehicle snapshot.</small>}
                 </>}
-                {tripOn && <>
-                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("trip_end")}>End trip</button>
-                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("ride_cancel")}>Cancel trip</button>
+                {driver?.state === "going_to_pickup" && <>
+                  <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("start_ride")}>Start ride</button>
+                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("cancel_ride")}>Cancel ride</button>
                 </>}
+                {driver?.state === "trip_active" && <button className="primary-action" disabled={driverBusy || pendingBlocksWorkflow} onClick={() => dispatch("end_ride")}>End ride</button>}
               </div>
               {pending.length > 0 && <div className="pending-list">
                 <strong>Pending recovery</strong>

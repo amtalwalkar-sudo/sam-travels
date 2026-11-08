@@ -6,8 +6,8 @@ import java.time.OffsetDateTime
 
 /** Native mirror of the persisted Work command, intent, state and Log Book event contracts. */
 internal object DriverWorkflowContract {
-    private val eventTypes = setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel")
-    private val states = setOf("idle", "shift_active", "trip_active", "approach_active", "needs_attention")
+    private val eventTypes = setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")
+    private val states = setOf("idle", "shift_active", "going_to_pickup", "trip_active", "approach_active", "needs_attention")
     private val surfaces = setOf("pwa", "native_overlay")
     private val intentStatuses = setOf("pending_location", "needs_attention", "recorded", "rejected")
 
@@ -27,14 +27,26 @@ internal object DriverWorkflowContract {
         require(priorState != null && priorState in states) { "invalid_prior_state" }
         require(integer(command, "expectedRevision") >= 0L) { "invalid_revision" }
         parseInstant(command.optString("transitionAt"), "invalid_transition_timestamp")
+        val workflowVersion=if(command.has("workflowVersion")) integer(command,"workflowVersion") else 1L
+        require(workflowVersion==1L||workflowVersion==2L) { "invalid_workflow_version" }
+        if(eventType in setOf("trip_create","start_ride","end_ride","cancel_ride"))require(workflowVersion==2L) { "invalid_workflow_version" }
+        if(workflowVersion==2L)require(eventType in setOf("shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride")) { "invalid_workflow_version" }
         if (command.has("driverContext")) {
-            require(eventType == "trip_start") { "invalid_driver_context" }
-            val driver = command.optJSONObject("driverContext") ?: error("invalid_driver_context")
-            require(driver.keys().asSequence().toSet() == setOf("schemaVersion","driverId","assignmentId","vehicleId") &&
-                driver.optInt("schemaVersion",-1)==1 &&
-                driver.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
-                driver.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+            require((eventType=="trip_start"&&workflowVersion==1L)||(eventType=="shift_start"&&workflowVersion==2L)) { "invalid_driver_context" }
+            val driver=command.optJSONObject("driverContext")?:error("invalid_driver_context")
+            require(driver.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&
+                driver.optInt("schemaVersion",-1)==1&&driver.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                driver.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
                 driver.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_context" }
+        }
+        if(command.has("tripContext")) {
+            require(eventType=="trip_create"&&workflowVersion==2L) { "invalid_trip_context" }
+            val trip=command.optJSONObject("tripContext")?:error("invalid_trip_context")
+            require(trip.keys().asSequence().toSet()==setOf("schemaVersion","shiftId","driverId","assignmentId","vehicleId","operationalDate")&&
+                trip.optInt("schemaVersion",-1)==1&&trip.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                trip.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&trip.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                trip.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))&&
+                trip.optString("operationalDate").matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "invalid_trip_context" }
         }
     }
 
@@ -56,6 +68,22 @@ internal object DriverWorkflowContract {
         listOf("shiftStartedAt", "tripStartedAt", "approachStartedAt").forEach { key ->
             if (state.has(key)) parseInstant(state.opt(key) as? String ?: "", "invalid_driver_state_timestamp")
         }
+        if(state.has("shiftId"))require(state.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_shift_id" }
+        if(state.has("activeTripId"))require(state.optString("activeTripId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_trip_id" }
+        if(state.has("shiftContext")) {
+            val c=state.optJSONObject("shiftContext")?:error("invalid_driver_state_context")
+            require(c.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&c.optInt("schemaVersion",-1)==1&&
+                c.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&c.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                c.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_context" }
+        }
+        if(state.has("tripContext")) {
+            val c=state.optJSONObject("tripContext")?:error("invalid_driver_state_trip_context")
+            require(c.keys().asSequence().toSet()==setOf("schemaVersion","shiftId","driverId","assignmentId","vehicleId","operationalDate")&&
+                c.optInt("schemaVersion",-1)==1&&c.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                c.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&c.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
+                c.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))&&
+                c.optString("operationalDate").matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "invalid_driver_state_trip_context" }
+        }
         if (state.has("lastEventId")) require((state.opt("lastEventId") as? String)?.isNotBlank() == true) {
             "invalid_driver_state_event_id"
         }
@@ -64,6 +92,9 @@ internal object DriverWorkflowContract {
     fun validateEvent(event: JSONObject) {
         val command = event.optJSONObject("command") ?: error("invalid_driver_event")
         validateCommand(command)
+        if(command.optInt("workflowVersion",1)==2)require(
+            (command.optString("eventType")!="shift_start"||command.has("driverContext"))&&
+            (command.optString("eventType")!="trip_create"||command.has("tripContext"))) { "missing_lifecycle_snapshot" }
         require((event.opt("eventId") as? String) == command.optString("eventId")) { "driver_event_identity_mismatch" }
         val revision = integer(event, "revision")
         require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }

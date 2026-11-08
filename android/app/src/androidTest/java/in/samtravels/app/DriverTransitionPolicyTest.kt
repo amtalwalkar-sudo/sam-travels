@@ -9,6 +9,10 @@ import java.time.Instant
 class DriverTransitionPolicyTest {
     @Test fun legalTransitionsAreOwnedByPolicy() {
         assertEquals("shift_active", DriverTransitionPolicy.target("idle", "shift_start"))
+        assertEquals("going_to_pickup", DriverTransitionPolicy.target("shift_active", "trip_create"))
+        assertEquals("trip_active", DriverTransitionPolicy.target("going_to_pickup", "start_ride"))
+        assertEquals("shift_active", DriverTransitionPolicy.target("trip_active", "end_ride"))
+        assertEquals("shift_active", DriverTransitionPolicy.target("going_to_pickup", "cancel_ride"))
         assertEquals("trip_active", DriverTransitionPolicy.target("shift_active", "trip_start"))
         assertEquals("shift_active", DriverTransitionPolicy.target("trip_active", "ride_cancel"))
         assertEquals("idle", DriverTransitionPolicy.target("shift_active", "shift_end"))
