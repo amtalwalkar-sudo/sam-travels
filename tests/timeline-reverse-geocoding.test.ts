@@ -67,7 +67,9 @@ describe("Timeline reverse geocoding", () => {
   });
 
   it("serializes public-service requests at no more than one start per second", async () => {
+    const realNow = Date.now();
     vi.useFakeTimers();
+    vi.setSystemTime(realNow + 10_000);
     try {
       const starts: number[] = [];
       const request = vi.fn(async () => {
@@ -77,6 +79,8 @@ describe("Timeline reverse geocoding", () => {
       const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
       const first = adapter.reverse(19.076, 72.8777);
       const second = adapter.reverse(19.077, 72.8778);
+      await Promise.resolve();
+      await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);
       await Promise.all([first, second]);
       expect(starts).toHaveLength(2);
