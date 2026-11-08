@@ -82,14 +82,6 @@ jobs:
           "$AAPT" dump badging "$APK" | grep -F "package: name='in.samtravels.app' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"
           sha256sum "$APK" | tee "$RUNNER_TEMP/apk-sha256.txt"
 
-      - name: Record successfully published versionCode
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "android-v$VERSION_CODE" -m "Sam Travels Android $VERSION_NAME (versionCode $VERSION_CODE)"
-          git push origin "android-v$VERSION_CODE"
-
       - name: Publish signed installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -145,3 +137,12 @@ jobs:
             ${{ runner.temp }}/apk-sha256.txt
           if-no-files-found: error
           retention-days: 90
+
+      - name: Record successfully published versionCode
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "android-v$VERSION_CODE" -m "Sam Travels Android $VERSION_NAME (versionCode $VERSION_CODE)"
+          git push origin "android-v$VERSION_CODE"
+
