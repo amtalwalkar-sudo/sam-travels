@@ -29,6 +29,19 @@ function weekStart(value: string): string {
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return moveDate(value, -(weekday === 0 ? 6 : weekday - 1));
 }
+function activeShiftAt(events: DriverEvent[], instant: number): DriverEvent | undefined {
+  const ordered = [...events].sort((a, b) =>
+    Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
+    a.revision - b.revision ||
+    a.eventId.localeCompare(b.eventId));
+  let active: DriverEvent | undefined;
+  for (const event of ordered) {
+    if (Date.parse(event.command.transitionAt) > instant) break;
+    if (event.command.eventType === "shift_start") active = event;
+    if (event.command.eventType === "shift_end") active = undefined;
+  }
+  return active;
+}
 function eventTitle(event: DriverEvent): string {
   const names: Record<string, string> = {
     shift_start: "Shift started", shift_end: "Shift ended",
@@ -91,11 +104,12 @@ function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
   </section>;
 }
 
-function ShiftEvents({ events, shift, allEvents, now }: {
+function ShiftEvents({ events, shift, allEvents, now, calendarDate }: {
   events: DriverEvent[];
   shift?: TimelineShiftProjection;
   allEvents: DriverEvent[];
   now: number;
+  calendarDate: string;
 }) {
   const ordered = [...events].sort((a, b) =>
     Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
@@ -128,16 +142,44 @@ function ShiftEvents({ events, shift, allEvents, now }: {
     return { event, detail, extra };
   });
   const shiftEvents = shift ? allEvents.filter(event => shift.eventIds.includes(event.eventId)) : ordered;
-  const ended = shiftEvents.some(event => event.command.eventType === "shift_end");
   const endsOnThisCalendarDay = events.some(event => event.command.eventType === "shift_end");
+  const segmentStart = shift ? Date.parse(shift.anchorDate + "T04:00:00+05:30") : Number.NaN;
+  const segmentEnd = shift ? Date.parse(moveDate(shift.anchorDate, 1) + "T04:00:00+05:30") : Number.NaN;
+  const activeAtSegmentStart = Number.isFinite(segmentStart) ? activeShiftAt(allEvents, segmentStart) : undefined;
+  const activeBeforeSegmentEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd - 1) : undefined;
+  const activeAtSegmentEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd) : undefined;
+  const continuedFromPrevious = !!activeAtSegmentStart &&
+    Date.parse(activeAtSegmentStart.command.transitionAt) < segmentStart;
+  const closedAtBoundary = Number.isFinite(segmentEnd) && allEvents.some(event =>
+    event.command.eventType === "shift_end" && Date.parse(event.command.transitionAt) === segmentEnd);
+  const ended = shiftEvents.some(event => event.command.eventType === "shift_end") || closedAtBoundary;
+  const rotated = !ended && !!activeBeforeSegmentEnd && !!activeAtSegmentEnd && now >= segmentEnd;
+  const rotationDivider = continuedFromPrevious && calendarDate === shift?.anchorDate;
   const shiftStarted = shiftEvents.find(event => event.command.eventType === "shift_start");
-  const liveDuration = !ended && shiftStarted ? elapsed(shiftStarted.command.transitionAt, new Date(now).toISOString()) : undefined;
+  const timerStart = continuedFromPrevious ? segmentStart : shiftStarted ? Date.parse(shiftStarted.command.transitionAt) : undefined;
+  const liveEnd = Number.isFinite(segmentEnd) ? Math.min(now, segmentEnd) : now;
+  const liveDuration = !ended && !rotated && timerStart !== undefined
+    ? elapsed(new Date(timerStart).toISOString(), new Date(liveEnd).toISOString())
+    : rotated && Number.isFinite(segmentEnd) && timerStart !== undefined
+      ? elapsed(new Date(timerStart).toISOString(), new Date(segmentEnd).toISOString())
+      : undefined;
+  const statusLabel = ended ? "ENDED" : rotated ? "ROTATED · 04:00"
+    : continuedFromPrevious ? "CONTINUED · ACTIVE"
+      : liveDuration === undefined ? "IN PROGRESS" : "ACTIVE · " + durationLabel(liveDuration);
   return <section className="timeline-shift">
     <header className="timeline-shift-heading">
       <strong>{shift ? "SHIFT " + shift.anchorDate : "SHIFT ACTIVITY"}</strong>
-      <span>{ended ? "ENDED" : liveDuration === undefined ? "IN PROGRESS" : "ACTIVE · " + durationLabel(liveDuration)}</span>
+      <span>{statusLabel}</span>
     </header>
     <div className="timeline-events">
+      {rotationDivider && <article className="timeline-event boundary system">
+        <div className="timeline-event-time">04:00 AM</div>
+        <div className="timeline-event-content">
+          <strong>SHIFT ROTATED · 04:00</strong>
+          <small>Online session continued</small>
+          {shift?.metrics.business_km.status === "pending" && <small>Odometer pending</small>}
+        </div>
+      </article>}
       {blocks.map(({ event, detail, extra }) => {
         const kind = event.command.eventType;
         const cancelled = kind === "cancel_ride" || kind === "ride_cancel";
@@ -258,7 +300,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
       <h3>{dateLabel(day.date)}</h3>
-      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} now={clock} />)}
+      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} now={clock} calendarDate={day.date} />)}
     </section>)}
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
