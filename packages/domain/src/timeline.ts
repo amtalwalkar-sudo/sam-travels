@@ -91,7 +91,7 @@ function sourceMetric<T>(source:TimelineSourceSnapshot<T>|undefined,unit:Timelin
   if(source.status==="pending")return {status:"pending",unit,reason:source.reason??"source_pending"};
   return {status:source.status,unit,reason:source.reason};
 }
-function minutes(ms:number):number { return Math.round((ms/60_000+Number.EPSILON)*100)/100; }
+function minutes(ms:number):number { return ms/60_000; }
 function eventSignature(e:DriverEvent):string {
   return [e.eventId,e.revision,e.committedAt,e.command.eventType,e.command.transitionAt,e.command.expectedPriorState,e.command.idempotencyKey].join("|");
 }
@@ -154,7 +154,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
 
   const busyIntervals=new Map<string,BusyInterval[]>();
   const trips:TripSpan[]=[];
-  const hasV2PickupEvents=events.some(event=>event.command.eventType==="trip_create");
+  const v2PickupShiftIds=new Set(events.filter(event=>event.command.eventType==="trip_create").map(event=>shiftIdAt(Date.parse(event.command.transitionAt))));
   let activeTrip:{event:DriverEvent;stage:"pickup"|"ride";pickupStart:number;rideStart?:number}|undefined;
   for(const e of events) {
     const kind=e.command.eventType,at=Date.parse(e.command.transitionAt),id=shiftIdAt(at);
@@ -286,7 +286,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
       s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:available(minutes(s.shiftDurationMs),"minutes");
     const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
-    const pickupMetric:TimelineMetric=hasV2PickupEvents
+    const pickupMetric:TimelineMetric=v2PickupShiftIds.has(s.id)
       ?s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_trip_interval_invalid"}:s.pendingPickup?{status:"pending",unit:"minutes",reason:"trip_pickup_in_progress"}:available(minutes(s.pickupMs),"minutes")
       :!("records" in pickup)?pickup:
        s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:
