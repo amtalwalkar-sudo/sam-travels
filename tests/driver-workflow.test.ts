@@ -147,6 +147,13 @@ describe("durable single-driver workflow",()=>{
 
  it("proves Work-to-Log Book calculation and projection recovery across a database restart",async()=>{
   const repo=new DexieDriverWorkflowRepository();
+  const timestamp="2026-11-08T00:00:00.000Z";
+  await browserDatabase.records.bulkPut([
+    {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
+    {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:vehicle-001",assignedAt:timestamp}]}},
+    {id:"feature:vehicle:vehicle-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+  ]);
+
   const runtime=createApplicationRuntimeRegistry({extensions:[LOGBOOK_FEATURE_EXTENSION]});
   let captureAt="2026-11-03T10:00:00.000Z";
   const delivered:string[]=[];
