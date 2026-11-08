@@ -16,7 +16,7 @@ type SettlementPreview = Readonly<{
   loanRevision: number; paymentLedgerRevision: number | null;
 }>;
 const METHODS = new Set<FinancePaymentMethodV1>(["cash", "bank_transfer", "cheque", "upi", "other"]);
-const DATE = /^\\d{4}-\\d{2}-\\d{2}$/;
+const DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
 function validDate(value: string): boolean {
   if (!DATE.test(value)) return false;
   const time = Date.parse(value + "T00:00:00.000Z");
