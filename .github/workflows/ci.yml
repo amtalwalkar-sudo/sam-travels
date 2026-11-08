@@ -34,9 +34,16 @@ jobs:
       - name: Gate deterministic feature activation and contribution isolation
         run: npm test -- tests/feature-activation.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts tests/feature-lifecycle-coordinator.test.ts
       - name: Gate offline workflow and backup reliability regressions
-        run: npm test -- tests/driver-workflow.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
+        run: npm test -- tests/driver-workflow.test.ts tests/driver-workflow-v2.test.ts tests/driver-workflow-parity-recovery.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
       - name: Run complete web regression suite
         run: npm test
+      - name: Publish Dexie-generated cross-adapter Work workflow parity oracle
+        uses: actions/upload-artifact@v4
+        with:
+          name: driver-workflow-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated/driver-workflow-parity-oracle-v1.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish Dexie-generated complete Timeline parity oracle
         uses: actions/upload-artifact@v4
         with:
@@ -65,6 +72,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: timeline-projection-parity-oracle-v1
+          path: android/app/src/androidTest/assets/generated
+      - name: Download the exact Dexie workflow oracle for Room parity comparison
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-workflow-parity-oracle-v1
           path: android/app/src/androidTest/assets/generated
       - uses: android-actions/setup-android@v3
         with:
