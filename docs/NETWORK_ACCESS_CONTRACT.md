@@ -47,7 +47,7 @@ This is an in-app network policy control, not an Android runtime permission prom
 ## Security, privacy, and observability
 
 - Request only the data needed for the specific enabled capability. Do not transmit the full business database for a locality lookup.
-- Explain the purpose and data sent before first use of a new optional capability where appropriate.
+- Explain the purpose and data sent before first use of a new optional capability where appropriate. Master Internet Access alone is not consent to send GPS coordinates to a third-party geocoder; Timeline location enrichment requires its own explicit opt-in.
 - Keep OAuth tokens in platform-appropriate secure storage; never expose them in logs, exports, or UI.
 - Record operational status without logging secrets or unnecessary personal/financial data.
 - Provide a clear way to see why an operation did not run: policy disabled, device offline, authentication required, service unavailable, or OS/scheduler deferred.
