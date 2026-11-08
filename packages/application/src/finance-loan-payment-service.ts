@@ -314,7 +314,9 @@ export class FinanceLoanPaymentService {
   }
 
   async settle(input: { id: string; commandId: string; loanId: string; businessDate: string;
-    method: FinancePaymentMethodV1; reference?: string; source: RecordEnvelope<unknown>["source"] }) {
+    method: FinancePaymentMethodV1; reference?: string; source: RecordEnvelope<unknown>["source"];
+    expectedLoanRevision: number; expectedPaymentLedgerRevision: number | null;
+    expectedAmountPaise: number; expectedScheduleVersion: number; expectedPaidThroughInstallment: number }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
       throw new Error("finance_payment_settlement_input_invalid");
     }
@@ -329,6 +331,10 @@ export class FinanceLoanPaymentService {
         }
         return replay;
       }
+      if (loan.revision !== input.expectedLoanRevision ||
+          (ledger?.revision ?? null) !== input.expectedPaymentLedgerRevision) {
+        throw new Error("finance_payment_settlement_preview_stale");
+      }
       if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
         throw new Error("finance_loan_already_settled");
       }
@@ -340,6 +346,11 @@ export class FinanceLoanPaymentService {
       if (!settlementRow || !Number.isSafeInteger(settlementRow.closingPrincipalPaise) ||
           (settlementRow.closingPrincipalPaise as number) <= 0) {
         throw new Error("finance_payment_settlement_not_emi_date");
+      }
+      if (version !== input.expectedScheduleVersion ||
+          settlementRow.installmentNumber !== input.expectedPaidThroughInstallment ||
+          settlementRow.closingPrincipalPaise !== input.expectedAmountPaise) {
+        throw new Error("finance_payment_settlement_preview_stale");
       }
       const totals = allocationTotals(entries, version);
       const dueRows = rows.filter(row => row.dueDate <= input.businessDate);
