@@ -14,7 +14,7 @@ import { WorkDriverSelectionService } from "../../../../packages/application/src
 import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
-import { scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
+import { listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
 export function useDriverWorkspace() {
@@ -200,7 +200,7 @@ export function useDriverWorkspace() {
       setError("");
       if (next && enrichmentQueue) {
         if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment();
-        else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5);
+        else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5).then(() => window.dispatchEvent(new Event("timeline-enrichment-updated"))).catch(() => undefined);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save setting");
@@ -258,10 +258,12 @@ export function useDriverWorkspace() {
   // durable execution to WorkManager; neither platform polls the network.
   useEffect(() => {
     if (!enrichmentQueue) return;
+    const notifyTimeline = () => window.dispatchEvent(new Event("timeline-enrichment-updated"));
+    const nativeListener = listenForNativeTimelineEnrichment(notifyTimeline);
     const resume = () => {
       if (document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
-      if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment();
-      else void enrichmentQueue.drainDueRetries(5);
+      if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
+      else void enrichmentQueue.drainDueRetries(5).then(notifyTimeline).catch(() => undefined);
     };
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
@@ -271,6 +273,7 @@ export function useDriverWorkspace() {
       window.removeEventListener("online", resume);
       window.removeEventListener("focus", resume);
       document.removeEventListener("visibilitychange", resume);
+      void nativeListener.then(handle => handle?.remove());
     };
   }, [enrichmentQueue, enabled]);
 
