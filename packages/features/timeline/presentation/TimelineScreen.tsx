@@ -236,9 +236,11 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     const requestId = ++refreshSequence.current;
     setLoading(true);
     setError("");
+    let locationTaskStarted = false;
     try {
       const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup, controller.signal);
       if (requestId === refreshSequence.current) {
+        locationTaskStarted = true;
         setModel({ ...result.model, locations: {} });
         void result.locations.then((locations) => {
           if (requestId === refreshSequence.current) {
@@ -257,7 +259,10 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
       }
     } finally {
-      if (requestId === refreshSequence.current) setLoading(false);
+      if (requestId === refreshSequence.current) {
+        setLoading(false);
+        if (!locationTaskStarted && activeRefresh.current === controller) activeRefresh.current = null;
+      }
     }
   }
 
