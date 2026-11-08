@@ -7,8 +7,12 @@ type TimelineEnrichmentNativeApi = {
 const NativeTimelineEnrichment = registerPlugin<TimelineEnrichmentNativeApi>("TimelineEnrichment");
 
 /** Android WorkManager owns deferred execution; browser PWA drains on online/resume events. */
+export function isNativeTimelineEnrichmentPlatform(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
 export function scheduleNativeTimelineEnrichment(): Promise<void> {
-  return Capacitor.isNativePlatform() ? NativeTimelineEnrichment.schedule() : Promise.resolve();
+  return isNativeTimelineEnrichmentPlatform() ? NativeTimelineEnrichment.schedule() : Promise.resolve();
 }
 
 export function listenForNativeTimelineEnrichment(listener: () => void) {
