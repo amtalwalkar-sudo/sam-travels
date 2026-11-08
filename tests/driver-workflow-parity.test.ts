@@ -97,6 +97,40 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(await browserDatabase.driverOutbox.count()).toBe(parity.outboxCount);
     expect(await repository.getIntent(parity.interruptedEventId)).toMatchObject({ status: "recorded" });
   });
+
+  it("keeps the 04:00 India operational-day boundary correct across a persisted shift restart", async () => {
+    const beforeBoundary = "2026-11-08T22:29:59.000Z";
+    const atBoundary = "2026-11-08T22:30:00.000Z";
+    const timestamp = "2026-11-08T00:00:00.000Z";
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:boundary-driver", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "boundary-driver", name: "Boundary Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:boundary-driver", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "boundary-driver", assignments: [{ assignmentId: "boundary-assignment", vehicleId: "feature:vehicle:MH01EF9012", assignedAt: timestamp }] } },
+      { id: "feature:vehicle:MH01EF9012", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, registrationNumber: "MH01EF9012", make: "Make", model: "Model", vehicleType: "Sedan", fuelType: "Petrol",
+          yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    let repository = new DexieDriverWorkflowRepository();
+    await new WorkDriverSelectionService(new DexieRecordRepository(), repository).selectDriver("boundary-driver");
+    const commit = async (type: "shift_start" | "trip_create" | "start_ride" | "end_ride" | "shift_end", id: string, at: string) => {
+      const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, at);
+      await repository.queueIntent({ command, status: "pending_location", createdAt: at, updatedAt: at });
+      return repository.completeIntent(id, gpsAt(at), at);
+    };
+    await commit("shift_start", "boundary-shift-start", beforeBoundary);
+    await browserDatabase.close();
+    await browserDatabase.open();
+    repository = new DexieDriverWorkflowRepository();
+    const trip = await commit("trip_create", "boundary-trip-create", atBoundary);
+    expect(trip.tripContext?.operationalDate).toBe("2026-11-09");
+    expect(trip.state).toBe("going_to_pickup");
+    await commit("start_ride", "boundary-ride-start", "2026-11-08T22:30:01.000Z");
+    await commit("end_ride", "boundary-ride-end", "2026-11-08T22:30:02.000Z");
+    const ended = await commit("shift_end", "boundary-shift-end", "2026-11-08T22:30:03.000Z");
+    expect(ended.state).toBe("idle");
+    expect(ended.revision).toBe(5);
+  });
 });
 
 async function sendAfterRecovery(

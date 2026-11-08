@@ -99,7 +99,12 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           emulator-boot-timeout: 900
-          script: gradle -p android connectedDebugAndroidTest
+          script: |
+            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
+            adb shell am force-stop in.samtravels.app
+            adb shell am force-stop in.samtravels.app.test
+            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart
+            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
