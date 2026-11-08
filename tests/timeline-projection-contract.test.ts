@@ -64,8 +64,8 @@ describe("Timeline projection contracts", () => {
     expect(before?.metrics.shift_duration).toMatchObject({ status: "available", value: 60 });
     expect(after?.metrics.shift_duration).toMatchObject({ status: "available", value: 60 });
     expect(projection.calendarDays.flatMap(day => day.eventIds)).toEqual([
-      "cross-boundary-start",
       "cross-boundary-end",
+      "cross-boundary-start",
     ]);
   });
 
