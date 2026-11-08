@@ -65,7 +65,7 @@ The first implementation uses only the authoritative Work driver event log throu
 | Fare, cancellation fee, toll and parking amounts | No complete public trip-finance read contract is currently wired to Timeline. Values remain explicitly unavailable; no loan/payment records are misused as trip revenue. |
 | Odometer/business distance | No public odometer evidence query is currently wired to Timeline. Distance remains unavailable. |
 | Human-readable location names | GPS evidence is present on source events, but no reverse-geocoding integration is activated. The screen identifies captured/unavailable location evidence without displaying invented place names. |
-| Date/week navigation | Applied to the projection's Asia/Kolkata calendar-day index; logical shifts remain governed by the separate 04:00 boundary. |
+| Date/week navigation | Applied to the projection's Asia/Kolkata calendar-day index; logical shifts remain governed by the separate 04:00 boundary. The current Work public query exposes a full event snapshot, so source-level period scoping/pagination remains a known performance gap for very large histories. |
 
 The existing Log Book event integration currently validates the legacy event set, while the current v2 Work lifecycle includes trip_create, start_ride, end_ride and cancel_ride. Timeline therefore reads the authoritative Work event log directly through the public Work workflow query; it does not rely on the incomplete Log Book consumer projection. This does not change Log Book ownership or mutate its records. Finance and odometer source adapters can be added later through their owning public query contracts without changing Timeline's presentation contract.
 
