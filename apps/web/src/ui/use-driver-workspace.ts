@@ -246,11 +246,15 @@ export function useDriverWorkspace() {
     return gateway ? new TimelineReverseGeocodingService(gateway, adapter) : undefined;
   }, [gateway]);
 
-  const loadTimeline = useCallback(async () => {
+  const loadTimeline = useCallback(async (fromDate: string, toDate: string) => {
     if (!workflow) throw new Error("Work history is still loading");
     const readModel = await new TimelineProjectionService({ listEvents: () => workflow.events() })
       .read(new Date().toISOString());
-    const locations = reverseGeocoder ? await reverseGeocoder.enrich(readModel.events) : {};
+    const visibleEventIds = new Set(readModel.projection.calendarDays
+      .filter(day => day.date >= fromDate && day.date <= toDate)
+      .flatMap(day => day.eventIds));
+    const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
+    const locations = reverseGeocoder ? await reverseGeocoder.enrich(visibleEvents) : {};
     return { ...readModel, locations };
   }, [workflow, reverseGeocoder]);
 
