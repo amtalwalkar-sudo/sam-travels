@@ -1,10 +1,7 @@
 package `in`.samtravels.app
 
 import android.content.Context
-import android.content.BroadcastReceiver
 import android.content.Intent
-import android.content.IntentFilter
-import android.os.Build
 import androidx.room.Room
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -126,44 +123,5 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
         private const val BATCH_LIMIT = 5
         // Public proxy endpoint only; the Geoapify API key remains exclusively in Cloudflare.
         private const val PROXY_URL = "https://sam-travels.amtalwalkar.workers.dev"
-    }
-}
-
-/** Small Capacitor bridge: feature UI requests scheduling after it has persisted explicit consent. */
-@com.getcapacitor.annotation.CapacitorPlugin(name = "TimelineEnrichment")
-class TimelineEnrichmentPlugin : com.getcapacitor.Plugin() {
-    private var receiver: BroadcastReceiver? = null
-
-    override fun load() {
-        super.load()
-        val listener = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                notifyListeners("enrichmentChanged", com.getcapacitor.JSObject())
-            }
-        }
-        receiver = listener
-        val filter = IntentFilter(ACTION_CHANGED)
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(listener, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            context.registerReceiver(listener, filter)
-        }
-    }
-
-    override fun handleOnDestroy() {
-        receiver?.let { runCatching { context.unregisterReceiver(it) } }
-        receiver = null
-        super.handleOnDestroy()
-    }
-
-    @com.getcapacitor.PluginMethod
-    fun schedule(call: com.getcapacitor.PluginCall) {
-        TimelineEnrichmentScheduler.schedule(context)
-        call.resolve()
-    }
-
-    companion object {
-        const val ACTION_CHANGED = "in.samtravels.app.TIMELINE_ENRICHMENT_CHANGED"
     }
 }
