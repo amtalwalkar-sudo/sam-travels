@@ -542,15 +542,19 @@ The following six gates are the explicit remaining completion criteria for the T
 - **Dropbox/live-account acceptance and reverse-geocoder activation remain deferred** under their existing contracts. Do not make them implicit prerequisites for the six core Timeline gates or claim they have passed.
 - This implementation is authorized within the bounded read-only scope recorded at the top of this document. The six technical gates remain Documented — verification pending until exact-commit CI, runtime and visual evidence is attached.
 
-## 13. Non-authorization and change control
+## 13. Implementation authorization and scope boundaries
 
-This document records the current Timeline product-design proposal only.
+The user authorized one integrated Timeline implementation, one pull request and one full CI run on 8 November 2026. This authorizes the following bounded read-only slice:
+- Register Timeline as a non-persistent feature using the existing feature manifest and extension registry.
+- Read authoritative Work events through the public Work workflow query and rebuild the existing shared projection.
+- Render the approved event-wise Timeline screen, shift summaries, explicit unavailable states, and Today/Week/By date navigation.
+- Add focused tests and documentation that record the source gaps and implementation boundaries.
 
-It does **not** authorize:
-- Timeline UI or navigation implementation.
-- Domain/application code, query services or projection code.
-- Database schema, indexes, migrations or persisted metric definitions.
-- Android workers/services, PWA background behavior or geocoder integration.
-- Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
+This authorization does **not** authorize:
+- A Timeline-owned database, event store, persistent projection/cache, or duplicate shift/trip/financial records.
+- Mutations to Work, Log Book, Finance or Vehicle records; changes to shift/trip lifecycle or GPS capture.
+- Maps, map tiles, continuous GPS, automatic location tracking or reverse-geocoding activation.
+- New Finance/odometer business rules, loan/payment records treated as trip income, or invented location/fare/distance values.
+- Changes to backup/restore, network policy, Android background services, or branch protection.
 
-Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The mobile visual direction and summary-panel treatment are approved, but the complete product design remains open and is not frozen; implementation approval must not be inferred from this proposal.
+The design is frozen. Future product changes require explicit review and approval. Technical release acceptance remains subject to the verification gates and separate physical-device/live-provider acceptance contracts.
