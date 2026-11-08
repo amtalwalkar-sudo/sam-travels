@@ -52,4 +52,27 @@ class DriverTransitionPolicyTest {
         }
         assertEquals("gps_fix_outside_30s_window", error.message)
     }
+
+    @Test fun candidateSamplingRejectsPoorFixesAndAcceptsLaterReliableFix() {
+        val transitionAt = Instant.parse("2026-11-03T10:00:00Z")
+        val inaccurate = JSONObject()
+            .put("latitude", 19.076)
+            .put("longitude", 72.8777)
+            .put("horizontalAccuracyM", 82.0)
+            .put("fixAt", transitionAt.plusSeconds(4).toString())
+        val stale = JSONObject()
+            .put("latitude", 19.076)
+            .put("longitude", 72.8777)
+            .put("horizontalAccuracyM", 12.0)
+            .put("fixAt", transitionAt.minusSeconds(31).toString())
+        val reliable = JSONObject()
+            .put("latitude", 19.076)
+            .put("longitude", 72.8777)
+            .put("horizontalAccuracyM", 18.0)
+            .put("fixAt", transitionAt.plusSeconds(12).toString())
+
+        assertEquals(false, DriverTransitionPolicy.isAcceptableGpsEvidence(inaccurate, transitionAt.toString(), transitionAt.plusSeconds(4)))
+        assertEquals(false, DriverTransitionPolicy.isAcceptableGpsEvidence(stale, transitionAt.toString(), transitionAt.plusSeconds(4)))
+        assertEquals(true, DriverTransitionPolicy.isAcceptableGpsEvidence(reliable, transitionAt.toString(), transitionAt.plusSeconds(12)))
+    }
 }

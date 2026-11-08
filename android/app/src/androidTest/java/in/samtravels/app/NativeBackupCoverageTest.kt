@@ -47,9 +47,16 @@ class NativeBackupCoverageTest {
             database.records().put(StoredRecord("driver-state", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1","command":{"schemaVersion":1,"commandId":"command-1","eventId":"event-1","eventType":"shift_end","originSurface":"pwa","transitionAt":"2026-11-04T00:00:00.000Z","expectedPriorState":"shift_active","expectedRevision":1,"idempotencyKey":"idem-1"},"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-outbox:2", """{"id":"driver-state:2","eventId":"event-1","revision":2,"integrationId":"logbook.work-driver-events.v1","contractVersion":1,"eventName":"work.driver-event-committed","payloadVersion":1,"delivered":false,"createdAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(featureRecord(
+                "timeline-enrichment:event-1",
+                JSONObject().put("eventId", "event-1").put("latitude", 19.076).put("longitude", 72.8777)
+                    .put("status", "pending").put("provider", "geoapify").put("attempts", 0)
+                    .put("createdAt", "2026-11-04T00:00:00.000Z"),
+                "2026-11-04T00:00:00.000Z",
+            ))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            assertEquals(5, exported.length())
+            assertEquals(6, exported.length())
             assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"),
                 (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
             NativeBackupCoverage.validateBusinessRecords(exported)
@@ -59,12 +66,15 @@ class NativeBackupCoverageTest {
             assertTrue(database.records().get("driver-state") == null)
             assertTrue(database.records().get("driver-intent:event-1") == null)
             assertTrue(database.records().get("driver-outbox:2") == null)
+            assertTrue(database.records().get("timeline-enrichment:event-1") == null)
             assertTrue(database.logBookEvents().list().isEmpty())
             NativeBackupCoverage.replaceBusinessRecords(database, exported)
             assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getJSONObject("data").getString("value"))
             assertEquals("shift_active", JSONObject(database.records().get("driver-state")!!.json).getJSONObject("value").getString("state"))
             assertEquals("event-1", JSONObject(database.records().get("driver-intent:event-1")!!.json).getString("eventId"))
             assertEquals("event-1", JSONObject(database.records().get("driver-outbox:2")!!.json).getString("eventId"))
+            assertEquals("pending", JSONObject(database.records().get("timeline-enrichment:event-1")!!.json)
+                .getJSONObject("data").getString("status"))
             assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
         } finally { database.close() }

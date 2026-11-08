@@ -81,6 +81,14 @@ jobs:
         with:
           gradle-version: 8.11.1
       - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest assembleRelease
+      - name: Publish installable debug APK for PR device verification
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sam-travels-driver-location-pr-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
       - name: Publish generated Room schema history
         uses: actions/upload-artifact@v4
         with:

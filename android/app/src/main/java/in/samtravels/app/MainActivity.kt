@@ -14,6 +14,7 @@ class MainActivity : BridgeActivity() {
         NativeFinanceBackup.ensureRegistered()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
+        registerPlugin(TimelineEnrichmentPlugin::class.java)
         registerPlugin(DeviceReadinessPlugin::class.java)
         registerPlugin(SecureVaultPlugin::class.java)
         registerPlugin(BackupKeyVaultPlugin::class.java)

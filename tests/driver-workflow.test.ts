@@ -208,5 +208,29 @@ describe("durable single-driver workflow",()=>{
   expect(readTripHistoryProjection()[0].status).toBe("completed");
  });
 
+ it("returns a saved driver action before GPS finishes and commits it in the background",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","pwa","cmd-background",transitionAt);
+  let finishGps:(fix:GpsFix)=>void=()=>{throw new Error("GPS resolver not initialized")};
+  const service=new DriverWorkflowService(repo,{capture:()=>new Promise(resolve=>{finishGps=resolve})});
+  const statusChanges:number[]=[];
+  const unsubscribe=service.subscribeStatus(()=>statusChanges.push(Date.now()));
+  const result=await service.dispatchBackground(command);
+
+  expect(result.status).toBe("pending_location");
+  expect((await repo.getSnapshot()).revision).toBe(0);
+  expect((await repo.getIntent(command.eventId))?.status).toBe("pending_location");
+
+  finishGps({...gps,fixAt:transitionAt});
+  for(let attempt=0;attempt<20&&(await repo.getSnapshot()).revision===0;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  expect((await repo.getSnapshot()).revision).toBe(1);
+  expect((await repo.getIntent(command.eventId))?.status).toBe("recorded");
+  expect(statusChanges.length).toBeGreaterThan(0);
+  unsubscribe();
+ });
+
 
 });

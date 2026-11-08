@@ -97,7 +97,9 @@ export function App() {
                   <span>{item.command.eventType.replaceAll("_", " ")} · {item.status.replaceAll("_", " ")}{item.reason === "gps_recovery_window_expired" ? " · GPS window expired" : ""}</span>
                   {item.reason === "gps_recovery_window_expired"
                     ? <small className="pending-expired">Reissue as a new action when ready</small>
-                    : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
+                    : item.status === "pending_location"
+                      ? <small>GPS check running in the background</small>
+                      : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
               </div>}
               {nativeOverlayAvailable() && <div className="overlay-control">
@@ -105,7 +107,7 @@ export function App() {
                 <button className="secondary-action" onClick={disableOverlay}>Disable overlay</button>
                 <span>{overlayMessage || "Optional · requires display-over-other-apps permission"}</span>
               </div>}
-              <small className="driver-note">Each action is saved as a pending intent before one fresh GPS request. The state changes only after the location evidence and event are committed.</small>
+              <small className="driver-note">Each action is saved locally first. GPS is sampled asynchronously until reliable evidence arrives; the state changes only after the event is committed.</small>
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
             </section>
 

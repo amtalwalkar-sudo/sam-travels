@@ -77,7 +77,7 @@ object DriverWorkflowStore {
         return fields.all { field -> (left.opt(field)?.toString() ?: "null") == (right.opt(field)?.toString() ?: "null") }
     }
 
-    fun queue(db: LocalDatabase, command: JSONObject): JSONObject {
+    fun queue(db: LocalDatabase, command: JSONObject, createdAt: Instant = Instant.now()): JSONObject {
         var result: JSONObject? = null
         db.runInTransaction {
             val eventId = command.optString("eventId")
@@ -146,7 +146,7 @@ object DriverWorkflowStore {
             }
             require(!competing) { "competing_transition_pending" }
 
-            val now = Instant.now().toString()
+            val now = createdAt.toString()
             val intent = JSONObject()
                 .put("command", command)
                 .put("status", "pending_location")

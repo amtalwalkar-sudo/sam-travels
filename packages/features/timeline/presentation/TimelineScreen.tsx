@@ -200,7 +200,11 @@ function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }:
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{location?.status === "resolved" ? location.label
+              : location?.status === "network_disabled" ? "Location captured · Internet access disabled"
+              : location?.status === "pending" ? "Location captured · place name pending"
+              : location?.status === "unavailable" ? "Location captured · place name will retry"
+              : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
@@ -279,6 +283,25 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, [mode, anchorDate, clock]);
 
   useEffect(() => { void refresh(range.from, range.to, locationLookupEnabled); }, [context.loadTimeline, range.from, range.to, locationLookupEnabled]);
+
+  // Refresh the derived locality projection when the PWA regains connectivity
+  // or the app returns to the foreground. This is event-driven, never polling.
+  useEffect(() => {
+    if (!locationLookupEnabled) return;
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh(range.from, range.to, true);
+    };
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    window.addEventListener("timeline-enrichment-updated", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("timeline-enrichment-updated", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [locationLookupEnabled, range.from, range.to, context.loadTimeline]);
 
   const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
     .filter(day => day.date >= range.from && day.date <= range.to)

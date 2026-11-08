@@ -10,9 +10,10 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
+import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
 export function useDriverWorkspace() {
@@ -88,7 +89,8 @@ export function useDriverWorkspace() {
         setDriver(await service.snapshot());
         rebuildTripHistoryProjection(await service.events());
         await service.replayCommittedEvents();
-        const pendingItems = await service.reconcilePending();
+        await service.reconcilePending();
+        const pendingItems = await service.resumePendingBackground();
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
@@ -96,24 +98,47 @@ export function useDriverWorkspace() {
             : "Driver state is up to date",
         );
 
-        unsubscribe = service.subscribe((snapshot) => {
-          if (live) setDriver(snapshot);
+        const refreshWorkflowStatus = () => {
+          void service.pending().then(items => {
+            if (!live) return;
+            setPending(items);
+            const acquiring = items.some(item => item.status === "pending_location");
+            const attention = items.find(item => item.status === "needs_attention");
+            setDriverMessage(current => {
+              if (acquiring) return "Action saved · GPS verification continuing in the background";
+              if (attention) return attention.reason === "gps_recovery_window_expired"
+                ? "GPS evidence window expired · reissue the action when ready"
+                : "Action retained · " + (attention.reason ?? "location needs attention");
+              if (/GPS verification|Retry queued|Retrying the original pending action/.test(current)) {
+                return "Recorded securely on this device";
+              }
+              return current;
+            });
+          });
+        };
+        const unsubscribeState = service.subscribe((snapshot) => {
+          if (live) {
+            setDriver(snapshot);
+            refreshWorkflowStatus();
+          }
         });
-
-        const syncHandle = window.setInterval(() => {
+        const unsubscribeStatus = service.subscribeStatus(refreshWorkflowStatus);
+        void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
+        refreshWorkflowStatus();
+        const resumeWorkflow = () => {
+          if (document.visibilityState === "hidden") return;
           void service.replayCommittedEvents();
-          void service.snapshot().then((snapshot) => {
-            if (live) setDriver(snapshot);
-          });
-          void service.reconcilePending().then((items) => {
-            if (live) setPending(items);
-          });
-        }, 1500);
+          void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
+          void service.reconcilePending().then(items => { if (live) setPending(items); });
+        };
+        window.addEventListener("focus", resumeWorkflow);
+        document.addEventListener("visibilitychange", resumeWorkflow);
 
-        const priorUnsubscribe = unsubscribe;
         unsubscribe = () => {
-          priorUnsubscribe?.();
-          window.clearInterval(syncHandle);
+          unsubscribeState();
+          unsubscribeStatus();
+          window.removeEventListener("focus", resumeWorkflow);
+          document.removeEventListener("visibilitychange", resumeWorkflow);
           (repository as typeof repository & { dispose?: () => void }).dispose?.();
         };
       })
@@ -153,15 +178,20 @@ export function useDriverWorkspace() {
     setDriverBusy(true);
     setDriverMessage("Retrying the original pending action…");
     try {
-      const result = await workflow.retry(eventId);
+      const result = await workflow.retryBackground(eventId);
       setDriver(result.snapshot);
-      setPending(await workflow.pending());
+      const items = await workflow.pending();
+      setPending(items);
+      const actionItem = items.find(item => item.command.eventId === eventId);
+      const stillPending = actionItem?.status === "pending_location";
       setDriverMessage(
-        result.status === "recorded"
+        result.status === "recorded" || (!stillPending && !actionItem)
           ? "Recovered action recorded"
-          : result.reason === "gps_recovery_window_expired"
-          ? "GPS evidence window expired · reissue the action when ready"
-          : "Still awaiting a reliable GPS fix · " + (result.reason ?? "retry later"),
+          : (result.reason ?? actionItem?.reason) === "gps_recovery_window_expired"
+            ? "GPS evidence window expired · reissue the action when ready"
+            : actionItem?.status === "needs_attention"
+              ? "Action retained · " + (actionItem.reason ?? "location needs attention")
+              : "Retry queued · GPS is being checked in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "recovery", operation: "retry_pending_action", failureCategory: "recovery", recoveryResult: "retry_failed" });
@@ -189,6 +219,10 @@ export function useDriverWorkspace() {
       await gateway.setEnabled(next);
       setEnabled(next);
       setError("");
+      if (next && enrichmentQueue) {
+        if (isNativeTimelineEnrichmentPlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
+        else if (navigator.onLine) window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save setting");
     }
@@ -200,17 +234,18 @@ export function useDriverWorkspace() {
     setDriverMessage("Action received · saving pending intent");
     try {
       const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID());
-      const result = await workflow.dispatch(command);
+      const result = await workflow.dispatchBackground(command);
       setDriver(result.snapshot);
-      setPending(await workflow.pending());
+      const items = await workflow.pending();
+      setPending(items);
+      const actionItem = items.find(item => item.command.eventId === command.eventId);
+      const stillPending = actionItem?.status === "pending_location";
       setDriverMessage(
-        result.status === "recorded"
+        result.status === "recorded" || (!stillPending && !actionItem)
           ? "Recorded securely on this device"
-          : result.reason === "permission_denied"
-            ? "Location permission needed · action retained for recovery"
-            : result.reason === "location_timeout"
-              ? "GPS fix timed out · action retained for retry"
-              : "Action needs attention · " + (result.reason ?? "retry required"),
+          : actionItem?.status === "needs_attention"
+            ? "Action retained · " + (actionItem.reason ?? "location needs attention")
+            : "Action saved · GPS verification continuing in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "workflow", operation: "dispatch_transition", failureCategory: "workflow", recoveryResult: "operation_failed" });
@@ -240,10 +275,59 @@ export function useDriverWorkspace() {
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
-  const reverseGeocoder = useMemo(
-    () => gateway ? new TimelineReverseGeocodingService(gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
-    [gateway],
+  const enrichmentQueue = useMemo(
+    () => repo && gateway ? new TimelineEnrichmentQueue(repo, gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
+    [repo, gateway],
   );
+
+  // PWA work resumes on connectivity/lifecycle events. Android delegates
+  // durable execution to WorkManager; neither platform polls the network.
+  useEffect(() => {
+    if (!enrichmentQueue) return;
+    const notifyTimeline = () => window.dispatchEvent(new Event("timeline-enrichment-updated"));
+    const nativeListener = listenForNativeTimelineEnrichment(notifyTimeline);
+    let retryTimer: number | undefined;
+    let draining = false;
+    const drainAndSchedule = async () => {
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+        retryTimer = undefined;
+      }
+      if (draining || document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
+      if (isNativeTimelineEnrichmentPlatform()) {
+        await scheduleNativeTimelineEnrichment().catch(() => undefined);
+        return;
+      }
+      draining = true;
+      try {
+        await enrichmentQueue.drainDueRetries(5);
+        notifyTimeline();
+        const nextWakeAt = await enrichmentQueue.nextWakeAt();
+        if (nextWakeAt !== undefined && document.visibilityState === "visible" && navigator.onLine && enabled) {
+          retryTimer = window.setTimeout(() => { void drainAndSchedule(); },
+            Math.max(1_000, nextWakeAt - Date.now()));
+        }
+      } catch {
+        // The durable queue remains intact; a later online/resume event retries it.
+      } finally {
+        draining = false;
+      }
+    };
+    const resume = () => { void drainAndSchedule(); };
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    window.addEventListener("timeline-enrichment-queue-updated", resume);
+    document.addEventListener("visibilitychange", resume);
+    resume();
+    return () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      window.removeEventListener("timeline-enrichment-queue-updated", resume);
+      document.removeEventListener("visibilitychange", resume);
+      void nativeListener.then(handle => handle?.remove());
+    };
+  }, [enrichmentQueue, enabled]);
 
   const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => {
     if (!workflow) throw new Error("Work history is still loading");
@@ -253,9 +337,18 @@ export function useDriverWorkspace() {
       .filter(day => day.date >= fromDate && day.date <= toDate)
       .flatMap(day => day.eventIds));
     const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
-    const locations = allowLocationLookup && reverseGeocoder ? reverseGeocoder.enrich(visibleEvents, signal) : Promise.resolve({});
+    const locations = (async () => {
+      if (!enrichmentQueue) return {};
+      if (allowLocationLookup) {
+        await enrichmentQueue.enqueue(visibleEvents);
+        if (isNativeTimelineEnrichmentPlatform()) await scheduleNativeTimelineEnrichment().catch(() => undefined);
+        else if (navigator.onLine) await enrichmentQueue.drain(5, signal);
+      }
+      window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
+      return enrichmentQueue.locations(visibleEvents.map(event => event.eventId));
+    })();
     return { model: readModel, locations };
-  }, [workflow, reverseGeocoder]);
+  }, [workflow, enrichmentQueue]);
 
 
   return {

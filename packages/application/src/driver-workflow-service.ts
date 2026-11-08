@@ -21,7 +21,7 @@ export interface DriverWorkflowRepository {
 }
 
 export interface EventLocationProvider {
-  capture(): Promise<GpsFix>;
+  capture(transitionAt: string): Promise<GpsFix>;
 }
 
 /** Consumer delivery is at-least-once; the immutable event log is the replay source. */
@@ -30,6 +30,8 @@ export type DriverEventPublisher = (event: DriverEvent) => Promise<void>;
 export class DriverWorkflowService {
   private readonly pendingIntegrationEventIds = new Set<string>();
   private readonly deliveredIntegrationEventIds = new Set<string>();
+  private readonly statusListeners = new Set<() => void>();
+  private readonly backgroundTasks = new Map<string, Promise<void>>();
 
   constructor(
     private readonly repository: DriverWorkflowRepository,
@@ -54,8 +56,103 @@ export class DriverWorkflowService {
     return this.repository.listPending();
   }
 
+  /** Resume only already-persisted in-window intents after a PWA process restart. */
+  async resumePendingBackground() {
+    const pending = await this.repository.listPending();
+    for (const intent of pending) {
+      if (intent.status === "pending_location" && isWithinGpsRecoveryWindow(intent.command.transitionAt)) {
+        this.startBackgroundCompletion(intent);
+      } else if (intent.status === "pending_location") {
+        await this.repository.markNeedsAttention(intent.command.eventId, "gps_recovery_window_expired");
+      }
+    }
+    this.notifyStatus();
+    return this.repository.listPending();
+  }
+
   subscribe(listener: (snapshot: DriverStateProjection) => void) {
     return this.repository.subscribe(listener);
+  }
+
+  /** Emits workflow-status changes so the UI can refresh pending intents without polling. */
+  subscribeStatus(listener: () => void) {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
+  }
+
+  private notifyStatus() {
+    this.statusListeners.forEach(listener => listener());
+  }
+
+  /** Persist the intent, return promptly, and finish GPS acquisition/commit asynchronously. */
+  async dispatchBackground(command: DriverTransitionCommand): Promise<{
+    status: "pending_location" | "recorded";
+    snapshot: DriverStateProjection;
+  }> {
+    const checked = validateDriverCommand(command);
+    if (!checked.ok) throw new Error(checked.error);
+    const before = await this.repository.getSnapshot();
+    if (command.expectedRevision !== before.revision || command.expectedPriorState !== before.state) {
+      throw new Error("stale_revision");
+    }
+    const now = new Date().toISOString();
+    const intent: DriverIntent = { command, status: "pending_location", createdAt: now, updatedAt: now };
+    const queued = await this.repository.queueIntent(intent);
+    this.notifyStatus();
+    if (queued.status === "recorded") {
+      await this.publishById(command.eventId);
+      return { status: "recorded", snapshot: await this.snapshot() };
+    }
+    this.startBackgroundCompletion(queued);
+    return { status: "pending_location", snapshot: await this.snapshot() };
+  }
+
+  async retryBackground(eventId: string): Promise<{
+    status: "pending_location" | "recorded" | "needs_attention";
+    snapshot: DriverStateProjection;
+    reason?: string;
+  }> {
+    const existing = await this.repository.getIntent(eventId);
+    if (!existing) throw new Error("intent_missing");
+    if (existing.status === "recorded") {
+      await this.publishById(eventId);
+      return { status: "recorded", snapshot: await this.snapshot() };
+    }
+    if (!isWithinGpsRecoveryWindow(existing.command.transitionAt)) {
+      await this.repository.markNeedsAttention(eventId, "gps_recovery_window_expired");
+      this.notifyStatus();
+      return { status: "needs_attention", snapshot: await this.snapshot(), reason: "gps_recovery_window_expired" };
+    }
+    const intent = await this.repository.reactivateIntent(eventId);
+    this.notifyStatus();
+    this.startBackgroundCompletion(intent);
+    return { status: "pending_location", snapshot: await this.snapshot() };
+  }
+
+  private startBackgroundCompletion(intent: DriverIntent) {
+    const eventId = intent.command.eventId;
+    if (this.backgroundTasks.has(eventId)) return;
+    const task = (async () => {
+      try {
+        const gps = await this.location.capture(intent.command.transitionAt);
+        const current = await this.snapshot();
+        const plan = validateDriverCompletion(current, intent, gps);
+        if (!plan.ok) throw new Error(plan.error);
+        await this.repository.completeIntent(eventId, gps);
+        await this.publishById(eventId);
+      } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : "location_unavailable";
+        try {
+          await this.repository.markNeedsAttention(eventId, reason);
+        } catch {
+          // The original durable intent remains available for startup recovery.
+        }
+      } finally {
+        this.backgroundTasks.delete(eventId);
+        this.notifyStatus();
+      }
+    })();
+    this.backgroundTasks.set(eventId, task);
   }
 
   /** Replay committed events on startup so a process death cannot lose integration delivery. */
@@ -135,7 +232,7 @@ export class DriverWorkflowService {
     const intent = await this.repository.reactivateIntent(eventId);
     let snapshot: DriverStateProjection;
     try {
-      const gps = await this.location.capture();
+      const gps = await this.location.capture(existing.command.transitionAt);
       const current = await this.snapshot();
       const plan = validateDriverCompletion(current, intent, gps);
       if (!plan.ok) throw new Error(plan.error);
@@ -173,7 +270,7 @@ export class DriverWorkflowService {
 
     let snapshot: DriverStateProjection;
     try {
-      const gps = await this.location.capture();
+      const gps = await this.location.capture(command.transitionAt);
       const latest = await this.snapshot();
       const plan = validateDriverCompletion(latest, queued, gps);
       if (!plan.ok) throw new Error(plan.error);

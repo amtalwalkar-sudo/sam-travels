@@ -41,6 +41,13 @@ object DriverTransitionPolicy {
         }
     }
 
+    /** Candidate fixes are sampled repeatedly; only evidence satisfying the event policy may finish acquisition. */
+    fun isAcceptableGpsEvidence(gps: JSONObject, transitionAtValue: String, now: Instant = Instant.now()): Boolean =
+        runCatching {
+            validateGpsEvidence(gps, transitionAtValue, now)
+            true
+        }.getOrDefault(false)
+
     private const val MAX_ACCURACY_METRES = 50.0
     private const val MAX_FIX_AGE_MILLIS = 30_000L
     private const val FUTURE_TOLERANCE_MILLIS = 5_000L

@@ -112,7 +112,7 @@ class DriverWorkflowParityInterruptionTest {
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
             .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
         fun completeAt(id: String, event: String, state: String, revision: Int, at: String): JSONObject {
-            DriverWorkflowStore.queue(durable, command(id, event, state, revision, at))
+            DriverWorkflowStore.queue(durable, command(id, event, state, revision, at), java.time.Instant.parse(at))
             return DriverWorkflowStore.complete(durable, id, JSONObject().put("latitude", 19.076)
                 .put("longitude", 72.8777).put("horizontalAccuracyM", 8.0).put("fixAt", at).put("provider", "android-test"),
                 java.time.Instant.parse(at))
