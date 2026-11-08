@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
 import {
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
@@ -15,14 +16,16 @@ import type { GpsFix } from "../packages/core/src/types";
 
 describe("Stage 4 recovery lifecycle", () => {
   let unregisterVehicle: (() => void) | undefined;
+  let unregisterDrivers: (() => void) | undefined;
   beforeEach(async () => {
     unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregisterDrivers = registerDriverRecordsBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
     rebuildTripHistoryProjection([]);
   });
 
-  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; unregisterDrivers?.(); unregisterDrivers = undefined; });
 
   it("retains a pre-restore checkpoint across IndexedDB reopen and rolls back atomically", async () => {
     const timestamp = "2026-11-06T10:00:00.000Z";
@@ -70,6 +73,13 @@ describe("Stage 4 recovery lifecycle", () => {
 
   it("rebuilds the derived trip projection from restored authoritative events after restart", async () => {
     const repository = new DexieDriverWorkflowRepository();
+    const timestamp="2026-11-08T00:00:00.000Z";
+    await browserDatabase.records.bulkPut([
+      {id:"feature:driver-records:driver:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",name:"Example Driver",lifecycleState:"active",selectedForWork:true}},
+      {id:"feature:driver-records:assignment:driver-001",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,driverId:"driver-001",assignments:[{assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",assignedAt:timestamp}]}},
+      {id:"feature:vehicle:MH01AB1234",schemaVersion:1,createdAt:timestamp,updatedAt:timestamp,source:"web",revision:1,data:{schemaVersion:1,registrationNumber:"MH01AB1234",make:"Make",model:"Model",vehicleType:"Sedan",fuelType:"Petrol",yearOfManufacture:2024,ownership:"Owned",lifecycleState:"active"}},
+    ]);
+
     const transitions = [
       { type: "shift_start" as const, id: "recovery-shift", at: "2026-11-06T10:00:00.000Z" },
       { type: "trip_start" as const, id: "recovery-trip-start", at: "2026-11-06T10:05:00.000Z" },

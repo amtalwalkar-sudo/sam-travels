@@ -38,6 +38,34 @@ object DriverWorkflowStore {
             if (!vehicleId.isNullOrBlank()) put("vehicleId", vehicleId)
         }
     }
+    /** Resolve Admin Driver, assignment and Vehicle from Room inside the trip completion transaction. */
+    private fun resolveDriverContext(db: LocalDatabase): JSONObject {
+        val records = db.records().list()
+        val selected = records.filter { it.id.startsWith("feature:driver-records:driver:") }.mapNotNull { row ->
+            val data = JSONObject(row.json).optJSONObject("data") ?: error("driver_record_invalid")
+            if (data.optBoolean("selectedForWork") && data.optString("lifecycleState") == "active") data else null
+        }
+        require(selected.size == 1) { if (selected.isEmpty()) "work_driver_selection_missing" else "work_driver_selection_ambiguous" }
+        val driverId = selected.single().optString("driverId")
+        require(driverId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "driver_record_invalid" }
+        val histories = records.filter { it.id == "feature:driver-records:assignment:$driverId" }
+        require(histories.size == 1) { "work_driver_assignment_history_missing" }
+        val history = JSONObject(histories.single().json).optJSONObject("data") ?: error("driver_assignment_history_invalid")
+        require(history.optString("driverId") == driverId && history.optInt("schemaVersion",-1)==1) { "driver_assignment_identity_mismatch" }
+        val assignments = history.optJSONArray("assignments") ?: error("driver_assignment_history_invalid")
+        val active = (0 until assignments.length()).mapNotNull { assignments.optJSONObject(it) }.filter { !it.has("unassignedAt") || it.isNull("unassignedAt") }
+        require(active.size == 1) { if (active.isEmpty()) "work_driver_assignment_missing" else "work_driver_assignment_ambiguous" }
+        val assignment = active.single()
+        val assignmentId = assignment.optString("assignmentId")
+        val vehicleId = assignment.optString("vehicleId")
+        require(assignmentId.matches(Regex("[A-Za-z0-9_-]{1,128}")) && vehicleId.matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "driver_assignment_invalid" }
+        val vehicles = records.filter { it.id == vehicleId }
+        require(vehicles.size == 1) { "work_driver_vehicle_missing" }
+        val vehicle = JSONObject(vehicles.single().json).optJSONObject("data")
+        require(vehicle?.optString("lifecycleState") == "active") { "work_driver_vehicle_inactive" }
+        return JSONObject().put("schemaVersion",1).put("driverId",driverId).put("assignmentId",assignmentId).put("vehicleId",vehicleId)
+    }
+
     fun snapshot(db: LocalDatabase): JSONObject {
         val state = db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
@@ -181,6 +209,8 @@ object DriverWorkflowStore {
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"))
 
             val eventType = command.optString("eventType")
+            if (eventType == "trip_start") { command.put("driverContext", resolveDriverContext(db)); intent.put("command", command) }
+            DriverWorkflowContract.validateCommand(command)
             val nextState = DriverTransitionPolicy.target(current.optString("state"), eventType)
                 ?: error("invalid_transition")
             val revision = current.optInt("revision") + 1

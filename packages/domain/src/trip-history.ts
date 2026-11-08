@@ -12,6 +12,7 @@ export interface TripHistoryRecord {
   endGps?: DriverEvent["gps"];
   status: TripHistoryStatus;
   reason?: string;
+  driverContext?: DriverEvent["command"]["driverContext"];
 }
 
 /**
@@ -40,6 +41,7 @@ export function buildTripHistory(events: readonly DriverEvent[]): TripHistoryRec
         startEventId: event.eventId,
         startedAt: event.command.transitionAt,
         startGps: event.gps,
+        ...(event.command.driverContext ? { driverContext: event.command.driverContext } : {}),
         status: "active",
       };
       trips.push(active);
