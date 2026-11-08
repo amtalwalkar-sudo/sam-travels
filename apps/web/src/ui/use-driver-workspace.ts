@@ -221,7 +221,7 @@ export function useDriverWorkspace() {
       setError("");
       if (next && enrichmentQueue) {
         if (isNativeTimelineEnrichmentPlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
-        else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5).then(() => window.dispatchEvent(new Event("timeline-enrichment-updated"))).catch(() => undefined);
+        else if (navigator.onLine) window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to save setting");
