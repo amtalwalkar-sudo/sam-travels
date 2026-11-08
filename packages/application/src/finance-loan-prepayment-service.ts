@@ -103,6 +103,7 @@ export class FinanceLoanPrepaymentService {
 
   private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
     amountPaise: number; mode: FinanceLoanPrepaymentModeV1; source: string }, createdAtOverride?: string): FinanceLoanPrepaymentPreviewV1 {
+    if (snapshot.loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
     if (!input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 ||
         !input.source.trim() || (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
