@@ -34,3 +34,5 @@ export * from "./finance-loan-payment-runtime";
 export * from "./finance-loan-prepayment-service";
 export * from "./finance-loan-prepayment-runtime";
 export * from "./finance-loan-settlement-runtime";
+
+export * from "./timeline-reverse-geocoding";
