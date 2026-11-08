@@ -202,7 +202,7 @@ class DriverOverlayService:Service(){
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
    val transitionAt=command.optString("transitionAt")
    val transitionMs=java.time.Instant.parse(transitionAt).toEpochMilli()
-   val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
+   val remainingMs=DriverRecoveryPolicy.remainingGpsWindowMillis(transitionAt)
    if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
    val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val provider=if(manager.isProviderEnabled(LocationManager.GPS_PROVIDER))LocationManager.GPS_PROVIDER else manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
