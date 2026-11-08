@@ -86,7 +86,7 @@ describe("FinanceLoanPrepaymentService", () => {
   it("rejects a principal prepayment dated before the loan starts", async () => {
     const { service } = setup();
     await expect(service.preview({ loanId, commandId: "prepay-before-start",
-      businessDate: "2026-01-01", amountPaise: 1_000_000, mode: "reduce_tenure" }))
+      businessDate: "2026-01-01", amountPaise: 1_000_000, mode: "reduce_tenure", source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_before_loan_start");
   });
   it("rejects prepayment when any EMI due on the business date is not fully allocated", async () => {
