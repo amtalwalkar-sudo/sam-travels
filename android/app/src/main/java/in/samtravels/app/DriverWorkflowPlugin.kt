@@ -20,7 +20,6 @@ import com.getcapacitor.annotation.PermissionCallback
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
-import kotlin.math.abs
 
 @CapacitorPlugin(name="DriverWorkflow", permissions=[Permission(alias="location", strings=[Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])])
 class DriverWorkflowPlugin:Plugin(){
@@ -75,8 +74,9 @@ class DriverWorkflowPlugin:Plugin(){
    val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
    if(remainingMs<=0L){call.reject("Original GPS evidence window expired; intent remains pending","GPS_WINDOW_EXPIRED");return}
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-   val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE;powerRequirement=Criteria.POWER_LOW}
-   val provider=manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
+   val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE}
+   val provider=if(manager.isProviderEnabled(LocationManager.GPS_PROVIDER))LocationManager.GPS_PROVIDER
+    else manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
    val wakeLock=(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
     .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
    fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
