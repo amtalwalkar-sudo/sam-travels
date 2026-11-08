@@ -100,16 +100,18 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
-            echo "Installed Sam Travels package identities immediately after preparation:"
-            adb -s emulator-5554 shell pm list packages | grep -E 'samtravels|sam\\.travels' || true
-            echo "Force-stopping the application and instrumentation packages without uninstalling either:"
+            echo "Installing the debug application and instrumentation APKs once, before the process-death scenario:"
+            gradle -p android :app:installDebug :app:installDebugAndroidTest
+            adb -s emulator-5554 shell pm path in.samtravels.app
+            adb -s emulator-5554 shell pm path in.samtravels.app.test
+            echo "Preparing durable Room state through the installed instrumentation runner:"
+            adb -s emulator-5554 shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner
+            echo "Force-stopping both packages; no Gradle connected-test task or APK installation runs between phases:"
             adb -s emulator-5554 shell am force-stop in.samtravels.app
             adb -s emulator-5554 shell am force-stop in.samtravels.app.test
-            echo "Installed package identities after force-stop (no uninstall or reinstall is performed):"
-            adb -s emulator-5554 shell pm list packages | grep 'samtravels' || true
-            echo "Recovering with the already-installed instrumentation APK; preserving the target app data directory:"
+            echo "Recovering through a fresh instrumentation process against the same installed app data:"
             adb -s emulator-5554 shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner
+            echo "Run the rest of the Android instrumentation suite (excluding the two manually orchestrated restart phases):"
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
