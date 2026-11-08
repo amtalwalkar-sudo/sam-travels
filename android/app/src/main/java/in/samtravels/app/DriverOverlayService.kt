@@ -200,18 +200,41 @@ class DriverOverlayService:Service(){
   try{
    if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
+   val transitionAt=command.optString("transitionAt")
+   val transitionMs=java.time.Instant.parse(transitionAt).toEpochMilli()
+   val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
+   if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
    val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val provider=manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
    activeLocationEventId=id
    val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
-   gpsWakeLock=powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:DriverGps").apply{setReferenceCounted(false);acquire(40_000L)}
+   gpsWakeLock=powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:DriverGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
    var finished=false
    lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_timeout")}}
-   listener=LocationListener{location:Location->if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();complete(id,command,intent,location)}}
+   lateinit var timeout:Runnable
+   fun finish(location:Location?=null,reason:String="location_timeout"){
+    if(finished)return
+    finished=true
+    main.removeCallbacks(timeout)
+    try{manager.removeUpdates(listener)}catch(_:Exception){}
+    activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
+    releaseGpsWakeLock()
+    if(location!=null)complete(id,command,intent,location)else markAttention(id,intent,reason)
+   }
+   timeout=Runnable{finish(reason="location_timeout")}
+   listener=LocationListener{location:Location->
+    if(!finished){
+     val gps=JSONObject().put("latitude",location.latitude).put("longitude",location.longitude)
+      .put("horizontalAccuracyM",location.accuracy.toDouble())
+      .put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString()).put("provider",location.provider?:"android")
+     val valid=runCatching{DriverTransitionPolicy.validateGpsEvidence(gps,transitionAt);true}.getOrDefault(false)
+     if(valid)finish(location=location)
+    }
+   }
    activeLocationListener=listener;activeLocationTimeout=timeout
-   manager.requestSingleUpdate(provider,listener,Looper.getMainLooper());main.postDelayed(timeout,35_000L)
+   manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())
+   main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
