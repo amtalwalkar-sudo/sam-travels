@@ -253,8 +253,8 @@ export function useDriverWorkspace() {
       .filter(day => day.date >= fromDate && day.date <= toDate)
       .flatMap(day => day.eventIds));
     const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
-    const locations = reverseGeocoder ? await reverseGeocoder.enrich(visibleEvents) : {};
-    return { ...readModel, locations };
+    const locations = reverseGeocoder ? reverseGeocoder.enrich(visibleEvents) : Promise.resolve({});
+    return { model: readModel, locations };
   }, [workflow, reverseGeocoder]);
 
 
