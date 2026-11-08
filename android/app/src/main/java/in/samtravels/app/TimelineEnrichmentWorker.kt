@@ -55,8 +55,13 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                 try {
                     val envelope = JSONObject(row.json)
                     val data = envelope.getJSONObject("data")
-                    val label = reverse(data.getDouble("latitude"), data.getDouble("longitude"))
-                    val lookedUpAt = Instant.now().toString()
+                    val cached = store.findCachedCoordinate(
+                        data.getDouble("latitude"), data.getDouble("longitude"), System.currentTimeMillis(),
+                    )
+                    val label = if (cached != null) cached.optString("label").takeIf { it.isNotBlank() }
+                        else reverse(data.getDouble("latitude"), data.getDouble("longitude"))
+                    val lookedUpAt = cached?.optString("lookedUpAt")?.takeIf { it.isNotBlank() }
+                        ?: Instant.now().toString()
                     data.put("status", if (label.isNullOrBlank()) "not_found" else "resolved")
                         .put("attempts", data.optInt("attempts") + 1)
                         .put("lookedUpAt", lookedUpAt)
