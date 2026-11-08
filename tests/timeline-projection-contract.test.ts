@@ -69,6 +69,32 @@ describe("Timeline projection contracts", () => {
     ]);
   });
 
+  it("keeps an active shift duration pending until its authoritative end event exists", () => {
+    const projection = buildTimelineProjection({
+      events: [event("active-shift-start", "shift_start", "2026-11-08T10:00:00.000Z", 1)],
+      asOf: "2026-11-08T10:30:00.000Z",
+    });
+    expect(projection.logicalShifts[0].metrics.shift_duration).toMatchObject({
+      status: "pending",
+      reason: "shift_end_not_recorded",
+    });
+  });
+
+  it("does not turn trip activity without shift boundaries into a known zero-duration shift", () => {
+    const projection = buildTimelineProjection({
+      events: [event("orphan-trip", "trip_create", "2026-11-08T10:00:00.000Z", 1)],
+      asOf: "2026-11-08T10:30:00.000Z",
+    });
+    expect(projection.logicalShifts[0].metrics.shift_duration).toMatchObject({
+      status: "invalid",
+      reason: "shift_event_sequence_invalid",
+    });
+    expect(projection.integrityIssues).toContainEqual(expect.objectContaining({
+      code: "missing_shift_boundary",
+      logicalShiftId: "logical-shift:2026-11-08",
+    }));
+  });
+
   it("preserves source timestamp precision in projected durations", () => {
     const projection = buildTimelineProjection({
       events: [
