@@ -312,7 +312,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       <h3>{dateLabel(day.date)}</h3>
       {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
     </section>)}
-    <p className="timeline-attribution">Location enrichment: <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a> · © OpenStreetMap contributors</p>
+    <p className="timeline-attribution">Location enrichment: <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Powered by Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
 }
