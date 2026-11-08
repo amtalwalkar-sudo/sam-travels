@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import type { FeatureExtensionDefinition, FeaturePresentationScreen } from "../../core/src/index";
 import type { TimelineReadModel } from "../../application/src/timeline-projection-service";
 import { TimelineScreen } from "./presentation/TimelineScreen";
@@ -13,7 +14,7 @@ export const TIMELINE_PRESENTATION_SCREEN: FeaturePresentationScreen = Object.fr
   mountPoint: "Timeline",
   label: "Timeline",
   render(context: unknown) {
-    return <TimelineScreen context={context as TimelineScreenContext} />;
+    return createElement(TimelineScreen, { context: context as TimelineScreenContext });
   },
 });
 
