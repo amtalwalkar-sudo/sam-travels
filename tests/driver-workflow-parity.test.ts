@@ -88,8 +88,8 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(recovered.status).toBe("recorded");
     states.push(recovered.snapshot.state);
 
-    states.push((await sendAfterRecovery(repository, service, "end_ride", "parity-ride-end", base + 3_000)).state);
-    states.push((await sendAfterRecovery(repository, service, "shift_end", "parity-shift-end", base + 4_000)).state);
+    states.push((await sendAfterRecovery(repository, service, "end_ride", "parity-ride-end", base + 3_000)).snapshot.state);
+    states.push((await sendAfterRecovery(repository, service, "shift_end", "parity-shift-end", base + 4_000)).snapshot.state);
 
     expect(states).toEqual(parity.states);
     expect(await repository.getSnapshot()).toMatchObject({ state: "idle", revision: parity.finalRevision });
