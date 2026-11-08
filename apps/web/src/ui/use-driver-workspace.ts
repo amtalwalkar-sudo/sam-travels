@@ -199,7 +199,7 @@ export function useDriverWorkspace() {
       setEnabled(next);
       setError("");
       if (next && enrichmentQueue) {
-        if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment();
+        if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
         else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5).then(() => window.dispatchEvent(new Event("timeline-enrichment-updated"))).catch(() => undefined);
       }
     } catch (cause) {
@@ -289,7 +289,7 @@ export function useDriverWorkspace() {
       if (!enrichmentQueue) return {};
       if (allowLocationLookup) {
         await enrichmentQueue.enqueue(visibleEvents);
-        if (Capacitor.isNativePlatform()) await scheduleNativeTimelineEnrichment();
+        if (Capacitor.isNativePlatform()) await scheduleNativeTimelineEnrichment().catch(() => undefined);
         else if (navigator.onLine) await enrichmentQueue.drain(5, signal);
       }
       return enrichmentQueue.locations(visibleEvents.map(event => event.eventId));
