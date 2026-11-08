@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import worker from "./src/index";
-import type { GeoapifyProxyEnv } from "./index";
+import type { GeoapifyProxyEnv } from "./src/index";
 
 const ORIGIN = "https://app.example";
 function environment(overrides: Partial<GeoapifyProxyEnv> = {}): GeoapifyProxyEnv {
