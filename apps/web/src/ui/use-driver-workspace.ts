@@ -245,7 +245,7 @@ export function useDriverWorkspace() {
     [gateway],
   );
 
-  const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean) => {
+  const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => {
     if (!workflow) throw new Error("Work history is still loading");
     const readModel = await new TimelineProjectionService({ listEvents: () => workflow.events() })
       .read(new Date().toISOString());
@@ -253,7 +253,7 @@ export function useDriverWorkspace() {
       .filter(day => day.date >= fromDate && day.date <= toDate)
       .flatMap(day => day.eventIds));
     const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
-    const locations = allowLocationLookup && reverseGeocoder ? reverseGeocoder.enrich(visibleEvents) : Promise.resolve({});
+    const locations = allowLocationLookup && reverseGeocoder ? reverseGeocoder.enrich(visibleEvents, signal) : Promise.resolve({});
     return { model: readModel, locations };
   }, [workflow, reverseGeocoder]);
 
