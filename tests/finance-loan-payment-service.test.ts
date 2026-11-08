@@ -174,4 +174,28 @@ describe("FinanceLoanPaymentService", () => {
       .rejects.toThrow("finance_loan_closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(1);
   });
+  it("rejects a settlement confirmation when the payment ledger changed after preview", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    const service = new FinanceLoanPaymentService(repo,
+      { async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } },
+      () => "2026-11-08T04:00:00.000Z",
+      {
+        async getScheduleRows() { return rows; },
+        async getScheduleVersionForDate(_id, date) { return date === "2026-11-01" ? 1 : undefined; },
+      });
+    await service.record({ ...base, id: "emi-payment-stale", commandId: "emi-command-stale",
+      businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
+    const preview = await service.previewSettlement({ loanId, businessDate: "2026-11-01" });
+    await service.record({ ...base, id: "credit-after-preview", commandId: "credit-after-preview-command",
+      businessDate: "2026-11-01", amountPaise: 100, allocations: [] });
+    await expect(service.settle({ id: "stale-settlement", commandId: "stale-settlement-command", loanId,
+      businessDate: "2026-11-01", method: "bank_transfer", source: "web",
+      expectedLoanRevision: preview.loanRevision, expectedPaymentLedgerRevision: preview.paymentLedgerRevision,
+      expectedAmountPaise: preview.amountPaise, expectedScheduleVersion: preview.scheduleVersion,
+      expectedPaidThroughInstallment: preview.paidThroughInstallment }))
+      .rejects.toThrow("finance_payment_settlement_preview_stale");
+    expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
+    expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
+  });
 });
