@@ -326,7 +326,9 @@ export class FinanceLoanPaymentService {
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         if (replay.kind !== "settlement" || replay.id !== input.id || replay.businessDate !== input.businessDate ||
-            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined)) {
+            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined) ||
+            replay.amountPaise !== input.expectedAmountPaise || replay.scheduleVersion !== input.expectedScheduleVersion ||
+            replay.paidThroughInstallment !== input.expectedPaidThroughInstallment) {
           throw new Error("finance_payment_idempotency_conflict");
         }
         return replay;
