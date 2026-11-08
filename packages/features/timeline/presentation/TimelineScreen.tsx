@@ -232,14 +232,15 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     catch (cause) { setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable"); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void refresh(range.from, range.to); }, [context.loadTimeline, range.from, range.to]);
-
   const range = useMemo(() => {
     if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
     if (mode === "date") return { from: anchorDate, to: anchorDate };
     const from = weekStart(anchorDate);
     return { from, to: moveDate(from, 6) };
   }, [mode, anchorDate, clock]);
+
+  useEffect(() => { void refresh(range.from, range.to); }, [context.loadTimeline, range.from, range.to]);
+
   const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
     .filter(day => day.date >= range.from && day.date <= range.to)
     .sort((a, b) => b.date.localeCompare(a.date)), [model, range]);
