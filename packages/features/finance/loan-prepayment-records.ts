@@ -69,7 +69,7 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
   if (!baseSchedule || !Array.isArray(baseSchedule.output.rows) || !Number.isSafeInteger(baseSchedule.output.regularEmiPaise)) {
     throw new Error("finance_loan_prepayment_base_schedule_invalid");
   }
-  let previousRows = baseSchedule.output.rows;
+  let previousRows: readonly Readonly<{ dueDate: string; openingPrincipalPaise: number; closingPrincipalPaise: number }>[] = baseSchedule.output.rows;
   let previousEmi = baseSchedule.output.regularEmiPaise;
   revisions.forEach((raw,index) => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("finance_loan_prepayment_revision_invalid");
@@ -101,7 +101,7 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
     commands.add(r.commandId as string); previousCreatedAt = r.createdAt as string;
     previousEffectiveDate = r.effectiveDate as string;
     previousExpectedLoanRevision = r.expectedLoanRevision as number;
-    previousCommittedLedgerRevision = (r.expectedPaymentLedgerRevision ?? 0) + 1;
+    previousCommittedLedgerRevision = ((r.expectedPaymentLedgerRevision as number | null) ?? 0) + 1;
     const priorDueRows = previousRows.filter(row => row.dueDate <= (r.effectiveDate as string));
     const expectedPrincipalBefore = priorDueRows.length
       ? priorDueRows[priorDueRows.length - 1].closingPrincipalPaise
