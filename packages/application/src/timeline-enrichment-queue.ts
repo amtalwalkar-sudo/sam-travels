@@ -68,7 +68,7 @@ export class TimelineEnrichmentQueue {
     const nowMs = this.now();
     const all = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
-      .filter(row => row.data.status === "pending" ||
+      .filter(row => (row.data.status === "pending" || row.data.status === "network_disabled") ||
         (row.data.status === "retry_wait" && (!row.data.nextAttemptAt || Date.parse(row.data.nextAttemptAt) <= nowMs)))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .slice(0, Math.max(1, Math.min(limit, MAX_BATCH_SIZE)));
