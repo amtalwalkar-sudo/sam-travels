@@ -119,12 +119,11 @@ export class FinanceLoanSettlementService {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
       throw new Error("finance_payment_settlement_input_invalid");
     }
-    if (input.preview.loanRevision < 1 || !Number.isSafeInteger(input.preview.amountPaise) ||
-        input.preview.amountPaise <= 0 || input.preview.businessDate !== undefined) {
-      // The preview is intentionally ephemeral; its captured revisions and amount are revalidated below.
-      if (!Number.isSafeInteger(input.preview.amountPaise) || input.preview.amountPaise <= 0) {
-        throw new Error("finance_payment_settlement_preview_invalid");
-      }
+    if (!Number.isSafeInteger(input.preview.loanRevision) || input.preview.loanRevision < 1 ||
+        !Number.isSafeInteger(input.preview.amountPaise) || input.preview.amountPaise <= 0 ||
+        !Number.isSafeInteger(input.preview.scheduleVersion) || input.preview.scheduleVersion < 1 ||
+        !Number.isSafeInteger(input.preview.paidThroughInstallment) || input.preview.paidThroughInstallment < 1) {
+      throw new Error("finance_payment_settlement_preview_invalid");
     }
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId);
