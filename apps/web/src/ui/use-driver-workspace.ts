@@ -260,16 +260,36 @@ export function useDriverWorkspace() {
     if (!enrichmentQueue) return;
     const notifyTimeline = () => window.dispatchEvent(new Event("timeline-enrichment-updated"));
     const nativeListener = listenForNativeTimelineEnrichment(notifyTimeline);
-    const resume = () => {
-      if (document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
-      if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
-      else void enrichmentQueue.drainDueRetries(5).then(notifyTimeline).catch(() => undefined);
+    let retryTimer: number | undefined;
+    let draining = false;
+    const drainAndSchedule = async () => {
+      if (draining || document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
+      if (Capacitor.isNativePlatform()) {
+        await scheduleNativeTimelineEnrichment().catch(() => undefined);
+        return;
+      }
+      draining = true;
+      try {
+        await enrichmentQueue.drainDueRetries(5);
+        notifyTimeline();
+        const nextWakeAt = await enrichmentQueue.nextWakeAt();
+        if (nextWakeAt !== undefined && document.visibilityState === "visible" && navigator.onLine && enabled) {
+          retryTimer = window.setTimeout(() => { void drainAndSchedule(); },
+            Math.max(1_000, nextWakeAt - Date.now()));
+        }
+      } catch {
+        // The durable queue remains intact; a later online/resume event retries it.
+      } finally {
+        draining = false;
+      }
     };
+    const resume = () => { void drainAndSchedule(); };
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
     document.addEventListener("visibilitychange", resume);
     resume();
     return () => {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       window.removeEventListener("online", resume);
       window.removeEventListener("focus", resume);
       document.removeEventListener("visibilitychange", resume);
