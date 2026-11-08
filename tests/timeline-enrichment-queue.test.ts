@@ -30,12 +30,13 @@ describe("durable Timeline enrichment queue", () => {
     const reverse = vi.fn(async () => "Andheri, Mumbai");
     const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
     const source = event("event-1");
-    const sourceBefore = structuredClone(source);
+    await browserDatabase.driverEvents.put(source);
+    const sourceBefore = JSON.stringify(await browserDatabase.driverEvents.get("event-1"));
 
     await queue.enqueue([source]);
     await queue.enqueue([source]);
 
-    expect(source).toEqual(sourceBefore);
+    expect(JSON.stringify(await browserDatabase.driverEvents.get("event-1"))).toBe(sourceBefore);
     expect(await records.get("timeline-enrichment:event-1")).toMatchObject({
       id: "timeline-enrichment:event-1",
       data: { eventId: "event-1", status: "pending", latitude: 19.076, longitude: 72.8777 },
@@ -80,4 +81,26 @@ describe("durable Timeline enrichment queue", () => {
       data: { status: "retry_wait", attempts: 1, nextAttemptAt: "2026-11-08T03:00:30.000Z" },
     });
   });
+  it("recovers pending enrichment after IndexedDB is reopened", async () => {
+    const records = new DexieRecordRepository();
+    const reverse = vi.fn(async () => "Mumbai");
+    const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
+    await queue.enqueue([event("event-restart")]);
+    await browserDatabase.close();
+    await browserDatabase.open();
+
+    const recovered = new TimelineEnrichmentQueue(
+      new DexieRecordRepository(),
+      { run: operation => operation() },
+      { provider: "geoapify", reverse },
+    );
+    expect(await recovered.locations(["event-restart"])).toMatchObject({
+      "event-restart": { status: "pending" },
+    });
+    await recovered.drain();
+    expect(await recovered.locations(["event-restart"])).toMatchObject({
+      "event-restart": { status: "resolved", label: "Mumbai" },
+    });
+  });
+
 });
