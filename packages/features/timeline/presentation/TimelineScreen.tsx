@@ -64,7 +64,7 @@ function metricLabel(metric: TimelineMetric): string {
     return new Intl.NumberFormat("en-IN", { style: "currency", currency: metric.currency, maximumFractionDigits: 2 })
       .format(metric.value / 100);
   }
-  return "Not available";
+  return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(metric.value / 100) + " · currency not supplied";
 }
 const METRICS: Array<[TimelineMetricId, string]> = [
   ["total_fare", "Total fare"], ["shift_duration", "Shift duration"],
@@ -98,7 +98,9 @@ function ShiftEvents({ events, shift, allEvents, now }: {
   now: number;
 }) {
   const ordered = [...events].sort((a, b) =>
-    Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt));
+    Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
+    a.revision - b.revision ||
+    a.eventId.localeCompare(b.eventId));
   const tripStarts = allEvents.filter(event => event.command.eventType === "trip_create" || event.command.eventType === "trip_start");
   const rideStarts = allEvents.filter(event => event.command.eventType === "start_ride" || event.command.eventType === "trip_start");
   const blocks = ordered.map(event => {
@@ -127,6 +129,7 @@ function ShiftEvents({ events, shift, allEvents, now }: {
   });
   const shiftEvents = shift ? allEvents.filter(event => shift.eventIds.includes(event.eventId)) : ordered;
   const ended = shiftEvents.some(event => event.command.eventType === "shift_end");
+  const endsOnThisCalendarDay = events.some(event => event.command.eventType === "shift_end");
   const shiftStarted = shiftEvents.find(event => event.command.eventType === "shift_start");
   const liveDuration = !ended && shiftStarted ? elapsed(shiftStarted.command.transitionAt, new Date(now).toISOString()) : undefined;
   return <section className="timeline-shift">
@@ -152,7 +155,7 @@ function ShiftEvents({ events, shift, allEvents, now }: {
         </article>;
       })}
     </div>
-    {ended && shift && <ShiftSummary shift={shift} />}
+    {endsOnThisCalendarDay && shift && <ShiftSummary shift={shift} />}
   </section>;
 }
 function dateLabel(value: string): string {
@@ -243,6 +246,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     </div>}
     {mode === "today" && <p className="timeline-date-label">{dateLabel(range.from)}</p>}
     {error && <p className="timeline-error" role="alert">{error}</p>}
+    {!!model?.projection.integrityIssues.length && <aside className="timeline-integrity" role="alert">
+      <strong>Some recorded activity needs review.</strong>
+      <ul>{model.projection.integrityIssues.map((issue, index) => (
+        <li key={issue.code + ":" + (issue.eventId ?? "record") + ":" + index}>
+          {issue.code.replaceAll("_", " ")}
+        </li>
+      ))}</ul>
+    </aside>}
     {loading && !model && <p className="timeline-empty">Loading your activity…</p>}
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
