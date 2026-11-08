@@ -90,7 +90,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       });
       setAmount(""); setReference(""); setNote(""); setAllocations([]); setOpen(false);
       setMessage("Payment recorded atomically. Unallocated credit remains separate from prepayment.");
-      await refresh();
+      await refresh(); await onChanged?.();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Payment could not be saved."); }
     finally { setBusy(false); }
   }
@@ -104,7 +104,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, paymentId: payment.id,
         businessDate: indiaDate(), reason: reason.trim(), source: getApplicationRecordSource(),
       });
-      setMessage("Full payment reversal recorded."); await refresh();
+      setMessage("Full payment reversal recorded."); await refresh(); await onChanged?.();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Payment reversal failed."); }
     finally { setBusy(false); }
   }
