@@ -118,7 +118,7 @@ export class TimelineEnrichmentQueue {
       if (!row) continue;
       const data = row.data;
       result[eventId] = {
-        status: data.status === "retry_wait" ? "pending" : data.status,
+        status: data.status === "retry_wait" ? "unavailable" : data.status,
         ...(data.label ? { label: data.label } : {}),
         provider: data.provider,
         ...(data.lookedUpAt ? { lookedUpAt: data.lookedUpAt } : {}),
