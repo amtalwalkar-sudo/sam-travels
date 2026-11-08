@@ -3,7 +3,6 @@ import {
   getApplicationVehicleService, getApplicationRecordSource, getApplicationMaintenanceService,
   type MaintenanceExpenseItemV1,
 } from "../../../../packages/application/src";
-import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import "./AdminWorkspace.css";
 
 type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];

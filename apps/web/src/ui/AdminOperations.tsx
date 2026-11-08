@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import {
   getApplicationDriverRecordsService, getApplicationDriverAssignmentService,
   getApplicationVehicleService, getApplicationRecordSource,
-  getApplicationComplianceService, getApplicationMaintenanceService,
+  getApplicationComplianceService,
   type DriverRecordV1, type ComplianceRecordV1,
 } from "../../../../packages/application/src";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
