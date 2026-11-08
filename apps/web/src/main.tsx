@@ -12,6 +12,7 @@ import {
   initializeApplicationFinanceLoanService,
   initializeApplicationFinanceLoanPaymentService,
   initializeApplicationFinanceLoanPrepaymentService,
+  initializeApplicationFinanceLoanSettlementService,
   initializeApplicationRecordSource,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
@@ -56,6 +57,7 @@ async function bootstrap(): Promise<void> {
     repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
   );
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
