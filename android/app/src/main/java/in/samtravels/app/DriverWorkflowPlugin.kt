@@ -71,7 +71,7 @@ class DriverWorkflowPlugin:Plugin(){
  private fun requestReliableFix(call:PluginCall,transitionAtValue:String){
   try{
    val transitionMs=java.time.Instant.parse(transitionAtValue).toEpochMilli()
-   val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
+   val remainingMs=DriverRecoveryPolicy.remainingGpsWindowMillis(transitionAtValue)
    if(remainingMs<=0L){call.reject("Original GPS evidence window expired; intent remains pending","GPS_WINDOW_EXPIRED");return}
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE}
