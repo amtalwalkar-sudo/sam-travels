@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { NetworkAccessDisabledError } from "../packages/core/src/network";
-import { OpenStreetMapNominatimReverseGeocoder, TimelineReverseGeocodingService } from "../packages/application/src/timeline-reverse-geocoding";
+import { GeoapifyProxyReverseGeocoder, TimelineReverseGeocodingService } from "../packages/application/src/timeline-reverse-geocoding";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 
 function event(id: string, eventType = "shift_start", latitude = 19.076, longitude = 72.8777): DriverEvent {
@@ -14,26 +14,29 @@ function event(id: string, eventType = "shift_start", latitude = 19.076, longitu
 }
 
 describe("Timeline reverse geocoding", () => {
-  it("uses public Nominatim without credentials and normalizes locality components", async () => {
+  it("sends coordinates to the application proxy without exposing a provider key", async () => {
     const request = vi.fn(async (input: string, init?: RequestInit) => {
-      const url = new URL(input);
-      expect(url.origin).toBe("https://nominatim.openstreetmap.org");
-      expect(url.pathname).toBe("/reverse");
-      expect(url.searchParams.get("format")).toBe("jsonv2");
-      expect(url.searchParams.get("lat")).toBe("19.076");
-      expect(url.searchParams.get("lon")).toBe("72.8777");
-      expect(url.searchParams.has("apiKey")).toBe(false);
-      expect(init?.headers).toEqual({ Accept: "application/json" });
-      expect(init?.referrerPolicy).toBe("strict-origin-when-cross-origin");
-      return new Response(JSON.stringify({ address: { suburb: "Andheri", city: "Mumbai", state: "Maharashtra" } }), { status: 200 });
+      expect(input).toBe("https://geocoder.example/reverse-geocode");
+      expect(init?.method).toBe("POST");
+      expect(init?.headers).toEqual({ "Content-Type": "application/json", Accept: "application/json" });
+      expect(init?.body).toBe(JSON.stringify({ latitude: 19.076, longitude: 72.8777 }));
+      expect(JSON.stringify(init)).not.toContain("apiKey");
+      return new Response(JSON.stringify({ label: "Andheri, Mumbai, Maharashtra, India" }), { status: 200 });
     }) as unknown as typeof fetch;
-    const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
-    await expect(adapter.reverse(19.076, 72.8777)).resolves.toBe("Andheri, Mumbai, Maharashtra");
+    const adapter = new GeoapifyProxyReverseGeocoder("https://geocoder.example", request);
+    await expect(adapter.reverse(19.076, 72.8777)).resolves.toBe("Andheri, Mumbai, Maharashtra, India");
+  });
+
+  it("does not make a request when the proxy endpoint is not configured", async () => {
+    const request = vi.fn() as unknown as typeof fetch;
+    const adapter = new GeoapifyProxyReverseGeocoder("", request);
+    await expect(adapter.reverse(19.076, 72.8777)).rejects.toThrow("geocoding_proxy_not_configured");
+    expect(request).not.toHaveBeenCalled();
   });
 
   it("caches successful lookups across event IDs sharing rounded coordinates", async () => {
     const reverse = vi.fn(async () => "Mumbai, Maharashtra");
-    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "openstreetmap_nominatim", reverse });
+    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "geoapify", reverse });
     const result = await service.enrich([event("one"), event("two", "shift_end", 19.07601, 72.87771)]);
     expect(reverse).toHaveBeenCalledTimes(1);
     expect(result.one.status).toBe("resolved");
@@ -44,7 +47,7 @@ describe("Timeline reverse geocoding", () => {
     const reverse = vi.fn(async () => "Mumbai");
     const service = new TimelineReverseGeocodingService({
       run: async () => { throw new NetworkAccessDisabledError(); },
-    }, { provider: "openstreetmap_nominatim", reverse });
+    }, { provider: "geoapify", reverse });
     const result = await service.enrich([event("one")]);
     expect(result.one.status).toBe("network_disabled");
     expect(reverse).not.toHaveBeenCalled();
@@ -52,7 +55,7 @@ describe("Timeline reverse geocoding", () => {
 
   it("isolates provider errors and skips non-location lifecycle events", async () => {
     const reverse = vi.fn(async () => { throw new Error("service unavailable"); });
-    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "openstreetmap_nominatim", reverse });
+    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "geoapify", reverse });
     const result = await service.enrich([event("one"), event("two", "some_non_location_event")]);
     expect(result.one.status).toBe("unavailable");
     expect(result.two).toBeUndefined();
@@ -60,7 +63,7 @@ describe("Timeline reverse geocoding", () => {
 
   it("negative-caches no-result lookups", async () => {
     const reverse = vi.fn(async () => undefined);
-    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "openstreetmap_nominatim", reverse });
+    const service = new TimelineReverseGeocodingService({ run: operation => operation() }, { provider: "geoapify", reverse });
     const result = await service.enrich([event("one"), event("two", "shift_end")]);
     expect(result.one.status).toBe("not_found");
     expect(reverse).toHaveBeenCalledTimes(1);
@@ -69,33 +72,9 @@ describe("Timeline reverse geocoding", () => {
   it("does not start a queued request after its lookup has been cancelled", async () => {
     const controller = new AbortController();
     controller.abort();
-    const request = vi.fn(async () => new Response(JSON.stringify({ address: { city: "Mumbai" } }), { status: 200 })) as unknown as typeof fetch;
-    const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
+    const request = vi.fn(async () => new Response(JSON.stringify({ label: "Mumbai" }), { status: 200 })) as unknown as typeof fetch;
+    const adapter = new GeoapifyProxyReverseGeocoder("https://geocoder.example", request);
     await expect(adapter.reverse(19.076, 72.8777, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
     expect(request).not.toHaveBeenCalled();
-  });
-
-  it("serializes public-service requests at no more than one start per second", async () => {
-    const realNow = Date.now();
-    vi.useFakeTimers();
-    vi.setSystemTime(realNow + 10_000);
-    try {
-      const starts: number[] = [];
-      const request = vi.fn(async () => {
-        starts.push(Date.now());
-        return new Response(JSON.stringify({ address: { city: "Mumbai" } }), { status: 200 });
-      }) as unknown as typeof fetch;
-      const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
-      const first = adapter.reverse(19.076, 72.8777);
-      const second = adapter.reverse(19.077, 72.8778);
-      await Promise.resolve();
-      await Promise.resolve();
-      await vi.advanceTimersByTimeAsync(1000);
-      await Promise.all([first, second]);
-      expect(starts).toHaveLength(2);
-      expect(starts[1] - starts[0]).toBeGreaterThanOrEqual(1000);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
