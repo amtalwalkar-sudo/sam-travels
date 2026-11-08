@@ -42,37 +42,18 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .build()
     }
+    private val store by lazy { TimelineEnrichmentStore(db) }
 
     override fun doWork(): Result {
         try {
-            if (!internetAllowed()) return Result.success()
+            if (!store.internetAllowed()) return Result.success()
             val now = System.currentTimeMillis()
-            val allRows = db.records().list()
-            val dueRows = allRows.filter { row ->
-                if (!row.id.startsWith(PREFIX)) return@filter false
-                runCatching {
-                    val data = JSONObject(row.json).getJSONObject("data")
-                    val status = data.optString("status")
-                    status == "pending" || status == "network_disabled" ||
-                        (status == "retry_wait" && (data.optString("nextAttemptAt").isBlank() ||
-                            Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() <= now))
-                }.getOrDefault(false)
-            }
-            val hasMoreDue = dueRows.size > BATCH_LIMIT
-            val due = dueRows.take(BATCH_LIMIT)
+            val (due, hasMoreDue) = store.dueEnrichmentRows(now, BATCH_LIMIT)
 
             var retryableFailure = false
-            val hasDeferredRetry = allRows.any { row ->
-                if (!row.id.startsWith(PREFIX)) return@any false
-                runCatching {
-                    val data = JSONObject(row.json).getJSONObject("data")
-                    data.optString("status") == "retry_wait" &&
-                        data.optString("nextAttemptAt").isNotBlank() &&
-                        Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() > now
-                }.getOrDefault(false)
-            }
+            val hasDeferredRetry = store.hasDeferredRetry(now)
             for (row in due) {
-                if (!internetAllowed()) return Result.success()
+                if (!store.internetAllowed()) return Result.success()
                 try {
                     val envelope = JSONObject(row.json)
                     val data = envelope.getJSONObject("data")
@@ -85,7 +66,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     data.remove("lastFailure")
                     if (label.isNullOrBlank()) data.remove("label") else data.put("label", label)
                     envelope.put("revision", envelope.optInt("revision") + 1).put("updatedAt", lookedUpAt)
-                    db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, lookedUpAt))
+                    store.putRecord(StoredRecord(row.id, envelope.toString(), row.schemaVersion, lookedUpAt))
                     notifyEnrichmentChanged()
                 } catch (error: Exception) {
                     retryableFailure = true
@@ -98,7 +79,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                         .put("lastFailure", "provider_unavailable")
                         .put("nextAttemptAt", Instant.ofEpochMilli(System.currentTimeMillis() + delay).toString())
                     envelope.put("revision", envelope.optInt("revision") + 1).put("updatedAt", updatedAt)
-                    db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
+                    store.putRecord(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
                     notifyEnrichmentChanged()
                 }
             }
@@ -113,12 +94,6 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
     private fun notifyEnrichmentChanged() {
         applicationContext.sendBroadcast(Intent(TimelineEnrichmentPlugin.ACTION_CHANGED)
             .setPackage(applicationContext.packageName))
-    }
-
-    private fun internetAllowed(): Boolean {
-        val row = db.records().get("network-policy") ?: return false
-        return runCatching { JSONObject(row.json).optJSONObject("data")?.optBoolean("enabled", false) == true }
-            .getOrDefault(false)
     }
 
     private fun reverse(latitude: Double, longitude: Double): String? {
@@ -148,7 +123,6 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
     }
 
     companion object {
-        private const val PREFIX = "timeline-enrichment:"
         private const val BATCH_LIMIT = 5
         // Public proxy endpoint only; the Geoapify API key remains exclusively in Cloudflare.
         private const val PROXY_URL = "https://sam-travels.amtalwalkar.workers.dev"
