@@ -47,6 +47,32 @@ describe("Timeline read-only query", () => {
     });
   });
 
+  it("isolates optional evidence failures without losing the Timeline event read", async () => {
+    const events = [
+      sourceEvent("shift-start", "shift_start", "2026-11-08T03:00:00.000Z", 1),
+      sourceEvent("shift-end", "shift_end", "2026-11-08T04:00:00.000Z", 2),
+    ];
+    const service = new TimelineProjectionService(
+      { async listEvents() { return events; } },
+      {
+        async listPickupIntervals() { throw new Error("legacy source offline"); },
+        async listFinancialRecords() { return { status: "available" as const, records: [] }; },
+        async listOdometerReadings() { throw new Error("odometer source offline"); },
+      },
+    );
+    const result = await service.read("2026-11-08T04:01:00.000Z");
+    expect(result.events).toEqual(events);
+    expect(result.projection.logicalShifts[0].metrics.pickup_time).toMatchObject({
+      status: "unavailable", reason: "pickup_source_read_failed",
+    });
+    expect(result.projection.logicalShifts[0].metrics.total_fare).toMatchObject({
+      status: "available", value: 0,
+    });
+    expect(result.projection.logicalShifts[0].metrics.business_km).toMatchObject({
+      status: "unavailable", reason: "odometer_source_read_failed",
+    });
+  });
+
   it("keeps the existing projection-only query API", async () => {
     const service = new TimelineProjectionService({ async listEvents() { return []; } });
     const projection = await service.project("2026-11-08T04:01:00.000Z");
