@@ -47,7 +47,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
         try {
             if (!store.internetAllowed()) { store.markPendingAsNetworkDisabled(); notifyEnrichmentChanged(); return Result.success() }
             val now = System.currentTimeMillis()
-            val (due, hasMoreDue) = store.dueEnrichmentRows(now, BATCH_LIMIT)
+            val (due, _) = store.dueEnrichmentRows(now, BATCH_LIMIT)
 
             
             for (row in due) {
