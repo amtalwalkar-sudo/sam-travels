@@ -13,11 +13,11 @@ export type TimelineSourceSnapshot<T> =
   | { status:"available"; records:readonly T[] }
   | { status:"pending"; reason?:string }
   | { status:"unavailable"|"invalid"; reason:string };
-/** Finance-owned records; amounts are integer minor units (paise for INR). */
+/** Log Book/Trips-owned financial records; amounts are integer minor units. */
 export type TimelineFinancialRecord = { id:string; tripId:string; kind:"fare"|"cancellation_fee"|"toll"|"parking"; amountMinor:number; currency:string; occurredAt:string };
-/** Work-owned pickup interval evidence, from approach initiation to ride start or cancellation. */
+/** Read-only pickup interval evidence supplied by its authoritative source; Timeline owns neither pickup lifecycle nor source records. */
 export type TimelinePickupInterval = { id:string; startedAt:string; endedAt:string };
-/** Vehicle-owned odometer evidence. */
+/** Work/Shift-owned odometer evidence; Timeline only consumes the read-only values. */
 export type TimelineOdometerReading = { id:string; kind:"start"|"end"; readingKm:number; recordedAt:string };
 export type TimelineProjectionInput = {
   events:readonly DriverEvent[];
