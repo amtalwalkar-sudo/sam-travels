@@ -13,7 +13,11 @@ type Driver = Awaited<ReturnType<ReturnType<typeof getApplicationDriverRecordsSe
 type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];
 type Compliance = RecordEnvelope<ComplianceRecordV1>;
 type Maintenance = Awaited<ReturnType<ReturnType<typeof getApplicationMaintenanceService>["listVehicleRecords"]>>;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 const optional = (value: string) => value.trim() || undefined;
 
@@ -51,8 +55,17 @@ export function DriverSection() {
       const data: DriverRecordV1 = { schemaVersion:1, driverId, name:name.trim(), lifecycleState:status,
         ...(optional(licence) ? {licenceNumber:optional(licence)} : {}),
         ...(optional(expiry) ? {licenceExpiryDate:expiry} : {}),
-        ...(optional(mobile) ? {mobileNumber:optional(mobile)} : {}) };
-      if (editing) await getApplicationDriverRecordsService().update({driverId, expectedRevision:editing.revision, data});
+        ...(optional(mobile) ? {mobileNumber:optional(mobile)} : {}),
+        selectedForWork: status === "active" ? (editing?.data.selectedForWork ?? false) : false };
+      if (editing) {
+        if (status === "inactive") {
+          const history = await getApplicationDriverAssignmentService().getHistory(driverId);
+          if (history?.data.assignments.some(item => !item.unassignedAt)) {
+            await getApplicationDriverAssignmentService().unassign({ driverId, expectedRevision: history.revision, unassignedAt: new Date().toISOString() });
+          }
+        }
+        await getApplicationDriverRecordsService().update({driverId, expectedRevision:editing.revision, data});
+      }
       else await getApplicationDriverRecordsService().create(data, getApplicationRecordSource());
       setFormOpen(false); setMessage(editing ? "Driver updated." : "Driver created."); await refresh();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Driver could not be saved."); }
@@ -70,6 +83,23 @@ export function DriverSection() {
       setMessage("Vehicle assignment saved. Previous active assignment, if any, was closed in history.");
       await refresh();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Assignment failed."); }
+    finally { setBusy(false); }
+  }
+  async function selectForWork(driver: Driver) {
+    if (driver.data.lifecycleState !== "active") return;
+    setBusy(true); setMessage("");
+    try {
+      const service = getApplicationDriverRecordsService();
+      const all = await service.list();
+      for (const current of all) {
+        const selectedForWork = current.data.driverId === driver.data.driverId;
+        if (Boolean(current.data.selectedForWork) !== selectedForWork) {
+          await service.update({ driverId: current.data.driverId, expectedRevision: current.revision, data: { ...current.data, selectedForWork } });
+        }
+      }
+      setMessage(driver.data.selectedForWork ? "Driver selection cleared." : driver.data.name + " selected for Work.");
+      await refresh();
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Work driver selection failed."); }
     finally { setBusy(false); }
   }
   async function unassign(driver: Driver) {
@@ -105,7 +135,8 @@ export function DriverSection() {
         <div style={{flex:1}}>
           <strong>{driver.data.name}</strong>
           <small>{driver.data.mobileNumber ?? "No mobile"} · Licence {driver.data.licenceNumber ?? "not recorded"}{driver.data.licenceExpiryDate ? " · Expires "+driver.data.licenceExpiryDate : ""}</small>
-          <small>{activeVehicle ? "Assigned: "+activeVehicle.data.registrationNumber : "No active vehicle assignment"} · {driver.data.lifecycleState}</small>
+          <small>{activeVehicle ? "Assigned: "+activeVehicle.data.registrationNumber : "No active vehicle assignment"} · {driver.data.lifecycleState}{driver.data.selectedForWork ? " · Selected for Work" : ""}</small>
+          {driver.data.lifecycleState === "active" && <button className="admin-secondary" type="button" disabled={busy} onClick={()=>void selectForWork(driver)}>{driver.data.selectedForWork ? "Clear Work selection" : "Select for Work"}</button>}
           {driver.data.lifecycleState==="active" && <div className="loan-form-actions">
             <select aria-label={"Vehicle for "+driver.data.name} value={assignVehicle[driver.data.driverId] ?? ""} onChange={e=>setAssignVehicle(p=>({...p,[driver.data.driverId]:e.target.value}))}>
               <option value="">Select active vehicle</option>{vehicles.filter(v=>v.data.lifecycleState==="active").map(v=><option key={v.id} value={v.id}>{v.data.registrationNumber} · {v.data.make} {v.data.model}</option>)}
@@ -193,6 +224,7 @@ export function MaintenanceSection(){
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [vehicleId,setVehicleId]=useState("");
   const [records,setRecords]=useState<Maintenance|null>(null);
+  const [reminders,setReminders]=useState<Awaited<ReturnType<ReturnType<typeof getApplicationMaintenanceService>["getServiceReminderStates"]>>>([]);
   const [mode,setMode]=useState<"visit"|"expense">("visit");
   const [date,setDate]=useState(today());
   const [title,setTitle]=useState("");
@@ -211,11 +243,21 @@ export function MaintenanceSection(){
       const v=await getApplicationVehicleService().list();setVehicles(v);
       const chosen=id||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"";
       setVehicleId(chosen);
-      if(chosen)setRecords(await getApplicationMaintenanceService().listVehicleRecords(chosen));else setRecords(null);
+      if(chosen){
+        const service = getApplicationMaintenanceService();
+        const [history, states] = await Promise.all([service.listVehicleRecords(chosen), service.getServiceReminderStates(chosen, today())]);
+        setRecords(history); setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
+      } else { setRecords(null); setReminders([]); }
     }catch(e){setMessage(e instanceof Error?e.message:"Could not load maintenance records.");}
   },[]);
   useEffect(()=>{void refresh("");},[refresh]);
-  async function changeVehicle(id:string){setVehicleId(id);setRecords(id?await getApplicationMaintenanceService().listVehicleRecords(id):null);}
+  async function changeVehicle(id:string){
+    setVehicleId(id);
+    if(!id){setRecords(null);setReminders([]);return;}
+    const service=getApplicationMaintenanceService();
+    const [history,states]=await Promise.all([service.listVehicleRecords(id),service.getServiceReminderStates(id,today())]);
+    setRecords(history);setReminders(states.filter(item=>item.dateDue||item.kilometreStatus==="due"||item.kilometreStatus==="odometer_unavailable"));
+  }
   async function save(e:FormEvent){
     e.preventDefault();if(!vehicleId)return;setBusy(true);setMessage("");
     try{
@@ -237,7 +279,9 @@ export function MaintenanceSection(){
         }});
       }
       setTitle("");setDescription("");setProvider("");setOdometer("");setNextDate("");setNextKm("");setAmount("");setItems([newItem()]);
-      setMessage(mode==="visit"?"Service visit saved.":"Maintenance expense saved.");setRecords(await service.listVehicleRecords(vehicleId));
+      setMessage(mode==="visit"?"Service visit saved.":"Maintenance expense saved.");
+      const [history,states]=await Promise.all([service.listVehicleRecords(vehicleId),service.getServiceReminderStates(vehicleId,today())]);
+      setRecords(history);setReminders(states.filter(item=>item.dateDue||item.kilometreStatus==="due"||item.kilometreStatus==="odometer_unavailable"));
     }catch(e){setMessage(e instanceof Error?e.message:"Maintenance record could not be saved.");}
     finally{setBusy(false);}
   }
@@ -250,7 +294,6 @@ export function MaintenanceSection(){
     }catch(e){setMessage(e instanceof Error?e.message:"Rate could not be saved.");}
     finally{setBusy(false);}
   }
-  const reminders=useMemo(()=>records?.visits.filter(v=>(v.data.nextServiceDate&&v.data.nextServiceDate<=today())||(v.data.nextServiceKm!==undefined&&records.visits.some(x=>x.data.odometerKm!==undefined)&&Math.max(...records.visits.filter(x=>x.data.odometerKm!==undefined).map(x=>x.data.odometerKm!))>=v.data.nextServiceKm))??[],[records]);
   const total=(records?.visits.reduce((s,x)=>s+x.data.totalPaise,0)??0)+(records?.expenses.reduce((s,x)=>s+x.data.amountPaise,0)??0);
   return <div className="admin-capability-panel">
     <p className="admin-hint">Record actual service visits and itemised costs, general expenses, odometer readings and next-service reminders. Historical dates are accepted by the Maintenance service.</p>
@@ -278,7 +321,7 @@ export function MaintenanceSection(){
         <div className="loan-form-actions"><button className="admin-primary" disabled={busy}>{busy?"Saving…":"Save maintenance record"}</button></div>
       </form>
       <form className="admin-capability-form" onSubmit={saveRate}><strong>Per-kilometre rate</strong><p className="admin-hint">Current rate history: {records?.rateHistory.map(x=>money(x.ratePaisePerKm)+"/km from "+x.effectiveFrom).join(" · ")}</p><label>New rate (₹ per km)<input required type="number" min="0" step="0.01" value={rate} onChange={e=>setRate(e.target.value)} /></label><button className="admin-secondary" disabled={busy}>Save rate</button></form>
-      {reminders.length>0&&<div className="admin-capability-form"><strong>Service reminders</strong>{reminders.map(v=><small key={v.id}>{v.data.maintenanceType} · {v.data.nextServiceDate&&v.data.nextServiceDate<=today()?"Date due "+v.data.nextServiceDate:""}{v.data.nextServiceKm!==undefined?" · Next service at "+v.data.nextServiceKm+" km":""}</small>)}</div>}
+      {reminders.length>0&&<div className="admin-capability-form"><strong>Service reminders</strong>{reminders.map(item=><small key={item.visit.id}>{item.visit.data.maintenanceType} · {item.dateDue ? "Date due "+(item.visit.data.nextServiceDate ?? "") : ""}{item.kilometreStatus==="due" ? " · Kilometre threshold reached ("+(item.latestOdometerKm ?? "unknown")+" km)" : item.kilometreStatus==="odometer_unavailable" ? " · Odometer reading unavailable" : ""}</small>)}</div>}
       <details className="loan-schedule"><summary>Maintenance history ({(records?.visits.length??0)+(records?.expenses.length??0)} records)</summary>
         {records?.visits.map(v=><article className="admin-capability-record" key={v.id}><div><strong>{v.data.maintenanceType} · {money(v.data.totalPaise)}</strong><small>{v.data.maintenanceDate} · {v.data.provider??"No provider"} · {v.data.odometerKm??"No odometer"} km</small><small>{v.data.items.map(i=>i.description+" "+money(i.amountPaise)).join(" · ")}</small></div></article>)}
         {records?.expenses.map(v=><article className="admin-capability-record" key={v.id}><div><strong>{v.data.expenseName} · {money(v.data.amountPaise)}</strong><small>{v.data.expenseDate} · {v.data.description}</small></div></article>)}

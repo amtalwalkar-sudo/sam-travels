@@ -32,6 +32,17 @@ export function assertDriverCommandContract(value: unknown): asserts value is Dr
      typeof command.expectedPriorState !== "string" || !DRIVER_STATES.includes(command.expectedPriorState as DriverWorkflowState) ||
      !Number.isSafeInteger(command.expectedRevision) || (command.expectedRevision as number) < 0 ||
      !validInstant(command.transitionAt)) throw new Error("invalid_command");
+ const context = command.driverContext;
+ if (context !== undefined) {
+  if (!context || typeof context !== "object" || Array.isArray(context)) throw new Error("invalid_driver_context");
+  const row = context as Record<string, unknown>;
+  if (typeof row.driverId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
+      typeof row.driverName !== "string" || !row.driverName.trim() ||
+      (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:")))) {
+   throw new Error("invalid_driver_context");
+  }
+  if (command.eventType === "trip_start" && typeof row.vehicleId !== "string") throw new Error("trip_start_vehicle_context_required");
+ }
 }
 export function assertDriverStateContract(value: unknown): asserts value is DriverStateProjection {
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_state");

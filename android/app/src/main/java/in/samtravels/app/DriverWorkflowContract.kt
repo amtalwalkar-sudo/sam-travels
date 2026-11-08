@@ -27,6 +27,17 @@ internal object DriverWorkflowContract {
         require(priorState != null && priorState in states) { "invalid_prior_state" }
         require(integer(command, "expectedRevision") >= 0L) { "invalid_revision" }
         parseInstant(command.optString("transitionAt"), "invalid_transition_timestamp")
+        if (command.has("driverContext")) {
+            val driver = command.optJSONObject("driverContext") ?: error("invalid_driver_context")
+            require(driver.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+                driver.optString("driverName").isNotBlank() &&
+                (!driver.has("vehicleId") || driver.optString("vehicleId").startsWith("feature:vehicle:"))) {
+                "invalid_driver_context"
+            }
+            if (eventType == "trip_start") require(driver.optString("vehicleId").startsWith("feature:vehicle:")) {
+                "trip_start_vehicle_context_required"
+            }
+        }
     }
 
     fun validateIntent(intent: JSONObject) {

@@ -179,6 +179,25 @@ class DriverOverlayService:Service(){
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
+ private fun selectedWorkContext(requireVehicle:Boolean):JSONObject {
+  val selected=db.records().list().mapNotNull { row ->
+   if (!row.id.startsWith("feature:driver-records:driver:")) null else runCatching {
+    val envelope=JSONObject(row.json); val data=envelope.optJSONObject("data") ?: error("driver_record_invalid")
+    if (data.optBoolean("selectedForWork") && data.optString("lifecycleState")=="active") data else null
+   }.getOrThrow()
+  }
+  require(selected.size==1) { if(selected.isEmpty()) "Select one active Driver in Admin before using Work." else "More than one Driver is selected for Work. Clear the extra selection in Admin." }
+  val driver=selected.single(); val driverId=driver.optString("driverId")
+  val assignmentRow=db.records().get("feature:driver-records:assignment:"+driverId)
+  val assignment=assignmentRow?.let { JSONObject(it.json).optJSONObject("data")?.optJSONArray("assignments") }
+  var activeVehicle:String?=null
+  if(assignment!=null) for(index in 0 until assignment.length()) {
+   val item=assignment.optJSONObject(index) ?: continue
+   if(!item.has("unassignedAt") || item.isNull("unassignedAt")) activeVehicle=item.optString("vehicleId")
+  }
+  if(requireVehicle) require(!activeVehicle.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
+  return JSONObject().put("driverId",driverId).put("driverName",driver.optString("name")).apply { if(!activeVehicle.isNullOrBlank()) put("vehicleId",activeVehicle) }
+ }
  private fun runTransition(event:String){
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
   status?.text="Saving action · GPS pending"
@@ -191,6 +210,7 @@ class DriverOverlayService:Service(){
    val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event)
     .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
     .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
+   if(event=="shift_start" || event=="trip_start") command.put("driverContext",selectedWorkContext(event=="trip_start"))
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
   }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
