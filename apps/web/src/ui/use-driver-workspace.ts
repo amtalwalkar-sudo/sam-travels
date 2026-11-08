@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Capacitor } from "@capacitor/core";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
@@ -14,7 +13,7 @@ import { WorkDriverSelectionService } from "../../../../packages/application/src
 import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
-import { listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
+import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
 export function useDriverWorkspace() {
@@ -199,7 +198,7 @@ export function useDriverWorkspace() {
       setEnabled(next);
       setError("");
       if (next && enrichmentQueue) {
-        if (Capacitor.isNativePlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
+        if (isNativeTimelineEnrichmentPlatform()) void scheduleNativeTimelineEnrichment().catch(() => undefined);
         else if (navigator.onLine) void enrichmentQueue.drainDueRetries(5).then(() => window.dispatchEvent(new Event("timeline-enrichment-updated"))).catch(() => undefined);
       }
     } catch (cause) {
