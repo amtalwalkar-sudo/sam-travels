@@ -113,12 +113,12 @@ export class BrowserEventLocationProvider implements EventLocationProvider {
       const finish = (error?: Error, fix?: GpsFix) => {
         if (finished) return;
         finished = true;
-        window.clearTimeout(deadline);
+        globalThis.clearTimeout(deadline);
         if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
         if (fix) resolve(fix);
         else reject(error ?? new Error("location_unavailable"));
       };
-      const deadline = window.setTimeout(
+      const deadline = globalThis.setTimeout(
         () => finish(new Error("location_timeout")),
         remainingMs,
       );
