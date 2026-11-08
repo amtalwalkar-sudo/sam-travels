@@ -58,31 +58,60 @@ class DriverWorkflowPlugin:Plugin(){
  }
  @PluginMethod fun listPending(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listPending(db).forEach{arr.put(it)};val out=JSObject();out.put("intents",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending intent read failed",e)}}}
  @PluginMethod fun captureLocation(call:PluginCall){
+  val transitionAt=call.getString("transitionAt")
+  if(transitionAt.isNullOrBlank()){call.reject("Original transition timestamp required","INVALID_TRANSITION_TIME");return}
   if(!hasLocationPermission()){requestPermissionForAlias("location",call,"locationPermissionCallback");return}
-  requestOneFix(call)
+  requestReliableFix(call,transitionAt)
  }
- @PermissionCallback private fun locationPermissionCallback(call:PluginCall){if(hasLocationPermission())requestOneFix(call)else call.reject("Location permission denied; intent remains pending","PERMISSION_DENIED")}
- private fun requestOneFix(call:PluginCall){
+ @PermissionCallback private fun locationPermissionCallback(call:PluginCall){
+  val transitionAt=call.getString("transitionAt")
+  if(!hasLocationPermission())call.reject("Location permission denied; intent remains pending","PERMISSION_DENIED")
+  else if(transitionAt.isNullOrBlank())call.reject("Original transition timestamp missing","INVALID_TRANSITION_TIME")
+  else requestReliableFix(call,transitionAt)
+ }
+ private fun requestReliableFix(call:PluginCall,transitionAtValue:String){
   try{
+   val transitionMs=java.time.Instant.parse(transitionAtValue).toEpochMilli()
+   val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
+   if(remainingMs<=0L){call.reject("Original GPS evidence window expired; intent remains pending","GPS_WINDOW_EXPIRED");return}
    val manager=context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
    val criteria=Criteria().apply{accuracy=Criteria.ACCURACY_FINE;powerRequirement=Criteria.POWER_LOW}
    val provider=manager.getBestProvider(criteria,true)?:run{call.reject("No enabled location provider","LOCATION_UNAVAILABLE");return}
    val wakeLock=(context.getSystemService(Context.POWER_SERVICE) as PowerManager)
-    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(40_000L)}
+    .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SamTravels:PwaEventGps").apply{setReferenceCounted(false);acquire(remainingMs.coerceAtMost(30_000L))}
    fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
    var finished=false
    lateinit var listener:LocationListener
-   val timeout=Runnable{if(!finished){finished=true;try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();call.reject("Location request timed out; intent remains pending","LOCATION_TIMEOUT")}}
+   fun finish(error:String?=null,location:Location?=null){
+    if(finished)return
+    finished=true
+    main.removeCallbacks(timeout)
+    try{manager.removeUpdates(listener)}catch(_:Exception){}
+    releaseWakeLock()
+    if(location!=null){
+     val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude)
+     out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString())
+     out.put("provider",location.provider?:"android");call.resolve(out)
+    }else call.reject(error?:"Location request timed out; intent remains pending",if(error=="gps_recovery_window_expired")"GPS_WINDOW_EXPIRED" else "LOCATION_TIMEOUT")
+   }
+   val timeout=Runnable{finish("Location request timed out; intent remains pending")}
    listener=LocationListener{location:Location->
-    if(!finished){finished=true;main.removeCallbacks(timeout);try{manager.removeUpdates(listener)}catch(_:Exception){};releaseWakeLock();val out=JSObject();out.put("latitude",location.latitude);out.put("longitude",location.longitude);out.put("horizontalAccuracyM",location.accuracy.toDouble());out.put("fixAt",java.time.Instant.ofEpochMilli(location.time).toString());out.put("provider",location.provider?:"android");call.resolve(out)}
+    if(!finished){
+     val age= kotlin.math.abs(location.time-transitionMs)
+     val fresh=age<=DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS&&location.time<=System.currentTimeMillis()+5_000L
+     val valid=location.latitude.isFinite()&&location.longitude.isFinite()&&location.latitude in -90.0..90.0&&
+      location.longitude in -180.0..180.0&&location.accuracy.isFinite()&&location.accuracy in 0f..50f&&fresh
+     if(valid)finish(location=location)
+    }
    }
    try{
-    manager.requestSingleUpdate(provider,listener,Looper.getMainLooper())
-    main.postDelayed(timeout,35_000L)
+    manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())
+    main.postDelayed(timeout,remainingMs)
    }catch(error:Exception){
     finished=true;releaseWakeLock();throw error
    }
-  }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
+  }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}
+   catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
  }
  @PluginMethod fun completeIntent(call:PluginCall){
   val eventId=call.getString("eventId");val gps=call.getObject("gps")
