@@ -8,6 +8,11 @@ import {
 } from "../../domain/src/timeline";
 import type { DriverEvent } from "../../domain/src/driver-workflow";
 
+export type TimelineReadModel = Readonly<{
+  events: DriverEvent[];
+  projection: TimelineProjection;
+}>;
+
 /** Public application read port; platform adapters must return the owning event log. */
 export interface TimelineEventSource {
   listEvents(): Promise<DriverEvent[]>;
@@ -30,13 +35,20 @@ export class TimelineProjectionService {
     private readonly evidence?: TimelineEvidenceSource,
   ) {}
 
-  async project(asOf?: string): Promise<TimelineProjection> {
+  async read(asOf?: string): Promise<TimelineReadModel> {
     const [events, pickupIntervals, financial, odometer] = await Promise.all([
       this.events.listEvents(),
       this.evidence?.listPickupIntervals?.(),
       this.evidence?.listFinancialRecords?.(),
       this.evidence?.listOdometerReadings?.(),
     ]);
-    return buildTimelineProjection({ events, asOf, pickupIntervals, financial, odometer });
+    return {
+      events,
+      projection: buildTimelineProjection({ events, asOf, pickupIntervals, financial, odometer }),
+    };
+  }
+
+  async project(asOf?: string): Promise<TimelineProjection> {
+    return (await this.read(asOf)).projection;
   }
 }
