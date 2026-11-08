@@ -61,6 +61,7 @@ export default {
     } catch {
       return response({ error: "invalid_json" }, 400, origin, true);
     }
+    if (!input || typeof input !== "object") return response({ error: "invalid_coordinates" }, 400, origin, true);
     const latitude = input.latitude;
     const longitude = input.longitude;
     if (typeof latitude !== "number" || !Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
@@ -76,7 +77,7 @@ export default {
     const upstream = new URL("https://api.geoapify.com/v1/geocode/reverse");
     upstream.searchParams.set("lat", String(latitude));
     upstream.searchParams.set("lon", String(longitude));
-    upstream.searchParams.set("format", "json");
+    upstream.searchParams.set("format", "geojson");
     upstream.searchParams.set("lang", "en");
     upstream.searchParams.set("limit", "1");
     upstream.searchParams.set("apiKey", env.GEOAPIFY_API_KEY);
