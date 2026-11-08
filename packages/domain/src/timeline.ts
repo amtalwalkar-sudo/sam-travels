@@ -27,7 +27,7 @@ export type TimelineProjectionInput = {
   odometer?:TimelineSourceSnapshot<TimelineOdometerReading>;
 };
 export type TimelineIntegrityIssue = {
-  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval"|"invalid_pickup_interval"|"missing_shift_boundary"|"overlapping_activity_intervals";
+  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval"|"invalid_pickup_interval"|"overlapping_activity_intervals";
   eventId?:string;
   logicalShiftId?:string;
 };
@@ -38,7 +38,7 @@ type TripSpan = { id:string; endedAt:number; status:"completed"|"cancelled"; own
 type ShiftBuilder = {
   id:string; anchorDate:string; eventIds:Set<string>; shiftDurationMs:number; passengerTripMs:number; pickupMs:number;
   completedRideCount:number; cancelledAttemptCount:number; pendingShift:boolean; pendingTrip:boolean; pendingPickup:boolean;
-  invalidShift:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
+  invalidShift:boolean; missingShiftBoundary:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
 };
 const UNIT:Record<TimelineMetricId,TimelineMetricUnit> = {
   shift_duration:"minutes",pickup_time:"minutes",passenger_trip_time:"minutes",idle_time:"minutes",
@@ -68,7 +68,7 @@ function parseTime(value:string|undefined):number|undefined {
   if(typeof value!=="string")return undefined; const n=Date.parse(value); return Number.isFinite(n)?n:undefined;
 }
 function createShift(id:string):ShiftBuilder {
-  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,pendingPickup:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
+  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,pendingPickup:false,invalidShift:false,missingShiftBoundary:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
 }
 type BusyInterval={start:number;end:number;kind:"pickup"|"passenger"};
 function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"|"pickupMs",busy?:Map<string,BusyInterval[]>):void {
@@ -163,10 +163,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
       const kind=unique.get(eventId)?.command.eventType;
       return kind==="shift_start"||kind==="shift_end";
     });
-    if(!hasBoundaryEvent) {
-      shift.invalidShift=true;
-      issues.push({code:"missing_shift_boundary",logicalShiftId:shift.id});
-    }
+    if(!hasBoundaryEvent) shift.missingShiftBoundary=true;
   }
 
   const busyIntervals=new Map<string,BusyInterval[]>();
@@ -300,7 +297,8 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
       else businessKm=available(pair.end[0].readingKm-pair.start[0].readingKm,"km");
     }
     const duration:TimelineMetric=s.invalidShift?{status:"invalid",unit:"minutes",reason:"shift_event_sequence_invalid"}:
-      s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:available(minutes(s.shiftDurationMs),"minutes");
+      s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:
+      s.missingShiftBoundary?unavailable("minutes","shift_boundaries_not_recorded"):available(minutes(s.shiftDurationMs),"minutes");
     const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
     const pickupMetric:TimelineMetric=v2PickupShiftIds.has(s.id)
