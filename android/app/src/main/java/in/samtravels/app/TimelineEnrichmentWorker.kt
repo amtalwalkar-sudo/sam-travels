@@ -56,6 +56,15 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
             }.take(BATCH_LIMIT)
 
             var retryableFailure = false
+            val hasDeferredRetry = db.records().list().any { row ->
+                if (!row.id.startsWith(PREFIX)) return@any false
+                runCatching {
+                    val data = JSONObject(row.json).getJSONObject("data")
+                    data.optString("status") == "retry_wait" &&
+                        data.optString("nextAttemptAt").isNotBlank() &&
+                        Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() > now
+                }.getOrDefault(false)
+            }
             for (row in due) {
                 if (!internetAllowed()) return Result.success()
                 try {
@@ -84,7 +93,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, updatedAt))
                 }
             }
-            return if (retryableFailure) Result.retry() else Result.success()
+            return if (retryableFailure || hasDeferredRetry) Result.retry() else Result.success()
         } catch (_: Exception) {
             return Result.retry()
         } finally {
