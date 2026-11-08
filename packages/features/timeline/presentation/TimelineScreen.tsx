@@ -324,7 +324,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to, locationLookupEnabled)} disabled={loading}>Refresh</button>
     </div>
     <div className="timeline-location-consent">
-      <p>Optional location names send only GPS coordinates from events in this selected date range to OpenStreetMap when Internet Access is on. Your saved GPS records are not changed.</p>
+      <p>Optional location names send only GPS coordinates from events in this selected date range to Geoapify through the Sam Travels secure proxy when Internet Access is on. The API key stays on the server; your saved GPS records are not changed.</p>
       <button type="button" aria-pressed={locationLookupEnabled}
         onClick={() => setLocationLookupEnabled(enabled => !enabled)}>
         {locationLookupEnabled ? "Turn off location names" : "Allow location names"}
@@ -358,7 +358,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       <h3>{dateLabel(day.date)}</h3>
       {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
     </section>)}
-    <p className="timeline-attribution">Location names: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
+    <p className="timeline-attribution">Location names powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
 }
