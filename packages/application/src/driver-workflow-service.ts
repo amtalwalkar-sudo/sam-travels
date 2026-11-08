@@ -142,7 +142,11 @@ export class DriverWorkflowService {
         await this.publishById(eventId);
       } catch (cause) {
         const reason = cause instanceof Error ? cause.message : "location_unavailable";
-        await this.repository.markNeedsAttention(eventId, reason);
+        try {
+          await this.repository.markNeedsAttention(eventId, reason);
+        } catch {
+          // The original durable intent remains available for startup recovery.
+        }
       } finally {
         this.backgroundTasks.delete(eventId);
         this.notifyStatus();
