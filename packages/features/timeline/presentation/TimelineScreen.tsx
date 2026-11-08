@@ -9,7 +9,7 @@ type Mode = "today" | "week" | "date";
 const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric",
 });
-const timeFormatter = new Intl.DateTimeFormat("en-IN", {
+const eventTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true,
 });
 
@@ -139,7 +139,7 @@ function ShiftEvents({ events, shift, allEvents }: {
         const boundary = kind === "shift_start" || kind === "shift_end";
         const ride = kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end";
         return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "")} key={event.eventId}>
-          <div className="timeline-event-time">{timeFormatter.format(new Date(event.command.transitionAt))}</div>
+          <div className="timeline-event-time">{eventTimeFormatter.format(new Date(event.command.transitionAt))}</div>
           <div className="timeline-event-content">
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
@@ -152,7 +152,7 @@ function ShiftEvents({ events, shift, allEvents }: {
     {ended && shift && <ShiftSummary shift={shift} />}
   </section>;
 }
-function timeFormatterLabel(value: string): string {
+function dateLabel(value: string): string {
   return dateFormatter.format(new Date(value + "T12:00:00+05:30"));
 }
 
@@ -224,7 +224,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       <button type="button" onClick={previous} aria-label="Previous period">‹</button>
       {mode === "date"
         ? <label><span>Select date</span><input type="date" value={anchorDate} onChange={event => setAnchorDate(event.target.value)} /></label>
-        : <strong>{timeFormatterLabel(range.from)} – {timeFormatterLabel(range.to)}</strong>}
+        : <strong>{dateLabel(range.from)} – {dateLabel(range.to)}</strong>}
       <button type="button" onClick={next} aria-label="Next period">›</button>
     </div>}
     {mode === "today" && <p className="timeline-date-label">{timeFormatterLabel(range.from)}</p>}
@@ -237,7 +237,4 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     </section>)}
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
-}
-function timeFormatter(value: string): string {
-  return timeFormatterLabel(value);
 }
