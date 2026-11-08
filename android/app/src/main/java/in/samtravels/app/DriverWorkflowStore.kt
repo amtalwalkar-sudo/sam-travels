@@ -5,6 +5,39 @@ import java.time.Instant
 
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
+
+    /** Read selected Driver and current vehicle context within the Work persistence gateway. */
+    fun selectedWorkContext(db: LocalDatabase, requireVehicle: Boolean): JSONObject {
+        val selected = db.records().list().mapNotNull { row ->
+            if (!row.id.startsWith("feature:driver-records:driver:")) null else {
+                val data = JSONObject(row.json).optJSONObject("data") ?: error("driver_record_invalid")
+                if (data.optBoolean("selectedForWork") && data.optString("lifecycleState") == "active") data else null
+            }
+        }
+        require(selected.size == 1) {
+            if (selected.isEmpty()) "Select one active Driver in Admin before using Work."
+            else "More than one Driver is selected for Work. Clear the extra selection in Admin."
+        }
+        val driver = selected.single()
+        val driverId = driver.optString("driverId")
+        val assignmentRow = db.records().get("feature:driver-records:assignment:" + driverId)
+        val assignments = assignmentRow?.let { JSONObject(it.json).optJSONObject("data")?.optJSONArray("assignments") }
+        var vehicleId: String? = null
+        if (assignments != null) for (index in 0 until assignments.length()) {
+            val item = assignments.optJSONObject(index) ?: continue
+            if (!item.has("unassignedAt") || item.isNull("unassignedAt")) vehicleId = item.optString("vehicleId")
+        }
+        if (requireVehicle) {
+            require(!vehicleId.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
+            val vehicleData = db.records().get(vehicleId!!)?.let { JSONObject(it.json).optJSONObject("data") }
+            require(vehicleData?.optString("lifecycleState") == "active") {
+                "The selected Driver's assigned vehicle is not active. Update the assignment in Admin."
+            }
+        }
+        return JSONObject().put("driverId", driverId).put("driverName", driver.optString("name")).apply {
+            if (!vehicleId.isNullOrBlank()) put("vehicleId", vehicleId)
+        }
+    }
     fun snapshot(db: LocalDatabase): JSONObject {
         val state = db.records().get("driver-state")
             ?.let { JSONObject(it.json).optJSONObject("value") }
