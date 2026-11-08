@@ -47,6 +47,7 @@ export type FinanceLoanRecordV1 = Readonly<{
   details: FinanceLoanDetailsV1;
   currentScheduleVersion: number;
   scheduleVersions: readonly FinanceLoanScheduleVersionV1[];
+  lifecycleState?: "active" | "closed";
 }>;
 export type FinanceLoanRecordValidator = (value: unknown) => asserts value is FinanceLoanRecordV1;
 export type FinanceLoanScheduleBuilder = (
@@ -148,6 +149,7 @@ export class FinanceLoanService {
     assertRecordId(input.id);
     const current = await this.records.get(input.id);
     if (!current) throw new Error("finance_loan_not_found");
+    if (current.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
     if (current.data.details.vehicleId !== input.details.vehicleId) {
       throw new Error("finance_loan_vehicle_identity_immutable");
     }
