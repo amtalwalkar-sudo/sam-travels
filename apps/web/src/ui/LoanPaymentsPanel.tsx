@@ -30,6 +30,11 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const [prepayments, setPrepayments] = useState<readonly FinanceLoanPrepaymentRevisionV1[]>([]);
   const [open, setOpen] = useState(false);
   const [prepaymentOpen, setPrepaymentOpen] = useState(false);
+  const [settlementOpen, setSettlementOpen] = useState(false);
+  const [settlementDate, setSettlementDate] = useState(indiaDate());
+  const [settlementMethod, setSettlementMethod] = useState<FinancePaymentMethodV1>("bank_transfer");
+  const [settlementReference, setSettlementReference] = useState("");
+  const [settlementPreview, setSettlementPreview] = useState<{ amountPaise: number; scheduleVersion: number; paidThroughInstallment: number } | null>(null);
   const [date, setDate] = useState(indiaDate());
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<FinancePaymentMethodV1>("bank_transfer");
@@ -108,6 +113,30 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     } catch (error) { setMessage(error instanceof Error ? error.message : "Payment reversal failed."); }
     finally { setBusy(false); }
   }
+  async function previewSettlement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setMessage(""); setSettlementPreview(null);
+    try {
+      const preview = await getApplicationFinanceLoanPaymentService().previewSettlement({ loanId: loan.id, businessDate: settlementDate });
+      setSettlementPreview(preview);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Settlement preview failed."); }
+    finally { setBusy(false); }
+  }
+  async function confirmSettlement() {
+    if (!settlementPreview) return;
+    if (!window.confirm("Settle and permanently close this Loan for " + money(settlementPreview.amountPaise) + "? This cannot be undone.")) return;
+    setBusy(true); setMessage("");
+    try {
+      await getApplicationFinanceLoanPaymentService().settle({
+        id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, businessDate: settlementDate,
+        method: settlementMethod, ...(settlementReference.trim() ? { reference: settlementReference.trim() } : {}),
+        source: getApplicationRecordSource(),
+      });
+      setSettlementPreview(null); setSettlementOpen(false);
+      setMessage("Final settlement recorded and Loan closed.");
+      await refresh(); await onChanged?.();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Settlement could not be committed."); }
+    finally { setBusy(false); }
+  }
   async function previewPrepayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const amountPaise = Math.round(Number(prepaymentAmount) * 100);
@@ -147,14 +176,32 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     <div className="loan-payment-head">
       <strong>Payment history ({paidEntries.length} active)</strong>
       <div className="loan-form-actions">
-        <button className="admin-secondary" type="button" disabled={busy} onClick={() => { setPrepaymentOpen(value => !value); setOpen(false); setMessage(""); }}>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { setSettlementOpen(value => !value); setPrepaymentOpen(false); setOpen(false); setMessage(""); setSettlementPreview(null); }}>
+          {settlementOpen ? "Cancel settlement" : "Settle & close"}
+        </button>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { setPrepaymentOpen(value => !value); setOpen(false); setSettlementOpen(false); setMessage(""); }}>
           {prepaymentOpen ? "Cancel prepayment" : "Prepay principal"}
         </button>
-        <button className="admin-secondary" type="button" disabled={busy} onClick={() => { setOpen(value => !value); setPrepaymentOpen(false); setMessage(""); }}>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { setOpen(value => !value); setPrepaymentOpen(false); setSettlementOpen(false); setMessage(""); }}>
           {open ? "Cancel payment" : "Record payment"}
         </button>
       </div>
     </div>
+    {loan.data.lifecycleState === "closed" && <p className="admin-message" role="status">Loan closed. Payment and prepayment actions are disabled; history remains available.</p>}
+    {settlementOpen && <form className="loan-form" onSubmit={previewSettlement}>
+      <strong>Final settlement</strong>
+      <div className="loan-form-grid">
+        <label>Settlement date<input required type="date" value={settlementDate} onChange={event => { setSettlementDate(event.target.value); setSettlementPreview(null); }} /></label>
+        <label>Payment method<select value={settlementMethod} onChange={event => setSettlementMethod(event.target.value as FinancePaymentMethodV1)}>{METHODS.map(value => <option key={value} value={value}>{value.replace("_"," ")}</option>)}</select></label>
+        <label>Reference (optional)<input value={settlementReference} onChange={event => setSettlementReference(event.target.value)} /></label>
+      </div>
+      <button className="admin-secondary" type="submit" disabled={busy}>{busy ? "Checking…" : "Check settlement amount"}</button>
+      {settlementPreview && <div className="loan-payment-allocation">
+        <strong>Settlement amount: {money(settlementPreview.amountPaise)}</strong>
+        <small>Schedule version {settlementPreview.scheduleVersion} · all EMIs paid through installment #{settlementPreview.paidThroughInstallment}</small>
+        <div className="loan-form-actions"><button className="admin-primary" type="button" disabled={busy} onClick={() => void confirmSettlement()}>Confirm settlement and close Loan</button></div>
+      </div>}
+    </form>}
     {prepaymentOpen && <form className="loan-form" onSubmit={previewPrepayment}>
       <strong>Principal prepayment</strong>
       <div className="loan-form-grid">
