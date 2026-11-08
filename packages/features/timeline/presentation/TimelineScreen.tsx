@@ -293,10 +293,12 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     };
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
+    window.addEventListener("timeline-enrichment-updated", resume);
     document.addEventListener("visibilitychange", resume);
     return () => {
       window.removeEventListener("online", resume);
       window.removeEventListener("focus", resume);
+      window.removeEventListener("timeline-enrichment-updated", resume);
       document.removeEventListener("visibilitychange", resume);
     };
   }, [locationLookupEnabled, range.from, range.to, context.loadTimeline]);
