@@ -159,7 +159,7 @@ object DriverWorkflowStore {
         return result ?: error("intent_enqueue_failed")
     }
 
-    fun complete(db: LocalDatabase, eventId: String, gps: JSONObject): JSONObject {
+    fun complete(db: LocalDatabase, eventId: String, gps: JSONObject, nowInstant: Instant = Instant.now()): JSONObject {
         var committed: JSONObject? = null
         db.runInTransaction {
             val key = "driver-intent:$eventId"
@@ -191,13 +191,13 @@ object DriverWorkflowStore {
             require(intent.optString("status") == "pending_location") { "intent_not_pending" }
 
             
-            require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"))) { "gps_recovery_window_expired" }
+            require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"), nowInstant)) { "gps_recovery_window_expired" }
             val current = snapshot(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
             ) { "stale_revision" }
-            DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"))
+            DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"), nowInstant)
 
             val eventType=command.optString("eventType")
             if(command.optInt("workflowVersion",1)==2) {
@@ -223,7 +223,7 @@ object DriverWorkflowStore {
                 .put("revision", revision)
                 .put("state", nextState)
                 .put("lastEventId", eventId)
-            val now = Instant.now().toString()
+            val now = nowInstant.toString()
 
             when (eventType) {
                 "shift_start" -> {

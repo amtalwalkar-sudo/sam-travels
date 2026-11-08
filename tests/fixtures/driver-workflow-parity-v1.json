@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "scenario": "v2-shift-trip-recovery-after-pending-ride-start",
+  "states": ["shift_active", "going_to_pickup", "trip_active", "shift_active", "idle"],
+  "finalRevision": 5,
+  "eventCount": 5,
+  "outboxCount": 5,
+  "interruptedEventId": "parity-ride-start"
+}

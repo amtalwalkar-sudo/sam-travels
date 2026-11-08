@@ -10,7 +10,9 @@ import {
   recoverBrowserRestoreTransactions,
 } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
-import { createDriverCommand } from "../packages/features/work-shift";
+import { createDriverCommand, createDriverCommandV2 } from "../packages/features/work-shift";
+import { WorkDriverSelectionService } from "../packages/application/src/work-driver-selection-service";
+import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { rebuildTripHistoryProjection, readTripHistoryProjection } from "../packages/features/logbook";
 import type { GpsFix } from "../packages/core/src/types";
 
@@ -136,4 +138,54 @@ describe("Stage 4 recovery lifecycle", () => {
     rebuildTripHistoryProjection(recoveredEvents);
     expect(readTripHistoryProjection()).toEqual(expectedProjection);
   });
+
+  it("restores an active shift and pending trip intent as one consistent workflow", async () => {
+    const timestamp = new Date(Date.now() - 10_000).toISOString();
+    const repository = new DexieDriverWorkflowRepository();
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:restore-driver", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "restore-driver", name: "Restore Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:restore-driver", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "restore-driver", assignments: [{ assignmentId: "restore-assignment", vehicleId: "feature:vehicle:MH01GH3456", assignedAt: timestamp }] } },
+      { id: "feature:vehicle:MH01GH3456", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+        data: { schemaVersion: 1, registrationNumber: "MH01GH3456", make: "Make", model: "Model", vehicleType: "Sedan", fuelType: "Petrol",
+          yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    await new WorkDriverSelectionService(new DexieRecordRepository(), repository, () => timestamp).selectDriver("restore-driver");
+
+    const shiftAt = new Date(Date.now() - 4_000).toISOString();
+    const shift = createDriverCommandV2(await repository.getSnapshot(), "shift_start", "pwa", "restore-active-shift", shiftAt);
+    await repository.queueIntent({ command: shift, status: "pending_location", createdAt: shiftAt, updatedAt: shiftAt });
+    await repository.completeIntent(shift.eventId, {
+      latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: shiftAt, provider: "browser-geolocation",
+    }, shiftAt);
+
+    const pendingAt = new Date(Date.now() - 2_000).toISOString();
+    const pending = createDriverCommandV2(await repository.getSnapshot(), "trip_create", "pwa", "restore-pending-trip", pendingAt);
+    await repository.queueIntent({ command: pending, status: "pending_location", createdAt: pendingAt, updatedAt: pendingAt });
+    const source = await exportBrowserSnapshot("0.1.0");
+
+    await browserDatabase.records.clear();
+    await browserDatabase.driverState.clear();
+    await browserDatabase.driverIntents.clear();
+    await browserDatabase.driverEvents.clear();
+    await browserDatabase.driverOutbox.clear();
+    await restoreBrowserSnapshot({ data: source.data, manifest: source.manifest, confirmed: true });
+    await browserDatabase.close();
+    await browserDatabase.open();
+
+    const restoredRepository = new DexieDriverWorkflowRepository();
+    expect(await restoredRepository.getSnapshot()).toMatchObject({ state: "shift_active", revision: 1, shiftId: "restore-active-shift" });
+    expect(await restoredRepository.getIntent("restore-pending-trip")).toMatchObject({ status: "pending_location" });
+    expect((await browserDatabase.records.get("work:selected-driver"))?.data).toMatchObject({
+      driverId: "restore-driver", lockedShiftId: "restore-active-shift",
+    });
+
+    await restoredRepository.reactivateIntent("restore-pending-trip");
+    const completed = await restoredRepository.completeIntent("restore-pending-trip", {
+      latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: pendingAt, provider: "browser-geolocation",
+    }, pendingAt);
+    expect(completed).toMatchObject({ state: "going_to_pickup", revision: 2, activeTripId: "restore-pending-trip" });
+  });
+
 });
