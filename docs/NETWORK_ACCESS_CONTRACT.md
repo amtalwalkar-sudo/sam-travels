@@ -39,7 +39,10 @@ This is an in-app network policy control, not an Android runtime permission prom
 ### Optional reverse geocoding and future services
 
 - GPS coordinates are captured and stored locally at the defined user-triggered events, independently of internet access.
-- Reverse geocoding (coordinates to locality/address) is an optional online enrichment. It may run only when the master Internet Access policy is enabled and the capability is registered/enabled under that policy.
+- Reverse geocoding (coordinates to locality/address) is an optional online enrichment. It may run only when the master Internet Access policy is enabled and the user separately opts in for the current Timeline session.
+- The app sends only one event's latitude/longitude to the Sam Travels server-side Geoapify proxy. The proxy validates coordinate bounds and allowed origins, applies per-IP rate limiting, adds the Geoapify API key server-side, and returns only a normalized locality label.
+- The Geoapify API key is a Cloudflare Worker secret. It must never appear in the PWA bundle, Vite environment variables, Android APK/resources, client requests, repository, logs or CI artifacts.
+- If the proxy URL or server secret is not configured, enrichment remains unavailable; do not fall back to a direct client-to-Geoapify request.
 - If offline or disabled, preserve the coordinates and mark locality enrichment as pending/unavailable; do not block or alter the original event, coordinates, transition timestamp, or GPS fix timestamp.
 - When access later becomes available, eligible enrichment can be retried idempotently. Store provider, lookup time, result, and status separately from the immutable GPS evidence.
 - New internet-dependent features must follow the same opt-in gateway and offline-fallback rules.
@@ -47,7 +50,8 @@ This is an in-app network policy control, not an Android runtime permission prom
 ## Security, privacy, and observability
 
 - Request only the data needed for the specific enabled capability. Do not transmit the full business database for a locality lookup.
-- Explain the purpose and data sent before first use of a new optional capability where appropriate.
+- Explain the purpose and data sent before first use of a new optional capability where appropriate. Master Internet Access alone is not consent to send GPS coordinates to a third-party geocoder; Timeline location enrichment requires its own explicit session opt-in. The UI must explain that coordinates are sent through the Sam Travels proxy to Geoapify.
+- Keep the Geoapify API key exclusively in the server-side Worker secret store. The client receives only the non-secret proxy URL. Restrict the proxy to an exact origin allowlist, coordinate-only requests and per-IP rate limiting; never accept bulk event or business payloads.
 - Keep OAuth tokens in platform-appropriate secure storage; never expose them in logs, exports, or UI.
 - Record operational status without logging secrets or unnecessary personal/financial data.
 - Provide a clear way to see why an operation did not run: policy disabled, device offline, authentication required, service unavailable, or OS/scheduler deferred.
@@ -60,4 +64,5 @@ This is an in-app network policy control, not an Android runtime permission prom
 - Restart the app and reboot the device; verify the user's choice is retained.
 - Verify Dropbox automatic backup runs only when policy, authentication, connectivity, and scheduler conditions permit; verify restore still requires explicit user confirmation.
 - Verify GPS event capture succeeds offline and reverse geocoding is deferred; when enabled later, enrichment must not rewrite original GPS evidence or timestamps.
+- Verify the Geoapify key is absent from PWA/Android outputs; the proxy rejects invalid coordinates and unapproved origins, applies rate limiting, and never returns provider credentials or raw upstream error bodies.
 - Add a test online capability and verify it cannot bypass the gateway.

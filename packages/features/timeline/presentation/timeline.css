@@ -38,3 +38,7 @@
 .timeline-event.pickup .timeline-event-content:before{content:"↓";font-size:20px;line-height:1;color:#65b9e8;font-weight:700}
 .timeline-event.pickup .timeline-event-content strong{font-size:10px;color:#aab8c4;text-transform:uppercase;letter-spacing:.04em}
 .timeline-event.pickup .timeline-event-content small{font-size:10px}
+
+.timeline-attribution{font-size:9px;color:#8295a3;text-align:center;margin:12px 0 0}.timeline-attribution a{color:#aab8c4;text-decoration:underline}
+
+.timeline-location-consent{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 12px;margin:8px 0;border:1px solid #263b4a;border-radius:10px;background:#101d27}.timeline-location-consent p{font-size:10px;line-height:1.45;color:#aab8c4;margin:0;flex:1}.timeline-location-consent button{flex:none;border:1px solid #4a7088;border-radius:7px;background:#183246;color:#e4f1f8;padding:7px 9px;font-size:10px}

@@ -23,6 +23,8 @@ jobs:
         run: npm run check:stage5
   web:
     runs-on: ubuntu-latest
+    env:
+      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,6 +50,8 @@ jobs:
   android:
     needs: web
     runs-on: ubuntu-latest
+    env:
+      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

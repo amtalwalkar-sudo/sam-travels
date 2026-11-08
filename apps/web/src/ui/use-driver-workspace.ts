@@ -10,7 +10,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineReverseGeocodingService, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 
@@ -240,10 +240,22 @@ export function useDriverWorkspace() {
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
-  const loadTimeline = useCallback(async () => {
+  const reverseGeocoder = useMemo(
+    () => gateway ? new TimelineReverseGeocodingService(gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
+    [gateway],
+  );
+
+  const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => {
     if (!workflow) throw new Error("Work history is still loading");
-    return new TimelineProjectionService({ listEvents: () => workflow.events() }).read(new Date().toISOString());
-  }, [workflow]);
+    const readModel = await new TimelineProjectionService({ listEvents: () => workflow.events() })
+      .read(new Date().toISOString());
+    const visibleEventIds = new Set(readModel.projection.calendarDays
+      .filter(day => day.date >= fromDate && day.date <= toDate)
+      .flatMap(day => day.eventIds));
+    const visibleEvents = readModel.events.filter(event => visibleEventIds.has(event.eventId));
+    const locations = allowLocationLookup && reverseGeocoder ? reverseGeocoder.enrich(visibleEvents, signal) : Promise.resolve({});
+    return { model: readModel, locations };
+  }, [workflow, reverseGeocoder]);
 
 
   return {

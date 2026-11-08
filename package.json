@@ -17,7 +17,9 @@
     "build:timeline-parity": "vite build --config vite.timeline-parity.config.ts",
     "features:discover": "node scripts/discover-features.mjs",
     "features:check": "node scripts/discover-features.mjs --check",
-    "check:stage5": "node scripts/check-stage-5.mjs"
+    "check:stage5": "node scripts/check-stage-5.mjs",
+    "deploy:geocoder": "npx wrangler@4 deploy --config services/geocoder/wrangler.toml",
+    "test:geocoder": "vitest run services/geocoder/index.test.ts tests/timeline-reverse-geocoding.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",

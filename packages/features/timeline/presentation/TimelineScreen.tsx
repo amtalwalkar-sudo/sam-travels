@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
+import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
 import "./timeline.css";
 
 type Mode = "today" | "week" | "date";
@@ -109,10 +110,11 @@ function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
   </section>;
 }
 
-function ShiftEvents({ events, shift, allEvents, now, calendarDate }: {
+function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }: {
   events: DriverEvent[];
   shift?: TimelineShiftProjection;
   allEvents: DriverEvent[];
+  locations: Readonly<Record<string, TimelineLocationEnrichment>>;
   now: number;
   calendarDate: string;
 }) {
@@ -191,13 +193,14 @@ function ShiftEvents({ events, shift, allEvents, now, calendarDate }: {
         const boundary = kind === "shift_start" || kind === "shift_end";
         const ride = kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end";
         const pickup = kind === "trip_create";
+        const location = locations[event.eventId];
         return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "") + (pickup ? " pickup" : "")} key={event.eventId}>
           <div className="timeline-event-time">{eventTimeFormatter.format(new Date(event.command.transitionAt))}</div>
           <div className="timeline-event-content">
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
@@ -212,31 +215,71 @@ function dateLabel(value: string): string {
 export function TimelineScreen({ context }: { context: TimelineScreenContext }) {
   const [mode, setMode] = useState<Mode>("today");
   const [anchorDate, setAnchorDate] = useState(indiaDate(new Date()));
-  const [model, setModel] = useState<Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>> | null>(null);
+  type LoadedTimeline = Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>>;
+  const [model, setModel] = useState<(LoadedTimeline["model"] & { locations: TimelineLocationMap }) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
+  const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
+  const refreshSequence = useRef(0);
+  const activeRefresh = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
-  async function refresh() {
+  async function refresh(fromDate: string, toDate: string, allowLocationLookup = locationLookupEnabled) {
+    activeRefresh.current?.abort();
+    const controller = new AbortController();
+    activeRefresh.current = controller;
+    const requestId = ++refreshSequence.current;
     setLoading(true);
     setError("");
-    try { setModel(await context.loadTimeline()); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable"); }
-    finally { setLoading(false); }
+    let locationTaskStarted = false;
+    try {
+      const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup, controller.signal);
+      if (requestId === refreshSequence.current) {
+        locationTaskStarted = true;
+        setModel({ ...result.model, locations: {} });
+        void result.locations.then((locations) => {
+          if (requestId === refreshSequence.current) {
+            setModel((current) => current ? { ...current, locations } : current);
+          }
+        }).catch(() => {
+          // Location enrichment is optional; the core Timeline remains usable.
+        }).finally(() => {
+          if (requestId === refreshSequence.current && activeRefresh.current === controller) {
+            activeRefresh.current = null;
+          }
+        });
+      }
+    } catch (cause) {
+      if (requestId === refreshSequence.current) {
+        setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
+      }
+    } finally {
+      if (requestId === refreshSequence.current) {
+        setLoading(false);
+        if (!locationTaskStarted && activeRefresh.current === controller) activeRefresh.current = null;
+      }
+    }
   }
-  useEffect(() => { void refresh(); }, [context.loadTimeline]);
 
+  useEffect(() => () => {
+    refreshSequence.current += 1;
+    activeRefresh.current?.abort();
+    activeRefresh.current = null;
+  }, []);
   const range = useMemo(() => {
     if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
     if (mode === "date") return { from: anchorDate, to: anchorDate };
     const from = weekStart(anchorDate);
     return { from, to: moveDate(from, 6) };
   }, [mode, anchorDate, clock]);
+
+  useEffect(() => { void refresh(range.from, range.to, locationLookupEnabled); }, [context.loadTimeline, range.from, range.to, locationLookupEnabled]);
+
   const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
     .filter(day => day.date >= range.from && day.date <= range.to)
     .sort((a, b) => b.date.localeCompare(a.date)), [model, range]);
@@ -247,6 +290,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     return map;
   }, [model]);
   const allEvents = model?.events ?? [];
+  const locations = model?.locations ?? {};
   const groupedDays = dayGroups.map(day => {
     const shifts = new Map<string, DriverEvent[]>();
     for (const id of day.eventIds) {
@@ -277,7 +321,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         <small>YOUR WORKSPACE</small>
         <h2>Timeline</h2>
       </div>
-      <button type="button" className="timeline-refresh" onClick={() => void refresh()} disabled={loading}>Refresh</button>
+      <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to, locationLookupEnabled)} disabled={loading}>Refresh</button>
+    </div>
+    <div className="timeline-location-consent">
+      <p>Optional location names send only GPS coordinates from events in this selected date range to Geoapify through the Sam Travels secure proxy when Internet Access is on. The API key stays on the server; your saved GPS records are not changed.</p>
+      <button type="button" aria-pressed={locationLookupEnabled}
+        onClick={() => setLocationLookupEnabled(enabled => !enabled)}>
+        {locationLookupEnabled ? "Turn off location names" : "Allow location names"}
+      </button>
     </div>
     <div className="timeline-filter" role="group" aria-label="Timeline date filter">
       <button type="button" className={mode === "today" ? "selected" : ""} onClick={() => setMode("today")}>Today</button>
@@ -305,8 +356,9 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
     {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
       <h3>{dateLabel(day.date)}</h3>
-      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} now={clock} calendarDate={day.date} />)}
+      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
     </section>)}
+    <p className="timeline-attribution">Location names powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
   </section>;
 }
