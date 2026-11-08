@@ -100,19 +100,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            echo "Installing the debug application and instrumentation APKs once, before the process-death scenario:"
-            gradle -p android :app:installDebug :app:installDebugAndroidTest
-            adb -s emulator-5554 shell pm path in.samtravels.app
-            adb -s emulator-5554 shell pm path in.samtravels.app.test
-            echo "Preparing durable Room state through the installed instrumentation runner:"
-            output="$(adb -s emulator-5554 shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)" && printf '%s\\n' "$output" && printf '%s\\n' "$output" | grep -Fq 'OK (1 test)' && ! printf '%s\\n' "$output" | grep -Fq 'FAILURES!!!'
-            echo "Force-stopping both packages; no Gradle connected-test task or APK installation runs between phases:"
-            adb -s emulator-5554 shell am force-stop in.samtravels.app
-            adb -s emulator-5554 shell am force-stop in.samtravels.app.test
-            echo "Recovering through a fresh instrumentation process against the same installed app data:"
-            output="$(adb -s emulator-5554 shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)" && printf '%s\\n' "$output" && printf '%s\\n' "$output" | grep -Fq 'OK (1 test)' && ! printf '%s\\n' "$output" | grep -Fq 'FAILURES!!!'
-            echo "Run the rest of the Android instrumentation suite (excluding the two manually orchestrated restart phases):"
-            gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest
+            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
