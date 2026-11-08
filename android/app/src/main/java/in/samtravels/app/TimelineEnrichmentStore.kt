@@ -90,16 +90,6 @@ internal class TimelineEnrichmentStore(private val database: LocalDatabase) {
         return dueTimes.minOrNull()?.let { (it - nowMs).coerceAtLeast(0L) }
     }
 
-    fun hasDeferredRetry(nowMs: Long): Boolean = listRecords().any { row ->
-        if (!row.id.startsWith(RECORD_PREFIX)) return@any false
-        runCatching {
-            val data = JSONObject(row.json).getJSONObject("data")
-            data.optString("status") == "retry_wait" &&
-                data.optString("nextAttemptAt").isNotBlank() &&
-                Instant.parse(data.getString("nextAttemptAt")).toEpochMilli() > nowMs
-        }.getOrDefault(false)
-    }
-
     companion object {
         const val RECORD_PREFIX = "timeline-enrichment:"
         private const val SUCCESS_CACHE_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
