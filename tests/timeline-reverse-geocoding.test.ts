@@ -66,6 +66,15 @@ describe("Timeline reverse geocoding", () => {
     expect(reverse).toHaveBeenCalledTimes(1);
   });
 
+  it("does not start a queued request after its lookup has been cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const request = vi.fn(async () => new Response(JSON.stringify({ address: { city: "Mumbai" } }), { status: 200 })) as unknown as typeof fetch;
+    const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
+    await expect(adapter.reverse(19.076, 72.8777, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("serializes public-service requests at no more than one start per second", async () => {
     const realNow = Date.now();
     vi.useFakeTimers();
