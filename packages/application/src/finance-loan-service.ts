@@ -117,6 +117,7 @@ export class FinanceLoanService {
       details: Object.freeze({ ...input.details }),
       currentScheduleVersion: 1,
       scheduleVersions: [this.buildScheduleVersion(1, input.details, createdAt)],
+      lifecycleState: "active",
     };
     return this.records.create({
       id: recordId(input.uuid),
@@ -172,6 +173,7 @@ export class FinanceLoanService {
         ? current.data.currentScheduleVersion + 1
         : current.data.currentScheduleVersion,
       scheduleVersions,
+      lifecycleState: current.data.lifecycleState ?? "active",
     };
     return this.records.update({
       id: input.id,
