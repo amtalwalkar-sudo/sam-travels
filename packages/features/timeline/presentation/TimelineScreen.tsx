@@ -280,6 +280,23 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
 
   useEffect(() => { void refresh(range.from, range.to, locationLookupEnabled); }, [context.loadTimeline, range.from, range.to, locationLookupEnabled]);
 
+  // Refresh the derived locality projection when the PWA regains connectivity
+  // or the app returns to the foreground. This is event-driven, never polling.
+  useEffect(() => {
+    if (!locationLookupEnabled) return;
+    const resume = () => {
+      if (document.visibilityState === "visible") void refresh(range.from, range.to, true);
+    };
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [locationLookupEnabled, range.from, range.to, context.loadTimeline]);
+
   const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
     .filter(day => day.date >= range.from && day.date <= range.to)
     .sort((a, b) => b.date.localeCompare(a.date)), [model, range]);
