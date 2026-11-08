@@ -6,7 +6,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 ## 1. Product boundary and governing principles
 
-- Sam Travels is a single-driver digital logbook and business application. The driver manually records shifts and trips. This is not a ride-dispatch, passenger-booking, fleet-management, or driver-assignment system.
+- Sam Travels is a single-driver digital logbook and business application. The driver manually records shifts and trips. This is not a ride-dispatch, passenger-booking, fleet-management, or multi-driver system. Admin may maintain bounded Driver profiles and Driver-to-Vehicle assignment history as approved setup records; these do not create fleet dispatch or multiple concurrent driver workflows.
 - The driver workflow has one domain-owned state machine and one application command pipeline. The PWA and native Android overlay are two presentation surfaces over that same workflow.
 - Business rules, validation, calculations, event identity, persistence, and recovery belong to domain/application capabilities. Forms and UI components collect input and render state; they do not own business rules or persistence.
 - Core driver operations work offline. Local PWA/overlay synchronization does not use Dropbox or another cloud service.
