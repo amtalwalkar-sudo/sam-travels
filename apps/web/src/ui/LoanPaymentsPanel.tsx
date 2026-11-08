@@ -268,8 +268,9 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     </div>}
     {paidEntries.length === 0 ? <p className="admin-hint">No payments recorded yet.</p> : <div className="loan-payment-list">
       {entries.map(entry => entry.kind === "reversal" ? <div className="loan-payment-row" key={entry.id}><strong>Reversal · {entry.businessDate}</strong><span>{money(entry.amountPaise)} · {entry.reason}</span></div> :
+        entry.kind === "settlement" ? <div className="loan-payment-row" key={entry.id}><div><strong>Final settlement · {entry.businessDate} · {money(entry.amountPaise)}</strong><small>Loan closed · schedule v{entry.scheduleVersion} · paid through EMI #{entry.paidThroughInstallment}</small>{entry.reference && <small>Reference: {entry.reference}</small>}</div></div> :
         <div className="loan-payment-row" key={entry.id}><div><strong>{entry.businessDate} · {money(entry.amountPaise)}</strong><small>{entry.method.replace("_"," ")} · schedule v{entry.scheduleVersion} · allocated {money(entry.amountPaise-entry.unallocatedCreditPaise)} · unallocated {money(entry.unallocatedCreditPaise)}</small>{entry.reference && <small>Reference: {entry.reference}</small>}</div>
-          {!entries.some(candidate => candidate.kind === "reversal" && candidate.paymentId === entry.id) && <button className="admin-secondary" type="button" disabled={busy} onClick={() => void reverse(entry)}>Reverse</button>}</div>)}
+          {!entries.some(candidate => candidate.kind === "reversal" && candidate.paymentId === entry.id) && <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => void reverse(entry)}>Reverse</button>}</div>)}
     </div>}
     {message && <p className="admin-message" role="status">{message}</p>}
   </section>;
