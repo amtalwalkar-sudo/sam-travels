@@ -38,3 +38,5 @@
 .timeline-event.pickup .timeline-event-content:before{content:"↓";font-size:20px;line-height:1;color:#65b9e8;font-weight:700}
 .timeline-event.pickup .timeline-event-content strong{font-size:10px;color:#aab8c4;text-transform:uppercase;letter-spacing:.04em}
 .timeline-event.pickup .timeline-event-content small{font-size:10px}
+
+.timeline-attribution{font-size:9px;color:#8295a3;text-align:center;margin:12px 0 0}.timeline-attribution a{color:#aab8c4;text-decoration:underline}
