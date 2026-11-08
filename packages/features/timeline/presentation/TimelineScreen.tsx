@@ -193,13 +193,14 @@ function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }:
         const boundary = kind === "shift_start" || kind === "shift_end";
         const ride = kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end";
         const pickup = kind === "trip_create";
+        const location = locations[event.eventId];
         return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "") + (pickup ? " pickup" : "")} key={event.eventId}>
           <div className="timeline-event-time">{eventTimeFormatter.format(new Date(event.command.transitionAt))}</div>
           <div className="timeline-event-content">
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{locations[event.eventId]?.status === "resolved" ? locations[event.eventId].label : locations[event.eventId]?.status === "network_disabled" ? "Location captured · Internet access disabled" : locations[event.eventId]?.status === "configuration_missing" ? "Location captured · Geoapify not configured" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : location?.status === "configuration_missing" ? "Location captured · Geoapify not configured" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
@@ -224,14 +225,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     return () => window.clearInterval(timer);
   }, []);
 
-  async function refresh() {
+  async function refresh(fromDate: string, toDate: string) {
     setLoading(true);
     setError("");
-    try { setModel(await context.loadTimeline()); }
+    try { setModel(await context.loadTimeline(fromDate, toDate)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable"); }
     finally { setLoading(false); }
   }
-  useEffect(() => { void refresh(); }, [context.loadTimeline]);
+  useEffect(() => { void refresh(range.from, range.to); }, [context.loadTimeline, range.from, range.to]);
 
   const range = useMemo(() => {
     if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
@@ -280,7 +281,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         <small>YOUR WORKSPACE</small>
         <h2>Timeline</h2>
       </div>
-      <button type="button" className="timeline-refresh" onClick={() => void refresh()} disabled={loading}>Refresh</button>
+      <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to)} disabled={loading}>Refresh</button>
     </div>
     <div className="timeline-filter" role="group" aria-label="Timeline date filter">
       <button type="button" className={mode === "today" ? "selected" : ""} onClick={() => setMode("today")}>Today</button>
