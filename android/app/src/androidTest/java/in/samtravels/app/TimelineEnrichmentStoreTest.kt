@@ -8,6 +8,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
 
@@ -74,4 +75,25 @@ class TimelineEnrichmentStoreTest {
             database.close()
         }
     }
+    @Test fun reusesOnlyFreshResolvedCoordinateCacheEntries() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val store = TimelineEnrichmentStore(database)
+            val lookedUpAt = Instant.parse(timestamp).toEpochMilli()
+            store.putRecord(envelope("timeline-enrichment:cached", JSONObject()
+                .put("eventId", "cached").put("latitude", 19.07601).put("longitude", 72.87771)
+                .put("status", "resolved").put("label", "Andheri, Mumbai")
+                .put("provider", "geoapify").put("lookedUpAt", timestamp)))
+            val cached = store.findCachedCoordinate(19.07602, 72.87772, lookedUpAt + 60_000)
+            assertEquals("Andheri, Mumbai", cached?.getString("label"))
+            assertTrue(store.findCachedCoordinate(19.08, 72.88, lookedUpAt + 60_000) == null)
+            assertTrue(store.findCachedCoordinate(19.07602, 72.87772,
+                lookedUpAt + 31L * 24 * 60 * 60 * 1000) == null)
+        } finally {
+            database.close()
+        }
+    }
+
 }
