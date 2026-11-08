@@ -10,6 +10,7 @@ export type DriverRecordV1 = Readonly<{
   licenceExpiryDate?: string;
   mobileNumber?: string;
   lifecycleState: DriverLifecycleState;
+  selectedForWork?: boolean;
 }>;
 
 function isCalendarDate(value: unknown): value is string {
@@ -25,7 +26,7 @@ export function assertDriverRecordV1(value: unknown): asserts value is DriverRec
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
   const required = ["driverId", "lifecycleState", "name", "schemaVersion"];
-  const allowed = new Set([...required, "licenceExpiryDate", "licenceNumber", "mobileNumber"]);
+  const allowed = new Set([...required, "licenceExpiryDate", "licenceNumber", "mobileNumber", "selectedForWork"]);
   if (keys.some(key => !allowed.has(key)) || required.some(key => !keys.includes(key)) ||
       record.schemaVersion !== 1 || typeof record.driverId !== "string" ||
       !record.name || typeof record.name !== "string" || !record.name.trim() ||
@@ -33,6 +34,7 @@ export function assertDriverRecordV1(value: unknown): asserts value is DriverRec
     throw new Error("driver_record_invalid");
   }
   try { driverRecordId(record.driverId); } catch { throw new Error("driver_record_invalid"); }
+  if (record.selectedForWork !== undefined && typeof record.selectedForWork !== "boolean") throw new Error("driver_record_invalid");
   if (record.licenceNumber !== undefined &&
       (typeof record.licenceNumber !== "string" || !record.licenceNumber.trim())) {
     throw new Error("driver_record_invalid");

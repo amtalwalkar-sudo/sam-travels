@@ -41,6 +41,18 @@ class DriverWorkflowContractTest {
     }
 
     @Test
+    fun validatesDriverContextAndRequiresVehicleForTripStartWhenContextIsPresent() {
+        val valid = command().put("eventType", "trip_start").put("driverContext", JSONObject(
+            """{"driverId":"driver-001","driverName":"Example Driver","vehicleId":"feature:vehicle:MH01AB1234"}""",
+        ))
+        DriverWorkflowContract.validateCommand(valid)
+        val missingVehicle = command().put("eventType", "trip_start").put("driverContext", JSONObject(
+            """{"driverId":"driver-001","driverName":"Example Driver"}""",
+        ))
+        assertThrows(IllegalArgumentException::class.java) { DriverWorkflowContract.validateCommand(missingVehicle) }
+    }
+
+    @Test
     fun preservesLegacyLogBookEventPayloadsWithoutTreatingThemAsCurrentCommands() {
         DriverWorkflowContract.validateStoredEvent(
             JSONObject("""{"eventId":"event-legacy","kind":"trip_completed"}"""),

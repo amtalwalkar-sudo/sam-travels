@@ -9,9 +9,19 @@ import {
   enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommand, DriverWorkflowService } from "../../../../packages/features/work-shift";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, getApplicationDriverRecordsService, getApplicationDriverAssignmentService } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
+
+async function resolveWorkDriverContext(requireVehicle: boolean) {
+  const selected = (await getApplicationDriverRecordsService().list()).filter(item => item.data.lifecycleState === "active" && item.data.selectedForWork === true);
+  if (selected.length !== 1) throw new Error(selected.length === 0 ? "Select one active Driver in Admin before using Work." : "More than one Driver is selected for Work. Clear the extra selection in Admin.");
+  const driver = selected[0];
+  const history = await getApplicationDriverAssignmentService().getHistory(driver.data.driverId);
+  const assignment = history?.data.assignments.find(item => !item.unassignedAt);
+  if (requireVehicle && !assignment) throw new Error("Assign an active vehicle to the selected Driver before starting a trip.");
+  return { driverId: driver.data.driverId, driverName: driver.data.name, ...(assignment ? { vehicleId: assignment.vehicleId } : {}) };
+}
 
 export function useDriverWorkspace() {
   const [now, setNow] = useState(Date.now());
@@ -173,7 +183,10 @@ export function useDriverWorkspace() {
     setDriverBusy(true);
     setDriverMessage("Action received · saving pending intent");
     try {
-      const command = createDriverCommand(driver, eventType, "pwa", crypto.randomUUID());
+      const driverContext = eventType === "shift_start" || eventType === "trip_start"
+        ? await resolveWorkDriverContext(eventType === "trip_start")
+        : undefined;
+      const command = { ...createDriverCommand(driver, eventType, "pwa", crypto.randomUUID()), ...(driverContext ? { driverContext } : {}) };
       const result = await workflow.dispatch(command);
       setDriver(result.snapshot);
       setPending(await workflow.pending());

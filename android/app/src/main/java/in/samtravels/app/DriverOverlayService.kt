@@ -191,6 +191,7 @@ class DriverOverlayService:Service(){
    val command=JSONObject().put("schemaVersion",1).put("commandId",id).put("eventId",id).put("eventType",event)
     .put("originSurface","native_overlay").put("transitionAt",transitionAt).put("expectedPriorState",snapshot.optString("state"))
     .put("expectedRevision",snapshot.optInt("revision")).put("idempotencyKey",id)
+   if(event=="shift_start" || event=="trip_start") command.put("driverContext",DriverWorkflowStore.selectedWorkContext(db, event=="trip_start"))
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
   }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }

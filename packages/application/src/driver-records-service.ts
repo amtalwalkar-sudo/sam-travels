@@ -12,6 +12,7 @@ export type DriverRecordV1 = Readonly<{
   licenceExpiryDate?: string;
   mobileNumber?: string;
   lifecycleState: DriverLifecycleState;
+  selectedForWork?: boolean;
 }>;
 export type DriverRecordValidator = (value: unknown) => asserts value is DriverRecordV1;
 
