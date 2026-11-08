@@ -1,6 +1,7 @@
 import { createElement, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
+import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOperations";
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import {
   getApplicationFinanceLoanService,
@@ -192,7 +193,7 @@ export function AdminWorkspace() {
           <span>{section}</span><span aria-hidden="true">{expanded === section ? "−" : "+"}</span>
         </button>
         {expanded === section && <div className="admin-section-content">
-          {section === "Business setup" ? <BusinessSetupSection /> : section === "Vehicle" ? <VehicleSection /> : section === "Loan" ? <>
+          {section === "Business setup" ? <BusinessSetupSection /> : section === "Vehicle" ? <VehicleSection /> : section === "Driver" ? <DriverSection /> : section === "Compliance" ? <ComplianceSection /> : section === "Maintenance" ? <MaintenanceSection /> : section === "Loan" ? <>
             <div className="admin-vehicle-context">
               <label htmlFor="admin-vehicle">Selected vehicle</label>
               <select id="admin-vehicle" value={selectedVehicleId}
@@ -284,7 +285,7 @@ export function AdminWorkspace() {
             {message && <p className="admin-message" role="status">{message}</p>}
           </> : <div className="admin-placeholder">
             <strong>{section}</strong>
-            <p>This section's capability foundation is in place. Its Admin presentation is being connected in a separate, focused slice.</p>
+            <p>This section is not available yet.</p>
           </div>}
         </div>}
       </div>)}
