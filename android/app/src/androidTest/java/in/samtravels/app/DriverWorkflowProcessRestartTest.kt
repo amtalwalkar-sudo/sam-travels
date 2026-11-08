@@ -26,8 +26,7 @@ class DriverWorkflowProcessRestartTest {
 
     @Test fun preparePendingWorkflowForProcessRestart() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        val testContext = InstrumentationRegistry.getInstrumentation().context
-        val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
+        val prefs = app.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         app.deleteDatabase(databaseName)
         prefs.edit().putInt("prepared_pid", Process.myPid()).commit()
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
@@ -79,8 +78,7 @@ class DriverWorkflowProcessRestartTest {
 
     @Test fun recoverPendingWorkflowAfterProcessRestart() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        val testContext = InstrumentationRegistry.getInstrumentation().context
-        val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
+        val prefs = app.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         val previousPid = prefs.getInt("prepared_pid", -1)
         assertNotEquals("CI must restart the instrumentation/app process between phases", previousPid, Process.myPid())
         val databaseFile = app.getDatabasePath(databaseName)
