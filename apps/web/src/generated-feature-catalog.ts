@@ -6,7 +6,8 @@ import { DRIVER_RECORDS_FEATURE_EXTENSION as discoveredFeatureExtension3 } from 
 import { FINANCE_FEATURE_EXTENSION as discoveredFeatureExtension4 } from "../../../packages/features/finance/index";
 import { LOGBOOK_FEATURE_EXTENSION as discoveredFeatureExtension5 } from "../../../packages/features/logbook/index";
 import { MAINTENANCE_FEATURE_EXTENSION as discoveredFeatureExtension6 } from "../../../packages/features/maintenance/index";
-import { VEHICLE_FEATURE_EXTENSION as discoveredFeatureExtension7 } from "../../../packages/features/vehicle/index";
+import { TIMELINE_FEATURE_EXTENSION as discoveredFeatureExtension7 } from "../../../packages/features/timeline/index";
+import { VEHICLE_FEATURE_EXTENSION as discoveredFeatureExtension8 } from "../../../packages/features/vehicle/index";
 
 export const DISCOVERED_FEATURE_EXTENSIONS: readonly FeatureExtensionDefinition[] = Object.freeze([
   discoveredFeatureExtension1,
@@ -16,4 +17,5 @@ export const DISCOVERED_FEATURE_EXTENSIONS: readonly FeatureExtensionDefinition[
   discoveredFeatureExtension5,
   discoveredFeatureExtension6,
   discoveredFeatureExtension7,
+  discoveredFeatureExtension8,
 ]);
