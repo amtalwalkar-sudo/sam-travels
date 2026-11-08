@@ -510,7 +510,7 @@ This matrix makes the six architecture-quality requirements independently tracea
 - Do not mark a row **Device-verified** without a recorded physical device/model, Android version, app build/commit, test scenario, outcome and diagnostics. The user's phone testing remains deliberately deferred; no device verification is claimed by this document.
 - Reverse geocoding is deliberately deferred. It is not a prerequisite for Timeline core conformance, and no geocoder credential, provider call or live-provider acceptance is required to pass the six core architecture rows. Provider-specific activation and India-quality checks remain governed by Section 8.3 and must be tracked separately.
 - A row can have CI-verified core behavior while its separately required physical-device sub-check remains pending. Record that distinction explicitly rather than treating one as proof of the other.
-- This matrix is an evidence/traceability addition to the current proposal. It does not authorize Timeline implementation, phone testing, reverse-geocoder activation, schema changes, migrations, UI work or runtime changes.
+- This matrix is an evidence/traceability addition to the current proposal; it does not independently expand the bounded implementation authorization recorded in Section 13. Phone testing, reverse-geocoder activation, schema changes, migrations, or other scope not expressly authorized there remain out of scope.
 
 ## 12.2 Six remaining Timeline completion gates
 
