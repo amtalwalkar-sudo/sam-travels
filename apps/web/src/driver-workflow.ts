@@ -138,9 +138,9 @@ export class BrowserEventLocationProvider implements EventLocationProvider {
         },
         (error) => {
           if (error.code === 1) finish(new Error("permission_denied"));
-          else if (error.code === 3) finish(new Error("location_timeout"));
-          // Position-unavailable is transient on some devices; keep the watch
-          // alive until the event's original evidence deadline.
+          // POSITION_UNAVAILABLE and TIMEOUT can be transient while the OS
+          // reacquires a fix. Keep the watch alive until our single event-time
+          // deadline; the timer above is the only terminal timeout.
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: remainingMs },
       );
