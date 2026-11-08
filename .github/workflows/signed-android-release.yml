@@ -1,0 +1,88 @@
+name: Signed Android release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Android versionCode (must be higher than every previously distributed build)
+        required: true
+        type: string
+        default: "2"
+      version_name:
+        description: Human-readable app version
+        required: true
+        type: string
+        default: "0.2.0"
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release:
+    name: Build and verify signed APK
+    runs-on: ubuntu-latest
+    env:
+      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VERSION_CODE: ${{ inputs.version_code }}
+      VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - name: Validate release inputs and signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          [[ -n "$VERSION_NAME" ]]
+          [[ -n "$KEYSTORE_BASE64" && -n "$KEYSTORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.jks"
+          test -s "$RUNNER_TEMP/android-signing/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/android-signing/release.jks" >> "$GITHUB_ENV"
+          echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "ANDROID_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm install
+      - run: npm run cap:sync
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+
+      - name: Build signed release APK
+        run: gradle -p android :app:assembleRelease -PVERSION_CODE="$VERSION_CODE" -PVERSION_NAME="$VERSION_NAME"
+
+      - name: Verify APK signature, package ID, and version
+        run: |
+          set -euo pipefail
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          "$AAPT" dump badging "$APK" | grep -F "package: name='in.samtravels.app' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/apk-sha256.txt"
+
+      - name: Publish signed installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: sam-travels-signed-release-v${{ inputs.version_name }}-${{ inputs.version_code }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            ${{ runner.temp }}/apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 90
