@@ -39,6 +39,26 @@ internal class TimelineEnrichmentStore(private val database: LocalDatabase) {
         }
     }
 
+    fun findCachedCoordinate(latitude: Double, longitude: Double, nowMs: Long): JSONObject? {
+        val key = coordinateKey(latitude, longitude)
+        return listRecords().asSequence()
+            .filter { it.id.startsWith(RECORD_PREFIX) }
+            .mapNotNull { row -> runCatching { JSONObject(row.json).getJSONObject("data") }.getOrNull() }
+            .firstOrNull { data ->
+                val status = data.optString("status")
+                if (status != "resolved" && status != "not_found") return@firstOrNull false
+                val lookedUpAt = runCatching { Instant.parse(data.getString("lookedUpAt")).toEpochMilli() }.getOrNull()
+                    ?: return@firstOrNull false
+                val ttl = if (status == "resolved") SUCCESS_CACHE_TTL_MILLIS else NEGATIVE_CACHE_TTL_MILLIS
+                nowMs >= lookedUpAt && nowMs - lookedUpAt <= ttl &&
+                    coordinateKey(data.optDouble("latitude"), data.optDouble("longitude")) == key
+            }
+            ?.let { JSONObject(it.toString()) }
+    }
+
+    private fun coordinateKey(latitude: Double, longitude: Double): String =
+        String.format(java.util.Locale.US, "%.4f,%.4f", latitude, longitude)
+
     fun dueEnrichmentRows(nowMs: Long, limit: Int): Pair<List<StoredRecord>, Boolean> {
         val due = listRecords().filter { row ->
             if (!row.id.startsWith(RECORD_PREFIX)) return@filter false
@@ -65,5 +85,7 @@ internal class TimelineEnrichmentStore(private val database: LocalDatabase) {
 
     companion object {
         const val RECORD_PREFIX = "timeline-enrichment:"
+        private const val SUCCESS_CACHE_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
+        private const val NEGATIVE_CACHE_TTL_MILLIS = 60L * 60 * 1000
     }
 }
