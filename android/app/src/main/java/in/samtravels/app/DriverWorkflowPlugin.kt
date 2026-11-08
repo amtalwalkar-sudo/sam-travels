@@ -26,6 +26,34 @@ class DriverWorkflowPlugin:Plugin(){
  private val executor=Executors.newSingleThreadExecutor()
  private val main=Handler(Looper.getMainLooper())
  private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
+ @Volatile private var recordObserver:androidx.room.InvalidationTracker.Observer?=null
+ override fun load(){
+  super.load()
+  executor.execute{
+   try{
+    if(recordObserver==null){
+     recordObserver=object:androidx.room.InvalidationTracker.Observer("records"){
+      override fun onInvalidated(tables:Set<String>){
+       executor.execute{
+        runCatching{
+         val data=JSObject();data.put("snapshot",state())
+         notifyListeners("driverStateChanged",data)
+        }
+       }
+      }
+     }
+     db.invalidationTracker.addObserver(recordObserver!!)
+    }
+   }catch(_:Exception){}
+  }
+ }
+ override fun handleOnDestroy(){
+  recordObserver?.let{runCatching{db.invalidationTracker.removeObserver(it)}}
+  recordObserver=null
+  executor.shutdown()
+  runCatching{db.close()}
+  super.handleOnDestroy()
+ }
  private fun hasLocationPermission()=context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED||context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==android.content.pm.PackageManager.PERMISSION_GRANTED
  private fun ensureStartupRecovery(){NativeStartupRecovery.ensure(db)}
  private fun state():JSONObject{ensureStartupRecovery();return DriverWorkflowStore.snapshot(db)}
