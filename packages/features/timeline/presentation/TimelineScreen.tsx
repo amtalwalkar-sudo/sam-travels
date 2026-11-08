@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
@@ -219,6 +219,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now());
+  const refreshSequence = useRef(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
@@ -226,12 +227,22 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, []);
 
   async function refresh(fromDate: string, toDate: string) {
+    const requestId = ++refreshSequence.current;
     setLoading(true);
     setError("");
-    try { setModel(await context.loadTimeline(fromDate, toDate)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable"); }
-    finally { setLoading(false); }
+    try {
+      const nextModel = await context.loadTimeline(fromDate, toDate);
+      if (requestId === refreshSequence.current) setModel(nextModel);
+    } catch (cause) {
+      if (requestId === refreshSequence.current) {
+        setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
+      }
+    } finally {
+      if (requestId === refreshSequence.current) setLoading(false);
+    }
   }
+
+  useEffect(() => () => { refreshSequence.current += 1; }, []);
   const range = useMemo(() => {
     if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
     if (mode === "date") return { from: anchorDate, to: anchorDate };
