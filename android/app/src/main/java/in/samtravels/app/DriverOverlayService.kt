@@ -205,7 +205,7 @@ class DriverOverlayService:Service(){
    val remainingMs=transitionMs+DriverRecoveryPolicy.GPS_EVIDENCE_WINDOW_MILLIS-System.currentTimeMillis()
    if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
    val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
-   val provider=manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
+   val provider=if(manager.isProviderEnabled(LocationManager.GPS_PROVIDER))LocationManager.GPS_PROVIDER else manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
    activeLocationEventId=id
    val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
