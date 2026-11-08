@@ -148,8 +148,10 @@ class DriverWorkflowParityInterruptionTest {
     }
 
     @Test fun nativeRestoreKeepsActiveShiftAndPendingIntentTogether() {
-        NativeDriverRecordsBackup.ensureRegistered()
-        NativeVehicleBackup.ensureRegistered()
+        // Keep feature participant registrations scoped to this test. Process-wide registrations
+        // are appropriate for the app, but must not leak into later instrumentation test classes.
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "driver-workflow-restore-active-pending.db"
         context.deleteDatabase(databaseName)
@@ -202,12 +204,15 @@ class DriverWorkflowParityInterruptionTest {
             assertNotNull(DriverWorkflowStore.listPending(durable)
                 .singleOrNull { it.getJSONObject("command").getString("eventId") == "restore-pending-trip" })
             DriverWorkflowStore.reactivate(durable, "restore-pending-trip")
-            val completed = DriverWorkflowStore.complete(durable, "restore-pending-trip", gps(pendingAt), java.time.Instant.parse(pendingAt))
+            // Completion time must not precede the intent's persisted createdAt/updatedAt timestamps.
+            val completed = DriverWorkflowStore.complete(durable, "restore-pending-trip", gps(pendingAt), java.time.Instant.now())
             assertEquals("going_to_pickup", completed.getString("state"))
             assertEquals(2, completed.getInt("revision"))
         } finally {
             durable.close()
             context.deleteDatabase(databaseName)
+            vehicleRegistration.close()
+            driverRegistration.close()
         }
     }
 
