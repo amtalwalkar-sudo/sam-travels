@@ -263,6 +263,10 @@ export function useDriverWorkspace() {
     let retryTimer: number | undefined;
     let draining = false;
     const drainAndSchedule = async () => {
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+        retryTimer = undefined;
+      }
       if (draining || document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
       if (Capacitor.isNativePlatform()) {
         await scheduleNativeTimelineEnrichment().catch(() => undefined);
@@ -286,12 +290,14 @@ export function useDriverWorkspace() {
     const resume = () => { void drainAndSchedule(); };
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
+    window.addEventListener("timeline-enrichment-queue-updated", resume);
     document.addEventListener("visibilitychange", resume);
     resume();
     return () => {
       if (retryTimer !== undefined) window.clearTimeout(retryTimer);
       window.removeEventListener("online", resume);
       window.removeEventListener("focus", resume);
+      window.removeEventListener("timeline-enrichment-queue-updated", resume);
       document.removeEventListener("visibilitychange", resume);
       void nativeListener.then(handle => handle?.remove());
     };
@@ -312,6 +318,7 @@ export function useDriverWorkspace() {
         if (Capacitor.isNativePlatform()) await scheduleNativeTimelineEnrichment().catch(() => undefined);
         else if (navigator.onLine) await enrichmentQueue.drain(5, signal);
       }
+      window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
       return enrichmentQueue.locations(visibleEvents.map(event => event.eventId));
     })();
     return { model: readModel, locations };
