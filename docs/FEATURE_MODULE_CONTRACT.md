@@ -2,7 +2,7 @@
 
 ## Purpose and product boundary
 
-Sam Travels is a single-driver Driver Log Book + ERP. Modules represent the owner's work, vehicle, trips, records, and business operations. Do not add fleet dispatch, driver rosters, driver assignment, or multi-driver tenancy without an explicit product-scope decision.
+Sam Travels is a single-driver Driver Log Book + ERP. Modules represent the owner's work, vehicle, trips, records, and business operations. The approved Admin scope permits bounded Driver profiles and Driver-to-Vehicle assignment history for the single-driver Work flow; this explicit approval supersedes the earlier blanket prohibition on driver rosters/assignment records. It does not authorise fleet dispatch, fleet tenancy, multiple concurrent driver shifts, or multi-driver tenancy.
 
 ## Module boundaries
 
