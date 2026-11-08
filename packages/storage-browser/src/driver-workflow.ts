@@ -26,7 +26,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
    if(command.workflowVersion===2&&command.eventType==="shift_start")command={...command,driverContext:resolveWorkDriverContext(await browserDatabase.records.toArray(),command.transitionAt)};
    else if(command.workflowVersion===2&&command.eventType==="trip_create"){
     if(!current.shiftId||!current.shiftContext)throw new Error("work_shift_context_missing");
-    command={...command,tripContext:{schemaVersion:1,shiftId:current.shiftId,...current.shiftContext,operationalDate:operationalDateAt(command.transitionAt)}};
+    command={...command,tripContext:{schemaVersion:1,shiftId:current.shiftId,driverId:current.shiftContext.driverId,assignmentId:current.shiftContext.assignmentId,vehicleId:current.shiftContext.vehicleId,operationalDate:operationalDateAt(command.transitionAt)}};
    } else if(command.eventType==="trip_start")command={...command,driverContext:resolveDriverContextV1(await browserDatabase.records.toArray())};
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
