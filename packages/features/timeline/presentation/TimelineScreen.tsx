@@ -206,9 +206,14 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       list.push(event);
       shifts.set(key, list);
     }
-    return { day, shifts: [...shifts.entries()].map(([id, events]) => ({
-      id, events, shift: shiftByEvent.get(events[0]?.eventId ?? ""),
-    })) };
+    const groups = [...shifts.entries()].map(([id, events]) => ({
+      id,
+      events,
+      shift: shiftByEvent.get(events[0]?.eventId ?? ""),
+      firstAt: Math.min(...events.map(event => Date.parse(event.command.transitionAt))),
+    }));
+    groups.sort((a, b) => a.firstAt - b.firstAt || a.id.localeCompare(b.id));
+    return { day, shifts: groups };
   });
 
   const previous = () => setAnchorDate(value => moveDate(value, mode === "week" ? -7 : -1));
