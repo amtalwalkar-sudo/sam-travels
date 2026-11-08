@@ -1,8 +1,8 @@
 # Timeline Mockup Visual Fidelity Contract
 
-**Status: Visual direction approved; versioned SVG reference v1 committed. Future revisions remain explicitly versioned and approval-controlled.**  
+**Status: Visual direction approved; versioned SVG reference v1 committed; implementation authorized on 8 November 2026. Future revisions remain explicitly versioned and approval-controlled.**  
 **Target: Sam Travels PWA main application.**  
-**Scope: Documentation and visual-reference governance only. No UI implementation is authorized.**
+**Scope: Visual-reference governance and faithful implementation of the approved Timeline screen. The v1 SVG remains immutable and is the visual source of truth.**
 
 ## 1. Purpose and authority
 
