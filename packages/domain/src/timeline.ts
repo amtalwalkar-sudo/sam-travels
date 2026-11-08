@@ -211,7 +211,7 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     else if(asOf<intervalStart){owner.invalidTrip=true;issues.push({code:"invalid_trip_interval",eventId:activeTrip.event.eventId,logicalShiftId:owner.id});}
     else {
       if(activeTrip.stage==="ride")addInterval(shifts,intervalStart,asOf,"passengerTripMs",busyIntervals);
-      else addInterval(shifts,intervalStart,asOf,"pickupMs",busyIntervals);
+      else {owner.pendingPickup=true;addInterval(shifts,intervalStart,asOf,"pickupMs",busyIntervals);}
       let cursor=intervalStart;
       while(cursor<asOf) {ensure(shiftIdAt(cursor)).pendingTrip=true;cursor=Math.min(asOf,nextBoundary(cursor));}
     }
