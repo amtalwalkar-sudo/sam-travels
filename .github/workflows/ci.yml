@@ -101,21 +101,19 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
-            echo "Database location immediately after preparation:"
-            adb shell run-as in.samtravels.app pwd
-            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
-            adb shell am force-stop in.samtravels.app
-            adb shell am force-stop in.samtravels.app.test
-            echo "Database location after force-stop, before any Gradle install/setup:"
-            adb shell run-as in.samtravels.app pwd
-            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
-            echo "Re-running only the Android debug APK installation tasks to isolate install-time data handling:"
+            echo "Installed Sam Travels package identities immediately after preparation:"
+            adb -s emulator-5554 shell pm list packages | grep -E 'samtravels|sam\\.travels' || true
+            echo "Force-stopping the application and instrumentation packages without uninstalling either:"
+            adb -s emulator-5554 shell am force-stop in.samtravels.app
+            adb -s emulator-5554 shell am force-stop in.samtravels.app.test
+            echo "Installed package identities after force-stop:"
+            adb -s emulator-5554 shell pm list packages | grep -E 'samtravels|sam\\.travels' || true
+            echo "Reinstalling the same debug APKs in place (adb install -r semantics) to isolate install-time data handling:"
             gradle -p android :app:installDebug :app:installDebugAndroidTest
-            echo "Database location after Gradle APK installation:"
-            adb shell run-as in.samtravels.app pwd
-            adb shell run-as in.samtravels.app ls -l databases/driver-workflow-process-restart.db
+            echo "Installed package identities after Gradle APK installation:"
+            adb -s emulator-5554 shell pm list packages | grep -E 'samtravels|sam\\.travels' || true
             echo "Recovering through the installed instrumentation runner without a second connectedDebugAndroidTest setup/install cycle:"
-            adb shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner
+            adb -s emulator-5554 shell am instrument -w -e class 'in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart' in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
