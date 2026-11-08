@@ -38,9 +38,8 @@ class TimelineEnrichmentStoreTest {
             store.markPendingAsNetworkDisabled()
             val deferred = JSONObject(store.getRecord("timeline-enrichment:event-1")!!.json).getJSONObject("data")
             assertEquals("network_disabled", deferred.getString("status"))
-            assertEquals("pending", JSONObject(store.getRecord("network-policy")!!.json)
-                .getJSONObject("data").optString("enabled").let { "pending" }.let { "pending" }
-                .ifEmpty { "pending" }) // The policy row remains independent of queue updates.
+            assertFalse(JSONObject(store.getRecord("network-policy")!!.json)
+                .getJSONObject("data").getBoolean("enabled")) // Queue status never changes the user's network policy.
 
             val policy = JSONObject(store.getRecord("network-policy")!!.json)
             policy.put("revision", policy.getInt("revision") + 1)
