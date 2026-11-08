@@ -22,6 +22,7 @@ internal object NativeDriverRecordsBackup {
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
         validateRelationships = { rows, _ ->
+            var selectedWorkDrivers = 0
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = JSONObject(row.getString("json")).getJSONObject("data")
@@ -31,12 +32,17 @@ internal object NativeDriverRecordsBackup {
                 when {
                     id.startsWith(RECORD_PREFIX + "driver:") -> {
                         val required = setOf("schemaVersion", "driverId", "name", "lifecycleState")
-                        val allowed = required + setOf("licenceNumber", "licenceExpiryDate", "mobileNumber")
+                        val allowed = required + setOf("licenceNumber", "licenceExpiryDate", "mobileNumber", "selectedForWork")
                         require(keys.containsAll(required) && keys.all { it in allowed } &&
                             data.optInt("schemaVersion", -1) == 1 &&
                             id == RECORD_PREFIX + "driver:" + driverId &&
                             data.optString("name").isNotBlank() &&
-                            data.optString("lifecycleState") in setOf("active", "inactive")) { "driver_record_invalid" }
+                            data.optString("lifecycleState") in setOf("active", "inactive") &&
+                            (!data.has("selectedForWork") || data.opt("selectedForWork") is Boolean)) { "driver_record_invalid" }
+                        if (data.optBoolean("selectedForWork")) {
+                            require(data.optString("lifecycleState") == "active") { "driver_selected_work_driver_inactive" }
+                            selectedWorkDrivers++
+                        }
                         listOf("licenceNumber", "mobileNumber").forEach { key ->
                             if (data.has(key)) require(data.optString(key).isNotBlank()) { "driver_record_invalid" }
                         }
@@ -76,6 +82,7 @@ internal object NativeDriverRecordsBackup {
                     else -> throw IllegalArgumentException("driver_record_namespace_mismatch")
                 }
             }
+            require(selectedWorkDrivers <= 1) { "driver_multiple_selected_for_work" }
         },
     )
 }
