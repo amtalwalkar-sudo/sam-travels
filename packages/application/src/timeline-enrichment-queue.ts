@@ -151,7 +151,7 @@ export class TimelineEnrichmentQueue {
   async nextWakeAt(): Promise<number | undefined> {
     const rows = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
-      .filter(row => row.data.status === "pending" || row.data.status === "network_disabled" || row.data.status === "retry_wait");
+      .filter(row => row.data.status === "pending" || row.data.status === "retry_wait");
     if (!rows.length) return undefined;
     const times = rows.map(row => row.data.status === "retry_wait" && row.data.nextAttemptAt
       ? Date.parse(row.data.nextAttemptAt) : this.now());
