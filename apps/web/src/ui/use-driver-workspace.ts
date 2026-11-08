@@ -90,7 +90,8 @@ export function useDriverWorkspace() {
         setDriver(await service.snapshot());
         rebuildTripHistoryProjection(await service.events());
         await service.replayCommittedEvents();
-        const pendingItems = await service.reconcilePending();
+        await service.reconcilePending();
+        const pendingItems = await service.resumePendingBackground();
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
