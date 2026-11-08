@@ -55,7 +55,7 @@ object DriverWorkflowStore {
             "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
             "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "driverContext",
         )
-        return fields.all { field -> left.opt(field).toString() == right.opt(field).toString() }
+        return fields.all { field -> (left.opt(field)?.toString() ?: "null") == (right.opt(field)?.toString() ?: "null") }
     }
 
     fun queue(db: LocalDatabase, command: JSONObject): JSONObject {
