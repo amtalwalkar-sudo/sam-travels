@@ -98,24 +98,30 @@ export function useDriverWorkspace() {
             : "Driver state is up to date",
         );
 
-        unsubscribe = service.subscribe((snapshot) => {
-          if (live) setDriver(snapshot);
+        const refreshWorkflowStatus = () => {
+          void service.pending().then(items => { if (live) setPending(items); });
+        };
+        const unsubscribeState = service.subscribe((snapshot) => {
+          if (live) {
+            setDriver(snapshot);
+            refreshWorkflowStatus();
+          }
         });
-
-        const syncHandle = window.setInterval(() => {
+        const unsubscribeStatus = service.subscribeStatus(refreshWorkflowStatus);
+        const resumeWorkflow = () => {
+          if (document.visibilityState === "hidden") return;
           void service.replayCommittedEvents();
-          void service.snapshot().then((snapshot) => {
-            if (live) setDriver(snapshot);
-          });
-          void service.reconcilePending().then((items) => {
-            if (live) setPending(items);
-          });
-        }, 1500);
+          void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
+          void service.reconcilePending().then(items => { if (live) setPending(items); });
+        };
+        window.addEventListener("focus", resumeWorkflow);
+        document.addEventListener("visibilitychange", resumeWorkflow);
 
-        const priorUnsubscribe = unsubscribe;
         unsubscribe = () => {
-          priorUnsubscribe?.();
-          window.clearInterval(syncHandle);
+          unsubscribeState();
+          unsubscribeStatus();
+          window.removeEventListener("focus", resumeWorkflow);
+          document.removeEventListener("visibilitychange", resumeWorkflow);
           (repository as typeof repository & { dispose?: () => void }).dispose?.();
         };
       })
@@ -155,15 +161,15 @@ export function useDriverWorkspace() {
     setDriverBusy(true);
     setDriverMessage("Retrying the original pending action…");
     try {
-      const result = await workflow.retry(eventId);
+      const result = await workflow.retryBackground(eventId);
       setDriver(result.snapshot);
       setPending(await workflow.pending());
       setDriverMessage(
         result.status === "recorded"
           ? "Recovered action recorded"
           : result.reason === "gps_recovery_window_expired"
-          ? "GPS evidence window expired · reissue the action when ready"
-          : "Still awaiting a reliable GPS fix · " + (result.reason ?? "retry later"),
+            ? "GPS evidence window expired · reissue the action when ready"
+            : "Retry queued · GPS is being checked in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "recovery", operation: "retry_pending_action", failureCategory: "recovery", recoveryResult: "retry_failed" });
@@ -206,17 +212,13 @@ export function useDriverWorkspace() {
     setDriverMessage("Action received · saving pending intent");
     try {
       const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID());
-      const result = await workflow.dispatch(command);
+      const result = await workflow.dispatchBackground(command);
       setDriver(result.snapshot);
       setPending(await workflow.pending());
       setDriverMessage(
         result.status === "recorded"
           ? "Recorded securely on this device"
-          : result.reason === "permission_denied"
-            ? "Location permission needed · action retained for recovery"
-            : result.reason === "location_timeout"
-              ? "GPS fix timed out · action retained for retry"
-              : "Action needs attention · " + (result.reason ?? "retry required"),
+          : "Action saved · GPS verification continuing in the background",
       );
     } catch (cause) {
       void recordBrowserDiagnostic({ subsystem: "workflow", operation: "dispatch_transition", failureCategory: "workflow", recoveryResult: "operation_failed" });
