@@ -189,19 +189,6 @@ export class FinanceLoanPaymentService {
     return revised;
   }
 
-  private async assertSettlementDateNotBeforeHistory(loanId: string, businessDate: string,
-    entries: readonly FinancePaymentEntryV1[]): Promise<void> {
-    if (entries.some(entry => entry.businessDate > businessDate)) {
-      throw new Error("finance_payment_settlement_date_precedes_history");
-    }
-    const uuid = loanId.slice("feature:finance:loan:".length);
-    const prepayment = await this.repository.get<{ revisions?: readonly { effectiveDate: string }[] }>(
-      "feature:finance:prepayments:" + uuid);
-    if (prepayment?.data.revisions?.some(revision => revision.effectiveDate > businessDate)) {
-      throw new Error("finance_payment_settlement_date_precedes_history");
-    }
-  }
-
   private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
@@ -288,104 +275,6 @@ export class FinanceLoanPaymentService {
     }
     throw new Error("finance_payment_concurrent_write_retry_exhausted");
   }
-  async previewSettlement(input: { loanId: string; businessDate: string }) {
-    if (!validDate(input.businessDate)) throw new Error("finance_payment_settlement_input_invalid");
-    if (!this.scheduleResolver) throw new Error("finance_payment_schedule_resolver_required");
-    const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
-    await this.assertSettlementDateNotBeforeHistory(input.loanId, input.businessDate, entries);
-    if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
-      throw new Error("finance_loan_already_settled");
-    }
-    const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
-    if (version === undefined) throw new Error("finance_payment_settlement_not_emi_date");
-    const rows = await this.resolveScheduleRows(input.loanId, loan.data, version);
-    const settlementRow = rows.find(row => row.dueDate === input.businessDate);
-    if (!settlementRow || !Number.isSafeInteger(settlementRow.closingPrincipalPaise) ||
-        (settlementRow.closingPrincipalPaise as number) <= 0) throw new Error("finance_payment_settlement_not_emi_date");
-    const totals = allocationTotals(entries, version);
-    for (const row of rows.filter(row => row.dueDate <= input.businessDate)) {
-      if ((totals.get(row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
-        throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
-      }
-    }
-    return { amountPaise: settlementRow.closingPrincipalPaise as number, scheduleVersion: version,
-      paidThroughInstallment: settlementRow.installmentNumber, loanRevision: loan.revision,
-      paymentLedgerRevision: ledger?.revision ?? null };
-  }
-
-  async settle(input: { id: string; commandId: string; loanId: string; businessDate: string;
-    method: FinancePaymentMethodV1; reference?: string; source: RecordEnvelope<unknown>["source"];
-    expectedLoanRevision: number; expectedPaymentLedgerRevision: number | null;
-    expectedAmountPaise: number; expectedScheduleVersion: number; expectedPaidThroughInstallment: number }) {
-    if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
-      throw new Error("finance_payment_settlement_input_invalid");
-    }
-    if (!this.scheduleResolver) throw new Error("finance_payment_schedule_resolver_required");
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
-      const replay = entries.find(entry => entry.commandId === input.commandId);
-      if (replay) {
-        if (replay.kind !== "settlement" || replay.id !== input.id || replay.businessDate !== input.businessDate ||
-            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined) ||
-            replay.amountPaise !== input.expectedAmountPaise || replay.scheduleVersion !== input.expectedScheduleVersion ||
-            replay.paidThroughInstallment !== input.expectedPaidThroughInstallment) {
-          throw new Error("finance_payment_idempotency_conflict");
-        }
-        return replay;
-      }
-      if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
-        throw new Error("finance_loan_already_settled");
-      }
-      if (loan.revision !== input.expectedLoanRevision ||
-          (ledger?.revision ?? null) !== input.expectedPaymentLedgerRevision) {
-        throw new Error("finance_payment_settlement_preview_stale");
-      }
-      await this.assertSettlementDateNotBeforeHistory(input.loanId, input.businessDate, entries);
-      const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
-      if (version === undefined) throw new Error("finance_payment_settlement_not_emi_date");
-      const rows = await this.resolveScheduleRows(input.loanId, loan.data, version);
-      const settlementRow = rows.find(row => row.dueDate === input.businessDate);
-      if (!settlementRow || !Number.isSafeInteger(settlementRow.closingPrincipalPaise) ||
-          (settlementRow.closingPrincipalPaise as number) <= 0) {
-        throw new Error("finance_payment_settlement_not_emi_date");
-      }
-      if (version !== input.expectedScheduleVersion ||
-          settlementRow.installmentNumber !== input.expectedPaidThroughInstallment ||
-          settlementRow.closingPrincipalPaise !== input.expectedAmountPaise) {
-        throw new Error("finance_payment_settlement_preview_stale");
-      }
-      const totals = allocationTotals(entries, version);
-      const dueRows = rows.filter(row => row.dueDate <= input.businessDate);
-      for (const row of dueRows) {
-        if ((totals.get(row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
-          throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
-        }
-      }
-      const createdAt = this.now();
-      const settlement: FinancePaymentEntryV1 = { kind: "settlement", id: input.id, commandId: input.commandId,
-        loanId: input.loanId, businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
-        method: input.method, ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
-        scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
-        createdAt, source: input.source, status: "committed" };
-      if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
-      const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, settlement] };
-      assertLedger(data, input.loanId);
-      const id = ledgerId(input.loanId);
-      const nextLedger: RecordEnvelope<FinancePaymentLedgerV1> = {
-        id, schemaVersion: 1, createdAt: ledger?.createdAt ?? createdAt, updatedAt: createdAt,
-        businessDate: input.businessDate, source: input.source, revision: (ledger?.revision ?? 0) + 1, data };
-      const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
-        ...loan, updatedAt: createdAt, revision: loan.revision + 1,
-        data: { ...loan.data, lifecycleState: "closed" },
-      };
-      if (await this.repository.compareAndSetMany([
-        { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
-        { id, expectedRevision: ledger?.revision ?? null, next: nextLedger },
-      ])) return settlement;
-    }
-    throw new Error("finance_payment_settlement_concurrent_write_retry_exhausted");
-  }
-
   async reverse(input: { id: string; commandId: string; loanId: string; paymentId: string; businessDate: string;
     reason: string; source: RecordEnvelope<unknown>["source"] }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !input.reason.trim()) throw new Error("finance_payment_reversal_input_invalid");
