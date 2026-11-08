@@ -53,6 +53,7 @@ export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAda
       const response = await this.request(url.toString(), {
         method: "GET",
         headers: { Accept: "application/json" },
+        referrerPolicy: "strict-origin-when-cross-origin",
       });
       if (!response.ok) throw new Error("nominatim_http_" + response.status);
       const body = await response.json() as { address?: Record<string, unknown>; error?: string };
