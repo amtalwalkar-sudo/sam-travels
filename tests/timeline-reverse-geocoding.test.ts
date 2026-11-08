@@ -24,6 +24,7 @@ describe("Timeline reverse geocoding", () => {
       expect(url.searchParams.get("lon")).toBe("72.8777");
       expect(url.searchParams.has("apiKey")).toBe(false);
       expect(init?.headers).toEqual({ Accept: "application/json" });
+      expect(init?.referrerPolicy).toBe("strict-origin-when-cross-origin");
       return new Response(JSON.stringify({ address: { suburb: "Andheri", city: "Mumbai", state: "Maharashtra" } }), { status: 200 });
     }) as unknown as typeof fetch;
     const adapter = new OpenStreetMapNominatimReverseGeocoder(request);
