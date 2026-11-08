@@ -23,12 +23,17 @@ export function registerDriverRecordsBrowserBackupParticipant(): () => void {
     validateSnapshot(records) {
       const driverIds = new Set<string>();
       const assignmentIds = new Set<string>();
+      let selectedWorkDrivers = 0;
       for (const record of records.filter(item => item.id.startsWith("feature:driver-records:"))) {
         if (record.id.startsWith("feature:driver-records:driver:")) {
           assertDriverRecordV1(record.data);
           const id = driverRecordId(record.data.driverId);
           if (record.id !== id || driverIds.has(id)) throw new Error("driver_backup_duplicate_identity");
           driverIds.add(id);
+          if (record.data.selectedForWork === true) {
+            if (record.data.lifecycleState !== "active") throw new Error("driver_selected_work_driver_inactive");
+            selectedWorkDrivers++;
+          }
         } else if (record.id.startsWith("feature:driver-records:assignment:")) {
           assertDriverAssignmentHistoryV1(record.data);
           const id = driverAssignmentHistoryId(record.data.driverId);
@@ -36,6 +41,7 @@ export function registerDriverRecordsBrowserBackupParticipant(): () => void {
           assignmentIds.add(id);
         } else throw new Error("driver_record_namespace_mismatch");
       }
+      if (selectedWorkDrivers > 1) throw new Error("driver_multiple_selected_for_work");
     },
   });
 }
