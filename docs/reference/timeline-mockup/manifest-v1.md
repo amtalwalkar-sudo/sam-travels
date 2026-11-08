@@ -12,4 +12,4 @@
 - **Visual rules:** Individually bounded ride containers; pickup connectors outside ride cards; restrained cancellation block; stronger shift boundaries; extensible summary panel; fixed navigation labels exactly `Drive · Timeline · Performance · Admin`.
 - **Data integrity notes:** Shift 1 total fare is ₹1,120 (₹450 + ₹620 + ₹50 cancellation fee). Shift 1 pickup/idle metrics are marked for review because the supplied event durations do not establish an unambiguous reconciled interval set. Shift 2 time metrics reconcile to 03:25:00. Toll, parking and odometer values were not supplied and are not fabricated.
 - **Version policy:** v1 is immutable. Any later approved visual revision must be a new versioned artifact with its own checksum and provenance; retain v1 and all earlier baselines.
-- **Implementation status:** Documentation/reference only. No PWA or Android UI/runtime implementation is authorized by this approval.
+- **Implementation status:** UI/runtime implementation was separately authorized by the user on 8 November 2026. The v1 reference bytes and checksum remain immutable; implementation must be compared against this baseline.
