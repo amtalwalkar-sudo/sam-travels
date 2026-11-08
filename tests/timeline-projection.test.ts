@@ -67,6 +67,14 @@ describe("headless Timeline domain projection",()=>{
   expect(p.logicalShifts[0].metrics.completed_ride_count.status).toBe("invalid");expect(p.integrityIssues[0].code).toBe("unmatched_trip_close");
  });
 
+ it("keeps an open pickup duration pending until Start Ride or Cancel Ride",()=>{
+  const p=buildTimelineProjection({events:[
+   event("ss-open-pickup",1,"shift_start","2026-11-04T18:00:00.000Z","idle"),
+   event("create-open-pickup",2,"trip_create","2026-11-04T18:10:00.000Z","shift_active"),
+  ],asOf:"2026-11-04T18:25:00.000Z"});
+  expect(p.logicalShifts[0].metrics.pickup_time.status).toBe("pending");
+ });
+
  it("calculates pickup time and idle as the non-overlapping complement of shift and passenger time",()=>{
   const events=[
    event("ss",1,"shift_start",shiftStart,"idle"),
