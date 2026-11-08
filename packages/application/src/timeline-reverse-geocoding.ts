@@ -1,11 +1,11 @@
 import { NetworkAccessDisabledError, type NetworkGateway } from "../../core/src/network";
 import type { DriverEvent } from "../../domain/src/driver-workflow";
 
-export type TimelineLocationStatus = "resolved" | "not_found" | "pending" | "network_disabled" | "configuration_missing" | "unavailable";
+export type TimelineLocationStatus = "resolved" | "not_found" | "pending" | "network_disabled" | "unavailable";
 export type TimelineLocationEnrichment = Readonly<{
   status: TimelineLocationStatus;
   label?: string;
-  provider?: "geoapify";
+  provider?: "openstreetmap_nominatim";
   lookedUpAt?: string;
 }>;
 export type TimelineLocationMap = Readonly<Record<string, TimelineLocationEnrichment>>;
@@ -16,31 +16,56 @@ export interface ReverseGeocoderAdapter {
   reverse(latitude: number, longitude: number): Promise<string | undefined>;
 }
 
-/** Geoapify adapter; API key is supplied by deployment config, never committed. */
-export class GeoapifyReverseGeocoder implements ReverseGeocoderAdapter {
-  readonly provider = "geoapify";
-  constructor(private readonly apiKey: string, private readonly request: typeof fetch = fetch) {
-    if (!apiKey.trim()) throw new Error("geoapify_api_key_missing");
-  }
+/*
+ * Nominatim's public service permits at most one request per second. Keep one
+ * module-wide queue so Timeline service instances in this app share the same
+ * start-to-start throttle. Browser fetch supplies the page referrer; the app
+ * does not attempt to spoof a User-Agent header.
+ */
+let nominatimQueue: Promise<void> = Promise.resolve();
+let lastNominatimRequestAt = 0;
+
+function scheduleNominatimRequest<T>(operation: () => Promise<T>): Promise<T> {
+  const result = nominatimQueue.then(async () => {
+    const waitMs = Math.max(0, 1000 - (Date.now() - lastNominatimRequestAt));
+    if (waitMs > 0) await new Promise<void>(resolve => setTimeout(resolve, waitMs));
+    lastNominatimRequestAt = Date.now();
+    return operation();
+  });
+  nominatimQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+/** Public OpenStreetMap Nominatim adapter; no account or API key is required. */
+export class OpenStreetMapNominatimReverseGeocoder implements ReverseGeocoderAdapter {
+  readonly provider = "openstreetmap_nominatim";
+  constructor(private readonly request: typeof fetch = fetch) {}
 
   async reverse(latitude: number, longitude: number): Promise<string | undefined> {
-    const url = new URL("https://api.geoapify.com/v1/geocode/reverse");
-    url.searchParams.set("lat", String(latitude));
-    url.searchParams.set("lon", String(longitude));
-    url.searchParams.set("lang", "en");
-    url.searchParams.set("format", "json");
-    url.searchParams.set("apiKey", this.apiKey);
-    const response = await this.request(url.toString(), { method: "GET", headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error("geoapify_http_" + response.status);
-    const body = await response.json() as { features?: Array<{ properties?: Record<string, unknown> }> };
-    const properties = body.features?.[0]?.properties;
-    if (!properties) return undefined;
-    const parts = [
-      properties.suburb, properties.neighbourhood, properties.district,
-      properties.city, properties.county, properties.state,
-    ].filter((part): part is string => typeof part === "string" && part.trim().length > 0);
-    const unique = [...new Set(parts.map(part => part.trim()))];
-    return unique.length ? unique.join(", ") : undefined;
+    return scheduleNominatimRequest(async () => {
+      const url = new URL("https://nominatim.openstreetmap.org/reverse");
+      url.searchParams.set("format", "jsonv2");
+      url.searchParams.set("lat", String(latitude));
+      url.searchParams.set("lon", String(longitude));
+      url.searchParams.set("zoom", "18");
+      url.searchParams.set("addressdetails", "1");
+      url.searchParams.set("accept-language", "en");
+      const response = await this.request(url.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error("nominatim_http_" + response.status);
+      const body = await response.json() as { address?: Record<string, unknown>; error?: string };
+      if (body.error || !body.address) return undefined;
+      const address = body.address;
+      const parts = [
+        address.suburb, address.neighbourhood, address.city_district,
+        address.town, address.city, address.village, address.municipality,
+        address.county, address.state,
+      ].filter((part): part is string => typeof part === "string" && part.trim().length > 0);
+      const unique = [...new Set(parts.map(part => part.trim()))];
+      return unique.length ? unique.join(", ") : undefined;
+    });
   }
 }
 
@@ -50,14 +75,15 @@ const ENRICHMENT_EVENT_TYPES = new Set([
 ]);
 
 /**
- * Optional enrichment. Positive and negative cache entries are session-local;
- * immutable source GPS evidence and Timeline business persistence are untouched.
+ * Optional read-only enrichment. Positive and negative cache entries are
+ * session-local; immutable source GPS evidence and Timeline business persistence
+ * are untouched. Requests are serialized and throttled by the Nominatim adapter.
  */
 export class TimelineReverseGeocodingService {
   private readonly cache = new Map<string, CacheEntry>();
   constructor(
     private readonly gateway: Pick<NetworkGateway, "run">,
-    private readonly adapter?: ReverseGeocoderAdapter,
+    private readonly adapter: ReverseGeocoderAdapter,
     private readonly now: () => number = Date.now,
     private readonly successTtlMs = 30 * 24 * 60 * 60 * 1000,
     private readonly negativeTtlMs = 60 * 60 * 1000,
@@ -69,32 +95,28 @@ export class TimelineReverseGeocodingService {
       const gps = event.gps;
       if (!ENRICHMENT_EVENT_TYPES.has(event.command.eventType) || !gps ||
           !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude)) continue;
-      if (!this.adapter) {
-        result[event.eventId] = { status: "configuration_missing" };
-        continue;
-      }
       const key = this.cacheKey(gps.latitude, gps.longitude);
       const cached = this.cache.get(key);
       if (cached && cached.expiresAt > this.now()) {
         result[event.eventId] = cached.label
-          ? { status: "resolved", label: cached.label, provider: "geoapify", lookedUpAt: cached.lookedUpAt }
-          : { status: "not_found", provider: "geoapify", lookedUpAt: cached.lookedUpAt };
+          ? { status: "resolved", label: cached.label, provider: "openstreetmap_nominatim", lookedUpAt: cached.lookedUpAt }
+          : { status: "not_found", provider: "openstreetmap_nominatim", lookedUpAt: cached.lookedUpAt };
         continue;
       }
       try {
-        const label = await this.gateway.run(() => this.adapter!.reverse(gps.latitude, gps.longitude));
+        const label = await this.gateway.run(() => this.adapter.reverse(gps.latitude, gps.longitude));
         const lookedUpAt = new Date(this.now()).toISOString();
         this.cache.set(key, {
           label, lookedUpAt,
           expiresAt: this.now() + (label ? this.successTtlMs : this.negativeTtlMs),
         });
         result[event.eventId] = label
-          ? { status: "resolved", label, provider: "geoapify", lookedUpAt }
-          : { status: "not_found", provider: "geoapify", lookedUpAt };
+          ? { status: "resolved", label, provider: "openstreetmap_nominatim", lookedUpAt }
+          : { status: "not_found", provider: "openstreetmap_nominatim", lookedUpAt };
       } catch (cause) {
         result[event.eventId] = {
           status: cause instanceof NetworkAccessDisabledError ? "network_disabled" : "unavailable",
-          provider: "geoapify",
+          provider: "openstreetmap_nominatim",
         };
       }
     }
@@ -102,7 +124,7 @@ export class TimelineReverseGeocodingService {
   }
 
   private cacheKey(latitude: number, longitude: number): string {
-    // Cache keys coalesce GPS jitter (~11 m at 4 decimals); requests retain original coordinates.
+    // Cache keys coalesce GPS jitter (~11 m at 4 decimals); requests retain original coordinate values.
     return latitude.toFixed(4) + "," + longitude.toFixed(4);
   }
 }
