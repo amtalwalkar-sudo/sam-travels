@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { nativeOverlayAvailable } from "../driver-workflow";
 import { BackupPanel } from "./BackupPanel";
-import { TripHistory } from "./TripHistory";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
@@ -114,7 +113,7 @@ export function App() {
             <FeatureScreenHost mountPoint="Drive" context={{ activeScreen }} />
         </div>
         {activeScreen === "Timeline" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Timeline</h1><TripHistory /><FeatureScreenHost mountPoint="Timeline" context={{ activeScreen }} /></section>
+          <FeatureScreenHost mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>

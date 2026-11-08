@@ -16,6 +16,7 @@ Initial feature areas:
 - Finance
 - Vehicle
 - Performance
+- Timeline (read-only consumer)
 - Admin
 - Backup and Recovery
 

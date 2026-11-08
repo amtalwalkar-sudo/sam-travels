@@ -4,20 +4,20 @@ export const TIMELINE_TIME_ZONE = "Asia/Kolkata" as const;
 export const LOGICAL_SHIFT_BOUNDARY_MINUTES = 240 as const;
 export const TIMELINE_V1_METRIC_IDS = ["shift_duration","pickup_time","passenger_trip_time","idle_time","total_fare","toll_total","parking_total","business_km","completed_ride_count","cancelled_attempt_count"] as const;
 export type TimelineMetricId = typeof TIMELINE_V1_METRIC_IDS[number];
-export type TimelineMetricStatus = "available" | "pending" | "unavailable" | "invalid";
+export type TimelineMetricStatus = "available" | "pending" | "unavailable" | "not_applicable" | "invalid";
 export type TimelineMetricUnit = "minutes" | "count" | "minor_currency_units" | "km";
 export type TimelineMetric =
   | { status:"available"; value:number; unit:TimelineMetricUnit; currency?:string }
-  | { status:"pending"|"unavailable"|"invalid"; reason:string; unit:TimelineMetricUnit };
+  | { status:"pending"|"unavailable"|"not_applicable"|"invalid"; reason:string; unit:TimelineMetricUnit };
 export type TimelineSourceSnapshot<T> =
   | { status:"available"; records:readonly T[] }
   | { status:"pending"; reason?:string }
   | { status:"unavailable"|"invalid"; reason:string };
-/** Finance-owned records; amounts are integer minor units (paise for INR). */
+/** Log Book/Trips-owned financial records; amounts are integer minor units. */
 export type TimelineFinancialRecord = { id:string; tripId:string; kind:"fare"|"cancellation_fee"|"toll"|"parking"; amountMinor:number; currency:string; occurredAt:string };
-/** Work-owned pickup interval evidence, from approach initiation to ride start or cancellation. */
+/** Read-only pickup interval evidence supplied by its authoritative source; Timeline owns neither pickup lifecycle nor source records. */
 export type TimelinePickupInterval = { id:string; startedAt:string; endedAt:string };
-/** Vehicle-owned odometer evidence. */
+/** Work/Shift-owned odometer evidence; Timeline only consumes the read-only values. */
 export type TimelineOdometerReading = { id:string; kind:"start"|"end"; readingKm:number; recordedAt:string };
 export type TimelineProjectionInput = {
   events:readonly DriverEvent[];
@@ -38,7 +38,7 @@ type TripSpan = { id:string; endedAt:number; status:"completed"|"cancelled"; own
 type ShiftBuilder = {
   id:string; anchorDate:string; eventIds:Set<string>; shiftDurationMs:number; passengerTripMs:number; pickupMs:number;
   completedRideCount:number; cancelledAttemptCount:number; pendingShift:boolean; pendingTrip:boolean; pendingPickup:boolean;
-  invalidShift:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
+  invalidShift:boolean; missingShiftBoundary:boolean; invalidTrip:boolean; invalidPickup:boolean; invalidTimeAllocation:boolean;
 };
 const UNIT:Record<TimelineMetricId,TimelineMetricUnit> = {
   shift_duration:"minutes",pickup_time:"minutes",passenger_trip_time:"minutes",idle_time:"minutes",
@@ -68,7 +68,7 @@ function parseTime(value:string|undefined):number|undefined {
   if(typeof value!=="string")return undefined; const n=Date.parse(value); return Number.isFinite(n)?n:undefined;
 }
 function createShift(id:string):ShiftBuilder {
-  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,pendingPickup:false,invalidShift:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
+  return {id,anchorDate:id.slice(14),eventIds:new Set(),shiftDurationMs:0,passengerTripMs:0,pickupMs:0,completedRideCount:0,cancelledAttemptCount:0,pendingShift:false,pendingTrip:false,pendingPickup:false,invalidShift:false,missingShiftBoundary:false,invalidTrip:false,invalidPickup:false,invalidTimeAllocation:false};
 }
 type BusyInterval={start:number;end:number;kind:"pickup"|"passenger"};
 function addInterval(shifts:Map<string,ShiftBuilder>,start:number,end:number,target:"shiftDurationMs"|"passengerTripMs"|"pickupMs",busy?:Map<string,BusyInterval[]>):void {
@@ -91,7 +91,7 @@ function sourceMetric<T>(source:TimelineSourceSnapshot<T>|undefined,unit:Timelin
   if(source.status==="pending")return {status:"pending",unit,reason:source.reason??"source_pending"};
   return {status:source.status,unit,reason:source.reason};
 }
-function minutes(ms:number):number { return Math.round((ms/60_000+Number.EPSILON)*100)/100; }
+function minutes(ms:number):number { return ms/60_000; }
 function eventSignature(e:DriverEvent):string {
   return [e.eventId,e.revision,e.committedAt,e.command.eventType,e.command.transitionAt,e.command.expectedPriorState,e.command.idempotencyKey].join("|");
 }
@@ -149,12 +149,26 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     const start=Date.parse(openShift.command.transitionAt),s=ensure(shiftIdAt(start));
     if(asOf===undefined)s.pendingShift=true;
     else if(asOf<start){s.invalidShift=true;issues.push({code:"invalid_shift_interval",eventId:openShift.eventId,logicalShiftId:s.id});}
-    else addInterval(shifts,start,asOf,"shiftDurationMs");
+    else {
+      addInterval(shifts,start,asOf,"shiftDurationMs");
+      // Only the current logical segment is incomplete; earlier 04:00
+      // rotations have a closed interval and remain finalized.
+      ensure(shiftIdAt(asOf)).pendingShift=true;
+    }
+  }
+
+  for(const shift of shifts.values()) {
+    if(shift.shiftDurationMs>0||shift.pendingShift||shift.invalidShift)continue;
+    const hasBoundaryEvent=[...shift.eventIds].some(eventId=>{
+      const kind=unique.get(eventId)?.command.eventType;
+      return kind==="shift_start"||kind==="shift_end";
+    });
+    if(!hasBoundaryEvent) shift.missingShiftBoundary=true;
   }
 
   const busyIntervals=new Map<string,BusyInterval[]>();
   const trips:TripSpan[]=[];
-  const hasV2PickupEvents=events.some(event=>event.command.eventType==="trip_create");
+  const v2PickupShiftIds=new Set(events.filter(event=>event.command.eventType==="trip_create").map(event=>shiftIdAt(Date.parse(event.command.transitionAt))));
   let activeTrip:{event:DriverEvent;stage:"pickup"|"ride";pickupStart:number;rideStart?:number}|undefined;
   for(const e of events) {
     const kind=e.command.eventType,at=Date.parse(e.command.transitionAt),id=shiftIdAt(at);
@@ -283,10 +297,11 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
       else businessKm=available(pair.end[0].readingKm-pair.start[0].readingKm,"km");
     }
     const duration:TimelineMetric=s.invalidShift?{status:"invalid",unit:"minutes",reason:"shift_event_sequence_invalid"}:
-      s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:available(minutes(s.shiftDurationMs),"minutes");
+      s.pendingShift?{status:"pending",unit:"minutes",reason:"shift_end_not_recorded"}:
+      s.missingShiftBoundary?unavailable("minutes","shift_boundaries_not_recorded"):available(minutes(s.shiftDurationMs),"minutes");
     const passenger:TimelineMetric=s.invalidTrip||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"trip_event_sequence_invalid"}:
       s.pendingTrip?{status:"pending",unit:"minutes",reason:"trip_end_not_recorded"}:available(minutes(s.passengerTripMs),"minutes");
-    const pickupMetric:TimelineMetric=hasV2PickupEvents
+    const pickupMetric:TimelineMetric=v2PickupShiftIds.has(s.id)
       ?s.invalidTrip||s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_trip_interval_invalid"}:s.pendingPickup?{status:"pending",unit:"minutes",reason:"trip_pickup_in_progress"}:available(minutes(s.pickupMs),"minutes")
       :!("records" in pickup)?pickup:
        s.invalidPickup||s.invalidTimeAllocation?{status:"invalid",unit:"minutes",reason:"pickup_or_activity_interval_invalid"}:

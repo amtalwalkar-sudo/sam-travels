@@ -1,8 +1,8 @@
 # Timeline Mockup Visual Fidelity Contract
 
-**Status: Visual direction approved; versioned SVG reference v1 committed. Future revisions remain explicitly versioned and approval-controlled.**  
+**Status: Visual direction approved; versioned SVG reference v1 committed; implementation authorized on 8 November 2026. Future revisions remain explicitly versioned and approval-controlled.**  
 **Target: Sam Travels PWA main application.**  
-**Scope: Documentation and visual-reference governance only. No UI implementation is authorized.**
+**Scope: Visual-reference governance and faithful implementation of the approved Timeline screen. The v1 SVG remains immutable and is the visual source of truth.**
 
 ## 1. Purpose and authority
 
@@ -134,12 +134,15 @@ The visual-fidelity requirement is accepted only when all applicable items are e
 
 The v1 reference is now committed. Visual fidelity of any future implementation still requires the full same-viewport and responsive evidence in this checklist; committing a mockup alone does not verify an implementation.
 
-## 9. Non-authorization
+## 9. Implementation authorization and limits
 
-This contract is documentation and reference governance only. It does not authorize:
-- PWA or Android UI implementation.
-- CSS, component, layout, typography or theme changes.
+This visual contract is binding for the authorized Timeline implementation in the PWA main application. The implementation authorization recorded at the top of this document permits implementation of the approved Timeline design within the scope and constraints of the governing Timeline Product Design, Feature Module and Extension Contract, Feature Extension Architecture, and Authority and Responsibility Allotment Map.
+
+It does not authorize:
+- A new or parallel feature-extension, registry, navigation, persistence, recovery, or platform architecture.
+- Timeline ownership of Work/Shift lifecycle, Driver Workflow transitions, Log Book/Trips lifecycle or financial records, odometer records, or GPS evidence.
+- Private-table or persistence-adapter access across feature boundaries, duplicate authoritative records, or a second event store.
+- Automatic GPS collection, map tiles, reverse-geocoding activation, hosted-provider credentials, or recurring provider spend.
 - Unapproved replacement of the current reference or visual redesign. Approved future reference revisions must be versioned and retain prior baselines.
-- Changes to Timeline behavior, data, calculations, persistence or navigation.
 
-Any implementation requires a separate implementation plan and explicit user authorization. The PWA main app is the named visual target; the approved versioned reference is binding for that future implementation. Approval of the visual direction does not authorize UI/runtime implementation.
+The PWA main app is the named visual target; the approved versioned reference is binding. Any deviation from the approved visual baseline or any expansion of product/architecture scope requires explicit user approval and the corresponding versioned contract change. Passing CI or committing a mockup does not by itself establish visual fidelity; the evidence in this contract remains mandatory.

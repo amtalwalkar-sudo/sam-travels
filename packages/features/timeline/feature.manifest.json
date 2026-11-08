@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "timeline",
+  "entryPoint": "packages/features/timeline/index.ts",
+  "extensionExport": "TIMELINE_FEATURE_EXTENSION"
+}

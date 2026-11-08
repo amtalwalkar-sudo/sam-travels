@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
@@ -10,7 +10,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService } from "../../../../packages/application/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 
@@ -240,10 +240,16 @@ export function useDriverWorkspace() {
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
 
+  const loadTimeline = useCallback(async () => {
+    if (!workflow) throw new Error("Work history is still loading");
+    return new TimelineProjectionService({ listEvents: () => workflow.events() }).read(new Date().toISOString());
+  }, [workflow]);
+
+
   return {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
     shiftOn, tripOn, localClock, elapsed,
     actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver },
-    driverChoices, selectedDriverId,
+    driverChoices, selectedDriverId, loadTimeline,
   };
 }

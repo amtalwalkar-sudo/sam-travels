@@ -8,6 +8,11 @@ import {
 } from "../../domain/src/timeline";
 import type { DriverEvent } from "../../domain/src/driver-workflow";
 
+export type TimelineReadModel = Readonly<{
+  events: DriverEvent[];
+  projection: TimelineProjection;
+}>;
+
 /** Public application read port; platform adapters must return the owning event log. */
 export interface TimelineEventSource {
   listEvents(): Promise<DriverEvent[]>;
@@ -30,13 +35,33 @@ export class TimelineProjectionService {
     private readonly evidence?: TimelineEvidenceSource,
   ) {}
 
-  async project(asOf?: string): Promise<TimelineProjection> {
+  async read(asOf?: string): Promise<TimelineReadModel> {
+    const readOptional = async <T>(
+      sourceId: string,
+      reader?: () => Promise<TimelineSourceSnapshot<T>>,
+    ): Promise<TimelineSourceSnapshot<T> | undefined> => {
+      if (!reader) return undefined;
+      try {
+        return await reader();
+      } catch {
+        // Optional evidence failure must degrade only its own metrics. The
+        // authoritative event query remains required and is allowed to fail.
+        return { status: "unavailable", reason: sourceId + "_read_failed" };
+      }
+    };
     const [events, pickupIntervals, financial, odometer] = await Promise.all([
       this.events.listEvents(),
-      this.evidence?.listPickupIntervals?.(),
-      this.evidence?.listFinancialRecords?.(),
-      this.evidence?.listOdometerReadings?.(),
+      readOptional("pickup_source", this.evidence?.listPickupIntervals?.bind(this.evidence)),
+      readOptional("finance_source", this.evidence?.listFinancialRecords?.bind(this.evidence)),
+      readOptional("odometer_source", this.evidence?.listOdometerReadings?.bind(this.evidence)),
     ]);
-    return buildTimelineProjection({ events, asOf, pickupIntervals, financial, odometer });
+    return {
+      events,
+      projection: buildTimelineProjection({ events, asOf, pickupIntervals, financial, odometer }),
+    };
+  }
+
+  async project(asOf?: string): Promise<TimelineProjection> {
+    return (await this.read(asOf)).projection;
   }
 }

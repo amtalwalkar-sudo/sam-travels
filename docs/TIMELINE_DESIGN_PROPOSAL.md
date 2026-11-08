@@ -1,12 +1,12 @@
 # Timeline Product Design
 
-**Status: Draft proposal — visual direction approved; remaining product design is open and not frozen.**
+**Status: Approved and frozen product-design baseline.**
 
-**Design approval: Mobile visual direction and shift-summary treatment approved on 5 November 2026; remaining product decisions are still open.**
-**Implementation authorization: Not granted.**
-**Scope: Product-design documentation only; no runtime implementation.**
+**Design approval: Complete Timeline product baseline frozen in the governing Architecture contract; the mobile visual direction and shift-summary treatment were explicitly approved on 5 November 2026.**
+**Implementation authorization: Granted by the user's explicit implementation instruction on 8 November 2026.**
+**Scope: Read-only Timeline feature registration, authoritative Work-event query, projection, screen, and date navigation.**
 
-This document is the working product-design proposal for the Timeline in the single-driver Sam Travels application. It records proposed product behavior, presentation, grouping, calculations, location-enrichment policy, cross-platform expectations, and acceptance criteria. Some individual rules have been agreed in principle, but the complete Timeline design is not approved or frozen. This document remains open for review and revision until the user explicitly approves the complete design. Documentation updates do not authorize code, schema, migration, UI, background-service, integration, or runtime implementation. Existing normative architecture contracts remain authoritative.
+This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, reverse-geocoding activation, hosted-provider credentials, or a persistent Timeline cache. Optional location enrichment remains deferred behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
@@ -36,6 +36,12 @@ If this proposal appears to conflict with an existing normative contract, the ex
 
 ## 3. Timeline architecture
 
+### Feature introduction and registration
+
+Timeline is introduced as a non-persistent feature through the existing Feature Extension Architecture: its own `feature.manifest.json`, public `index.ts`, extension descriptor (including its feature definition), and generated static feature catalogue. The application composition root supplies that catalogue to the existing runtime registry, which validates dependencies and registers the Timeline-owned presentation contribution.
+
+Do not add Timeline to the shared core built-in feature inventory, create a second feature registry, or add per-feature wiring to the application entry point. Declare only dependencies whose public source contracts are actually consumed; future source integrations must be added through the existing extension/integration contracts and their owning feature's public API. An unavailable or unwired source remains an explicit data gap, not a reason to recreate that source capability inside Timeline.
+
 The conceptual flow is:
 
 1. **Presentation** — renders the event sequence, filters, shift sections, ride/cancellation blocks, location labels and summaries.
@@ -54,6 +60,22 @@ The conceptual flow is:
 - Any cached Timeline projection is derived, non-authoritative, disposable and rebuildable from source records. It must carry a projection/schema version if persisted. It must not become a second business history.
 - If future implementation requires Timeline-owned durable business data, that is a new product/architecture decision and must use the feature-registration, migration, backup and restore rules. This proposal does not authorize such data.
 
+### Implementation source audit — initial read-only slice
+
+The first implementation reads the committed Work/Driver Operational Workflow event stream through the Work workflow's public event-list query. This is the authoritative operational transition stream used for chronological display; it is not a substitute for Log Book/Trips trip-history records. The shared Timeline projection remains disposable and is rebuilt for each read; no Timeline business data or cache is persisted.
+
+| Timeline content | Current authoritative source / implementation status |
+|---|---|
+| Shift boundaries | Work/Shift lifecycle, exposed through the authoritative workflow event query on PWA (Dexie) and Android (Room). |
+| Pickup creation, ride start/end and cancellation transitions | Committed Driver Operational Workflow events read through the Work workflow's public event-list query. Timeline displays these transitions only; Log Book/Trips remains the owner of trip-history records and trip-linked financial records. Its public trip-history query is not yet wired to Timeline. |
+| Pickup/passenger-trip interval summaries, ride/cancellation counts, logical-shift and calendar grouping | Derived as read-only Timeline projections from committed workflow transitions. These summaries do not create or replace Log Book/Trips records. Legacy pickup evidence still requires its owning public query contract. |
+| Fare, cancellation fee, toll and parking amounts | No complete public trip-finance read contract is currently wired to Timeline. Values remain explicitly unavailable; no loan/payment records are misused as trip revenue. |
+| Odometer/business distance | No public odometer evidence query is currently wired to Timeline. Distance remains unavailable. |
+| Human-readable location names | GPS evidence is present on source events, but no reverse-geocoding integration is activated. The screen identifies captured/unavailable location evidence without displaying invented place names. |
+| Date/week navigation | Applied to the projection's Asia/Kolkata calendar-day index; logical shifts remain governed by the separate 04:00 boundary. The current Work public query exposes a full event snapshot, so source-level period scoping/pagination remains a known performance gap for very large histories. |
+
+The existing Log Book event integration currently validates the legacy event set, while the current v2 Work lifecycle includes trip_create, start_ride, end_ride and cancel_ride. Timeline therefore reads the authoritative Work event log directly through the public Work workflow query; it does not rely on the incomplete Log Book consumer projection. This does not change Log Book ownership or mutate its records. Finance and odometer source adapters can be added later through their owning public query contracts without changing Timeline's presentation contract.
+
 ## 4. Event-wise presentation requirements
 
 ### 4.0 Approved mockup is the PWA visual source of truth
@@ -62,7 +84,7 @@ The approved mobile visual direction is preserved as the versioned SVG reference
 
 The approved direction includes compact individually separated ride containers; pickup journeys as distinct connectors outside ride cards; restrained cancellation events; stronger shift start/end boundaries; shift-summary metric panels; and fixed bottom navigation labelled exactly **Drive · Timeline · Performance · Admin**. Shift summaries must distinguish confirmed values from unavailable or unresolved values. In the supplied example Shift 1 total fare is ₹1,120 (₹450 + ₹620 + ₹50 cancellation fee); its pickup/idle values remain unresolved pending interval reconciliation. Shift 2's supplied time values reconcile. Missing toll, parking and odometer values remain unavailable rather than fabricated.
 
-The binding preservation, responsive-adaptation, measurement, change-control and visual-regression requirements are defined in the [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md). The approved v1 artifact is immutable; future approved changes require a new versioned reference, manifest update, retained prior baseline and explicit approval. The reference governs the current visual direction, but does not freeze the entire product design or authorize implementation.
+The binding preservation, responsive-adaptation, measurement, change-control and visual-regression requirements are defined in the [Timeline Mockup Visual Fidelity Contract](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md). The approved v1 artifact is immutable; future approved changes require a new versioned reference, manifest update, retained prior baseline and explicit approval. The approved reference and this document together form the frozen Timeline product-design baseline. Implementation is authorized within the scope stated at the top of this document. This authorization is constrained by the existing feature-extension, public-contract, authority-allocation, persistence, recovery and platform contracts; it does not authorize Timeline to recreate or take ownership of Work/Shift, Driver Workflow, Log Book/Trips, Finance, odometer or GPS capabilities.
 
 The requirements below define the event content and semantic behavior; they do not authorize visual deviations from the approved reference.
 
@@ -415,11 +437,11 @@ The previously open Timeline-specific product decisions are now recorded as foll
 2. **Initial metric catalogue:** The ten stable v1 metric IDs listed in Section 7 form the approved initial baseline, not a permanent limit. Future metrics and summary sections may be added through the extensible metric/presentation contracts in Section 7.1, with explicit product approval and independent calculation versioning.
 3. **04:00 boundary presentation:** A neutral system divider labelled `SHIFT ROTATED · 04:00`, with an Online-session-continuity note and a separate pending-odometer status when applicable; it is not a fabricated driver action or GPS event.
 
-The product-design decisions recorded here are proposed for review and do not freeze the complete Timeline design. The five calendar-day/logical-shift separation rules in Section 6.2 are agreed in principle and remain part of the draft pending complete-design approval. Geoapify remains the proposed primary hosted provider behind the replaceable interface; credentials, India acceptance, privacy/contract review, attribution and usage-budget approval remain deployment prerequisites before reverse geocoding is enabled. Provider selection and other partial decisions do not close the overall design review.
+The product-design decisions recorded here, together with the approved visual reference and the governing Architecture contract, form the frozen Timeline product baseline. Geoapify remains the selected primary hosted provider behind the replaceable interface; credentials, India acceptance, privacy/contract review, attribution and usage-budget approval remain deployment prerequisites before reverse geocoding is enabled. Provider selection does not authorize activation or recurring spend.
 
-## 12. Required verification before any future implementation approval
+## 12. Required verification before implementation/release acceptance
 
-This is the proposed acceptance checklist for future implementation and verification. It is not evidence that implementation or tests already exist.
+This is the acceptance checklist for the authorized implementation and its release verification. It is not evidence that implementation, tests or acceptance gates have already passed.
 
 ### Mockup visual fidelity
 - Verify the currently approved versioned SVG reference is committed with a matching SHA-256 checksum and documented viewport/state/provenance; retain all prior approved versions when a later reference is authorized.
@@ -495,7 +517,7 @@ This matrix makes the six architecture-quality requirements independently tracea
 - Do not mark a row **Device-verified** without a recorded physical device/model, Android version, app build/commit, test scenario, outcome and diagnostics. The user's phone testing remains deliberately deferred; no device verification is claimed by this document.
 - Reverse geocoding is deliberately deferred. It is not a prerequisite for Timeline core conformance, and no geocoder credential, provider call or live-provider acceptance is required to pass the six core architecture rows. Provider-specific activation and India-quality checks remain governed by Section 8.3 and must be tracked separately.
 - A row can have CI-verified core behavior while its separately required physical-device sub-check remains pending. Record that distinction explicitly rather than treating one as proof of the other.
-- This matrix is an evidence/traceability addition to the current proposal. It does not authorize Timeline implementation, phone testing, reverse-geocoder activation, schema changes, migrations, UI work or runtime changes.
+- This matrix is an evidence/traceability addition to the current proposal; it does not independently expand the bounded implementation authorization recorded in Section 13. Phone testing, reverse-geocoder activation, schema changes, migrations, or other scope not expressly authorized there remain out of scope.
 
 ## 12.2 Six remaining Timeline completion gates
 
@@ -510,32 +532,36 @@ The following six gates are the explicit remaining completion criteria for the T
 | **3. Identical PWA and Android business results** | Run the same deterministic authoritative source fixtures through the browser-only PWA/IndexedDB path and installed Android/Room application path. Compare normalized business outputs, not merely visual similarity: stable event identity and ordering; calendar-day grouping; logical-shift grouping and 04:00 rotation; cross-boundary interval allocation; all v1 metric values and currency/precision; zero, unavailable, pending and invalid states; date/week filters; and empty/error results. Prove Android WebView/native surfaces use the intended authoritative Android store and cannot silently fall back to a competing IndexedDB business store. Define deterministic comparison rules for timestamps, rounding and ordering so platform-specific representation differences cannot mask a business-result mismatch. Physical-device/OS lifecycle acceptance remains separate from automated parity. | **Documented — executable parity suite and exact-commit evidence pending.** |
 | **4. Interruption, restart, duplicate-event and restore resilience** | Exercise Timeline reconstruction and reads while offline and across app closure, WebView recreation, process death, device restart, interrupted projection refresh/commit, delayed delivery, duplicate/replayed events, migration and backup/restore. Inject failures at relevant durable boundaries. Verify idempotent delivery, deterministic rebuild, no duplicate/missing Timeline items, no mutation or loss of source records, preservation of stable IDs/timestamps/relationships and originating-shift financial/count ownership, and exact interval/time reconciliation after recovery. Where a projection/cache is persisted, verify version compatibility and rebuild behavior. For restore, prove backup participation where applicable, manifest/schema validation, checkpoint-before-replacement, explicit confirmation, interrupted-restore recovery, rollback and safe retry. If Timeline owns no durable state, prove it reconstructs correctly from restored authoritative feature data without introducing its own restore participant. | **Documented — failure-injection, restart and restore evidence pending.** |
 | **5. Actual UI verified against the approved visual reference** | Verify the implemented PWA Timeline against the immutable approved SVG v1 reference and its manifest/checksum using equivalent deterministic content and the exact reference viewport. Retain side-by-side, overlay and pixel-difference evidence linked to the tested build/commit and reference checksum. Check the approved hierarchy and treatment of shift boundaries, ride containers, pickup connectors outside ride cards, cancellation events, summary panels and fixed navigation. Run responsive checks at supported narrower/wider widths and relevant text/empty/unavailable states; prove no clipping, overlap, hidden information, changed event order or loss of semantic distinction. A committed SVG, screenshot or subjective review alone is not a passing visual regression test. Any approved visual change requires a new immutable versioned reference, manifest/checksum update, retained prior baseline and explicit approval under the Visual Fidelity Contract. | **Documented — implemented-screen comparison and regression evidence pending.** |
-| **6. Close and approve all remaining product-design decisions** | Maintain a decision register and resolve every remaining Timeline product decision before declaring the design complete. At minimum cover metric semantics and source/input policy; missing, invalid, pending, zero and empty states; event coverage, ordering and unknown event handling; midnight/calendar-day versus 04:00 logical-shift presentation; date/week navigation and filter behavior; accessibility, touch/interaction and text scaling; responsive constraints; location-label enrichment, offline behavior and provider activation boundaries; and any conflict between the approved visual reference and behavioral requirements. For each decision record the question, options considered where useful, selected outcome, rationale, affected product/architecture contracts, approval date/authority, and resulting verification impact. Do not treat approval of the visual direction or individual rules as approval of the complete Timeline design. | **Documented — decision register closure and explicit final approval pending.** |
+| **6. Frozen design traceability and change control** | Verify the implementation maps to the frozen product baseline, the immutable SVG v1 visual reference and the governing architecture/ownership contracts. Confirm that unresolved source availability is represented as unavailable, and that optional geocoding remains disabled until its existing privacy, credential, India-quality, attribution, budget and network-policy gates are separately satisfied. Any later product change requires explicit review and approval plus a versioned contract/reference update. | **Design approved/frozen; implementation traceability and regression evidence pending.** |
 
 ### Gate sequencing and evidence discipline
 
-- Gate 1's source-to-output map and calculation contracts must be reviewed before implementation is authorized; do not infer missing business facts from display requirements.
+- Gate 1's source-to-output map and calculation contracts were reviewed before this implementation began; keep missing business facts unavailable rather than inferring them from display requirements.
 - Gate 2 must enforce both TypeScript and Kotlin boundaries. A TypeScript-only lint or dependency check is insufficient. A documented rule, source stub, or test name is not enforcement evidence.
 - Gates 1–4 require executable implementation and tests against real application/repository paths. Mocks and fixtures are test inputs, not proof that production runtime paths use authoritative data.
 - Gate 3 must compare equivalent normalized business results from the two platform application boundaries; matching screens or shared presentation components alone do not prove parity.
 - Gate 4 must include actual failure injection and before/after authoritative-data assertions. Happy-path restart tests alone do not prove interruption, duplicate delivery or restore safety.
 - Gate 5 requires an implemented screen and reproducible visual comparison. The approved SVG is the baseline, not proof that the current UI matches it.
-- Gate 6 is a product-design approval gate. It can be progressed through discussion and documentation, but remains open until all required decisions are explicitly approved.
+- Gate 6 is now a design-traceability/change-control gate. Product design approval is frozen; implementation and regression evidence remain pending.
 - The six gates are related but not interchangeable: metric correctness does not prove ownership enforcement; ownership enforcement does not prove parity; parity does not prove recovery; runtime correctness does not prove visual fidelity; and passing technical tests does not approve unresolved product decisions.
 - Every status transition must cite the exact commit/build, relevant CI workflow/job and test or visual report. Do not mark a gate Implemented, CI-verified or Device-verified based only on documentation, diagrams, source declarations, test names, an unrelated earlier CI run or an unrecorded manual check.
 - **Physical-phone testing remains deliberately deferred.** Emulator/CI parity and lifecycle tests do not establish acceptance on the user's Redmi Note 11 Pro+ 5G or any other physical device. Record physical-device acceptance separately when explicitly scheduled and authorized.
 - **Dropbox/live-account acceptance and reverse-geocoder activation remain deferred** under their existing contracts. Do not make them implicit prerequisites for the six core Timeline gates or claim they have passed.
-- At this documentation-only stage, all six gates remain `Documented — verification pending`. No runtime implementation, UI work, schema/migration, CI workflow or branch-protection change is authorized by this section.
+- This implementation is authorized within the bounded read-only scope recorded at the top of this document. The six technical gates remain Documented — verification pending until exact-commit CI, runtime and visual evidence is attached.
 
-## 13. Non-authorization and change control
+## 13. Implementation authorization and scope boundaries
 
-This document records the current Timeline product-design proposal only.
+The user authorized one integrated Timeline implementation, one pull request and one full CI run on 8 November 2026. This authorizes the following bounded read-only slice:
+- Register Timeline as a non-persistent feature using the existing feature manifest and extension registry.
+- Read authoritative Work events through the public Work workflow query and rebuild the existing shared projection.
+- Render the approved event-wise Timeline screen, shift summaries, explicit unavailable states, and Today/Week/By date navigation.
+- Add focused tests and documentation that record the source gaps and implementation boundaries.
 
-It does **not** authorize:
-- Timeline UI or navigation implementation.
-- Domain/application code, query services or projection code.
-- Database schema, indexes, migrations or persisted metric definitions.
-- Android workers/services, PWA background behavior or geocoder integration.
-- Changes to GPS capture, shift/trip workflows, network policy, backup/restore or existing calculations.
+This authorization does **not** authorize:
+- A Timeline-owned database, event store, persistent projection/cache, or duplicate shift/trip/financial records.
+- Mutations to Work, Log Book, Finance or Vehicle records; changes to shift/trip lifecycle or GPS capture.
+- Maps, map tiles, continuous GPS, automatic location tracking or reverse-geocoding activation.
+- New Finance/odometer business rules, loan/payment records treated as trip income, or invented location/fare/distance values.
+- Changes to backup/restore, network policy, Android background services, or branch protection.
 
-Any future implementation requires a separate implementation plan, architecture/contract reconciliation, verification strategy and explicit user authorization of the implementation scope. The mobile visual direction and summary-panel treatment are approved, but the complete product design remains open and is not frozen; implementation approval must not be inferred from this proposal.
+The design is frozen. Future product changes require explicit review and approval. Technical release acceptance remains subject to the verification gates and separate physical-device/live-provider acceptance contracts.

@@ -24,7 +24,7 @@ const persistentFeature = (overrides: Partial<FeatureDefinition> = {}): FeatureD
 });
 
 describe("runtime feature registry", () => {
-  it("registers the seven initial product modules in dependency-first order", () => {
+  it("registers the initial product modules in dependency-first order", () => {
     const registry = registerFeatures();
     expect([...registry.keys()]).toEqual(["platform", "work", "logbook", "finance", "vehicle", "performance", "admin", "backup"]);
     const order = resolveFeatureStartupOrder(registry).map(feature => feature.id);
@@ -32,6 +32,7 @@ describe("runtime feature registry", () => {
     expect(order.indexOf("work")).toBeLessThan(order.indexOf("logbook"));
     expect(order.indexOf("logbook")).toBeLessThan(order.indexOf("performance"));
     expect(order.indexOf("finance")).toBeLessThan(order.indexOf("performance"));
+    expect(registry.has("timeline")).toBe(false);
   });
 
   it("rejects duplicate module identifiers", () => {
