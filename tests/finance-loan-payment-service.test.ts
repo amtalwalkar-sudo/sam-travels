@@ -157,7 +157,10 @@ describe("FinanceLoanPaymentService", () => {
     const preview = await service.previewSettlement({ loanId, businessDate: "2026-11-01" });
     expect(preview).toMatchObject({ amountPaise: 20000, scheduleVersion: 1, paidThroughInstallment: 1 });
     const settlementInput = { id: "settlement-1", commandId: "settlement-command-1", loanId,
-      businessDate: "2026-11-01", method: "bank_transfer" as const, source: "web" as const };
+      businessDate: "2026-11-01", method: "bank_transfer" as const, source: "web" as const,
+      expectedLoanRevision: preview.loanRevision, expectedPaymentLedgerRevision: preview.paymentLedgerRevision,
+      expectedAmountPaise: preview.amountPaise, expectedScheduleVersion: preview.scheduleVersion,
+      expectedPaidThroughInstallment: preview.paidThroughInstallment };
     const settlement = await service.settle(settlementInput);
     expect(settlement).toMatchObject({ kind: "settlement", amountPaise: 20000, paidThroughInstallment: 1 });
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).toBe("closed");
