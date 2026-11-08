@@ -21,6 +21,21 @@ class DriverWorkflowV2Test {
     private fun gps()=JSONObject().put("latitude",19.076).put("longitude",72.8777)
         .put("horizontalAccuracyM",8).put("fixAt",java.time.Instant.now().toString()).put("provider","android-test")
 
+    @Test fun missingWorkSelectionDoesNotPartiallyCommitShiftStart() {
+        val id="missing-selection-v2"
+        val command=JSONObject().put("schemaVersion",1).put("workflowVersion",2)
+            .put("commandId",id).put("eventId",id).put("eventType","shift_start")
+            .put("originSurface","native_overlay").put("transitionAt",java.time.Instant.now().toString())
+            .put("expectedPriorState","idle").put("expectedRevision",0).put("idempotencyKey",id)
+        DriverWorkflowStore.queue(db,command)
+        val failure=runCatching { DriverWorkflowStore.complete(db,id,gps()) }.exceptionOrNull()
+        assertEquals("work_driver_not_selected",failure?.message)
+        assertEquals("idle",DriverWorkflowStore.snapshot(db).getString("state"))
+        assertEquals(0,DriverWorkflowStore.snapshot(db).getInt("revision"))
+        assertTrue(DriverWorkflowStore.listEvents(db).isEmpty())
+        assertTrue(db.records().list().none { it.id.startsWith("driver-outbox:") })
+    }
+
     @Test fun operationalDateUsesExactIndiaFourAmBoundary() {
         assertEquals("2026-11-08",DriverWorkflowStore.operationalDateAt("2026-11-08T22:29:59Z"))
         assertEquals("2026-11-09",DriverWorkflowStore.operationalDateAt("2026-11-08T22:30:00Z"))
@@ -61,6 +76,14 @@ class DriverWorkflowV2Test {
         val selectedAfterStart=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertEquals("shift-v2",selectedAfterStart.getString("lockedShiftId"))
 
+        // Later Admin edits must not rewrite the context already captured by Work.
+        putFeatureRecord("feature:driver-records:driver:driver-v2",JSONObject().put("schemaVersion",1)
+            .put("driverId","driver-v2").put("name","Driver V2").put("lifecycleState","inactive"))
+        putFeatureRecord("feature:vehicle:MH01AB1234",JSONObject().put("schemaVersion",1)
+            .put("registrationNumber","MH01AB1234").put("make","Make").put("model","Model")
+            .put("vehicleType","Sedan").put("fuelType","Petrol").put("yearOfManufacture",2024)
+            .put("ownership","Owned").put("lifecycleState","inactive"))
+
         val pickup=run("trip-v2","trip_create","shift_active",1)
         assertEquals("going_to_pickup",pickup.getString("state"))
         assertEquals("shift-v2",pickup.getJSONObject("tripContext").getString("shiftId"))
@@ -71,16 +94,21 @@ class DriverWorkflowV2Test {
         assertEquals("trip_active",riding.getString("state"))
         val ended=run("ride-end-v2","end_ride","trip_active",3)
         assertEquals("shift_active",ended.getString("state"))
-        val shiftEnded=run("shift-end-v2","shift_end","shift_active",4)
+        val secondPickup=run("trip-v2-cancel","trip_create","shift_active",4)
+        assertEquals("going_to_pickup",secondPickup.getString("state"))
+        val cancelled=run("ride-cancel-v2","cancel_ride","going_to_pickup",5)
+        assertEquals("shift_active",cancelled.getString("state"))
+        val shiftEnded=run("shift-end-v2","shift_end","shift_active",6)
         assertEquals("idle",shiftEnded.getString("state"))
         val selectedAfterEnd=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertFalse(selectedAfterEnd.has("lockedShiftId"))
         val events=DriverWorkflowStore.listEvents(db)
-        assertEquals(5,events.size)
+        assertEquals(7,events.size)
         assertTrue(JSONObject(events.first { it.optString("eventId")=="shift-v2" }.toString())
             .getJSONObject("command").has("driverContext"))
         assertTrue(JSONObject(events.first { it.optString("eventId")=="trip-v2" }.toString())
             .getJSONObject("command").has("tripContext"))
+        assertTrue(events.any { it.optString("eventId")=="ride-cancel-v2" })
     }
 
 
