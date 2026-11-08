@@ -82,6 +82,7 @@ class DriverWorkflowPlugin:Plugin(){
    fun releaseWakeLock(){if(wakeLock.isHeld)try{wakeLock.release()}catch(_:Exception){}}
    var finished=false
    lateinit var listener:LocationListener
+   lateinit var timeout:Runnable
    fun finish(error:String?=null,location:Location?=null){
     if(finished)return
     finished=true
@@ -94,7 +95,7 @@ class DriverWorkflowPlugin:Plugin(){
      out.put("provider",location.provider?:"android");call.resolve(out)
     }else call.reject(error?:"Location request timed out; intent remains pending",if(error=="gps_recovery_window_expired")"GPS_WINDOW_EXPIRED" else "LOCATION_TIMEOUT")
    }
-   val timeout=Runnable{finish("Location request timed out; intent remains pending")}
+   timeout=Runnable{finish("Location request timed out; intent remains pending")}
    listener=LocationListener{location:Location->
     if(!finished){
      val age= kotlin.math.abs(location.time-transitionMs)
