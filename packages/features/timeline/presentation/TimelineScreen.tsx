@@ -200,7 +200,11 @@ function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }:
             <strong>{eventTitle(event)}</strong>
             <small>{detail}</small>
             {extra && <small>{extra}</small>}
-            <small>{location?.status === "resolved" ? location.label : location?.status === "network_disabled" ? "Location captured · Internet access disabled" : event.gps ? "Location captured · name not available" : "Location not available"}</small>
+            <small>{location?.status === "resolved" ? location.label
+              : location?.status === "network_disabled" ? "Location captured · Internet access disabled"
+              : location?.status === "pending" ? "Location captured · place name pending"
+              : location?.status === "unavailable" ? "Location captured · place name will retry"
+              : event.gps ? "Location captured · name not available" : "Location not available"}</small>
           </div>
         </article>;
       })}
