@@ -23,5 +23,12 @@ export const TIMELINE_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.fre
   version: 1,
   featureId: "timeline",
   publicEntryPoint: "packages/features/timeline/index.ts",
+  feature: {
+    id: "timeline",
+    label: "Timeline",
+    dataPolicy: "non-persistent",
+    contractVersion: 1,
+    dependencies: [{ id: "work", contractVersion: 1 }],
+  },
   presentationScreens: [TIMELINE_PRESENTATION_SCREEN],
 });
