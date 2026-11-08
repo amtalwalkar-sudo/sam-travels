@@ -27,9 +27,9 @@ class DriverWorkflowProcessRestartTest {
     @Test fun preparePendingWorkflowForProcessRestart() {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val testContext = InstrumentationRegistry.getInstrumentation().context
+        val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         app.deleteDatabase(databaseName)
-        testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE).edit()
-            .putInt("prepared_pid", Process.myPid()).commit()
+        prefs.edit().putInt("prepared_pid", Process.myPid()).commit()
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries().build()
@@ -68,6 +68,9 @@ class DriverWorkflowProcessRestartTest {
         } finally {
             db.close()
         }
+        val databaseFile = app.getDatabasePath(databaseName)
+        assertEquals(true, databaseFile.exists())
+        prefs.edit().putLong("prepared_db_length", databaseFile.length()).commit()
     }
 
     @Test fun recoverPendingWorkflowAfterProcessRestart() {
@@ -76,12 +79,23 @@ class DriverWorkflowProcessRestartTest {
         val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         val previousPid = prefs.getInt("prepared_pid", -1)
         assertNotEquals("CI must restart the instrumentation/app process between phases", previousPid, Process.myPid())
+        val databaseFile = app.getDatabasePath(databaseName)
+        assertEquals("Room database file must survive the force-stop boundary", true, databaseFile.exists())
+        assertEquals("Room database file size must survive the force-stop boundary",
+            prefs.getLong("prepared_db_length", -1L), databaseFile.length())
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries().build()
         try {
-            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(db))
+            val persistedStateRow = db.records().get("driver-state")
+            assertNotNull("Persisted driver-state row must exist before startup recovery", persistedStateRow)
+            val persistedState = JSONObject(persistedStateRow!!.json).getJSONObject("value").getString("state")
+            assertEquals("Persisted Room state before startup recovery", "shift_active", persistedState)
+            val persistedIntent = db.records().get("driver-intent:restart-pending-trip")
+            assertNotNull("Pending intent row must exist before startup recovery", persistedIntent)
             assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
+            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(db))
+            assertEquals("Startup recovery must not alter a valid persisted active shift", "shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
             val pending = DriverWorkflowStore.listPending(db)
                 .singleOrNull { it.getJSONObject("command").getString("eventId") == "restart-pending-trip" }
             assertNotNull("Pending transition must survive actual process death", pending)
