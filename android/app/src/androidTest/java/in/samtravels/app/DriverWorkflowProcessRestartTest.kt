@@ -25,7 +25,7 @@ class DriverWorkflowProcessRestartTest {
     private val preferenceName = "driver-workflow-process-restart"
 
     @Test fun preparePendingWorkflowForProcessRestart() {
-        val app = ApplicationProvider.getApplicationContext<Context>()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         val testContext = InstrumentationRegistry.getInstrumentation().context
         val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         app.deleteDatabase(databaseName)
@@ -70,16 +70,24 @@ class DriverWorkflowProcessRestartTest {
         }
         val databaseFile = app.getDatabasePath(databaseName)
         assertEquals(true, databaseFile.exists())
-        prefs.edit().putLong("prepared_db_length", databaseFile.length()).commit()
+        prefs.edit()
+            .putLong("prepared_db_length", databaseFile.length())
+            .putString("prepared_app_package", app.packageName)
+            .putString("prepared_db_path", databaseFile.absolutePath)
+            .commit()
     }
 
     @Test fun recoverPendingWorkflowAfterProcessRestart() {
-        val app = ApplicationProvider.getApplicationContext<Context>()
+        val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         val testContext = InstrumentationRegistry.getInstrumentation().context
         val prefs = testContext.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         val previousPid = prefs.getInt("prepared_pid", -1)
         assertNotEquals("CI must restart the instrumentation/app process between phases", previousPid, Process.myPid())
         val databaseFile = app.getDatabasePath(databaseName)
+        assertEquals("Instrumentation must reopen the same target application package",
+            prefs.getString("prepared_app_package", null), app.packageName)
+        assertEquals("Instrumentation must reopen the same Room database path",
+            prefs.getString("prepared_db_path", null), databaseFile.absolutePath)
         assertEquals("Room database file must survive the force-stop boundary", true, databaseFile.exists())
         assertEquals("Room database file size must survive the force-stop boundary",
             prefs.getLong("prepared_db_length", -1L), databaseFile.length())
