@@ -52,9 +52,11 @@ function durationLabel(minutes: number): string {
     : mins + "m " + String(secs).padStart(2, "0") + "s";
 }
 function metricLabel(metric: TimelineMetric): string {
-  if (metric.status === "pending") return "In progress";
-  if (metric.status === "invalid") return "Needs review";
-  if (metric.status === "unavailable") return "Not available";
+  if (metric.status !== "available") {
+    if (metric.status === "pending") return "In progress";
+    if (metric.status === "invalid") return "Needs review";
+    return "Not available";
+  }
   if (metric.unit === "count") return String(metric.value);
   if (metric.unit === "minutes") return durationLabel(metric.value);
   if (metric.unit === "km") return metric.value.toFixed(1) + " km";
