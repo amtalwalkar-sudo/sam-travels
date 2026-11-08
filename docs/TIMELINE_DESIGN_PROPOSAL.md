@@ -6,7 +6,7 @@
 **Implementation authorization: Granted by the user's explicit implementation instruction on 8 November 2026.**
 **Scope: Read-only Timeline feature registration, authoritative Work-event query, projection, screen, and date navigation.**
 
-This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, reverse-geocoding activation, hosted-provider credentials, or a persistent Timeline cache. Optional location enrichment remains deferred behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
+This document is the frozen product-design baseline for Timeline in the single-driver Sam Travels application. Its event presentation, logical-shift and calendar grouping, interval rules, summaries, and date navigation are implementation requirements. The implementation authorization does not authorize new business records, a second event store, maps, map tiles, automatic GPS collection, reverse-geocoding activation, hosted-provider credentials, or a persistent Timeline cache. Optional location enrichment is implemented as a replaceable Geoapify adapter with an in-memory cache behind the existing network-access and privacy gates. Existing normative architecture and feature-ownership contracts remain authoritative.
 
 ## 1. Purpose and product boundary
 
@@ -71,10 +71,20 @@ The first implementation reads the committed Work/Driver Operational Workflow ev
 | Pickup/passenger-trip interval summaries, ride/cancellation counts, logical-shift and calendar grouping | Derived as read-only Timeline projections from committed workflow transitions. These summaries do not create or replace Log Book/Trips records. Legacy pickup evidence still requires its owning public query contract. |
 | Fare, cancellation fee, toll and parking amounts | No complete public trip-finance read contract is currently wired to Timeline. Values remain explicitly unavailable; no loan/payment records are misused as trip revenue. |
 | Odometer/business distance | No public odometer evidence query is currently wired to Timeline. Distance remains unavailable. |
-| Human-readable location names | GPS evidence is present on source events, but no reverse-geocoding integration is activated. The screen identifies captured/unavailable location evidence without displaying invented place names. |
+| Human-readable location names | Optional Geoapify reverse geocoding is wired through the NetworkGateway. Event labels are a separate read-model enrichment; original GPS evidence is unchanged. A session memory cache avoids repeat calls. Missing configuration, disabled policy, no result or provider errors retain explicit fallback states. |
 | Date/week navigation | Applied to the projection's Asia/Kolkata calendar-day index; logical shifts remain governed by the separate 04:00 boundary. The current Work public query exposes a full event snapshot, so source-level period scoping/pagination remains a known performance gap for very large histories. |
 
 The existing Log Book event integration currently validates the legacy event set, while the current v2 Work lifecycle includes trip_create, start_ride, end_ride and cancel_ride. Timeline therefore reads the authoritative Work event log directly through the public Work workflow query; it does not rely on the incomplete Log Book consumer projection. This does not change Log Book ownership or mutate its records. Finance and odometer source adapters can be added later through their owning public query contracts without changing Timeline's presentation contract.
+
+## 3.1 Reverse-geocoding implementation contract
+
+- Geoapify is the initial provider behind the application-owned `ReverseGeocoderAdapter` port; replacing it does not require changing Timeline projection, feature registration, or presentation wiring.
+- Browser/PWA deployment config may provide `VITE_GEOAPIFY_API_KEY`. This client-side project key is not a secret; restrict it by allowed origin/referrer in Geoapify and do not commit a live key. Without configuration, Timeline shows a fallback and issues no requests.
+- Every request passes through the existing `NetworkGateway`; Internet Access remains user-opt-in. Requests transmit only one event's coordinates, never the business database or event payload.
+- Only shift start/end, pickup creation, ride start/end and cancellation event coordinates are eligible. Do not geocode GPS samples or tracks.
+- Resolved locality labels are cached in memory for 30 days; no-result entries for 1 hour. Cache keys coalesce coordinate jitter to 4 decimal places, while requests use original coordinate values. No persistent cache or Timeline-owned persistence is introduced, consistent with the frozen feature boundary.
+- Label, provider and lookup time are returned in a separate read-model enrichment map. Source GPS evidence and timestamps remain immutable. Disabled policy, missing configuration, no result and provider failures never block Timeline.
+- Geoapify and OpenStreetMap attribution is shown in the Timeline UI. A returned label is a nearest mapped feature, not a guaranteed exact doorstep or address.
 
 ## 4. Event-wise presentation requirements
 
