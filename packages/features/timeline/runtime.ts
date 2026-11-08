@@ -26,7 +26,7 @@ export const TIMELINE_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.fre
   feature: {
     id: "timeline",
     label: "Timeline",
-    dataPolicy: "non-persistent",
+    dataPolicy: "non-persistent" as const,
     contractVersion: 1,
     dependencies: [{ id: "work", contractVersion: 1 }],
   },
