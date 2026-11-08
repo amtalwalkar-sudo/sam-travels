@@ -8,12 +8,7 @@ describe("Timeline feature registration", () => {
     expect(timeline).toMatchObject({
       id: "timeline",
       dataPolicy: "non-persistent",
-      dependencies: [
-        { id: "work", contractVersion: 1 },
-        { id: "logbook", contractVersion: 1 },
-        { id: "finance", contractVersion: 2, optional: true },
-        { id: "vehicle", contractVersion: 1, optional: true },
-      ],
+      dependencies: [{ id: "work", contractVersion: 1 }],
     });
     expect(timeline?.persistence).toBeUndefined();
   });
