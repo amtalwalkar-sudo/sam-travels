@@ -91,13 +91,18 @@ export function DriverSection() {
     try {
       const service = getApplicationDriverRecordsService();
       const all = await service.list();
+      const shouldSelect = !driver.data.selectedForWork;
       for (const current of all) {
-        const selectedForWork = current.data.driverId === driver.data.driverId;
-        if (Boolean(current.data.selectedForWork) !== selectedForWork) {
-          await service.update({ driverId: current.data.driverId, expectedRevision: current.revision, data: { ...current.data, selectedForWork } });
+        if (current.data.selectedForWork && (!shouldSelect || current.data.driverId !== driver.data.driverId)) {
+          await service.update({ driverId: current.data.driverId, expectedRevision: current.revision, data: { ...current.data, selectedForWork: false } });
         }
       }
-      setMessage(driver.data.selectedForWork ? "Driver selection cleared." : driver.data.name + " selected for Work.");
+      if (shouldSelect) {
+        const target = await service.get(driver.data.driverId);
+        if (!target) throw new Error("Selected Driver record could not be reloaded.");
+        await service.update({ driverId: driver.data.driverId, expectedRevision: target.revision, data: { ...target.data, selectedForWork: true } });
+      }
+      setMessage(shouldSelect ? driver.data.name + " selected for Work." : "Driver selection cleared.");
       await refresh();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Work driver selection failed."); }
     finally { setBusy(false); }

@@ -195,7 +195,12 @@ class DriverOverlayService:Service(){
    val item=assignment.optJSONObject(index) ?: continue
    if(!item.has("unassignedAt") || item.isNull("unassignedAt")) activeVehicle=item.optString("vehicleId")
   }
-  if(requireVehicle) require(!activeVehicle.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
+  if(requireVehicle) {
+   require(!activeVehicle.isNullOrBlank()) { "Assign an active vehicle to the selected Driver before starting a trip." }
+   val vehicleRow=db.records().get(activeVehicle!!)
+   val vehicleData=vehicleRow?.let { JSONObject(it.json).optJSONObject("data") }
+   require(vehicleData?.optString("lifecycleState")=="active") { "The selected Driver's assigned vehicle is not active. Update the assignment in Admin." }
+  }
   return JSONObject().put("driverId",driverId).put("driverName",driver.optString("name")).apply { if(!activeVehicle.isNullOrBlank()) put("vehicleId",activeVehicle) }
  }
  private fun runTransition(event:String){
