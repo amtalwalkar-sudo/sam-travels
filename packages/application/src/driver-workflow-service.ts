@@ -21,7 +21,7 @@ export interface DriverWorkflowRepository {
 }
 
 export interface EventLocationProvider {
-  capture(): Promise<GpsFix>;
+  capture(transitionAt: string): Promise<GpsFix>;
 }
 
 /** Consumer delivery is at-least-once; the immutable event log is the replay source. */
@@ -135,7 +135,7 @@ export class DriverWorkflowService {
     const intent = await this.repository.reactivateIntent(eventId);
     let snapshot: DriverStateProjection;
     try {
-      const gps = await this.location.capture();
+      const gps = await this.location.capture(existing.command.transitionAt);
       const current = await this.snapshot();
       const plan = validateDriverCompletion(current, intent, gps);
       if (!plan.ok) throw new Error(plan.error);
@@ -173,7 +173,7 @@ export class DriverWorkflowService {
 
     let snapshot: DriverStateProjection;
     try {
-      const gps = await this.location.capture();
+      const gps = await this.location.capture(command.transitionAt);
       const latest = await this.snapshot();
       const plan = validateDriverCompletion(latest, queued, gps);
       if (!plan.ok) throw new Error(plan.error);
