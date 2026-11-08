@@ -52,6 +52,23 @@ describe("Timeline projection contracts", () => {
     });
   });
 
+  it("allocates a shift crossing 04:00 into two logical segments without changing its source events", () => {
+    const start = event("cross-boundary-start", "shift_start", "2026-11-07T21:30:00.000Z", 1);
+    const end = event("cross-boundary-end", "shift_end", "2026-11-07T23:30:00.000Z", 2);
+    const projection = buildTimelineProjection({
+      events: [start, end],
+      asOf: "2026-11-08T00:00:00.000Z",
+    });
+    const before = projection.logicalShifts.find(shift => shift.id === "logical-shift:2026-11-07");
+    const after = projection.logicalShifts.find(shift => shift.id === "logical-shift:2026-11-08");
+    expect(before?.metrics.shift_duration).toMatchObject({ status: "available", value: 60 });
+    expect(after?.metrics.shift_duration).toMatchObject({ status: "available", value: 60 });
+    expect(projection.calendarDays.flatMap(day => day.eventIds)).toEqual([
+      "cross-boundary-start",
+      "cross-boundary-end",
+    ]);
+  });
+
   it("preserves source timestamp precision in projected durations", () => {
     const projection = buildTimelineProjection({
       events: [
