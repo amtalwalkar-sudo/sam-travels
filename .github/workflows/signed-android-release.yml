@@ -73,6 +73,9 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Accept Android SDK licences
+        run: yes | sdkmanager --licenses
+
       - name: Install Android build tools
         run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
