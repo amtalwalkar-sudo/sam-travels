@@ -71,7 +71,6 @@ describe("version 2 Work trip lifecycle",()=>{
   await send("shift_end","shift-v2-end",6_000);
   expect((await repository.getSnapshot()).state).toBe("idle");
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBeUndefined();
-  await selection.selectDriver("driver-v2");
 
   const events=await repository.listEvents();
   const shiftEvent=events.find(event=>event.eventId==="shift-v2")!;
