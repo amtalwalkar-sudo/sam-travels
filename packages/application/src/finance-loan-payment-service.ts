@@ -333,12 +333,12 @@ export class FinanceLoanPaymentService {
         }
         return replay;
       }
+      if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
+        throw new Error("finance_loan_already_settled");
+      }
       if (loan.revision !== input.expectedLoanRevision ||
           (ledger?.revision ?? null) !== input.expectedPaymentLedgerRevision) {
         throw new Error("finance_payment_settlement_preview_stale");
-      }
-      if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
-        throw new Error("finance_loan_already_settled");
       }
       await this.assertSettlementDateNotBeforeHistory(input.loanId, input.businessDate, entries);
       const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
