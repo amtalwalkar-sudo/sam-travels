@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
 import {
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
@@ -15,14 +16,16 @@ import type { GpsFix } from "../packages/core/src/types";
 
 describe("Stage 4 recovery lifecycle", () => {
   let unregisterVehicle: (() => void) | undefined;
+  let unregisterDrivers: (() => void) | undefined;
   beforeEach(async () => {
     unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregisterDrivers = registerDriverRecordsBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
     rebuildTripHistoryProjection([]);
   });
 
-  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; });
+  afterEach(() => { unregisterVehicle?.(); unregisterVehicle = undefined; unregisterDrivers?.(); unregisterDrivers = undefined; });
 
   it("retains a pre-restore checkpoint across IndexedDB reopen and rolls back atomically", async () => {
     const timestamp = "2026-11-06T10:00:00.000Z";
