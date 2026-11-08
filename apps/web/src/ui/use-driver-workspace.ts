@@ -269,7 +269,7 @@ export function useDriverWorkspace() {
         retryTimer = undefined;
       }
       if (draining || document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
-      if (Capacitor.isNativePlatform()) {
+      if (isNativeTimelineEnrichmentPlatform()) {
         await scheduleNativeTimelineEnrichment().catch(() => undefined);
         return;
       }
@@ -316,7 +316,7 @@ export function useDriverWorkspace() {
       if (!enrichmentQueue) return {};
       if (allowLocationLookup) {
         await enrichmentQueue.enqueue(visibleEvents);
-        if (Capacitor.isNativePlatform()) await scheduleNativeTimelineEnrichment().catch(() => undefined);
+        if (isNativeTimelineEnrichmentPlatform()) await scheduleNativeTimelineEnrichment().catch(() => undefined);
         else if (navigator.onLine) await enrichmentQueue.drain(5, signal);
       }
       window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
