@@ -13,12 +13,15 @@ export type FinancePaymentEntryV1 =
       amountPaise: number; method: FinancePaymentMethodV1; reference?: string; note?: string;
       scheduleVersion: number; createdAt: string; source: RecordEnvelope<unknown>["source"];
       allocations: readonly FinancePaymentAllocationV1[]; unallocatedCreditPaise: number; status: "committed" }>
+  | Readonly<{ kind: "settlement"; id: string; commandId: string; loanId: string; businessDate: string;
+      amountPaise: number; method: FinancePaymentMethodV1; reference?: string; scheduleVersion: number;
+      paidThroughInstallment: number; createdAt: string; source: RecordEnvelope<unknown>["source"]; status: "committed" }>
   | Readonly<{ kind: "reversal"; id: string; commandId: string; loanId: string; paymentId: string;
       businessDate: string; reason: string; amountPaise: number; createdAt: string;
       source: RecordEnvelope<unknown>["source"]; status: "committed" }>;
 export type FinancePaymentLedgerV1 = Readonly<{ schemaVersion: 1; loanId: string; entries: readonly FinancePaymentEntryV1[] }>;
 type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> };
-type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number };
+type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise?: number };
 export type FinanceLoanScheduleResolver = {
   getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined>;
   getScheduleVersionForDate(loanId: string, businessDate: string): Promise<number | undefined>;
@@ -48,6 +51,7 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
     throw new Error("finance_payment_ledger_invalid");
   }
   const ids = new Set<string>(), commands = new Set<string>();
+  let settlementCount = 0;
   const payments = new Map<string, PaymentEntry>(), reversals = new Map<string, FinancePaymentEntryV1>();
   for (const entry of ledger.entries) {
     if (!entry || typeof entry !== "object" || typeof entry.id !== "string" || !entry.id.trim() || ids.has(entry.id) ||
@@ -91,6 +95,14 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
         throw new Error("finance_payment_allocation_invalid");
       }
       payments.set(entry.id, entry);
+    } else if (entry.kind === "settlement") {
+      settlementCount++;
+      if (settlementCount > 1 || !METHODS.has(entry.method) ||
+          !Number.isSafeInteger(entry.scheduleVersion) || entry.scheduleVersion < 1 ||
+          !Number.isSafeInteger(entry.paidThroughInstallment) || entry.paidThroughInstallment < 1 ||
+          (entry.reference !== undefined && (typeof entry.reference !== "string" || !entry.reference.trim()))) {
+        throw new Error("finance_payment_settlement_invalid");
+      }
     } else if (entry.kind === "reversal") {
       if (typeof entry.paymentId !== "string" || !entry.paymentId.trim() ||
           typeof entry.reason !== "string" || !entry.reason.trim() ||
@@ -189,6 +201,7 @@ export class FinanceLoanPaymentService {
   }
   async propose(input: { loanId: string; scheduleVersion: number; businessDate: string; amountPaise: number }) {
     const { loan, ledger } = await this.load(input.loanId);
+    if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
     await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
     const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
     return proposeFromScheduleRows(rows, ledger?.data.entries ?? [], input.scheduleVersion, input.businessDate, input.amountPaise);
@@ -203,6 +216,7 @@ export class FinanceLoanPaymentService {
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId);
+      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
       const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
       const entries = ledger?.data.entries ?? [];
@@ -261,11 +275,71 @@ export class FinanceLoanPaymentService {
     }
     throw new Error("finance_payment_concurrent_write_retry_exhausted");
   }
+  async settle(input: { id: string; commandId: string; loanId: string; businessDate: string;
+    method: FinancePaymentMethodV1; reference?: string; source: RecordEnvelope<unknown>["source"] }) {
+    if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
+      throw new Error("finance_payment_settlement_input_invalid");
+    }
+    if (!this.scheduleResolver) throw new Error("finance_payment_schedule_resolver_required");
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+      const replay = entries.find(entry => entry.commandId === input.commandId);
+      if (replay) {
+        if (replay.kind !== "settlement" || replay.id !== input.id || replay.businessDate !== input.businessDate ||
+            replay.method !== input.method || replay.reference !== (input.reference?.trim() || undefined)) {
+          throw new Error("finance_payment_idempotency_conflict");
+        }
+        return replay;
+      }
+      if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
+        throw new Error("finance_loan_already_settled");
+      }
+      const version = await this.scheduleResolver.getScheduleVersionForDate(input.loanId, input.businessDate);
+      if (version === undefined) throw new Error("finance_payment_settlement_not_emi_date");
+      const rows = await this.resolveScheduleRows(input.loanId, loan.data, version);
+      const settlementRow = rows.find(row => row.dueDate === input.businessDate);
+      if (!settlementRow || !Number.isSafeInteger(settlementRow.closingPrincipalPaise) ||
+          (settlementRow.closingPrincipalPaise as number) <= 0) {
+        throw new Error("finance_payment_settlement_not_emi_date");
+      }
+      const totals = allocationTotals(entries, version);
+      const dueRows = rows.filter(row => row.dueDate <= input.businessDate);
+      for (const row of dueRows) {
+        if ((totals.get(row.installmentNumber) ?? 0) !== row.installmentAmountPaise) {
+          throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
+        }
+      }
+      const createdAt = this.now();
+      const settlement: FinancePaymentEntryV1 = { kind: "settlement", id: input.id, commandId: input.commandId,
+        loanId: input.loanId, businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
+        method: input.method, ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
+        scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
+        createdAt, source: input.source, status: "committed" };
+      if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
+      const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, settlement] };
+      assertLedger(data, input.loanId);
+      const id = ledgerId(input.loanId);
+      const nextLedger: RecordEnvelope<FinancePaymentLedgerV1> = {
+        id, schemaVersion: 1, createdAt: ledger?.createdAt ?? createdAt, updatedAt: createdAt,
+        businessDate: input.businessDate, source: input.source, revision: (ledger?.revision ?? 0) + 1, data };
+      const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
+        ...loan, updatedAt: createdAt, revision: loan.revision + 1,
+        data: { ...loan.data, lifecycleState: "closed" },
+      };
+      if (await this.repository.compareAndSetMany([
+        { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
+        { id, expectedRevision: ledger?.revision ?? null, next: nextLedger },
+      ])) return settlement;
+    }
+    throw new Error("finance_payment_settlement_concurrent_write_retry_exhausted");
+  }
+
   async reverse(input: { id: string; commandId: string; loanId: string; paymentId: string; businessDate: string;
     reason: string; source: RecordEnvelope<unknown>["source"] }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !input.reason.trim()) throw new Error("finance_payment_reversal_input_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
       const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+      if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         if (replay.kind !== "reversal" || replay.id !== input.id || replay.paymentId !== input.paymentId ||
