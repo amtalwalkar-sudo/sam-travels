@@ -73,6 +73,23 @@ internal class TimelineEnrichmentStore(private val database: LocalDatabase) {
         return due.take(limit) to (due.size > limit)
     }
 
+    /** Delay until the next eligible batch; null means the durable queue is idle. */
+    fun nextWorkDelayMillis(nowMs: Long): Long? {
+        val dueTimes = listRecords().mapNotNull { row ->
+            if (!row.id.startsWith(RECORD_PREFIX)) return@mapNotNull null
+            runCatching {
+                val data = JSONObject(row.json).getJSONObject("data")
+                when (data.optString("status")) {
+                    "pending", "network_disabled" -> nowMs
+                    "retry_wait" -> data.optString("nextAttemptAt").takeIf { it.isNotBlank() }
+                        ?.let { Instant.parse(it).toEpochMilli() }
+                    else -> null
+                }
+            }.getOrNull()
+        }
+        return dueTimes.minOrNull()?.let { (it - nowMs).coerceAtLeast(0L) }
+    }
+
     fun hasDeferredRetry(nowMs: Long): Boolean = listRecords().any { row ->
         if (!row.id.startsWith(RECORD_PREFIX)) return@any false
         runCatching {
