@@ -20,12 +20,13 @@ import java.util.concurrent.TimeUnit
 internal object TimelineEnrichmentScheduler {
     private const val UNIQUE_WORK = "sam-travels-timeline-enrichment"
 
-    fun schedule(context: Context) {
+    fun schedule(context: Context, delayMillis: Long = 0L, appendAfterCurrent: Boolean = false) {
         val request = OneTimeWorkRequestBuilder<TimelineEnrichmentWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setInitialDelay(delayMillis.coerceAtLeast(0L), TimeUnit.MILLISECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE_WORK, ExistingWorkPolicy.KEEP, request)
+        val policy = if (appendAfterCurrent) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP
+        WorkManager.getInstance(context).enqueueUniqueWork(UNIQUE_WORK, policy, request)
     }
 }
 
@@ -48,8 +49,7 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
             val now = System.currentTimeMillis()
             val (due, hasMoreDue) = store.dueEnrichmentRows(now, BATCH_LIMIT)
 
-            var retryableFailure = false
-            val hasDeferredRetry = store.hasDeferredRetry(now)
+            
             for (row in due) {
                 if (!store.internetAllowed()) { store.markPendingAsNetworkDisabled(); notifyEnrichmentChanged(); return Result.success() }
                 try {
@@ -77,7 +77,6 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     store.putRecord(StoredRecord(row.id, envelope.toString(), row.schemaVersion, lookedUpAt))
                     notifyEnrichmentChanged()
                 } catch (error: Exception) {
-                    retryableFailure = true
                     val envelope = JSONObject(row.json)
                     val data = envelope.getJSONObject("data")
                     val attempts = data.optInt("attempts") + 1
@@ -91,7 +90,12 @@ class TimelineEnrichmentWorker(context: Context, parameters: WorkerParameters) :
                     notifyEnrichmentChanged()
                 }
             }
-            return if (retryableFailure || hasDeferredRetry || hasMoreDue) Result.retry() else Result.success()
+            // Schedule exactly when the next durable item is due. A full batch is
+            // continued immediately; transient failures wait for their persisted backoff.
+            store.nextWorkDelayMillis(System.currentTimeMillis())?.let { delay ->
+                TimelineEnrichmentScheduler.schedule(applicationContext, delay, appendAfterCurrent = true)
+            }
+            return Result.success()
         } catch (_: Exception) {
             return Result.retry()
         } finally {
