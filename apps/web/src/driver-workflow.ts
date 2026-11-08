@@ -102,7 +102,7 @@ export class BrowserEventLocationProvider implements EventLocationProvider {
       }
       const transitionMs = Date.parse(transitionAt);
       const deadlineMs = transitionMs + 30_000;
-      const remainingMs = deadlineMs - Date.now();
+      const remainingMs = Math.min(30_000, deadlineMs - Date.now());
       if (!Number.isFinite(transitionMs) || remainingMs <= 0) {
         reject(new Error("gps_recovery_window_expired"));
         return;
