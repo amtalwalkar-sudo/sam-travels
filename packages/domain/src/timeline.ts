@@ -27,7 +27,7 @@ export type TimelineProjectionInput = {
   odometer?:TimelineSourceSnapshot<TimelineOdometerReading>;
 };
 export type TimelineIntegrityIssue = {
-  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval"|"invalid_pickup_interval"|"overlapping_activity_intervals";
+  code:"invalid_event"|"conflicting_duplicate_event_id"|"overlapping_shift_start"|"unmatched_shift_end"|"invalid_shift_interval"|"overlapping_trip_start"|"unmatched_trip_close"|"invalid_trip_interval"|"invalid_pickup_interval"|"missing_shift_boundary"|"overlapping_activity_intervals";
   eventId?:string;
   logicalShiftId?:string;
 };
@@ -149,7 +149,24 @@ export function buildTimelineProjection(input:TimelineProjectionInput):TimelineP
     const start=Date.parse(openShift.command.transitionAt),s=ensure(shiftIdAt(start));
     if(asOf===undefined)s.pendingShift=true;
     else if(asOf<start){s.invalidShift=true;issues.push({code:"invalid_shift_interval",eventId:openShift.eventId,logicalShiftId:s.id});}
-    else addInterval(shifts,start,asOf,"shiftDurationMs");
+    else {
+      addInterval(shifts,start,asOf,"shiftDurationMs");
+      // Only the current logical segment is incomplete; earlier 04:00
+      // rotations have a closed interval and remain finalized.
+      ensure(shiftIdAt(asOf)).pendingShift=true;
+    }
+  }
+
+  for(const shift of shifts.values()) {
+    if(shift.shiftDurationMs>0||shift.pendingShift||shift.invalidShift)continue;
+    const hasBoundaryEvent=[...shift.eventIds].some(eventId=>{
+      const kind=unique.get(eventId)?.command.eventType;
+      return kind==="shift_start"||kind==="shift_end";
+    });
+    if(!hasBoundaryEvent) {
+      shift.invalidShift=true;
+      issues.push({code:"missing_shift_boundary",logicalShiftId:shift.id});
+    }
   }
 
   const busyIntervals=new Map<string,BusyInterval[]>();
