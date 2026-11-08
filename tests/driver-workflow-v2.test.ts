@@ -29,6 +29,7 @@ describe("version 2 Work trip lifecycle",()=>{
   const repository=new DexieDriverWorkflowRepository();
   const recordsRepository=new DexieRecordRepository();
   const selection=new WorkDriverSelectionService(recordsRepository,repository);
+  await selection.selectDriver("driver-v2");
   let fixAt=new Date(base).toISOString();
   const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(fixAt)});
   const send=async(type:"shift_start"|"shift_end"|"trip_create"|"start_ride"|"end_ride"|"cancel_ride",id:string,offset:number)=>{
