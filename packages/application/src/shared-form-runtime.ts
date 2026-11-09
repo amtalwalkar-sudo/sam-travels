@@ -85,7 +85,7 @@ export class SharedFormRuntime {
     const key = definition.id + ":" + copy.instanceId + ":" + copy.operationId + ":" + action;
     const active = this.submissions.get(key);
     if (active) return active;
-    const operation = this.submissionPort.submit({ formId: definition.id, formVersion: definition.version,
+    const operation = this.submissionPort.submit({ formId: definition.id, formVersion: definition.version, instanceId: copy.instanceId,
       operationId: copy.operationId, action, values: current.values });
     this.submissions.set(key, operation);
     try {
