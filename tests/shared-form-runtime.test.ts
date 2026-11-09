@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -68,6 +68,25 @@ describe("shared form runtime", () => {
       .toMatchObject([{ fieldId: "make", code: "max_length" }]);
     expect(validateFormValues(VEHICLE_FORM_V1, { ...valid, yearOfManufacture: "2022" }))
       .toMatchObject([{ fieldId: "yearOfManufacture", code: "type" }]);
+  });
+
+  it("validates the canonical Driver definition and profile fields", () => {
+    expect(DRIVER_FORM_V1).toMatchObject({
+      id: "admin.driver", version: 1, owner: "driver-records", primaryAction: "save",
+    });
+    expect(validateFormValues(DRIVER_FORM_V1, {})).toMatchObject([
+      { fieldId: "name", code: "required" },
+      { fieldId: "lifecycleState", code: "required" },
+    ]);
+    const valid = { name: "A Driver", licenceNumber: "DL-123", licenceExpiryDate: "2027-05-31",
+      mobileNumber: "9876543210", lifecycleState: "active", _selectedForWork: false, _recordRevision: 2 };
+    expect(validateFormValues(DRIVER_FORM_V1, valid)).toEqual([]);
+    expect(validateFormValues(DRIVER_FORM_V1, { ...valid, lifecycleState: "suspended" }))
+      .toMatchObject([{ fieldId: "lifecycleState", code: "option" }]);
+    expect(validateFormValues(DRIVER_FORM_V1, { ...valid, licenceExpiryDate: "2027-02-30" }))
+      .toMatchObject([{ fieldId: "licenceExpiryDate", code: "date" }]);
+    expect(validateFormValues(DRIVER_FORM_V1, { ...valid, name: "x".repeat(121) }))
+      .toMatchObject([{ fieldId: "name", code: "max_length" }]);
   });
 
   it("validates declared field mechanics without inventing feature business rules", () => {
