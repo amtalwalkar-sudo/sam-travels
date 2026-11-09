@@ -29,6 +29,7 @@ import {
   SharedFormRuntime,
   BUSINESS_SETUP_FORM_V1,
   VEHICLE_FORM_V1,
+  DRIVER_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -90,6 +91,29 @@ async function bootstrap(): Promise<void> {
           return getApplicationBusinessSettingsService().setBusinessStartDate(
             businessStartDate, getApplicationRecordSource(),
           );
+        }
+        if (command.formId === DRIVER_FORM_V1.id) {
+          const values = command.values;
+          const driverId = command.instanceId.startsWith("new:")
+            ? command.instanceId.slice(4) : command.instanceId;
+          const data = {
+            schemaVersion: 1 as const,
+            driverId,
+            name: String(values.name ?? "").trim(),
+            lifecycleState: values.lifecycleState as "active" | "inactive",
+            ...(typeof values.licenceNumber === "string" && values.licenceNumber.trim()
+              ? { licenceNumber: values.licenceNumber.trim() } : {}),
+            ...(typeof values.licenceExpiryDate === "string" && values.licenceExpiryDate
+              ? { licenceExpiryDate: values.licenceExpiryDate } : {}),
+            ...(typeof values.mobileNumber === "string" && values.mobileNumber.trim()
+              ? { mobileNumber: values.mobileNumber.trim() } : {}),
+            selectedForWork: values.lifecycleState === "active" && values._selectedForWork === true,
+          };
+          const revision = values._recordRevision;
+          if (typeof revision === "number") {
+            return getApplicationDriverRecordsService().update({ driverId, expectedRevision: revision, data });
+          }
+          return getApplicationDriverRecordsService().create(data, getApplicationRecordSource());
         }
         if (command.formId === VEHICLE_FORM_V1.id) {
           const values = command.values;
