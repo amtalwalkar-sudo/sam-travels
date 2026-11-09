@@ -137,7 +137,7 @@ describe("shared form runtime", () => {
       expenseName: "Towing", description: "Roadside assistance", amountPaise: 0,
     })).toEqual([]);
     expect(validateFormValues(MAINTENANCE_EXPENSE_FORM_V1, { amountPaise: "0" }))
-      .toMatchObject([{ fieldId: "amountPaise", code: "type" }]);
+      .toEqual(expect.arrayContaining([{ fieldId: "amountPaise", code: "type", message: "Amount in paise must be a valid number." }]));
 
     expect(MAINTENANCE_RATE_FORM_V1).toMatchObject({
       id: "admin.maintenance-rate", version: 1, owner: "maintenance", primaryAction: "save",
