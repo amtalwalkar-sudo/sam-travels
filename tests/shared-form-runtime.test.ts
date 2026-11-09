@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -87,6 +87,27 @@ describe("shared form runtime", () => {
       .toMatchObject([{ fieldId: "licenceExpiryDate", code: "date" }]);
     expect(validateFormValues(DRIVER_FORM_V1, { ...valid, name: "x".repeat(121) }))
       .toMatchObject([{ fieldId: "name", code: "max_length" }]);
+  });
+
+  it("validates the canonical immutable Compliance creation form", () => {
+    expect(COMPLIANCE_FORM_V1).toMatchObject({
+      id: "admin.compliance", version: 1, owner: "compliance", primaryAction: "save",
+    });
+    expect(validateFormValues(COMPLIANCE_FORM_V1, {})).toMatchObject([
+      { fieldId: "complianceName", code: "required" },
+      { fieldId: "validFrom", code: "required" },
+      { fieldId: "validTo", code: "required" },
+      { fieldId: "totalCostPaise", code: "required" },
+    ]);
+    const valid = { complianceName: "Insurance", validFrom: "2026-01-01", validTo: "2026-12-31",
+      totalCostPaise: 36500, supportingDocumentRef: "policy-1", renewedFromRecordId: "" };
+    expect(validateFormValues(COMPLIANCE_FORM_V1, valid)).toEqual([]);
+    expect(validateFormValues(COMPLIANCE_FORM_V1, { ...valid, validFrom: "2026-02-30" }))
+      .toMatchObject([{ fieldId: "validFrom", code: "date" }]);
+    expect(validateFormValues(COMPLIANCE_FORM_V1, { ...valid, totalCostPaise: "36500" }))
+      .toMatchObject([{ fieldId: "totalCostPaise", code: "type" }]);
+    expect(validateFormValues(COMPLIANCE_FORM_V1, { ...valid, complianceName: "x".repeat(121) }))
+      .toMatchObject([{ fieldId: "complianceName", code: "max_length" }]);
   });
 
   it("validates declared field mechanics without inventing feature business rules", () => {
