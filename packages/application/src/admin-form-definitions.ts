@@ -68,3 +68,55 @@ export const COMPLIANCE_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "renewedFromRecordId", label: "Renewed from record", type: "text" },
   ],
 });
+
+/** Canonical Maintenance visit form. Item rows are a JSON value validated by the owning service. */
+export const MAINTENANCE_VISIT_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.maintenance-visit",
+  version: 1,
+  owner: "maintenance",
+  purpose: "Record a vehicle maintenance visit and itemised costs",
+  primaryAction: "save",
+  fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true },
+    { id: "maintenanceDate", label: "Maintenance date", type: "date", required: true },
+    { id: "maintenanceType", label: "Maintenance type", type: "text", required: true, maxLength: 120 },
+    { id: "description", label: "Description", type: "text", required: true, maxLength: 2000 },
+    { id: "itemsJson", label: "Itemised costs", type: "text", required: true, maxLength: 20000 },
+    { id: "odometerKm", label: "Odometer km", type: "number" },
+    { id: "provider", label: "Provider", type: "text", maxLength: 160 },
+    { id: "nextServiceDate", label: "Next service date", type: "date" },
+    { id: "nextServiceKm", label: "Next service km", type: "number" },
+  ],
+});
+
+/** Canonical general Maintenance expense form. */
+export const MAINTENANCE_EXPENSE_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.maintenance-expense",
+  version: 1,
+  owner: "maintenance",
+  purpose: "Record a general vehicle maintenance expense",
+  primaryAction: "save",
+  fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true },
+    { id: "expenseDate", label: "Expense date", type: "date", required: true },
+    { id: "expenseName", label: "Expense name", type: "text", required: true, maxLength: 120 },
+    { id: "description", label: "Description", type: "text", required: true, maxLength: 2000 },
+    { id: "amountPaise", label: "Amount in paise", type: "number", required: true },
+    { id: "odometerKm", label: "Odometer km", type: "number" },
+    { id: "provider", label: "Provider", type: "text", maxLength: 160 },
+  ],
+});
+
+/** Canonical per-vehicle Maintenance rate change form. */
+export const MAINTENANCE_RATE_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.maintenance-rate",
+  version: 1,
+  owner: "maintenance",
+  purpose: "Add a per-kilometre rate with effective-date history",
+  primaryAction: "save",
+  fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true },
+    { id: "ratePaisePerKm", label: "Rate in paise per km", type: "number", required: true },
+  ],
+});
+
