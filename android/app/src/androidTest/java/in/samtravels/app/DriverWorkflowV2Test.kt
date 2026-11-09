@@ -110,6 +110,10 @@ class DriverWorkflowV2Test {
         assertTrue(JSONObject(events.first { it.optString("eventId")=="trip-v2" }.toString())
             .getJSONObject("command").has("tripContext"))
         assertTrue(events.any { it.optString("eventId")=="ride-cancel-v2" })
+        assertEquals("trip_create",events.first { it.optString("eventId")=="trip-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("start_ride",events.first { it.optString("eventId")=="ride-start-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("end_ride",events.first { it.optString("eventId")=="ride-end-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("cancel_ride",events.first { it.optString("eventId")=="ride-cancel-v2" }.getJSONObject("command").getString("eventType"))
     }
 
     @Test fun nativeSwipeActionFollowsThePersistedWorkflowState() {
