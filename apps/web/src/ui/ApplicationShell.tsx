@@ -34,12 +34,16 @@ export function NavigationIcon({ name }: { name: IconName }) {
   }
 }
 
-export function ApplicationShell({ activeScreen, onNavigate, settingsContent, children }: {
+export type ApplicationShellProps = Readonly<{
+  shellDefinition: typeof primaryShellDefinition;
   activeScreen: PrimaryScreen;
   onNavigate: (screen: PrimaryScreen) => void;
   settingsContent: ReactNode;
   children: ReactNode;
-}) {
+}>;
+
+/** Replaceable shell renderer; navigation identity is supplied by the application. */
+export function ApplicationShell({ shellDefinition, activeScreen, onNavigate, settingsContent, children }: ApplicationShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   return <main className="shell">
     <DeviceReadinessPrompt />
@@ -60,7 +64,7 @@ export function ApplicationShell({ activeScreen, onNavigate, settingsContent, ch
     </aside>
     <div className="screen-scroll">{children}</div>
     <nav className="bottom-navigation" aria-label="Primary navigation">
-      {primaryShellDefinition.navigation.map(item => <button key={item.screen}
+      {shellDefinition.navigation.map(item => <button key={item.screen}
         className={activeScreen === item.screen ? "bottom-navigation-item active" : "bottom-navigation-item"}
         onClick={() => { onNavigate(item.screen); setSettingsOpen(false); }}
         aria-current={activeScreen === item.screen ? "page" : undefined}>
