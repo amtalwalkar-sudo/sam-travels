@@ -31,8 +31,10 @@ The redirect URI must match exactly between Dropbox App Console and the Backup p
 6. Create an encrypted backup. Save the displayed recovery key outside the device/app. It cannot be recovered from Dropbox if lost.
 7. Verify backup history lists the uploaded `.stbackup` package. Test restore only against data you are prepared to replace; restore requires a separate passphrase/recovery key and explicit confirmation.
 
-## Important limitations
+## Scheduling and acceptance
 
+- Android's daily Dropbox backup is implemented with unique periodic WorkManager work, a connected-network constraint, bounded retries, and persisted attempt/success status. It is best-effort: Android may defer it because of Doze, battery restrictions, or device policy. The first successful interactive backup must save the recovery key in Android's protected vault before unattended backups can run.
+- The PWA does not promise a closed-browser daily job. It performs backup work while open; browser background scheduling is not reliable.
+- The app-level Internet Access policy must be enabled. Disabling it prevents Dropbox requests and defers scheduled work without deleting local records, history, or credentials.
 - The repository CI uses mocked Dropbox endpoints. A green CI run does not prove the user's Dropbox app registration, OAuth redirect, account permissions, or real upload/download/revocation.
-- Daily scheduled backup is not yet implemented. Foreground Dropbox requests use bounded retry/backoff, but this is not a persisted daily job.
-- Physical Android callback, Keystore, process interruption, offline deferral, and recovery must be verified on a real device before Phase 6 is accepted.
+- Physical Android callback, Keystore, process interruption, offline deferral, reboot/Doze behavior, and recovery must be verified on a real device before Phase 6 is accepted.
