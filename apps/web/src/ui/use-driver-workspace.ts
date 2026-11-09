@@ -5,8 +5,6 @@ import type { DriverStateProjection, DriverTransitionCommand } from "../../../..
 import { getPlatformRecordSource } from "../native-store";
 import {
   createDriverWorkflow,
-  disableNativeOverlay,
-  enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
@@ -27,7 +25,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [workflow, setWorkflow] = useState<DriverWorkflowService | null>(null);
   const [pending, setPending] = useState<{ command: DriverTransitionCommand; status: string; reason?: string }[]>([]);
   const [driverBusy, setDriverBusy] = useState(false);
-  const [overlayMessage, setOverlayMessage] = useState("");
   const [driverMessage, setDriverMessage] = useState("Restoring driver state…");
   const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
   const [selectedDriverId, setSelectedDriverId] = useState("");
@@ -154,24 +151,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       unsubscribe?.();
     };
   }, []);
-
-  async function enableOverlay() {
-    try {
-      await enableNativeOverlay();
-      setOverlayMessage("Native driver overlay enabled");
-    } catch (cause) {
-      setOverlayMessage(cause instanceof Error ? cause.message : "Overlay permission required");
-    }
-  }
-
-  async function disableOverlay() {
-    try {
-      await disableNativeOverlay();
-      setOverlayMessage("Native driver overlay disabled");
-    } catch (cause) {
-      setOverlayMessage(cause instanceof Error ? cause.message : "Unable to disable overlay");
-    }
-  }
 
   async function retry(eventId: string) {
     if (!workflow || driverBusy) return;
@@ -352,9 +331,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
 
 
   return {
-    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, driverMessage,
     shiftOn, tripOn, localClock, elapsed,
-    actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver },
+    actions: { retry, toggleNetwork, dispatch, selectDriver },
     driverChoices, selectedDriverId, loadTimeline,
   };
 }
