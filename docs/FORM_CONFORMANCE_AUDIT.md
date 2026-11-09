@@ -11,7 +11,7 @@
 - `packages/application/src/form-submission-port.ts` carries form ID/version, operation ID, action and values across the application boundary.
 - `packages/application/src/record-form-working-copy-repository.ts` stores recoverable copies through the authoritative atomic record repository. This makes the same envelope usable by the browser IndexedDB and Android Room record adapters and the existing generic-record backup participant.
 - Tests cover validation, explicit zero values, strict dates, restored working copies, Save/Submit distinction, stale revisions, and record-backed storage.
-- These are reusable mechanics only. No audited UI form currently consumes the runtime, and the Android overlay does not yet render or submit driver financial forms.
+- The Business Setup date form is the first migrated Admin UI consumer: it uses the canonical `admin.business-setup` v1 definition, the shared runtime, and the record-backed working-copy repository. The rest of the audited Admin forms remain unmigrated; the Android overlay does not yet render or submit driver financial forms.
 
 ## Existing aligned boundaries
 
@@ -23,7 +23,7 @@
 
 The following current Admin UI files still contain native React/HTML form state and submission handlers and do not declare versioned definitions or use the shared runtime:
 
-- `apps/web/src/ui/AdminBusinessVehicle.tsx` — Business Settings and Vehicle forms.
+- `apps/web/src/ui/AdminBusinessVehicle.tsx` — Vehicle form (Business Setup is migrated).
 - `apps/web/src/ui/AdminOperations.tsx` — Driver and Compliance forms.
 - `apps/web/src/ui/AdminMaintenance.tsx` — Maintenance visit and expense/rate forms.
 - `apps/web/src/ui/LoanPaymentsPanel.tsx` — payment, prepayment, and settlement forms.
