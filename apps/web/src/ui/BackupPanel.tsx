@@ -137,7 +137,7 @@ export function BackupPanel() {
       const savedKey = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
       const key = savedKey || generateBackupRecoveryKey();
       if (!session.native) await session.vault.set("sam-travels.backup.recovery-key.v1", key);
-      const result = await createAndUploadBackup({
+      await createAndUploadBackup({
         applicationVersion: "0.1.0",
         recoveryKey: key,
         dropbox: session.client,
