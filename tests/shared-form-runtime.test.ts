@@ -94,12 +94,13 @@ describe("shared form runtime", () => {
       id: "admin.compliance", version: 1, owner: "compliance", primaryAction: "save",
     });
     expect(validateFormValues(COMPLIANCE_FORM_V1, {})).toMatchObject([
+      { fieldId: "vehicleId", code: "required" },
       { fieldId: "complianceName", code: "required" },
       { fieldId: "validFrom", code: "required" },
       { fieldId: "validTo", code: "required" },
       { fieldId: "totalCostPaise", code: "required" },
     ]);
-    const valid = { complianceName: "Insurance", validFrom: "2026-01-01", validTo: "2026-12-31",
+    const valid = { vehicleId: "feature:vehicle:MH01AB1234", complianceName: "Insurance", validFrom: "2026-01-01", validTo: "2026-12-31",
       totalCostPaise: 36500, supportingDocumentRef: "policy-1", renewedFromRecordId: "" };
     expect(validateFormValues(COMPLIANCE_FORM_V1, valid)).toEqual([]);
     expect(validateFormValues(COMPLIANCE_FORM_V1, { ...valid, validFrom: "2026-02-30" }))
