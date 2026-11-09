@@ -14,7 +14,8 @@ const EMPTY_VEHICLE: VehicleForm = {
   fuelType: "Diesel", yearOfManufacture: "", ownership: "Owned", lifecycleState: "active",
 };
 
-export function BusinessSetupSection() {\n  const services = useAdminServices();
+export function BusinessSetupSection() {
+  const services = useAdminServices();
   const [record, setRecord] = useState<BusinessSettings | undefined>();
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,8 @@ export function BusinessSetupSection() {\n  const services = useAdminServices();
   </div>;
 }
 
-export function VehicleSection() {\n  const services = useAdminServices();
+export function VehicleSection() {
+  const services = useAdminServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState<VehicleForm>(EMPTY_VEHICLE);
   const [editing, setEditing] = useState<Vehicle | null>(null);
