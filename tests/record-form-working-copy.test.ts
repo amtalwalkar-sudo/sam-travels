@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { browserDatabase, DexieRecordRepository } from "../packages/storage-browser/src";
+import { browserDatabase } from "../packages/storage-browser/src/database";
+import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { RecordFormWorkingCopyRepository } from "../packages/application/src/record-form-working-copy-repository";
 import type { FormWorkingCopy } from "../packages/application/src/shared-form-runtime";
 
