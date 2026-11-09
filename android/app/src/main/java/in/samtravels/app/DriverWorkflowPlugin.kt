@@ -141,10 +141,44 @@ class DriverWorkflowPlugin:Plugin(){
   }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}
    catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
  }
+ private fun reconcileOverlayForCommittedState(eventType:String, committed:JSONObject){
+  val preferences=context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE)
+  when(eventType){
+   "shift_start" -> {
+    if(!Settings.canDrawOverlays(context)){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","permission","overlay_permission_required")
+     return
+    }
+    if(!hasLocationPermission()){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","permission","location_permission_required")
+     return
+    }
+    try{
+     val service=Intent(context,DriverOverlayService::class.java)
+     if(android.os.Build.VERSION.SDK_INT>=26)context.startForegroundService(service)else context.startService(service)
+     preferences.edit().putBoolean("overlay_enabled",true).putBoolean("overlay_activation_pending",false).putBoolean("boot_resume_deferred",false).commit()
+    }catch(e:Exception){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","service","overlay_start_failed")
+    }
+   }
+   "shift_end" -> {
+    preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",false).putBoolean("boot_resume_deferred",false).commit()
+    context.stopService(Intent(context,DriverOverlayService::class.java))
+   }
+  }
+ }
  @PluginMethod fun completeIntent(call:PluginCall){
   val eventId=call.getString("eventId");val gps=call.getObject("gps")
   if(eventId.isNullOrBlank()||gps==null){call.reject("Event id and GPS evidence required");return}
-  executor.execute{try{ensureStartupRecovery();val committed=DriverWorkflowStore.complete(db,eventId,gps)
+  executor.execute{try{
+   ensureStartupRecovery()
+   val committed=DriverWorkflowStore.complete(db,eventId,gps)
+   val stored=db.records().get("driver-intent:"+eventId)?:error("committed_intent_missing")
+   val eventType=JSONObject(stored.json).optJSONObject("command")?.optString("eventType").orEmpty()
+   reconcileOverlayForCommittedState(eventType,committed)
    val out=JSObject();out.put("snapshot",committed);call.resolve(out)
    val eventData=JSObject();eventData.put("snapshot",committed);notifyListeners("driverStateChanged",eventData)
   }catch(e:Exception){LocalDiagnostics.record(context,"workflow","complete_intent","workflow","operation_failed");call.reject("Driver transition was not committed: "+(e.message?:"unknown failure"),"TRANSITION_FAILED",e)}}
