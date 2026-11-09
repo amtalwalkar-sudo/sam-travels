@@ -25,6 +25,9 @@ import {
   initializeApplicationFinanceLoanPrepaymentService,
   initializeApplicationFinanceLoanSettlementService,
   initializeApplicationRecordSource,
+  RecordFormWorkingCopyRepository,
+  SharedFormRuntime,
+  BUSINESS_SETUP_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -75,7 +78,23 @@ async function bootstrap(): Promise<void> {
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
   );
   initializeApplicationFeatureLifecycle(repository);
+  const formRuntime = new SharedFormRuntime(
+    new RecordFormWorkingCopyRepository(repository, getApplicationRecordSource()),
+    {
+      submit: async (command) => {
+        if (command.formId !== BUSINESS_SETUP_FORM_V1.id || command.action !== "save") {
+          throw new Error("unsupported_admin_form_operation");
+        }
+        const businessStartDate = command.values.businessStartDate;
+        if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
+        return getApplicationBusinessSettingsService().setBusinessStartDate(
+          businessStartDate, getApplicationRecordSource(),
+        );
+      },
+    },
+  );
   const adminServices = Object.freeze({
+    formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
