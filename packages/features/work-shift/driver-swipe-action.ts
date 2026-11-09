@@ -6,7 +6,7 @@ export type DriverSwipeAction = Readonly<{
   eventType: Extract<DriverEventType, "trip_create" | "start_ride" | "end_ride">;
 }>;
 
-const actions = swipePresentation.actions as Record<string, DriverSwipeAction>;
+const actions = swipePresentation.actions as unknown as Partial<Record<DriverWorkflowState, DriverSwipeAction>>;
 
 /** The one trip action exposed by the current persisted workflow state. */
 export function getDriverSwipeAction(state?: DriverWorkflowState): DriverSwipeAction | undefined {
