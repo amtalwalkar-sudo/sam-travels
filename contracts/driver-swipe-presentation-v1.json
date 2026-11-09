@@ -1,0 +1,44 @@
+{
+  "contractId": "sam-travels.driver-swipe-presentation",
+  "version": 1,
+  "gesture": {
+    "axis": "horizontal",
+    "direction": "left-to-right",
+    "completionPercent": 95,
+    "minimumIntentTravelDp": 24,
+    "resetOn": [
+      "cancel",
+      "incomplete",
+      "disabled",
+      "state-change",
+      "blur"
+    ],
+    "oneActionPerGesture": true
+  },
+  "accessibility": {
+    "labelTemplate": "Swipe to {label}",
+    "valueTemplate": "{label}, {progress}%",
+    "keyboardCompletion": true,
+    "announcePendingAndResult": true
+  },
+  "actions": {
+    "shift_active": {
+      "label": "Going to pickup",
+      "eventType": "trip_create"
+    },
+    "going_to_pickup": {
+      "label": "Start trip",
+      "eventType": "start_ride"
+    },
+    "trip_active": {
+      "label": "End trip",
+      "eventType": "end_ride"
+    }
+  },
+  "secondaryActions": {
+    "going_to_pickup": {
+      "label": "Cancel ride",
+      "eventType": "cancel_ride"
+    }
+  }
+}
