@@ -281,6 +281,15 @@ if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
     !appPresentation.includes('FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />}')) {
   failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through FeatureScreenHost");
 }
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/ui/")) continue;
+  if (relative === "apps/web/src/ui/FeatureScreenHost.tsx" || relative === "apps/web/src/ui/use-driver-workspace.ts") continue;
+  const content = await readFile(absolute, "utf8");
+  if (/\bgetApplication(?!RuntimeRegistry)[A-Za-z0-9_]*/.test(content)) {
+    failures.push(relative + ": UI components must receive application services through explicit presentation dependencies, not global service getters");
+  }
+}
 
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
