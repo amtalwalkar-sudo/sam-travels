@@ -139,6 +139,7 @@ export const LOAN_DETAILS_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "loanStartDate", label: "Loan start date", type: "date", required: true },
     { id: "tenureMonths", label: "Tenure in months", type: "number", required: true },
     { id: "firstEmiDate", label: "First EMI date", type: "date", required: true },
+    { id: "_recordId", label: "Record identity", type: "text" },
     { id: "_recordRevision", label: "Record revision", type: "number" },
   ],
 });
