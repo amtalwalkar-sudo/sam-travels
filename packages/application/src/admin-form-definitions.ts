@@ -59,6 +59,7 @@ export const COMPLIANCE_FORM_V1 = Object.freeze<FormDefinition>({
   purpose: "Record vehicle compliance coverage or renewal",
   primaryAction: "save",
   fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true },
     { id: "complianceName", label: "Compliance type / name", type: "text", required: true, maxLength: 120 },
     { id: "validFrom", label: "Valid from", type: "date", required: true },
     { id: "validTo", label: "Valid until", type: "date", required: true },
