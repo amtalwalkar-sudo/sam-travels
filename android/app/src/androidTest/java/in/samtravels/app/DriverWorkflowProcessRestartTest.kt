@@ -60,6 +60,7 @@ class DriverWorkflowProcessRestartTest {
             DriverWorkflowStore.complete(db, "restart-active-shift", JSONObject().put("latitude", 19.076)
                 .put("longitude", 72.8777).put("horizontalAccuracyM", 8.0).put("fixAt", shiftAt).put("provider", "android-test"))
             val pendingAt = java.time.Instant.now().toString()
+            prefs.edit().putString("prepared_pending_at", pendingAt).commit()
             DriverWorkflowStore.queue(db, command("restart-pending-trip", "trip_create", "shift_active", 1, pendingAt))
             assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
             assertEquals("pending_location", JSONObject(db.records().get("driver-intent:restart-pending-trip")!!.json)
@@ -108,10 +109,38 @@ class DriverWorkflowProcessRestartTest {
             assertEquals("pending_location", pending!!.getString("status"))
             val recovered = DriverWorkflowStore.reactivate(db, "restart-pending-trip")
             assertEquals("pending_location", recovered.getString("status"))
+
+            // Use an explicit event-time clock so this test proves post-restart commit
+            // deterministically without depending on CI scheduling within the 30s GPS window.
+            val transitionAt = java.time.Instant.parse(
+                prefs.getString("prepared_pending_at", null) ?: error("pending_transition_time_missing"),
+            )
+            val gps = JSONObject().put("latitude", 19.076).put("longitude", 72.8777)
+                .put("horizontalAccuracyM", 8.0).put("fixAt", transitionAt.toString())
+                .put("provider", "android-process-restart-test")
+            val completed = DriverWorkflowStore.complete(
+                db, "restart-pending-trip", gps, transitionAt.plusSeconds(1),
+            )
+            assertEquals("going_to_pickup", completed.getString("state"))
+            assertEquals(2, completed.getInt("revision"))
+            assertEquals(2, DriverWorkflowStore.listEvents(db).size)
+            assertEquals(2, db.records().list().count { it.id.startsWith("driver-outbox:") })
+            assertEquals("recorded", JSONObject(
+                db.records().get("driver-intent:restart-pending-trip")!!.json,
+            ).getString("status"))
+
+            // Replaying completion for the same command must return the committed
+            // projection and must not append another event or outbox entry.
+            val replayed = DriverWorkflowStore.complete(
+                db, "restart-pending-trip", gps, transitionAt.plusSeconds(2),
+            )
+            assertEquals(2, replayed.getInt("revision"))
+            assertEquals(2, DriverWorkflowStore.listEvents(db).size)
+            assertEquals(2, db.records().list().count { it.id.startsWith("driver-outbox:") })
         } finally {
             db.close()
             app.deleteDatabase(databaseName)
-            prefs.edit().remove("prepared_pid").commit()
+            prefs.edit().remove("prepared_pid").remove("prepared_pending_at").commit()
         }
     }
 }
