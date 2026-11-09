@@ -11,6 +11,8 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
   const firedRef = useRef(false);
+  const pointerStartXRef = useRef<number | null>(null);
+  const draggedRef = useRef(false);
 
   const updateProgress = (next: number) => {
     const value = Math.max(0, Math.min(100, next));
@@ -35,6 +37,14 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
     }
   };
 
+  const completePointer = (event: React.PointerEvent<HTMLInputElement>) => {
+    const didSwipe = draggedRef.current && pointerStartXRef.current !== null && event.clientX > pointerStartXRef.current && progressRef.current >= 95;
+    pointerStartXRef.current = null;
+    draggedRef.current = false;
+    if (didSwipe) complete();
+    else reset();
+  };
+
   return (
     <div className={`swipe-action-bar${disabled ? " is-disabled" : ""}`}>
       <label className="swipe-action-label" htmlFor="driver-state-swipe">
@@ -52,9 +62,10 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
         aria-label={`Swipe to ${label}`}
         aria-valuetext={`${label}, ${progress}%`}
         onChange={(event) => updateProgress(Number(event.currentTarget.value))}
-        onPointerDown={() => { firedRef.current = false; }}
+        onPointerDown={(event) => { firedRef.current = false; pointerStartXRef.current = event.clientX; draggedRef.current = false; }}
+        onPointerMove={(event) => { if (pointerStartXRef.current !== null && event.clientX - pointerStartXRef.current >= 24) draggedRef.current = true; }}
         onKeyDown={() => { firedRef.current = false; }}
-        onPointerUp={complete}
+        onPointerUp={completePointer}
         onPointerCancel={reset}
         onKeyUp={complete}
         onBlur={reset}
