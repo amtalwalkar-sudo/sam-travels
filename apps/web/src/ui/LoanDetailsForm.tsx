@@ -49,6 +49,17 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
 
   useEffect(() => { void loadDrafts().catch(error => setMessage(error instanceof Error ? error.message : "Could not load loan drafts.")); }, [loadDrafts]);
 
+  useEffect(() => {
+    const active = copyRef.current;
+    if (active && active.values.vehicleId !== vehicleId) {
+      void queue.current.then(() => {
+        copyRef.current = null;
+        setCopy(null);
+        setValues(EMPTY);
+      });
+    }
+  }, [vehicleId]);
+
   function activate(next: FormWorkingCopy) {
     copyRef.current = next;
     setCopy(next);
