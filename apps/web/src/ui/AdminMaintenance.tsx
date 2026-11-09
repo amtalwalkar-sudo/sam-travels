@@ -20,7 +20,7 @@ export function MaintenanceSection(){
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [vehicleId,setVehicleId]=useState("");
   const [records,setRecords]=useState<Maintenance|null>(null);
-  const [reminders,setReminders]=useState<Awaited<ReturnType<ReturnType<typeof getApplicationMaintenanceService>["getServiceReminderStates"]>>>([]);
+  const [reminders,setReminders]=useState<Awaited<ReturnType<AdminPresentationServices["maintenance"]["getServiceReminderStates"]>>>([]);
   const [mode,setMode]=useState<"visit"|"expense">("visit");
   const [date,setDate]=useState(today());
   const [title,setTitle]=useState("");
