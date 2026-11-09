@@ -6,6 +6,13 @@ import kotlin.math.abs
 
 /** Pure driver transition and GPS policy shared by native persistence callers. */
 object DriverTransitionPolicy {
+    fun swipeEvent(state: String): String? = when (state) {
+        "shift_active" -> "trip_create"
+        "going_to_pickup" -> "start_ride"
+        "trip_active" -> "end_ride"
+        else -> null
+    }
+
     fun target(state: String, event: String): String? = when (event) {
         "shift_start" -> if (state == "idle") "shift_active" else null
         "shift_end" -> if (state == "shift_active") "idle" else null
