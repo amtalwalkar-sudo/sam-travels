@@ -120,3 +120,25 @@ export const MAINTENANCE_RATE_FORM_V1 = Object.freeze<FormDefinition>({
   ],
 });
 
+
+
+/** Canonical Loan details form. The record revision is internal optimistic-concurrency metadata. */
+export const LOAN_DETAILS_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.loan-details",
+  version: 1,
+  owner: "finance-loans",
+  purpose: "Create or update loan details and its EMI calculation inputs",
+  primaryAction: "save",
+  fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true },
+    { id: "loanName", label: "Loan name", type: "text", required: true, maxLength: 120 },
+    { id: "lenderName", label: "Lender name", type: "text", required: true, maxLength: 120 },
+    { id: "loanAccountReference", label: "Loan account reference", type: "text", maxLength: 120 },
+    { id: "principalPaise", label: "Original principal in paise", type: "number", required: true },
+    { id: "annualInterestRateBasisPoints", label: "Annual interest rate in basis points", type: "number", required: true },
+    { id: "loanStartDate", label: "Loan start date", type: "date", required: true },
+    { id: "tenureMonths", label: "Tenure in months", type: "number", required: true },
+    { id: "firstEmiDate", label: "First EMI date", type: "date", required: true },
+    { id: "_recordRevision", label: "Record revision", type: "number" },
+  ],
+});
