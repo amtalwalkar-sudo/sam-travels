@@ -1,4 +1,4 @@
-name = "sam-travels-geocoder"
+name = "sam-travels"
 main = "src/index.ts"
 compatibility_date = "2026-11-07"
 workers_dev = true
