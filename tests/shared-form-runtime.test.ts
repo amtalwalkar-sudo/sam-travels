@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -109,6 +109,42 @@ describe("shared form runtime", () => {
       .toMatchObject([{ fieldId: "totalCostPaise", code: "type" }]);
     expect(validateFormValues(COMPLIANCE_FORM_V1, { ...valid, complianceName: "x".repeat(121) }))
       .toMatchObject([{ fieldId: "complianceName", code: "max_length" }]);
+  });
+
+  it("validates the canonical Maintenance visit, expense, and rate form definitions", () => {
+    expect(MAINTENANCE_VISIT_FORM_V1).toMatchObject({
+      id: "admin.maintenance-visit", version: 1, owner: "maintenance", primaryAction: "save",
+    });
+    expect(validateFormValues(MAINTENANCE_VISIT_FORM_V1, {})).toMatchObject([
+      { fieldId: "vehicleId", code: "required" },
+      { fieldId: "maintenanceDate", code: "required" },
+      { fieldId: "maintenanceType", code: "required" },
+      { fieldId: "description", code: "required" },
+      { fieldId: "itemsJson", code: "required" },
+    ]);
+    const visit = { vehicleId: "feature:vehicle:MH01AB1234", maintenanceDate: "2026-01-01",
+      maintenanceType: "Service", description: "Oil change", itemsJson: "[]",
+      odometerKm: 45000, nextServiceDate: "2026-07-01", nextServiceKm: 50000 };
+    expect(validateFormValues(MAINTENANCE_VISIT_FORM_V1, visit)).toEqual([]);
+    expect(validateFormValues(MAINTENANCE_VISIT_FORM_V1, { ...visit, maintenanceDate: "2026-02-30" }))
+      .toMatchObject([{ fieldId: "maintenanceDate", code: "date" }]);
+
+    expect(MAINTENANCE_EXPENSE_FORM_V1).toMatchObject({
+      id: "admin.maintenance-expense", version: 1, owner: "maintenance", primaryAction: "save",
+    });
+    expect(validateFormValues(MAINTENANCE_EXPENSE_FORM_V1, {
+      vehicleId: "feature:vehicle:MH01AB1234", expenseDate: "2026-01-01",
+      expenseName: "Towing", description: "Roadside assistance", amountPaise: 0,
+    })).toEqual([]);
+    expect(validateFormValues(MAINTENANCE_EXPENSE_FORM_V1, { amountPaise: "0" }))
+      .toMatchObject([{ fieldId: "amountPaise", code: "type" }]);
+
+    expect(MAINTENANCE_RATE_FORM_V1).toMatchObject({
+      id: "admin.maintenance-rate", version: 1, owner: "maintenance", primaryAction: "save",
+    });
+    expect(validateFormValues(MAINTENANCE_RATE_FORM_V1, {
+      vehicleId: "feature:vehicle:MH01AB1234", ratePaisePerKm: 250,
+    })).toEqual([]);
   });
 
   it("validates declared field mechanics without inventing feature business rules", () => {
