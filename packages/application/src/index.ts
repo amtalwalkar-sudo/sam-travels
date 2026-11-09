@@ -2,6 +2,7 @@ export * from "./record-service";
 export * from "./driver-workflow-service";
 export * from "./form-submission-port";
 export * from "./shared-form-runtime";
+export * from "./record-form-working-copy-repository";
 
 export * from "./timeline-projection-service";
 export * from "./runtime-registry";
