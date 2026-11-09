@@ -16,6 +16,7 @@ import type { getApplicationRecordSource } from "./platform-context";
  * to the Admin presentation. UI components never locate global services.
  */
 export type AdminPresentationServices = Readonly<{
+  formRuntime: SharedFormRuntime;
   businessSettings: ReturnType<typeof getApplicationBusinessSettingsService>;
   vehicles: ReturnType<typeof getApplicationVehicleService>;
   driverRecords: ReturnType<typeof getApplicationDriverRecordsService>;
