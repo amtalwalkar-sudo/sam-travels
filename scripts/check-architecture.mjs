@@ -264,10 +264,10 @@ const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-dr
 const registryCall = applicationEntry.indexOf("initializeApplicationRuntimeRegistry(");
 const uiMount = applicationEntry.indexOf("createRoot(");
 if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
-if ((applicationEntry.match(/initializeApplicationRuntimeRegistry\\s*\\(/g) ?? []).length !== 1) {
+if ((applicationEntry.match(/initializeApplicationRuntimeRegistry\s*\(/g) ?? []).length !== 1) {
   failures.push("apps/web/src/main.tsx: exactly one application runtime registry initialization is permitted");
 }
-if ((applicationEntry.match(/createPlatformRepository\\s*\\(/g) ?? []).length !== 1) {
+if ((applicationEntry.match(/createPlatformRepository\s*\(/g) ?? []).length !== 1) {
   failures.push("apps/web/src/main.tsx: exactly one authoritative platform repository construction is permitted");
 }
 
