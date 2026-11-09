@@ -29,7 +29,7 @@ internal class DriverSwipePresentationContract private constructor(
             require(gesture.optString("direction") == "left-to-right")
             require(gesture.optBoolean("oneActionPerGesture"))
             val completion = gesture.getInt("completionPercent")
-            val travel = gesture.getInt("minimumIntentTravelDp")
+            val travel = gesture.getJSONObject("minimumIntentTravel").getInt("nativeDp")
             require(completion in 1..100 && travel > 0)
             val actions = readActions(json.getJSONObject("actions"))
             val secondary = readActions(json.getJSONObject("secondaryActions"))
