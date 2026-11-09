@@ -17,7 +17,6 @@ type BackupEntry = { name: string; path: string; serverModified: string; size: n
 type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
-  const [recoveryKey, setRecoveryKey] = useState("");
   const [restoreSecret, setRestoreSecret] = useState("");
   const [session, setSession] = useState<DropboxBackupSession | null>(null);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
@@ -99,7 +98,7 @@ export function BackupPanel() {
       const next = await openSession();
       await next.client.completeAuthorization(callback.code, callback.state);
       setCallback(null);
-      setMessage("Dropbox connected. Refresh the backup history to continue.");
+      setMessage("Dropbox connected.");
       await refreshHistory(next);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Dropbox authorization failed");
@@ -128,14 +127,13 @@ export function BackupPanel() {
     setBusy(true);
     try {
       const savedKey = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
-      const key = recoveryKey.trim() || savedKey || generateBackupRecoveryKey();
+      const key = savedKey || generateBackupRecoveryKey();
       const result = await createAndUploadBackup({
         applicationVersion: "0.1.0",
         recoveryKey: key,
         dropbox: session.client,
       });
       if (!session.native) await session.vault.set("sam-travels.backup.recovery-key.v1", result.recoveryKey);
-      setRecoveryKey("");
       setMessage("Encrypted backup uploaded. This device securely retains its recovery key.");
       await refreshHistory(session);
     } catch (error) {
@@ -246,13 +244,6 @@ export function BackupPanel() {
     } finally {
       setBusy(false);
     }
-  }
-
-  function lockVault() {
-    session?.lock();
-    setSession(null);
-    setBackups([]);
-    setMessage("Credential vault locked. Unlock it again before Dropbox operations.");
   }
 
   return (
