@@ -75,9 +75,8 @@ export async function createBackupForCurrentRuntime(input: {
   return createEncryptedBackup({
     plaintext,
     manifest,
-    passphrase: input.passphrase,
     recoveryKey: input.recoveryKey,
-    argon2id: new HashWasmArgon2idProvider(),
+    mode: "recovery-key-only",
   });
 }
 
@@ -153,7 +152,7 @@ export async function createAndUploadBackup(input: {
   return { filename, recoveryKey };
 }
 
-/** Restore always requires a user-supplied recovery secret and explicit confirmation. */
+/** Restore decrypts and validates before the authoritative store creates a checkpoint. */
 export async function getSavedRecoveryKey(): Promise<string | undefined> {
   if (!Capacitor.isNativePlatform()) return undefined;
   return (await NativeBackupKeyVault.getRecoveryKey()).recoveryKey || undefined;
