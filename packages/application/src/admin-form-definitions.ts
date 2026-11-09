@@ -31,3 +31,21 @@ export const VEHICLE_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "_recordRevision", label: "Record revision", type: "number" },
   ],
 });
+
+/** Canonical Driver profile form; record metadata is internal to the shared draft. */
+export const DRIVER_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.driver",
+  version: 1,
+  owner: "driver-records",
+  purpose: "Create or update a driver profile",
+  primaryAction: "save",
+  fields: [
+    { id: "name", label: "Driver name", type: "text", required: true, maxLength: 120 },
+    { id: "licenceNumber", label: "Driving licence number", type: "text", maxLength: 64 },
+    { id: "licenceExpiryDate", label: "Licence expiry date", type: "date" },
+    { id: "mobileNumber", label: "Mobile number", type: "text", maxLength: 32 },
+    { id: "lifecycleState", label: "Status", type: "select", required: true, options: ["active", "inactive"] },
+    { id: "_selectedForWork", label: "Selected for Work", type: "checkbox" },
+    { id: "_recordRevision", label: "Record revision", type: "number" },
+  ],
+});
