@@ -80,7 +80,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
   async function startEdit(loan: Loan) {
     setBusy(true);
     try {
-      let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, loan.id);
+      let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, crypto.randomUUID());
       const initial: Record<string, unknown> = {
         vehicleId: loan.data.details.vehicleId,
         loanName: loan.data.details.loanName,
@@ -91,10 +91,11 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
         loanStartDate: loan.data.details.loanStartDate,
         tenureMonths: loan.data.details.tenureMonths,
         firstEmiDate: loan.data.details.firstEmiDate,
+        _recordId: loan.id,
         _recordRevision: loan.revision,
       };
       // An existing unfinished edit is resumed as-is; a fresh edit captures the current record revision.
-      if (next.revision === 0 && Object.keys(next.values).length === 0) {
+      if (Object.keys(next.values).length === 0) {
         for (const [field, value] of Object.entries(initial)) next = await services.formRuntime.update(LOAN_DETAILS_FORM_V1, next, field, value);
       }
       activate(next);
