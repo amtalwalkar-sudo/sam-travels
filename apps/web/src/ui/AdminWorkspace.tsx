@@ -3,18 +3,13 @@ import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
 import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOperations";
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
-import {
-  getApplicationFinanceLoanService,
-  getApplicationFinanceLoanPrepaymentService,
-  getApplicationRecordSource,
-  getApplicationVehicleService,
-  type FinanceLoanDetailsV1,
-} from "../../../../packages/application/src";
+import type { AdminPresentationServices, FinanceLoanDetailsV1 } from "../../../../packages/application/src";
+import { useAdminServices } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 
-type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];
-type Loan = Awaited<ReturnType<ReturnType<typeof getApplicationFinanceLoanService>["list"]>>[number];
-type LoanScheduleHistory = Awaited<ReturnType<ReturnType<typeof getApplicationFinanceLoanPrepaymentService>["getScheduleHistory"]>>;
+type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
+type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
+type LoanScheduleHistory = Awaited<ReturnType<AdminPresentationServices["financeLoanPrepayments"]["getScheduleHistory"]>>;
 type AdminSection = "Business setup" | "Vehicle" | "Driver" | "Compliance" | "Loan" | "Maintenance";
 type LoanForm = {
   loanName: string;
@@ -77,7 +72,7 @@ function toDetails(form: LoanForm, vehicleId: string): FinanceLoanDetailsV1 {
   };
 }
 
-export function AdminWorkspace() {
+export function AdminWorkspace() {\n  const services = useAdminServices();
   const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -94,11 +89,11 @@ export function AdminWorkspace() {
     setLoading(true);
     try {
       const [vehicleRecords, loanRecords] = await Promise.all([
-        getApplicationVehicleService().list(),
-        getApplicationFinanceLoanService().list(),
+        services.vehicles.list(),
+        services.financeLoans.list(),
       ]);
       const histories = await Promise.all(loanRecords.map(async loan =>
-        [loan.id, await getApplicationFinanceLoanPrepaymentService().getScheduleHistory(loan.id)] as const));
+        [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
       setVehicles(vehicleRecords);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
@@ -152,7 +147,7 @@ export function AdminWorkspace() {
     setMessage("");
     try {
       const details = toDetails(form, selectedVehicle.id);
-      const service = getApplicationFinanceLoanService();
+      const service = services.financeLoans;
       if (editing) {
         await service.update({ id: editing.id, expectedRevision: editing.revision, details });
         setMessage("Loan details saved. Previous EMI schedule versions are preserved.");
@@ -160,7 +155,7 @@ export function AdminWorkspace() {
         await service.create({
           uuid: crypto.randomUUID(),
           details,
-          source: getApplicationRecordSource(),
+          source: services.recordSource,
         });
         setMessage("Loan and original EMI schedule saved.");
       }
@@ -168,7 +163,7 @@ export function AdminWorkspace() {
       setFormOpen(false);
       setForm(EMPTY_FORM);
       const [nextVehicles, nextLoans] = await Promise.all([
-        getApplicationVehicleService().list(),
+        services.vehicles.list(),
         service.list(),
       ]);
       setVehicles(nextVehicles);
