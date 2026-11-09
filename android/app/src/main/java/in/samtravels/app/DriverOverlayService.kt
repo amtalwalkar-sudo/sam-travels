@@ -19,6 +19,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.View
 import android.widget.Button
@@ -139,12 +140,24 @@ class DriverOverlayService:Service(){
    setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
     override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean){}
     override fun onStartTrackingTouch(bar:SeekBar?){}
-    override fun onStopTrackingTouch(bar:SeekBar?){
-     val confirmed=(bar?.progress?:0)>=95
-     bar?.progress=0
-     if(confirmed)runSwipeTransition()
-    }
+    override fun onStopTrackingTouch(bar:SeekBar?){bar?.progress=0}
    })
+  }
+  var swipeStartX:Float?=null
+  var swipeMoved=false
+  slider.setOnTouchListener{_,event->
+   when(event.actionMasked){
+    MotionEvent.ACTION_DOWN->{swipeStartX=event.rawX;swipeMoved=false}
+    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(24))swipeMoved=true}
+    MotionEvent.ACTION_UP->{
+     val confirmed=swipeMoved&&slider.progress>=95
+     swipeStartX=null;swipeMoved=false
+     if(confirmed)runSwipeTransition()
+     slider.progress=0
+    }
+    MotionEvent.ACTION_CANCEL->{swipeStartX=null;swipeMoved=false;slider.progress=0}
+   }
+   false
   }
   swipeBar=slider
   root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
