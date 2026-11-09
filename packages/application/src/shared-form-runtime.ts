@@ -5,6 +5,7 @@ export type FormDefinition = Readonly<{ id: string; version: number; owner: stri
 export type FormWorkingCopy = Readonly<{ formId: string; formVersion: number; instanceId: string; revision: number; status: "in_progress" | "pending" | "saved" | "submitted"; values: Readonly<Record<string, unknown>>; operationId: string; updatedAt: string }>;
 export interface FormWorkingCopyRepository {
   get(formId: string, instanceId: string): Promise<FormWorkingCopy | undefined>;
+  list(formId: string): Promise<readonly FormWorkingCopy[]>;
   put(copy: FormWorkingCopy, expectedRevision?: number): Promise<void>;
   remove(formId: string, instanceId: string): Promise<void>;
 }
@@ -51,6 +52,15 @@ export class SharedFormRuntime {
       status: "in_progress", values: {}, operationId: this.createOperationId(), updatedAt: this.now() };
     await this.workingCopies.put(copy);
     return copy;
+  }
+
+  /** Lists resumable drafts for one definition without exposing completed records. */
+  async listDrafts(definition: FormDefinition): Promise<readonly FormWorkingCopy[]> {
+    this.assertDefinition(definition);
+    const copies = await this.workingCopies.list(definition.id);
+    return Object.freeze(copies.filter(copy =>
+      copy.formId === definition.id && copy.formVersion === definition.version && copy.status === "in_progress"
+    ));
   }
 
   async update(definition: FormDefinition, copy: FormWorkingCopy, fieldId: string, value: unknown): Promise<FormWorkingCopy> {
