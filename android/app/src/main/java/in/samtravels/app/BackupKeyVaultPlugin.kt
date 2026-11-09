@@ -21,6 +21,17 @@ class BackupKeyVaultPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun getRecoveryKey(call: PluginCall) {
+        try {
+            val result = JSObject()
+            result.put("recoveryKey", BackupRecoveryKeyVault(context).read())
+            call.resolve(result)
+        } catch (error: Exception) {
+            call.reject("Could not read protected backup recovery key", error)
+        }
+    }
+
+    @PluginMethod
     fun hasRecoveryKey(call: PluginCall) {
         try {
             val result = JSObject()
