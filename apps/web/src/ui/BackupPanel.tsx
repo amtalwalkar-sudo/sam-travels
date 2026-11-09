@@ -10,7 +10,7 @@ import {
   rollbackRecoveryCheckpoint,
   getSavedRecoveryKey,
 } from "../backup-runtime";
-import { createDropboxBackupSession, type DropboxBackupSession } from "../backup-service";
+import { createDropboxBackupSession, DROPBOX_CLIENT_ID, type DropboxBackupSession } from "../backup-service";
 import { generateBackupRecoveryKey } from "../../../../packages/features/backup";
 
 type BackupEntry = { name: string; path: string; serverModified: string; size: number };
@@ -72,7 +72,7 @@ export function BackupPanel() {
   async function openSession(): Promise<DropboxBackupSession> {
     const next = await createDropboxBackupSession();
     setSession(next);
-    if (next.native) await configureNativeBackgroundBackup(import.meta.env.VITE_DROPBOX_CLIENT_ID || "562zfpfzsqx60x", "samtravels://oauth");
+    if (next.native) await configureNativeBackgroundBackup(DROPBOX_CLIENT_ID, "samtravels://oauth");
     return next;
   }
 
@@ -110,6 +110,8 @@ export function BackupPanel() {
 
   useEffect(() => {
     if (callback) void completeConnection();
+    // completeConnection is stable for this callback state; callback changes drive this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callback]);
 
   async function refreshHistory(current = session) {
