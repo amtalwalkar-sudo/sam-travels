@@ -10,13 +10,14 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace() {
+export function useDriverWorkspace(runtime: RuntimeRegistry) {
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -69,7 +70,6 @@ export function useDriverWorkspace() {
           return;
         }
 
-        const runtime = getApplicationRuntimeRegistry();
         const platformRecords = await createPlatformRepository();
         const selection = new WorkDriverSelectionService(platformRecords, repository);
         const selected = await selection.getSelectedDriver();
