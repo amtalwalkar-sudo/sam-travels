@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -146,6 +146,32 @@ describe("shared form runtime", () => {
     expect(validateFormValues(MAINTENANCE_RATE_FORM_V1, {
       vehicleId: "feature:vehicle:MH01AB1234", ratePaisePerKm: 250,
     })).toEqual([]);
+  });
+
+  it("validates the canonical Loan details form and permits historical dates", () => {
+    expect(LOAN_DETAILS_FORM_V1).toMatchObject({
+      id: "admin.loan-details", version: 1, owner: "finance-loans", primaryAction: "save",
+    });
+    expect(validateFormValues(LOAN_DETAILS_FORM_V1, {})).toMatchObject([
+      { fieldId: "vehicleId", code: "required" },
+      { fieldId: "loanName", code: "required" },
+      { fieldId: "lenderName", code: "required" },
+      { fieldId: "principalPaise", code: "required" },
+      { fieldId: "annualInterestRateBasisPoints", code: "required" },
+      { fieldId: "loanStartDate", code: "required" },
+      { fieldId: "tenureMonths", code: "required" },
+      { fieldId: "firstEmiDate", code: "required" },
+    ]);
+    const valid = {
+      vehicleId: "feature:vehicle:MH01AB1234", loanName: "Vehicle loan", lenderName: "Bank",
+      principalPaise: 12500000, annualInterestRateBasisPoints: 950, loanStartDate: "2020-01-01",
+      tenureMonths: 60, firstEmiDate: "2020-02-01", _recordRevision: 3,
+    };
+    expect(validateFormValues(LOAN_DETAILS_FORM_V1, valid)).toEqual([]);
+    expect(validateFormValues(LOAN_DETAILS_FORM_V1, { ...valid, loanStartDate: "2020-02-30" }))
+      .toMatchObject([{ fieldId: "loanStartDate", code: "date" }]);
+    expect(validateFormValues(LOAN_DETAILS_FORM_V1, { ...valid, principalPaise: "12500000" }))
+      .toMatchObject([{ fieldId: "principalPaise", code: "type" }]);
   });
 
   it("validates declared field mechanics without inventing feature business rules", () => {
