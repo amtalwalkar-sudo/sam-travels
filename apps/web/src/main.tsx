@@ -50,7 +50,7 @@ import "./ui/styles.css";
 
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
 async function bootstrap(): Promise<void> {
-  initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
+  const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBusinessSettingsBrowserBackupParticipant();
   registerVehicleBrowserBackupParticipant();
@@ -90,7 +90,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App adminServices={adminServices} />
+      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} />
     </React.StrictMode>,
   );
 }
