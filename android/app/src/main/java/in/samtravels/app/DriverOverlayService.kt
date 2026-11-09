@@ -130,9 +130,10 @@ class DriverOverlayService:Service(){
   actionButtons["shift_start"]=shiftStart
   actionButtons["shift_end"]=shiftEnd
   root.addView(shiftStart)
-  swipeLabel=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
-  root.addView(swipeLabel)
-  swipeBar=SeekBar(this).apply{
+  val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
+  swipeLabel=label
+  root.addView(label)
+  val slider=SeekBar(this).apply{
    max=100
    progress=0
    setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
@@ -145,9 +146,11 @@ class DriverOverlayService:Service(){
     }
    })
   }
-  root.addView(swipeBar,LinearLayout.LayoutParams(dp(230),dp(48)))
-  cancelButton=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
-  root.addView(cancelButton)
+  swipeBar=slider
+  root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
+  val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
+  cancelButton=cancel
+  root.addView(cancel)
   root.addView(shiftEnd)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   root.addView(recoveryButton)
