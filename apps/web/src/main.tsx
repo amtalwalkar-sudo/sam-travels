@@ -28,6 +28,7 @@ import {
   RecordFormWorkingCopyRepository,
   SharedFormRuntime,
   BUSINESS_SETUP_FORM_V1,
+  VEHICLE_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -82,14 +83,36 @@ async function bootstrap(): Promise<void> {
     new RecordFormWorkingCopyRepository(repository, getApplicationRecordSource()),
     {
       submit: async (command) => {
-        if (command.formId !== BUSINESS_SETUP_FORM_V1.id || command.action !== "save") {
-          throw new Error("unsupported_admin_form_operation");
+        if (command.action !== "save") throw new Error("unsupported_admin_form_operation");
+        if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
+          const businessStartDate = command.values.businessStartDate;
+          if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
+          return getApplicationBusinessSettingsService().setBusinessStartDate(
+            businessStartDate, getApplicationRecordSource(),
+          );
         }
-        const businessStartDate = command.values.businessStartDate;
-        if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
-        return getApplicationBusinessSettingsService().setBusinessStartDate(
-          businessStartDate, getApplicationRecordSource(),
-        );
+        if (command.formId === VEHICLE_FORM_V1.id) {
+          const values = command.values;
+          const data = {
+            schemaVersion: 1 as const,
+            registrationNumber: String(values.registrationNumber ?? "").trim().toUpperCase(),
+            make: String(values.make ?? "").trim(),
+            model: String(values.model ?? "").trim(),
+            vehicleType: String(values.vehicleType ?? "").trim(),
+            fuelType: String(values.fuelType ?? ""),
+            yearOfManufacture: Number(values.yearOfManufacture),
+            ownership: String(values.ownership ?? ""),
+            lifecycleState: values.lifecycleState as "active" | "inactive" | "sold",
+          };
+          const revision = values._recordRevision;
+          if (typeof revision === "number") {
+            return getApplicationVehicleService().update({
+              id: command.instanceId, expectedRevision: revision, data,
+            });
+          }
+          return getApplicationVehicleService().create(data, getApplicationRecordSource());
+        }
+        throw new Error("unsupported_admin_form_operation");
       },
     },
   );
