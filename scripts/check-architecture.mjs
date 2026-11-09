@@ -302,6 +302,7 @@ for (const absolute of sourceFiles) {
   if (!relative.startsWith("apps/web/src/")) continue;
   const content = await readFile(absolute, "utf8");
   if (content.includes("initializeApplicationRuntimeRegistry(") && relative !== "apps/web/src/main.tsx") failures.push(relative + ": only the application composition root may initialize the shared registry");
+  if (/initializeApplication[A-Z][A-Za-z0-9_]*\s*\(/.test(content) && relative !== "apps/web/src/main.tsx") failures.push(relative + ": only the application composition root may initialize application services or lifecycle");
 }
 
 if (failures.length) {
