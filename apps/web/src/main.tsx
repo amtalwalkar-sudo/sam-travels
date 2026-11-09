@@ -207,7 +207,7 @@ async function bootstrap(): Promise<void> {
           };
           if (typeof values._recordRevision === "number") {
             return getApplicationFinanceLoanService().update({
-              id: command.instanceId, expectedRevision: values._recordRevision, details,
+              id: String(values._recordId ?? ""), expectedRevision: values._recordRevision, details,
             });
           }
           return getApplicationFinanceLoanService().create({
