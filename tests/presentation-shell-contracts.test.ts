@@ -42,7 +42,7 @@ describe("application form submission boundary", () => {
       },
     };
     await expect(applicationPort.submit({
-      formId: "work-note", formVersion: 1, operationId: "note-op-1", action: "submit", values: { note: "test" },
+      formId: "work-note", formVersion: 1, instanceId: "compliance-1", operationId: "note-op-1", action: "submit", values: { note: "test" },
     })).resolves.toEqual({ accepted: true });
     await expect(applicationPort.submit({
       formId: "work-note", formVersion: 2, operationId: "note-op-2", action: "submit",
