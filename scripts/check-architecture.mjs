@@ -264,6 +264,13 @@ const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-dr
 const registryCall = applicationEntry.indexOf("initializeApplicationRuntimeRegistry(");
 const uiMount = applicationEntry.indexOf("createRoot(");
 if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
+if ((applicationEntry.match(/initializeApplicationRuntimeRegistry\\s*\\(/g) ?? []).length !== 1) {
+  failures.push("apps/web/src/main.tsx: exactly one application runtime registry initialization is permitted");
+}
+if ((applicationEntry.match(/createPlatformRepository\\s*\\(/g) ?? []).length !== 1) {
+  failures.push("apps/web/src/main.tsx: exactly one authoritative platform repository construction is permitted");
+}
+
 if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !applicationRegistry.includes("let applicationRuntimeRegistry") || !applicationRegistry.includes("Application runtime registry has not been initialized")) failures.push("packages/application/src/runtime-registry.ts: application layer must own validated registry construction and singleton lifecycle");
 if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("useDriverWorkspace(runtime: RuntimeRegistry")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must receive the application-layer registry singleton");
 const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
