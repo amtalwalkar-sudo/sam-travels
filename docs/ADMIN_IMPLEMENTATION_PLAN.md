@@ -28,7 +28,7 @@ The current web source contains an AdminWorkspace composition with entry points 
 
 Completion remains governed by the definition above: each section must use its owning capability, persist and reload through the authoritative platform store, participate in complete backup/restore and recovery, and pass the relevant workflow and failure-path tests. A rendered screen or form is not evidence of durable workflow completion.
 
-The Admin workspace is a presentation/access surface. It is registered as a non-persistent Admin presentation contribution and mounted through the shared feature screen host. It must not acquire business records, repositories, calculations, or a second service authority.
+The Admin workspace is a presentation/access surface. It is registered as a non-persistent Admin presentation contribution and mounted through the shared feature screen host. The single application composition root supplies an explicit, typed service dependency set to the Admin presentation; Admin screens must not call global application-service getters. Admin must not acquire business records, repositories, calculations, or a second service authority.
 
 ## 2. Non-negotiable architecture boundaries
 
