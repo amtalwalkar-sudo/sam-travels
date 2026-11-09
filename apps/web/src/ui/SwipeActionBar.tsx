@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent } from "react";
+import swipePresentation from "../../../../contracts/driver-swipe-presentation-v1.json";
 
 type SwipeActionBarProps = {
   label: string;
@@ -28,7 +29,7 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
       reset();
       return;
     }
-    if (progressRef.current >= 95) {
+    if (progressRef.current >= swipePresentation.gesture.completionPercent) {
       firedRef.current = true;
       updateProgress(0);
       onConfirm();
@@ -59,11 +60,11 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
         step="1"
         value={progress}
         disabled={disabled}
-        aria-label={`Swipe to ${label}`}
-        aria-valuetext={`${label}, ${progress}%`}
+        aria-label={swipePresentation.accessibility.labelTemplate.replace("{label}", label)}
+        aria-valuetext={swipePresentation.accessibility.valueTemplate.replace("{label}", label).replace("{progress}", String(progress))}
         onChange={(event) => updateProgress(Number(event.currentTarget.value))}
         onPointerDown={(event) => { firedRef.current = false; pointerStartXRef.current = event.clientX; draggedRef.current = false; }}
-        onPointerMove={(event) => { if (pointerStartXRef.current !== null && event.clientX - pointerStartXRef.current >= 24) draggedRef.current = true; }}
+        onPointerMove={(event) => { if (pointerStartXRef.current !== null && event.clientX - pointerStartXRef.current >= swipePresentation.gesture.minimumIntentTravelDp) draggedRef.current = true; }}
         onKeyDown={() => { firedRef.current = false; }}
         onPointerUp={completePointer}
         onPointerCancel={() => { pointerStartXRef.current = null; draggedRef.current = false; reset(); }}
