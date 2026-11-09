@@ -26,6 +26,20 @@ describe("authoritative record-backed form working copies", () => {
     expect(await browserDatabase.records.count()).toBe(1);
   });
 
+  it("lists only persisted working copies for the requested form", async () => {
+    const records = new DexieRecordRepository();
+    const copies = new RecordFormWorkingCopyRepository(records, "web");
+    const makeCopy = (formId: string, instanceId: string): FormWorkingCopy => ({
+      formId, formVersion: 1, instanceId, revision: 0, status: "in_progress",
+      values: { description: instanceId }, operationId: "op-" + instanceId, updatedAt: new Date().toISOString(),
+    });
+    await copies.put(makeCopy("admin.maintenance-visit", "visit-1"));
+    await copies.put(makeCopy("admin.maintenance-expense", "expense-1"));
+    await copies.put(makeCopy("admin.maintenance-visit", "visit-2"));
+    expect((await copies.list("admin.maintenance-visit")).map(copy => copy.instanceId))
+      .toEqual(["visit-1", "visit-2"]);
+  });
+
   it("uses atomic revisions to reject stale writes", async () => {
     const records = new DexieRecordRepository();
     const copies = new RecordFormWorkingCopyRepository(records, "web");
