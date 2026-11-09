@@ -14,7 +14,7 @@ The application may use any visual language. Consistency is optional and must ne
 This is a presentation-foundation contract, not a replacement for existing architecture or runtime contracts. Apply the following precedence:
 
 1. Domain, transaction, persistence, recovery, security, and platform contracts remain authoritative for their respective semantics.
-2. `FEATURE_MODULE_CONTRACT.md` is authoritative for feature ownership, public module boundaries, forms as presentation adapters, and form/data/application contracts. There is no separate `FORM_CONTRACT.md` or `UNIVERSAL_FORM_CONTRACT.md` in the current repository; do not create a competing form framework.
+2. `FEATURE_MODULE_CONTRACT.md` is authoritative for feature ownership, public module boundaries, and feature/application contracts. `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` is the single authority for shared form mechanics and form behaviour; feature-owned business meaning and validation remain with the relevant feature contracts. Do not create a parallel form framework or a second field-definition authority.
 3. `APPLICATION_LIFECYCLE_CONTRACT.md` governs startup, resume, shutdown, authoritative state readiness, and operational-action gates.
 4. `PWA_LIFECYCLE_CONTRACT.md` governs browser-only PWA delivery, cache, service-worker, and browser lifecycle responsibilities.
 5. `ANDROID_NATIVE_CONTRACT.md` and the runtime/bridge contracts govern native Android, Room ownership, native overlay, and bridge behavior.
