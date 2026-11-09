@@ -48,7 +48,7 @@ The Admin workspace is a presentation/access surface. It is registered as a non-
 
 | Admin section / concern | Owning capability | Admin responsibility | Explicit boundary |
 |---|---|---|---|
-| Business start date | Business Settings (new capability unless an existing public owner is found during baseline audit) | Present and edit the one approved business-wide date | Must not impose a lower bound on historical record dates |
+| Business start date | Existing Business Settings capability (`packages/features/business-settings`) | Present and edit the one approved business-wide date | Must not impose a lower bound on historical record dates |
 | Vehicle records and selected-vehicle context | Vehicle | Present vehicle records and selection; pass authoritative vehicle IDs to use cases | Vehicle owns identity/status; selected UI context is not the persisted relationship |
 | Driver records and vehicle assignments | Driver Records (bounded profile/assignment capability) | Present driver details, assignment, reassignment, and history | Must not create another Shift/Work or trip state machine; Work remains authoritative for operational lifecycle |
 | Compliance records and renewals | Compliance | Present vehicle-scoped records, status, gaps/overlaps, renewals, and history | Compliance owns its records and calculation rules; licence expiry remains Driver-owned |
