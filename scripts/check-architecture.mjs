@@ -278,7 +278,7 @@ if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition"
   failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
 }
 if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
-    !appPresentation.includes('FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />}')) {
+    !appPresentation.includes('FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />}')) {
   failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through FeatureScreenHost");
 }
 
