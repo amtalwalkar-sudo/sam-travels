@@ -47,6 +47,39 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
+      - name: Smoke-test the deployed Cloudflare geocoder
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = "https://sam-travels.amtalwalkar.workers.dev/reverse-geocode";
+          let lastError = "no response";
+          for (let attempt = 0; attempt < 6; attempt += 1) {
+            try {
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  Origin: "https://localhost",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ latitude: 19.076, longitude: 72.8777 }),
+                signal: AbortSignal.timeout(15000),
+              });
+              const body = await response.json().catch(() => ({}));
+              if (response.ok && typeof body.label === "string" && body.label.trim()) {
+                if (response.headers.get("Access-Control-Allow-Origin") !== "https://localhost") {
+                  throw new Error("production geocoder CORS response did not allow the Android WebView origin");
+                }
+                console.log("Production geocoder returned a locality label:", body.label);
+                process.exit(0);
+              }
+              lastError = `HTTP ${response.status}: ${JSON.stringify(body)}`;
+            } catch (error) {
+              lastError = error instanceof Error ? error.message : String(error);
+            }
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+          console.error("Production geocoder smoke test failed:", lastError);
+          process.exit(1);
+          NODE
   android:
     needs: web
     runs-on: ubuntu-latest
