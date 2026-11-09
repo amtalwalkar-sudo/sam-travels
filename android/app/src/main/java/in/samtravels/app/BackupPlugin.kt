@@ -122,7 +122,7 @@ class BackupPlugin : Plugin() {
                 val id = UUID.randomUUID().toString()
                 db.runInTransaction {
                     val checkpoint = makeSnapshot()
-                    saveInternal(checkpointPrefix + id, checkpoint, now)
+                    saveInternal(checkpointPrefix + id, checkpoint.snapshot, now)
                     saveInternal(
                         journalPrefix + id,
                         JSONObject().put("id", id).put("createdAt", now).put("status", "checkpoint"),
