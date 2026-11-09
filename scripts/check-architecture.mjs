@@ -265,7 +265,7 @@ const registryCall = applicationEntry.indexOf("initializeApplicationRuntimeRegis
 const uiMount = applicationEntry.indexOf("createRoot(");
 if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
 if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !applicationRegistry.includes("let applicationRuntimeRegistry") || !applicationRegistry.includes("Application runtime registry has not been initialized")) failures.push("packages/application/src/runtime-registry.ts: application layer must own validated registry construction and singleton lifecycle");
-if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("getApplicationRuntimeRegistry()")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application-layer registry singleton");
+if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("useDriverWorkspace(runtime: RuntimeRegistry")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must receive the application-layer registry singleton");
 const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
 const shellPresentation = await readFile(path.join(root, "apps/web/src/ui/ApplicationShell.tsx"), "utf8");
 const featureCatalogue = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
