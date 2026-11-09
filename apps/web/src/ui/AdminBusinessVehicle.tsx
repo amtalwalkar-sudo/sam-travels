@@ -1,14 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  getApplicationBusinessSettingsService,
-  getApplicationRecordSource,
-  getApplicationVehicleService,
-  type VehicleRecordV1,
-} from "../../../../packages/application/src";
+import type { AdminPresentationServices, VehicleRecordV1 } from "../../../../packages/application/src";
+import { useAdminServices } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
-type BusinessSettings = Awaited<ReturnType<ReturnType<typeof getApplicationBusinessSettingsService>["get"]>>;
-type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];
+type BusinessSettings = Awaited<ReturnType<AdminPresentationServices["businessSettings"]["get"]>>;
+type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type VehicleForm = {
   registrationNumber: string; make: string; model: string; vehicleType: string;
   fuelType: string; yearOfManufacture: string; ownership: string; lifecycleState: VehicleRecordV1["lifecycleState"];
@@ -18,7 +14,7 @@ const EMPTY_VEHICLE: VehicleForm = {
   fuelType: "Diesel", yearOfManufacture: "", ownership: "Owned", lifecycleState: "active",
 };
 
-export function BusinessSetupSection() {
+export function BusinessSetupSection() {\n  const services = useAdminServices();
   const [record, setRecord] = useState<BusinessSettings | undefined>();
   const [date, setDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,7 +23,7 @@ export function BusinessSetupSection() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const current = await getApplicationBusinessSettingsService().get();
+      const current = await services.businessSettings.get();
       setRecord(current);
       setDate(current?.data.businessStartDate ?? "");
       setMessage("");
@@ -41,7 +37,7 @@ export function BusinessSetupSection() {
     event.preventDefault();
     setSaving(true); setMessage("");
     try {
-      const saved = await getApplicationBusinessSettingsService().setBusinessStartDate(date, getApplicationRecordSource());
+      const saved = await services.businessSettings.setBusinessStartDate(date, services.recordSource);
       setRecord(saved);
       setMessage("Business start date saved.");
     } catch (error) {
@@ -60,7 +56,7 @@ export function BusinessSetupSection() {
   </div>;
 }
 
-export function VehicleSection() {
+export function VehicleSection() {\n  const services = useAdminServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState<VehicleForm>(EMPTY_VEHICLE);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -71,7 +67,7 @@ export function VehicleSection() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setVehicles(await getApplicationVehicleService().list());
+      setVehicles(await services.vehicles.list());
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load vehicles.");
@@ -104,12 +100,12 @@ export function VehicleSection() {
     };
     setSaving(true); setMessage("");
     try {
-      const service = getApplicationVehicleService();
+      const service = services.vehicles;
       if (editing) {
         await service.update({ id: editing.id, expectedRevision: editing.revision, data });
         setMessage("Vehicle details updated.");
       } else {
-        await service.create(data, getApplicationRecordSource());
+        await service.create(data, services.recordSource);
         setMessage("Vehicle record created.");
       }
       closeForm();
