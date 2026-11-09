@@ -15,7 +15,8 @@ const optional = (value: string) => value.trim() || undefined;
 
 type ItemDraft={id:string;description:string;amount:string};
 const newItem=():ItemDraft=>({id:crypto.randomUUID(),description:"",amount:""});
-export function MaintenanceSection(){\n  const services = useAdminServices();
+export function MaintenanceSection(){
+  const services = useAdminServices();
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [vehicleId,setVehicleId]=useState("");
   const [records,setRecords]=useState<Maintenance|null>(null);
