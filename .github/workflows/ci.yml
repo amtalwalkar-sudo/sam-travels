@@ -47,11 +47,10 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
-      # Production is still running the main-branch Worker until this PR is merged.
-      # A PR must not be blocked by a smoke test against that pre-change deployment.
-      # The live smoke test runs after the main-branch Worker deployment instead.
+      # The proxy source is identical on main and this PR; test the live configured
+      # production Worker before merge, then again after the main-branch deployment.
       - name: Smoke-test the deployed Cloudflare geocoder
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           node --input-type=module <<'NODE'
           const endpoint = "https://sam-travels.amtalwalkar.workers.dev/reverse-geocode";
