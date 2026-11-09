@@ -53,11 +53,11 @@ export function ApplicationShell({ activeScreen, onNavigate, settingsContent, ch
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2A1.7 1.7 0 0 0 7.8 17l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2A1.7 1.7 0 0 0 5.4 6.8l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V3a1.7 1.7 0 0 1 3.4 0v.2A1.7 1.7 0 0 0 17 4.4l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 1.9Z" /></svg>
       </button>
     </header>
-    {settingsOpen && <aside id="application-settings" className="settings-panel" aria-label="Application settings">
+    <aside id="application-settings" className="settings-panel" aria-label="Application settings" hidden={!settingsOpen}>
       <div className="settings-panel-heading"><div><small>APPLICATION</small><h2>Settings</h2></div>
         <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">×</button></div>
       {settingsContent}
-    </aside>}
+    </aside>
     <div className="screen-scroll">{children}</div>
     <nav className="bottom-navigation" aria-label="Primary navigation">
       {primaryShellDefinition.navigation.map(item => <button key={item.screen}
