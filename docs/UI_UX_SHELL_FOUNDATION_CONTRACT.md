@@ -160,7 +160,7 @@ If a UI requirement appears to conflict with one of these authorities, preserve 
 - Components are composable and independently testable with contract-compatible substitutes or test doubles.
 - A component implementation can be replaced without rewriting unrelated components or changing feature business behaviour.
 - Navigation presentation can be replaced without changing destination registration; screen layout can be replaced without changing feature logic; form rendering can be replaced without changing form data/application contracts; theme implementation can be replaced without changing runtime behaviour.
-- Form-specific ownership, typed field/value contracts, validation, and application wiring remain governed by `FEATURE_MODULE_CONTRACT.md`; this contract governs only presentation composition and renderer replaceability.
+- Shared form mechanics, versioned form definitions, form lifecycle, and form presentation contracts are governed by `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`. Feature ownership, business meaning, authoritative validation, and application use cases remain governed by `FEATURE_MODULE_CONTRACT.md` and the owning feature contract; this document governs only presentation composition and renderer replaceability.
 - Dependency graphs must be acyclic. Shared primitives must not become catch-all modules or create reverse dependencies from lower-level components to higher-level composition.
 - Consistency is achieved through shared contracts and design tokens, not by coupling components to one another's implementation.
 - Exceptions are explicit and justified; avoid creating a framework for every small visual element.
