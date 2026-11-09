@@ -201,7 +201,7 @@ export function MaintenanceSection() {
     if (field === "nextKm") setNextKm(value);
     if (field === "amount") setAmount(value);
     const form = activeForm;
-    let fieldId = field;
+    let fieldId: string = field;
     let stored: unknown = value;
     if (field === "date") fieldId = form === "visit" ? "maintenanceDate" : "expenseDate";
     if (field === "title") fieldId = form === "visit" ? "maintenanceType" : "expenseName";
