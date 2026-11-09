@@ -171,10 +171,10 @@ class DriverOverlayService:Service(){
   main.post{
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
-   val swipeText=when(state){
-    "shift_active"->"Swipe to Going to pickup"
-    "going_to_pickup"->"Swipe to Start trip"
-    "trip_active"->"Swipe to End trip"
+   val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
+    "trip_create"->"Swipe to Going to pickup"
+    "start_ride"->"Swipe to Start trip"
+    "end_ride"->"Swipe to End trip"
     else->null
    }
    val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
@@ -223,12 +223,7 @@ class DriverOverlayService:Service(){
    try{
     NativeStartupRecovery.ensure(db)
     val state=DriverWorkflowStore.snapshot(db).optString("state")
-    val event=when(state){
-     "shift_active"->"trip_create"
-     "going_to_pickup"->"start_ride"
-     "trip_active"->"end_ride"
-     else->null
-    }
+    val event=DriverTransitionPolicy.swipeEvent(state)
     if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
    }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
   }
