@@ -24,7 +24,7 @@ jobs:
   web:
     runs-on: ubuntu-latest
     env:
-      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -84,7 +84,7 @@ jobs:
     needs: web
     runs-on: ubuntu-latest
     env:
-      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
