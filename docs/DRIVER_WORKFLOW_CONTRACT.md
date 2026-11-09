@@ -168,6 +168,17 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 - Overlay permission denial/revocation or the user disabling the overlay affects overlay availability only; it must not create a second shift state or block otherwise valid local shift/trip operations in the PWA.
 - Android cannot display the overlay while the screen is physically off. Reconcile and show it when the display wakes if the shift remains active and the feature is enabled/authorized.
 
+### Automatic activation, minimized bubble, and synchronized swipe presentation
+
+- Overlay availability is configured through the Android overlay permission/feature capability, but operational activation follows the durable shift lifecycle automatically: after the PWA's shift-start transition is committed, start/show the overlay; after shift-end is committed, dismiss the operational overlay and bubble. Shift start/end controls remain exclusively in the PWA.
+- The overlay must reconcile visibility and state from the authoritative Room projection on service start, process restart, PWA/WebView recreation, and display wake. It must never show an active shift based only on a gesture or uncommitted/pending command.
+- The overlay has exactly these driver actions: swipe to create trip / Going to pickup, swipe to Start ride, swipe to End ride, and Cancel ride before Start ride. It must not expose Start shift or End shift actions.
+- The PWA and overlay state-aware swipe bars share a versioned presentation/interaction contract (action label, valid state, enabled/pending behavior, gesture threshold, reset behavior, accessibility semantics). Their rendered implementations may use platform-native controls, but design/interaction updates must be applied together and parity tests must protect the contract.
+- Either surface may issue a valid swipe action. Both surfaces observe the same durable transition and update together after commit; no UI-local timer or gesture progress is authoritative.
+- The overlay can be minimized by dragging it or by an upward swipe that moves it beyond the screen's upper edge. Minimized mode is a draggable bubble that can be positioned and docked/fixed to the left or right screen edge. Tapping the bubble restores the operational overlay.
+- The bubble displays an elapsed timer for the current state interval. Timer values are derived from persisted state-entry timestamps, continue accurately while the app is backgrounded or process is recreated (subject to device clock integrity), and reconcile from the same Room projection as the PWA. The bubble does not keep its own timer authority.
+- When an action transition requires a form (including Fare, optional cancellation fee, Toll, Parking, and applicable payer/amount fields), the same versioned form definition and application use case are used from both surfaces. Present the form on the surface the driver is actively operating; if the form is pending or interrupted, retain a recoverable working copy and durable workflow status so the driver can resume from either surface without duplicate submission.
+
 ### Full trip and financial-entry parity
 
 The overlay must support all driver trip operations, not merely a subset of buttons:
