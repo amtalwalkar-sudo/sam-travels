@@ -90,7 +90,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} />
+      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
     </React.StrictMode>,
   );
 }
