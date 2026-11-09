@@ -37,6 +37,12 @@ class DriverOverlayService:Service(){
  private val main=Handler(Looper.getMainLooper())
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
+ private var panelParams:WindowManager.LayoutParams?=null
+ private var bubble:TextView?=null
+ private var bubbleParams:WindowManager.LayoutParams?=null
+ private var timerText:TextView?=null
+ @Volatile private var intervalStartedAt:String?=null
+ private val timerTick=object:Runnable{override fun run(){updateTimer();main.postDelayed(this,1000)}}
  private var status:TextView?=null
  private var recoveryButton:Button?=null
  private var swipeLabel:TextView?=null
@@ -126,6 +132,9 @@ class DriverOverlayService:Service(){
   val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setBackgroundColor(android.graphics.Color.WHITE)}
   status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   root.addView(status)
+  timerText=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
+  root.addView(timerText)
+  installPanelDrag(status)
   val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
   swipeLabel=label
   root.addView(label)
@@ -164,7 +173,8 @@ class DriverOverlayService:Service(){
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
-  try{window.addView(root,params);refresh()}catch(_:Exception){panel=null;stopSelf()}
+  panelParams=params
+  try{window.addView(root,params);refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(_:Exception){panel=null;panelParams=null;stopSelf()}
  }
  private fun refresh(message:String?=null){executor.execute{try{
   NativeStartupRecovery.ensure(db)
@@ -179,6 +189,7 @@ class DriverOverlayService:Service(){
    if(state=="idle"){main.post{removePanel();stopSelf()};return@post}
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
+   updateTimer()
    val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
     "trip_create"->"Swipe to Going to pickup"
     "start_ride"->"Swipe to Start trip"
@@ -286,9 +297,62 @@ class DriverOverlayService:Service(){
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
+ private fun installPanelDrag(handle:View){
+  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false
+  handle.setOnTouchListener{_,event->
+   val params=panelParams
+   when(event.actionMasked){
+    MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false};true}
+    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{window.updateViewLayout(panel,params)}};true}
+    MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{true}
+    else->true
+   }
+  }
+ }
+ private fun minimizePanel(){
+  val current=panel?:return
+  runCatching{window.removeView(current)}
+  panel=null;panelParams=null
+  val chip=TextView(this).apply{
+   text="⏱ "+elapsedInterval();textSize=13f;setTextColor(android.graphics.Color.WHITE)
+   setBackgroundColor(android.graphics.Color.rgb(24,54,74));setPadding(dp(12),dp(10),dp(12),dp(10))
+   contentDescription="Driver controls minimized. Tap to reopen"
+  }
+  val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
+  val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
+  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false
+  chip.setOnTouchListener{_,event->
+   when(event.actionMasked){
+    MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false;true}
+    MotionEvent.ACTION_MOVE->{val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;params.x=(initialX+dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{window.updateViewLayout(chip,params)};true}
+    MotionEvent.ACTION_UP->{if(!moved)restorePanel() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}
+    MotionEvent.ACTION_CANCEL->true
+    else->true
+   }
+  }
+  bubble=chip;bubbleParams=params
+  try{window.addView(chip,params)}catch(_:Exception){bubble=null;bubbleParams=null;stopSelf()}
+ }
+ private fun restorePanel(){
+  bubble?.let{runCatching{window.removeView(it)}};bubble=null;bubbleParams=null
+  showPanel()
+ }
+ private fun elapsedInterval():String{
+  val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
+  val seconds=((System.currentTimeMillis()-start)/1000).coerceAtLeast(0)
+  return "%02d:%02d:%02d".format(seconds/3600,(seconds%3600)/60,seconds%60)
+ }
+ private fun updateTimer(){
+  val value=elapsedInterval()
+  timerText?.text=value
+  bubble?.text="⏱ "+value
+ }
  private fun removePanel(){
+  main.removeCallbacks(timerTick)
   panel?.let{try{window.removeView(it)}catch(_:Exception){}}
-  panel=null
+  panel=null;panelParams=null
+  bubble?.let{try{window.removeView(it)}catch(_:Exception){}}
+  bubble=null;bubbleParams=null
  }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
