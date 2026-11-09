@@ -140,7 +140,7 @@ class BackupPlugin : Plugin() {
                         )
                     }
 
-                    val restored = businessRecords()
+                    val restored = makeSnapshot().snapshot.getJSONArray("records")
                     require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
                     val restoredById = (0 until restored.length()).associate {
                         val record = restored.getJSONObject(it)
