@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import {
-  getApplicationFinanceLoanPaymentService,
-  getApplicationFinanceLoanPrepaymentService,
-  getApplicationFinanceLoanSettlementService,
-  getApplicationRecordSource,
-  type FinancePaymentEntryV1,
-  type FinancePaymentMethodV1,
-  type FinanceLoanPrepaymentPreviewV1,
-  type FinanceLoanPrepaymentRevisionV1,
-  type FinanceLoanPrepaymentModeV1,
+import type {
+  AdminPresentationServices,
+  FinancePaymentEntryV1,
+  FinancePaymentMethodV1,
+  FinanceLoanPrepaymentPreviewV1,
+  FinanceLoanPrepaymentRevisionV1,
+  FinanceLoanPrepaymentModeV1,
 } from "../../../../packages/application/src";
+import { useAdminServices } from "./admin-services-context";
 import type { FinanceLoanRecordV1 } from "../../../../packages/application/src/finance-loan-service";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 
@@ -25,7 +23,7 @@ function activePayments(entries: readonly FinancePaymentEntryV1[]) {
   return entries.filter((entry): entry is Extract<FinancePaymentEntryV1, {kind:"payment"}> => entry.kind === "payment" && !reversed.has(entry.id));
 }
 
-export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {
+export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {\n  const services = useAdminServices();
   const [entries, setEntries] = useState<readonly FinancePaymentEntryV1[]>([]);
   const [schedules, setSchedules] = useState<readonly ScheduleView[]>([]);
   const [prepayments, setPrepayments] = useState<readonly FinanceLoanPrepaymentRevisionV1[]>([]);
@@ -54,8 +52,8 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const refresh = useCallback(async () => {
     try {
       const [paymentRows, history] = await Promise.all([
-        getApplicationFinanceLoanPaymentService().list(loan.id),
-        getApplicationFinanceLoanPrepaymentService().getScheduleHistory(loan.id),
+        services.financeLoanPayments.list(loan.id),
+        services.financeLoanPrepayments.getScheduleHistory(loan.id),
       ]);
       setEntries(paymentRows);
       setSchedules(history.versions);
@@ -70,7 +68,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0 || !date) { setMessage("Enter a valid payment amount and date."); return; }
     setBusy(true); setMessage("");
     try {
-      const proposal = await getApplicationFinanceLoanPaymentService().propose({
+      const proposal = await services.financeLoanPayments.propose({
         loanId: loan.id, scheduleVersion: Number(scheduleVersion), businessDate: date, amountPaise,
       });
       setAllocations(proposal.map(item => ({ installmentNumber: item.installmentNumber, amountPaise: item.amountPaise })));
@@ -88,11 +86,11 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0) { setMessage("Payment amount must be positive."); return; }
     setBusy(true); setMessage("");
     try {
-      await getApplicationFinanceLoanPaymentService().record({
+      await services.financeLoanPayments.record({
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, businessDate: date,
         amountPaise, method, ...(reference.trim() ? { reference: reference.trim() } : {}),
         ...(note.trim() ? { note: note.trim() } : {}), scheduleVersion: Number(scheduleVersion),
-        allocations, source: getApplicationRecordSource(),
+        allocations, source: services.recordSource,
       });
       setAmount(""); setReference(""); setNote(""); setAllocations([]); setOpen(false);
       setMessage("Payment recorded atomically. Unallocated credit remains separate from prepayment.");
@@ -106,9 +104,9 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!window.confirm("Reverse this full payment? Allocations will be released and the payment retained in history.")) return;
     setBusy(true); setMessage("");
     try {
-      await getApplicationFinanceLoanPaymentService().reverse({
+      await services.financeLoanPayments.reverse({
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, paymentId: payment.id,
-        businessDate: indiaDate(), reason: reason.trim(), source: getApplicationRecordSource(),
+        businessDate: indiaDate(), reason: reason.trim(), source: services.recordSource,
       });
       setMessage("Full payment reversal recorded."); await refresh(); await onChanged?.();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Payment reversal failed."); }
@@ -117,7 +115,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   async function previewSettlement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage(""); setSettlementPreview(null);
     try {
-      const preview = await getApplicationFinanceLoanSettlementService().preview({ loanId: loan.id, businessDate: settlementDate });
+      const preview = await services.financeLoanSettlements.preview({ loanId: loan.id, businessDate: settlementDate });
       setSettlementPreview(preview);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Settlement preview failed."); }
     finally { setBusy(false); }
@@ -127,10 +125,10 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!window.confirm("Settle and permanently close this Loan for " + money(settlementPreview.amountPaise) + "? This cannot be undone.")) return;
     setBusy(true); setMessage("");
     try {
-      await getApplicationFinanceLoanSettlementService().commit({
+      await services.financeLoanSettlements.commit({
         id: crypto.randomUUID(), commandId: crypto.randomUUID(), loanId: loan.id, businessDate: settlementDate,
         method: settlementMethod, ...(settlementReference.trim() ? { reference: settlementReference.trim() } : {}),
-        source: getApplicationRecordSource(), preview: settlementPreview,
+        source: services.recordSource, preview: settlementPreview,
       });
       setSettlementPreview(null); setSettlementOpen(false);
       setMessage("Final settlement recorded and Loan closed.");
@@ -146,9 +144,9 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     }
     setBusy(true); setMessage(""); setPrepaymentPreview(null);
     try {
-      const preview = await getApplicationFinanceLoanPrepaymentService().preview({
+      const preview = await services.financeLoanPrepayments.preview({
         loanId: loan.id, commandId: crypto.randomUUID(), businessDate: prepaymentDate,
-        amountPaise, mode: prepaymentMode, source: getApplicationRecordSource(),
+        amountPaise, mode: prepaymentMode, source: services.recordSource,
       });
       setPrepaymentPreview(preview);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Prepayment preview failed."); }
@@ -158,8 +156,8 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!prepaymentPreview) return;
     setBusy(true); setMessage("");
     try {
-      await getApplicationFinanceLoanPrepaymentService().commit({
-        preview: prepaymentPreview, source: getApplicationRecordSource(),
+      await services.financeLoanPrepayments.commit({
+        preview: prepaymentPreview, source: services.recordSource,
       });
       setPrepaymentPreview(null); setPrepaymentAmount(""); setPrepaymentOpen(false);
       setMessage("Principal prepayment and revised schedule committed atomically.");
