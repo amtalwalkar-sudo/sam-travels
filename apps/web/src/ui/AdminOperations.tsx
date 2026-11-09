@@ -15,7 +15,6 @@ const today = () => {
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
-const optional = (value: string) => value.trim() || undefined;
 
 export function DriverSection() {
   const services = useAdminServices();
