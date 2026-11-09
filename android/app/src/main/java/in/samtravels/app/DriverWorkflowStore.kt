@@ -65,6 +65,13 @@ object DriverWorkflowStore {
         return state
     }
 
+    /** Read a committed command's type through the Work persistence boundary. */
+    fun eventTypeForIntent(db: LocalDatabase, eventId: String): String =
+        db.records().get("driver-intent:$eventId")
+            ?.let { JSONObject(it.json).optJSONObject("command")?.optString("eventType") }
+            .orEmpty()
+
+
     private fun save(db: LocalDatabase, key: String, value: JSONObject, now: String) {
         db.records().put(StoredRecord(key, value.toString(), 1, now))
     }
