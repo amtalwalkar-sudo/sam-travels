@@ -11,7 +11,7 @@
 - `packages/application/src/form-submission-port.ts` carries form ID/version, operation ID, action and values across the application boundary.
 - `packages/application/src/record-form-working-copy-repository.ts` stores recoverable copies through the authoritative atomic record repository. This makes the same envelope usable by the browser IndexedDB and Android Room record adapters and the existing generic-record backup participant.
 - Tests cover validation, explicit zero values, strict dates, restored working copies, Save/Submit distinction, stale revisions, and record-backed storage.
-- Business Setup and Vehicle are the first migrated Admin UI consumers. Business Setup uses `admin.business-setup` v1; Vehicle uses `admin.vehicle` v1. Both use the shared runtime and record-backed working-copy repository, and dispatch writes through their existing application-owned services. Vehicle edit commands carry the working-copy instance identity and the record revision captured when editing began. The remaining audited Admin forms are not yet migrated; the Android overlay does not yet render or submit driver financial forms.
+- Business Setup, Vehicle, and Driver are the migrated Admin UI consumers. Business Setup uses `admin.business-setup` v1; Vehicle uses `admin.vehicle` v1; Driver uses `admin.driver` v1. All use the shared runtime and record-backed working-copy repository, and dispatch writes through their existing application-owned services. Vehicle and Driver edit commands carry the working-copy instance identity and record revision captured when editing began. Driver assignment history and Work selection remain owned by their existing services. The remaining audited Admin forms are not yet migrated; the Android overlay does not yet render or submit driver financial forms.
 
 ## Existing aligned boundaries
 
@@ -24,7 +24,7 @@
 The following current Admin UI files still contain native React/HTML form state and submission handlers and do not declare versioned definitions or use the shared runtime:
 
 - `apps/web/src/ui/AdminBusinessVehicle.tsx` — Business Setup and Vehicle are migrated; no remaining form in this file.
-- `apps/web/src/ui/AdminOperations.tsx` — Driver and Compliance forms.
+- `apps/web/src/ui/AdminOperations.tsx` — Compliance form remains; Driver profile form is migrated.
 - `apps/web/src/ui/AdminMaintenance.tsx` — Maintenance visit and expense/rate forms.
 - `apps/web/src/ui/LoanPaymentsPanel.tsx` — payment, prepayment, and settlement forms.
 - `apps/web/src/ui/AdminWorkspace.tsx` — loan details form.
