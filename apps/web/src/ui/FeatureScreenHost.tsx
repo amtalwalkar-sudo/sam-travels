@@ -1,9 +1,10 @@
 import { Component, type ReactNode } from "react";
-import { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
 
 type FeatureScreenHostProps = Readonly<{
   mountPoint: string;
   context: unknown;
+  registry: RuntimeRegistry;
 }>;
 
 class ScreenFailureBoundary extends Component<
@@ -38,8 +39,7 @@ function FeatureScreenMount({ screen, context }: {
  * Mounts opaque feature-owned renderers without inspecting their internal UI.
  * The application runtime registry remains the only contribution inventory.
  */
-export function FeatureScreenHost({ mountPoint, context }: FeatureScreenHostProps) {
-  const registry = getApplicationRuntimeRegistry();
+export function FeatureScreenHost({ mountPoint, context, registry }: FeatureScreenHostProps) {
   const screens = [...registry.presentationScreens.values()]
     .filter(screen => screen.mountPoint === mountPoint)
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
