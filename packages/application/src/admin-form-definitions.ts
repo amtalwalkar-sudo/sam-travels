@@ -1,7 +1,7 @@
 import type { FormDefinition } from "./shared-form-runtime";
 
 /** Canonical, versioned Admin Business Setup form contract. */
-export const BUSINESS_SETUP_FORM_V1: FormDefinition = Object.freeze({
+export const BUSINESS_SETUP_FORM_V1 = Object.freeze<FormDefinition>({
   id: "admin.business-setup",
   version: 1,
   owner: "business-settings",
