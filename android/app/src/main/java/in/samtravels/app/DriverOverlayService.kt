@@ -195,12 +195,15 @@ class DriverOverlayService:Service(){
   main.post{
    if(state=="idle"){main.post{removePanel();stopSelf()};return@post}
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
-   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
+   val nextStatus=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
+   if(status?.text?.toString()!=nextStatus){status?.text=nextStatus;status?.announceForAccessibility(nextStatus)}
    updateTimer()
    val swipeAction=swipePresentation.action(state)
    val swipeText=swipeAction?.let{"Swipe to "+it.label}
    val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
    swipeLabel?.text=swipeText?: "Trip action unavailable"
+   swipeLabel?.contentDescription=swipeText?: "Trip action unavailable"
+   swipeBar?.contentDescription=swipeText?: "Trip action unavailable"
    swipeLabel?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
    swipeBar?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
    swipeBar?.progress=0
