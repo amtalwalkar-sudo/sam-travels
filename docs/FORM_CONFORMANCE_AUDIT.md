@@ -11,7 +11,7 @@
 - `packages/application/src/form-submission-port.ts` carries form ID/version, operation ID, action and values across the application boundary.
 - `packages/application/src/record-form-working-copy-repository.ts` stores recoverable copies through the authoritative atomic record repository. This makes the same envelope usable by the browser IndexedDB and Android Room record adapters and the existing generic-record backup participant.
 - Tests cover validation, explicit zero values, strict dates, restored working copies, Save/Submit distinction, stale revisions, and record-backed storage.
-- The Business Setup date form is the first migrated Admin UI consumer: it uses the canonical `admin.business-setup` v1 definition, the shared runtime, and the record-backed working-copy repository. The rest of the audited Admin forms remain unmigrated; the Android overlay does not yet render or submit driver financial forms.
+- Business Setup and Vehicle are the first migrated Admin UI consumers. Business Setup uses `admin.business-setup` v1; Vehicle uses `admin.vehicle` v1. Both use the shared runtime and record-backed working-copy repository, and dispatch writes through their existing application-owned services. Vehicle edit commands carry the working-copy instance identity and the record revision captured when editing began. The remaining audited Admin forms are not yet migrated; the Android overlay does not yet render or submit driver financial forms.
 
 ## Existing aligned boundaries
 
@@ -23,7 +23,7 @@
 
 The following current Admin UI files still contain native React/HTML form state and submission handlers and do not declare versioned definitions or use the shared runtime:
 
-- `apps/web/src/ui/AdminBusinessVehicle.tsx` — Vehicle form (Business Setup is migrated).
+- `apps/web/src/ui/AdminBusinessVehicle.tsx` — Business Setup and Vehicle are migrated; no remaining form in this file.
 - `apps/web/src/ui/AdminOperations.tsx` — Driver and Compliance forms.
 - `apps/web/src/ui/AdminMaintenance.tsx` — Maintenance visit and expense/rate forms.
 - `apps/web/src/ui/LoanPaymentsPanel.tsx` — payment, prepayment, and settlement forms.
@@ -39,7 +39,7 @@ Work/Trip financial forms are also absent from the current Work screen and nativ
 
 1. Add canonical versioned definitions for every in-scope Admin and Work/Trip form.
 2. Provide composition-root wiring for the shared runtime and record-backed working-copy repository on browser and native JS surfaces.
-3. Migrate the audited Admin forms incrementally without changing their approved business behaviour or persistence ownership.
+3. Migrate the remaining audited Admin forms incrementally without changing their approved business behaviour or persistence ownership.
 4. Implement the Work/Trip financial application use cases and shared durable pending obligations before adding form presentation; do not invent a second financial authority in the overlay.
 5. Render the same Fare, Toll/Parking and cancellation-fee definitions in PWA and native overlay, with Kotlin/TypeScript parity tests and authoritative idempotent commits.
 6. Add one-action confirmation, truthful pending/success/failure feedback, accessibility and interruption recovery to the shared adapters.
