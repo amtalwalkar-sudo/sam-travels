@@ -1,22 +1,27 @@
 # Shared Form Conformance Audit
 
-**Status:** Partial audit; shared form runtime and complete conformance are not yet implemented  
+**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; existing forms and native overlay are not yet migrated or accepted  
 **Authority:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`  
-**Scope audited:** Current Admin web forms and their application-service boundary  
+**Scope audited:** Current Admin web forms, Work/Trip workflow, application-service boundary and Android overlay  
 **Explicit exclusions:** Performance remains a product placeholder. Physical-device form acceptance is deferred.
 
-## Findings
+## Implemented foundation (not yet full conformance)
 
-### What is already aligned
+- `packages/application/src/shared-form-runtime.ts` defines versioned form definitions, declared field validation, working-copy lifecycle, explicit Save versus Submit, revision-conflict protection, and stable operation identity.
+- `packages/application/src/form-submission-port.ts` carries form ID/version, operation ID, action and values across the application boundary.
+- `packages/application/src/record-form-working-copy-repository.ts` stores recoverable copies through the authoritative atomic record repository. This makes the same envelope usable by the browser IndexedDB and Android Room record adapters and the existing generic-record backup participant.
+- Tests cover validation, explicit zero values, strict dates, restored working copies, Save/Submit distinction, stale revisions, and record-backed storage.
+- These are reusable mechanics only. No audited UI form currently consumes the runtime, and the Android overlay does not yet render or submit driver financial forms.
+
+## Existing aligned boundaries
 
 - Admin forms submit through owning application capability services rather than writing directly to Room, IndexedDB, or feature tables.
-- Admin service dependencies are now supplied explicitly from the single application composition root; UI components do not call global application-service getters.
+- Admin service dependencies are supplied explicitly from the single application composition root.
 - Feature-owned application services remain authoritative for business validation and durable writes.
-- The generic `FormSubmissionPort` records a versioned form ID and values as a possible application submission boundary.
 
-### Gaps still present
+## Remaining gaps
 
-The following current Admin UI files contain native React/HTML form state and submission handlers but do not declare a versioned form definition:
+The following current Admin UI files still contain native React/HTML form state and submission handlers and do not declare versioned definitions or use the shared runtime:
 
 - `apps/web/src/ui/AdminBusinessVehicle.tsx` — Business Settings and Vehicle forms.
 - `apps/web/src/ui/AdminOperations.tsx` — Driver and Compliance forms.
@@ -24,20 +29,22 @@ The following current Admin UI files contain native React/HTML form state and su
 - `apps/web/src/ui/LoanPaymentsPanel.tsx` — payment, prepayment, and settlement forms.
 - `apps/web/src/ui/AdminWorkspace.tsx` — loan details form.
 
-The shared form submission port is currently a generic command type; the audited Admin forms do not submit through it. There is no single shared runtime yet that owns form definitions, common field mechanics, transient form lifecycle, validation presentation, action confirmation, operation feedback, or interruption-safe working-copy integration.
-
-Consequently, the approved form contract's requirements for versioned form definitions, shared presentation/state mechanics, explicit lifecycle policy, in-progress preservation, and cross-surface form parity have not been demonstrated for these forms. The current UI-to-application-service boundary is improved, but it is not equivalent to full shared-form conformance.
+Work/Trip financial forms are also absent from the current Work screen and native overlay. The approved driver workflow requires:
+- Fare after End Ride; Fare ₹0 is valid, while missing Fare blocks financial finalization.
+- Optional Toll and Parking, each with an independent Driver/Customer payer when an amount is entered.
+- Mandatory cancellation fee after Cancel Ride; ₹0 is valid and the fee must be saved before another trip or going Offline.
+- Durable pending form state linked to the original trip and shared by PWA and overlay.
 
 ## Required completion work
 
-1. Define one canonical, versioned form-definition contract under the presentation/application boundary; do not recreate the removed duplicate schema in the shell contract.
-2. Implement shared form state, field/input primitives, validation presentation, one-action confirmation, pending/success/failure feedback, and accessible mobile interaction mechanics.
-3. Provide an application-owned working-copy/recovery port so interrupted forms can resume without creating records or implying an explicit Save/Submit.
-4. Keep business meaning and authoritative validation in the owning feature/application service. Shared form mechanics must not become a second business-rule authority.
-5. Migrate the audited Admin forms incrementally onto the shared runtime without changing their approved business behaviour or persistence contracts.
-6. Add contract and integration tests for form versioning, validation, duplicate submission, interrupted working copies, authoritative commit feedback, and recovery.
-7. Verify the same definitions and behaviour can be presented by supported PWA and native Android surfaces; physical-device acceptance remains a later manual step.
+1. Add canonical versioned definitions for every in-scope Admin and Work/Trip form.
+2. Provide composition-root wiring for the shared runtime and record-backed working-copy repository on browser and native JS surfaces.
+3. Migrate the audited Admin forms incrementally without changing their approved business behaviour or persistence ownership.
+4. Implement the Work/Trip financial application use cases and shared durable pending obligations before adding form presentation; do not invent a second financial authority in the overlay.
+5. Render the same Fare, Toll/Parking and cancellation-fee definitions in PWA and native overlay, with Kotlin/TypeScript parity tests and authoritative idempotent commits.
+6. Add one-action confirmation, truthful pending/success/failure feedback, accessibility and interruption recovery to the shared adapters.
+7. Add cross-surface tests for draft resume, process death, duplicate submission, stale revisions, commit feedback, and backup/restore of in-progress copies.
 
 ## Completion rule
 
-Do not mark the shared-form gap closed until the shared runtime exists, every in-scope implemented form has a declared definition and uses it, and the required automated conformance tests pass. A passing build or the presence of `FormSubmissionPort` alone is insufficient.
+Do not mark the shared-form gap closed until every in-scope implemented form has a versioned definition and uses the shared runtime, Work/Trip forms work on both surfaces, and the required automated conformance tests pass. A passing build or the presence of the runtime/port alone is insufficient.
