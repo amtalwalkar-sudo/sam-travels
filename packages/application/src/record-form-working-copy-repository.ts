@@ -7,11 +7,7 @@ function recordId(formId: string, instanceId: string) {
   return PREFIX + encodeURIComponent(formId) + ":" + encodeURIComponent(instanceId);
 }
 
-/**
- * Stores recoverable form working copies in the same authoritative record store
- * as the rest of the app. IndexedDB and Room adapters therefore share the same
- * persisted envelope and backup/restore participant path.
- */
+/** Stores form working copies in the same authoritative record store used by both platforms. */
 export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepository {
   constructor(
     private readonly records: RecordRepository & AtomicRecordRepository,
@@ -21,7 +17,7 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
 
   async get(formId: string, instanceId: string): Promise<FormWorkingCopy | undefined> {
     const record = await this.records.get<FormWorkingCopy>(recordId(formId, instanceId));
-    if (!record) return undefined;
+    if (!record || record.deletedAt) return undefined;
     const copy = record.data;
     if (copy.formId !== formId || copy.instanceId !== instanceId ||
         !Number.isSafeInteger(copy.formVersion) || copy.formVersion < 1 ||
@@ -37,8 +33,8 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
     const id = recordId(copy.formId, copy.instanceId);
     const previous = await this.records.get<FormWorkingCopy>(id);
     const expectedEnvelopeRevision = expectedRevision === undefined ? null : expectedRevision + 1;
-    if ((expectedRevision === undefined && previous) ||
-        (expectedRevision !== undefined && previous?.revision !== expectedEnvelopeRevision)) {
+    if ((expectedRevision === undefined && previous && !previous.deletedAt) ||
+        (expectedRevision !== undefined && (previous?.deletedAt || previous?.revision !== expectedEnvelopeRevision))) {
       throw new Error("form_copy_revision_conflict");
     }
     const timestamp = this.now();
@@ -51,13 +47,6 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
   }
 
   async remove(formId: string, instanceId: string): Promise<void> {
-    const id = recordId(formId, instanceId);
-    const previous = await this.records.get(id);
-    if (!previous) return;
-    const removed = await this.records.compareAndSet(id, previous.revision, {
-      ...previous, revision: previous.revision + 1, updatedAt: this.now(),
-      deletedAt: this.now(), data: { deleted: true },
-    });
-    if (!removed) throw new Error("form_copy_revision_conflict");
+    await this.records.remove(recordId(formId, instanceId));
   }
 }
