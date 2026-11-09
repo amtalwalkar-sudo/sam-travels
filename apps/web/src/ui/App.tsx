@@ -1,4 +1,5 @@
 import { useState, type ComponentType } from "react";
+import type { AdminPresentationServices } from "../../../../packages/application/src";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
 import { nativeOverlayAvailable } from "../driver-workflow";
@@ -6,6 +7,7 @@ import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
+import { AdminServicesProvider } from "./admin-services-context";
 import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
@@ -28,10 +30,10 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps> }>;
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
-export function App({ ShellRenderer = ApplicationShell }: AppProps = {}) {
+export function App({ ShellRenderer = ApplicationShell, adminServices }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace();
   const {
@@ -126,7 +128,7 @@ export function App({ ShellRenderer = ApplicationShell }: AppProps = {}) {
         {activeScreen === "Performance" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />} />}
+        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
     </ApplicationShell>
   );
 }
