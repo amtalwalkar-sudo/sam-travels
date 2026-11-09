@@ -266,6 +266,22 @@ const uiMount = applicationEntry.indexOf("createRoot(");
 if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
 if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !applicationRegistry.includes("let applicationRuntimeRegistry") || !applicationRegistry.includes("Application runtime registry has not been initialized")) failures.push("packages/application/src/runtime-registry.ts: application layer must own validated registry construction and singleton lifecycle");
 if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("getApplicationRuntimeRegistry()")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application-layer registry singleton");
+const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
+const shellPresentation = await readFile(path.join(root, "apps/web/src/ui/ApplicationShell.tsx"), "utf8");
+const featureCatalogue = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
+if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellProps>") ||
+    !appPresentation.includes("<ShellRenderer shellDefinition={shellDefinition}")) {
+  failures.push("apps/web/src/ui/App.tsx: application shell must be replaceable through the injected shell renderer contract");
+}
+if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition") ||
+    !shellPresentation.includes("shellDefinition.navigation.map")) {
+  failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
+}
+if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
+    !appPresentation.includes('FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />}')) {
+  failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through FeatureScreenHost");
+}
+
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("packages/features/")) continue;
