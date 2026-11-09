@@ -107,6 +107,10 @@ export function BackupPanel() {
     }
   }
 
+  useEffect(() => {
+    if (callback) void completeConnection();
+  }, [callback]);
+
   async function refreshHistory(current = session) {
     if (!current) return;
     setBusy(true);
@@ -257,7 +261,7 @@ export function BackupPanel() {
 
 
       {callback ? (
-        <button className="backup-primary" disabled={busy} onClick={completeConnection}>Finish Dropbox connection</button>
+        <p className="backup-empty">Completing Dropbox connection…</p>
       ) : !session ? (
         <button className="backup-primary" disabled={busy} onClick={connect}>Connect Dropbox</button>
       ) : (
