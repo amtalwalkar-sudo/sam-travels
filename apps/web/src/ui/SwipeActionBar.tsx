@@ -52,6 +52,8 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
         aria-label={`Swipe to ${label}`}
         aria-valuetext={`${label}, ${progress}%`}
         onChange={(event) => updateProgress(Number(event.currentTarget.value))}
+        onPointerDown={() => { firedRef.current = false; }}
+        onKeyDown={() => { firedRef.current = false; }}
         onPointerUp={complete}
         onPointerCancel={reset}
         onKeyUp={complete}
