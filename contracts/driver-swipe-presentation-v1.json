@@ -5,7 +5,6 @@
     "axis": "horizontal",
     "direction": "left-to-right",
     "completionPercent": 95,
-    "minimumIntentTravelDp": 24,
     "resetOn": [
       "cancel",
       "incomplete",
@@ -13,7 +12,11 @@
       "state-change",
       "blur"
     ],
-    "oneActionPerGesture": true
+    "oneActionPerGesture": true,
+    "minimumIntentTravel": {
+      "nativeDp": 24,
+      "webCssPx": 24
+    }
   },
   "accessibility": {
     "labelTemplate": "Swipe to {label}",
