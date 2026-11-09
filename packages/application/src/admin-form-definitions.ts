@@ -49,3 +49,21 @@ export const DRIVER_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "_recordRevision", label: "Record revision", type: "number" },
   ],
 });
+
+
+/** Compliance records are immutable; renewal creates a linked new record. */
+export const COMPLIANCE_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.compliance",
+  version: 1,
+  owner: "compliance",
+  purpose: "Record vehicle compliance coverage or renewal",
+  primaryAction: "save",
+  fields: [
+    { id: "complianceName", label: "Compliance type / name", type: "text", required: true, maxLength: 120 },
+    { id: "validFrom", label: "Valid from", type: "date", required: true },
+    { id: "validTo", label: "Valid until", type: "date", required: true },
+    { id: "totalCostPaise", label: "Total cost in paise", type: "number", required: true },
+    { id: "supportingDocumentRef", label: "Document reference", type: "text", maxLength: 240 },
+    { id: "renewedFromRecordId", label: "Renewed from record", type: "text" },
+  ],
+});
