@@ -288,7 +288,7 @@ const adminServicesContext = await readFile(path.join(root, "apps/web/src/ui/adm
 if (!featureScreenHost.includes("registry: RuntimeRegistry") || featureScreenHost.includes("getApplicationRuntimeRegistry")) {
   failures.push("apps/web/src/ui/FeatureScreenHost.tsx: feature presentation hosts must consume the single registry supplied by composition");
 }
-if (!workspaceHook.includes("useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository)") ||
+if (!workspaceHook.includes("useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository)") ||
     workspaceHook.includes("createPlatformRepository") || workspaceHook.includes("getApplicationRuntimeRegistry")) {
   failures.push("apps/web/src/ui/use-driver-workspace.ts: workspace must reuse injected runtime and platform repository; no second global lookup or repository construction");
 }
