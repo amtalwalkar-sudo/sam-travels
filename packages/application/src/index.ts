@@ -38,3 +38,4 @@ export * from "./finance-loan-settlement-runtime";
 export * from "./timeline-reverse-geocoding";
 
 export * from "./timeline-enrichment-queue";
+export type { AdminPresentationServices } from "./admin-presentation-services";
