@@ -3,7 +3,6 @@ import type { AdminPresentationServices } from "../../../../packages/application
 import type { AtomicRecordRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
-import { nativeOverlayAvailable } from "../driver-workflow";
 import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
@@ -39,9 +38,9 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
-    overlayMessage, driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
+    driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
   } = workspace;
-  const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver } = workspace.actions;
+  const { retry, toggleNetwork, dispatch, selectDriver } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
@@ -111,11 +110,6 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                       ? <small>GPS check running in the background</small>
                       : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
-              </div>}
-              {nativeOverlayAvailable() && <div className="overlay-control">
-                <button className="secondary-action" onClick={enableOverlay}>Enable floating controls</button>
-                <button className="secondary-action" onClick={disableOverlay}>Disable overlay</button>
-                <span>{overlayMessage || "Optional · requires display-over-other-apps permission"}</span>
               </div>}
               <small className="driver-note">Each action is saved locally first. GPS is sampled asynchronously until reliable evidence arrives; the state changes only after the event is committed.</small>
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
