@@ -13,6 +13,33 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
+    @Test fun sharedSnapshotBuilderIncludesSeparateLogBookTableAndParticipantManifest() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            database.logBookEvents().put(LogBookEventRecord(
+                "scheduled-backup-event",
+                """{"eventId":"scheduled-backup-event","kind":"trip_completed"}""",
+                1,
+                "2026-11-10T04:00:00.000Z",
+            ))
+            var bundle: NativeSnapshotBundle? = null
+            database.runInTransaction {
+                bundle = NativeSnapshotBuilder.build(
+                    database, NativeBackupRecovery::isInternalRecord, "test-version", "2026-11-10T04:01:00.000Z",
+                )
+            }
+            val result = bundle ?: error("snapshot_bundle_missing")
+            val records = result.snapshot.getJSONArray("records")
+            val logBookRow = (0 until records.length()).map { records.getJSONObject(it) }
+                .single { it.optString("id") == "scheduled-backup-event" }
+            assertEquals("logbook-events", logBookRow.getString("participantId"))
+            assertEquals(3, result.manifest.getJSONArray("participants").length())
+            assertEquals(1, result.manifest.getJSONObject("recordCounts").getInt("records"))
+            assertEquals(1, result.snapshot.getInt("schemaVersion"))
+        } finally { database.close() }
+    }
     private fun featureRecord(id: String, data: JSONObject, timestamp: String): StoredRecord {
         val envelope = JSONObject()
             .put("id", id)
