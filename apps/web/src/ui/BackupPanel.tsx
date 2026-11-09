@@ -18,6 +18,7 @@ type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
   const [restoreSecret, setRestoreSecret] = useState("");
+  const [portableRecoveryKey, setPortableRecoveryKey] = useState("");
   const [session, setSession] = useState<DropboxBackupSession | null>(null);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
@@ -144,6 +145,17 @@ export function BackupPanel() {
       setMessage(error instanceof Error ? error.message : "Backup upload failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function revealRecoveryKey() {
+    if (!session) return;
+    try {
+      const key = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
+      if (!key) throw new Error("Create the first backup before exporting its recovery key.");
+      setPortableRecoveryKey(key);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not read the saved recovery key");
     }
   }
 
@@ -277,6 +289,8 @@ export function BackupPanel() {
           <h3>Back up your workspace</h3>
           <p className="backup-empty">Your backup is encrypted before upload. This device keeps its recovery key in secure local storage. To restore on another device, enter the recovery key from the original device.</p>
           <button className="backup-primary" disabled={busy} onClick={createBackup}>Back up now</button>
+          <button className="backup-secondary" disabled={busy} onClick={revealRecoveryKey}>Show recovery key for another device</button>
+          {portableRecoveryKey && <div className="backup-recovery-key"><strong>Keep this key somewhere safe. Anyone with it can decrypt your backups.</strong><textarea readOnly value={portableRecoveryKey} rows={2} /><button className="backup-secondary" onClick={() => void navigator.clipboard.writeText(portableRecoveryKey)}>Copy recovery key</button></div>}
 
           <div className="backup-divider" />
           <div className="backup-subheading"><h3>Dropbox backup history</h3><span>{backups.length} files</span></div>
