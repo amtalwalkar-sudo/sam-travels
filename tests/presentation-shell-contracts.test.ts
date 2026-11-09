@@ -45,7 +45,7 @@ describe("application form submission boundary", () => {
       formId: "work-note", formVersion: 1, instanceId: "compliance-1", operationId: "note-op-1", action: "submit", values: { note: "test" },
     })).resolves.toEqual({ accepted: true });
     await expect(applicationPort.submit({
-      formId: "work-note", formVersion: 2, operationId: "note-op-2", action: "submit",
+      formId: "work-note", formVersion: 2, instanceId: "compliance-2", operationId: "note-op-2", action: "submit",
       values: { note: "test", recordedOn: "2026-11-05" },
     })).resolves.toEqual({ accepted: true });
     expect(received).toEqual(["work-note:1:note-op-1:submit", "work-note:2:note-op-2:submit"]);
