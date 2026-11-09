@@ -176,8 +176,7 @@ class DriverWorkflowPlugin:Plugin(){
   executor.execute{try{
    ensureStartupRecovery()
    val committed=DriverWorkflowStore.complete(db,eventId,gps)
-   val stored=db.records().get("driver-intent:"+eventId)?:error("committed_intent_missing")
-   val eventType=JSONObject(stored.json).optJSONObject("command")?.optString("eventType").orEmpty()
+   val eventType=DriverWorkflowStore.eventTypeForIntent(db,eventId)
    reconcileOverlayForCommittedState(eventType,committed)
    val out=JSObject();out.put("snapshot",committed);call.resolve(out)
    val eventData=JSObject();eventData.put("snapshot",committed);notifyListeners("driverStateChanged",eventData)
