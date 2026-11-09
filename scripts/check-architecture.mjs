@@ -281,6 +281,31 @@ if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
     !appPresentation.includes('FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />}')) {
   failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through FeatureScreenHost");
 }
+
+const featureScreenHost = await readFile(path.join(root, "apps/web/src/ui/FeatureScreenHost.tsx"), "utf8");
+const workspaceHook = await readFile(path.join(root, "apps/web/src/ui/use-driver-workspace.ts"), "utf8");
+const adminServicesContext = await readFile(path.join(root, "apps/web/src/ui/admin-services-context.tsx"), "utf8");
+if (!featureScreenHost.includes("registry: RuntimeRegistry") || featureScreenHost.includes("getApplicationRuntimeRegistry")) {
+  failures.push("apps/web/src/ui/FeatureScreenHost.tsx: feature presentation hosts must consume the single registry supplied by composition");
+}
+if (!workspaceHook.includes("useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository)") ||
+    workspaceHook.includes("createPlatformRepository") || workspaceHook.includes("getApplicationRuntimeRegistry")) {
+  failures.push("apps/web/src/ui/use-driver-workspace.ts: workspace must reuse injected runtime and platform repository; no second global lookup or repository construction");
+}
+if (!adminServicesContext.includes("AdminPresentationServices") || !adminServicesContext.includes("AdminServicesContext.Provider")) {
+  failures.push("apps/web/src/ui/admin-services-context.tsx: Admin must consume the explicit typed service boundary");
+}
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/ui/")) continue;
+  const content = await readFile(absolute, "utf8");
+  if (/\bgetApplication[A-Z][A-Za-z0-9_]*\s*\(/.test(content)) {
+    failures.push(relative + ": UI components must receive application services; global application-service getters are composition-root-only");
+  }
+  if (/\bcreatePlatformRepository\s*\(/.test(content)) {
+    failures.push(relative + ": UI components must reuse the composition-root platform repository, not construct another repository");
+  }
+}
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("apps/web/src/ui/")) continue;
