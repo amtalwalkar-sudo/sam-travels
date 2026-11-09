@@ -16,7 +16,8 @@ const today = () => {
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 const optional = (value: string) => value.trim() || undefined;
 
-export function DriverSection() {\n  const services = useAdminServices();
+export function DriverSection() {
+  const services = useAdminServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<ReturnType<typeof getApplicationDriverAssignmentService>["getHistory"]>>>>({});
@@ -157,7 +158,8 @@ function complianceStatus(date: string): "Valid"|"Expiring soon"|"Expired" {
   const days=daysUntil(date);
   return days<0 ? "Expired" : days<=15 ? "Expiring soon" : "Valid";
 }
-export function ComplianceSection() {\n  const services = useAdminServices();
+export function ComplianceSection() {
+  const services = useAdminServices();
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [records,setRecords]=useState<Compliance[]>([]);
   const [vehicleId,setVehicleId]=useState("");
