@@ -30,6 +30,7 @@ import {
   BUSINESS_SETUP_FORM_V1,
   VEHICLE_FORM_V1,
   DRIVER_FORM_V1,
+  COMPLIANCE_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -91,6 +92,36 @@ async function bootstrap(): Promise<void> {
           return getApplicationBusinessSettingsService().setBusinessStartDate(
             businessStartDate, getApplicationRecordSource(),
           );
+        }
+        if (command.formId === COMPLIANCE_FORM_V1.id) {
+          const values = command.values;
+          const complianceName = String(values.complianceName ?? "").trim();
+          const validFrom = String(values.validFrom ?? "");
+          const validTo = String(values.validTo ?? "");
+          const paise = values.totalCostPaise;
+          if (validTo < validFrom) throw new Error("compliance_validity_period_invalid");
+          if (typeof paise !== "number" || !Number.isSafeInteger(paise) || paise < 0) {
+            throw new Error("compliance_cost_invalid");
+          }
+          const documentRef = typeof values.supportingDocumentRef === "string"
+            ? values.supportingDocumentRef.trim() : "";
+          const renewedFromRecordId = typeof values.renewedFromRecordId === "string"
+            ? values.renewedFromRecordId.trim() : "";
+          return getApplicationComplianceService().create({
+            uuid: command.instanceId,
+            data: {
+              schemaVersion: 1,
+              vehicleId: String(values.vehicleId ?? ""),
+              complianceName,
+              validFrom,
+              validTo,
+              totalCostPaise: paise,
+              ...(documentRef ? { supportingDocumentRef: documentRef } : {}),
+              ...(renewedFromRecordId ? { renewedFromRecordId } : {}),
+            },
+            source: getApplicationRecordSource(),
+            businessDate: validFrom,
+          });
         }
         if (command.formId === DRIVER_FORM_V1.id) {
           const values = command.values;
