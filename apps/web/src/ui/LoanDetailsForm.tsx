@@ -91,7 +91,9 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
   async function startEdit(loan: Loan) {
     setBusy(true);
     try {
-      let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, crypto.randomUUID());
+      const existingDrafts = await services.formRuntime.listDrafts(LOAN_DETAILS_FORM_V1);
+      const existingEdit = existingDrafts.find(draft => draft.values._recordId === loan.id);
+      let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, existingEdit?.instanceId ?? crypto.randomUUID());
       const initial: Record<string, unknown> = {
         vehicleId: loan.data.details.vehicleId,
         loanName: loan.data.details.loanName,
