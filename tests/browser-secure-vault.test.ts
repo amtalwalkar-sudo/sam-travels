@@ -44,8 +44,9 @@ describe("browser credential vault", () => {
     await upgraded.unlockAutomatically();
     expect(await upgraded.get("dropbox.oauth.tokens.v1")).toBeUndefined();
     await upgraded.set("dropbox.oauth.tokens.v1", "new-refresh-token");
-    expect(await new BrowserCredentialVault().unlockAutomatically().then(async () =>
-      new BrowserCredentialVault().unlockAutomatically().then(() => true))).toBe(true);
+    const reopened = new BrowserCredentialVault();
+    await reopened.unlockAutomatically();
+    expect(await reopened.get("dropbox.oauth.tokens.v1")).toBe("new-refresh-token");
   });
 
   it("allows local credential removal while the vault is locked", async () => {
