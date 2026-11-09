@@ -24,7 +24,7 @@ jobs:
   web:
     runs-on: ubuntu-latest
     env:
-      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +37,8 @@ jobs:
         run: npm test -- tests/feature-activation.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts tests/feature-lifecycle-coordinator.test.ts
       - name: Gate offline workflow and backup reliability regressions
         run: npm test -- tests/driver-workflow.test.ts tests/driver-workflow-parity.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
+      - name: Run local geocoder contract tests (no production dependency)
+        run: npm run test:geocoder
       - name: Run complete web regression suite
         run: npm test
       - name: Publish Dexie-generated complete Timeline parity oracle
@@ -47,11 +49,53 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
+  geocoder-production:
+    name: Production geocoder verification
+    runs-on: ubuntu-latest
+    needs: [architecture, web, android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Wait for the Cloudflare main-branch deployment and verify the live geocoder
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = "https://sam-travels.amtalwalkar.workers.dev/reverse-geocode";
+          let lastError = "no response";
+          // Cloudflare Workers Builds deploys the main commit independently of GitHub Actions.
+          // Retry for up to three minutes so this check validates the newly deployed version,
+          // rather than racing the deployment or silently testing the previous production version.
+          for (let attempt = 0; attempt < 18; attempt += 1) {
+            try {
+              const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  Origin: "https://localhost",
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ latitude: 19.076, longitude: 72.8777 }),
+                signal: AbortSignal.timeout(15000),
+              });
+              const body = await response.json().catch(() => ({}));
+              if (response.ok && typeof body.label === "string" && body.label.trim()) {
+                if (response.headers.get("Access-Control-Allow-Origin") !== "https://localhost") {
+                  throw new Error("production geocoder CORS response did not allow the Android WebView origin");
+                }
+                console.log("Production geocoder returned a locality label:", body.label);
+                process.exit(0);
+              }
+              lastError = `HTTP ${response.status}: ${JSON.stringify(body)}`;
+            } catch (error) {
+              lastError = error instanceof Error ? error.message : String(error);
+            }
+            if (attempt < 17) await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+          console.error("Production geocoder smoke test failed after deployment wait:", lastError);
+          process.exit(1);
+          NODE
   android:
     needs: web
     runs-on: ubuntu-latest
     env:
-      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -125,15 +169,22 @@ jobs:
   integrated-regression:
     name: Integrated regression gate
     if: always()
-    needs: [architecture, web, android]
+    needs: [architecture, web, geocoder-production, android]
     runs-on: ubuntu-latest
     steps:
-      - name: Require every architecture, web, and Android gate
+      - name: Require PR checks and, on main, the post-deployment production geocoder check
         env:
           ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
           WEB_RESULT: ${{ needs.web.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
+          GEOCODER_RESULT: ${{ needs.geocoder-production.result }}
+          REQUIRE_PRODUCTION_GEOCODER: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           test "$ARCHITECTURE_RESULT" = "success"
           test "$WEB_RESULT" = "success"
           test "$ANDROID_RESULT" = "success"
+          if [ "$REQUIRE_PRODUCTION_GEOCODER" = "true" ]; then
+            test "$GEOCODER_RESULT" = "success"
+          else
+            test "$GEOCODER_RESULT" = "skipped"
+          fi

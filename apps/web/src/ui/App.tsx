@@ -42,6 +42,7 @@ export function App() {
           <i />Internet {enabled ? "On" : "Off"}
         </button>
         <p>Connection is optional. Your workspace remains local-first.</p>
+        <BackupPanel />
       </>}>
         <div hidden={activeScreen !== "Drive"}>
             <section className="screen-heading">
@@ -111,7 +112,6 @@ export function App() {
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
             </section>
 
-            <BackupPanel />
             <FeatureScreenHost mountPoint="Drive" context={{ activeScreen }} />
         </div>
         {activeScreen === "Timeline" && (

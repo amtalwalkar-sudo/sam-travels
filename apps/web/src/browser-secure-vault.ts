@@ -3,7 +3,9 @@ import { ARGON2ID_PARAMETERS, HashWasmArgon2idProvider } from "../../../packages
 import { browserDatabase } from "../../../packages/storage-browser/src/database";
 
 type VaultRow = { name: string; nonce: string; ciphertext: string; updatedAt: string };
-type VaultMeta = { id: "credential-vault"; salt: string; checkNonce: string; checkCiphertext: string };
+type LegacyVaultMeta = { id: "credential-vault"; salt: string; checkNonce: string; checkCiphertext: string };
+type ManagedVaultMeta = { id: "credential-vault"; version: 2; key: CryptoKey };
+type VaultMeta = LegacyVaultMeta | ManagedVaultMeta;
 const META_ID = "credential-vault";
 const CHECK_NAME = "sam-travels-browser-vault-check-v1";
 const encoder = new TextEncoder();
@@ -23,18 +25,67 @@ const random = (length: number) => {
 const table = () => browserDatabase.table("credentialVault");
 const metaTable = () => browserDatabase.table("credentialVaultMeta");
 
+/**
+ * Browser credentials are encrypted with a non-extractable WebCrypto key
+ * persisted by IndexedDB. This removes an extra setup password from the
+ * Dropbox sign-in flow. It protects stored bytes at rest, but is not a
+ * substitute for OS-backed storage: same-origin script executing in an
+ * unlocked session can still request decryption.
+ *
+ * Legacy passphrase-encrypted vaults remain readable through unlock().
+ */
 export class BrowserCredentialVault implements CredentialVault {
   private key?: CryptoKey;
   private readonly kdf = new HashWasmArgon2idProvider();
 
+  async unlockAutomatically(): Promise<void> {
+    let meta = await metaTable().get(META_ID) as VaultMeta | undefined;
+    if (meta) {
+      if ("version" in meta && meta.version === 2 && meta.key) {
+        this.key = meta.key;
+        return;
+      }
+      // The previous vault used a user passphrase that is intentionally no longer
+      // collected in the normal flow. Its only stored credentials are Dropbox OAuth
+      // tokens; discard those tokens and require Dropbox sign-in again, preserving
+      // all business records and encrypted backup files.
+      await table().clear();
+      await metaTable().delete(META_ID);
+      meta = undefined;
+    }
+
+    const key = await crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    const candidate: ManagedVaultMeta = { id: META_ID, version: 2, key };
+    try {
+      await metaTable().add(candidate);
+      this.key = key;
+    } catch {
+      meta = await metaTable().get(META_ID) as VaultMeta | undefined;
+      if (meta && "version" in meta && meta.version === 2 && meta.key) {
+        this.key = meta.key;
+        return;
+      }
+      throw new Error("browser_credential_vault_initialization_failed");
+    }
+  }
+
+  /** Compatibility unlock for browser vaults created by earlier app versions. */
   async unlock(passphrase: string): Promise<void> {
     if (passphrase.length < 12) throw new Error("credential_vault_passphrase_too_short");
     let meta = await metaTable().get(META_ID) as VaultMeta | undefined;
+    if (meta && "version" in meta && meta.version === 2) {
+      this.key = meta.key;
+      return;
+    }
     if (!meta) {
       const salt = random(16);
       const key = await this.derive(passphrase, salt);
       const wrapped = await this.encrypt(key, encoder.encode(CHECK_NAME), encoder.encode(CHECK_NAME));
-      const candidate: VaultMeta = {
+      const candidate: LegacyVaultMeta = {
         id: META_ID,
         salt: encode(salt),
         checkNonce: wrapped.nonce,
@@ -46,8 +97,12 @@ export class BrowserCredentialVault implements CredentialVault {
         return;
       } catch {
         meta = await metaTable().get(META_ID) as VaultMeta | undefined;
-        if (!meta) throw new Error("credential_vault_initialization_failed");
+        if (!meta || "version" in meta) throw new Error("credential_vault_initialization_failed");
       }
+    }
+    if ("version" in meta) {
+      this.key = meta.key;
+      return;
     }
     const key = await this.derive(passphrase, decode(meta.salt));
     try {
