@@ -77,7 +77,7 @@ class DriverWorkflowPlugin:Plugin(){
   }
  }
  @PluginMethod fun disableOverlay(call:PluginCall){try{context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE).edit().putBoolean("overlay_enabled",false).putBoolean("boot_resume_deferred",false).commit();context.stopService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to stop native driver overlay",e)}}
- @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val out=JSObject();out.put("snapshot",state());call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
+ @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val snapshot=state();if(snapshot.optString("state")=="shift_active"&&context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE).getBoolean("overlay_activation_pending",false)){reconcileOverlayForCommittedState("shift_start",snapshot)};val out=JSObject();out.put("snapshot",snapshot);call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
  @PluginMethod fun queueIntent(call:PluginCall){
   val command=call.getObject("command");if(command==null){call.reject("Command required");return}
   executor.execute{try{ensureStartupRecovery();val intent=DriverWorkflowStore.queue(db,command);val out=JSObject();out.put("intent",intent);call.resolve(out)}
