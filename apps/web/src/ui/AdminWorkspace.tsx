@@ -72,7 +72,8 @@ function toDetails(form: LoanForm, vehicleId: string): FinanceLoanDetailsV1 {
   };
 }
 
-export function AdminWorkspace() {\n  const services = useAdminServices();
+export function AdminWorkspace() {
+  const services = useAdminServices();
   const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
