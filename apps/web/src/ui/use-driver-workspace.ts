@@ -17,7 +17,7 @@ import { recordBrowserDiagnostic } from "../diagnostics";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository) {
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -42,11 +42,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry) {
 
   useEffect(() => {
     let live = true;
-    createPlatformRepository()
-      .then(async (repository) => {
+    setRepo(platformRepository);
+    platformRepository.getNetworkEnabled()
+      .then(value => {
         if (!live) return;
-        setRepo(repository);
-        setEnabled(await repository.getNetworkEnabled());
+        setEnabled(value);
         setReady(true);
       })
       .catch((cause) => {
@@ -57,7 +57,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry) {
         }
       });
     return () => { live = false; };
-  }, []);
+  }, [platformRepository]);
 
   useEffect(() => {
     let live = true;
@@ -70,7 +70,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry) {
           return;
         }
 
-        const platformRecords = await createPlatformRepository();
+        const platformRecords = platformRepository;
         const selection = new WorkDriverSelectionService(platformRecords, repository);
         const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();
