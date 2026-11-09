@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, FormWorkingCopy } from "../../../../packages/application/src";
 import { LOAN_DETAILS_FORM_V1 } from "../../../../packages/application/src";
 import { useAdminServices } from "./admin-services-context";
@@ -150,7 +150,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
     await loadDrafts();
   }
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
