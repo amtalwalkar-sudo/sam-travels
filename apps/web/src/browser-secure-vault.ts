@@ -45,7 +45,13 @@ export class BrowserCredentialVault implements CredentialVault {
         this.key = meta.key;
         return;
       }
-      throw new Error("browser_credential_vault_legacy_unlock_required");
+      // The previous vault used a user passphrase that is intentionally no longer
+      // collected in the normal flow. Its only stored credentials are Dropbox OAuth
+      // tokens; discard those tokens and require Dropbox sign-in again, preserving
+      // all business records and encrypted backup files.
+      await table().clear();
+      await metaTable().delete(META_ID);
+      meta = undefined;
     }
 
     const key = await crypto.subtle.generateKey(
