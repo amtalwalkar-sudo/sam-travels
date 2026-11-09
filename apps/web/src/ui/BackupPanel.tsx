@@ -8,25 +8,17 @@ import {
   markRestoreVerified,
   restoreDropboxBackup,
   rollbackRecoveryCheckpoint,
+  getSavedRecoveryKey,
 } from "../backup-runtime";
-import { createDropboxBackupSession, defaultDropboxRedirectUri, type DropboxBackupSession } from "../backup-service";
-import { readDropboxBrowserConfig, writeDropboxBrowserConfig } from "../backup-config-storage";
+import { createDropboxBackupSession, type DropboxBackupSession } from "../backup-service";
+import { generateBackupRecoveryKey } from "../../../../packages/features/backup";
 
 type BackupEntry = { name: string; path: string; serverModified: string; size: number };
 type Checkpoint = { id: string; createdAt: string; status: string };
 
 export function BackupPanel() {
-  const [clientId, setClientId] = useState(() =>
-    readDropboxBrowserConfig().clientId ?? (import.meta.env.VITE_DROPBOX_CLIENT_ID ?? "")
-  );
-  const [redirectUri, setRedirectUri] = useState(() =>
-    readDropboxBrowserConfig().redirectUri ?? (import.meta.env.VITE_DROPBOX_REDIRECT_URI ?? defaultDropboxRedirectUri())
-  );
-  const [vaultPassphrase, setVaultPassphrase] = useState("");
-  const [backupPassphrase, setBackupPassphrase] = useState("");
   const [recoveryKey, setRecoveryKey] = useState("");
   const [restoreSecret, setRestoreSecret] = useState("");
-  const [restoreSecretType, setRestoreSecretType] = useState<"passphrase" | "recoveryKey">("passphrase");
   const [session, setSession] = useState<DropboxBackupSession | null>(null);
   const [backups, setBackups] = useState<BackupEntry[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
@@ -38,17 +30,13 @@ export function BackupPanel() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    writeDropboxBrowserConfig({ clientId, redirectUri });
-  }, [clientId, redirectUri]);
-
-  useEffect(() => {
     const handleCallback = (url: string) => {
       const params = new URL(url).searchParams;
       const code = params.get("code");
       const state = params.get("state");
       if (code && state) {
         setCallback({ code, state });
-        setMessage("Dropbox returned an authorization code. Unlock the vault and finish connecting.");
+        setMessage("Dropbox authorization received. Finishing connection…");
       } else if (params.get("error")) {
         setMessage("Dropbox authorization was not completed: " + (params.get("error_description") || params.get("error")));
       }
@@ -82,15 +70,9 @@ export function BackupPanel() {
   }
 
   async function openSession(): Promise<DropboxBackupSession> {
-    if (!clientId.trim() || !redirectUri.trim()) throw new Error("Enter the Dropbox app key and registered redirect URI first.");
-    const next = await createDropboxBackupSession({
-      clientId: clientId.trim(),
-      redirectUri: redirectUri.trim(),
-      browserVaultPassphrase: vaultPassphrase || undefined,
-    });
+    const next = await createDropboxBackupSession();
     setSession(next);
-    setVaultPassphrase("");
-    if (next.native) await configureNativeBackgroundBackup(clientId.trim(), redirectUri.trim());
+    if (next.native) await configureNativeBackgroundBackup(import.meta.env.VITE_DROPBOX_CLIENT_ID || "562zfpfzsqx60x", "samtravels://oauth");
     return next;
   }
 
@@ -145,15 +127,16 @@ export function BackupPanel() {
     if (!session) return;
     setBusy(true);
     try {
+      const savedKey = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
+      const key = recoveryKey.trim() || savedKey || generateBackupRecoveryKey();
       const result = await createAndUploadBackup({
         applicationVersion: "0.1.0",
-        passphrase: backupPassphrase,
-        recoveryKey: recoveryKey.trim() || undefined,
+        recoveryKey: key,
         dropbox: session.client,
       });
-      setRecoveryKey(result.recoveryKey);
-      setBackupPassphrase("");
-      setMessage("Encrypted backup uploaded. Copy and save the recovery key somewhere outside this app.");
+      if (!session.native) await session.vault.set("sam-travels.backup.recovery-key.v1", result.recoveryKey);
+      setRecoveryKey("");
+      setMessage("Encrypted backup uploaded. This device securely retains its recovery key.");
       await refreshHistory(session);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Backup upload failed");
@@ -185,9 +168,10 @@ export function BackupPanel() {
     if (!session || !selectedPath || !restoreConfirmed) return;
     setBusy(true);
     try {
-      const secret = restoreSecretType === "passphrase"
-        ? { passphrase: restoreSecret }
-        : { recoveryKey: restoreSecret };
+      const localKey = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
+      const chosenKey = restoreSecret.trim() || localKey;
+      if (!chosenKey) throw new Error("A recovery key from the device that created this backup is required.");
+      const secret = { recoveryKey: chosenKey };
       const result = await restoreDropboxBackup({
         path: selectedPath,
         secret,
@@ -253,8 +237,6 @@ export function BackupPanel() {
       const result = await session.client.disconnect();
       session.lock();
       setSession(null);
-      setVaultPassphrase("");
-      setBackupPassphrase("");
       setBackups([]);
       setMessage(result.revoked
         ? "Dropbox disconnected and the remote token revoked."
@@ -269,8 +251,6 @@ export function BackupPanel() {
   function lockVault() {
     session?.lock();
     setSession(null);
-    setVaultPassphrase("");
-    setBackupPassphrase("");
     setBackups([]);
     setMessage("Credential vault locked. Unlock it again before Dropbox operations.");
   }
@@ -281,23 +261,17 @@ export function BackupPanel() {
         <div><small>RECOVERY AND BACKUP</small><h2>Protect this workspace</h2></div>
         <span className={session ? "pill good" : "pill"}>{session ? "CONNECTED" : "NOT CONNECTED"}</span>
       </div>
-      <p className="backup-intro">Backups are encrypted on this device before upload. Restore creates a local recovery checkpoint before replacing data.</p>
+      <p className="backup-intro">Connect Dropbox once. Sam Travels handles secure sign-in and encrypted backups. Restore creates a local recovery checkpoint before replacing data.</p>
       <p className="backup-empty">Android uses best-effort daily background backup when Internet Access is enabled, Dropbox is connected, and a recovery key has been saved by the first successful backup. Android may defer work because of battery, connectivity, or device policy. In the PWA, create backups while the app is open; browser background scheduling is not reliable.</p>
 
-      <div className="backup-config">
-        <label>Dropbox app key<input value={clientId} onChange={event => setClientId(event.target.value)} autoComplete="off" placeholder="Dropbox app key" /></label>
-        <label>Registered redirect URI<input value={redirectUri} onChange={event => setRedirectUri(event.target.value)} autoComplete="url" placeholder="https://your-app.example/backup" /></label>
-        <label>Browser vault passphrase (leave blank on Android)<input type="password" value={vaultPassphrase} onChange={event => setVaultPassphrase(event.target.value)} autoComplete="current-password" placeholder="At least 12 characters for browser vault" /></label>
-      </div>
 
       {callback ? (
         <button className="backup-primary" disabled={busy} onClick={completeConnection}>Finish Dropbox connection</button>
       ) : !session ? (
-        <button className="backup-primary" disabled={busy} onClick={connect}>Unlock / connect Dropbox</button>
+        <button className="backup-primary" disabled={busy} onClick={connect}>Connect Dropbox</button>
       ) : (
         <div className="backup-actions">
           <button className="backup-secondary" disabled={busy} onClick={() => refreshHistory()}>Refresh history</button>
-          {!session.native && <button className="backup-secondary" disabled={busy} onClick={lockVault}>Lock vault</button>}
           <button className="backup-secondary" disabled={busy} onClick={disconnect}>Disconnect</button>
         </div>
       )}
@@ -305,13 +279,9 @@ export function BackupPanel() {
       {session && (
         <>
           <div className="backup-divider" />
-          <h3>Create encrypted backup</h3>
-          <div className="backup-config">
-            <label>Backup passphrase<input type="password" value={backupPassphrase} onChange={event => setBackupPassphrase(event.target.value)} autoComplete="new-password" placeholder="At least 12 characters" /></label>
-            <label>Existing recovery key (leave blank only for first backup)<input value={recoveryKey} onChange={event => setRecoveryKey(event.target.value)} autoComplete="off" placeholder="Paste the recovery key to reuse it" /></label>
-          </div>
-          <button className="backup-primary" disabled={busy || backupPassphrase.length < 12} onClick={createBackup}>Create and upload backup</button>
-          {recoveryKey && <div className="backup-recovery-key"><strong>Save this recovery key outside the app</strong><textarea readOnly value={recoveryKey} rows={2} /><button className="backup-secondary" onClick={() => void navigator.clipboard.writeText(recoveryKey)}>Copy recovery key</button></div>}
+          <h3>Back up your workspace</h3>
+          <p className="backup-empty">Your backup is encrypted before upload. This device keeps its recovery key in secure local storage. To restore on another device, enter the recovery key from the original device.</p>
+          <button className="backup-primary" disabled={busy} onClick={createBackup}>Back up now</button>
 
           <div className="backup-divider" />
           <div className="backup-subheading"><h3>Dropbox backup history</h3><span>{backups.length} files</span></div>
@@ -325,11 +295,10 @@ export function BackupPanel() {
             <button className="backup-secondary" disabled={busy || backups.length === 0} onClick={applyRetention}>Apply retention</button>
           </div>
           <div className="backup-config">
-            <label>Restore secret type<select value={restoreSecretType} onChange={event => setRestoreSecretType(event.target.value as "passphrase" | "recoveryKey")}><option value="passphrase">Backup passphrase</option><option value="recoveryKey">Recovery key</option></select></label>
-            <label>Restore secret<input type="password" value={restoreSecret} onChange={event => setRestoreSecret(event.target.value)} autoComplete="off" placeholder="Enter passphrase or recovery key" /></label>
+            <label>Recovery key (only needed when restoring on another device)<input type="password" value={restoreSecret} onChange={event => setRestoreSecret(event.target.value)} autoComplete="off" placeholder="Leave blank to use this device’s saved key" /></label>
           </div>
           <label className="backup-confirm"><input type="checkbox" checked={restoreConfirmed} onChange={event => setRestoreConfirmed(event.target.checked)} /> I understand restore replaces the current local workspace after a recovery checkpoint is created.</label>
-          <button className="backup-danger" disabled={busy || !selectedPath || !restoreSecret || !restoreConfirmed} onClick={restoreBackup}>Restore selected backup</button>
+          <button className="backup-danger" disabled={busy || !selectedPath || !restoreConfirmed} onClick={restoreBackup}>Restore selected backup</button>
         </>
       )}
 
