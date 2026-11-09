@@ -130,11 +130,13 @@ class DriverOverlayService:Service(){
   if(panel!=null)return
   window=getSystemService(WINDOW_SERVICE) as WindowManager
   val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setBackgroundColor(android.graphics.Color.WHITE)}
-  status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
-  root.addView(status)
-  timerText=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
-  root.addView(timerText)
-  installPanelDrag(status)
+  val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
+  status=header
+  root.addView(header)
+  val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
+  timerText=elapsed
+  root.addView(elapsed)
+  installPanelDrag(header)
   val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
   swipeLabel=label
   root.addView(label)
