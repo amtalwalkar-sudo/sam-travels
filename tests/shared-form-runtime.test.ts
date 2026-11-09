@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BUSINESS_SETUP_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -28,6 +29,19 @@ const definition: FormDefinition = {
 };
 
 describe("shared form runtime", () => {
+  it("validates the canonical Admin Business Setup definition", () => {
+    expect(BUSINESS_SETUP_FORM_V1).toMatchObject({
+      id: "admin.business-setup", version: 1, owner: "business-settings", primaryAction: "save",
+    });
+    expect(validateFormValues(BUSINESS_SETUP_FORM_V1, {})).toMatchObject([
+      { fieldId: "businessStartDate", code: "required" },
+    ]);
+    expect(validateFormValues(BUSINESS_SETUP_FORM_V1, { businessStartDate: "2026-02-31" })).toMatchObject([
+      { fieldId: "businessStartDate", code: "date" },
+    ]);
+    expect(validateFormValues(BUSINESS_SETUP_FORM_V1, { businessStartDate: "2020-01-01" })).toEqual([]);
+  });
+
   it("validates declared field mechanics without inventing feature business rules", () => {
     expect(validateFormValues(definition, {})).toEqual([
       { fieldId: "farePaise", code: "required", message: "Fare is required." },
