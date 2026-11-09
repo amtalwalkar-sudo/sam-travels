@@ -34,6 +34,7 @@ import {
   MAINTENANCE_VISIT_FORM_V1,
   MAINTENANCE_EXPENSE_FORM_V1,
   MAINTENANCE_RATE_FORM_V1,
+  LOAN_DETAILS_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -180,6 +181,37 @@ async function bootstrap(): Promise<void> {
             ratePaisePerKm,
             commandId: command.instanceId,
             source: getApplicationRecordSource(),
+          });
+        }
+        if (command.formId === LOAN_DETAILS_FORM_V1.id) {
+          const values = command.values;
+          const principalPaise = values.principalPaise;
+          const annualInterestRateBasisPoints = values.annualInterestRateBasisPoints;
+          const tenureMonths = values.tenureMonths;
+          if (typeof principalPaise !== "number" || !Number.isSafeInteger(principalPaise) || principalPaise <= 0 ||
+              typeof annualInterestRateBasisPoints !== "number" || !Number.isSafeInteger(annualInterestRateBasisPoints) || annualInterestRateBasisPoints < 0 ||
+              typeof tenureMonths !== "number" || !Number.isSafeInteger(tenureMonths) || tenureMonths < 1 || tenureMonths > 1200) {
+            throw new Error("finance_loan_calculation_inputs_invalid");
+          }
+          const loanAccountReference = typeof values.loanAccountReference === "string" ? values.loanAccountReference.trim() : "";
+          const details = {
+            loanName: String(values.loanName ?? "").trim(),
+            lenderName: String(values.lenderName ?? "").trim(),
+            ...(loanAccountReference ? { loanAccountReference } : {}),
+            vehicleId: String(values.vehicleId ?? ""),
+            principalPaise,
+            annualInterestRateBasisPoints,
+            loanStartDate: String(values.loanStartDate ?? ""),
+            tenureMonths,
+            firstEmiDate: String(values.firstEmiDate ?? ""),
+          };
+          if (typeof values._recordRevision === "number") {
+            return getApplicationFinanceLoanService().update({
+              id: command.instanceId, expectedRevision: values._recordRevision, details,
+            });
+          }
+          return getApplicationFinanceLoanService().create({
+            uuid: command.instanceId, details, source: getApplicationRecordSource(),
           });
         }
         if (command.formId === DRIVER_FORM_V1.id) {
