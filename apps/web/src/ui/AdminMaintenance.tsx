@@ -14,7 +14,6 @@ const today = () => {
   return part("year") + "-" + part("month") + "-" + part("day");
 };
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
-const optional = (value: string) => value.trim() || undefined;
 
 type ItemDraft = { id: string; description: string; amount: string };
 const newItem = (): ItemDraft => ({ id: crypto.randomUUID(), description: "", amount: "" });
@@ -30,8 +29,8 @@ export function MaintenanceSection() {
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
   const [mode, setMode] = useState<RecordMode>("visit");
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
-  const [copy, setCopy] = useState<FormWorkingCopy>();
-  const copyRef = useRef<FormWorkingCopy>();
+  const [copy, setCopy] = useState<FormWorkingCopy | undefined>(undefined);
+  const copyRef = useRef<FormWorkingCopy | undefined>(undefined);
   const updateQueue = useRef<Promise<void>>(Promise.resolve());
   const updateError = useRef<unknown>(null);
   const [date, setDate] = useState(today());
