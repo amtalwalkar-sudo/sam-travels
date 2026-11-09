@@ -102,6 +102,7 @@ export function BackupPanel() {
       setMessage("Dropbox connected.");
       await refreshHistory(next);
     } catch (error) {
+      setCallback(null);
       setMessage(error instanceof Error ? error.message : "Dropbox authorization failed");
     } finally {
       setBusy(false);
@@ -135,12 +136,12 @@ export function BackupPanel() {
     try {
       const savedKey = session.native ? await getSavedRecoveryKey() : await session.vault.get("sam-travels.backup.recovery-key.v1");
       const key = savedKey || generateBackupRecoveryKey();
+      if (!session.native) await session.vault.set("sam-travels.backup.recovery-key.v1", key);
       const result = await createAndUploadBackup({
         applicationVersion: "0.1.0",
         recoveryKey: key,
         dropbox: session.client,
       });
-      if (!session.native) await session.vault.set("sam-travels.backup.recovery-key.v1", result.recoveryKey);
       setMessage("Encrypted backup uploaded. This device securely retains its recovery key.");
       await refreshHistory(session);
     } catch (error) {
