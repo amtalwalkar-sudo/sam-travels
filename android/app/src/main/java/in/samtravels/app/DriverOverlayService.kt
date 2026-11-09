@@ -185,6 +185,10 @@ class DriverOverlayService:Service(){
   val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
   val state=s.optString("state")
+  intervalStartedAt=if(state=="idle")null else runCatching{
+   DriverWorkflowStore.listEvents(db).firstOrNull{it.optString("eventId")==s.optString("lastEventId")}
+    ?.optJSONObject("command")?.optString("transitionAt")?.takeIf{it.isNotBlank()}
+  }.getOrNull()
   main.post{
    if(state=="idle"){main.post{removePanel();stopSelf()};return@post}
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
