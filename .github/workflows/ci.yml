@@ -37,6 +37,8 @@ jobs:
         run: npm test -- tests/feature-activation.test.ts tests/feature-contracts.test.ts tests/feature-extension.test.ts tests/feature-lifecycle-coordinator.test.ts
       - name: Gate offline workflow and backup reliability regressions
         run: npm test -- tests/driver-workflow.test.ts tests/driver-workflow-parity.test.ts tests/backup-snapshot.test.ts tests/backup-restore-failure-recovery.test.ts tests/recovery-lifecycle.test.ts tests/transaction-recovery-guarantees.test.ts tests/native-backup-v2-interoperability.test.ts tests/local-diagnostics.test.ts
+      - name: Run local geocoder contract tests (no production dependency)
+        run: npm run test:geocoder
       - name: Run complete web regression suite
         run: npm test
       - name: Publish Dexie-generated complete Timeline parity oracle
@@ -50,14 +52,18 @@ jobs:
   geocoder-production:
     name: Production geocoder verification
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [architecture, web, android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Smoke-test the deployed Cloudflare geocoder
+      - name: Wait for the Cloudflare main-branch deployment and verify the live geocoder
         run: |
           node --input-type=module <<'NODE'
           const endpoint = "https://sam-travels.amtalwalkar.workers.dev/reverse-geocode";
           let lastError = "no response";
-          for (let attempt = 0; attempt < 6; attempt += 1) {
+          // Cloudflare Workers Builds deploys the main commit independently of GitHub Actions.
+          // Retry for up to three minutes so this check validates the newly deployed version,
+          // rather than racing the deployment or silently testing the previous production version.
+          for (let attempt = 0; attempt < 18; attempt += 1) {
             try {
               const response = await fetch(endpoint, {
                 method: "POST",
@@ -80,9 +86,9 @@ jobs:
             } catch (error) {
               lastError = error instanceof Error ? error.message : String(error);
             }
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            if (attempt < 17) await new Promise(resolve => setTimeout(resolve, 10000));
           }
-          console.error("Production geocoder smoke test failed:", lastError);
+          console.error("Production geocoder smoke test failed after deployment wait:", lastError);
           process.exit(1);
           NODE
   android:
@@ -166,14 +172,19 @@ jobs:
     needs: [architecture, web, geocoder-production, android]
     runs-on: ubuntu-latest
     steps:
-      - name: Require every architecture, web, and Android gate
+      - name: Require PR checks and, on main, the post-deployment production geocoder check
         env:
           ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
           WEB_RESULT: ${{ needs.web.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
           GEOCODER_RESULT: ${{ needs.geocoder-production.result }}
+          REQUIRE_PRODUCTION_GEOCODER: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           test "$ARCHITECTURE_RESULT" = "success"
           test "$WEB_RESULT" = "success"
           test "$ANDROID_RESULT" = "success"
-          test "$GEOCODER_RESULT" = "success"
+          if [ "$REQUIRE_PRODUCTION_GEOCODER" = "true" ]; then
+            test "$GEOCODER_RESULT" = "success"
+          else
+            test "$GEOCODER_RESULT" = "skipped"
+          fi
