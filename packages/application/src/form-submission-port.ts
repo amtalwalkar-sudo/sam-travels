@@ -5,6 +5,7 @@
 export type FormSubmissionCommand = Readonly<{
   formId: string;
   formVersion: number;
+  operationId: string;
   values: Readonly<Record<string, unknown>>;
 }>;
 
