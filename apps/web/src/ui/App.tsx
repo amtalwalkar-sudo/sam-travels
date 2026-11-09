@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
 import { nativeOverlayAvailable } from "../driver-workflow";
@@ -6,7 +6,7 @@ import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
-import { ApplicationShell, NavigationIcon, primaryShellDefinition, type PrimaryScreen } from "./ApplicationShell";
+import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
 const shellDefinition = primaryShellDefinition;
@@ -28,7 +28,10 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export function App() {
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps> }>;
+
+/** The shell renderer is replaceable without changing feature screens or application workflows. */
+export function App({ ShellRenderer = ApplicationShell }: AppProps = {}) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace();
   const {
@@ -39,7 +42,7 @@ export function App() {
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
-    <ApplicationShell activeScreen={activeScreen} onNavigate={setActiveScreen}
+    <ShellRenderer shellDefinition={shellDefinition} activeScreen={activeScreen} onNavigate={setActiveScreen}
       settingsContent={<>
         <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
           <i />Internet {enabled ? "On" : "Off"}
@@ -123,7 +126,7 @@ export function App() {
         {activeScreen === "Performance" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <AdminWorkspace />}
+        {activeScreen === "Admin" && <FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />} />}
     </ApplicationShell>
   );
 }
