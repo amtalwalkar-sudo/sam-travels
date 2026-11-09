@@ -1,6 +1,6 @@
 # Sam Travels Geoapify reverse-geocoding proxy
 
-This Cloudflare Worker is the only component allowed to hold the Geoapify API key. The PWA and Android app call this proxy; they must never call Geoapify directly.
+The production Cloudflare Worker is named `sam-travels`. This Worker is the only component allowed to hold the Geoapify API key. The PWA and Android app call this proxy; they must never call Geoapify directly.
 
 ## One-time setup
 
@@ -19,8 +19,10 @@ This Cloudflare Worker is the only component allowed to hold the Geoapify API ke
    ```sh
    npx wrangler@4 deploy --config services/geocoder/wrangler.toml
    ```
-6. Copy the deployed Worker URL, normally `https://sam-travels-geocoder.<account-subdomain>.workers.dev`.
+6. The production Worker URL is `https://sam-travels.<account-subdomain>.workers.dev`.
 7. Set `VITE_GEOAPIFY_PROXY_URL` to that URL in the PWA and Android build environment, then rebuild the PWA and APK. This URL is not a secret. The API key is never supplied to the build.
+
+Cloudflare's connected build deploys this same `services/geocoder/wrangler.toml` from the `/services/geocoder` root. Keep the Worker name here aligned with the production Worker name to avoid Cloudflare overriding the configuration during deployment.
 
 ## Endpoint contract
 
