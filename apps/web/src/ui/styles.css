@@ -140,3 +140,15 @@ button{font:inherit}
 
 .feature-screen-failure{display:grid;gap:7px;margin:12px 0;padding:16px;border:1px solid #e6c9c6;border-radius:12px;background:#fff8f7;color:#7c3933}
 .feature-screen-failure strong{font-size:12px}.feature-screen-failure span{font-size:11px;line-height:1.5}
+
+/* One state-aware trip action, shared by the current Drive workflow. */
+.driver-actions-stateful{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
+.swipe-action-bar{display:grid;grid-template-columns:1fr;gap:6px;min-width:0;padding:11px 13px;border:1px solid #dbe5ea;border-radius:13px;background:#f6f9fa}
+.swipe-action-label{font-size:11px;color:#60727d;line-height:1.35}
+.swipe-action-label strong{color:#234b60;font-size:12px}
+.swipe-action-range{width:100%;height:30px;margin:0;accent-color:#254f65;cursor:ew-resize;touch-action:pan-y}
+.swipe-action-range:disabled{cursor:wait;opacity:.45}
+.swipe-action-hint{font-size:9px;color:#8a98a1}
+.cancel-trip-action{min-height:44px;padding:11px 14px;border:1px solid #efd8d5;border-radius:11px;background:#fff6f4;color:#a34840;font-size:11px;font-weight:750;cursor:pointer}
+.cancel-trip-action:disabled{opacity:.45;cursor:wait}
+@media(max-width:390px){.driver-actions-stateful{grid-template-columns:1fr}.driver-actions-stateful>.cancel-trip-action,.driver-actions-stateful>.secondary-action{justify-self:start}}

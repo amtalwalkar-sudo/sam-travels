@@ -8,6 +8,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -109,6 +110,18 @@ class DriverWorkflowV2Test {
         assertTrue(JSONObject(events.first { it.optString("eventId")=="trip-v2" }.toString())
             .getJSONObject("command").has("tripContext"))
         assertTrue(events.any { it.optString("eventId")=="ride-cancel-v2" })
+        assertEquals("trip_create",events.first { it.optString("eventId")=="trip-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("start_ride",events.first { it.optString("eventId")=="ride-start-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("end_ride",events.first { it.optString("eventId")=="ride-end-v2" }.getJSONObject("command").getString("eventType"))
+        assertEquals("cancel_ride",events.first { it.optString("eventId")=="ride-cancel-v2" }.getJSONObject("command").getString("eventType"))
+    }
+
+    @Test fun nativeSwipeActionFollowsThePersistedWorkflowState() {
+        assertEquals("trip_create", DriverTransitionPolicy.swipeEvent("shift_active"))
+        assertEquals("start_ride", DriverTransitionPolicy.swipeEvent("going_to_pickup"))
+        assertEquals("end_ride", DriverTransitionPolicy.swipeEvent("trip_active"))
+        assertNull(DriverTransitionPolicy.swipeEvent("idle"))
+        assertNull(DriverTransitionPolicy.swipeEvent("needs_attention"))
     }
 
 

@@ -19,9 +19,12 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.WindowManager
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.room.Room
 import org.json.JSONObject
@@ -37,6 +40,9 @@ class DriverOverlayService:Service(){
  private var status:TextView?=null
  private val actionButtons=mutableMapOf<String,Button>()
  private var recoveryButton:Button?=null
+ private var swipeLabel:TextView?=null
+ private var swipeBar:SeekBar?=null
+ private var cancelButton:Button?=null
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -121,14 +127,45 @@ class DriverOverlayService:Service(){
   status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   root.addView(status)
   val shiftStart=Button(this).apply{text="Start shift";setOnClickListener{runTransition("shift_start")}}
-  val tripCreate=Button(this).apply{text="Create trip";setOnClickListener{runTransition("trip_create")}}
-  val startRide=Button(this).apply{text="Start ride";setOnClickListener{runTransition("start_ride")}}
-  val endRide=Button(this).apply{text="End ride";setOnClickListener{runTransition("end_ride")}}
-  val cancel=Button(this).apply{text="Cancel ride";setOnClickListener{runTransition("cancel_ride")}}
   val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
+  actionButtons["shift_start"]=shiftStart
+  actionButtons["shift_end"]=shiftEnd
+  root.addView(shiftStart)
+  val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
+  swipeLabel=label
+  root.addView(label)
+  val slider=SeekBar(this).apply{
+   max=100
+   progress=0
+   setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
+    override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean){}
+    override fun onStartTrackingTouch(bar:SeekBar?){}
+    override fun onStopTrackingTouch(bar:SeekBar?){bar?.progress=0}
+   })
+  }
+  var swipeStartX:Float?=null
+  var swipeMoved=false
+  slider.setOnTouchListener{_,event->
+   when(event.actionMasked){
+    MotionEvent.ACTION_DOWN->{swipeStartX=event.rawX;swipeMoved=false}
+    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(24))swipeMoved=true}
+    MotionEvent.ACTION_UP->{
+     val confirmed=swipeMoved&&slider.progress>=95
+     swipeStartX=null;swipeMoved=false
+     if(confirmed)runSwipeTransition()
+     slider.progress=0
+    }
+    MotionEvent.ACTION_CANCEL->{swipeStartX=null;swipeMoved=false;slider.progress=0}
+   }
+   false
+  }
+  swipeBar=slider
+  root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
+  val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
+  cancelButton=cancel
+  root.addView(cancel)
+  root.addView(shiftEnd)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
-  actionButtons["shift_start"]=shiftStart;actionButtons["trip_create"]=tripCreate;actionButtons["start_ride"]=startRide;actionButtons["end_ride"]=endRide;actionButtons["cancel_ride"]=cancel;actionButtons["shift_end"]=shiftEnd
-  listOf(shiftStart,tripCreate,startRide,endRide,cancel,shiftEnd).forEach{root.addView(it)}
   root.addView(recoveryButton)
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
@@ -147,12 +184,23 @@ class DriverOverlayService:Service(){
   main.post{
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
-   recoveryButton?.isEnabled=pending&&activeLocationEventId==null
+   val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
+    "trip_create"->"Swipe to Going to pickup"
+    "start_ride"->"Swipe to Start trip"
+    "end_ride"->"Swipe to End trip"
+    else->null
+   }
+   val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
+   swipeLabel?.text=swipeText?: "Trip action unavailable"
+   swipeLabel?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
+   swipeBar?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
+   swipeBar?.progress=0
+   swipeBar?.isEnabled=canSwipe
+   cancelButton?.visibility=if(state=="going_to_pickup")View.VISIBLE else View.GONE
+   cancelButton?.isEnabled=!pending&&activeLocationEventId==null&&state=="going_to_pickup"
+   actionButtons["shift_start"]?.visibility=if(state=="idle")View.VISIBLE else View.GONE
    actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
-   actionButtons["trip_create"]?.isEnabled=!pending&&state=="shift_active"&&s.has("shiftContext")
-   actionButtons["start_ride"]?.isEnabled=!pending&&state=="going_to_pickup"
-   actionButtons["end_ride"]?.isEnabled=!pending&&state=="trip_active"
-   actionButtons["cancel_ride"]?.isEnabled=!pending&&state=="going_to_pickup"
+   actionButtons["shift_end"]?.visibility=if(state=="shift_active")View.VISIBLE else View.GONE
    actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
   }
  }catch(_:Exception){
@@ -181,10 +229,22 @@ class DriverOverlayService:Service(){
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
+ private fun dp(value:Int):Int=(value*resources.displayMetrics.density).toInt()
+ private fun runSwipeTransition(){
+  if(!startupRecoveryReady)return
+  executor.execute{
+   try{
+    NativeStartupRecovery.ensure(db)
+    val state=DriverWorkflowStore.snapshot(db).optString("state")
+    val event=DriverTransitionPolicy.swipeEvent(state)
+    if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
+   }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
+  }
+ }
  private fun runTransition(event:String){
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
   status?.text="Saving action · GPS pending"
-  main.post{actionButtons.values.forEach{it.isEnabled=false}}
+  main.post{actionButtons.values.forEach{it.isEnabled=false};swipeBar?.isEnabled=false;cancelButton?.isEnabled=false}
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
