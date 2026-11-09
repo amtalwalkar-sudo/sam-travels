@@ -36,7 +36,8 @@ describe("versioned cross-surface swipe presentation contract", () => {
     expect(driverSwipePresentationContract.contractId).toBe("sam-travels.driver-swipe-presentation");
     expect(driverSwipePresentationContract.version).toBe(1);
     expect(driverSwipePresentationContract.gesture.completionPercent).toBe(95);
-    expect(driverSwipePresentationContract.gesture.minimumIntentTravelDp).toBe(24);
+    expect(driverSwipePresentationContract.gesture.minimumIntentTravel.nativeDp).toBe(24);
+    expect(driverSwipePresentationContract.gesture.minimumIntentTravel.webCssPx).toBe(24);
     expect(driverSwipePresentationContract.actions).toEqual({
       shift_active: { label: "Going to pickup", eventType: "trip_create" },
       going_to_pickup: { label: "Start trip", eventType: "start_ride" },
