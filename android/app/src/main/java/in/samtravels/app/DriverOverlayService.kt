@@ -38,7 +38,6 @@ class DriverOverlayService:Service(){
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
  private var status:TextView?=null
- private val actionButtons=mutableMapOf<String,Button>()
  private var recoveryButton:Button?=null
  private var swipeLabel:TextView?=null
  private var swipeBar:SeekBar?=null
@@ -83,7 +82,8 @@ class DriverOverlayService:Service(){
      databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
      db.invalidationTracker.addObserver(databaseObserver!!)
     }
-    main.post{showPanel();recoverPendingAfterServiceStart()}
+    val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
+    main.post{if(active){showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
    }catch(error:Exception){
     startupRecoveryReady=false
     startupRecoveryFailed=true
@@ -126,11 +126,6 @@ class DriverOverlayService:Service(){
   val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setBackgroundColor(android.graphics.Color.WHITE)}
   status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   root.addView(status)
-  val shiftStart=Button(this).apply{text="Start shift";setOnClickListener{runTransition("shift_start")}}
-  val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
-  actionButtons["shift_start"]=shiftStart
-  actionButtons["shift_end"]=shiftEnd
-  root.addView(shiftStart)
   val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
   swipeLabel=label
   root.addView(label)
@@ -164,7 +159,6 @@ class DriverOverlayService:Service(){
   val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
   cancelButton=cancel
   root.addView(cancel)
-  root.addView(shiftEnd)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   root.addView(recoveryButton)
   panel=root
@@ -182,6 +176,7 @@ class DriverOverlayService:Service(){
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
   val state=s.optString("state")
   main.post{
+   if(state=="idle"){main.post{removePanel();stopSelf()};return@post}
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
    val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
@@ -198,10 +193,6 @@ class DriverOverlayService:Service(){
    swipeBar?.isEnabled=canSwipe
    cancelButton?.visibility=if(state=="going_to_pickup")View.VISIBLE else View.GONE
    cancelButton?.isEnabled=!pending&&activeLocationEventId==null&&state=="going_to_pickup"
-   actionButtons["shift_start"]?.visibility=if(state=="idle")View.VISIBLE else View.GONE
-   actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
-   actionButtons["shift_end"]?.visibility=if(state=="shift_active")View.VISIBLE else View.GONE
-   actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
   }
  }catch(_:Exception){
   startupRecoveryReady=false
@@ -210,7 +201,6 @@ class DriverOverlayService:Service(){
   main.post{
    status?.text="Recovery required · actions disabled"
    recoveryButton?.isEnabled=false
-   actionButtons.values.forEach{it.isEnabled=false}
   }
  }}}
  private fun runRecovery(){
@@ -244,7 +234,7 @@ class DriverOverlayService:Service(){
  private fun runTransition(event:String){
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
   status?.text="Saving action · GPS pending"
-  main.post{actionButtons.values.forEach{it.isEnabled=false};swipeBar?.isEnabled=false;cancelButton?.isEnabled=false}
+  main.post{swipeBar?.isEnabled=false;cancelButton?.isEnabled=false}
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
@@ -296,6 +286,10 @@ class DriverOverlayService:Service(){
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
+ private fun removePanel(){
+  panel?.let{try{window.removeView(it)}catch(_:Exception){}}
+  panel=null
+ }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
@@ -325,5 +319,5 @@ class DriverOverlayService:Service(){
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
+ override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;removePanel();executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
 }
