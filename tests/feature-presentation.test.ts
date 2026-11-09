@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { initializeRuntimeRegistry, type FeatureExtensionDefinition, type FeaturePresentationScreen } from "../packages/core/src/index";
 import type { FeatureDefinition } from "../packages/core/src/features";
+import { ADMIN_FEATURE_EXTENSION } from "../packages/features/admin";
 
 const owner: FeatureDefinition = {
   id: "presentation-fixture",
@@ -81,5 +82,20 @@ describe("feature-owned custom presentation contributions", () => {
     expect(runtime.contributionFailures).toContainEqual(expect.objectContaining({
       featureId: owner.id,
     }));
+  });
+});
+
+
+describe("Admin presentation contribution", () => {
+  it("registers Admin through the same feature registry without giving it data ownership", () => {
+    const runtime = initializeRuntimeRegistry({ extensions: [ADMIN_FEATURE_EXTENSION] });
+    const admin = runtime.features.get("admin");
+    const screen = runtime.presentationScreens.get("admin.workspace.v1");
+    const suppliedScreen = { kind: "admin-workspace" };
+
+    expect(admin?.dataPolicy).toBe("non-persistent");
+    expect(screen?.ownerFeatureId).toBe("admin");
+    expect(screen?.render(suppliedScreen)).toBe(suppliedScreen);
+    expect(runtime.extensions.has("admin.presentation.v1")).toBe(true);
   });
 });
