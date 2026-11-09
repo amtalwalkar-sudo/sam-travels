@@ -2,7 +2,7 @@
 
 **Status:** Approved and frozen at the product-design level  
 **Approval date:** 2026-11-07  
-**Implementation status:** Not started; this document authorizes no runtime implementation by itself  
+**Implementation status:** Partial web workspace and section UI exist; end-to-end implementation and acceptance are not yet complete. This document authorizes product behaviour but does not itself prove runtime conformance.  
 **Scope:** The six Admin sections and their approved product behaviour in Sam Travels
 
 This document is the product-rule authority for the Admin experience. It records decisions approved through product discussion. It supplements, and does not replace, the repository's architecture, feature-module, data, form, persistence, transaction/recovery, security, calculation, and presentation contracts.
