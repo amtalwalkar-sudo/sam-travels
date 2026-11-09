@@ -85,7 +85,7 @@ export function VehicleSection() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
-  const copyRef = useRef<typeof copy>();
+  const copyRef = useRef<Awaited<ReturnType<typeof services.formRuntime.open>> | undefined>(undefined);
   const updateQueue = useRef<Promise<void>>(Promise.resolve());
   const instanceIdRef = useRef("");
 
