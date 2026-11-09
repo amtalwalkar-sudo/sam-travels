@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { BUSINESS_SETUP_FORM_V1, type AdminPresentationServices, type VehicleRecordV1 } from "../../../../packages/application/src";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, type AdminPresentationServices, type VehicleRecordV1 } from "../../../../packages/application/src";
 import { useAdminServices } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
@@ -84,6 +84,11 @@ export function VehicleSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
+  const copyRef = useRef<typeof copy>();
+  const updateQueue = useRef<Promise<void>>(Promise.resolve());
+  const instanceIdRef = useRef("");
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -92,44 +97,73 @@ export function VehicleSection() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load vehicles.");
     } finally { setLoading(false); }
-  }, []);
+  }, [services]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  function edit(vehicle: Vehicle) {
-    setEditing(vehicle);
-    setFormOpen(true);
-    setForm({
+  async function beginForm(vehicle?: Vehicle) {
+    const instanceId = vehicle?.id ?? "new:" + crypto.randomUUID();
+    instanceIdRef.current = instanceId;
+    updateQueue.current = Promise.resolve();
+    let workingCopy = await services.formRuntime.open(VEHICLE_FORM_V1, instanceId);
+    const initial: Record<string, unknown> = vehicle ? {
       registrationNumber: vehicle.data.registrationNumber, make: vehicle.data.make,
       model: vehicle.data.model, vehicleType: vehicle.data.vehicleType, fuelType: vehicle.data.fuelType,
-      yearOfManufacture: String(vehicle.data.yearOfManufacture), ownership: vehicle.data.ownership,
-      lifecycleState: vehicle.data.lifecycleState,
+      yearOfManufacture: vehicle.data.yearOfManufacture, ownership: vehicle.data.ownership,
+      lifecycleState: vehicle.data.lifecycleState, _recordRevision: vehicle.revision,
+    } : {
+      registrationNumber: "", make: "", model: "", vehicleType: "Car",
+      fuelType: "Diesel", yearOfManufacture: undefined, ownership: "Owned", lifecycleState: "active",
+    };
+    for (const [field, value] of Object.entries(initial)) {
+      if (workingCopy.values[field] === undefined && value !== undefined) {
+        workingCopy = await services.formRuntime.update(VEHICLE_FORM_V1, workingCopy, field, value);
+      }
+    }
+    copyRef.current = workingCopy;
+    setCopy(workingCopy);
+    setEditing(vehicle ?? null);
+    setForm({
+      registrationNumber: String(initial.registrationNumber ?? ""),
+      make: String(initial.make ?? ""), model: String(initial.model ?? ""),
+      vehicleType: String(initial.vehicleType ?? "Car"), fuelType: String(initial.fuelType ?? "Diesel"),
+      yearOfManufacture: initial.yearOfManufacture === undefined ? "" : String(initial.yearOfManufacture),
+      ownership: String(initial.ownership ?? "Owned"),
+      lifecycleState: (initial.lifecycleState ?? "active") as VehicleRecordV1["lifecycleState"],
     });
+    setFormOpen(true);
     setMessage("");
   }
-  function closeForm() { setEditing(null); setForm(EMPTY_VEHICLE); setFormOpen(false); }
+
+  function updateField<K extends keyof VehicleForm>(field: K, value: VehicleForm[K]) {
+    setForm(previous => ({ ...previous, [field]: value }));
+    updateQueue.current = updateQueue.current.then(async () => {
+      const current = copyRef.current;
+      if (!current) return;
+      const storedValue = field === "yearOfManufacture" ? (value === "" ? undefined : Number(value)) : value;
+      const next = await services.formRuntime.update(VEHICLE_FORM_V1, current, field, storedValue);
+      copyRef.current = next;
+      setCopy(next);
+    }).catch(error => {
+      setMessage(error instanceof Error ? error.message : "Vehicle draft could not be saved.");
+    });
+  }
+
+  function closeForm() {
+    setEditing(null); setForm(EMPTY_VEHICLE); setFormOpen(false);
+    setCopy(undefined); copyRef.current = undefined; instanceIdRef.current = "";
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const year = Number(form.yearOfManufacture);
-    if (!Number.isSafeInteger(year) || year < 1) { setMessage("Enter a valid year of manufacture."); return; }
-    const data: VehicleRecordV1 = {
-      schemaVersion: 1, registrationNumber: form.registrationNumber.trim().toUpperCase(),
-      make: form.make.trim(), model: form.model.trim(), vehicleType: form.vehicleType.trim(),
-      fuelType: form.fuelType.trim(), yearOfManufacture: year, ownership: form.ownership.trim(),
-      lifecycleState: form.lifecycleState,
-    };
     setSaving(true); setMessage("");
     try {
-      const service = services.vehicles;
-      if (editing) {
-        await service.update({ id: editing.id, expectedRevision: editing.revision, data });
-        setMessage("Vehicle details updated.");
-      } else {
-        await service.create(data, services.recordSource);
-        setMessage("Vehicle record created.");
-      }
+      await updateQueue.current;
+      const current = copyRef.current;
+      if (!current) throw new Error("vehicle_form_not_ready");
+      await services.formRuntime.save(VEHICLE_FORM_V1, current);
       closeForm();
-      setVehicles(await service.list());
+      setMessage(editing ? "Vehicle details updated." : "Vehicle record created.");
+      await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Vehicle could not be saved.");
     } finally { setSaving(false); }
@@ -137,25 +171,26 @@ export function VehicleSection() {
 
   return <div className="admin-capability-panel">
     <p className="admin-hint">Vehicle owns canonical registration identity and lifecycle. Registration number cannot be changed after creation.</p>
-    {!formOpen && <button className="admin-primary" type="button" onClick={() => { setEditing(null); setForm(EMPTY_VEHICLE); setFormOpen(true); }}>Add vehicle</button>}
+    {!formOpen && <button className="admin-primary" type="button" onClick={() => { void beginForm(); }}>Add vehicle</button>}
     {formOpen && <form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
-        <label>Registration number<input required disabled={!!editing} value={form.registrationNumber} onChange={event => setForm({ ...form, registrationNumber: event.target.value })} /></label>
-        <label>Make<input required value={form.make} onChange={event => setForm({ ...form, make: event.target.value })} /></label>
-        <label>Model<input required value={form.model} onChange={event => setForm({ ...form, model: event.target.value })} /></label>
-        <label>Vehicle type<input required value={form.vehicleType} onChange={event => setForm({ ...form, vehicleType: event.target.value })} /></label>
-        <label>Fuel type<select value={form.fuelType} onChange={event => setForm({ ...form, fuelType: event.target.value })}><option>Diesel</option><option>Petrol</option><option>CNG</option><option>Electric</option><option>Hybrid</option><option>Other</option></select></label>
-        <label>Year of manufacture<input required type="number" min="1" step="1" value={form.yearOfManufacture} onChange={event => setForm({ ...form, yearOfManufacture: event.target.value })} /></label>
-        <label>Ownership<select value={form.ownership} onChange={event => setForm({ ...form, ownership: event.target.value })}><option>Owned</option><option>Financed</option><option>Leased</option><option>Attached</option><option>Other</option></select></label>
-        <label>Lifecycle status<select value={form.lifecycleState} onChange={event => setForm({ ...form, lifecycleState: event.target.value as VehicleRecordV1["lifecycleState"] })}><option value="active">Active</option><option value="inactive">Inactive</option><option value="sold">Sold</option></select></label>
+        <label>Registration number<input required disabled={!!editing} value={form.registrationNumber} onChange={event => updateField("registrationNumber", event.target.value)} /></label>
+        <label>Make<input required value={form.make} onChange={event => updateField("make", event.target.value)} /></label>
+        <label>Model<input required value={form.model} onChange={event => updateField("model", event.target.value)} /></label>
+        <label>Vehicle type<input required value={form.vehicleType} onChange={event => updateField("vehicleType", event.target.value)} /></label>
+        <label>Fuel type<select value={form.fuelType} onChange={event => updateField("fuelType", event.target.value)}><option>Diesel</option><option>Petrol</option><option>CNG</option><option>Electric</option><option>Hybrid</option><option>Other</option></select></label>
+        <label>Year of manufacture<input required type="number" min="1" step="1" value={form.yearOfManufacture} onChange={event => updateField("yearOfManufacture", event.target.value)} /></label>
+        <label>Ownership<select value={form.ownership} onChange={event => updateField("ownership", event.target.value)}><option>Owned</option><option>Financed</option><option>Leased</option><option>Attached</option><option>Other</option></select></label>
+        <label>Lifecycle status<select value={form.lifecycleState} onChange={event => updateField("lifecycleState", event.target.value as VehicleRecordV1["lifecycleState"])}><option value="active">Active</option><option value="inactive">Inactive</option><option value="sold">Sold</option></select></label>
       </div>
-      <div className="loan-form-actions"><button className="admin-primary" type="submit" disabled={saving}>{saving ? "Saving…" : editing ? "Save vehicle" : "Create vehicle"}</button><button className="admin-secondary" type="button" disabled={saving} onClick={closeForm}>Cancel</button></div>
+      <div className="loan-form-actions"><button className="admin-primary" type="submit" disabled={saving || !copy}>{saving ? "Saving…" : editing ? "Save vehicle" : "Create vehicle"}</button><button className="admin-secondary" type="button" disabled={saving} onClick={closeForm}>Cancel</button></div>
+      {copy && <small className="admin-hint">Draft status · {copy.status.replaceAll("_", " ")} · revision {copy.revision}</small>}
     </form>}
     {loading ? <p className="admin-hint">Loading vehicles…</p> : vehicles.length === 0
       ? <p className="admin-hint">No vehicle records yet.</p>
       : <div className="admin-capability-records">{vehicles.map(vehicle => <article className="admin-capability-record" key={vehicle.id}>
         <div><strong>{vehicle.data.registrationNumber}</strong><small>{vehicle.data.make} {vehicle.data.model} · {vehicle.data.yearOfManufacture}</small><small>{vehicle.data.vehicleType} · {vehicle.data.fuelType} · {vehicle.data.ownership}</small></div>
-        <div className="admin-capability-record-actions"><span>{vehicle.data.lifecycleState}</span><button className="admin-secondary" type="button" onClick={() => edit(vehicle)}>Edit</button></div>
+        <div className="admin-capability-record-actions"><span>{vehicle.data.lifecycleState}</span><button className="admin-secondary" type="button" onClick={() => { void beginForm(vehicle); }}>Edit</button></div>
       </article>)}</div>}
     {message && <p className="admin-message" role="status">{message}</p>}
   </div>;
