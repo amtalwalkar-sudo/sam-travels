@@ -52,6 +52,9 @@ android {
     }
 
     sourceSets {
+        main {
+            assets.srcDirs += [new File(rootProject.projectDir, '../contracts')]
+        }
         androidTest {
             assets.srcDirs += [
                 new File(rootProject.projectDir, '../fixtures'),
