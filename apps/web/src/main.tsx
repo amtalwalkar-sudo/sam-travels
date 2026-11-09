@@ -31,6 +31,9 @@ import {
   VEHICLE_FORM_V1,
   DRIVER_FORM_V1,
   COMPLIANCE_FORM_V1,
+  MAINTENANCE_VISIT_FORM_V1,
+  MAINTENANCE_EXPENSE_FORM_V1,
+  MAINTENANCE_RATE_FORM_V1,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -121,6 +124,62 @@ async function bootstrap(): Promise<void> {
             },
             source: getApplicationRecordSource(),
             businessDate: validFrom,
+          });
+        }
+        if (command.formId === MAINTENANCE_VISIT_FORM_V1.id) {
+          const values = command.values;
+          const itemsValue = values.itemsJson;
+          if (typeof itemsValue !== "string") throw new Error("maintenance_items_required");
+          let items: unknown;
+          try { items = JSON.parse(itemsValue); } catch { throw new Error("maintenance_items_invalid"); }
+          if (!Array.isArray(items)) throw new Error("maintenance_items_invalid");
+          return getApplicationMaintenanceService().createVisit({
+            uuid: command.instanceId,
+            source: getApplicationRecordSource(),
+            data: {
+              vehicleId: String(values.vehicleId ?? ""),
+              maintenanceDate: String(values.maintenanceDate ?? ""),
+              maintenanceType: String(values.maintenanceType ?? "").trim(),
+              description: String(values.description ?? "").trim(),
+              items: items as import("../../../packages/application/src").MaintenanceExpenseItemV1[],
+              ...(typeof values.odometerKm === "number" ? { odometerKm: values.odometerKm } : {}),
+              ...(typeof values.provider === "string" && values.provider.trim() ? { provider: values.provider.trim() } : {}),
+              ...(typeof values.nextServiceDate === "string" && values.nextServiceDate ? { nextServiceDate: values.nextServiceDate } : {}),
+              ...(typeof values.nextServiceKm === "number" ? { nextServiceKm: values.nextServiceKm } : {}),
+            },
+          });
+        }
+        if (command.formId === MAINTENANCE_EXPENSE_FORM_V1.id) {
+          const values = command.values;
+          const amountPaise = values.amountPaise;
+          if (typeof amountPaise !== "number" || !Number.isSafeInteger(amountPaise) || amountPaise < 0) {
+            throw new Error("maintenance_expense_amount_invalid");
+          }
+          return getApplicationMaintenanceService().createExpense({
+            uuid: command.instanceId,
+            source: getApplicationRecordSource(),
+            data: {
+              vehicleId: String(values.vehicleId ?? ""),
+              expenseDate: String(values.expenseDate ?? ""),
+              expenseName: String(values.expenseName ?? "").trim(),
+              description: String(values.description ?? "").trim(),
+              amountPaise,
+              ...(typeof values.odometerKm === "number" ? { odometerKm: values.odometerKm } : {}),
+              ...(typeof values.provider === "string" && values.provider.trim() ? { provider: values.provider.trim() } : {}),
+            },
+          });
+        }
+        if (command.formId === MAINTENANCE_RATE_FORM_V1.id) {
+          const values = command.values;
+          const ratePaisePerKm = values.ratePaisePerKm;
+          if (typeof ratePaisePerKm !== "number" || !Number.isSafeInteger(ratePaisePerKm) || ratePaisePerKm < 0) {
+            throw new Error("maintenance_rate_invalid");
+          }
+          return getApplicationMaintenanceService().setRate({
+            vehicleId: String(values.vehicleId ?? ""),
+            ratePaisePerKm,
+            commandId: command.instanceId,
+            source: getApplicationRecordSource(),
           });
         }
         if (command.formId === DRIVER_FORM_V1.id) {
