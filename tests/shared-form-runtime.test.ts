@@ -8,6 +8,7 @@ import {
 class MemoryCopies implements FormWorkingCopyRepository {
   private readonly rows = new Map<string, FormWorkingCopy>();
   async get(formId: string, instanceId: string) { return this.rows.get(formId + ":" + instanceId); }
+  async list(formId: string) { return [...this.rows.values()].filter(copy => copy.formId === formId); }
   async put(copy: FormWorkingCopy, expectedRevision?: number) {
     const key = copy.formId + ":" + copy.instanceId;
     const current = this.rows.get(key);
@@ -165,6 +166,19 @@ describe("shared form runtime", () => {
     const reopened = await runtime.open(definition, "trip-123");
     expect(reopened).toMatchObject({ status: "in_progress", revision: 1, values: { farePaise: 0 }, operationId: "operation-1" });
     expect(reopened).toEqual(edited);
+  });
+
+  it("discovers only in-progress drafts for the requested form definition", async () => {
+    const copies = new MemoryCopies();
+    const runtime = new SharedFormRuntime(copies, { submit: async () => undefined }, undefined, () => "draft-operation");
+    const first = await runtime.open(definition, "trip-draft-1");
+    await runtime.update(definition, first, "farePaise", 0);
+    await runtime.open(definition, "trip-draft-2");
+    const other = { ...definition, id: "work.trip-toll" };
+    await runtime.open(other, "trip-draft-3");
+    const drafts = await runtime.listDrafts(definition);
+    expect(drafts.map(copy => copy.instanceId)).toEqual(["trip-draft-1", "trip-draft-2"]);
+    expect(drafts[0]).toMatchObject({ status: "in_progress", values: { farePaise: 0 } });
   });
 
   it("submits once and marks the working copy submitted only after durable success", async () => {
