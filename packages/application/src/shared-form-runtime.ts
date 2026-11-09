@@ -2,7 +2,7 @@ import type { FormSubmissionPort } from "./form-submission-port";
 
 export type FormFieldDefinition = Readonly<{ id: string; label: string; type: "text" | "number" | "date" | "time" | "select" | "checkbox"; required?: boolean; maxLength?: number; options?: readonly string[] }>;
 export type FormDefinition = Readonly<{ id: string; version: number; owner: string; purpose: string; primaryAction: "save" | "submit"; fields: readonly FormFieldDefinition[] }>;
-export type FormWorkingCopy = Readonly<{ formId: string; formVersion: number; instanceId: string; revision: number; status: "in_progress" | "pending" | "submitted"; values: Readonly<Record<string, unknown>>; operationId: string; updatedAt: string }>;
+export type FormWorkingCopy = Readonly<{ formId: string; formVersion: number; instanceId: string; revision: number; status: "in_progress" | "pending" | "saved" | "submitted"; values: Readonly<Record<string, unknown>>; operationId: string; updatedAt: string }>;
 export interface FormWorkingCopyRepository {
   get(formId: string, instanceId: string): Promise<FormWorkingCopy | undefined>;
   put(copy: FormWorkingCopy, expectedRevision?: number): Promise<void>;
@@ -16,12 +16,12 @@ function validDate(value: unknown): value is string {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-export function validateFormValues(definition: FormDefinition, values: Readonly<Record<string, unknown>>): FormValidationIssue[] {
+export function validateFormValues(definition: FormDefinition, values: Readonly<Record<string, unknown>>, includeRequired = true): FormValidationIssue[] {
   const issues: FormValidationIssue[] = [];
   for (const field of definition.fields) {
     const value = values[field.id];
     const empty = value === undefined || value === null || value === "";
-    if (field.required && empty) { issues.push({ fieldId: field.id, code: "required", message: field.label + " is required." }); continue; }
+    if (includeRequired && field.required && empty) { issues.push({ fieldId: field.id, code: "required", message: field.label + " is required." }); continue; }
     if (empty) continue;
     if (field.type === "text" && typeof value !== "string") issues.push({ fieldId: field.id, code: "type", message: field.label + " must be text." });
     else if (field.type === "text" && field.maxLength !== undefined && (value as string).length > field.maxLength) issues.push({ fieldId: field.id, code: "max_length", message: field.label + " is too long." });
@@ -55,33 +55,43 @@ export class SharedFormRuntime {
 
   async update(definition: FormDefinition, copy: FormWorkingCopy, fieldId: string, value: unknown): Promise<FormWorkingCopy> {
     this.assertDefinition(definition);
-    if (copy.formId !== definition.id || copy.formVersion !== definition.version || copy.status !== "in_progress") throw new Error("form_copy_not_editable");
+    if (copy.formId !== definition.id || copy.formVersion !== definition.version || !["in_progress", "saved"].includes(copy.status)) throw new Error("form_copy_not_editable");
     if (!definition.fields.some(field => field.id === fieldId)) throw new Error("unknown_form_field");
     const current = await this.workingCopies.get(definition.id, copy.instanceId);
-    if (!current || current.revision !== copy.revision || current.status !== "in_progress") throw new Error("form_copy_revision_conflict");
-    const next: FormWorkingCopy = { ...copy, revision: copy.revision + 1, values: { ...copy.values, [fieldId]: value }, updatedAt: this.now() };
+    if (!current || current.revision !== copy.revision || !["in_progress", "saved"].includes(current.status)) throw new Error("form_copy_revision_conflict");
+    const next: FormWorkingCopy = { ...copy, revision: copy.revision + 1, status: "in_progress", values: { ...copy.values, [fieldId]: value }, updatedAt: this.now() };
     await this.workingCopies.put(next, copy.revision);
     return next;
   }
 
+  async save(definition: FormDefinition, copy: FormWorkingCopy): Promise<unknown> {
+    if (definition.primaryAction !== "save") throw new Error("form_primary_action_is_submit");
+    return this.complete(definition, copy, "save", false, "saved");
+  }
+
   async submit(definition: FormDefinition, copy: FormWorkingCopy): Promise<unknown> {
-    this.assertDefinition(definition);
     if (definition.primaryAction !== "submit") throw new Error("form_primary_action_is_save");
-    if (copy.formId !== definition.id || copy.formVersion !== definition.version || copy.status !== "in_progress") throw new Error("form_copy_not_submittable");
+    return this.complete(definition, copy, "submit", true, "submitted");
+  }
+
+  private async complete(definition: FormDefinition, copy: FormWorkingCopy, action: "save" | "submit",
+    includeRequired: boolean, completedStatus: "saved" | "submitted"): Promise<unknown> {
+    this.assertDefinition(definition);
+    if (copy.formId !== definition.id || copy.formVersion !== definition.version || !["in_progress", "saved"].includes(copy.status)) throw new Error("form_copy_not_submittable");
     const current = await this.workingCopies.get(definition.id, copy.instanceId);
-    if (!current || current.revision !== copy.revision || current.status !== "in_progress") throw new Error("form_copy_revision_conflict");
-    const issues = validateFormValues(definition, current.values);
+    if (!current || current.revision !== copy.revision || !["in_progress", "saved"].includes(current.status)) throw new Error("form_copy_revision_conflict");
+    const issues = validateFormValues(definition, current.values, includeRequired);
     if (issues.length) { const error = new Error("form_validation_failed"); Object.assign(error, { issues }); throw error; }
-    const key = definition.id + ":" + copy.instanceId + ":" + copy.operationId;
+    const key = definition.id + ":" + copy.instanceId + ":" + copy.operationId + ":" + action;
     const active = this.submissions.get(key);
     if (active) return active;
     const operation = this.submissionPort.submit({ formId: definition.id, formVersion: definition.version,
-      operationId: copy.operationId, values: current.values });
+      operationId: copy.operationId, action, values: current.values });
     this.submissions.set(key, operation);
     try {
       const result = await operation;
-      const submitted: FormWorkingCopy = { ...current, revision: current.revision + 1, status: "submitted", updatedAt: this.now() };
-      await this.workingCopies.put(submitted, current.revision);
+      const completed: FormWorkingCopy = { ...current, revision: current.revision + 1, status: completedStatus, updatedAt: this.now() };
+      await this.workingCopies.put(completed, current.revision);
       return result;
     } finally { this.submissions.delete(key); }
   }
