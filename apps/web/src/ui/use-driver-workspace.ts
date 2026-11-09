@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
-import { createPlatformRepository, getPlatformRecordSource } from "../native-store";
+import { getPlatformRecordSource } from "../native-store";
 import {
   createDriverWorkflow,
   disableNativeOverlay,
