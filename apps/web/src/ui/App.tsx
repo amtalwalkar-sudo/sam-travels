@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
+import type { AdminPresentationServices } from "../../../../packages/application/src";
+import type { AtomicRecordRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
 import { nativeOverlayAvailable } from "../driver-workflow";
@@ -6,7 +8,8 @@ import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
-import { ApplicationShell, NavigationIcon, primaryShellDefinition, type PrimaryScreen } from "./ApplicationShell";
+import { AdminServicesProvider } from "./admin-services-context";
+import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
 const shellDefinition = primaryShellDefinition;
@@ -28,9 +31,12 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export function App() {
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository }>;
+
+/** The shell renderer is replaceable without changing feature screens or application workflows. */
+export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
-  const workspace = useDriverWorkspace();
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     overlayMessage, driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
@@ -39,7 +45,7 @@ export function App() {
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
-    <ApplicationShell activeScreen={activeScreen} onNavigate={setActiveScreen}
+    <ShellRenderer shellDefinition={shellDefinition} activeScreen={activeScreen} onNavigate={setActiveScreen}
       settingsContent={<>
         <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
           <i />Internet {enabled ? "On" : "Off"}
@@ -115,15 +121,15 @@ export function App() {
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
             </section>
 
-            <FeatureScreenHost mountPoint="Drive" context={{ activeScreen }} />
+            <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" context={{ activeScreen }} />
         </div>
         {activeScreen === "Timeline" && (
-          <FeatureScreenHost mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
+          <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <AdminWorkspace />}
-    </ApplicationShell>
+        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
+    </ShellRenderer>
   );
 }

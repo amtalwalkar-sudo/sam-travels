@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import {
-  getApplicationDriverRecordsService, getApplicationDriverAssignmentService,
-  getApplicationVehicleService, getApplicationRecordSource,
-  getApplicationComplianceService,
-  type DriverRecordV1, type ComplianceRecordV1,
-} from "../../../../packages/application/src";
+import type { AdminPresentationServices, DriverRecordV1, ComplianceRecordV1 } from "../../../../packages/application/src";
+import { useAdminServices } from "./admin-services-context";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import "./AdminWorkspace.css";
 export { MaintenanceSection } from "./AdminMaintenance";
 
-type Driver = Awaited<ReturnType<ReturnType<typeof getApplicationDriverRecordsService>["list"]>>[number];
-type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];
+type Driver = Awaited<ReturnType<AdminPresentationServices["driverRecords"]["list"]>>[number];
+type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Compliance = RecordEnvelope<ComplianceRecordV1>;
 const today = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -21,9 +17,10 @@ const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "curren
 const optional = (value: string) => value.trim() || undefined;
 
 export function DriverSection() {
+  const services = useAdminServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<ReturnType<typeof getApplicationDriverAssignmentService>["getHistory"]>>>>({});
+  const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<AdminPresentationServices["driverAssignments"]["getHistory"]>>>>({});
   const [editing, setEditing] = useState<Driver | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
@@ -36,8 +33,8 @@ export function DriverSection() {
   const [message, setMessage] = useState("");
   const refresh = useCallback(async () => {
     try {
-      const [d,v] = await Promise.all([getApplicationDriverRecordsService().list(), getApplicationVehicleService().list()]);
-      const hs = await Promise.all(d.map(async x => [x.data.driverId, await getApplicationDriverAssignmentService().getHistory(x.data.driverId)] as const));
+      const [d,v] = await Promise.all([services.driverRecords.list(), services.vehicles.list()]);
+      const hs = await Promise.all(d.map(async x => [x.data.driverId, await services.driverAssignments.getHistory(x.data.driverId)] as const));
       setDrivers(d); setVehicles(v); setHistories(Object.fromEntries(hs));
     } catch (e) { setMessage(e instanceof Error ? e.message : "Could not load drivers."); }
   }, []);
@@ -58,14 +55,14 @@ export function DriverSection() {
         selectedForWork: status === "active" ? (editing?.data.selectedForWork ?? false) : false };
       if (editing) {
         if (status === "inactive") {
-          const history = await getApplicationDriverAssignmentService().getHistory(driverId);
+          const history = await services.driverAssignments.getHistory(driverId);
           if (history?.data.assignments.some(item => !item.unassignedAt)) {
-            await getApplicationDriverAssignmentService().unassign({ driverId, expectedRevision: history.revision, unassignedAt: new Date().toISOString() });
+            await services.driverAssignments.unassign({ driverId, expectedRevision: history.revision, unassignedAt: new Date().toISOString() });
           }
         }
-        await getApplicationDriverRecordsService().update({driverId, expectedRevision:editing.revision, data});
+        await services.driverRecords.update({driverId, expectedRevision:editing.revision, data});
       }
-      else await getApplicationDriverRecordsService().create(data, getApplicationRecordSource());
+      else await services.driverRecords.create(data, services.recordSource);
       setFormOpen(false); setMessage(editing ? "Driver updated." : "Driver created."); await refresh();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Driver could not be saved."); }
     finally { setBusy(false); }
@@ -75,9 +72,9 @@ export function DriverSection() {
     if (!vehicleId) { setMessage("Choose an active vehicle first."); return; }
     setBusy(true); setMessage("");
     try {
-      await getApplicationDriverAssignmentService().assign({
+      await services.driverAssignments.assign({
         driverId:driver.data.driverId, vehicleId, assignmentId:crypto.randomUUID(),
-        assignedAt:new Date().toISOString(), source:getApplicationRecordSource(),
+        assignedAt:new Date().toISOString(), source:services.recordSource,
       });
       setMessage("Vehicle assignment saved. Previous active assignment, if any, was closed in history.");
       await refresh();
@@ -88,7 +85,7 @@ export function DriverSection() {
     if (driver.data.lifecycleState !== "active") return;
     setBusy(true); setMessage("");
     try {
-      const service = getApplicationDriverRecordsService();
+      const service = services.driverRecords;
       const all = await service.list();
       for (const current of all) {
         const selectedForWork = current.data.driverId === driver.data.driverId;
@@ -106,7 +103,7 @@ export function DriverSection() {
     if (!history) return;
     setBusy(true); setMessage("");
     try {
-      await getApplicationDriverAssignmentService().unassign({
+      await services.driverAssignments.unassign({
         driverId:driver.data.driverId, expectedRevision:history.revision, unassignedAt:new Date().toISOString(),
       });
       setMessage("Driver unassigned."); await refresh();
@@ -162,6 +159,7 @@ function complianceStatus(date: string): "Valid"|"Expiring soon"|"Expired" {
   return days<0 ? "Expired" : days<=15 ? "Expiring soon" : "Valid";
 }
 export function ComplianceSection() {
+  const services = useAdminServices();
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [records,setRecords]=useState<Compliance[]>([]);
   const [vehicleId,setVehicleId]=useState("");
@@ -176,7 +174,7 @@ export function ComplianceSection() {
   const [message,setMessage]=useState("");
   const refresh=useCallback(async()=>{
     try{
-      const [v,r]=await Promise.all([getApplicationVehicleService().list(),getApplicationComplianceService().list()]);
+      const [v,r]=await Promise.all([services.vehicles.list(),services.compliance.list()]);
       setVehicles(v);setRecords(r);setVehicleId(current=>current||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"");
     }catch(e){setMessage(e instanceof Error?e.message:"Could not load compliance records.");}
   },[]);
@@ -190,7 +188,7 @@ export function ComplianceSection() {
       const data:ComplianceRecordV1={schemaVersion:1,vehicleId,complianceName:name.trim(),validFrom:from,validTo:to,totalCostPaise:paise,
         ...(optional(documentRef)?{supportingDocumentRef:optional(documentRef)}:{}),
         ...(renewFrom?{renewedFromRecordId:renewFrom}:{})};
-      await getApplicationComplianceService().create({uuid:crypto.randomUUID(),data,source:getApplicationRecordSource(),businessDate:from});
+      await services.compliance.create({uuid:crypto.randomUUID(),data,source:services.recordSource,businessDate:from});
       setFormOpen(false);setName("");setCost("");setDocumentRef("");setRenewFrom("");setMessage("Compliance record saved.");await refresh();
     }catch(e){setMessage(e instanceof Error?e.message:"Compliance record could not be saved.");}
     finally{setBusy(false);}

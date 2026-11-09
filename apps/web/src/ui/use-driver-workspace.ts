@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
-import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
-import { createPlatformRepository, getPlatformRecordSource } from "../native-store";
+import { getPlatformRecordSource } from "../native-store";
 import {
   createDriverWorkflow,
   disableNativeOverlay,
@@ -10,13 +10,14 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { dispatchCommittedFeatureEvent, getApplicationRuntimeRegistry, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace() {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -41,11 +42,11 @@ export function useDriverWorkspace() {
 
   useEffect(() => {
     let live = true;
-    createPlatformRepository()
-      .then(async (repository) => {
+    setRepo(platformRepository);
+    platformRepository.getNetworkEnabled()
+      .then(value => {
         if (!live) return;
-        setRepo(repository);
-        setEnabled(await repository.getNetworkEnabled());
+        setEnabled(value);
         setReady(true);
       })
       .catch((cause) => {
@@ -56,7 +57,7 @@ export function useDriverWorkspace() {
         }
       });
     return () => { live = false; };
-  }, []);
+  }, [platformRepository]);
 
   useEffect(() => {
     let live = true;
@@ -69,8 +70,7 @@ export function useDriverWorkspace() {
           return;
         }
 
-        const runtime = getApplicationRuntimeRegistry();
-        const platformRecords = await createPlatformRepository();
+        const platformRecords = platformRepository;
         const selection = new WorkDriverSelectionService(platformRecords, repository);
         const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();

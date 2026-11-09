@@ -20,7 +20,7 @@ Initial feature areas:
 - Admin
 - Backup and Recovery
 
-These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`. The current built-in registry has Platform, Work/Shift, and Log Book registered as persistent; Finance, Vehicle, Performance, Admin, and Backup remain non-persistent placeholders until their own data models and persistence adapters are implemented. A placeholder cannot enable business writes without a complete persistent-feature contract and registration.
+These are product areas, not permission to build a generic fleet platform. The runtime registry requires every module to explicitly declare `persistent` or `non-persistent`. The current declaration inventory marks Platform, Work/Shift, Log Book, Business Settings, Vehicle, Driver Records, Compliance, Maintenance, and Finance as persistent; Timeline, Performance, Admin, and Backup & Recovery are non-persistent. These classifications describe the current registered contracts, not a claim that every workflow is complete. Performance remains an intentional product placeholder. Admin is a presentation/access surface and does not own the records of the capabilities it exposes. A feature may enable business writes only through its complete persistent-feature contract and registration.
 
 ## Capability ownership
 
@@ -44,6 +44,22 @@ The cohesive package descriptor and onboarding sequence are implemented in [FEAT
 - No catch-all file may own unrelated capabilities. Split files by cohesive responsibility; avoid minified source and giant components/services/repositories.
 - Keep source files at or below 400 lines and 24 KB. Exceptions require an explicit reviewed architecture decision and should be temporary.
 
+## Single authority and application wiring
+
+The application uses one authoritative composition path. The outer application entry point (apps/web/src/main.tsx) is the only composition root: it validates the generated feature catalogue, initializes the application runtime registry once, binds the platform repository and feature application services, registers platform backup participants, initializes lifecycle coordination, and only then mounts the UI.
+
+The application layer owns the singleton runtime registry and its lifecycle. Feature packages publish versioned descriptors through their public entry points; they do not create or mutate application-wide registries. The deterministic generated feature catalogue is the sole inventory of discovered feature extensions. Do not add a second hand-maintained extension list, runtime directory scanner, dynamic loader, or alternate registry.
+
+There is one authority per concern, not one catch-all owner for the whole system:
+- Domain and feature contracts own business meaning, invariants, calculations, and capability data.
+- Application use cases own orchestration and command/query boundaries.
+- Platform adapters own Room, IndexedDB, native bridge, and device-specific persistence.
+- The runtime registry owns validated feature/contribution metadata and dependency coordination; it does not replace feature services or repositories.
+- The application composition root owns construction and one-time wiring; it does not become a business-rule owner.
+- The presentation shell owns global framing and navigation rendering; feature presentation contributions own their screen behaviour.
+- FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md owns shared form mechanics. Feature contracts own field meaning and authoritative business validation.
+
+A concern must not acquire competing registries, duplicated durable state, parallel business services, alternate write paths, or shadow configuration. If an existing implementation requires a separate platform-specific adapter, that adapter must implement the same authoritative contract and must not become a second business authority. Additions must extend the existing owner and registration path unless a reviewed contract explicitly establishes a new owner.
 ## Driver workflow product contract
 
 The approved shift, trip, odometer, fare, toll, parking, operational-date, and shared PWA/native overlay product rules are defined in [DRIVER_WORKFLOW_CONTRACT.md](DRIVER_WORKFLOW_CONTRACT.md). That contract supplements this module contract; it does not change feature ownership or persistence boundaries.

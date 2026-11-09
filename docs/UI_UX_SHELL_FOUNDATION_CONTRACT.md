@@ -14,7 +14,7 @@ The application may use any visual language. Consistency is optional and must ne
 This is a presentation-foundation contract, not a replacement for existing architecture or runtime contracts. Apply the following precedence:
 
 1. Domain, transaction, persistence, recovery, security, and platform contracts remain authoritative for their respective semantics.
-2. `FEATURE_MODULE_CONTRACT.md` is authoritative for feature ownership, public module boundaries, forms as presentation adapters, and form/data/application contracts. There is no separate `FORM_CONTRACT.md` or `UNIVERSAL_FORM_CONTRACT.md` in the current repository; do not create a competing form framework.
+2. `FEATURE_MODULE_CONTRACT.md` is authoritative for feature ownership, public module boundaries, and feature/application contracts. `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` is the single authority for shared form mechanics and form behaviour; feature-owned business meaning and validation remain with the relevant feature contracts. Do not create a parallel form framework or a second field-definition authority.
 3. `APPLICATION_LIFECYCLE_CONTRACT.md` governs startup, resume, shutdown, authoritative state readiness, and operational-action gates.
 4. `PWA_LIFECYCLE_CONTRACT.md` governs browser-only PWA delivery, cache, service-worker, and browser lifecycle responsibilities.
 5. `ANDROID_NATIVE_CONTRACT.md` and the runtime/bridge contracts govern native Android, Room ownership, native overlay, and bridge behavior.
@@ -160,7 +160,7 @@ If a UI requirement appears to conflict with one of these authorities, preserve 
 - Components are composable and independently testable with contract-compatible substitutes or test doubles.
 - A component implementation can be replaced without rewriting unrelated components or changing feature business behaviour.
 - Navigation presentation can be replaced without changing destination registration; screen layout can be replaced without changing feature logic; form rendering can be replaced without changing form data/application contracts; theme implementation can be replaced without changing runtime behaviour.
-- Form-specific ownership, typed field/value contracts, validation, and application wiring remain governed by `FEATURE_MODULE_CONTRACT.md`; this contract governs only presentation composition and renderer replaceability.
+- Shared form mechanics, versioned form definitions, form lifecycle, and form presentation contracts are governed by `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`. Feature ownership, business meaning, authoritative validation, and application use cases remain governed by `FEATURE_MODULE_CONTRACT.md` and the owning feature contract; this document governs only presentation composition and renderer replaceability.
 - Dependency graphs must be acyclic. Shared primitives must not become catch-all modules or create reverse dependencies from lower-level components to higher-level composition.
 - Consistency is achieved through shared contracts and design tokens, not by coupling components to one another's implementation.
 - Exceptions are explicit and justified; avoid creating a framework for every small visual element.

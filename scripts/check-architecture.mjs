@@ -264,8 +264,65 @@ const workspaceConsumer = await readFile(path.join(root, "apps/web/src/ui/use-dr
 const registryCall = applicationEntry.indexOf("initializeApplicationRuntimeRegistry(");
 const uiMount = applicationEntry.indexOf("createRoot(");
 if (registryCall < 0 || uiMount < 0 || registryCall > uiMount) failures.push("apps/web/src/main.tsx: application runtime must initialize before UI mounting");
+if ((applicationEntry.match(/initializeApplicationRuntimeRegistry\s*\(/g) ?? []).length !== 1) {
+  failures.push("apps/web/src/main.tsx: exactly one application runtime registry initialization is permitted");
+}
+if ((applicationEntry.match(/createPlatformRepository\s*\(/g) ?? []).length !== 1) {
+  failures.push("apps/web/src/main.tsx: exactly one authoritative platform repository construction is permitted");
+}
+
 if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !applicationRegistry.includes("let applicationRuntimeRegistry") || !applicationRegistry.includes("Application runtime registry has not been initialized")) failures.push("packages/application/src/runtime-registry.ts: application layer must own validated registry construction and singleton lifecycle");
-if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("getApplicationRuntimeRegistry()")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must reuse the application-layer registry singleton");
+if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("useDriverWorkspace(runtime: RuntimeRegistry")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must receive the application-layer registry singleton");
+const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
+const shellPresentation = await readFile(path.join(root, "apps/web/src/ui/ApplicationShell.tsx"), "utf8");
+const featureCatalogue = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
+if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellProps>") ||
+    !appPresentation.includes("<ShellRenderer shellDefinition={shellDefinition}")) {
+  failures.push("apps/web/src/ui/App.tsx: application shell must be replaceable through the injected shell renderer contract");
+}
+if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition") ||
+    !shellPresentation.includes("shellDefinition.navigation.map")) {
+  failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
+}
+if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
+    !appPresentation.includes('FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />}')) {
+  failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through FeatureScreenHost");
+}
+
+const featureScreenHost = await readFile(path.join(root, "apps/web/src/ui/FeatureScreenHost.tsx"), "utf8");
+const workspaceHook = await readFile(path.join(root, "apps/web/src/ui/use-driver-workspace.ts"), "utf8");
+const adminServicesContext = await readFile(path.join(root, "apps/web/src/ui/admin-services-context.tsx"), "utf8");
+if (!featureScreenHost.includes("registry: RuntimeRegistry") || featureScreenHost.includes("getApplicationRuntimeRegistry")) {
+  failures.push("apps/web/src/ui/FeatureScreenHost.tsx: feature presentation hosts must consume the single registry supplied by composition");
+}
+if (!workspaceHook.includes("useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository)") ||
+    workspaceHook.includes("createPlatformRepository") || workspaceHook.includes("getApplicationRuntimeRegistry")) {
+  failures.push("apps/web/src/ui/use-driver-workspace.ts: workspace must reuse injected runtime and platform repository; no second global lookup or repository construction");
+}
+if (!adminServicesContext.includes("AdminPresentationServices") || !adminServicesContext.includes("AdminServicesContext.Provider")) {
+  failures.push("apps/web/src/ui/admin-services-context.tsx: Admin must consume the explicit typed service boundary");
+}
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/ui/")) continue;
+  const content = await readFile(absolute, "utf8");
+  if (/\bgetApplication[A-Z][A-Za-z0-9_]*\s*\(/.test(content)) {
+    failures.push(relative + ": UI components must receive application services; global application-service getters are composition-root-only");
+  }
+  if (/\bcreatePlatformRepository\s*\(/.test(content)) {
+    failures.push(relative + ": UI components must reuse the composition-root platform repository, not construct another repository");
+  }
+}
+for (const absolute of sourceFiles) {
+  const relative = normalize(path.relative(root, absolute));
+  if (!relative.startsWith("apps/web/src/ui/")) continue;
+  if (relative === "apps/web/src/ui/FeatureScreenHost.tsx" || relative === "apps/web/src/ui/use-driver-workspace.ts") continue;
+  const content = await readFile(absolute, "utf8");
+  if (/\bgetApplication(?!RuntimeRegistry)[A-Za-z0-9_]*/.test(content)) {
+    failures.push(relative + ": UI components must receive application services through explicit presentation dependencies, not global service getters");
+  }
+}
+
 for (const absolute of sourceFiles) {
   const relative = normalize(path.relative(root, absolute));
   if (!relative.startsWith("packages/features/")) continue;
@@ -277,6 +334,7 @@ for (const absolute of sourceFiles) {
   if (!relative.startsWith("apps/web/src/")) continue;
   const content = await readFile(absolute, "utf8");
   if (content.includes("initializeApplicationRuntimeRegistry(") && relative !== "apps/web/src/main.tsx") failures.push(relative + ": only the application composition root may initialize the shared registry");
+  if (/initializeApplication[A-Z][A-Za-z0-9_]*\s*\(/.test(content) && relative !== "apps/web/src/main.tsx") failures.push(relative + ": only the application composition root may initialize application services or lifecycle");
 }
 
 if (failures.length) {

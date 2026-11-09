@@ -22,6 +22,14 @@ The six sections are:
 
 Loan is one Admin section but its domain, lifecycle, calculations, and persistence are owned by Finance. Admin is an access/presentation surface, not a second finance ledger or calculation engine.
 
+## Current implementation status and evidence boundary
+
+The current web source contains an AdminWorkspace composition with entry points for Business setup, Vehicle, Driver, Compliance, Loan, and Maintenance. This confirms that an Admin workspace and section-level UI implementations exist; it does not, by itself, prove that every section is complete end to end.
+
+Completion remains governed by the definition above: each section must use its owning capability, persist and reload through the authoritative platform store, participate in complete backup/restore and recovery, and pass the relevant workflow and failure-path tests. A rendered screen or form is not evidence of durable workflow completion.
+
+The Admin workspace is a presentation/access surface. It is registered as a non-persistent Admin presentation contribution and mounted through the shared feature screen host. The single application composition root supplies an explicit, typed service dependency set to the Admin presentation; Admin screens must not call global application-service getters. Admin must not acquire business records, repositories, calculations, or a second service authority.
+
 ## 2. Non-negotiable architecture boundaries
 
 - Preserve the existing application bootstrap, feature-extension registry, public feature entry points, Work/Shift and Log Book workflows, and existing persistence/recovery foundations.
@@ -40,7 +48,7 @@ Loan is one Admin section but its domain, lifecycle, calculations, and persisten
 
 | Admin section / concern | Owning capability | Admin responsibility | Explicit boundary |
 |---|---|---|---|
-| Business start date | Business Settings (new capability unless an existing public owner is found during baseline audit) | Present and edit the one approved business-wide date | Must not impose a lower bound on historical record dates |
+| Business start date | Existing Business Settings capability (`packages/features/business-settings`) | Present and edit the one approved business-wide date | Must not impose a lower bound on historical record dates |
 | Vehicle records and selected-vehicle context | Vehicle | Present vehicle records and selection; pass authoritative vehicle IDs to use cases | Vehicle owns identity/status; selected UI context is not the persisted relationship |
 | Driver records and vehicle assignments | Driver Records (bounded profile/assignment capability) | Present driver details, assignment, reassignment, and history | Must not create another Shift/Work or trip state machine; Work remains authoritative for operational lifecycle |
 | Compliance records and renewals | Compliance | Present vehicle-scoped records, status, gaps/overlaps, renewals, and history | Compliance owns its records and calculation rules; licence expiry remains Driver-owned |

@@ -2,6 +2,17 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import {
   initializeApplicationRuntimeRegistry,
+  getApplicationBusinessSettingsService,
+  getApplicationVehicleService,
+  getApplicationDriverRecordsService,
+  getApplicationDriverAssignmentService,
+  getApplicationComplianceService,
+  getApplicationMaintenanceService,
+  getApplicationFinanceLoanService,
+  getApplicationFinanceLoanPaymentService,
+  getApplicationFinanceLoanPrepaymentService,
+  getApplicationFinanceLoanSettlementService,
+  getApplicationRecordSource,
   initializeApplicationFeatureLifecycle,
   initializeApplicationBusinessSettingsService,
   initializeApplicationVehicleService,
@@ -39,7 +50,7 @@ import "./ui/styles.css";
 
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
 async function bootstrap(): Promise<void> {
-  initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
+  const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBusinessSettingsBrowserBackupParticipant();
   registerVehicleBrowserBackupParticipant();
@@ -64,9 +75,22 @@ async function bootstrap(): Promise<void> {
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
   );
   initializeApplicationFeatureLifecycle(repository);
+  const adminServices = Object.freeze({
+    businessSettings: getApplicationBusinessSettingsService(),
+    vehicles: getApplicationVehicleService(),
+    driverRecords: getApplicationDriverRecordsService(),
+    driverAssignments: getApplicationDriverAssignmentService(),
+    compliance: getApplicationComplianceService(),
+    maintenance: getApplicationMaintenanceService(),
+    financeLoans: getApplicationFinanceLoanService(),
+    financeLoanPayments: getApplicationFinanceLoanPaymentService(),
+    financeLoanPrepayments: getApplicationFinanceLoanPrepaymentService(),
+    financeLoanSettlements: getApplicationFinanceLoanSettlementService(),
+    recordSource: getApplicationRecordSource(),
+  });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App />
+      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
     </React.StrictMode>,
   );
 }

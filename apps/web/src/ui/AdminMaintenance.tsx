@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import {
-  getApplicationVehicleService, getApplicationRecordSource, getApplicationMaintenanceService,
-  type MaintenanceExpenseItemV1,
-} from "../../../../packages/application/src";
+import type { AdminPresentationServices, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
+import { useAdminServices } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
-type Vehicle = Awaited<ReturnType<ReturnType<typeof getApplicationVehicleService>["list"]>>[number];
-type Maintenance = Awaited<ReturnType<ReturnType<typeof getApplicationMaintenanceService>["listVehicleRecords"]>>;
+type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
+type Maintenance = Awaited<ReturnType<AdminPresentationServices["maintenance"]["listVehicleRecords"]>>;
 const today = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
@@ -18,10 +16,11 @@ const optional = (value: string) => value.trim() || undefined;
 type ItemDraft={id:string;description:string;amount:string};
 const newItem=():ItemDraft=>({id:crypto.randomUUID(),description:"",amount:""});
 export function MaintenanceSection(){
+  const services = useAdminServices();
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [vehicleId,setVehicleId]=useState("");
   const [records,setRecords]=useState<Maintenance|null>(null);
-  const [reminders,setReminders]=useState<Awaited<ReturnType<ReturnType<typeof getApplicationMaintenanceService>["getServiceReminderStates"]>>>([]);
+  const [reminders,setReminders]=useState<Awaited<ReturnType<AdminPresentationServices["maintenance"]["getServiceReminderStates"]>>>([]);
   const [mode,setMode]=useState<"visit"|"expense">("visit");
   const [date,setDate]=useState(today());
   const [title,setTitle]=useState("");
@@ -37,11 +36,11 @@ export function MaintenanceSection(){
   const [message,setMessage]=useState("");
   const refresh=useCallback(async(id:string)=>{
     try{
-      const v=await getApplicationVehicleService().list();setVehicles(v);
+      const v=await services.vehicles.list();setVehicles(v);
       const chosen=id||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"";
       setVehicleId(chosen);
       if(chosen){
-        const service = getApplicationMaintenanceService();
+        const service = services.maintenance;
         const [history, states] = await Promise.all([service.listVehicleRecords(chosen), service.getServiceReminderStates(chosen, today())]);
         setRecords(history); setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
       } else { setRecords(null); setReminders([]); }
@@ -51,26 +50,26 @@ export function MaintenanceSection(){
   async function changeVehicle(id:string){
     setVehicleId(id);
     if(!id){setRecords(null);setReminders([]);return;}
-    const service=getApplicationMaintenanceService();
+    const service=services.maintenance;
     const [history,states]=await Promise.all([service.listVehicleRecords(id),service.getServiceReminderStates(id,today())]);
     setRecords(history);setReminders(states.filter(item=>item.dateDue||item.kilometreStatus==="due"||item.kilometreStatus==="odometer_unavailable"));
   }
   async function save(e:FormEvent){
     e.preventDefault();if(!vehicleId)return;setBusy(true);setMessage("");
     try{
-      const service=getApplicationMaintenanceService();
+      const service=services.maintenance;
       const km=odometer.trim()?Number(odometer):undefined;
       if(km!==undefined&&(!Number.isSafeInteger(km)||km<0))throw new Error("Enter a valid odometer reading.");
       if(mode==="visit"){
         const mapped:MaintenanceExpenseItemV1[]=items.map(x=>({id:x.id,description:x.description.trim(),amountPaise:Math.round(Number(x.amount)*100)}));
-        await service.createVisit({uuid:crypto.randomUUID(),source:getApplicationRecordSource(),data:{
+        await service.createVisit({uuid:crypto.randomUUID(),source:services.recordSource,data:{
           vehicleId,maintenanceDate:date,maintenanceType:title.trim(),description:description.trim(),items:mapped,
           ...(km!==undefined?{odometerKm:km}:{}),...(optional(provider)?{provider:optional(provider)}:{}),
           ...(nextDate?{nextServiceDate:nextDate}:{}),...(nextKm.trim()?{nextServiceKm:Number(nextKm)}:{})
         }});
       }else{
         const paise=Math.round(Number(amount)*100);if(!Number.isSafeInteger(paise)||paise<0)throw new Error("Enter a valid expense amount.");
-        await service.createExpense({uuid:crypto.randomUUID(),source:getApplicationRecordSource(),data:{
+        await service.createExpense({uuid:crypto.randomUUID(),source:services.recordSource,data:{
           vehicleId,expenseDate:date,expenseName:title.trim(),description:description.trim(),amountPaise:paise,
           ...(km!==undefined?{odometerKm:km}:{}),...(optional(provider)?{provider:optional(provider)}:{})
         }});
@@ -86,8 +85,8 @@ export function MaintenanceSection(){
     e.preventDefault();setBusy(true);setMessage("");
     try{
       const paise=Math.round(Number(rate)*100);if(!Number.isSafeInteger(paise)||paise<0)throw new Error("Enter a valid rate.");
-      await getApplicationMaintenanceService().setRate({vehicleId,ratePaisePerKm:paise,commandId:crypto.randomUUID(),source:getApplicationRecordSource()});
-      setRate("");setMessage("Per-kilometre rate saved with effective-date history.");setRecords(await getApplicationMaintenanceService().listVehicleRecords(vehicleId));
+      await services.maintenance.setRate({vehicleId,ratePaisePerKm:paise,commandId:crypto.randomUUID(),source:services.recordSource});
+      setRate("");setMessage("Per-kilometre rate saved with effective-date history.");setRecords(await services.maintenance.listVehicleRecords(vehicleId));
     }catch(e){setMessage(e instanceof Error?e.message:"Rate could not be saved.");}
     finally{setBusy(false);}
   }

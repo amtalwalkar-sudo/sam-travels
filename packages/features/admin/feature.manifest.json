@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "admin",
+  "entryPoint": "packages/features/admin/index.ts",
+  "extensionExport": "ADMIN_FEATURE_EXTENSION"
+}
