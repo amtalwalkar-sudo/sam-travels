@@ -34,6 +34,7 @@ import kotlin.math.abs
 
 class DriverOverlayService:Service(){
  private val executor=Executors.newSingleThreadExecutor()
+ private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
  private val main=Handler(Looper.getMainLooper())
  private lateinit var window:WindowManager
  private var panel:LinearLayout?=null
@@ -154,9 +155,9 @@ class DriverOverlayService:Service(){
   slider.setOnTouchListener{_,event->
    when(event.actionMasked){
     MotionEvent.ACTION_DOWN->{swipeStartX=event.rawX;swipeMoved=false}
-    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(24))swipeMoved=true}
+    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(swipePresentation.minimumIntentTravelDp))swipeMoved=true}
     MotionEvent.ACTION_UP->{
-     val confirmed=swipeMoved&&slider.progress>=95
+     val confirmed=swipeMoved&&slider.progress>=swipePresentation.completionPercent
      swipeStartX=null;swipeMoved=false
      if(confirmed)runSwipeTransition()
      slider.progress=0
@@ -167,7 +168,7 @@ class DriverOverlayService:Service(){
   }
   swipeBar=slider
   root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
-  val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
+  val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
   cancelButton=cancel
   root.addView(cancel)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
@@ -196,12 +197,8 @@ class DriverOverlayService:Service(){
    val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
    status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
    updateTimer()
-   val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
-    "trip_create"->"Swipe to Going to pickup"
-    "start_ride"->"Swipe to Start trip"
-    "end_ride"->"Swipe to End trip"
-    else->null
-   }
+   val swipeAction=swipePresentation.action(state)
+   val swipeText=swipeAction?.let{"Swipe to "+it.label}
    val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
    swipeLabel?.text=swipeText?: "Trip action unavailable"
    swipeLabel?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
@@ -243,7 +240,7 @@ class DriverOverlayService:Service(){
    try{
     NativeStartupRecovery.ensure(db)
     val state=DriverWorkflowStore.snapshot(db).optString("state")
-    val event=DriverTransitionPolicy.swipeEvent(state)
+    val event=swipePresentation.action(state)?.eventType
     if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
    }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
   }
