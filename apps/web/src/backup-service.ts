@@ -3,10 +3,12 @@ import { DropboxBackupClient } from "../../../packages/features/backup";
 import { createPlatformRepository } from "./native-store";
 import { BrowserCredentialVault } from "./browser-secure-vault";
 import { createCredentialVault } from "./secure-vault";
+import type { CredentialVault } from "../../../packages/core/src/credentials";
 
 export interface DropboxBackupSession {
   client: DropboxBackupClient;
   native: boolean;
+  vault: CredentialVault;
   lock(): void;
 }
 
@@ -30,6 +32,7 @@ export async function createDropboxBackupSession(configuration: {
   return {
     client: new DropboxBackupClient(repository, vault, clientId, redirectUri),
     native: Capacitor.isNativePlatform(),
+    vault,
     lock: () => {
       if (vault instanceof BrowserCredentialVault) vault.lock();
     },
