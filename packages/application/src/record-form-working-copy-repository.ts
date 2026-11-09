@@ -22,7 +22,7 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
     if (copy.formId !== formId || copy.instanceId !== instanceId ||
         !Number.isSafeInteger(copy.formVersion) || copy.formVersion < 1 ||
         !Number.isSafeInteger(copy.revision) || copy.revision < 0 ||
-        !["in_progress", "pending", "submitted"].includes(copy.status) ||
+        !["in_progress", "pending", "saved", "submitted"].includes(copy.status) ||
         !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values)) {
       throw new Error("form_working_copy_invalid");
     }
