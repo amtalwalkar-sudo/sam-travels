@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 
 type SwipeActionBarProps = {
   label: string;
@@ -37,7 +37,7 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
     }
   };
 
-  const completePointer = (event: React.PointerEvent<HTMLInputElement>) => {
+  const completePointer = (event: PointerEvent<HTMLInputElement>) => {
     const didSwipe = draggedRef.current && pointerStartXRef.current !== null && event.clientX > pointerStartXRef.current && progressRef.current >= 95;
     pointerStartXRef.current = null;
     draggedRef.current = false;
@@ -66,7 +66,7 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
         onPointerMove={(event) => { if (pointerStartXRef.current !== null && event.clientX - pointerStartXRef.current >= 24) draggedRef.current = true; }}
         onKeyDown={() => { firedRef.current = false; }}
         onPointerUp={completePointer}
-        onPointerCancel={reset}
+        onPointerCancel={() => { pointerStartXRef.current = null; draggedRef.current = false; reset(); }}
         onKeyUp={complete}
         onBlur={reset}
       />
