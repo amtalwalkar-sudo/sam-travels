@@ -20,7 +20,7 @@ export function DriverSection() {
   const services = useAdminServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<ReturnType<typeof getApplicationDriverAssignmentService>["getHistory"]>>>>({});
+  const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<AdminPresentationServices["driverAssignments"]["getHistory"]>>>>({});
   const [editing, setEditing] = useState<Driver | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
