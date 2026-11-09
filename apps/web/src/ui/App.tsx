@@ -129,6 +129,6 @@ export function App({ ShellRenderer = ApplicationShell, adminServices }: AppProp
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
         {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
-    </ApplicationShell>
+    </ShellRenderer>
   );
 }
