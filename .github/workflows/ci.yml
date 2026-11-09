@@ -1,5 +1,6 @@
 name: Sam Travels CI
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main, foundation/native-android-architecture, 'phase-*/*']
