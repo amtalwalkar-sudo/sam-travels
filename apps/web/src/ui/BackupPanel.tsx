@@ -268,7 +268,7 @@ export function BackupPanel() {
   return (
     <section className="backup-panel">
       <div className="backup-heading">
-        <div><small>RECOVERY AND BACKUP</small><h2>Protect this workspace</h2></div>
+        <div><small>SETTINGS</small><h2>Backup</h2></div>
         <span className={session ? "pill good" : "pill"}>{session ? "CONNECTED" : "NOT CONNECTED"}</span>
       </div>
       <p className="backup-intro">Connect Dropbox once. Sam Travels handles secure sign-in and encrypted backups. Restore creates a local recovery checkpoint before replacing data.</p>
