@@ -47,10 +47,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
-      # The proxy source is identical on main and this PR; test the live configured
-      # production Worker before merge, then again after the main-branch deployment.
+  geocoder-production:
+    name: Production geocoder verification
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
       - name: Smoke-test the deployed Cloudflare geocoder
-        if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           node --input-type=module <<'NODE'
           const endpoint = "https://sam-travels.amtalwalkar.workers.dev/reverse-geocode";
@@ -161,7 +163,7 @@ jobs:
   integrated-regression:
     name: Integrated regression gate
     if: always()
-    needs: [architecture, web, android]
+    needs: [architecture, web, geocoder-production, android]
     runs-on: ubuntu-latest
     steps:
       - name: Require every architecture, web, and Android gate
@@ -169,7 +171,9 @@ jobs:
           ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
           WEB_RESULT: ${{ needs.web.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
+          GEOCODER_RESULT: ${{ needs.geocoder-production.result }}
         run: |
           test "$ARCHITECTURE_RESULT" = "success"
           test "$WEB_RESULT" = "success"
           test "$ANDROID_RESULT" = "success"
+          test "$GEOCODER_RESULT" = "success"
