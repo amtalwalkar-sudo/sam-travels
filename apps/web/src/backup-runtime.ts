@@ -33,7 +33,7 @@ type RoomBackupApi = {
   recoverPendingCheckpoints(): Promise<{ recovered: string[] }>;
 };
 const NativeBackup = registerPlugin<RoomBackupApi>("Backup");
-type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void>; configureBackgroundBackup(input: { clientId: string; redirectUri: string }): Promise<void>; scheduleBackgroundBackup(): Promise<void> };
+type NativeBackupKeyVaultApi = { storeRecoveryKey(input: { recoveryKey: string }): Promise<void>; getRecoveryKey(): Promise<{ recoveryKey?: string }>; hasRecoveryKey(): Promise<{ available: boolean }>; removeRecoveryKey(): Promise<void>; configureBackgroundBackup(input: { clientId: string; redirectUri: string }): Promise<void>; scheduleBackgroundBackup(): Promise<void> };
 const NativeBackupKeyVault = registerPlugin<NativeBackupKeyVaultApi>("BackupKeyVault");
 
 type RecoverySecret = { passphrase: string } | { recoveryKey: string };
@@ -59,8 +59,7 @@ function snapshotBytes(snapshot: unknown): Uint8Array {
 /** Runtime adapter selects exactly one authoritative store: Room or IndexedDB. */
 export async function createBackupForCurrentRuntime(input: {
   applicationVersion: string;
-  passphrase: string;
-  recoveryKey?: string;
+  recoveryKey: string;
 }): Promise<{ backup: BackupPackage; recoveryKey: string }> {
   await recoverPendingBackupTransactions();
   if (Capacitor.isNativePlatform()) {
@@ -68,9 +67,8 @@ export async function createBackupForCurrentRuntime(input: {
     return createEncryptedBackup({
       plaintext: snapshotBytes(snapshot),
       manifest,
-      passphrase: input.passphrase,
       recoveryKey: input.recoveryKey,
-      argon2id: new HashWasmArgon2idProvider(),
+      mode: "recovery-key-only",
     });
   }
   const { manifest, plaintext } = await exportBrowserSnapshot(input.applicationVersion);
@@ -143,8 +141,7 @@ export async function discardVerifiedRecoveryCheckpoint(checkpointId: string): P
 /** User-initiated encrypted upload. The passphrase is never persisted by this operation. */
 export async function createAndUploadBackup(input: {
   applicationVersion: string;
-  passphrase: string;
-  recoveryKey?: string;
+  recoveryKey: string;
   dropbox: DropboxBackupClient;
 }): Promise<{ filename: string; recoveryKey: string }> {
   const { backup, recoveryKey } = await createBackupForCurrentRuntime(input);
@@ -152,10 +149,16 @@ export async function createAndUploadBackup(input: {
   const timestamp = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 14);
   const filename = "sam-travels-" + timestamp + "-" + crypto.randomUUID() + ".stbackup";
   await input.dropbox.uploadEncryptedBackup(backup, filename);
+  if (Capacitor.isNativePlatform()) await NativeBackupKeyVault.scheduleBackgroundBackup();
   return { filename, recoveryKey };
 }
 
 /** Restore always requires a user-supplied recovery secret and explicit confirmation. */
+export async function getSavedRecoveryKey(): Promise<string | undefined> {
+  if (!Capacitor.isNativePlatform()) return undefined;
+  return (await NativeBackupKeyVault.getRecoveryKey()).recoveryKey || undefined;
+}
+
 export async function restoreDropboxBackup(input: {
   path: string;
   secret: RecoverySecret;
