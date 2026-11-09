@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -42,6 +42,34 @@ describe("shared form runtime", () => {
     expect(validateFormValues(BUSINESS_SETUP_FORM_V1, { businessStartDate: "2020-01-01" })).toEqual([]);
   });
 
+  it("validates the canonical Vehicle definition and its domain field constraints", () => {
+    expect(VEHICLE_FORM_V1).toMatchObject({
+      id: "admin.vehicle", version: 1, owner: "vehicles", primaryAction: "save",
+    });
+    expect(validateFormValues(VEHICLE_FORM_V1, {})).toMatchObject([
+      { fieldId: "registrationNumber", code: "required" },
+      { fieldId: "make", code: "required" },
+      { fieldId: "model", code: "required" },
+      { fieldId: "vehicleType", code: "required" },
+      { fieldId: "fuelType", code: "required" },
+      { fieldId: "yearOfManufacture", code: "required" },
+      { fieldId: "ownership", code: "required" },
+      { fieldId: "lifecycleState", code: "required" },
+    ]);
+    const valid = {
+      registrationNumber: "MH01AB1234", make: "Maruti", model: "Ertiga",
+      vehicleType: "Car", fuelType: "Diesel", yearOfManufacture: 2022,
+      ownership: "Owned", lifecycleState: "active",
+    };
+    expect(validateFormValues(VEHICLE_FORM_V1, valid)).toEqual([]);
+    expect(validateFormValues(VEHICLE_FORM_V1, { ...valid, fuelType: "Unleaded" }))
+      .toMatchObject([{ fieldId: "fuelType", code: "option" }]);
+    expect(validateFormValues(VEHICLE_FORM_V1, { ...valid, make: "x".repeat(81) }))
+      .toMatchObject([{ fieldId: "make", code: "max_length" }]);
+    expect(validateFormValues(VEHICLE_FORM_V1, { ...valid, yearOfManufacture: "2022" }))
+      .toMatchObject([{ fieldId: "yearOfManufacture", code: "type" }]);
+  });
+
   it("validates declared field mechanics without inventing feature business rules", () => {
     expect(validateFormValues(definition, {})).toEqual([
       { fieldId: "farePaise", code: "required", message: "Fare is required." },
@@ -66,7 +94,7 @@ describe("shared form runtime", () => {
     const copies = new MemoryCopies();
     let submissions = 0;
     const runtime = new SharedFormRuntime(copies, {
-      submit: async command => { submissions += 1; expect(command.action).toBe("submit"); return { operationId: command.operationId }; },
+      submit: async command => { submissions += 1; expect(command.action).toBe("submit"); expect(command.instanceId).toBe("trip-456"); return { operationId: command.operationId }; },
     }, () => "2026-11-10T00:00:00.000Z", () => "operation-2");
     let copy = await runtime.open(definition, "trip-456");
     copy = await runtime.update(definition, copy, "farePaise", 0);
