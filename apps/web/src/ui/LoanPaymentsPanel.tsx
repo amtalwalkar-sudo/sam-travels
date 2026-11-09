@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type {
-  AdminPresentationServices,
   FinancePaymentEntryV1,
   FinancePaymentMethodV1,
   FinanceLoanPrepaymentPreviewV1,
@@ -23,7 +22,8 @@ function activePayments(entries: readonly FinancePaymentEntryV1[]) {
   return entries.filter((entry): entry is Extract<FinancePaymentEntryV1, {kind:"payment"}> => entry.kind === "payment" && !reversed.has(entry.id));
 }
 
-export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {\n  const services = useAdminServices();
+export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {
+  const services = useAdminServices();
   const [entries, setEntries] = useState<readonly FinancePaymentEntryV1[]>([]);
   const [schedules, setSchedules] = useState<readonly ScheduleView[]>([]);
   const [prepayments, setPrepayments] = useState<readonly FinanceLoanPrepaymentRevisionV1[]>([]);
