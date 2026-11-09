@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
-import type { PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getPlatformRecordSource } from "../native-store";
 import {
@@ -17,7 +17,7 @@ import { recordBrowserDiagnostic } from "../diagnostics";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
