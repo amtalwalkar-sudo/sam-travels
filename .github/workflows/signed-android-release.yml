@@ -26,7 +26,7 @@ jobs:
     name: Build and verify signed APK
     runs-on: ubuntu-latest
     env:
-      VITE_GEOAPIFY_PROXY_URL: ${{ vars.VITE_GEOAPIFY_PROXY_URL }}
+      VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
       VERSION_CODE: ${{ inputs.version_code }}
       VERSION_NAME: ${{ inputs.version_name }}
     steps:
