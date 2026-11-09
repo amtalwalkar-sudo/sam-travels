@@ -35,6 +35,7 @@ describe("shared form runtime", () => {
     ]);
     expect(validateFormValues(definition, { farePaise: 0, tripDate: "2026-11-10", payer: "Customer" })).toEqual([]);
     expect(validateFormValues(definition, { farePaise: -10, tripDate: "2026-11-10" })).toEqual([]);
+    expect(validateFormValues(definition, { farePaise: 10, tripDate: "2026-02-31" })).toMatchObject([{ fieldId: "tripDate", code: "date" }]);
   });
 
   it("restores an in-progress working copy without treating it as submitted", async () => {
@@ -51,7 +52,7 @@ describe("shared form runtime", () => {
     const copies = new MemoryCopies();
     let submissions = 0;
     const runtime = new SharedFormRuntime(copies, {
-      submit: async command => { submissions += 1; return { operationId: command.operationId }; },
+      submit: async command => { submissions += 1; expect(command.action).toBe("submit"); return { operationId: command.operationId }; },
     }, () => "2026-11-10T00:00:00.000Z", () => "operation-2");
     let copy = await runtime.open(definition, "trip-456");
     copy = await runtime.update(definition, copy, "farePaise", 0);
@@ -64,7 +65,24 @@ describe("shared form runtime", () => {
     expect(submissions).toBe(1);
   });
 
-  it("does not submit invalid data or permit Save-only forms to use Submit", async () => {
+  it("saves incomplete drafts, allows edits, and marks them saved only after Save succeeds", async () => {
+    const copies = new MemoryCopies();
+    const actions: string[] = [];
+    const saveDefinition = { ...definition, id: "admin.vehicle", primaryAction: "save" as const };
+    const runtime = new SharedFormRuntime(copies, { submit: async command => { actions.push(command.action); return "saved"; } },
+      () => "2026-11-10T00:00:00.000Z", () => "operation-save");
+    let copy = await runtime.open(saveDefinition, "vehicle-1");
+    await runtime.save(saveDefinition, copy);
+    copy = (await copies.get(saveDefinition.id, "vehicle-1"))!;
+    expect(copy).toMatchObject({ status: "saved", revision: 1, values: {} });
+    copy = await runtime.update(saveDefinition, copy, "farePaise", 0);
+    expect(copy.status).toBe("in_progress");
+    await runtime.save(saveDefinition, copy);
+    expect(actions).toEqual(["save", "save"]);
+    expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 3 });
+  });
+
+  it("does not submit invalid data or permit Submit on Save-only forms", async () => {
     let submissions = 0;
     const runtime = new SharedFormRuntime(new MemoryCopies(), { submit: async () => { submissions += 1; } }, undefined, () => "operation-3");
     const copy = await runtime.open(definition, "trip-789");
