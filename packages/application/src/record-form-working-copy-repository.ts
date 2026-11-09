@@ -29,6 +29,24 @@ export class RecordFormWorkingCopyRepository implements FormWorkingCopyRepositor
     return copy;
   }
 
+  async list(formId: string): Promise<readonly FormWorkingCopy[]> {
+    if (!formId.trim()) throw new Error("form_id_required");
+    const prefix = PREFIX + encodeURIComponent(formId) + ":";
+    const records = await this.records.list<FormWorkingCopy>();
+    const copies = records.filter(record => record.id.startsWith(prefix) && !record.deletedAt).map(record => {
+      const copy = record.data;
+      if (copy.formId !== formId || record.id !== recordId(copy.formId, copy.instanceId) ||
+          !Number.isSafeInteger(copy.formVersion) || copy.formVersion < 1 ||
+          !Number.isSafeInteger(copy.revision) || copy.revision < 0 ||
+          !["in_progress", "pending", "saved", "submitted"].includes(copy.status) ||
+          !copy.operationId || !copy.values || typeof copy.values !== "object" || Array.isArray(copy.values)) {
+        throw new Error("form_working_copy_invalid");
+      }
+      return copy;
+    });
+    return Object.freeze(copies.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)));
+  }
+
   async put(copy: FormWorkingCopy, expectedRevision?: number): Promise<void> {
     const id = recordId(copy.formId, copy.instanceId);
     const previous = await this.records.get<FormWorkingCopy>(id);
