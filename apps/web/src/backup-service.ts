@@ -13,7 +13,7 @@ export interface DropboxBackupSession {
 }
 
 /** Public Dropbox OAuth client configuration; never a Dropbox password or secret. */
-export const DROPBOX_CLIENT_ID = import.meta.env.VITE_DROPBOX_CLIENT_ID || "562zfpfzsqx60x";
+export const DROPBOX_CLIENT_ID = import.meta.env.VITE_DROPBOX_CLIENT_ID || "562zf2pfzsqx60x";
 
 /** Create Dropbox integration with Android Keystore or a managed encrypted browser vault. */
 export async function createDropboxBackupSession(configuration: {
