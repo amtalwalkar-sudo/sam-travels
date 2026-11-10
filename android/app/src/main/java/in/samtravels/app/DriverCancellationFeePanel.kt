@@ -26,6 +26,8 @@ class DriverCancellationFeePanel(
     private var label:TextView?=null
     private var input:EditText?=null
     private var saveButton:Button?=null
+    private var hasLocalEdits=false
+    private var suppressChanges=false
 
     fun attach(root:LinearLayout) {
         label=TextView(context).apply {
@@ -42,8 +44,11 @@ class DriverCancellationFeePanel(
                 override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
                 override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){}
                 override fun afterTextChanged(s:Editable?) {
+                    if(suppressChanges)return
+                    hasLocalEdits=true
                     val currentTrip=tripId?:return
                     val paise=parsePaise(s?.toString().orEmpty())
+                    saveButton?.isEnabled=paise!=null
                     executor.execute { runCatching { DriverCancellationFeeStore.updateCancellationFeeDraft(db,currentTrip,paise) } }
                 }
             })
@@ -60,16 +65,19 @@ class DriverCancellationFeePanel(
         currentTripId:String?,feePaise:Long?,visible:Boolean,canSubmit:Boolean,
         window:WindowManager,panel:View?,params:WindowManager.LayoutParams?,
     ) {
+        if(tripId!=currentTripId)hasLocalEdits=false
         tripId=currentTripId
         label?.visibility=if(visible)View.VISIBLE else View.GONE
         input?.visibility=if(visible)View.VISIBLE else View.GONE
         saveButton?.visibility=if(visible)View.VISIBLE else View.GONE
         val text=feePaise?.let{BigDecimal.valueOf(it,2).stripTrailingZeros().toPlainString()}.orEmpty()
-        if(input?.text?.toString()!=text) {
+        if(!hasLocalEdits&&input?.text?.toString()!=text) {
+            suppressChanges=true
             input?.setText(text)
             input?.setSelection(input?.text?.length?:0)
+            suppressChanges=false
         }
-        saveButton?.isEnabled=canSubmit
+        saveButton?.isEnabled=if(hasLocalEdits)parsePaise(input?.text?.toString().orEmpty())!=null else canSubmit
         params?.let {
             it.flags=if(visible)it.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
                 else it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
@@ -92,7 +100,7 @@ class DriverCancellationFeePanel(
                 NativeStartupRecovery.ensure(db)
                 DriverCancellationFeeStore.updateCancellationFeeDraft(db,currentTrip,fee)
                 DriverCancellationFeeStore.submitCancellationFee(db,currentTrip,fee)
-                main.post { onRefresh("Cancellation fee saved") }
+                main.post { hasLocalEdits=false;onRefresh("Cancellation fee saved") }
             } catch(error:Exception) {
                 main.post { onRefresh("Cancellation fee not saved · "+(error.message?:"retry")) }
             }
