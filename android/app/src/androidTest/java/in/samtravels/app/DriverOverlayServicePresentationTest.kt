@@ -84,6 +84,39 @@ class DriverOverlayServicePresentationTest {
         }
     }
 
+    @Test fun attachedCancellationFeeFormRetainsValueAfterMinimizeAndRestore() {
+        val tripId = "overlay-cancel-minimize-restore"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-cancel-minimize-event", now)
+            DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
+        }) { ui, _ ->
+            setText(ui, "Required cancellation fee in rupees", "12.34")
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
+            assertTrue("Attached cancellation overlay header must be available to drag", header != null)
+            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            val downTime = SystemClock.uptimeMillis()
+            injectMotion(ui, MotionEvent.ACTION_DOWN, bounds.centerX().toFloat(), bounds.centerY().toFloat(), downTime)
+            injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), 1f, downTime)
+            injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
+            assertTrue("Dragging the cancellation header to the top must minimize the panel", waitUntil {
+                findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
+            })
+            val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
+            assertTrue("Minimized cancellation overlay bubble must be attached", bubble != null)
+            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
+            val tapTime = SystemClock.uptimeMillis()
+            injectMotion(ui, MotionEvent.ACTION_DOWN, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            assertTrue("Restoring the cancellation form must retain its entered fee", waitUntil {
+                findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
+                    findNode(ui) {
+                        it.contentDescription?.toString() == "Required cancellation fee in rupees" &&
+                            it.text?.toString() == "12.34"
+                    } != null
+            })
+        }
+    }
+
     @Test fun attachedCancellationFeeFormPreservesEditAndSubmitsZero() {
         val tripId = "overlay-live-cancel"
         withAttachedOverlay(tripId, { db, now ->
