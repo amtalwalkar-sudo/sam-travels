@@ -1,6 +1,6 @@
 # Shared Form Conformance Audit
 
-**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip cancellation-fee and completed-ride Fare/Toll/Parking slices implemented on PWA and Android overlay with shared-runtime drafts, idempotent submission and CI-verified recovery tests; broader recovery acceptance remains open  
+**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip cancellation-fee and completed-ride Fare/Toll/Parking slices implemented on PWA and Android overlay with shared-runtime drafts, idempotent submission and CI-verified recovery tests; broader live-surface and device recovery acceptance remains open  
 **Authority:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`  
 **Scope audited:** Current Admin web forms, Work/Trip workflow, application-service boundary and Android overlay  
 **Explicit exclusions:** Performance remains a product placeholder. Physical-device form acceptance is deferred.
@@ -45,7 +45,20 @@ A follow-up code review found a live refresh defect: the native plugin emits `dr
 
 A paired-client Room integration test now opens two independent Room clients against the same named Android database with multi-instance invalidation enabled. It writes the completed-ride obligation and working copy through the overlay financial store, verifies the Android WebView-side Room client reads both records and receives invalidation, then commits a working-copy update from the WebView-side client and verifies the overlay-side store reads the new value. This is a database/repository-boundary proof only; it does not exercise the live Capacitor plugin, rendered WebView, overlay service UI, or user interaction end to end. Added in commit `7183421ddd446192a17e5233b3c5b040f87a7cee`; the paired-client test passed the Android reliability gate in CI run #1601 on exact combined SHA `9ec2aab82730764514837fe092a2e27f203a3470`.
 
-The remaining approved Work/Trip recovery requirements are broader acceptance across lifecycle interruption windows: process termination around durable enqueue/GPS/completion/outbox commit; live PWA/WebView↔overlay reconciliation and user-flow acceptance beyond the paired-client Room repository proof; replay/duplicate delivery and stale/conflicting revision behavior; restore checkpoint failure windows and rollback verification; and reboot/force-stop/Doze/screen-off behavior where emulator or physical-device capabilities permit. Automated and physical-device scope must be distinguished; phone acceptance remains deferred by agreement.
+### Recovery evidence already exercised by automation
+
+- Android instrumentation runs the pending-workflow preparation and recovery phases in separate invocations and asserts a changed process PID. A pending GPS intent survives actual app/test process death, startup recovery preserves the active shift, completion records the event/outbox, and replay does not append a duplicate. This proves the enqueue → process-death → recovery → completion path; it does not simulate death at every CPU instruction or inside a Room transaction.
+- Android Room and browser IndexedDB tests inject completion-write failures at the event, state, intent and outbox boundaries. Each failed completion leaves the authoritative state unchanged, keeps the intent pending and writes no outbox entry. Android also validates invalid GPS leaves the intent pending and projection/outbox unchanged.
+- Android and browser tests cover duplicate completion, identity-key reuse conflicts and replay without duplicate event/outbox records. Android covers a committed replay after Room reopen; browser tests cover stale command revision and conflicting queue conditions.
+- Restore automation covers replacement-transaction rollback and a pre-restore checkpoint/journal that survives Room reopen and recovers authoritative records after an interrupted replacement. Backup/restore tests also cover pending Work/Trip financial obligations and their working copies.
+- Paired Room-client automation proves shared record visibility and Room invalidation in both directions. The separate React refresh-generation fix is CI-verified, but this remains below the live plugin/rendered-UI boundary.
+
+### Remaining recovery acceptance
+
+- Add or reconcile targeted stale-revision and competing-command coverage for every Work/Trip transition and for the cross-surface financial form submission paths; current tests cover key workflow and service cases, not every transition/surface combination.
+- Exercise the actual Capacitor event bridge, WebView workspace refresh, overlay service presentation and user interaction together. Paired Room handles plus the React refresh trigger do not constitute this end-to-end proof.
+- Reconcile downstream outbox delivery/retry/acknowledgement behavior separately from the atomic local outbox-write guarantee. Local transaction tests prove the outbox row commits or rolls back with the event; they do not by themselves prove remote consumer delivery.
+- Reboot, force-stop, Doze and screen-off behavior must be tested only to the extent the emulator exposes reliable controls; physical-device acceptance remains deferred by agreement. Do not describe emulator coverage as phone acceptance.
 
 ## Required completion work
 
@@ -55,7 +68,7 @@ The remaining approved Work/Trip recovery requirements are broader acceptance ac
 4. The cancellation-fee and completed-ride Fare/Toll/Parking application use cases and durable trip-linked obligations are implemented on both surfaces through the same authoritative record/service boundary; do not add a second financial authority in the overlay.
 5. Fare and Toll/Parking definitions are rendered in PWA and native overlay; cancellation-fee and completed-ride definitions use idempotent commits.
 6. Cancellation-fee pending/success/failure feedback, accessible input, record-backed draft recovery and queue/commit shift-end guards are implemented. Preserve these properties in the remaining forms.
-7. Extend the verified recovery pattern across all Work/Trip paths and finish cross-surface interruption acceptance. Fare/Toll/Parking have automated draft backup/restore, duplicate/conflicting replay and commit-feedback coverage; comprehensive stale-revision and interruption coverage remains to be reconciled.
+7. Extend verified recovery across remaining Work/Trip transition and financial form combinations; close the actual Capacitor/WebView/overlay UI path; reconcile downstream outbox delivery separately; and document emulator versus deferred physical-device lifecycle coverage. Existing automated evidence is enumerated above.
 
 ## Completion rule
 
