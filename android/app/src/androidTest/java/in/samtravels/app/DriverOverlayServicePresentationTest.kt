@@ -1,6 +1,5 @@
 package `in`.samtravels.app
 
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -78,7 +77,7 @@ class DriverOverlayServicePresentationTest {
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
-        val ui = instrumentation.uiAutomation
+        val ui = instrumentation.getUiAutomation(UiAutomation.FLAG_RETRIEVE_INTERACTIVE_WINDOWS)
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
