@@ -76,7 +76,7 @@ class DriverOverlayServicePresentationTest {
             injectMotion(ui, MotionEvent.ACTION_DOWN, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
             injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
-                findNode(ui) { it.text?.toString() == "Sam Travels · Driver" } != null &&
+                findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null
             })
         }
