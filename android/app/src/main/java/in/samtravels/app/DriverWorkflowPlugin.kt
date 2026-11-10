@@ -188,6 +188,12 @@ class DriverWorkflowPlugin:Plugin(){
    catch(e:Exception){LocalDiagnostics.record(context,"recovery","retry_intent","recovery","retry_failed");call.reject("Unable to resume pending intent: "+(e.message?:"unknown failure"),"INTENT_RECOVERY_FAILED",e)}}
  }
  @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
+ @PluginMethod fun listUndeliveredEvents(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listUndeliveredEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending integration event read failed",e)}}}
+ @PluginMethod fun markEventDelivered(call:PluginCall){
+  val id=call.getString("eventId");if(id.isNullOrBlank()){call.reject("Event id required");return}
+  executor.execute{try{ensureStartupRecovery();DriverWorkflowStore.markEventDelivered(db,id);call.resolve()}
+   catch(e:Exception){call.reject("Unable to acknowledge integration event",e)}}
+ }
  @PluginMethod fun markNeedsAttention(call:PluginCall){
   val id=call.getString("eventId");val reason=call.getString("reason")?:"location_unavailable"
   if(id.isNullOrBlank()){call.reject("Event id required");return}
