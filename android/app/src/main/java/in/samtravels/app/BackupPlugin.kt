@@ -185,7 +185,8 @@ class BackupPlugin : Plugin() {
                 call.resolve(out)
             } catch (error: Exception) {
                 LocalDiagnostics.record(context, "recovery", "recover_pending_checkpoints", "backup", "recovery_failed")
-                call.reject("Pending restore recovery failed; retained checkpoints remain available", error)
+                val reason = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+                call.reject("Pending restore recovery failed; retained checkpoints remain available ($reason)", error)
             }
         }
     }
