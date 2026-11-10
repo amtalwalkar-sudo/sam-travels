@@ -81,9 +81,18 @@ class DriverTripFinancialPanelPresentationTest {
                 toll.setText("12.34")
                 assertFalse("Toll amount without its own payer must block submission", submit.isEnabled)
                 tollPayer.setSelection(1)
+                // The test root is intentionally not attached to a WindowManager;
+                // dispatch the same AdapterView callback a real attached Spinner
+                // emits after the user confirms a selection.
+                tollPayer.onItemSelectedListener?.onItemSelected(
+                    tollPayer, null, 1, tollPayer.selectedItemId,
+                )
                 parking.setText("2.50")
                 assertFalse("Parking amount without its own payer must block submission", submit.isEnabled)
                 parkingPayer.setSelection(2)
+                parkingPayer.onItemSelectedListener?.onItemSelected(
+                    parkingPayer, null, 2, parkingPayer.selectedItemId,
+                )
             }
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
