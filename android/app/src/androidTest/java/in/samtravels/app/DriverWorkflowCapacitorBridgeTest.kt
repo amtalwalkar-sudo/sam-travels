@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -35,6 +36,13 @@ class DriverWorkflowCapacitorBridgeTest {
         val tripId = "bridge-financial-" + UUID.randomUUID()
         val obligationId = "work:trip-financial-obligation:$tripId"
         val draftId = "__sam_travels_form_working_copy__:work.trip-completed-financials:$tripId"
+        val invalidationLatch = AtomicReference(CountDownLatch(1))
+        val overlayObserver = object : androidx.room.InvalidationTracker.Observer("records") {
+            override fun onInvalidated(tables: Set<String>) {
+                invalidationLatch.get().countDown()
+            }
+        }
+        database.invalidationTracker.addObserver(overlayObserver)
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
@@ -83,23 +91,32 @@ class DriverWorkflowCapacitorBridgeTest {
                 ),
             )
 
-            // Update the same draft from the independent Room client while the
-            // WebView remains mounted; React must refresh the controlled input.
-            DriverTripFinancialStore.updateDraft(
-                database, tripId, JSONObject().put("farePaise", 23_456L),
-            )
+            // Now edit the rendered React input. Its record-backed working-copy
+            // write must reach the independent overlay Room client through RoomStorePlugin.
+            invalidationLatch.set(CountDownLatch(1))
             assertTrue(
-                "A subsequent Room invalidation must refresh the already-rendered Fare input",
+                "Rendered Fare input should accept a real input event",
                 awaitJavascript(
                     activity,
-                    "Array.from(document.querySelectorAll('.pending-row input')).some(input => input.getAttribute('aria-label') === 'Fare in rupees' && input.value === '234.56')",
-                    20_000,
+                    "(() => { const input = Array.from(document.querySelectorAll('.pending-row input')).find(node => node.getAttribute('aria-label') === 'Fare in rupees'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, '234.56'); input.dispatchEvent(new Event('input', { bubbles: true })); return true; })()",
+                    5_000,
                 ),
+            )
+            assertTrue(
+                "WebView RoomStore write must invalidate the independent overlay Room client",
+                invalidationLatch.get().await(10, TimeUnit.SECONDS),
+            )
+            assertEquals(
+                "Native overlay Room client must observe the WebView's saved working copy",
+                23_456L,
+                DriverTripFinancialStore.ensureDraft(database, tripId)
+                    .getJSONObject("values").getLong("farePaise"),
             )
         } finally {
             runCatching { database.records().remove(obligationId) }
             runCatching { database.records().remove(draftId) }
-            activity.finish()
+            database.invalidationTracker.removeObserver(overlayObserver)
+            instrumentation.runOnMainSync { activity.finish() }
             database.close()
         }
     }
