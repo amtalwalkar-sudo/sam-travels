@@ -52,9 +52,8 @@ class DriverCancellationFeeStoreTest {
         assertFalse(obligation.getJSONObject("data").has("parking"))
 
         val end=v2Command("shift-end-1","shift_end","shift_active",3,java.time.Instant.now().toString())
-        DriverWorkflowStore.queue(db,end)
         assertEquals("trip_cancellation_fee_required",
-            runCatching { DriverWorkflowStore.complete(db,"shift-end-1",gps()) }.exceptionOrNull()?.message)
+            runCatching { DriverWorkflowStore.queue(db,end) }.exceptionOrNull()?.message)
 
         DriverCancellationFeeStore.ensureCancellationFeeDraft(db,"trip-1")
         DriverCancellationFeeStore.updateCancellationFeeDraft(db,"trip-1",0L)
@@ -65,6 +64,7 @@ class DriverCancellationFeeStoreTest {
             "__sam_travels_form_working_copy__:work.trip-cancellation-fee:trip-1")!!.json)
             .getJSONObject("data").getString("status"))
 
+        DriverWorkflowStore.queue(db,end)
         val ended=DriverWorkflowStore.complete(db,"shift-end-1",gps())
         assertEquals("idle",ended.getString("state"))
     }

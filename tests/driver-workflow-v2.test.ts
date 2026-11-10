@@ -80,12 +80,11 @@ describe("version 2 Work trip lifecycle",()=>{
   expect(cancellationObligation?.data).not.toHaveProperty("parking");
   fixAt=new Date(base+6_000).toISOString();
   const blockedEnd=createDriverCommandV2(await repository.getSnapshot(),"shift_end","pwa","shift-v2-end",fixAt);
-  const blockedResult=await service.dispatch(blockedEnd);
-  expect(blockedResult).toMatchObject({status:"needs_attention",reason:"trip_cancellation_fee_required"});
+  await expect(service.dispatch(blockedEnd)).rejects.toThrow("trip_cancellation_fee_required");
+  expect(await repository.getIntent("shift-v2-end")).toBeUndefined();
   const financial=new TripFinancialService(recordsRepository,"web");
   await financial.submitCancellationFee("trip-v2-2",0,"cancellation-fee-op");
-  const recoveredEnd=await service.retry("shift-v2-end");
-  expect(recoveredEnd.status).toBe("recorded");
+  await send("shift_end","shift-v2-end",6_000);
   expect((await repository.getSnapshot()).state).toBe("idle");
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBeUndefined();
 
