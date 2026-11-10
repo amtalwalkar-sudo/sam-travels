@@ -9,6 +9,7 @@ import {
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
+import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
@@ -254,6 +255,8 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const shiftOn = driver?.state !== undefined && driver.state !== "idle" && driver.state !== "needs_attention";
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const cancellationFees = useCancellationFeeWorkspace(platformRepository, driver?.revision, setDriverMessage);
+  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, driver?.revision, setDriverMessage);
+  // A pending Fare does not block other actions: that product rule remains explicitly unresolved.
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
     cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;
 
@@ -336,10 +339,13 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   return {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, driverMessage,
     ...cancellationFees,
+    ...completedTripFinancials,
     shiftOn, tripOn, localClock, elapsed,
     actions: { retry, toggleNetwork, dispatch, selectDriver,
       updateCancellationFeeDraft: cancellationFees.updateCancellationFeeDraft,
-      submitCancellationFee: cancellationFees.submitCancellationFee },
+      submitCancellationFee: cancellationFees.submitCancellationFee,
+      updateCompletedTripFinancialDraft: completedTripFinancials.updateCompletedTripFinancialDraft,
+      submitCompletedTripFinancials: completedTripFinancials.submitCompletedTripFinancials },
     driverChoices, selectedDriverId, loadTimeline,
   };
 }
