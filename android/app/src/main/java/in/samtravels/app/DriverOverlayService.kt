@@ -22,13 +22,18 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.View
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.Button
+import android.widget.EditText
+import android.text.InputType
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
+import java.math.BigDecimal
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
@@ -49,6 +54,10 @@ class DriverOverlayService:Service(){
  private var swipeLabel:TextView?=null
  private var swipeBar:SeekBar?=null
  private var cancelButton:Button?=null
+ private var cancellationFeeLabel:TextView?=null
+ private var cancellationFeeInput:EditText?=null
+ private var cancellationFeeSaveButton:Button?=null
+ @Volatile private var activeCancellationFeeTripId:String?=null
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -171,6 +180,30 @@ class DriverOverlayService:Service(){
   val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
   cancelButton=cancel
   root.addView(cancel)
+  cancellationFeeLabel=TextView(this).apply{
+   text="Cancellation fee required";textSize=12f;setTextColor(android.graphics.Color.rgb(24,54,74))
+   visibility=View.GONE
+  }
+  root.addView(cancellationFeeLabel)
+  cancellationFeeInput=EditText(this).apply{
+   hint="Cancellation fee (₹)";inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+   contentDescription="Required cancellation fee in rupees";visibility=View.GONE
+   addTextChangedListener(object:TextWatcher{
+    override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
+    override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){}
+    override fun afterTextChanged(s:Editable?){
+     val tripId=activeCancellationFeeTripId?:return
+     val paise=parseCancellationFeePaise(s?.toString().orEmpty())
+     executor.execute{runCatching{DriverWorkflowStore.updateCancellationFeeDraft(db,tripId,paise)}}
+    }
+   })
+  }
+  root.addView(cancellationFeeInput,LinearLayout.LayoutParams(dp(210),dp(48)))
+  cancellationFeeSaveButton=Button(this).apply{
+   text="Save cancellation fee";visibility=View.GONE
+   setOnClickListener{saveCancellationFee()}
+  }
+  root.addView(cancellationFeeSaveButton)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   root.addView(recoveryButton)
   panel=root
@@ -187,6 +220,18 @@ class DriverOverlayService:Service(){
   val intents=DriverWorkflowStore.listIntents(db)
   val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
+  val feeRow=db.records().list().firstOrNull{stored->
+   stored.id.startsWith("work:trip-financial-obligation:")&&
+    JSONObject(stored.json).optJSONObject("data")?.let{it.optString("kind")=="cancellation_fee"&&it.optString("status")=="pending"}==true
+  }
+  val feeData=feeRow?.let{JSONObject(it.json).optJSONObject("data")}
+  val feeTripId=feeData?.optString("tripId")?.takeIf{!it.isNullOrBlank()}
+  val feeDraft=feeTripId?.let{DriverWorkflowStore.ensureCancellationFeeDraft(db,it)}
+  val feePaise=feeDraft?.optJSONObject("values")?.let{values->
+   if(values.has("cancellationFeePaise"))values.optLong("cancellationFeePaise",-1L).takeIf{it>=0L} else null
+  }
+  val feeText=feePaise?.let{BigDecimal.valueOf(it,2).stripTrailingZeros().toPlainString()}.orEmpty()
+  val financialPending=feeTripId!=null
   val state=s.optString("state")
   intervalStartedAt=if(state=="idle")null else runCatching{
    DriverWorkflowStore.listEvents(db).firstOrNull{it.optString("eventId")==s.optString("lastEventId")}
@@ -200,7 +245,7 @@ class DriverOverlayService:Service(){
    updateTimer()
    val swipeAction=swipePresentation.action(state)
    val swipeText=swipeAction?.let{"Swipe to "+it.label}
-   val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
+   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
    swipeLabel?.text=swipeText?: "Trip action unavailable"
    swipeLabel?.contentDescription=swipeText?: "Trip action unavailable"
    swipeBar?.contentDescription=swipeText?: "Trip action unavailable"
@@ -209,7 +254,21 @@ class DriverOverlayService:Service(){
    swipeBar?.progress=0
    swipeBar?.isEnabled=canSwipe
    cancelButton?.visibility=if(state=="going_to_pickup")View.VISIBLE else View.GONE
-   cancelButton?.isEnabled=!pending&&activeLocationEventId==null&&state=="going_to_pickup"
+   cancelButton?.isEnabled=!pending&&!financialPending&&activeLocationEventId==null&&state=="going_to_pickup"
+   activeCancellationFeeTripId=feeTripId
+   cancellationFeeLabel?.visibility=if(financialPending)View.VISIBLE else View.GONE
+   cancellationFeeInput?.visibility=if(financialPending)View.VISIBLE else View.GONE
+   cancellationFeeSaveButton?.visibility=if(financialPending)View.VISIBLE else View.GONE
+   if(cancellationFeeInput?.text?.toString()!=feeText){
+    cancellationFeeInput?.setText(feeText)
+    cancellationFeeInput?.setSelection(cancellationFeeInput?.text?.length?:0)
+   }
+   cancellationFeeSaveButton?.isEnabled=financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null
+   panelParams?.let{params->
+    params.flags=if(financialPending)params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+     else params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+    runCatching{panel?.let{window.updateViewLayout(it,params)}}
+   }
   }
  }catch(_:Exception){
   startupRecoveryReady=false
@@ -220,6 +279,24 @@ class DriverOverlayService:Service(){
    recoveryButton?.isEnabled=false
   }
  }}}
+ private fun parseCancellationFeePaise(value:String):Long?{
+  if(!value.matches(Regex("\\d+(\\.\\d{1,2})?")))return null
+  return runCatching{BigDecimal(value).movePointRight(2).longValueExact()}.getOrNull()?.takeIf{it>=0L}
+ }
+ private fun saveCancellationFee(){
+  val tripId=activeCancellationFeeTripId?:return
+  val fee=parseCancellationFeePaise(cancellationFeeInput?.text?.toString().orEmpty())
+  if(fee==null){status?.text="Enter a valid cancellation fee (₹0 is allowed)";return}
+  cancellationFeeSaveButton?.isEnabled=false
+  executor.execute{
+   try{
+    NativeStartupRecovery.ensure(db)
+    DriverWorkflowStore.updateCancellationFeeDraft(db,tripId,fee)
+    DriverWorkflowStore.submitCancellationFee(db,tripId,fee)
+    main.post{refresh("Cancellation fee saved · ₹"+BigDecimal.valueOf(fee,2).stripTrailingZeros().toPlainString())}
+   }catch(error:Exception){main.post{refresh("Cancellation fee not saved · "+(error.message?:"retry"))}}
+  }
+ }
  private fun runRecovery(){
   if(!startupRecoveryReady||activeLocationEventId!=null)return
   executor.execute{try{

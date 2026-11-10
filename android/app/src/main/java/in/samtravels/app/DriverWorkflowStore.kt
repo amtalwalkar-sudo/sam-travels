@@ -2,6 +2,7 @@ package `in`.samtravels.app
 
 import org.json.JSONObject
 import java.time.Instant
+import java.util.UUID
 
 /** Shared transactional boundary for native PWA commands and floating-overlay actions. */
 object DriverWorkflowStore {
