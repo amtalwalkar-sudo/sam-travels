@@ -55,6 +55,14 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
      data:{schemaVersion:1,tripId,kind:"cancellation_fee",status:"pending",cancellationEventId:id,createdAt:now},
     });
    }
+   if(command.eventType==="end_ride"){
+    const tripId=current.activeTripId;
+    if(!tripId)throw new Error("completed_trip_identity_missing");
+    const obligationId="work:trip-financial-obligation:"+tripId;
+    if(await browserDatabase.records.get(obligationId))throw new Error("trip_financial_obligation_already_exists");
+    await browserDatabase.records.put({id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
+     data:{schemaVersion:1,tripId,kind:"completed_ride_financials",status:"pending",endRideEventId:id,createdAt:now,tripContext:current.tripContext}});
+   }
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
      const selected=await browserDatabase.records.get("work:selected-driver");

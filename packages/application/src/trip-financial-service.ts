@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository, RecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { validateCancellationFeeSubmission } from "./driver-form-definitions";
+import { validateCancellationFeeSubmission, validateCompletedTripFinancialSubmission } from "./driver-form-definitions";
 
 export type CancellationFeeObligation = Readonly<{
   schemaVersion: 1;
@@ -81,4 +81,55 @@ export class TripFinancialService {
     }
     return next;
   }
+}
+
+
+export type CompletedTripFinancialObligation = Readonly<{
+  schemaVersion: 1; tripId: string; kind: "completed_ride_financials"; status: "pending" | "submitted";
+  endRideEventId: string; createdAt: string; farePaise?: number; tollPaise?: number;
+  tollPayer?: "driver" | "customer"; parkingPaise?: number; parkingPayer?: "driver" | "customer";
+  operationId?: string; submittedAt?: string;
+}>;
+export type CompletedTripFinancialValues = Readonly<{
+  farePaise: number; tollPaise?: number; tollPayer?: "driver" | "customer";
+  parkingPaise?: number; parkingPayer?: "driver" | "customer";
+}>;
+export function calculateTripFinancialSummary(values: CompletedTripFinancialValues) {
+  const customerCharge = values.farePaise + (values.tollPayer === "customer" ? values.tollPaise ?? 0 : 0) +
+    (values.parkingPayer === "customer" ? values.parkingPaise ?? 0 : 0);
+  const driverExpenses = (values.tollPayer === "driver" ? values.tollPaise ?? 0 : 0) +
+    (values.parkingPayer === "driver" ? values.parkingPaise ?? 0 : 0);
+  return Object.freeze({ customerChargePaise: customerCharge, driverExpensesPaise: driverExpenses,
+    netTripEarningsBeforeFuelPaise: values.farePaise - driverExpenses });
+}
+export async function submitCompletedTripFinancials(
+  records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], tripId: string,
+  values: CompletedTripFinancialValues, operationId: string, now: () => string = () => new Date().toISOString(),
+): Promise<RecordEnvelope<CompletedTripFinancialObligation>> {
+  const issues = validateCompletedTripFinancialSubmission({ tripId, ...values });
+  if (issues.length) throw new Error(issues[0]);
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(operationId)) throw new Error("form_operation_identity_invalid");
+  const id = cancellationFeeObligationId(tripId);
+  const current = await records.get<CompletedTripFinancialObligation>(id);
+  if (!current || current.deletedAt || current.data.schemaVersion !== 1 || current.data.tripId !== tripId ||
+      current.data.kind !== "completed_ride_financials") throw new Error("completed_trip_financial_obligation_missing");
+  const sameValues = current.data.farePaise === values.farePaise && current.data.tollPaise === values.tollPaise &&
+    current.data.tollPayer === values.tollPayer && current.data.parkingPaise === values.parkingPaise &&
+    current.data.parkingPayer === values.parkingPayer;
+  if (current.data.status === "submitted") {
+    if (current.data.operationId === operationId && sameValues) return current;
+    throw new Error("completed_trip_financials_already_submitted");
+  }
+  if (current.data.status !== "pending") throw new Error("completed_trip_financial_obligation_invalid");
+  const submittedAt = now();
+  const next: RecordEnvelope<CompletedTripFinancialObligation> = {
+    ...current, revision: current.revision + 1, updatedAt: submittedAt, source,
+    data: { ...current.data, ...values, status: "submitted", operationId, submittedAt },
+  };
+  if (!await records.compareAndSet(id, current.revision, next)) {
+    const latest = await records.get<CompletedTripFinancialObligation>(id);
+    if (latest?.data.status === "submitted" && latest.data.operationId === operationId) return latest;
+    throw new Error("completed_trip_financials_revision_conflict");
+  }
+  return next;
 }

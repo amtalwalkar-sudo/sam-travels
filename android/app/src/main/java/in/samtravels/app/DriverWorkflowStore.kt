@@ -264,7 +264,12 @@ object DriverWorkflowStore {
                 "trip_end", "ride_cancel" -> next.remove("tripStartedAt")
                 "trip_create" -> next.put("activeTripId",eventId).put("tripContext",command.getJSONObject("tripContext"))
                 "start_ride" -> next.put("tripStartedAt",command.getString("transitionAt"))
-                "end_ride" -> {next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")}
+                "end_ride" -> {
+                    val tripId=current.optString("activeTripId")
+                    require(tripId.isNotBlank()) { "completed_trip_identity_missing" }
+                    DriverTripFinancialStore.createPendingObligation(db,tripId,eventId,now,current.optJSONObject("tripContext"))
+                    next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
+                }
                 "cancel_ride" -> {
                     DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now)
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")

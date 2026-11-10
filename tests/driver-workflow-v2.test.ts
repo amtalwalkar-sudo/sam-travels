@@ -66,6 +66,8 @@ describe("version 2 Work trip lifecycle",()=>{
   expect((await repository.getSnapshot()).state).toBe("trip_active");
   await send("end_ride","ride-v2-1-end",3_000);
   expect((await repository.getSnapshot()).state).toBe("shift_active");
+  const completedObligation=await recordsRepository.get<{data:{kind:string;status:string;endRideEventId:string}}>("work:trip-financial-obligation:trip-v2-1");
+  expect(completedObligation?.data).toMatchObject({kind:"completed_ride_financials",status:"pending",endRideEventId:"ride-v2-1-end"});
 
   await send("trip_create","trip-v2-2",4_000);
   await send("cancel_ride","trip-v2-2-cancel",5_000);
