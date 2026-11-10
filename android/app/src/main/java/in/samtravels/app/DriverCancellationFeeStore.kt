@@ -6,6 +6,10 @@ import java.util.UUID
 
 /** Durable cancellation-fee obligation and the shared v1 form working-copy adapter. */
 object DriverCancellationFeeStore {
+    fun requireNoPendingObligation(db:LocalDatabase) {
+        require(pendingObligation(db)==null) { "trip_cancellation_fee_required" }
+    }
+
     fun pendingObligation(db:LocalDatabase):JSONObject? =
         db.records().list().firstOrNull { row ->
             row.id.startsWith("work:trip-financial-obligation:") &&
