@@ -88,15 +88,14 @@ export function useCompletedTripFinancialsWorkspace(
     const toll=draft.toll===""?undefined:parsePaise(draft.toll),parking=draft.parking===""?undefined:parsePaise(draft.parking);
     if(draft.toll!==""&&toll===null){setDriverMessage("Enter Toll with up to two decimal places");return;}
     if(draft.parking!==""&&parking===null){setDriverMessage("Enter Parking with up to two decimal places");return;}
-    const values={farePaise:fare,...(toll===undefined?{}:{tollPaise:toll,tollPayer:draft.tollPayer as "driver"|"customer"}),
-      ...(parking===undefined?{}:{parkingPaise:parking,parkingPayer:draft.parkingPayer as "driver"|"customer"})};
+    const tollPaise=toll??undefined,parkingPaise=parking??undefined;
     setCompletedTripFinancialBusy(true);setDriverMessage("Submitting trip financials…");
     try{
       await queues.current.get(tripId);
       let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
       if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
-      for(const [field,value] of Object.entries({farePaise:fare,tollPaise:toll,tollPayer:toll===undefined?undefined:draft.tollPayer||undefined,
-        parkingPaise:parking,parkingPayer:parking===undefined?undefined:draft.parkingPayer||undefined})){
+      for(const [field,value] of Object.entries({farePaise:fare,tollPaise,tollPayer:tollPaise===undefined?undefined:draft.tollPayer||undefined,
+        parkingPaise,parkingPayer:parkingPaise===undefined?undefined:draft.parkingPayer||undefined})){
         if(copy.values[field]!==value)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,field,value);
       }
       await forms.submit(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy);
@@ -111,10 +110,11 @@ export function useCompletedTripFinancialsWorkspace(
       const fare=parsePaise(draft.fare);if(fare===null)continue;
       const toll=draft.toll===""?undefined:parsePaise(draft.toll),parking=draft.parking===""?undefined:parsePaise(draft.parking);
       if((draft.toll!==""&&toll===null)||(draft.parking!==""&&parking===null))continue;
-      if(toll!==undefined&&!["driver","customer"].includes(draft.tollPayer))continue;
-      if(parking!==undefined&&!["driver","customer"].includes(draft.parkingPayer))continue;
-      result[tripId]=calculateTripFinancialSummary({farePaise:fare,...(toll===undefined?{}:{tollPaise:toll,tollPayer:draft.tollPayer as "driver"|"customer"}),
-        ...(parking===undefined?{}:{parkingPaise:parking,parkingPayer:draft.parkingPayer as "driver"|"customer"})});
+      const tollPaise=toll??undefined,parkingPaise=parking??undefined;
+      if(tollPaise!==undefined&&!["driver","customer"].includes(draft.tollPayer))continue;
+      if(parkingPaise!==undefined&&!["driver","customer"].includes(draft.parkingPayer))continue;
+      result[tripId]=calculateTripFinancialSummary({farePaise:fare,...(tollPaise===undefined?{}:{tollPaise,tollPayer:draft.tollPayer as "driver"|"customer"}),
+        ...(parkingPaise===undefined?{}:{parkingPaise,parkingPayer:draft.parkingPayer as "driver"|"customer"})});
     }
     return result;
   },[completedTripFinancialDrafts]);
