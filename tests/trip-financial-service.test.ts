@@ -5,6 +5,8 @@ import {
   cancellationFeeObligationId,
   TripFinancialService,
   type CancellationFeeObligation,
+  submitCompletedTripFinancials,
+  type CompletedTripFinancialObligation,
 } from "../packages/application/src/trip-financial-service";
 
 class MemoryRecords implements AtomicRecordRepository {
@@ -31,6 +33,16 @@ function obligation(tripId: string): RecordEnvelope<CancellationFeeObligation> {
   };
 }
 
+function completedObligation(tripId: string): RecordEnvelope<CompletedTripFinancialObligation> {
+  return {
+    id: cancellationFeeObligationId(tripId), schemaVersion: 1,
+    createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-10T00:00:00.000Z",
+    source: "integration", revision: 1,
+    data: { schemaVersion: 1, tripId, kind: "completed_ride_financials", status: "pending",
+      endRideEventId: "end_ride_123", createdAt: "2026-11-10T00:00:00.000Z" },
+  };
+}
+
 describe("TripFinancialService cancellation fee closeout", () => {
   it("commits explicit zero and replays the same operation idempotently", async () => {
     const records = new MemoryRecords();
@@ -54,5 +66,34 @@ describe("TripFinancialService cancellation fee closeout", () => {
     await service.submitCancellationFee("trip_123", 0, "operation_123");
     await expect(service.submitCancellationFee("trip_123", 100, "operation_456"))
       .rejects.toThrow("cancellation_fee_already_submitted");
+  });
+});
+
+describe("completed-trip financial concurrent submission", () => {
+  const values = { farePaise: 12345, tollPaise: 500, tollPayer: "customer" as const };
+
+  it("accepts concurrent replay of the same operation and payload", async () => {
+    const records = new MemoryRecords();
+    await records.put(completedObligation("trip_completed_1"));
+    const submit = () => submitCompletedTripFinancials(records, "web", "trip_completed_1", values, "operation_same");
+    const results = await Promise.all([submit(), submit()]);
+    expect(results[0].revision).toBe(2);
+    expect(results[1].revision).toBe(2);
+    expect(results[0].data).toMatchObject({ status: "submitted", operationId: "operation_same", farePaise: 12345 });
+  });
+
+  it("rejects a competing cross-surface operation instead of overwriting the first submission", async () => {
+    const records = new MemoryRecords();
+    await records.put(completedObligation("trip_completed_2"));
+    const outcomes = await Promise.allSettled([
+      submitCompletedTripFinancials(records, "web", "trip_completed_2", values, "operation_pwa"),
+      submitCompletedTripFinancials(records, "overlay", "trip_completed_2", { ...values, farePaise: 99999 }, "operation_overlay"),
+    ]);
+    expect(outcomes.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter(result => result.status === "rejected")).toHaveLength(1);
+    const stored = await records.get<CompletedTripFinancialObligation>(cancellationFeeObligationId("trip_completed_2"));
+    expect(stored?.revision).toBe(2);
+    expect(stored?.data.status).toBe("submitted");
+    expect(stored?.data.farePaise).toBe(12345);
   });
 });
