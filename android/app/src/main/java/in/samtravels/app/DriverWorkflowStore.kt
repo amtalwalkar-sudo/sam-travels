@@ -367,6 +367,30 @@ object DriverWorkflowStore {
         db.logBookEvents().list().map { JSONObject(it.json).also(DriverWorkflowContract::validateStoredEvent) }
 
 
+    /** Read only events whose durable outbox acknowledgement is still pending. */
+    fun listUndeliveredEvents(db: LocalDatabase): List<JSONObject> {
+        val pendingIds = db.records().list()
+            .filter { it.id.startsWith("driver-outbox:") }
+            .map { JSONObject(it.json).also(DriverWorkflowContract::validateOutbox) }
+            .filter { !it.optBoolean("delivered", false) }
+            .sortedBy { it.optInt("revision", Int.MAX_VALUE) }
+            .map { it.optString("eventId") }
+            .toSet()
+        return listEvents(db).filter { it.optString("eventId") in pendingIds }
+    }
+
+    /** Persist the consumer acknowledgement in the same Room-owned outbox row. */
+    fun markEventDelivered(db: LocalDatabase, eventId: String) {
+        db.runInTransaction {
+            val row = db.records().list().firstOrNull { it.id.startsWith("driver-outbox:") &&
+                JSONObject(it.json).optString("eventId") == eventId } ?: error("outbox_event_missing")
+            val outbox = JSONObject(row.json)
+            DriverWorkflowContract.validateOutbox(outbox)
+            outbox.put("delivered", true)
+            save(db, row.id, outbox, Instant.now().toString())
+        }
+    }
+
     /** Enumerate Work-owned durable intents; callers receive detached JSON values. */
     fun listIntents(db: LocalDatabase): List<JSONObject> =
         db.records().list()
