@@ -45,7 +45,7 @@ class DriverWorkflowCapacitorBridgeTest {
         database.invalidationTracker.addObserver(overlayObserver)
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        ) as MainActivity
 
         try {
             assertTrue(
@@ -61,9 +61,9 @@ class DriverWorkflowCapacitorBridgeTest {
                 ),
             )
 
-            val pluginHandle = activity.bridge.getPlugin("DriverWorkflow")
+            val pluginHandle = activity.getBridge().getPlugin("DriverWorkflow")
             assertNotNull("MainActivity must register DriverWorkflowPlugin", pluginHandle)
-            val plugin = pluginHandle!!.instance as DriverWorkflowPlugin
+            val plugin = pluginHandle!!.getInstance() as DriverWorkflowPlugin
             val observerField = DriverWorkflowPlugin::class.java.getDeclaredField("recordObserver").apply {
                 isAccessible = true
             }
@@ -123,7 +123,7 @@ class DriverWorkflowCapacitorBridgeTest {
 
     private fun awaitJavascript(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val webView: WebView = activity.bridge.webView
+        val webView: WebView = activity.getBridge().getWebView()
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             val result = AtomicReference<String?>()
