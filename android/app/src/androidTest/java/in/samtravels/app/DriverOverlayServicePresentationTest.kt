@@ -8,7 +8,7 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.accessibility.UiAutomation
+import android.app.UiAutomation
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
