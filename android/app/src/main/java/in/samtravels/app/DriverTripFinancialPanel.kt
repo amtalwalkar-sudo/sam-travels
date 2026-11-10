@@ -57,6 +57,8 @@ class DriverTripFinancialPanel(
   private val parkingPayer=payerSpinner()
   private val submit=Button(context).apply{text="Submit trip financials"}
   private var suppress=false
+  /** Keep active edits authoritative while asynchronous Room invalidations rerender this panel. */
+  private var hasLocalEdits=false
 
   init {
    root.addView(title);root.addView(fare,LinearLayout.LayoutParams(-1,dp(48)))
@@ -68,22 +70,24 @@ class DriverTripFinancialPanel(
    listOf(fare,toll,parking).forEach{it.addTextChangedListener(object:TextWatcher{
     override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
     override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){}
-    override fun afterTextChanged(s:Editable?){if(!suppress)persistDraft()}
+    override fun afterTextChanged(s:Editable?){if(!suppress){hasLocalEdits=true;persistDraft()}}
    })}
    listOf(tollPayer,parkingPayer).forEach{it.onItemSelectedListener=object:AdapterView.OnItemSelectedListener{
     override fun onNothingSelected(parent:AdapterView<*>?){}
-    override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppress)persistDraft()}
+    override fun onItemSelected(parent:AdapterView<*>?,view:View?,position:Int,id:Long){if(!suppress){hasLocalEdits=true;persistDraft()}}
    }}
    submit.setOnClickListener{submit()}
   }
 
   fun render(copy:JSONObject) {
    val values=copy.optJSONObject("values")?:JSONObject()
-   suppress=true
-   setText(fare,format(values,"farePaise"));setText(toll,format(values,"tollPaise"));setText(parking,format(values,"parkingPaise"))
-   selectPayer(tollPayer,values.optString("tollPayer"));selectPayer(parkingPayer,values.optString("parkingPayer"))
-   optional.visibility=if(values.has("tollPaise")||values.has("parkingPaise"))View.VISIBLE else View.GONE
-   suppress=false
+   if(!hasLocalEdits){
+    suppress=true
+    setText(fare,format(values,"farePaise"));setText(toll,format(values,"tollPaise"));setText(parking,format(values,"parkingPaise"))
+    selectPayer(tollPayer,values.optString("tollPayer"));selectPayer(parkingPayer,values.optString("parkingPayer"))
+    optional.visibility=if(values.has("tollPaise")||values.has("parkingPaise"))View.VISIBLE else View.GONE
+    suppress=false
+   }
    submit.isEnabled=canSubmit()
   }
 
