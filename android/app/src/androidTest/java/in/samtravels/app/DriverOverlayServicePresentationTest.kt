@@ -65,6 +65,7 @@ class DriverOverlayServicePresentationTest {
             choosePayer(ui, 0, "Driver")
             setText(ui, "Parking (₹)", "7.89")
             choosePayer(ui, 1, "Customer")
+            scrollToTop(ui)
             val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
             assertTrue("Attached overlay header must be available to drag", header != null)
             val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
@@ -259,6 +260,16 @@ class DriverOverlayServicePresentationTest {
             SystemClock.sleep(100)
         }
         return condition()
+    }
+
+    private fun scrollToTop(ui: UiAutomation) {
+        repeat(16) {
+            val scroll = allNodes(ui).firstOrNull {
+                it.className?.toString() == "android.widget.ScrollView"
+            } ?: return
+            if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) return
+            SystemClock.sleep(120)
+        }
     }
 
     private fun scrollAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
