@@ -30,7 +30,11 @@ class DriverWorkflowOutboxTest {
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
         val at = Instant.now()
-        DriverWorkflowStore.queue(first, command("durable-outbox-ack").put("transitionAt", at.toString()))
+        DriverWorkflowStore.queue(
+            first,
+            command("durable-outbox-ack").put("transitionAt", at.toString()),
+            at,
+        )
         DriverWorkflowStore.complete(first, "durable-outbox-ack", gps(at.toString()), at)
         assertEquals(1, DriverWorkflowOutbox.listUndeliveredEvents(first).size)
         DriverWorkflowOutbox.markEventDelivered(first, "durable-outbox-ack")
