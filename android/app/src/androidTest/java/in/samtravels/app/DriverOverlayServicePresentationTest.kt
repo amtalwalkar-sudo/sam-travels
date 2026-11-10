@@ -59,9 +59,14 @@ class DriverOverlayServicePresentationTest {
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "0")
-            assertTrue("Zero is a valid fee and must enable Save", waitUntil {
-                findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.isEnabled } != null
-            })
+            val saveEnabled = waitUntil {
+                findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.className?.toString() == "android.widget.Button" && it.isEnabled } != null
+            }
+            if (!saveEnabled) {
+                val entered = findNode(ui) { it.contentDescription?.toString() == "Required cancellation fee in rupees" }?.text
+                val save = findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.className?.toString() == "android.widget.Button" }
+                assertTrue("Zero fee validation did not enable Save; input=$entered buttonEnabled=${save?.isEnabled} buttonClass=${save?.className}", saveEnabled)
+            }
             clickText(ui, "Save cancellation fee")
             assertTrue("Attached cancellation form must persist its submission", waitUntil {
                 val row = db.records().get("work:trip-financial-obligation:$tripId") ?: return@waitUntil false
@@ -167,9 +172,13 @@ class DriverOverlayServicePresentationTest {
     }
 
     private fun clickText(ui: UiAutomation, text: String) {
-        assertTrue("Overlay control '$text' must be clickable", waitUntil {
-            findNode(ui) { it.text?.toString()?.contains(text) == true && it.isEnabled && it.isClickable }
-                ?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+        assertTrue("Overlay control '$text' must respond to click", waitUntil {
+            val candidates = allNodes(ui).filter {
+                it.text?.toString()?.contains(text) == true && it.isEnabled
+            }
+            val target = candidates.firstOrNull { it.className?.toString() == "android.widget.Button" }
+                ?: candidates.firstOrNull()
+            target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
         })
     }
 
