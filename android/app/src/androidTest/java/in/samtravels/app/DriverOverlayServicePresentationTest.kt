@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -49,6 +50,35 @@ class DriverOverlayServicePresentationTest {
             assertEquals("driver", data.getString("tollPayer"))
             assertEquals(250L, data.getLong("parkingPaise"))
             assertEquals("customer", data.getString("parkingPayer"))
+        }
+    }
+
+    @Test fun attachedOverlayCanMinimizeToBubbleAndRestoreTheSameFinancialForm() {
+        val tripId = "overlay-minimize-restore"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-minimize-event", now, null)
+            DriverTripFinancialStore.ensureDraft(db, tripId)
+        }) { ui, _ ->
+            val header = findNode(ui) { it.text?.toString() == "Sam Travels · Driver" }
+            assertTrue("Attached overlay header must be available to drag", header != null)
+            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            val downTime = SystemClock.uptimeMillis()
+            injectMotion(ui, MotionEvent.ACTION_DOWN, bounds.centerX().toFloat(), bounds.centerY().toFloat(), downTime)
+            injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), 1f, downTime)
+            injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
+            assertTrue("Dragging the header to the top must minimize the attached panel", waitUntil {
+                findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
+            })
+            val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
+            assertTrue("Minimized overlay bubble must be attached", bubble != null)
+            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
+            val tapTime = SystemClock.uptimeMillis()
+            injectMotion(ui, MotionEvent.ACTION_DOWN, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            assertTrue("Tapping the bubble must restore the financial form", waitUntil {
+                findNode(ui) { it.text?.toString() == "Sam Travels · Driver" } != null &&
+                    findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null
+            })
         }
     }
 
@@ -141,6 +171,15 @@ class DriverOverlayServicePresentationTest {
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+        }
+    }
+
+    private fun injectMotion(ui: UiAutomation, action: Int, x: Float, y: Float, downTime: Long) {
+        val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+        try {
+            assertTrue("Overlay gesture event must be injected", ui.injectInputEvent(event, true))
+        } finally {
+            event.recycle()
         }
     }
 
