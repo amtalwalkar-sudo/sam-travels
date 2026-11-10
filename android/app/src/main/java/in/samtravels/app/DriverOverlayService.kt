@@ -115,17 +115,21 @@ class DriverOverlayService:Service(){
  private fun showPanel(){
   if(panel!=null)return
   window=getSystemService(WINDOW_SERVICE) as WindowManager
-  val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setBackgroundColor(android.graphics.Color.WHITE)}
+  val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(android.graphics.Color.WHITE)}
+  val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14))}
+  val scroll=ScrollView(this).apply{isFillViewport=false;clipToPadding=false}
+  scroll.addView(content,ScrollView.LayoutParams(-1,-2))
+  root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
   val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   status=header
-  root.addView(header)
+  content.addView(header)
   val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
   timerText=elapsed
-  root.addView(elapsed)
+  content.addView(elapsed)
   installPanelDrag(header)
   val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
   swipeLabel=label
-  root.addView(label)
+  content.addView(label)
   val slider=SeekBar(this).apply{
    max=100
    progress=0
@@ -152,14 +156,14 @@ class DriverOverlayService:Service(){
    false
   }
   swipeBar=slider
-  root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
+  content.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
   val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
   cancelButton=cancel
-  root.addView(cancel)
+  content.addView(cancel)
   cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)};cancellationFeePanel?.attach(root)
   tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)};tripFinancialPanel?.attach(root)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
-  root.addView(recoveryButton)
+  content.addView(recoveryButton)
   panel=root
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
