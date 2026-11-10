@@ -56,7 +56,7 @@ class DriverWorkflowCapacitorBridgeTest {
                 "Native workflow should finish its initial restore before the cross-client write",
                 awaitJavascript(
                     activity,
-                    "(() => { const message = document.querySelector('.driver-message')?.textContent?.trim() ?? ''; return message.length > 0 && message !== 'Restoring driver state…'; })()",
+                    "(() => { const message = document.querySelector('.driver-message')?.textContent?.trim() ?? ''; return message === 'Driver state is up to date' || /^\\d+ action\\(s\\) awaiting location\\/recovery$/.test(message) || message === 'Action saved · GPS verification continuing in the background' || message === 'Recorded securely on this device' || message.startsWith('GPS evidence window expired') || message.startsWith('Action retained ·'); })()",
                     30_000,
                 ),
             )
