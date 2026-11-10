@@ -262,7 +262,21 @@ object DriverWorkflowStore {
                 "trip_end", "ride_cancel" -> next.remove("tripStartedAt")
                 "trip_create" -> next.put("activeTripId",eventId).put("tripContext",command.getJSONObject("tripContext"))
                 "start_ride" -> next.put("tripStartedAt",command.getString("transitionAt"))
-                "end_ride", "cancel_ride" -> {next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")}
+                "end_ride" -> {next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")}
+                "cancel_ride" -> {
+                    val tripId=current.optString("activeTripId")
+                    require(tripId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "cancelled_trip_identity_missing" }
+                    val obligationId="work:trip-financial-obligation:$tripId"
+                    require(db.records().get(obligationId)==null) { "trip_financial_obligation_already_exists" }
+                    val obligation=JSONObject()
+                        .put("id",obligationId).put("schemaVersion",1).put("createdAt",now).put("updatedAt",now)
+                        .put("source","android").put("revision",1)
+                        .put("data",JSONObject().put("schemaVersion",1).put("tripId",tripId)
+                            .put("kind","cancellation_fee").put("status","pending")
+                            .put("cancellationEventId",eventId).put("createdAt",now))
+                    db.records().put(StoredRecord(obligationId,obligation.toString(),1,now))
+                    next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
+                }
             }
 
             DriverWorkflowContract.validateState(next)

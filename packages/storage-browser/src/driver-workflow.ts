@@ -28,6 +28,17 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     if(!current.shiftId||!current.shiftContext)throw new Error("work_shift_context_missing");
     command={...command,tripContext:{schemaVersion:1,shiftId:current.shiftId,driverId:current.shiftContext.driverId,assignmentId:current.shiftContext.assignmentId,vehicleId:current.shiftContext.vehicleId,operationalDate:operationalDateAt(command.transitionAt)}};
    } else if(command.eventType==="trip_start")command={...command,driverContext:resolveDriverContextV1(await browserDatabase.records.toArray())};
+   if(command.eventType==="cancel_ride"){
+    const tripId=current.activeTripId;
+    if(!tripId)throw new Error("cancelled_trip_identity_missing");
+    const obligationId="work:trip-financial-obligation:"+tripId;
+    const existingObligation=await browserDatabase.records.get(obligationId);
+    if(existingObligation)throw new Error("trip_financial_obligation_already_exists");
+    await browserDatabase.records.put({
+     id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
+     data:{schemaVersion:1,tripId,kind:"cancellation_fee",status:"pending",cancellationEventId:id,createdAt:now},
+    });
+   }
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
      const selected=await browserDatabase.records.get("work:selected-driver");

@@ -69,6 +69,14 @@ describe("version 2 Work trip lifecycle",()=>{
   await send("trip_create","trip-v2-2",4_000);
   await send("cancel_ride","trip-v2-2-cancel",5_000);
   expect((await repository.getSnapshot()).state).toBe("shift_active");
+  const cancellationObligation=await recordsRepository.get<{schemaVersion:number;tripId:string;kind:string;status:string;cancellationEventId:string}>(
+   "work:trip-financial-obligation:trip-v2-2",
+  );
+  expect(cancellationObligation?.data).toMatchObject({
+   schemaVersion:1,tripId:"trip-v2-2",kind:"cancellation_fee",status:"pending",cancellationEventId:"trip-v2-2-cancel",
+  });
+  expect(cancellationObligation?.data).not.toHaveProperty("toll");
+  expect(cancellationObligation?.data).not.toHaveProperty("parking");
   await send("shift_end","shift-v2-end",6_000);
   expect((await repository.getSnapshot()).state).toBe("idle");
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBeUndefined();
