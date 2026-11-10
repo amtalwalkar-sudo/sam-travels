@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
+import android.accessibilityservice.AccessibilityServiceInfo
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -77,7 +78,7 @@ class DriverOverlayServicePresentationTest {
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
-        val ui = instrumentation.getUiAutomation(UiAutomation.FLAG_RETRIEVE_INTERACTIVE_WINDOWS)
+        val ui = instrumentation.getUiAutomation(AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS)
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
