@@ -39,8 +39,9 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
+    pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
   } = workspace;
-  const { retry, toggleNetwork, dispatch, selectDriver } = workspace.actions;
+  const { retry, toggleNetwork, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
@@ -100,6 +101,33 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                 </>}
                 {driver?.state === "trip_active" && swipeAction && <SwipeActionBar label={swipeAction.label} disabled={driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
               </div>
+              {pendingCancellationFees.length > 0 && <div className="pending-list" aria-live="polite">
+                <strong>Cancellation fee required</strong>
+                <p>Save the fee for each cancelled trip before starting another Work action or ending the shift. Enter ₹0 when no fee applies.</p>
+                {pendingCancellationFees.map(obligation => {
+                  const tripId = obligation.data.tripId;
+                  return <div className="pending-row" key={obligation.id}>
+                    <label>
+                      Cancellation fee (₹)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={cancellationFeeDrafts[tripId] ?? ""}
+                        onChange={event => void updateCancellationFeeDraft(tripId, event.target.value)}
+                        disabled={cancellationFeeBusy}
+                        aria-label="Cancellation fee in rupees"
+                      />
+                    </label>
+                    <button
+                      className="primary-action"
+                      disabled={cancellationFeeBusy || (cancellationFeeDrafts[tripId] ?? "") === ""}
+                      onClick={() => void submitCancellationFee(tripId)}
+                    >Save cancellation fee</button>
+                  </div>;
+                })}
+              </div>}
               {pending.length > 0 && <div className="pending-list">
                 <strong>Pending recovery</strong>
                 {pending.map((item) => <div className="pending-row" key={item.command.eventId}>
