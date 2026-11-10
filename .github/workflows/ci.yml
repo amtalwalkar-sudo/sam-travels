@@ -140,8 +140,13 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Install Android Emulator host dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes libpulse0
+          set -euo pipefail
+          if dpkg-query -W -f='${Status}' libpulse0 2>/dev/null | grep -q 'install ok installed'; then
+            echo "libpulse0 is already installed"
+            exit 0
+          fi
+          sudo timeout 300 apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo timeout 180 apt-get install --yes --no-install-recommends libpulse0
       - name: Install and verify Android Emulator SDK package
         run: |
           set -euo pipefail
