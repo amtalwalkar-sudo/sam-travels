@@ -65,7 +65,7 @@ class DriverOverlayServicePresentationTest {
             if (!saveEnabled) {
                 val entered = findNode(ui) { it.contentDescription?.toString() == "Required cancellation fee in rupees" }?.text
                 val save = findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.className?.toString() == "android.widget.Button" }
-                assertTrue("Zero fee validation did not enable Save; input=$entered buttonEnabled=${save?.isEnabled} buttonClass=${save?.className}", saveEnabled)
+                assertTrue("Zero fee validation did not enable Save; input=$entered buttonEnabled=${save?.isEnabled} buttonClass=${save?.className}; hierarchy=${describeNodes(ui)}", saveEnabled)
             }
             clickText(ui, "Save cancellation fee")
             assertTrue("Attached cancellation form must persist its submission", waitUntil {
@@ -162,6 +162,13 @@ class DriverOverlayServicePresentationTest {
     private fun findNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? =
         allNodes(ui).firstOrNull(predicate)
 
+    private fun describeNodes(ui: UiAutomation): String = allNodes(ui).map { node ->
+        val bounds = android.graphics.Rect()
+        node.getBoundsInScreen(bounds)
+        "${node.className} text=${node.text} desc=${node.contentDescription} " +
+            "enabled=${node.isEnabled} clickable=${node.isClickable} visible=${node.isVisibleToUser} bounds=$bounds"
+    }.joinToString(" | ").take(12000)
+
     private fun waitUntil(timeoutMs: Long = 10_000, condition: () -> Boolean): Boolean {
         val end = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < end) {
@@ -206,7 +213,7 @@ class DriverOverlayServicePresentationTest {
     }
 
     private fun clickText(ui: UiAutomation, text: String) {
-        assertTrue("Overlay control '$text' must respond to click", waitUntil {
+        assertTrue("Overlay control '$text' must respond to click; hierarchy=${describeNodes(ui)}", waitUntil {
             val target = scrollToNode(ui) {
                 it.text?.toString()?.contains(text) == true && it.isEnabled
             }
