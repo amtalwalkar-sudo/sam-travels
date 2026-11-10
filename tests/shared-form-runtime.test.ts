@@ -170,8 +170,10 @@ describe("shared form runtime", () => {
       id: "admin.loan-prepayment", version: 1, owner: "finance-loans", primaryAction: "submit",
     });
     const prepayment = { loanId: payment.loanId, businessDate: "2020-02-01", amountPaise: 50000,
-      mode: "reduce_tenure", previewJson: "" };
+      mode: "reduce_tenure", previewJson: JSON.stringify({ amountPaise: 50000 }) };
     expect(validateFormValues(LOAN_PREPAYMENT_FORM_V1, prepayment)).toEqual([]);
+    expect(validateFormValues(LOAN_PREPAYMENT_FORM_V1, { ...prepayment, previewJson: "" }))
+      .toMatchObject([{ fieldId: "previewJson", code: "required" }]);
     expect(validateFormValues(LOAN_PREPAYMENT_FORM_V1, { ...prepayment, mode: "lower_rate" }))
       .toMatchObject([{ fieldId: "mode", code: "option" }]);
 
