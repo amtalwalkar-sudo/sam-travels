@@ -63,7 +63,7 @@ class DriverOverlayService:Service(){
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
-  try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY}
+  try{enterForeground()}catch(error:Exception){android.util.Log.e("DriverOverlayService","Foreground startup failed",error);stopSelf();return START_NOT_STICKY}
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
@@ -76,6 +76,7 @@ class DriverOverlayService:Service(){
     val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
     main.post{if(active){showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
    }catch(error:Exception){
+    android.util.Log.e("DriverOverlayService","Repository startup failed",error)
     startupRecoveryReady=false
     startupRecoveryFailed=true
     LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
@@ -163,7 +164,7 @@ class DriverOverlayService:Service(){
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
   panelParams=params
-  try{window.addView(root,params);refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(_:Exception){panel=null;panelParams=null;stopSelf()}
+  try{window.addView(root,params);refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(error:Exception){android.util.Log.e("DriverOverlayService","Window attachment failed",error);panel=null;panelParams=null;stopSelf()}
  }
  private fun refresh(message:String?=null){executor.execute{try{
   NativeStartupRecovery.ensure(db)
