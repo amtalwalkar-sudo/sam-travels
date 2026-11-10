@@ -61,6 +61,7 @@ class KotlinArchitectureBoundaryTest {
     private val approvedRoomGateways = setOf(
         "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
         "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+        "android/app/src/main/java/in/samtravels/app/DriverWorkflowOutbox.kt",
         "android/app/src/main/java/in/samtravels/app/DriverCancellationFeeStore.kt",
         "android/app/src/main/java/in/samtravels/app/WorkDriverContextResolver.kt",
         "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
