@@ -20,5 +20,17 @@ describe("completed trip financial closeout",()=>{
   await expect(submitCompletedTripFinancials(records,"web","trip-3",{farePaise:30000},"other-op"))
    .rejects.toThrow("completed_trip_financials_already_submitted");
  });
+ it("rejects a concurrent payload conflict that reuses the same operation identity",async()=>{
+  const records=new Records();await records.put(obligation("trip-race"));
+  const results=await Promise.allSettled([
+   submitCompletedTripFinancials(records,"web","trip-race",{farePaise:1000},"same-operation"),
+   submitCompletedTripFinancials(records,"android","trip-race",{farePaise:2000},"same-operation"),
+  ]);
+  expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);
+  expect(results.filter(result=>result.status==="rejected")).toHaveLength(1);
+  const saved=await records.get<CompletedTripFinancialObligation>("work:trip-financial-obligation:trip-race");
+  expect(saved?.data.status).toBe("submitted");
+  expect([1000,2000]).toContain(saved?.data.farePaise);
+ });
  it("computes the approved customer charge, driver expenses and net earnings",()=>{expect(calculateTripFinancialSummary({farePaise:252000,tollPaise:32000,tollPayer:"driver",parkingPaise:25000,parkingPayer:"driver"})).toEqual({customerChargePaise:252000,driverExpensesPaise:57000,netTripEarningsBeforeFuelPaise:195000});expect(calculateTripFinancialSummary({farePaise:185000,tollPaise:32000,tollPayer:"customer"})).toEqual({customerChargePaise:217000,driverExpensesPaise:0,netTripEarningsBeforeFuelPaise:185000});});
 });
