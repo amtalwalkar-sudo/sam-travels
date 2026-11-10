@@ -21,7 +21,19 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
     require(recordIdPrefix.startsWith("feature:$featureId:")) {
         "backup_feature_record_namespace_invalid"
     }
-    require(id !in dynamicFeatureParticipants && discoverParticipants().none { it.id == id }) {
+    val existing = dynamicFeatureParticipants[id]
+    if (existing != null) {
+        // App startup and instrumentation tests can both request the same feature
+        // registration in one process. Reuse an identical registration without
+        // transferring ownership of the process-wide registration lease.
+        require(
+            existing.featureId == featureId &&
+                existing.snapshotVersion == snapshotVersion &&
+                dynamicFeatureRecordPrefixes[id] == recordIdPrefix,
+        ) { "backup_duplicate_participant_id" }
+        return@synchronized AutoCloseable { }
+    }
+    require(discoverParticipants().none { it.id == id }) {
         "backup_duplicate_participant_id"
     }
     require(dynamicFeatureRecordPrefixes.values.none { existing ->
