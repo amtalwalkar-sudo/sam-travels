@@ -130,7 +130,6 @@ class DriverTripFinancialPanel(
    val current=values();submit.isEnabled=false
    executor.execute{
     try{
-     DriverTripFinancialStore.updateDraft(db,tripId,current)
      DriverTripFinancialStore.submit(db,tripId,current)
      main.post{onRefresh("Fare and trip financials submitted")}
     }catch(error:Exception){main.post{onRefresh("Trip financials not submitted · "+(error.message?:"retry"))}}

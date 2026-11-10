@@ -14,5 +14,11 @@ function obligation(tripId:string):RecordEnvelope<CompletedTripFinancialObligati
 describe("completed trip financial closeout",()=>{
  it("accepts explicit zero Fare and idempotently submits the same operation",async()=>{const records=new Records();await records.put(obligation("trip-1"));const submit=(values:{farePaise:number;tollPaise?:number;tollPayer?:"driver"|"customer";parkingPaise?:number;parkingPayer?:"driver"|"customer"},op:string)=>submitCompletedTripFinancials(records,"web","trip-1",values,op,()=>"2026-11-10T01:00:00.000Z");const first=await submit({farePaise:0},"fare-op-1"),replay=await submit({farePaise:0},"fare-op-1");expect(first.data).toMatchObject({status:"submitted",farePaise:0,operationId:"fare-op-1"});expect(replay.revision).toBe(first.revision);});
  it("requires Fare and independent payer selection for each entered optional amount",async()=>{const records=new Records();await records.put(obligation("trip-2"));await expect(submitCompletedTripFinancials(records,"web","trip-2",{} as never,"op-2")).rejects.toThrow("fare_required_non_negative_integer_paise");await expect(submitCompletedTripFinancials(records,"web","trip-2",{farePaise:100,tollPaise:10},"op-2")).rejects.toThrow("toll_payer_required");await expect(submitCompletedTripFinancials(records,"web","trip-2",{farePaise:100,parkingPayer:"driver"} as never,"op-2")).rejects.toThrow("parking_payer_without_amount");});
+ it("rejects a conflicting replay after a completed trip is submitted",async()=>{
+  const records=new Records();await records.put(obligation("trip-3"));
+  await submitCompletedTripFinancials(records,"web","trip-3",{farePaise:25000},"same-op");
+  await expect(submitCompletedTripFinancials(records,"web","trip-3",{farePaise:30000},"other-op"))
+   .rejects.toThrow("completed_trip_financials_already_submitted");
+ });
  it("computes the approved customer charge, driver expenses and net earnings",()=>{expect(calculateTripFinancialSummary({farePaise:252000,tollPaise:32000,tollPayer:"driver",parkingPaise:25000,parkingPayer:"driver"})).toEqual({customerChargePaise:252000,driverExpensesPaise:57000,netTripEarningsBeforeFuelPaise:195000});expect(calculateTripFinancialSummary({farePaise:185000,tollPaise:32000,tollPayer:"customer"})).toEqual({customerChargePaise:217000,driverExpensesPaise:0,netTripEarningsBeforeFuelPaise:185000});});
 });
