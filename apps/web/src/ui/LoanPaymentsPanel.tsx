@@ -10,6 +10,7 @@ import { useAdminServices } from "./admin-services-context";
 import type { FinanceLoanRecordV1 } from "../../../../packages/application/src/finance-loan-service";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import { useLoanFormDrafts } from "./useLoanFormDrafts";
+import { LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../../../../packages/application/src/admin-form-definitions";
 
 type LoanEnvelope = RecordEnvelope<FinanceLoanRecordV1>;
 type Allocation = { installmentNumber: number; amountPaise: number };
