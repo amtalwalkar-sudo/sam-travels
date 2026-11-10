@@ -1,6 +1,6 @@
 # Shared Form Conformance Audit
 
-**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip cancellation-fee slice implemented and CI-verified; Fare/Toll/Parking parity and full recovery acceptance remain open  
+**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip cancellation-fee slice implemented with backup/restore and Room-reopen recovery tests CI-verified; Fare/Toll/Parking parity and broader recovery acceptance remain open  
 **Authority:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`  
 **Scope audited:** Current Admin web forms, Work/Trip workflow, application-service boundary and Android overlay  
 **Explicit exclusions:** Performance remains a product placeholder. Physical-device form acceptance is deferred.
@@ -36,12 +36,13 @@ Work/Trip financial parity is partial. The mandatory cancellation-fee slice is i
 - PWA uses `SharedFormRuntime`, `RecordFormWorkingCopyRepository` and `TripFinancialService`. Android overlay uses `DriverCancellationFeePanel` and `DriverCancellationFeeStore`, writing the same `__sam_travels_form_working_copy__:work.trip-cancellation-fee:<tripId>` envelope and stable operation identity.
 - Both surfaces retain recoverable drafts, reject negative or fractional-paise values, submit idempotently, and block another Work action/shift-end while the fee obligation is pending. Shift-end is guarded at queue and commit boundaries.
 - Cancelled trips have no Toll or Parking fields or entries. The cancellation fee is not merged into Fare.
-- Code verification: CI run #1574 passed on exact code commit `060b1d9978d20afe80e87c89127a50e074090e48`: architecture, full web regression/build, Android build/unit tests, the Android Room/workflow/backup reliability gate, and integrated regression gate all succeeded. Production geocoder verification was skipped as unrelated. The PR remains open/unmerged; no APK was published and physical-device testing remains deferred.
+- Recovery coverage added after the initial cancellation-fee slice: the browser backup/restore test exports and restores the pending obligation plus its in-progress zero-valued working copy; the Android backup snapshot test verifies the same records survive export/restore; and a persistent Room database close/reopen test verifies the pending obligation and draft survive process-style database reopening. These tests do not claim physical-device acceptance or prove every OS process-death/force-stop scenario.
+- Code verification: CI run #1579 passed on exact code commit `9f17d299f7fca76c6242a4ab8f053ca12eee4144`: architecture, full web regression/build, Android build/unit tests, the Android Room/workflow/backup reliability gate (including the new recovery tests), and integrated regression gate all succeeded. Production geocoder verification and merged-main APK publication were skipped. The PR remains open/unmerged; no APK was published and physical-device testing remains deferred.
 
 The remaining approved Work/Trip requirements are:
 - Fare after End Ride; Fare ₹0 is valid, while missing Fare blocks financial finalization.
 - Optional Toll and Parking, each with an independent Driver/Customer payer when an amount is entered.
-- Cross-surface interruption/process-death and backup/restore acceptance for the cancellation-fee obligation and working copy still needs explicit coverage.
+- Broader cross-surface interruption/process-death, replay/idempotency and restore acceptance remains part of the overall reliability scope; the cancellation-fee snapshot/restore and native Room-reopen slice is now covered as recorded above.
 
 ## Required completion work
 
@@ -51,7 +52,7 @@ The remaining approved Work/Trip requirements are:
 4. The cancellation-fee application use case and durable trip-linked obligation are implemented on both surfaces. Implement the remaining completed-ride Fare/Toll/Parking use cases through the same authoritative record/service boundary; do not add a second financial authority in the overlay.
 5. Render Fare and Toll/Parking definitions in PWA and native overlay. The cancellation-fee definition is already rendered on both surfaces and uses idempotent commits.
 6. Cancellation-fee pending/success/failure feedback, accessible input, record-backed draft recovery and queue/commit shift-end guards are implemented. Preserve these properties in the remaining forms.
-7. Add explicit cross-surface process-death and backup/restore acceptance for cancellation-fee working copies and obligations; then add equivalent tests for Fare and Toll/Parking, including draft resume, duplicate submission, stale revisions and commit feedback.
+7. Extend the verified cancellation-fee recovery pattern to Fare and Toll/Parking: backup/restore, draft resume, duplicate submission, stale revisions and commit feedback, with cross-surface interruption coverage.
 
 ## Completion rule
 
