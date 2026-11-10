@@ -73,8 +73,8 @@ class DriverTripFinancialStoreTest {
    val ids=(0 until snapshot.length()).map{snapshot.getJSONObject(it).getString("id")}
    assertTrue(ids.contains("work:trip-financial-obligation:backup-fare-trip"))
    assertTrue(ids.contains("__sam_travels_form_working_copy__:work.trip-completed-financials:backup-fare-trip"))
-   NativeBackupCoverage.replaceBusinessRecords(db,JSONArray())
-   NativeBackupCoverage.replaceBusinessRecords(db,snapshot)
+   db.runInTransaction { NativeBackupCoverage.replaceBusinessRecords(db,JSONArray()) }
+   db.runInTransaction { NativeBackupCoverage.replaceBusinessRecords(db,snapshot) }
    assertEquals("pending",DriverTripFinancialStore.pendingObligations(db).single().getJSONObject("data").getString("status"))
    assertEquals(0L,DriverTripFinancialStore.ensureDraft(db,"backup-fare-trip").getJSONObject("values").getLong("farePaise"))
   } finally { db.close() }
