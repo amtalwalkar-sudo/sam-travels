@@ -191,10 +191,15 @@ class DriverOverlayServicePresentationTest {
 
     private fun scrollToNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
         repeat(16) {
-            val target = findNode(ui, predicate) ?: return null
-            val scroll = scrollAncestor(target) ?: return target
-            if (isInsideViewport(target, scroll)) return target
-            if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return target
+            val nodes = allNodes(ui)
+            val target = nodes.firstOrNull(predicate)
+            val scroll = target?.let(::scrollAncestor) ?: nodes.firstOrNull {
+                it.className?.toString() == "android.widget.ScrollView"
+            }
+            if (target != null && (scroll == null || isInsideViewport(target, scroll))) return target
+            if (scroll == null || !scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+                return target
+            }
             SystemClock.sleep(120)
         }
         return findNode(ui, predicate)
