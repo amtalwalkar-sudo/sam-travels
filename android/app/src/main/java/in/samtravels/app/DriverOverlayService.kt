@@ -173,11 +173,7 @@ class DriverOverlayService:Service(){
   val intents=DriverWorkflowStore.listIntents(db)
   val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
-  val feeRow=db.records().list().firstOrNull{stored->
-   stored.id.startsWith("work:trip-financial-obligation:")&&
-    JSONObject(stored.json).optJSONObject("data")?.let{it.optString("kind")=="cancellation_fee"&&it.optString("status")=="pending"}==true
-  }
-  val feeData=feeRow?.let{JSONObject(it.json).optJSONObject("data")}
+  val feeData=DriverCancellationFeeStore.pendingObligation(db)?.optJSONObject("data")
   val feeTripId=feeData?.optString("tripId")?.takeIf{!it.isNullOrBlank()}
   val feeDraft=feeTripId?.let{DriverCancellationFeeStore.ensureCancellationFeeDraft(db,it)}
   val feePaise=feeDraft?.optJSONObject("values")?.let{values->
