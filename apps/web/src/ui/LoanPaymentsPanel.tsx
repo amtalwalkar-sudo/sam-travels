@@ -9,7 +9,7 @@ import type {
 import { useAdminServices } from "./admin-services-context";
 import type { FinanceLoanRecordV1 } from "../../../../packages/application/src/finance-loan-service";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
-import { useLoanFormDrafts } from "./useLoanFormDrafts";
+import { useLoanFormDrafts, money, indiaDate, activePayments } from "./useLoanFormDrafts";
 import { LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../../../../packages/application/src/admin-form-definitions";
 
 type LoanEnvelope = RecordEnvelope<FinanceLoanRecordV1>;
@@ -17,13 +17,6 @@ type Allocation = { installmentNumber: number; amountPaise: number };
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number };
 type ScheduleView = { version: number; effectiveDate: string; label: string; rows: readonly ScheduleRow[]; regularEmiPaise: number };
 const METHODS: FinancePaymentMethodV1[] = ["cash", "bank_transfer", "cheque", "upi", "other"];
-function money(paise: number) { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(paise / 100); }
-function indiaDate() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
-function activePayments(entries: readonly FinancePaymentEntryV1[]) {
-  const reversed = new Set(entries.filter(entry => entry.kind === "reversal").map(entry => entry.paymentId));
-  return entries.filter((entry): entry is Extract<FinancePaymentEntryV1, {kind:"payment"}> => entry.kind === "payment" && !reversed.has(entry.id));
-}
-
 export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {
   const services = useAdminServices();
   const [entries, setEntries] = useState<readonly FinancePaymentEntryV1[]>([]);
