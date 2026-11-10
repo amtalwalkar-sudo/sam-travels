@@ -79,7 +79,10 @@ class DriverOverlayServicePresentationTest {
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
-        val ui = instrumentation.getUiAutomation(AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS)
+        val ui = instrumentation.uiAutomation
+        ui.setServiceInfo(ui.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        })
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
@@ -111,12 +114,13 @@ class DriverOverlayServicePresentationTest {
                 val windows = ui.windows.joinToString { window ->
                     "${window.type}:${window.title}:${window.root?.childCount}"
                 }
+                val activeRoot = ui.rootInActiveWindow?.let { "${it.className}:${it.text}:${it.childCount}" } ?: "none"
                 val logs = shell(ui, "logcat -d -s DriverOverlayService:E").takeLast(5000)
                 val state = runCatching { DriverWorkflowStore.snapshot(db).toString() }.getOrDefault("invalid")
                 assertTrue(
                     "Overlay form did not attach; serviceRunning=$running canDraw=${Settings.canDrawOverlays(app)} " +
                         "fineLocation=${app.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)} " +
-                        "state=$state windows=$windows logs=$logs",
+                        "state=$state windows=$windows activeRoot=$activeRoot logs=$logs",
                     attached,
                 )
             }
@@ -145,6 +149,7 @@ class DriverOverlayServicePresentationTest {
             result.add(node)
             for (index in 0 until node.childCount) visit(node.getChild(index))
         }
+        visit(ui.rootInActiveWindow)
         ui.windows.forEach { visit(it.root) }
         return result
     }
