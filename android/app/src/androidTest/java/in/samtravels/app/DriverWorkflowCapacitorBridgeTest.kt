@@ -1,6 +1,5 @@
 package `in`.samtravels.app
 
-import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.webkit.WebView
@@ -79,7 +78,7 @@ class DriverWorkflowCapacitorBridgeTest {
                 "Room invalidation must cross the native Capacitor listener and render the saved Fare",
                 awaitJavascript(
                     activity,
-                    "Array.from(document.querySelectorAll('.pending-row input[aria-label=\\\"Fare in rupees\\\"]')).some(input => input.value === '123.45')",
+                    "Array.from(document.querySelectorAll('.pending-row input')).some(input => input.getAttribute('aria-label') === 'Fare in rupees' && input.value === '123.45')",
                     20_000,
                 ),
             )
@@ -93,7 +92,7 @@ class DriverWorkflowCapacitorBridgeTest {
                 "A subsequent Room invalidation must refresh the already-rendered Fare input",
                 awaitJavascript(
                     activity,
-                    "Array.from(document.querySelectorAll('.pending-row input[aria-label=\\\"Fare in rupees\\\"]')).some(input => input.value === '234.56')",
+                    "Array.from(document.querySelectorAll('.pending-row input')).some(input => input.getAttribute('aria-label') === 'Fare in rupees' && input.value === '234.56')",
                     20_000,
                 ),
             )
