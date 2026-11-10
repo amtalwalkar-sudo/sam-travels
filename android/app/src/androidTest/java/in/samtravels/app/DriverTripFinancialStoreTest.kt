@@ -143,8 +143,10 @@ class DriverTripFinancialStoreTest {
    val submitted=DriverTripFinancialStore.submit(webView,tripId,webViewValues)
    assertEquals("submitted",submitted.getJSONObject("data").getString("status"))
    assertEquals(23456L,submitted.getJSONObject("data").getLong("farePaise"))
-   assertEquals("submitted",DriverTripFinancialStore.pendingObligations(webView).firstOrNull()
-    ?.getJSONObject("data")?.getString("status") ?: "submitted")
+   val persisted=JSONObject(webView.records().get("work:trip-financial-obligation:$tripId")!!.json)
+    .getJSONObject("data")
+   assertEquals("submitted",persisted.getString("status"))
+   assertEquals(23456L,persisted.getLong("farePaise"))
   } finally {
    overlay.close()
    webView.close()
