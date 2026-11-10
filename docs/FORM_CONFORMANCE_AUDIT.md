@@ -39,12 +39,7 @@ Work/Trip financial parity is partial. The mandatory cancellation-fee slice is i
 - Recovery coverage added after the initial cancellation-fee slice: the browser backup/restore test exports and restores the pending obligation plus its in-progress zero-valued working copy; the Android backup snapshot test verifies the same records survive export/restore; and a persistent Room database close/reopen test verifies the pending obligation and draft survive process-style database reopening. These tests do not claim physical-device acceptance or prove every OS process-death/force-stop scenario.
 - Code verification: CI run #1579 passed on exact code commit `9f17d299f7fca76c6242a4ab8f053ca12eee4144`: architecture, full web regression/build, Android build/unit tests, the Android Room/workflow/backup reliability gate (including the new recovery tests), and integrated regression gate all succeeded. Production geocoder verification and merged-main APK publication were skipped. The PR remains open/unmerged; no APK was published and physical-device testing remains deferred.
 
-The remaining approved Work/Trip requirements are:
-- Fare after End Ride; Fare ₹0 is valid, while missing Fare blocks financial finalization.
-- Optional Toll and Parking, each with an independent Driver/Customer payer when an amount is entered.
-- Broader cross-surface interruption/process-death, replay/idempotency and restore acceptance remains part of the overall reliability scope; the cancellation-fee snapshot/restore and native Room-reopen slice is now covered as recorded above.
-
-## Required completion work
+The completed-ride Fare/Toll/Parking requirements are implemented and CI-verified as detailed above: Fare after End Ride (₹0 valid; missing Fare blocks submission), plus optional Toll and Parking with independent Driver/Customer payer validation. These requirements are not listed as remaining gaps.\n\nThe remaining approved Work/Trip recovery requirements are broader acceptance across lifecycle interruption windows: process termination around durable enqueue/GPS/completion/outbox commit; PWA↔overlay reconciliation against authoritative Room state; replay/duplicate delivery and stale/conflicting revision behavior; restore checkpoint failure windows and rollback verification; and reboot/force-stop/Doze/screen-off behavior where emulator or physical-device capabilities permit. Automated and physical-device scope must be distinguished; phone acceptance remains deferred by agreement.\n\n## Required completion work
 
 1. Add canonical versioned definitions for every in-scope Admin and Work/Trip form.
 2. Provide composition-root wiring for the shared runtime and record-backed working-copy repository on browser and native JS surfaces.
