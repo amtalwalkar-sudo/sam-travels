@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository, RecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   cancellationFeeObligationId,
