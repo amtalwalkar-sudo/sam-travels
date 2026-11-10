@@ -119,4 +119,36 @@ class DriverTripFinancialStoreTest {
   }
  }
 
+
+ @Test fun staleOverlaySubmissionCannotOverwriteNewerWebViewDraft() {
+  val context=ApplicationProvider.getApplicationContext<Context>()
+  val name="completed-trip-stale-cross-surface.db"
+  context.deleteDatabase(name)
+  val webView=Room.databaseBuilder(context,LocalDatabase::class.java,name).enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+  val overlay=Room.databaseBuilder(context,LocalDatabase::class.java,name).enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+  try {
+   val now=java.time.Instant.now().toString()
+   val tripId="stale-cross-surface-trip"
+   DriverTripFinancialStore.createPendingObligation(overlay,tripId,"stale-cross-surface-end",now,null)
+   DriverTripFinancialStore.ensureDraft(overlay,tripId)
+   val overlayValues=JSONObject().put("farePaise",12345L)
+   DriverTripFinancialStore.updateDraft(overlay,tripId,overlayValues)
+
+   // The WebView client edits the same durable working copy after the overlay read.
+   val webViewValues=JSONObject().put("farePaise",23456L)
+   DriverTripFinancialStore.updateDraft(webView,tripId,webViewValues)
+
+   assertTrue("A stale overlay submission must not replace the newer WebView draft",
+    runCatching { DriverTripFinancialStore.submit(overlay,tripId,overlayValues) }.isFailure)
+   val submitted=DriverTripFinancialStore.submit(webView,tripId,webViewValues)
+   assertEquals("submitted",submitted.getJSONObject("data").getString("status"))
+   assertEquals(23456L,submitted.getJSONObject("data").getLong("farePaise"))
+   assertEquals("submitted",DriverTripFinancialStore.pendingObligations(webView).firstOrNull()
+    ?.getJSONObject("data")?.getString("status") ?: "submitted")
+  } finally {
+   overlay.close()
+   webView.close()
+   context.deleteDatabase(name)
+  }
+ }
 }
