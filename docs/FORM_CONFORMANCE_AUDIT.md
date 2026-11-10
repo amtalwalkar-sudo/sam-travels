@@ -33,7 +33,7 @@ Loan payment and closeout forms are now migrated in `apps/web/src/ui/LoanPayment
 Work/Trip financial forms are also absent from the current Work screen and native overlay. The approved driver workflow requires:
 - Fare after End Ride; Fare ₹0 is valid, while missing Fare blocks financial finalization.
 - Optional Toll and Parking, each with an independent Driver/Customer payer when an amount is entered.
-- Optional cancellation-fee entry after Cancel Ride; if entered, it must be saved before the shift can end. The fee's zero-value treatment, payer, and applicability of Toll/Parking to cancelled trips remain unresolved.
+- Mandatory cancellation-fee entry after Cancel Ride; an explicit ₹0 fee is valid. Cancelled trips have no Toll or Parking entries.
 - Durable pending form state linked to the original trip and shared by PWA and overlay.
 
 ## Required completion work
