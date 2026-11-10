@@ -13,7 +13,17 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupCoverageTest {
+    private fun ensureAllFeatureParticipants() {
+        NativeBusinessSettingsBackup.ensureRegistered()
+        NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered()
+        NativeFinanceBackup.ensureRegistered()
+    }
+
     @Test fun sharedSnapshotBuilderIncludesSeparateLogBookTableAndParticipantManifest() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -35,12 +45,13 @@ class NativeBackupCoverageTest {
             val logBookRow = (0 until records.length()).map { records.getJSONObject(it) }
                 .single { it.optString("id") == "scheduled-backup-event" }
             assertEquals("logbook-events", logBookRow.getString("participantId"))
-            assertEquals(3, result.manifest.getJSONArray("participants").length())
+            assertEquals(11, result.manifest.getJSONArray("participants").length())
             assertEquals(1, result.manifest.getJSONObject("recordCounts").getInt("records"))
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
     }
     @Test fun cancellationFeeObligationAndWorkingCopySurviveNativeSnapshotRestore() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -85,19 +96,26 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun discoversTwoFeatureOwnedRoomEntitiesAndCoversEveryPhysicalTable() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
             NativeBackupCoverage.assertRoomSchemaCovered(database)
             val participants = NativeBackupCoverage.discoverParticipants()
-            assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"), participants.map { it.id }.toSet())
+            assertEquals(setOf(
+                "platform-records", "work-driver-state", "logbook-events",
+                "business-settings-records", "vehicle-records", "driver-records",
+                "compliance-records", "maintenance-records", "finance-records",
+                "finance-payment-records", "finance-prepayment-records",
+            ), participants.map { it.id }.toSet())
             assertEquals(setOf("records", "logbook_events"), participants.map { it.roomTable }.toSet())
-            assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"), NativeBackupCoverage.registeredParticipantIds())
+            assertEquals(participants.map { it.id }.toSet(), NativeBackupCoverage.registeredParticipantIds())
         } finally { database.close() }
     }
 
     @Test fun executableAdaptersExportValidateAndRestoreBothFeatureTables() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -140,6 +158,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun convertsLegacySharedRecordsToCurrentFeatureOwnershipBeforeRestore() {
+        ensureAllFeatureParticipants()
         val legacy = JSONArray()
             .put(JSONObject().put("id", "driver-state")
                 .put("json", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""")
@@ -164,8 +183,9 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun nativeParticipantManifestIsVersionedAndOwnershipSpecific() {
+        ensureAllFeatureParticipants()
         val manifest = NativeBackupCoverage.participantManifest()
-        assertEquals(3, manifest.length())
+        assertEquals(11, manifest.length())
         NativeBackupCoverage.validateParticipantManifest(manifest)
         val changed = JSONArray()
         for (index in 0 until manifest.length()) {
@@ -178,6 +198,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun rejectsParticipantSnapshotVersionMismatch() {
+        ensureAllFeatureParticipants()
         val valid = JSONArray().put(JSONObject().put("id", "platform-row")
             .put("json", """{"id":"platform-row","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{"value":1}}""")
             .put("schemaVersion", 1).put("updatedAt", "2026-11-04T00:00:00.000Z")
@@ -188,6 +209,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun rejectsSnapshotRevisionThatDoesNotMatchThePersistedDriverState() {
+        ensureAllFeatureParticipants()
         val records = JSONArray().put(JSONObject()
             .put("id", "driver-state")
             .put("json", JSONObject().put("value", JSONObject()
@@ -203,6 +225,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun rejectsUnknownParticipantAndDuplicateRows() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -221,11 +244,13 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun failsClosedWhenARoomEntityHasNoParticipantContract() {
+        ensureAllFeatureParticipants()
         val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java)) }.exceptionOrNull()
         assertTrue(failure?.message?.startsWith("backup_room_entity_missing_participant:") == true)
     }
 
     @Test fun failsClosedWhenParticipantHasNoExecutableSnapshotAdapter() {
+        ensureAllFeatureParticipants()
         val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnsupportedAdapterEntity::class.java)) }.exceptionOrNull()
         assertEquals("backup_room_snapshot_adapter_missing:unimplemented-adapter", failure?.message)
     }
@@ -234,6 +259,7 @@ class NativeBackupCoverageTest {
     @NativeBackupParticipant(id = "future-feature", featureId = "future-feature", roomTable = "future_records", snapshotVersion = 1, adapterId = "unimplemented-adapter")
     class UnsupportedAdapterEntity
     @Test fun isolatedPersistentFeatureUsesRoomOwnedBackupAdapterAndRestoresIntoCleanStore() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -293,6 +319,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun rejectsFeatureOwnedRowsThatDoNotSatisfyTheSharedRecordEnvelope() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -325,6 +352,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun refusesToExportFeatureRecordsWithoutTheirRegisteredOwnerAdapter() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -338,6 +366,7 @@ class NativeBackupCoverageTest {
     }
 
     @Test fun rollsBackFeatureOwnedRoomRestoreWhenAnInjectedFailureInterruptsReplacement() {
+        ensureAllFeatureParticipants()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
