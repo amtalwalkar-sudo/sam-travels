@@ -52,13 +52,19 @@ class DriverWorkflowCapacitorBridgeTest {
                 "Capacitor WebView should render the Drive workspace",
                 awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000),
             )
+            val restoreCompleted = awaitJavascript(
+                activity,
+                "(() => { const message = document.querySelector('.driver-message')?.textContent?.trim() ?? ''; return message === 'Driver state is up to date' || /^\\d+ action\\(s\\) awaiting location\\/recovery$/.test(message) || message === 'Action saved · GPS verification continuing in the background' || message === 'Recorded securely on this device' || message.startsWith('GPS evidence window expired') || message.startsWith('Action retained ·'); })()",
+                30_000,
+            )
+            val actualDriverMessage = javascriptValue(
+                activity,
+                "document.querySelector('.driver-message')?.textContent?.trim() ?? '<missing driver message>'",
+            )
             assertTrue(
-                "Native workflow should finish its initial restore before the cross-client write",
-                awaitJavascript(
-                    activity,
-                    "(() => { const message = document.querySelector('.driver-message')?.textContent?.trim() ?? ''; return message === 'Driver state is up to date' || /^\\d+ action\\(s\\) awaiting location\\/recovery$/.test(message) || message === 'Action saved · GPS verification continuing in the background' || message === 'Recorded securely on this device' || message.startsWith('GPS evidence window expired') || message.startsWith('Action retained ·'); })()",
-                    30_000,
-                ),
+                "Native workflow should finish its initial restore before the cross-client write; " +
+                    "actual driver message='$actualDriverMessage'",
+                restoreCompleted,
             )
 
             val pluginHandle = activity.getBridge().getPlugin("DriverWorkflow")
@@ -119,6 +125,20 @@ class DriverWorkflowCapacitorBridgeTest {
             instrumentation.runOnMainSync { activity.finish() }
             database.close()
         }
+    }
+
+    private fun javascriptValue(activity: MainActivity, expression: String): String? {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val webView: WebView = activity.getBridge().getWebView()
+        val result = AtomicReference<String?>()
+        val latch = CountDownLatch(1)
+        instrumentation.runOnMainSync {
+            webView.evaluateJavascript(expression) {
+                result.set(it)
+                latch.countDown()
+            }
+        }
+        return if (latch.await(2, TimeUnit.SECONDS)) result.get() else null
     }
 
     private fun awaitJavascript(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
