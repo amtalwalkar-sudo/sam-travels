@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { browserDatabase } from "../packages/storage-browser/src";
+import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 
