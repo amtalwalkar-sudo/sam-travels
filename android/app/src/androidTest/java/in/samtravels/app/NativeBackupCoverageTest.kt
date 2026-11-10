@@ -40,6 +40,38 @@ class NativeBackupCoverageTest {
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
     }
+    @Test fun cancellationFeeObligationAndWorkingCopySurviveNativeSnapshotRestore() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val now = "2026-11-10T04:00:00.000Z"
+            DriverCancellationFeeStore.createPendingObligation(database, "cancelled-trip-1", "cancel-event-1", now)
+            DriverCancellationFeeStore.ensureCancellationFeeDraft(database, "cancelled-trip-1")
+            DriverCancellationFeeStore.updateCancellationFeeDraft(database, "cancelled-trip-1", 0L)
+
+            val exported = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
+            NativeBackupCoverage.validateBusinessRecords(exported)
+            val obligationId = "work:trip-financial-obligation:cancelled-trip-1"
+            val draftId = "__sam_travels_form_working_copy__:work.trip-cancellation-fee:cancelled-trip-1"
+            val rows = (0 until exported.length()).map { exported.getJSONObject(it) }
+            assertTrue(rows.any { it.optString("id") == obligationId })
+            assertTrue(rows.any { it.optString("id") == draftId })
+
+            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            assertTrue(database.records().get(obligationId) == null)
+            assertTrue(database.records().get(draftId) == null)
+            NativeBackupCoverage.replaceBusinessRecords(database, exported)
+
+            val restoredObligation = JSONObject(database.records().get(obligationId)!!.json)
+            assertEquals("pending", restoredObligation.getJSONObject("data").getString("status"))
+            val restoredDraft = JSONObject(database.records().get(draftId)!!.json).getJSONObject("data")
+            assertEquals("work.trip-cancellation-fee", restoredDraft.getString("formId"))
+            assertEquals(0L, restoredDraft.getJSONObject("values").getLong("cancellationFeePaise"))
+            assertEquals("in_progress", restoredDraft.getString("status"))
+        } finally { database.close() }
+    }
+
     private fun featureRecord(id: String, data: JSONObject, timestamp: String): StoredRecord {
         val envelope = JSONObject()
             .put("id", id)
