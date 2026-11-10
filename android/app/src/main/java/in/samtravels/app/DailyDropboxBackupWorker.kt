@@ -44,7 +44,7 @@ internal object BackgroundBackupScheduler {
 class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) : Worker(context, parameters) {
     private val db by lazy {
         Room.databaseBuilder(applicationContext, LocalDatabase::class.java, "sam-travels.db")
-            .addMigrations(LocalDatabase.MIGRATION_1_2)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
     }
