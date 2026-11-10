@@ -31,6 +31,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [selectionService, setSelectionService] = useState<WorkDriverSelectionService | null>(null);
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -118,6 +119,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const unsubscribeState = service.subscribe((snapshot) => {
           if (live) {
             setDriver(snapshot);
+            // Native Room invalidation can represent financial/form record changes even when
+            // the driver workflow revision is unchanged. Refresh record-backed workspaces too.
+            setWorkspaceRefreshKey(current => current + 1);
             refreshWorkflowStatus();
           }
         });
@@ -254,8 +258,8 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   }).format(now);
   const shiftOn = driver?.state !== undefined && driver.state !== "idle" && driver.state !== "needs_attention";
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
-  const cancellationFees = useCancellationFeeWorkspace(platformRepository, driver?.revision, setDriverMessage);
-  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, driver?.revision, setDriverMessage);
+  const cancellationFees = useCancellationFeeWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
+  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
   // A pending Fare does not block other actions: that product rule remains explicitly unresolved.
   const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
     cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;
