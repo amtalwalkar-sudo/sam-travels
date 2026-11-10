@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1, LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -146,6 +146,46 @@ describe("shared form runtime", () => {
     expect(validateFormValues(MAINTENANCE_RATE_FORM_V1, {
       vehicleId: "feature:vehicle:MH01AB1234", ratePaisePerKm: 250,
     })).toEqual([]);
+  });
+
+  it("validates Loan payment, prepayment, and settlement form contracts", () => {
+    expect(LOAN_PAYMENT_FORM_V1).toMatchObject({
+      id: "admin.loan-payment", version: 1, owner: "finance-loans", primaryAction: "save",
+    });
+    expect(validateFormValues(LOAN_PAYMENT_FORM_V1, {})).toMatchObject([
+      { fieldId: "loanId", code: "required" },
+      { fieldId: "businessDate", code: "required" },
+      { fieldId: "amountPaise", code: "required" },
+      { fieldId: "method", code: "required" },
+      { fieldId: "scheduleVersion", code: "required" },
+      { fieldId: "allocationsJson", code: "required" },
+    ]);
+    const payment = { loanId: "feature:finance:loan:123", businessDate: "2020-01-01",
+      amountPaise: 125000, method: "upi", scheduleVersion: 1, allocationsJson: "[]", reference: "", note: "" };
+    expect(validateFormValues(LOAN_PAYMENT_FORM_V1, payment)).toEqual([]);
+    expect(validateFormValues(LOAN_PAYMENT_FORM_V1, { ...payment, method: "crypto" }))
+      .toMatchObject([{ fieldId: "method", code: "option" }]);
+
+    expect(LOAN_PREPAYMENT_FORM_V1).toMatchObject({
+      id: "admin.loan-prepayment", version: 1, owner: "finance-loans", primaryAction: "submit",
+    });
+    const prepayment = { loanId: payment.loanId, businessDate: "2020-02-01", amountPaise: 50000,
+      mode: "reduce_tenure", previewJson: "" };
+    expect(validateFormValues(LOAN_PREPAYMENT_FORM_V1, prepayment)).toEqual([]);
+    expect(validateFormValues(LOAN_PREPAYMENT_FORM_V1, { ...prepayment, mode: "lower_rate" }))
+      .toMatchObject([{ fieldId: "mode", code: "option" }]);
+
+    expect(LOAN_SETTLEMENT_FORM_V1).toMatchObject({
+      id: "admin.loan-settlement", version: 1, owner: "finance-loans", primaryAction: "submit",
+    });
+    expect(validateFormValues(LOAN_SETTLEMENT_FORM_V1, {
+      loanId: payment.loanId, businessDate: "2020-03-01", method: "bank_transfer",
+      reference: "", previewJson: JSON.stringify({ amountPaise: 1 }),
+    })).toEqual([]);
+    expect(validateFormValues(LOAN_SETTLEMENT_FORM_V1, {
+      loanId: payment.loanId, businessDate: "2020-02-30", method: "bank_transfer",
+      previewJson: "{}",
+    })).toMatchObject([{ fieldId: "businessDate", code: "date" }]);
   });
 
   it("validates the canonical Loan details form and permits historical dates", () => {
