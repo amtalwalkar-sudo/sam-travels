@@ -128,7 +128,12 @@ export async function submitCompletedTripFinancials(
   };
   if (!await records.compareAndSet(id, current.revision, next)) {
     const latest = await records.get<CompletedTripFinancialObligation>(id);
-    if (latest?.data.status === "submitted" && latest.data.operationId === operationId) return latest;
+    const latestMatchesValues = latest?.data.farePaise === values.farePaise &&
+      latest.data.tollPaise === values.tollPaise && latest.data.tollPayer === values.tollPayer &&
+      latest.data.parkingPaise === values.parkingPaise && latest.data.parkingPayer === values.parkingPayer;
+    if (latest?.data.status === "submitted" && latest.data.operationId === operationId && latestMatchesValues) {
+      return latest;
+    }
     throw new Error("completed_trip_financials_revision_conflict");
   }
   return next;
