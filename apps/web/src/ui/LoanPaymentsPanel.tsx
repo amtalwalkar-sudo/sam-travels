@@ -9,8 +9,7 @@ import type {
 import { useAdminServices } from "./admin-services-context";
 import type { FinanceLoanRecordV1 } from "../../../../packages/application/src/finance-loan-service";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
-import { LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../../../../packages/application/src/admin-form-definitions";
-import type { FormDefinition, FormWorkingCopy } from "../../../../packages/application/src/shared-form-runtime";
+import { useLoanFormDrafts } from "./useLoanFormDrafts";
 
 type LoanEnvelope = RecordEnvelope<FinanceLoanRecordV1>;
 type Allocation = { installmentNumber: number; amountPaise: number };
@@ -49,92 +48,14 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const [prepaymentPreview, setPrepaymentPreview] = useState<FinanceLoanPrepaymentPreviewV1 | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  type DraftKind = "payment" | "prepayment" | "settlement";
-  const draftDefinitions: Record<DraftKind, FormDefinition> = {
-    payment: LOAN_PAYMENT_FORM_V1, prepayment: LOAN_PREPAYMENT_FORM_V1, settlement: LOAN_SETTLEMENT_FORM_V1,
-  };
-  const [draftAvailability, setDraftAvailability] = useState<Record<DraftKind, boolean>>({
-    payment: false, prepayment: false, settlement: false,
+  const drafts = useLoanFormDrafts({
+    loanId: loan.id, currentScheduleVersion: loan.data.currentScheduleVersion,
+    setDate, setAmount, setMethod, setReference, setNote, setScheduleVersion, setAllocations,
+    setPrepaymentDate, setPrepaymentAmount, setPrepaymentMode, setPrepaymentPreview,
+    setSettlementDate, setSettlementMethod, setSettlementReference, setSettlementPreview,
   });
-  const [formCopies, setFormCopies] = useState<Record<DraftKind, FormWorkingCopy | null>>({
-    payment: null, prepayment: null, settlement: null,
-  });
-  const formCopyRefs = useRef<Record<DraftKind, FormWorkingCopy | null>>({
-    payment: null, prepayment: null, settlement: null,
-  });
-  const formQueues = useRef<Record<DraftKind, Promise<void>>>({
-    payment: Promise.resolve(), prepayment: Promise.resolve(), settlement: Promise.resolve(),
-  });
-  const activateDraft = (kind: DraftKind, next: FormWorkingCopy) => {
-    formCopyRefs.current[kind] = next;
-    setFormCopies(current => ({ ...current, [kind]: next }));
-    formQueues.current[kind] = Promise.resolve();
-  };
-  const updateDraftField = async (kind: DraftKind, field: string, value: unknown) => {
-    const current = formCopyRefs.current[kind];
-    if (!current) return;
-    const operation = formQueues.current[kind].then(async () => {
-      const latest = formCopyRefs.current[kind];
-      if (!latest) return;
-      const next = await services.formRuntime.update(draftDefinitions[kind], latest, field, value);
-      formCopyRefs.current[kind] = next;
-      setFormCopies(state => ({ ...state, [kind]: next }));
-    });
-    formQueues.current[kind] = operation.catch(() => undefined);
-    await operation;
-  };
-  const clearDraftView = (kind: DraftKind) => {
-    formCopyRefs.current[kind] = null;
-    setFormCopies(current => ({ ...current, [kind]: null }));
-  };
-  const openDraft = async (kind: DraftKind, initial: Readonly<Record<string, unknown>>) => {
-    const definition = draftDefinitions[kind];
-    const drafts = await services.formRuntime.listDrafts(definition);
-    const existing = drafts.find(draft => draft.values.loanId === loan.id);
-    setDraftAvailability(current => ({ ...current, [kind]: true }));
-    let next = await services.formRuntime.open(definition, existing?.instanceId ?? crypto.randomUUID());
-    if (!existing) {
-      for (const [field, value] of Object.entries(initial)) {
-        if (next.values[field] === undefined) next = await services.formRuntime.update(definition, next, field, value);
-      }
-    }
-    activateDraft(kind, next);
-    if (kind === "payment") {
-      setDate(String(next.values.businessDate ?? indiaDate()));
-      setAmount(typeof next.values.amountPaise === "number" ? String(next.values.amountPaise / 100) : "");
-      setMethod((next.values.method as FinancePaymentMethodV1) ?? "bank_transfer");
-      setReference(String(next.values.reference ?? ""));
-      setNote(String(next.values.note ?? ""));
-      setScheduleVersion(String(next.values.scheduleVersion ?? loan.data.currentScheduleVersion));
-      try { setAllocations(JSON.parse(String(next.values.allocationsJson ?? "[]"))); } catch { setAllocations([]); }
-    } else if (kind === "prepayment") {
-      setPrepaymentDate(String(next.values.businessDate ?? indiaDate()));
-      setPrepaymentAmount(typeof next.values.amountPaise === "number" ? String(next.values.amountPaise / 100) : "");
-      setPrepaymentMode((next.values.mode as FinanceLoanPrepaymentModeV1) ?? "reduce_tenure");
-      try { setPrepaymentPreview(next.values.previewJson ? JSON.parse(String(next.values.previewJson)) : null); } catch { setPrepaymentPreview(null); }
-    } else {
-      setSettlementDate(String(next.values.businessDate ?? indiaDate()));
-      setSettlementMethod((next.values.method as FinancePaymentMethodV1) ?? "bank_transfer");
-      setSettlementReference(String(next.values.reference ?? ""));
-      try { setSettlementPreview(next.values.previewJson ? JSON.parse(String(next.values.previewJson)) : null); } catch { setSettlementPreview(null); }
-    }
-  };
-  const openPaymentDraft = async () => {
-    const businessDate = date || indiaDate();
-    await openDraft("payment", { loanId: loan.id, businessDate, amountPaise: undefined, method,
-      scheduleVersion: Number(scheduleVersion), allocationsJson: "[]", reference: "", note: "" });
-    setOpen(true); setPrepaymentOpen(false); setSettlementOpen(false);
-  };
-  const openPrepaymentDraft = async () => {
-    await openDraft("prepayment", { loanId: loan.id, businessDate: prepaymentDate || indiaDate(),
-      amountPaise: undefined, mode: prepaymentMode, previewJson: "" });
-    setPrepaymentOpen(true); setOpen(false); setSettlementOpen(false);
-  };
-  const openSettlementDraft = async () => {
-    await openDraft("settlement", { loanId: loan.id, businessDate: settlementDate || indiaDate(),
-      method: settlementMethod, reference: "", previewJson: "" });
-    setSettlementOpen(true); setOpen(false); setPrepaymentOpen(false);
-  };
+  const { draftAvailability, formCopies, updateDraftField, clearDraftView, markCompleted,
+    openPaymentDraft, openPrepaymentDraft, openSettlementDraft, waitFor, getCopy } = drafts;
   const schedule = schedules.find(item => item.version === Number(scheduleVersion));
   const paidEntries = useMemo(() => activePayments(entries), [entries]);
   const refresh = useCallback(async () => {
@@ -156,7 +77,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     if (!Number.isSafeInteger(amountPaise) || amountPaise <= 0 || !date) { setMessage("Enter a valid payment amount and date."); return; }
     setBusy(true); setMessage("");
     try {
-      await formQueues.current.payment;
+      await waitFor("payment");
       const proposal = await services.financeLoanPayments.propose({
         loanId: loan.id, scheduleVersion: Number(scheduleVersion), businessDate: date, amountPaise,
       });
@@ -171,12 +92,11 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     event.preventDefault();
     setBusy(true); setMessage("");
     try {
-      await formQueues.current.payment;
-      const current = formCopyRefs.current.payment;
+      await waitFor("payment");
+      const current = getCopy("payment");
       if (!current) throw new Error("finance_payment_form_not_ready");
       await services.formRuntime.save(LOAN_PAYMENT_FORM_V1, current);
-      clearDraftView("payment");
-      setDraftAvailability(current => ({ ...current, payment: false }));
+      markCompleted("payment");
       setAmount(""); setReference(""); setNote(""); setAllocations([]); setOpen(false);
       setMessage("Payment recorded atomically. Unallocated credit remains separate from prepayment.");
       await refresh(); await onChanged?.();
@@ -201,8 +121,8 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   async function previewSettlement(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage(""); setSettlementPreview(null);
     try {
-      await formQueues.current.settlement;
-      const current = formCopyRefs.current.settlement;
+      await waitFor("settlement");
+      const current = getCopy("settlement");
       if (!current) throw new Error("finance_payment_settlement_form_not_ready");
       const preview = await services.financeLoanSettlements.preview({ loanId: loan.id, businessDate: settlementDate });
       setSettlementPreview(preview);
@@ -214,12 +134,11 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   async function confirmSettlement() {
     setBusy(true); setMessage("");
     try {
-      await formQueues.current.settlement;
-      const current = formCopyRefs.current.settlement;
+      await waitFor("settlement");
+      const current = getCopy("settlement");
       if (!current) throw new Error("finance_payment_settlement_form_not_ready");
       await services.formRuntime.submit(LOAN_SETTLEMENT_FORM_V1, current);
-      clearDraftView("settlement");
-      setDraftAvailability(current => ({ ...current, settlement: false }));
+      markCompleted("settlement");
       setSettlementPreview(null); setSettlementOpen(false);
       setMessage("Final settlement recorded and Loan closed.");
       await refresh(); await onChanged?.();
@@ -235,8 +154,8 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     }
     setBusy(true); setMessage(""); setPrepaymentPreview(null);
     try {
-      await formQueues.current.prepayment;
-      const current = formCopyRefs.current.prepayment;
+      await waitFor("prepayment");
+      const current = getCopy("prepayment");
       if (!current) throw new Error("finance_loan_prepayment_form_not_ready");
       const preview = await services.financeLoanPrepayments.preview({
         loanId: loan.id, commandId: current.operationId, businessDate: prepaymentDate,
@@ -251,12 +170,11 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   async function confirmPrepayment() {
     setBusy(true); setMessage("");
     try {
-      await formQueues.current.prepayment;
-      const current = formCopyRefs.current.prepayment;
+      await waitFor("prepayment");
+      const current = getCopy("prepayment");
       if (!current) throw new Error("finance_loan_prepayment_form_not_ready");
       await services.formRuntime.submit(LOAN_PREPAYMENT_FORM_V1, current);
-      clearDraftView("prepayment");
-      setDraftAvailability(current => ({ ...current, prepayment: false }));
+      markCompleted("prepayment");
       setPrepaymentPreview(null); setPrepaymentAmount(""); setPrepaymentOpen(false);
       setMessage("Principal prepayment and revised schedule committed atomically.");
       await refresh(); onChanged?.();
