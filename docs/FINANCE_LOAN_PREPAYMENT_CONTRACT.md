@@ -1,6 +1,6 @@
 # Finance Loan Prepayment Contract v1
 
-**Status:** proposed contract; no runtime capability is enabled by this document alone.  
+**Status:** Implemented in the Finance-owned prepayment calculation, record validator, service/runtime and migrated Loan UI; automated calculation, service, stale-preview and CI coverage are present. This contract remains the behaviour authority.  
 **Owner:** Finance.  
 **Calculation dependency:** `finance.loan-monthly-reducing-balance.v1` (unchanged).
 
