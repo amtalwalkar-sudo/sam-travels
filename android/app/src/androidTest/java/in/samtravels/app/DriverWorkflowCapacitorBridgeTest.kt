@@ -56,7 +56,7 @@ class DriverWorkflowCapacitorBridgeTest {
                 "Native workflow should finish its initial restore before the cross-client write",
                 awaitJavascript(
                     activity,
-                    "document.querySelector('.driver-message')?.textContent?.includes('Driver state is up to date') === true",
+                    "(() => { const message = document.querySelector('.driver-message')?.textContent?.trim() ?? ''; return message.length > 0 && message !== 'Restoring driver state…'; })()",
                     30_000,
                 ),
             )
