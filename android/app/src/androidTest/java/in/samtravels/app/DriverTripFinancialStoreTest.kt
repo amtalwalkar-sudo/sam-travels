@@ -79,4 +79,44 @@ class DriverTripFinancialStoreTest {
    assertEquals(0L,DriverTripFinancialStore.ensureDraft(db,"backup-fare-trip").getJSONObject("values").getLong("farePaise"))
   } finally { db.close() }
  }
+ @Test fun nativeOverlayAndAndroidWebViewRoomClientsObserveTheSameFinancialRecords() {
+  val context=ApplicationProvider.getApplicationContext<Context>()
+  val name="completed-trip-paired-surfaces.db"
+  context.deleteDatabase(name)
+  val webView=Room.databaseBuilder(context,LocalDatabase::class.java,name).enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+  val overlay=Room.databaseBuilder(context,LocalDatabase::class.java,name).enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+  val invalidated=java.util.concurrent.CountDownLatch(1)
+  val observer=object:androidx.room.InvalidationTracker.Observer("records") {
+   override fun onInvalidated(tables:Set<String>) { invalidated.countDown() }
+  }
+  webView.invalidationTracker.addObserver(observer)
+  try {
+   val now=java.time.Instant.now().toString()
+   DriverTripFinancialStore.createPendingObligation(overlay,"paired-surface-trip","paired-end-event",now,null)
+   DriverTripFinancialStore.ensureDraft(overlay,"paired-surface-trip")
+   DriverTripFinancialStore.updateDraft(overlay,"paired-surface-trip",JSONObject().put("farePaise",12345L))
+   val obligationId="work:trip-financial-obligation:paired-surface-trip"
+   val draftId="__sam_travels_form_working_copy__:work.trip-completed-financials:paired-surface-trip"
+   assertEquals("completed_ride_financials",JSONObject(webView.records().get(obligationId)!!.json)
+    .getJSONObject("data").getString("kind"))
+   val draftEnvelope=JSONObject(webView.records().get(draftId)!!.json)
+   assertEquals(12345L,draftEnvelope.getJSONObject("data").getJSONObject("values").getLong("farePaise"))
+   assertTrue("Room multi-instance invalidation should notify the WebView-side client",invalidated.await(5,java.util.concurrent.TimeUnit.SECONDS))
+
+   // Simulate the WebView RoomRecordRepository committing its generic working-copy envelope.
+   val copy=draftEnvelope.getJSONObject("data")
+   val values=copy.getJSONObject("values").put("farePaise",23456L)
+   copy.put("values",values).put("revision",copy.getInt("revision")+1).put("updatedAt",now)
+   draftEnvelope.put("data",copy).put("revision",draftEnvelope.getInt("revision")+1).put("updatedAt",now)
+   webView.records().put(StoredRecord(draftId,draftEnvelope.toString(),1,now))
+   assertEquals(23456L,DriverTripFinancialStore.ensureDraft(overlay,"paired-surface-trip")
+    .getJSONObject("values").getLong("farePaise"))
+  } finally {
+   webView.invalidationTracker.removeObserver(observer)
+   overlay.close()
+   webView.close()
+   context.deleteDatabase(name)
+  }
+ }
+
 }
