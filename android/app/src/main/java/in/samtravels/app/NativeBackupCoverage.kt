@@ -373,18 +373,21 @@ internal object NativeBackupRecovery {
  * first opens the authoritative database. A failed recovery never opens the gate.
  */
 internal object NativeStartupRecovery {
-    @Volatile private var ready = false
+    // A process may open multiple Room instances/databases (overlay, WebView
+    // bridge and isolated recovery tests). Readiness belongs to the actual
+    // database instance; a process-global Boolean can skip recovery on another DB.
+    @Volatile private var readyDatabase: LocalDatabase? = null
 
     @Synchronized
     fun ensure(database: LocalDatabase): List<String> {
-        if (ready) return emptyList()
+        if (readyDatabase === database) return emptyList()
         val recovered = NativeBackupRecovery.recoverPending(database)
-        ready = true
+        readyDatabase = database
         return recovered
     }
 
     @Synchronized
     fun invalidate() {
-        ready = false
+        readyDatabase = null
     }
 }
