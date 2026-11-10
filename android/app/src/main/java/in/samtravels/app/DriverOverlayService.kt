@@ -118,7 +118,7 @@ class DriverOverlayService:Service(){
   val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(android.graphics.Color.WHITE)}
   val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14))}
   val scroll=ScrollView(this).apply{isFillViewport=false;clipToPadding=false}
-  scroll.addView(content,ScrollView.LayoutParams(-1,-2));root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
+  scroll.addView(content,ViewGroup.LayoutParams(-1,-2));root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
   val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   status=header
   content.addView(header)
