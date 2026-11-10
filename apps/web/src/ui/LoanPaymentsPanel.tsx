@@ -162,10 +162,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     } catch (error) { setMessage(error instanceof Error ? error.message : "Allocation could not be suggested."); }
     finally { setBusy(false); }
   }
-  function addAllocation(installmentNumber: number) {
-    if (allocations.some(item => item.installmentNumber === installmentNumber)) return;
-    setAllocations(current => [...current, { installmentNumber, amountPaise: 0 }].sort((a,b) => a.installmentNumber-b.installmentNumber));
-  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true); setMessage("");
@@ -283,6 +280,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     {loan.data.lifecycleState === "closed" && <p className="admin-message" role="status">Loan closed. Payment and prepayment actions are disabled; history remains available.</p>}
     {settlementOpen && <form className="loan-form" onSubmit={previewSettlement}>
       <strong>Final settlement</strong>
+      {formCopies.settlement && <small>Recoverable draft · revision {formCopies.settlement.revision}</small>}
       <div className="loan-form-grid">
         <label>Settlement date<input required type="date" value={settlementDate} onChange={event => { setSettlementDate(event.target.value); setSettlementPreview(null); void updateDraftField("settlement", "businessDate", event.target.value); void updateDraftField("settlement", "previewJson", ""); }} /></label>
         <label>Payment method<select value={settlementMethod} onChange={event => { const value = event.target.value as FinancePaymentMethodV1; setSettlementMethod(value); void updateDraftField("settlement", "method", value); void updateDraftField("settlement", "previewJson", ""); setSettlementPreview(null); }}>{METHODS.map(value => <option key={value} value={value}>{value.replace("_"," ")}</option>)}</select></label>
@@ -297,6 +295,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     </form>}
     {prepaymentOpen && <form className="loan-form" onSubmit={previewPrepayment}>
       <strong>Principal prepayment</strong>
+      {formCopies.prepayment && <small>Recoverable draft · revision {formCopies.prepayment.revision}</small>}
       <div className="loan-form-grid">
         <label>Prepayment date<input required type="date" value={prepaymentDate} onChange={event => { setPrepaymentDate(event.target.value); setPrepaymentPreview(null); void updateDraftField("prepayment", "businessDate", event.target.value); void updateDraftField("prepayment", "previewJson", ""); }} /></label>
         <label>Principal amount (₹)<input required type="number" min="0.01" step="0.01" value={prepaymentAmount} onChange={event => { setPrepaymentAmount(event.target.value); setPrepaymentPreview(null); const value = event.target.value === "" ? undefined : Math.round(Number(event.target.value) * 100); void updateDraftField("prepayment", "amountPaise", value); void updateDraftField("prepayment", "previewJson", ""); }} /></label>
@@ -324,6 +323,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       </div>}
     </form>}
     {open && <form className="loan-form" onSubmit={save}>
+      <small>Recoverable payment draft · revision {formCopies.payment?.revision ?? 0}</small>
       <div className="loan-form-grid">
         <label>Payment date<input required type="date" value={date} onChange={event => { setDate(event.target.value); setAllocations([]); void updateDraftField("payment", "businessDate", event.target.value); void updateDraftField("payment", "allocationsJson", "[]"); }} /></label>
         <label>Amount paid (₹)<input required type="number" min="0.01" step="0.01" value={amount} onChange={event => { setAmount(event.target.value); setAllocations([]); const value = event.target.value === "" ? undefined : Math.round(Number(event.target.value) * 100); void updateDraftField("payment", "amountPaise", value); void updateDraftField("payment", "allocationsJson", "[]"); }} /></label>
