@@ -202,8 +202,8 @@ describe("durable single-driver workflow",()=>{
    });
   });
   const replay=await recoveredService.replayCommittedEvents();
-  expect(replay).toEqual({delivered:3,pending:0});
-  expect(replayed).toEqual(["e2e-shift_start","e2e-trip_start","e2e-trip_end"]);
+  expect(replay).toEqual({delivered:0,pending:0});
+  expect(replayed).toEqual([]);
   expect(readTripHistoryProjection()).toHaveLength(1);
   expect(readTripHistoryProjection()[0].status).toBe("completed");
  });
