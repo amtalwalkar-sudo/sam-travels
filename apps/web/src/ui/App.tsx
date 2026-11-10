@@ -40,8 +40,10 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
+    pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
   } = workspace;
-  const { retry, toggleNetwork, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee } = workspace.actions;
+  const { retry, toggleNetwork, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee,
+    updateCompletedTripFinancialDraft, submitCompletedTripFinancials } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
@@ -125,6 +127,53 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                       disabled={cancellationFeeBusy || (cancellationFeeDrafts[tripId] ?? "") === ""}
                       onClick={() => void submitCancellationFee(tripId)}
                     >Save cancellation fee</button>
+                  </div>;
+                })}
+              </div>}
+              {pendingCompletedTripFinancials.length > 0 && <div className="pending-list" aria-live="polite">
+                <strong>Fare and trip financials required</strong>
+                <p>Enter Fare to complete this ride's financial entry. ₹0 is valid. Toll and Parking are optional; choose a payer separately for each amount entered.</p>
+                {pendingCompletedTripFinancials.map(obligation => {
+                  const tripId=obligation.data.tripId;
+                  const draft=completedTripFinancialDrafts[tripId]??{fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""};
+                  const summary=completedTripFinancialSummaries[tripId];
+                  return <div className="pending-row" key={obligation.id}>
+                    <label>Fare (₹)
+                      <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.fare}
+                        onChange={event=>void updateCompletedTripFinancialDraft(tripId,"fare",event.target.value)}
+                        disabled={completedTripFinancialBusy} aria-label="Fare in rupees" />
+                    </label>
+                    <details>
+                      <summary>Add Toll (optional)</summary>
+                      <label>Toll (₹)
+                        <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.toll}
+                          onChange={event=>void updateCompletedTripFinancialDraft(tripId,"toll",event.target.value)}
+                          disabled={completedTripFinancialBusy} aria-label="Toll in rupees" />
+                      </label>
+                      <label>Toll paid by
+                        <select value={draft.tollPayer} onChange={event=>void updateCompletedTripFinancialDraft(tripId,"tollPayer",event.target.value)}
+                          disabled={completedTripFinancialBusy}>
+                          <option value="">Select payer</option><option value="driver">Driver</option><option value="customer">Customer</option>
+                        </select>
+                      </label>
+                    </details>
+                    <details>
+                      <summary>Add Parking (optional)</summary>
+                      <label>Parking (₹)
+                        <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.parking}
+                          onChange={event=>void updateCompletedTripFinancialDraft(tripId,"parking",event.target.value)}
+                          disabled={completedTripFinancialBusy} aria-label="Parking in rupees" />
+                      </label>
+                      <label>Parking paid by
+                        <select value={draft.parkingPayer} onChange={event=>void updateCompletedTripFinancialDraft(tripId,"parkingPayer",event.target.value)}
+                          disabled={completedTripFinancialBusy}>
+                          <option value="">Select payer</option><option value="driver">Driver</option><option value="customer">Customer</option>
+                        </select>
+                      </label>
+                    </details>
+                    {summary && <small>Customer charge ₹{(summary.customerChargePaise/100).toFixed(2)} · Driver expenses ₹{(summary.driverExpensesPaise/100).toFixed(2)} · Net trip earnings before fuel ₹{(summary.netTripEarningsBeforeFuelPaise/100).toFixed(2)}</small>}
+                    <button className="primary-action" disabled={completedTripFinancialBusy||draft.fare===""}
+                      onClick={()=>void submitCompletedTripFinancials(tripId)}>Submit trip financials</button>
                   </div>;
                 })}
               </div>}

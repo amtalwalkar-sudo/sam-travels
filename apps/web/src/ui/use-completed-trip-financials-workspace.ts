@@ -10,7 +10,7 @@ type Draft = { fare:string; toll:string; tollPayer:string; parking:string; parki
 const emptyDraft=():Draft=>({fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""});
 function parsePaise(value:string):number|null {
   const parts=value.split(".");
-  if(value===""||parts.length>2||!^[0-9]+$/.test(parts[0])||(parts[1]!==undefined&&(parts[1].length>2||!^[0-9]*$/.test(parts[1]))))return null;
+  if(value===""||parts.length>2||!/^[0-9]+$/.test(parts[0])||(parts[1]!==undefined&&(parts[1].length>2||!/^[0-9]*$/.test(parts[1]))))return null;
   const amount=Number(parts[0])*100+Number((parts[1]??"").padEnd(2,"0"));
   return Number.isSafeInteger(amount)&&amount>=0?amount:null;
 }
