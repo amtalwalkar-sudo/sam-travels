@@ -1,5 +1,6 @@
 package `in`.samtravels.app
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -100,8 +101,25 @@ class DriverOverlayServicePresentationTest {
                 val intent = Intent(activity, DriverOverlayService::class.java)
                 if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
             }
-            assertTrue("The actual DriverOverlayService window must attach and expose the requested form",
-                waitUntil { findNode(ui) { it.text?.toString()?.contains(if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required") == true } != null })
+            val formLabel = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required"
+            val attached = waitUntil {
+                findNode(ui) { it.text?.toString()?.contains(formLabel) == true } != null
+            }
+            if (!attached) {
+                val running = (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
+                    .getRunningServices(100).any { it.service.className == DriverOverlayService::class.java.name }
+                val windows = ui.windows.joinToString { window ->
+                    "${window.type}:${window.title}:${window.root?.childCount}"
+                }
+                val logs = shell(ui, "logcat -d -s DriverOverlayService:E").takeLast(5000)
+                val state = runCatching { DriverWorkflowStore.snapshot(db).toString() }.getOrDefault("invalid")
+                assertTrue(
+                    "Overlay form did not attach; serviceRunning=$running canDraw=${Settings.canDrawOverlays(app)} " +
+                        "fineLocation=${app.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)} " +
+                        "state=$state windows=$windows logs=$logs",
+                    attached,
+                )
+            }
             exercise(ui, db)
         } finally {
             instrumentation.runOnMainSync {
@@ -117,9 +135,8 @@ class DriverOverlayServicePresentationTest {
         }
     }
 
-    private fun shell(ui: UiAutomation, command: String) {
+    private fun shell(ui: UiAutomation, command: String): String =
         ParcelFileDescriptor.AutoCloseInputStream(ui.executeShellCommand(command)).bufferedReader().use { it.readText() }
-    }
 
     private fun allNodes(ui: UiAutomation): List<AccessibilityNodeInfo> {
         val result = mutableListOf<AccessibilityNodeInfo>()
