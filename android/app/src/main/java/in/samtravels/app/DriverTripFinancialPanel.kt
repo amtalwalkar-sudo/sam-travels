@@ -88,7 +88,7 @@ class DriverTripFinancialPanel(
     optional.visibility=if(values.has("tollPaise")||values.has("parkingPaise"))View.VISIBLE else View.GONE
     suppress=false
    }
-   submit.isEnabled=canSubmit()
+   refreshSubmitState()
   }
 
   private fun amountInput(label:String)=EditText(context).apply{
@@ -120,10 +120,16 @@ class DriverTripFinancialPanel(
    if(parking.text.isNotEmpty()&&(parse(parking.text.toString())==null||payer(parkingPayer)==null))return false
    return true
   }
+  private fun refreshSubmitState(){
+   // Spinner selection callbacks can be delivered after setSelection/layout.
+   // Re-evaluate on the view queue so validation reflects the final selection
+   // rather than a transient AdapterView callback ordering.
+   submit.post{submit.isEnabled=canSubmit()}
+  }
   private fun persistDraft(){
    val current=values()
    executor.execute{runCatching{DriverTripFinancialStore.updateDraft(db,tripId,current)}}
-   submit.isEnabled=canSubmit()
+   refreshSubmitState()
   }
   private fun submit(){
    if(!canSubmit()){onRefresh("Enter Fare and select a payer for each Toll/Parking amount");return}
