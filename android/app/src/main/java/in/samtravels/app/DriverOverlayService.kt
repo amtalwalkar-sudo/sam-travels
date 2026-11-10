@@ -160,8 +160,8 @@ class DriverOverlayService:Service(){
   val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
   cancelButton=cancel
   content.addView(cancel)
-  cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)};cancellationFeePanel?.attach(root)
-  tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)};tripFinancialPanel?.attach(root)
+  cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)};cancellationFeePanel?.attach(content)
+  tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)};tripFinancialPanel?.attach(content)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   content.addView(recoveryButton)
   panel=root
