@@ -59,7 +59,12 @@ class DriverOverlayServicePresentationTest {
             DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-minimize-event", now, null)
             DriverTripFinancialStore.ensureDraft(db, tripId)
         }) { ui, _ ->
+            clickText(ui, "Add Toll / Parking")
             setText(ui, "Fare (₹)", "12.34")
+            setText(ui, "Toll (₹)", "4.56")
+            choosePayer(ui, 0, "Driver")
+            setText(ui, "Parking (₹)", "7.89")
+            choosePayer(ui, 1, "Customer")
             val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
             assertTrue("Attached overlay header must be available to drag", header != null)
             val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
@@ -79,7 +84,11 @@ class DriverOverlayServicePresentationTest {
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
-                    findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "12.34" } != null
+                    findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "12.34" } != null &&
+                    findNode(ui) { it.contentDescription?.toString() == "Toll (₹)" && it.text?.toString() == "4.56" } != null &&
+                    findNode(ui) { it.contentDescription?.toString() == "Parking (₹)" && it.text?.toString() == "7.89" } != null &&
+                    spinners(ui).getOrNull(0)?.text?.toString()?.contains("Driver", ignoreCase = true) == true &&
+                    spinners(ui).getOrNull(1)?.text?.toString()?.contains("Customer", ignoreCase = true) == true
             })
         }
     }
