@@ -59,6 +59,7 @@ class DriverOverlayServicePresentationTest {
             DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-minimize-event", now, null)
             DriverTripFinancialStore.ensureDraft(db, tripId)
         }) { ui, _ ->
+            setText(ui, "Fare (₹)", "12.34")
             val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
             assertTrue("Attached overlay header must be available to drag", header != null)
             val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
@@ -77,7 +78,8 @@ class DriverOverlayServicePresentationTest {
             injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
-                    findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null
+                    findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
+                    findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "12.34" } != null
             })
         }
     }
