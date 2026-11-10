@@ -59,7 +59,7 @@ class DriverOverlayServicePresentationTest {
             DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-minimize-event", now, null)
             DriverTripFinancialStore.ensureDraft(db, tripId)
         }) { ui, _ ->
-            val header = findNode(ui) { it.text?.toString() == "Sam Travels · Driver" }
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
             assertTrue("Attached overlay header must be available to drag", header != null)
             val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
             val downTime = SystemClock.uptimeMillis()
