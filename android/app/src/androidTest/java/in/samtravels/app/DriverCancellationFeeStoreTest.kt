@@ -27,6 +27,32 @@ class DriverCancellationFeeStoreTest {
         .put("eventType",event).put("originSurface","native_overlay").put("transitionAt",at)
         .put("expectedPriorState",prior).put("expectedRevision",revision).put("idempotencyKey",id)
 
+    @Test fun pendingCancellationFeeAndDraftSurviveDatabaseReopen() {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val name="cancellation-fee-reopen-test.db"
+        context.deleteDatabase(name)
+        try {
+            val first=Room.databaseBuilder(context,LocalDatabase::class.java,name)
+                .allowMainThreadQueries().build()
+            DriverCancellationFeeStore.createPendingObligation(first,"reopen-trip","reopen-cancel-event",
+                java.time.Instant.now().toString())
+            DriverCancellationFeeStore.ensureCancellationFeeDraft(first,"reopen-trip")
+            DriverCancellationFeeStore.updateCancellationFeeDraft(first,"reopen-trip",0L)
+            first.close()
+
+            val reopened=Room.databaseBuilder(context,LocalDatabase::class.java,name)
+                .allowMainThreadQueries().build()
+            try {
+                val obligation=DriverCancellationFeeStore.pendingObligation(reopened)
+                    ?: error("cancellation_fee_obligation_not_recovered")
+                assertEquals("pending",obligation.getJSONObject("data").getString("status"))
+                val draft=DriverCancellationFeeStore.ensureCancellationFeeDraft(reopened,"reopen-trip")
+                assertEquals(0L,draft.getJSONObject("values").getLong("cancellationFeePaise"))
+                assertEquals("in_progress",draft.getString("status"))
+            } finally { reopened.close() }
+        } finally { context.deleteDatabase(name) }
+    }
+
     @Test fun cancellationRequiresZeroValidFeeBeforeShiftCanEnd() {
         val now=java.time.Instant.now().toString()
         val context=JSONObject().put("schemaVersion",1).put("driverId","driver-1")
