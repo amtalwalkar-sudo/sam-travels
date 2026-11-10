@@ -1,6 +1,6 @@
 # Shared Form Conformance Audit
 
-**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip migrations and recovery acceptance remain open  
+**Status:** Partial — shared mechanics and record-backed working-copy adapter implemented; Maintenance and all current Loan web forms migrated and CI-verified; Work/Trip cancellation-fee slice implemented and CI-verified; Fare/Toll/Parking parity and full recovery acceptance remain open  
 **Authority:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`  
 **Scope audited:** Current Admin web forms, Work/Trip workflow, application-service boundary and Android overlay  
 **Explicit exclusions:** Performance remains a product placeholder. Physical-device form acceptance is deferred.
@@ -12,7 +12,7 @@
 - `packages/application/src/record-form-working-copy-repository.ts` stores recoverable copies through the authoritative atomic record repository. This makes the same envelope usable by the browser IndexedDB and Android Room record adapters and the existing generic-record backup participant.
 - The working-copy repository and runtime now expose definition-scoped discovery of in-progress drafts, so a presentation can offer a real resume path after a reload rather than requiring the original in-memory instance ID. Completed and unrelated forms are excluded from the resumable-draft list.
 - Tests cover validation, explicit zero values, strict dates, restored working copies, definition-scoped draft discovery, Save/Submit distinction, stale revisions, and record-backed storage.
-- Business Setup, Vehicle, Driver, and Compliance are the migrated Admin UI consumers. Business Setup uses `admin.business-setup` v1; Vehicle uses `admin.vehicle` v1; Driver uses `admin.driver` v1; Compliance uses `admin.compliance` v1. All use the shared runtime and record-backed working-copy repository, and dispatch writes through their existing application-owned services. Vehicle and Driver edit commands carry the working-copy instance identity and record revision captured when editing began. Compliance creation retains immutable renewal linkage and delegates validation and persistence to ComplianceService. Driver assignment history and Work selection remain owned by their existing services. Loan details uses `admin.loan-details` v1 through the shared runtime, with create/edit, durable draft resume, revision-aware updates and dispatch through `FinanceLoanService`; historical loan dates remain valid. Loan payment, prepayment and settlement now use `admin.loan-payment`, `admin.loan-prepayment` and `admin.loan-settlement` v1 through the shared runtime and record-backed drafts. Their presentation delegates to `FinanceLoanPaymentService`, `FinanceLoanPrepaymentService` and `FinanceLoanSettlementService`; the Android overlay does not yet render or submit Work/Trip financial forms.
+- Business Setup, Vehicle, Driver, and Compliance are the migrated Admin UI consumers. Business Setup uses `admin.business-setup` v1; Vehicle uses `admin.vehicle` v1; Driver uses `admin.driver` v1; Compliance uses `admin.compliance` v1. All use the shared runtime and record-backed working-copy repository, and dispatch writes through their existing application-owned services. Vehicle and Driver edit commands carry the working-copy instance identity and record revision captured when editing began. Compliance creation retains immutable renewal linkage and delegates validation and persistence to ComplianceService. Driver assignment history and Work selection remain owned by their existing services. Loan details uses `admin.loan-details` v1 through the shared runtime, with create/edit, durable draft resume, revision-aware updates and dispatch through `FinanceLoanService`; historical loan dates remain valid. Loan payment, prepayment and settlement now use `admin.loan-payment`, `admin.loan-prepayment` and `admin.loan-settlement` v1 through the shared runtime and record-backed drafts. Their presentation delegates to `FinanceLoanPaymentService`, `FinanceLoanPrepaymentService` and `FinanceLoanSettlementService`. The Android overlay now renders and submits the cancellation-fee form through the Room-backed shared working-copy envelope; Fare and Toll/Parking forms remain unimplemented.
 
 ## Existing aligned boundaries
 
@@ -30,21 +30,28 @@ Loan details is now migrated in `apps/web/src/ui/LoanDetailsForm.tsx` and integr
 
 Loan payment and closeout forms are now migrated in `apps/web/src/ui/LoanPaymentsPanel.tsx`, with shared draft lifecycle in `apps/web/src/ui/useLoanFormDrafts.ts`. Payment Save dispatches with stable operation identity to FinanceLoanPaymentService; oldest-due-first suggestions, editable allocations, schedule version selection, references/notes and unallocated-credit separation remain intact. The existing reason-and-confirmation reversal action remains delegated directly to FinanceLoanPaymentService. Prepayment uses a recoverable draft, non-committing FinanceLoanPrepaymentService preview and explicit shared-runtime submit; the canonical definition requires the service preview before confirmation, and commit revalidates the preview against current loan, ledger and prepayment revisions. Settlement uses a recoverable draft, non-committing settlement preview, explicit confirmation dialog and shared-runtime submit; FinanceLoanSettlementService revalidates the preview and atomically records settlement plus Loan closure. CI run #1548 passed on code commit `fea6f96c54c491fc0bacbef2386f0face7ec1478`: architecture, complete web regression/build, Android build and Room/workflow/backup reliability gate, and integrated regression gate all passed. The merged-main APK publication step was skipped. This verifies the Loan web form slice only; Work/Trip, physical-device acceptance and final full regression remain open.
 
-Work/Trip financial forms are also absent from the current Work screen and native overlay. The approved driver workflow requires:
+Work/Trip financial parity is partial. The mandatory cancellation-fee slice is implemented in the PWA Work screen and Android overlay:
+- `work.trip-cancellation-fee` v1 is a canonical shared-runtime definition. Missing fee is rejected; an explicitly entered ₹0 is valid. Amounts are stored as integer paise.
+- Cancellation creates the trip-linked `work:trip-financial-obligation:<tripId>` record in the same browser IndexedDB or Android Room transaction as the cancellation event. The obligation stores the cancellation event identity and remains pending until submitted.
+- PWA uses `SharedFormRuntime`, `RecordFormWorkingCopyRepository` and `TripFinancialService`. Android overlay uses `DriverCancellationFeePanel` and `DriverCancellationFeeStore`, writing the same `__sam_travels_form_working_copy__:work.trip-cancellation-fee:<tripId>` envelope and stable operation identity.
+- Both surfaces retain recoverable drafts, reject negative or fractional-paise values, submit idempotently, and block another Work action/shift-end while the fee obligation is pending. Shift-end is guarded at queue and commit boundaries.
+- Cancelled trips have no Toll or Parking fields or entries. The cancellation fee is not merged into Fare.
+- Code verification: CI run #1574 passed on exact code commit `060b1d9978d20afe80e87c89127a50e074090e48`: architecture, full web regression/build, Android build/unit tests, the Android Room/workflow/backup reliability gate, and integrated regression gate all succeeded. Production geocoder verification was skipped as unrelated. The PR remains open/unmerged; no APK was published and physical-device testing remains deferred.
+
+The remaining approved Work/Trip requirements are:
 - Fare after End Ride; Fare ₹0 is valid, while missing Fare blocks financial finalization.
 - Optional Toll and Parking, each with an independent Driver/Customer payer when an amount is entered.
-- Mandatory cancellation-fee entry after Cancel Ride; an explicit ₹0 fee is valid. Cancelled trips have no Toll or Parking entries.
-- Durable pending form state linked to the original trip and shared by PWA and overlay.
+- Cross-surface interruption/process-death and backup/restore acceptance for the cancellation-fee obligation and working copy still needs explicit coverage.
 
 ## Required completion work
 
 1. Add canonical versioned definitions for every in-scope Admin and Work/Trip form.
 2. Provide composition-root wiring for the shared runtime and record-backed working-copy repository on browser and native JS surfaces.
 3. Loan details, payment, prepayment and settlement web forms are migrated and CI-verified; preserve their approved Finance service ownership and business behaviour in future changes.
-4. Implement the Work/Trip financial application use cases and shared durable pending obligations before adding form presentation; do not invent a second financial authority in the overlay.
-5. Render the same Fare, Toll/Parking and cancellation-fee definitions in PWA and native overlay, with Kotlin/TypeScript parity tests and authoritative idempotent commits.
-6. Add one-action confirmation, truthful pending/success/failure feedback, accessibility and interruption recovery to the shared adapters.
-7. Add cross-surface tests for draft resume, process death, duplicate submission, stale revisions, commit feedback, and backup/restore of in-progress copies.
+4. The cancellation-fee application use case and durable trip-linked obligation are implemented on both surfaces. Implement the remaining completed-ride Fare/Toll/Parking use cases through the same authoritative record/service boundary; do not add a second financial authority in the overlay.
+5. Render Fare and Toll/Parking definitions in PWA and native overlay. The cancellation-fee definition is already rendered on both surfaces and uses idempotent commits.
+6. Cancellation-fee pending/success/failure feedback, accessible input, record-backed draft recovery and queue/commit shift-end guards are implemented. Preserve these properties in the remaining forms.
+7. Add explicit cross-surface process-death and backup/restore acceptance for cancellation-fee working copies and obligations; then add equivalent tests for Fare and Toll/Parking, including draft resume, duplicate submission, stale revisions and commit feedback.
 
 ## Completion rule
 
