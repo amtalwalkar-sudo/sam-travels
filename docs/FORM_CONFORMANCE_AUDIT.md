@@ -57,7 +57,7 @@ A paired-client Room integration test now opens two independent Room clients aga
 
 - Add or reconcile targeted stale-revision and competing-command coverage for every Work/Trip transition and for the cross-surface financial form submission paths; current tests cover key workflow and service cases, not every transition/surface combination.
 - Exercise the actual Capacitor event bridge, WebView workspace refresh, overlay service presentation and user interaction together. Paired Room handles plus the React refresh trigger do not constitute this end-to-end proof.
-- Reconcile downstream outbox delivery/retry/acknowledgement behavior separately from the atomic local outbox-write guarantee. Local transaction tests prove the outbox row commits or rolls back with the event; they do not by themselves prove remote consumer delivery.
+- Application-service delivery coverage already exists: a transient consumer failure is retried, and startup replay republishes committed events from the immutable event log after IndexedDB reopen while rebuilding the Log Book projection. This verifies the application publisher/integration boundary, not a remote transport or Android-native consumer. Delivery bookkeeping in `DriverWorkflowService` is process-local; the current tests do not prove a durable per-consumer acknowledgement is written back to the outbox row. Confirm the intended at-least-once/idempotent-consumer contract, or add durable delivery state if a persisted acknowledgement is required.
 - Reboot, force-stop, Doze and screen-off behavior must be tested only to the extent the emulator exposes reliable controls; physical-device acceptance remains deferred by agreement. Do not describe emulator coverage as phone acceptance.
 
 ## Required completion work
