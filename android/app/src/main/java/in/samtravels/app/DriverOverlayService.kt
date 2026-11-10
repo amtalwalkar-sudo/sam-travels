@@ -215,7 +215,13 @@ class DriverOverlayService:Service(){
     feeTripId,feePaise,financialPending,financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null,
     window,panel,panelParams,
    )
-   tripFinancialPanel?.render(completedFinancialForms,window,panel,panelParams)
+   tripFinancialPanel?.render(completedFinancialForms)
+   panelParams?.let{params->
+    val financialInputsVisible=financialPending||completedFinancialForms.isNotEmpty()
+    params.flags=if(financialInputsVisible)params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+     else params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+    runCatching{panel?.let{view->window.updateViewLayout(view,params)}}
+   }
   }
  }catch(_:Exception){
   startupRecoveryReady=false
