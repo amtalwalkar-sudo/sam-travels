@@ -32,8 +32,7 @@ class DriverOverlayService:Service(){
  private var swipeLabel:TextView?=null
  private var swipeBar:SeekBar?=null
  private var cancelButton:Button?=null
- private var cancellationFeePanel:DriverCancellationFeePanel?=null
- private var tripFinancialPanel:DriverTripFinancialPanel?=null
+ private var cancellationFeePanel:DriverCancellationFeePanel?=null;private var tripFinancialPanel:DriverTripFinancialPanel?=null
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -156,10 +155,8 @@ class DriverOverlayService:Service(){
   val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
   cancelButton=cancel
   root.addView(cancel)
-  cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)}
-  cancellationFeePanel?.attach(root)
-  tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)}
-  tripFinancialPanel?.attach(root)
+  cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)};cancellationFeePanel?.attach(root)
+  tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)};tripFinancialPanel?.attach(root)
   recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
   root.addView(recoveryButton)
   panel=root
@@ -183,8 +180,7 @@ class DriverOverlayService:Service(){
    if(values.has("cancellationFeePaise"))values.optLong("cancellationFeePaise",-1L).takeIf{it>=0L} else null
   }
   val completedFinancialForms=DriverTripFinancialStore.pendingObligations(db).mapNotNull{obligation->
-   val data=obligation.optJSONObject("data")?:return@mapNotNull null
-   val tripId=data.optString("tripId").takeIf{it.isNotBlank()}?:return@mapNotNull null
+   val tripId=obligation.optJSONObject("data")?.optString("tripId")?.takeIf{it.isNotBlank()}?:return@mapNotNull null
    JSONObject().put("obligation",obligation).put("draft",DriverTripFinancialStore.ensureDraft(db,tripId))
   }
   val financialPending=feeTripId!=null
@@ -215,13 +211,7 @@ class DriverOverlayService:Service(){
     feeTripId,feePaise,financialPending,financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null,
     window,panel,panelParams,
    )
-   tripFinancialPanel?.render(completedFinancialForms)
-   panelParams?.let{params->
-    val financialInputsVisible=financialPending||completedFinancialForms.isNotEmpty()
-    params.flags=if(financialInputsVisible)params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
-     else params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-    runCatching{panel?.let{view->window.updateViewLayout(view,params)}}
-   }
+   tripFinancialPanel?.render(completedFinancialForms,financialPending,window,panel,panelParams)
   }
  }catch(_:Exception){
   startupRecoveryReady=false

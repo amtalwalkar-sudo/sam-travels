@@ -28,7 +28,7 @@ class DriverTripFinancialPanel(
   root.addView(container)
  }
 
- fun render(forms:List<JSONObject>) {
+ fun render(forms:List<JSONObject>,cancellationFeeVisible:Boolean,window:WindowManager,panel:View?,params:WindowManager.LayoutParams?) {
   val ids=forms.mapNotNull{it.optJSONObject("obligation")?.optJSONObject("data")?.optString("tripId")?.takeIf{value->value.isNotBlank()}}.toSet()
   rows.keys.filter{it !in ids}.forEach{id->container?.removeView(rows.remove(id)?.root)}
   forms.forEach { entry ->
@@ -42,6 +42,7 @@ class DriverTripFinancialPanel(
   val visible=rows.isNotEmpty()
   heading?.visibility=if(visible)View.VISIBLE else View.GONE
   container?.visibility=if(visible)View.VISIBLE else View.GONE
+  params?.let{it.flags=if(visible||cancellationFeeVisible)it.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() else it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;runCatching{panel?.let{view->window.updateViewLayout(view,it)}}}
  }
 
  private inner class TripForm(private val tripId:String) {
