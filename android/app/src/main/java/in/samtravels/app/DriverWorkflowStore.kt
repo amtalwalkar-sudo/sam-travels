@@ -130,6 +130,16 @@ object DriverWorkflowStore {
             require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
+            if(command.optString("eventType")=="shift_end") {
+                val outstanding=db.records().list().any { stored ->
+                    if(!stored.id.startsWith("work:trip-financial-obligation:")) false
+                    else {
+                        val data=JSONObject(stored.json).optJSONObject("data")
+                        data?.optString("kind")=="cancellation_fee"&&data.optString("status")=="pending"
+                    }
+                }
+                require(!outstanding) { "trip_cancellation_fee_required" }
+            }
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
