@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
@@ -8,10 +8,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
-import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
-import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
-import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { TripFinancialService, type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
+import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
@@ -33,30 +30,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [selectionService, setSelectionService] = useState<WorkDriverSelectionService | null>(null);
-  const [pendingCancellationFees, setPendingCancellationFees] = useState<Array<{id:string;data:CancellationFeeObligation}>>([]);
-  const [cancellationFeeDrafts, setCancellationFeeDrafts] = useState<Record<string,string>>({});
-  const [cancellationFeeBusy, setCancellationFeeBusy] = useState(false);
-  const cancellationFeeDraftQueue = useRef(new Map<string,Promise<void>>());
-  const cancellationFeeService = useMemo(
-    () => new TripFinancialService(platformRepository, getPlatformRecordSource()),
-    [platformRepository],
-  );
-  const cancellationFeeForms = useMemo(() => {
-    const workingCopies = new RecordFormWorkingCopyRepository(platformRepository, getPlatformRecordSource());
-    return new SharedFormRuntime(workingCopies, {
-      submit: async command => {
-        if (command.formId !== TRIP_CANCELLATION_FEE_FORM_V1.id || command.action !== "submit") {
-          throw new Error("unsupported_trip_financial_form");
-        }
-        return cancellationFeeService.submitCancellationFee(
-          command.instanceId,
-          command.values.cancellationFeePaise as number,
-          command.operationId,
-        );
-      },
-    });
-  }, [platformRepository, cancellationFeeService]);
-
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -64,81 +37,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
 
   const gateway = useMemo(() => repo ? new NetworkGateway(repo) : null, [repo]);
 
-  const refreshCancellationFees = useCallback(async () => {
-    const pendingFees = await cancellationFeeService.pendingCancellationFees();
-    const drafts: Record<string,string> = {};
-    for (const obligation of pendingFees) {
-      const tripId = obligation.data.tripId;
-      let copy = await cancellationFeeForms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await cancellationFeeForms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      const amount = copy.values.cancellationFeePaise;
-      drafts[tripId] = typeof amount === "number" && Number.isSafeInteger(amount) && amount >= 0
-        ? (amount / 100).toFixed(2).replace(/\\.?0+$/, "")
-        : "";
-    }
-    setPendingCancellationFees(pendingFees.map(row => ({id:row.id,data:row.data})));
-    setCancellationFeeDrafts(drafts);
-  }, [cancellationFeeService, cancellationFeeForms]);
-
-  useEffect(() => {
-    void refreshCancellationFees().catch(cause => {
-      setDriverMessage(cause instanceof Error ? cause.message : "Unable to restore cancellation-fee forms");
-    });
-  }, [refreshCancellationFees, driver?.revision]);
-
-  function parseRupeesToPaise(value: string): number | null {
-    if (value === "") return null;
-    if (!/^\\d+(\\.\\d{1,2})?$/.test(value)) return null;
-    const [rupees, fraction = ""] = value.split(".");
-    const amount = Number(rupees) * 100 + Number(fraction.padEnd(2, "0"));
-    return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
-  }
-
-  async function updateCancellationFeeDraft(tripId: string, value: string) {
-    setCancellationFeeDrafts(current => ({...current,[tripId]:value}));
-    const previous = cancellationFeeDraftQueue.current.get(tripId) ?? Promise.resolve();
-    const next = previous.then(async () => {
-      let copy = await cancellationFeeForms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await cancellationFeeForms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      const amount = parseRupeesToPaise(value);
-      await cancellationFeeForms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amount ?? "");
-    });
-    cancellationFeeDraftQueue.current.set(tripId, next);
-    await next;
-  }
-
-  async function submitCancellationFee(tripId: string) {
-    if (cancellationFeeBusy) return;
-    const value = cancellationFeeDrafts[tripId] ?? "";
-    const amount = parseRupeesToPaise(value);
-    if (amount === null) {
-      setDriverMessage("Enter a valid cancellation fee; ₹0 is allowed");
-      return;
-    }
-    setCancellationFeeBusy(true);
-    setDriverMessage("Saving cancellation fee…");
-    try {
-      await cancellationFeeDraftQueue.current.get(tripId);
-      let copy = await cancellationFeeForms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await cancellationFeeForms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      if (copy.values.cancellationFeePaise !== amount) {
-        copy = await cancellationFeeForms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amount);
-      }
-      await cancellationFeeForms.submit(TRIP_CANCELLATION_FEE_FORM_V1, copy);
-      await refreshCancellationFees();
-      setDriverMessage("Cancellation fee saved securely");
-    } catch (cause) {
-      setDriverMessage(cause instanceof Error ? cause.message : "Cancellation fee not saved");
-    } finally {
-      setCancellationFeeBusy(false);
-    }
-  }
 
   useEffect(() => {
     let live = true;
@@ -230,7 +128,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           void service.replayCommittedEvents();
           void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
           void service.reconcilePending().then(items => { if (live) setPending(items); });
-          void refreshCancellationFees();
         };
         window.addEventListener("focus", resumeWorkflow);
         document.addEventListener("visibilitychange", resumeWorkflow);
@@ -356,7 +253,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   }).format(now);
   const shiftOn = driver?.state !== undefined && driver.state !== "idle" && driver.state !== "needs_attention";
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
-  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired") || pendingCancellationFees.length > 0 || cancellationFeeBusy;
+  const cancellationFees = useCancellationFeeWorkspace(platformRepository, driver?.revision, setDriverMessage);
+  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
+    cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;
 
   const enrichmentQueue = useMemo(
     () => repo && gateway ? new TimelineEnrichmentQueue(repo, gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
@@ -436,9 +335,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
 
   return {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, driverMessage,
-    pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
+    ...cancellationFees,
     shiftOn, tripOn, localClock, elapsed,
-    actions: { retry, toggleNetwork, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee },
+    actions: { retry, toggleNetwork, dispatch, selectDriver,
+      updateCancellationFeeDraft: cancellationFees.updateCancellationFeeDraft,
+      submitCancellationFee: cancellationFees.submitCancellationFee },
     driverChoices, selectedDriverId, loadTimeline,
   };
 }
