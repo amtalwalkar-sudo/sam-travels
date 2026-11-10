@@ -95,7 +95,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async markNeedsAttention(id:string,reason:string){await browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(i){assertDriverIntentContract(i);if(i.status!=="recorded"){const next={...i,status:"needs_attention" as const,reason,updatedAt:new Date().toISOString()};assertDriverIntentContract(next);await intents().put(next)}}})}
  async listEvents(){const result=await events().orderBy("committedAt").toArray();result.forEach(assertDriverEventContract);return result}
  async listUndeliveredEvents(){
-  const pending=await outbox().where("delivered").equals(false).sortBy("revision");
+  const pending=(await outbox().toArray()).filter(row=>!row.delivered).sort((a,b)=>a.revision-b.revision);
   const result:DriverEvent[]=[];
   for(const row of pending){assertDriverOutboxContract(row);const event=await events().get(row.eventId);if(!event)throw new Error("outbox_event_missing");assertDriverEventContract(event);result.push(event)}
   return result;
