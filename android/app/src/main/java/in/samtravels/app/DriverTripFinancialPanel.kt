@@ -121,9 +121,10 @@ class DriverTripFinancialPanel(
    return true
   }
   private fun refreshSubmitState(){
-   // Spinner selection callbacks can be delivered after setSelection/layout.
-   // Re-evaluate on the view queue so validation reflects the final selection
-   // rather than a transient AdapterView callback ordering.
+   // Render and text edits must immediately reflect validation. Spinner
+   // callbacks can also arrive after setSelection/layout, so reconcile once
+   // more on the view queue after AdapterView has settled.
+   submit.isEnabled=canSubmit()
    submit.post{submit.isEnabled=canSubmit()}
   }
   private fun persistDraft(){
