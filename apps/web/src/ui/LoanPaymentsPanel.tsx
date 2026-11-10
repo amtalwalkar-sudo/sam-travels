@@ -53,6 +53,9 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const draftDefinitions: Record<DraftKind, FormDefinition> = {
     payment: LOAN_PAYMENT_FORM_V1, prepayment: LOAN_PREPAYMENT_FORM_V1, settlement: LOAN_SETTLEMENT_FORM_V1,
   };
+  const [draftAvailability, setDraftAvailability] = useState<Record<DraftKind, boolean>>({
+    payment: false, prepayment: false, settlement: false,
+  });
   const [formCopies, setFormCopies] = useState<Record<DraftKind, FormWorkingCopy | null>>({
     payment: null, prepayment: null, settlement: null,
   });
@@ -88,6 +91,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     const definition = draftDefinitions[kind];
     const drafts = await services.formRuntime.listDrafts(definition);
     const existing = drafts.find(draft => draft.values.loanId === loan.id);
+    setDraftAvailability(current => ({ ...current, [kind]: true }));
     let next = await services.formRuntime.open(definition, existing?.instanceId ?? crypto.randomUUID());
     if (!existing) {
       for (const [field, value] of Object.entries(initial)) {
@@ -172,6 +176,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       if (!current) throw new Error("finance_payment_form_not_ready");
       await services.formRuntime.save(LOAN_PAYMENT_FORM_V1, current);
       clearDraftView("payment");
+      setDraftAvailability(current => ({ ...current, payment: false }));
       setAmount(""); setReference(""); setNote(""); setAllocations([]); setOpen(false);
       setMessage("Payment recorded atomically. Unallocated credit remains separate from prepayment.");
       await refresh(); await onChanged?.();
@@ -214,6 +219,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       if (!current) throw new Error("finance_payment_settlement_form_not_ready");
       await services.formRuntime.submit(LOAN_SETTLEMENT_FORM_V1, current);
       clearDraftView("settlement");
+      setDraftAvailability(current => ({ ...current, settlement: false }));
       setSettlementPreview(null); setSettlementOpen(false);
       setMessage("Final settlement recorded and Loan closed.");
       await refresh(); await onChanged?.();
@@ -250,6 +256,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       if (!current) throw new Error("finance_loan_prepayment_form_not_ready");
       await services.formRuntime.submit(LOAN_PREPAYMENT_FORM_V1, current);
       clearDraftView("prepayment");
+      setDraftAvailability(current => ({ ...current, prepayment: false }));
       setPrepaymentPreview(null); setPrepaymentAmount(""); setPrepaymentOpen(false);
       setMessage("Principal prepayment and revised schedule committed atomically.");
       await refresh(); onChanged?.();
@@ -267,13 +274,13 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       <strong>Payment history ({paidEntries.length} active)</strong>
       <div className="loan-form-actions">
         <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (settlementOpen) { clearDraftView("settlement"); setSettlementOpen(false); setSettlementPreview(null); } else void openSettlementDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open settlement draft.")); setMessage(""); }}>
-          {settlementOpen ? "Cancel settlement" : "Settle & close"}
+          {settlementOpen ? "Close settlement draft" : draftAvailability.settlement ? "Resume settlement draft" : "Settle & close"}
         </button>
         <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (prepaymentOpen) { clearDraftView("prepayment"); setPrepaymentOpen(false); setPrepaymentPreview(null); } else void openPrepaymentDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open prepayment draft.")); setMessage(""); }}>
-          {prepaymentOpen ? "Cancel prepayment" : "Prepay principal"}
+          {prepaymentOpen ? "Close prepayment draft" : draftAvailability.prepayment ? "Resume prepayment draft" : "Prepay principal"}
         </button>
         <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (open) { clearDraftView("payment"); setOpen(false); } else void openPaymentDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open payment draft.")); setMessage(""); }}>
-          {open ? "Cancel payment" : "Record payment"}
+          {open ? "Close payment draft" : draftAvailability.payment ? "Resume payment draft" : "Record payment"}
         </button>
       </div>
     </div>
