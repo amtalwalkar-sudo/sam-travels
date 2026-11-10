@@ -6,8 +6,6 @@ import java.util.UUID
 
 /** Durable cancellation-fee obligation and the shared v1 form working-copy adapter. */
 object DriverCancellationFeeStore {
-    private fun draftRecordId(tripId:String)="__sam_travels_form_working_copy__:work.trip-cancellation-fee:$tripId"
-
     fun createPendingObligation(db:LocalDatabase,tripId:String,eventId:String,now:String) {
         require(tripId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "cancelled_trip_identity_missing" }
         val id="work:trip-financial-obligation:$tripId"
