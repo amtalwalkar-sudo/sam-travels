@@ -143,3 +143,55 @@ export const LOAN_DETAILS_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "_recordRevision", label: "Record revision", type: "number" },
   ],
 });
+
+
+/** Canonical Loan payment form; allocations are serialized in the working copy and validated by FinanceLoanPaymentService. */
+export const LOAN_PAYMENT_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.loan-payment",
+  version: 1,
+  owner: "finance-loans",
+  purpose: "Record a payment and its EMI allocations",
+  primaryAction: "save",
+  fields: [
+    { id: "loanId", label: "Loan", type: "text", required: true },
+    { id: "businessDate", label: "Payment date", type: "date", required: true },
+    { id: "amountPaise", label: "Amount in paise", type: "number", required: true },
+    { id: "method", label: "Payment method", type: "select", required: true, options: ["cash", "bank_transfer", "cheque", "upi", "other"] },
+    { id: "scheduleVersion", label: "Schedule version", type: "number", required: true },
+    { id: "allocationsJson", label: "EMI allocations", type: "text", required: true, maxLength: 20000 },
+    { id: "reference", label: "Transaction reference", type: "text", maxLength: 240 },
+    { id: "note", label: "Payment note", type: "text", maxLength: 2000 },
+  ],
+});
+
+/** Preview is non-committing; the final submit carries the service preview for stale-state revalidation. */
+export const LOAN_PREPAYMENT_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.loan-prepayment",
+  version: 1,
+  owner: "finance-loans",
+  purpose: "Preview and confirm a principal prepayment",
+  primaryAction: "submit",
+  fields: [
+    { id: "loanId", label: "Loan", type: "text", required: true },
+    { id: "businessDate", label: "Prepayment date", type: "date", required: true },
+    { id: "amountPaise", label: "Principal amount in paise", type: "number", required: true },
+    { id: "mode", label: "Prepayment mode", type: "select", required: true, options: ["reduce_tenure", "reduce_emi"] },
+    { id: "previewJson", label: "Service preview", type: "text", maxLength: 50000 },
+  ],
+});
+
+/** Settlement preview is non-committing; submit commits only the exact preview after service revalidation. */
+export const LOAN_SETTLEMENT_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.loan-settlement",
+  version: 1,
+  owner: "finance-loans",
+  purpose: "Preview and confirm final loan settlement",
+  primaryAction: "submit",
+  fields: [
+    { id: "loanId", label: "Loan", type: "text", required: true },
+    { id: "businessDate", label: "Settlement date", type: "date", required: true },
+    { id: "method", label: "Payment method", type: "select", required: true, options: ["cash", "bank_transfer", "cheque", "upi", "other"] },
+    { id: "reference", label: "Settlement reference", type: "text", maxLength: 240 },
+    { id: "previewJson", label: "Service preview", type: "text", required: true, maxLength: 5000 },
+  ],
+});
