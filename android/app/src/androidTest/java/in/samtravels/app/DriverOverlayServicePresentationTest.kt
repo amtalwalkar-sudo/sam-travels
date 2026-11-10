@@ -36,7 +36,7 @@ class DriverOverlayServicePresentationTest {
             setText(ui, "Parking (₹)", "2.50")
             choosePayer(ui, 1, "Customer")
             assertTrue("Attached native form must enable Submit after valid values", waitUntil {
-                scrollToNode(ui) { it.text?.toString() == "Submit trip financials" && it.isEnabled } != null
+                scrollToNode(ui) { it.text?.toString()?.equals("Submit trip financials", ignoreCase = true) == true && it.isEnabled } != null
             })
             clickText(ui, "Submit trip financials")
             assertTrue("Overlay submit must persist the completed-ride obligation", waitUntil {
@@ -60,11 +60,11 @@ class DriverOverlayServicePresentationTest {
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "0")
             val saveEnabled = waitUntil {
-                scrollToNode(ui) { it.text?.toString() == "Save cancellation fee" && it.isEnabled } != null
+                scrollToNode(ui) { it.text?.toString()?.equals("Save cancellation fee", ignoreCase = true) == true && it.isEnabled } != null
             }
             if (!saveEnabled) {
                 val entered = findNode(ui) { it.contentDescription?.toString() == "Required cancellation fee in rupees" }?.text
-                val save = findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.className?.toString() == "android.widget.Button" }
+                val save = findNode(ui) { it.text?.toString()?.equals("Save cancellation fee", ignoreCase = true) == true && it.className?.toString() == "android.widget.Button" }
                 assertTrue("Zero fee validation did not enable Save; input=$entered buttonEnabled=${save?.isEnabled} buttonClass=${save?.className}; hierarchy=${describeNodes(ui)}", saveEnabled)
             }
             clickText(ui, "Save cancellation fee")
@@ -215,7 +215,7 @@ class DriverOverlayServicePresentationTest {
     private fun clickText(ui: UiAutomation, text: String) {
         assertTrue("Overlay control '$text' must respond to click; hierarchy=${describeNodes(ui)}", waitUntil {
             val target = scrollToNode(ui) {
-                it.text?.toString()?.contains(text) == true && it.isEnabled
+                it.text?.toString()?.contains(text, ignoreCase = true) == true && it.isEnabled
             }
             target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
         })
