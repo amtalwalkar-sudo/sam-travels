@@ -32,7 +32,7 @@ object DriverCancellationFeeStore {
                 val envelope=JSONObject(existing.json)
                 val copy=envelope.optJSONObject("data")?:error("form_working_copy_invalid")
                 require(copy.optString("formId")=="work.trip-cancellation-fee"&&copy.optInt("formVersion",-1)==1&&
-                    copy.optString("instanceId")==tripId&&copy.optString("status")=="in_progress") { "form_working_copy_invalid" }
+                    copy.optString("instanceId")==tripId&&copy.optString("status") in setOf("in_progress","submitted")) { "form_working_copy_invalid" }
                 result=copy
             } else {
                 val now=Instant.now().toString()
