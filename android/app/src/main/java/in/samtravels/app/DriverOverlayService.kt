@@ -194,7 +194,7 @@ class DriverOverlayService:Service(){
     override fun afterTextChanged(s:Editable?){
      val tripId=activeCancellationFeeTripId?:return
      val paise=parseCancellationFeePaise(s?.toString().orEmpty())
-     executor.execute{runCatching{DriverWorkflowStore.updateCancellationFeeDraft(db,tripId,paise)}}
+     executor.execute{runCatching{DriverCancellationFeeStore.updateCancellationFeeDraft(db,tripId,paise)}}
     }
    })
   }
@@ -226,7 +226,7 @@ class DriverOverlayService:Service(){
   }
   val feeData=feeRow?.let{JSONObject(it.json).optJSONObject("data")}
   val feeTripId=feeData?.optString("tripId")?.takeIf{!it.isNullOrBlank()}
-  val feeDraft=feeTripId?.let{DriverWorkflowStore.ensureCancellationFeeDraft(db,it)}
+  val feeDraft=feeTripId?.let{DriverCancellationFeeStore.ensureCancellationFeeDraft(db,it)}
   val feePaise=feeDraft?.optJSONObject("values")?.let{values->
    if(values.has("cancellationFeePaise"))values.optLong("cancellationFeePaise",-1L).takeIf{it>=0L} else null
   }
@@ -291,8 +291,8 @@ class DriverOverlayService:Service(){
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
-    DriverWorkflowStore.updateCancellationFeeDraft(db,tripId,fee)
-    DriverWorkflowStore.submitCancellationFee(db,tripId,fee)
+    DriverCancellationFeeStore.updateCancellationFeeDraft(db,tripId,fee)
+    DriverCancellationFeeStore.submitCancellationFee(db,tripId,fee)
     main.post{refresh("Cancellation fee saved · ₹"+BigDecimal.valueOf(fee,2).stripTrailingZeros().toPlainString())}
    }catch(error:Exception){main.post{refresh("Cancellation fee not saved · "+(error.message?:"retry"))}}
   }

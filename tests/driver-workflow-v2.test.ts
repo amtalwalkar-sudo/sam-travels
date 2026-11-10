@@ -82,7 +82,7 @@ describe("version 2 Work trip lifecycle",()=>{
   const blockedEnd=createDriverCommandV2(await repository.getSnapshot(),"shift_end","pwa","shift-v2-end",fixAt);
   const blockedResult=await service.dispatch(blockedEnd);
   expect(blockedResult).toMatchObject({status:"needs_attention",reason:"trip_cancellation_fee_required"});
-  const financial=new TripFinancialService(recordsRepository,"web",()=>new Date(base+6_100).toISOString());
+  const financial=new TripFinancialService(recordsRepository,"web");
   await financial.submitCancellationFee("trip-v2-2",0,"cancellation-fee-op");
   const recoveredEnd=await service.retry("shift-v2-end");
   expect(recoveredEnd.status).toBe("recorded");
