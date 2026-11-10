@@ -171,20 +171,35 @@ class DriverOverlayServicePresentationTest {
         return condition()
     }
 
+    private fun scrollToNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        repeat(12) {
+            val visible = findNode(ui) { predicate(it) && it.isVisibleToUser }
+            if (visible != null) return visible
+            val scroll = allNodes(ui).firstOrNull {
+                it.className?.toString() == "android.widget.ScrollView" && it.isVisibleToUser
+            } ?: return findNode(ui, predicate)
+            if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
+                return findNode(ui, predicate)
+            }
+            SystemClock.sleep(120)
+        }
+        return findNode(ui, predicate)
+    }
+
     private fun clickText(ui: UiAutomation, text: String) {
         assertTrue("Overlay control '$text' must respond to click", waitUntil {
-            val candidates = allNodes(ui).filter {
+            val target = scrollToNode(ui) {
                 it.text?.toString()?.contains(text) == true && it.isEnabled
             }
-            val target = candidates.firstOrNull { it.className?.toString() == "android.widget.Button" }
-                ?: candidates.firstOrNull()
             target?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
         })
     }
 
     private fun setText(ui: UiAutomation, description: String, value: String) {
         assertTrue("Overlay input '$description' must accept text", waitUntil {
-            val node = findNode(ui) { it.contentDescription?.toString() == description && it.isEnabled } ?: return@waitUntil false
+            val node = scrollToNode(ui) {
+                it.contentDescription?.toString() == description && it.isEnabled
+            } ?: return@waitUntil false
             node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
             })
@@ -193,8 +208,10 @@ class DriverOverlayServicePresentationTest {
 
     private fun choosePayer(ui: UiAutomation, index: Int, label: String) {
         assertTrue("Payer spinner $index must be attached", waitUntil {
-            val spinner = allNodes(ui).filter { it.className?.toString() == "android.widget.Spinner" }.getOrNull(index)
-                ?: return@waitUntil false
+            val spinner = scrollToNode(ui) {
+                it.className?.toString() == "android.widget.Spinner" &&
+                    allNodes(ui).filter { node -> node.className?.toString() == "android.widget.Spinner" }.indexOf(it) == index
+            } ?: return@waitUntil false
             spinner.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         })
         clickText(ui, label)
