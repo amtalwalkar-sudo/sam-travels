@@ -5,7 +5,7 @@ import {
 } from "../../../../packages/application/src/admin-form-definitions";
 import type { FormDefinition, FormWorkingCopy } from "../../../../packages/application/src/shared-form-runtime";
 import type {
-  FinanceLoanPrepaymentPreviewV1, FinanceLoanPrepaymentModeV1, FinancePaymentMethodV1,
+  FinanceLoanPrepaymentPreviewV1, FinanceLoanPrepaymentModeV1, FinancePaymentMethodV1, FinancePaymentEntryV1,
 } from "../../../../packages/application/src";
 
 type DraftKind = "payment" | "prepayment" | "settlement";
@@ -27,8 +27,16 @@ type Inputs = {
 const DEFINITIONS: Record<DraftKind, FormDefinition> = {
   payment: LOAN_PAYMENT_FORM_V1, prepayment: LOAN_PREPAYMENT_FORM_V1, settlement: LOAN_SETTLEMENT_FORM_V1,
 };
-function indiaDate() {
+export function indiaDate() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+export function money(paise: number) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 }).format(paise / 100);
+}
+export function activePayments(entries: readonly FinancePaymentEntryV1[]) {
+  const reversed = new Set(entries.filter(entry => entry.kind === "reversal").map(entry => entry.paymentId));
+  return entries.filter((entry): entry is Extract<FinancePaymentEntryV1, { kind: "payment" }> =>
+    entry.kind === "payment" && !reversed.has(entry.id));
 }
 
 /** Shared-runtime draft lifecycle for all Loan payment, prepayment and settlement forms. */
