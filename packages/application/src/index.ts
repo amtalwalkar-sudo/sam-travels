@@ -3,6 +3,7 @@ export * from "./driver-workflow-service";
 export * from "./form-submission-port";
 export * from "./admin-form-definitions";
 export * from "./driver-form-definitions";
+export * from "./trip-financial-service";
 export * from "./shared-form-runtime";
 export * from "./record-form-working-copy-repository";
 
