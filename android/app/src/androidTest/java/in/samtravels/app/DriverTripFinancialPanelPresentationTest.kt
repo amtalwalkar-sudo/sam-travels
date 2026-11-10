@@ -89,9 +89,9 @@ class DriverTripFinancialPanelPresentationTest {
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 assertTrue(
                     "Explicit zero Fare and independently assigned payers must enable submit; " +
-                        "fare='\${fare.text}' toll='\${toll.text}' tollPayer=\${tollPayer.selectedItemPosition} " +
-                        "parking='\${parking.text}' parkingPayer=\${parkingPayer.selectedItemPosition} " +
-                        "submitEnabled=\${submit.isEnabled}",
+                        "fare='" + fare.text + "' toll='" + toll.text + "' tollPayer=" + tollPayer.selectedItemPosition +
+                        " parking='" + parking.text + "' parkingPayer=" + parkingPayer.selectedItemPosition +
+                        " submitEnabled=" + submit.isEnabled,
                     submit.isEnabled,
                 )
                 submit.performClick()
