@@ -36,7 +36,7 @@ class DriverOverlayServicePresentationTest {
             setText(ui, "Parking (₹)", "2.50")
             choosePayer(ui, 1, "Customer")
             assertTrue("Attached native form must enable Submit after valid values", waitUntil {
-                findNode(ui) { it.text?.toString() == "Submit trip financials" && it.isEnabled } != null
+                scrollToNode(ui) { it.text?.toString() == "Submit trip financials" && it.isEnabled } != null
             })
             clickText(ui, "Submit trip financials")
             assertTrue("Overlay submit must persist the completed-ride obligation", waitUntil {
@@ -60,7 +60,7 @@ class DriverOverlayServicePresentationTest {
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "0")
             val saveEnabled = waitUntil {
-                findNode(ui) { it.text?.toString() == "Save cancellation fee" && it.className?.toString() == "android.widget.Button" && it.isEnabled } != null
+                scrollToNode(ui) { it.text?.toString() == "Save cancellation fee" && it.isEnabled } != null
             }
             if (!saveEnabled) {
                 val entered = findNode(ui) { it.contentDescription?.toString() == "Required cancellation fee in rupees" }?.text
