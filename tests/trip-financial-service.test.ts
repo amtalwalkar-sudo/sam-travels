@@ -82,12 +82,12 @@ describe("completed-trip financial concurrent submission", () => {
     expect(results[0].data).toMatchObject({ status: "submitted", operationId: "operation_same", farePaise: 12345 });
   });
 
-  it("rejects a competing cross-surface operation instead of overwriting the first submission", async () => {
+  it("rejects a competing PWA and Android operation instead of overwriting the first submission", async () => {
     const records = new MemoryRecords();
     await records.put(completedObligation("trip_completed_2"));
     const outcomes = await Promise.allSettled([
       submitCompletedTripFinancials(records, "web", "trip_completed_2", values, "operation_pwa"),
-      submitCompletedTripFinancials(records, "overlay", "trip_completed_2", { ...values, farePaise: 99999 }, "operation_overlay"),
+      submitCompletedTripFinancials(records, "android", "trip_completed_2", { ...values, farePaise: 99999 }, "operation_android"),
     ]);
     expect(outcomes.filter(result => result.status === "fulfilled")).toHaveLength(1);
     expect(outcomes.filter(result => result.status === "rejected")).toHaveLength(1);
