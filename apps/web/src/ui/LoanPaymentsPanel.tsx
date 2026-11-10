@@ -133,6 +133,8 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   }
 
   async function confirmSettlement() {
+    if (!settlementPreview) return;
+    if (!window.confirm("Settle and permanently close this Loan for " + money(settlementPreview.amountPaise) + "? This cannot be undone.")) return;
     setBusy(true); setMessage("");
     try {
       await waitFor("settlement");
@@ -216,7 +218,10 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       {settlementPreview && <div className="loan-payment-allocation">
         <strong>Settlement amount: {money(settlementPreview.amountPaise)}</strong>
         <small>Schedule version {settlementPreview.scheduleVersion} · all EMIs paid through installment #{settlementPreview.paidThroughInstallment}</small>
-        <div className="loan-form-actions"><button className="admin-primary" type="button" disabled={busy} onClick={() => void confirmSettlement()}>Confirm settlement and close Loan</button></div>
+        <div className="loan-form-actions">
+          <button className="admin-primary" type="button" disabled={busy} onClick={() => void confirmSettlement()}>Confirm settlement and close Loan</button>
+          <button className="admin-secondary" type="button" disabled={busy} onClick={() => { setSettlementPreview(null); void updateDraftField("settlement", "previewJson", ""); }}>Discard preview</button>
+        </div>
       </div>}
     </form>}
     {prepaymentOpen && <form className="loan-form" onSubmit={previewPrepayment}>
