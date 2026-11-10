@@ -233,4 +233,53 @@ describe("durable single-driver workflow",()=>{
  });
 
 
+
+ it("persists integration acknowledgement and does not replay delivered events after restart",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","pwa","cmd-durable-ack",transitionAt);
+  const firstDelivery:string[]=[];
+  const firstService=new DriverWorkflowService(repo,{capture:async()=>({...gps,fixAt:transitionAt})},async event=>{
+   firstDelivery.push(event.eventId);
+  });
+  const result=await firstService.dispatch(command);
+  expect(result.integrationPending).toBe(false);
+  expect(firstDelivery).toEqual(["cmd-durable-ack"]);
+  expect(await repo.listUndeliveredEvents()).toHaveLength(0);
+  expect(await browserDatabase.table("driverOutbox").toArray()).toMatchObject([{eventId:"cmd-durable-ack",delivered:true}]);
+
+  browserDatabase.close();
+  await browserDatabase.open();
+  const recoveredRepository=new DexieDriverWorkflowRepository();
+  const replayed:string[]=[];
+  const recoveredService=new DriverWorkflowService(recoveredRepository,{capture:async()=>({...gps,fixAt:transitionAt})},async event=>{
+   replayed.push(event.eventId);
+  });
+  expect(await recoveredService.replayCommittedEvents()).toEqual({delivered:0,pending:0});
+  expect(replayed).toEqual([]);
+ });
+
+ it("recovers an unacknowledged outbox event after consumer failure and restart",async()=>{
+  const repo=new DexieDriverWorkflowRepository();
+  const transitionAt=new Date().toISOString();
+  const command=createDriverCommand(await repo.getSnapshot(),"shift_start","pwa","cmd-retry-ack",transitionAt);
+  const failedService=new DriverWorkflowService(repo,{capture:async()=>({...gps,fixAt:transitionAt})},async()=>{
+   throw new Error("consumer_temporarily_unavailable");
+  });
+  const failed=await failedService.dispatch(command);
+  expect(failed.integrationPending).toBe(true);
+  expect((await repo.listUndeliveredEvents()).map(event=>event.eventId)).toEqual(["cmd-retry-ack"]);
+
+  browserDatabase.close();
+  await browserDatabase.open();
+  const recoveredRepository=new DexieDriverWorkflowRepository();
+  const delivered:string[]=[];
+  const recoveredService=new DriverWorkflowService(recoveredRepository,{capture:async()=>({...gps,fixAt:transitionAt})},async event=>{
+   delivered.push(event.eventId);
+  });
+  expect(await recoveredService.replayCommittedEvents()).toEqual({delivered:1,pending:0});
+  expect(delivered).toEqual(["cmd-retry-ack"]);
+  expect(await recoveredRepository.listUndeliveredEvents()).toHaveLength(0);
+ });
+
 });
