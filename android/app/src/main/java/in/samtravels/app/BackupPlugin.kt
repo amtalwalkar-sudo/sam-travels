@@ -22,7 +22,7 @@ class BackupPlugin : Plugin() {
     private val checkpointPrefix = NativeBackupRecovery.CHECKPOINT_PREFIX
     private val journalPrefix = NativeBackupRecovery.JOURNAL_PREFIX
     private fun isInternal(id: String) = NativeBackupRecovery.isInternalRecord(id)
- private fun ensureStartupRecovery() { NativeStartupRecovery.ensure(db) }
+ private fun ensureStartupRecovery(): List<String> = NativeStartupRecovery.ensure(db)
 
 
     private fun makeSnapshot(): NativeSnapshotBundle =
