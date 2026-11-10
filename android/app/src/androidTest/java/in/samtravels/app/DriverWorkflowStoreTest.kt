@@ -390,4 +390,31 @@ class DriverWorkflowStoreTest {
         val failure = runCatching { DriverWorkflowStore.listEvents(db) }.exceptionOrNull()
         assertTrue(failure is IllegalArgumentException)
     }
+
+    @Test fun durableOutboxAcknowledgementSurvivesRoomReopenAndExcludesDeliveredEvents() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val databaseName = "driver-workflow-outbox-ack-test.db"
+        context.deleteDatabase(databaseName)
+        val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        DriverWorkflowStore.queue(first, command("durable-outbox-ack"))
+        DriverWorkflowStore.complete(first, "durable-outbox-ack", gps())
+        assertEquals(1, DriverWorkflowStore.listUndeliveredEvents(first).size)
+        DriverWorkflowStore.markEventDelivered(first, "durable-outbox-ack")
+        assertTrue(DriverWorkflowStore.listUndeliveredEvents(first).isEmpty())
+        first.close()
+
+        val reopened = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
+            .allowMainThreadQueries().build()
+        try {
+            assertTrue(DriverWorkflowStore.listUndeliveredEvents(reopened).isEmpty())
+            val outbox = JSONObject(reopened.records().get("driver-outbox:1")!!.json)
+            assertEquals(true, outbox.getBoolean("delivered"))
+            assertEquals(1, DriverWorkflowStore.listEvents(reopened).size)
+        } finally {
+            reopened.close()
+            context.deleteDatabase(databaseName)
+        }
+    }
+
 }
