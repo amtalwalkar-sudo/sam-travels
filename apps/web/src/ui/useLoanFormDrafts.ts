@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAdminServices } from "./admin-services-context";
 import {
   LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1,
@@ -46,6 +46,16 @@ export function useLoanFormDrafts(input: Inputs) {
   const formQueues = useRef<Record<DraftKind, Promise<void>>>({
     payment: Promise.resolve(), prepayment: Promise.resolve(), settlement: Promise.resolve(),
   });
+  useEffect(() => {
+    let active = true;
+    void Promise.all((Object.keys(DEFINITIONS) as DraftKind[]).map(async kind => {
+      const drafts = await services.formRuntime.listDrafts(DEFINITIONS[kind]);
+      if (active) setDraftAvailability(current => ({
+        ...current, [kind]: drafts.some(draft => draft.values.loanId === input.loanId),
+      }));
+    })).catch(() => undefined);
+    return () => { active = false; };
+  }, [services, input.loanId]);
 
   function activate(kind: DraftKind, next: FormWorkingCopy) {
     formCopyRefs.current[kind] = next;
@@ -74,7 +84,7 @@ export function useLoanFormDrafts(input: Inputs) {
   }
   async function openDraft(kind: DraftKind, initial: Readonly<Record<string, unknown>>) {
     const drafts = await services.formRuntime.listDrafts(DEFINITIONS[kind]);
-    const existing = drafts.find(draft => draft.values.loanId === input.loanId);
+    const existing = drafts.filter(draft => draft.values.loanId === input.loanId).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
     setDraftAvailability(current => ({ ...current, [kind]: true }));
     let next = await services.formRuntime.open(DEFINITIONS[kind], existing?.instanceId ?? crypto.randomUUID());
     if (!existing) {
