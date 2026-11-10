@@ -171,16 +171,30 @@ class DriverOverlayServicePresentationTest {
         return condition()
     }
 
-    private fun scrollToNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+    private fun scrollAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var parent = node.parent
         repeat(12) {
-            val visible = findNode(ui) { predicate(it) && it.isVisibleToUser }
-            if (visible != null) return visible
-            val scroll = allNodes(ui).firstOrNull {
-                it.className?.toString() == "android.widget.ScrollView" && it.isVisibleToUser
-            } ?: return findNode(ui, predicate)
-            if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                return findNode(ui, predicate)
-            }
+            if (parent == null) return null
+            if (parent.className?.toString() == "android.widget.ScrollView") return parent
+            parent = parent.parent
+        }
+        return null
+    }
+
+    private fun isInsideViewport(node: AccessibilityNodeInfo, viewport: AccessibilityNodeInfo): Boolean {
+        val targetBounds = android.graphics.Rect()
+        val viewportBounds = android.graphics.Rect()
+        node.getBoundsInScreen(targetBounds)
+        viewport.getBoundsInScreen(viewportBounds)
+        return viewportBounds.contains(targetBounds.centerX(), targetBounds.centerY())
+    }
+
+    private fun scrollToNode(ui: UiAutomation, predicate: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        repeat(16) {
+            val target = findNode(ui, predicate) ?: return null
+            val scroll = scrollAncestor(target) ?: return target
+            if (isInsideViewport(target, scroll)) return target
+            if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return target
             SystemClock.sleep(120)
         }
         return findNode(ui, predicate)
@@ -215,16 +229,14 @@ class DriverOverlayServicePresentationTest {
 
     private fun choosePayer(ui: UiAutomation, index: Int, label: String) {
         assertTrue("Payer spinner $index must be attached", waitUntil {
-            var spinner = spinners(ui).getOrNull(index) ?: return@waitUntil false
-            if (!spinner.isVisibleToUser) {
-                val scroll = allNodes(ui).firstOrNull {
-                    it.className?.toString() == "android.widget.ScrollView" && it.isVisibleToUser
-                }
-                scroll?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+            val spinner = spinners(ui).getOrNull(index) ?: return@waitUntil false
+            val scroll = scrollAncestor(spinner)
+            if (scroll != null && !isInsideViewport(spinner, scroll)) {
+                if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) return@waitUntil false
                 SystemClock.sleep(120)
-                spinner = spinners(ui).getOrNull(index) ?: return@waitUntil false
+                return@waitUntil false
             }
-            spinner.isVisibleToUser && spinner.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            spinner.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         })
         clickText(ui, label)
     }
