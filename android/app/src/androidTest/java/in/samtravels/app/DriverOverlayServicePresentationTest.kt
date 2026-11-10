@@ -206,13 +206,25 @@ class DriverOverlayServicePresentationTest {
         })
     }
 
+    private fun spinners(ui: UiAutomation): List<AccessibilityNodeInfo> =
+        allNodes(ui).filter { it.className?.toString() == "android.widget.Spinner" }.distinctBy { node ->
+            val bounds = android.graphics.Rect()
+            node.getBoundsInScreen(bounds)
+            bounds.flattenToString()
+        }
+
     private fun choosePayer(ui: UiAutomation, index: Int, label: String) {
         assertTrue("Payer spinner $index must be attached", waitUntil {
-            val spinner = scrollToNode(ui) {
-                it.className?.toString() == "android.widget.Spinner" &&
-                    allNodes(ui).filter { node -> node.className?.toString() == "android.widget.Spinner" }.indexOf(it) == index
-            } ?: return@waitUntil false
-            spinner.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            var spinner = spinners(ui).getOrNull(index) ?: return@waitUntil false
+            if (!spinner.isVisibleToUser) {
+                val scroll = allNodes(ui).firstOrNull {
+                    it.className?.toString() == "android.widget.ScrollView" && it.isVisibleToUser
+                }
+                scroll?.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
+                SystemClock.sleep(120)
+                spinner = spinners(ui).getOrNull(index) ?: return@waitUntil false
+            }
+            spinner.isVisibleToUser && spinner.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         })
         clickText(ui, label)
     }
