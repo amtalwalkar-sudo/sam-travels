@@ -69,6 +69,41 @@ describe("TripFinancialService cancellation fee closeout", () => {
   });
 });
 
+  it("accepts concurrent PWA and Android replay of the same cancellation-fee operation", async () => {
+    const records = new MemoryRecords();
+    await records.put(obligation("trip_cancel_same"));
+    const pwa = new TripFinancialService(records, "web");
+    const android = new TripFinancialService(records, "android");
+    const results = await Promise.all([
+      pwa.submitCancellationFee("trip_cancel_same", 0, "cancel_same_operation"),
+      android.submitCancellationFee("trip_cancel_same", 0, "cancel_same_operation"),
+    ]);
+    expect(results.map(result => result.revision)).toEqual([2, 2]);
+    expect(results[0].data).toMatchObject({
+      status: "submitted", feePaise: 0, operationId: "cancel_same_operation",
+    });
+  });
+
+  it("rejects competing PWA and Android cancellation-fee submissions without overwriting", async () => {
+    const records = new MemoryRecords();
+    await records.put(obligation("trip_cancel_competing"));
+    const pwa = new TripFinancialService(records, "web");
+    const android = new TripFinancialService(records, "android");
+    const outcomes = await Promise.allSettled([
+      pwa.submitCancellationFee("trip_cancel_competing", 12500, "cancel_pwa"),
+      android.submitCancellationFee("trip_cancel_competing", 25000, "cancel_android"),
+    ]);
+    expect(outcomes.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter(result => result.status === "rejected")).toHaveLength(1);
+    const stored = await records.get<CancellationFeeObligation>(
+      cancellationFeeObligationId("trip_cancel_competing"),
+    );
+    expect(stored?.revision).toBe(2);
+    expect(stored?.data.status).toBe("submitted");
+    expect(["cancel_pwa", "cancel_android"]).toContain(stored?.data.operationId);
+    expect([12500, 25000]).toContain(stored?.data.feePaise);
+  });
+
 describe("completed-trip financial concurrent submission", () => {
   const values = { farePaise: 12345, tollPaise: 500, tollPayer: "customer" as const };
 
