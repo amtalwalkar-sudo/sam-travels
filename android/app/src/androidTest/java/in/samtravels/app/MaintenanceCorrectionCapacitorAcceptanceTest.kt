@@ -35,6 +35,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .allowMainThreadQueries()
             .build()
         val suffix = UUID.randomUUID().toString()
+        val previousSelectedDriver = database.records().get("work:selected-driver")
         val vehicleId = "feature:vehicle:MH01AB1234"
         val expenseId = "feature:maintenance:expense:$suffix"
         val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
@@ -309,6 +310,11 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             database.records().remove(otherExpenseId)
             database.records().remove(vehicleId)
             database.records().remove(chainId)
+            listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
+                "feature:driver-records:driver:driver-one", "feature:driver-records:driver:driver-two").forEach { database.records().remove(it) }
+            listOf("person-driver-one", "person-driver-two").forEach { database.records().remove("identity:person:$it") }
+            if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
+            else database.records().remove("work:selected-driver")
             database.records().list().filter { it.id.startsWith(correctionPrefix) }
                 .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId }.getOrDefault(false) }
                 .forEach { database.records().remove(it.id) }
