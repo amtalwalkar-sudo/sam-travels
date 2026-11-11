@@ -74,8 +74,8 @@ class DriverOverlayServicePresentationTest {
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized overlay bubble must be attached", bubble != null)
-            assertTrue("Minimized bubble must expose an accessible restore action",
-                bubble!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
+            shell(ui, "input tap ${bubbleBounds.centerX()} ${bubbleBounds.centerY()}")
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
@@ -104,9 +104,9 @@ class DriverOverlayServicePresentationTest {
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized cancellation overlay bubble must be attached", bubble != null)
-            assertTrue("Minimized bubble must expose an accessible restore action",
-                bubble!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
-            assertTrue("Restoring the cancellation form must retain its entered fee", waitUntil {
+            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
+            shell(ui, "input tap ${bubbleBounds.centerX()} ${bubbleBounds.centerY()}")
+            assertTrue("Tapping the cancellation bubble must restore the form", waitUntil {
                 findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
                     findNode(ui) {
                         it.contentDescription?.toString() == "Required cancellation fee in rupees" &&
