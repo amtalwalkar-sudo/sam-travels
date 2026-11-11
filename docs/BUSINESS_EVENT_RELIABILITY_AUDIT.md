@@ -221,9 +221,9 @@ This matrix shows meaningful rollback/recovery safeguards, but “complete” ac
 
 ## 4.14 Provenance and actor attribution
 
-The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is platform provenance, not necessarily authenticated human identity. Driver workflow events carry driver context; generic Admin feature records inspected so far do not consistently carry an explicit actor ID in the envelope. The audit must trace the existing authenticated account/session boundary and determine what actor attribution is already available before proposing any new fields.
+The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is platform provenance, not necessarily authenticated human identity. Work events carry driver context; completed-ride financial obligations retain tripContext, and cancellation-fee obligations link cancellationEventId to the immutable Work event, so driver attribution can be resolved indirectly through those event/trip links. Generic Admin feature records do not consistently carry an explicit actor ID, and the inspected app composition exposes no authenticated Admin account/session identity. Thus Driver attribution is indirect but traceable for linked Work events; Admin attribution is currently absent.
 
-**Rating: Partial / Unknown by feature.** For the narrow correction exception below, actor identity and correction reason must be traceable. Do not add generic actor fields until the authentication/session and privacy contracts have been checked.
+**Rating: Partial.** Driver attribution is indirect through immutable Work event context and linked trip/financial records. Admin actor identity is not captured. A correction actor/reason would be required for any permitted post-submit driver-entry correction, but no Admin identity scheme should be invented without owner approval. Do not add generic actor fields until the authentication/session and privacy contracts have been checked.
 
 ## 4.15 Finance contract governance
 
@@ -350,5 +350,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 1.3 | 2026-11-11 | Remove hidden Loan edit submission wiring; reject legacy loan edit drafts; clarify that Driver/Vehicle profile changes do not rewrite trip snapshots. |
 | 1.4 | 2026-11-11 | Expand calculation eligibility for recorded Fare totals, compliance costs, EMI allocations, payment totals, prepayment impact, and settlement/closure; keep customer collection and fuel excluded. |
 | 1.5 | 2026-11-11 | Add evidence-based PWA/Room backup and restore failure matrix; distinguish injected rollback tests from outstanding restore-phase process-death, live Dropbox and physical scheduler acceptance. |
+| 1.6 | 2026-11-11 | Clarify that driver attribution is traceable through Work event context while generic Admin actor identity is not currently captured. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, the permitted driver-entry correction path, platform parity and recovery. Separate customer collection and fuel records are intentionally absent and excluded from this audit. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
