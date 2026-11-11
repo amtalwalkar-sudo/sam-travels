@@ -2,7 +2,10 @@ import type { RecordEnvelope } from "../../core/src/types";
 
 export type CorrectionActorV1 = Readonly<{
   role: "driver" | "admin";
+  /** Stable person ID, shared across all roles held by the same person. */
   actorId: string;
+  /** Required for Admin actions; supplied only by trusted Admin PIN verification. */
+  adminPinVerifiedAt?: string;
 }>;
 
 export type CorrectionJsonValue =
@@ -76,7 +79,9 @@ export function assertHistoricalCorrectionV1(value: unknown): asserts value is H
   }
   const actor = row.actor as Record<string, unknown>;
   if ((actor.role !== "driver" && actor.role !== "admin") ||
-      typeof actor.actorId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(actor.actorId)) {
+      typeof actor.actorId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(actor.actorId) ||
+      (actor.role === "admin" && (typeof actor.adminPinVerifiedAt !== "string" || !isInstant(actor.adminPinVerifiedAt))) ||
+      (actor.role === "driver" && actor.adminPinVerifiedAt !== undefined)) {
     throw new Error("historical_correction_actor_required");
   }
   assertJsonValue(row.beforeValue);
@@ -115,9 +120,13 @@ function jsonEqual(left: unknown, right: unknown): boolean {
     keys.every(key => jsonEqual(a[key], b[key]));
 }
 
-/** Driver corrections are self-only. Admin corrections may target either role's records. */
+/** actorId is the stable person ID, not a role-specific account ID. */
+/** Driver corrections are self-only. Admin corrections require a PIN-verified Admin actor. */
 export function assertCorrectionAuthority(actor: CorrectionActorV1, originalAuthorId?: string): void {
   if (!actor.actorId) throw new Error("historical_correction_actor_unattributed");
+  if (actor.role === "admin" && (!actor.adminPinVerifiedAt || !isInstant(actor.adminPinVerifiedAt))) {
+    throw new Error("historical_correction_admin_verification_required");
+  }
   if (actor.role === "driver" && !originalAuthorId) {
     throw new Error("historical_correction_target_author_unattributed");
   }
