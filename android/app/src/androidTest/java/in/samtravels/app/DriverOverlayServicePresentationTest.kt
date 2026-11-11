@@ -272,4 +272,4 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
         }
     }
-
+}
