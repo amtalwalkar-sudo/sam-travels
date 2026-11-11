@@ -65,11 +65,8 @@ class DriverOverlayServicePresentationTest {
             setText(ui, "Parking (₹)", "7.89")
             choosePayer(ui, 1, "Customer")
             scrollToTop(ui)
-            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
-            assertTrue("Attached overlay header must be available to drag", header != null)
-            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
-            shell(ui, "input swipe ${bounds.centerX()} ${bounds.centerY()} ${bounds.centerX()} 1 450")
-            assertTrue("Dragging the header to the top must minimize the attached panel", waitUntil {
+            clickText(ui, "Minimize")
+            assertTrue("Explicit Minimize must attach the compact bubble", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
@@ -95,11 +92,8 @@ class DriverOverlayServicePresentationTest {
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, _ ->
             setText(ui, "Required cancellation fee in rupees", "12.34")
-            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
-            assertTrue("Attached cancellation overlay header must be available to drag", header != null)
-            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
-            shell(ui, "input swipe ${bounds.centerX()} ${bounds.centerY()} ${bounds.centerX()} 1 450")
-            assertTrue("Dragging the cancellation header to the top must minimize the panel", waitUntil {
+            clickText(ui, "Minimize")
+            assertTrue("Explicit Minimize must attach the compact bubble", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
