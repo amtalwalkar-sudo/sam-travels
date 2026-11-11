@@ -100,6 +100,55 @@ class NativeMaintenanceBackupRoomTest {
     }
 
     @Test
+    fun maintenanceExpenseCorrectionHistorySurvivesNativeBackupRestore() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val vehicle = NativeVehicleBackup.register()
+        val maintenance = NativeMaintenanceBackup.register()
+        val expenseId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003"
+        val correctionId = "historical-correction:maintenance-fix-1"
+        try {
+            database.records().put(vehicleRecord())
+            val expense = stored(expenseId, JSONObject().put("schemaVersion", 1).put("kind", "expense")
+                .put("vehicleId", vehicleId).put("expenseDate", "2026-10-10")
+                .put("expenseName", "Tyre repair").put("description", "Receipt amount")
+                .put("amountPaise", 10000L))
+            val originalEnvelope = JSONObject(expense.json).put("createdBy",
+                JSONObject().put("personId", "driver-1").put("role", "driver"))
+            database.records().put(StoredRecord(expenseId, originalEnvelope.toString(), 1, timestamp))
+            val correction = JSONObject().put("schemaVersion", 1).put("correctionId", "maintenance-fix-1")
+                .put("targetRecordId", expenseId).put("targetRecordRevision", 1).put("featureId", "maintenance")
+                .put("chainRevision", 1).put("fieldPath", "amountPaise").put("beforeValue", 10000L)
+                .put("afterValue", 12500L).put("reason", "Receipt amount was entered incorrectly")
+                .put("actor", JSONObject().put("role", "admin").put("actorId", "admin-1")
+                    .put("adminPinVerifiedAt", timestamp)).put("recordedAt", timestamp)
+            database.records().put(stored(correctionId, correction))
+
+            val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
+            val exportedIds = (0 until exported.length()).map { exported.getJSONObject(it).optString("id") }
+            assertTrue(exportedIds.contains(expenseId))
+            assertTrue(exportedIds.contains(correctionId))
+
+            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            assertNull(database.records().get(expenseId))
+            assertNull(database.records().get(correctionId))
+            NativeBackupCoverage.replaceBusinessRecords(database, exported)
+
+            val restoredExpense = JSONObject(database.records().get(expenseId)!!.json)
+            val restoredCorrection = JSONObject(database.records().get(correctionId)!!.json)
+            assertEquals(10000L, restoredExpense.getJSONObject("data").getLong("amountPaise"))
+            assertEquals("driver-1", restoredExpense.getJSONObject("createdBy").getString("personId"))
+            assertEquals(12500L, restoredCorrection.getJSONObject("data").getLong("afterValue"))
+            assertEquals("admin-1", restoredCorrection.getJSONObject("data").getJSONObject("actor").getString("actorId"))
+        } finally {
+            maintenance.close()
+            vehicle.close()
+            database.close()
+        }
+    }
+
+    @Test
     fun invalidMaintenanceSnapshotIsRejectedBeforeRoomReplacement() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
