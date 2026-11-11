@@ -80,6 +80,22 @@ describe("atomic feature-owned record service", () => {
     })).rejects.toThrow("feature_record_already_exists");
   });
 
+  it("stores stable person ID and action role as immutable creation provenance", async () => {
+    const { service } = setup();
+    const created = await service.create({
+      id: "feature:sample:attributed",
+      data: { label: "Maintenance", amountPaise: 5000 },
+      source: "web",
+      createdBy: { personId: "person-owner", role: "admin" },
+    });
+    expect(created.createdBy).toEqual({ personId: "person-owner", role: "admin" });
+    const updated = await service.update({
+      id: created.id, expectedRevision: 1,
+      data: { label: "Maintenance corrected", amountPaise: 5500 },
+    });
+    expect(updated.createdBy).toEqual({ personId: "person-owner", role: "admin" });
+  });
+
   it("updates only at the expected revision and preserves immutable creation metadata", async () => {
     const { service } = setup();
     const created = await service.create({
