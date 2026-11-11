@@ -105,7 +105,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             """, 10_000))
             assertTrue("Admin identity should activate with the configured PIN", evaluate(activity, """
                 (() => {
-                  const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Person');
+                  const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
                   const person = personLabel?.querySelector('select');
                   const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
                   const role = roleLabel?.querySelector('select');
