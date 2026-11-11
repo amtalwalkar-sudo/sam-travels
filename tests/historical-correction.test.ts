@@ -9,6 +9,8 @@ import {
   type HistoricalCorrectionV1,
 } from "../packages/domain/src/historical-correction";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
+import { MaintenanceService } from "../packages/application/src/maintenance-service";
+import { assertMaintenanceRecordV1 } from "../packages/features/maintenance";
 import { PersonIdentityService } from "../packages/application/src/person-identity-service";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
 
@@ -177,6 +179,69 @@ describe("HistoricalCorrectionService", () => {
       afterValue: 11000, reason: "Admin correction",
     });
     expect(result.currentData).toMatchObject({ amountPaise: 11000 });
+  });
+
+
+  it("runs the Maintenance Expense correction pilot end to end without changing the original", async () => {
+    const records = new MemoryRecords();
+    const vehicleId = "feature:vehicle:vehicle-1";
+    const maintenance = new MaintenanceService(
+      records,
+      assertMaintenanceRecordV1,
+      { getById: async id => id === vehicleId ? {
+        id, schemaVersion: 1, createdAt: NOW, updatedAt: NOW, source: "web", revision: 1,
+        data: { lifecycleState: "active" },
+      } : undefined },
+      () => 0,
+      instant => instant.slice(0, 10),
+      () => NOW,
+    );
+    const expense = await maintenance.createExpense({
+      uuid: "00000000-0000-4000-8000-000000000001",
+      source: "web",
+      data: {
+        vehicleId, expenseDate: "2026-11-10", expenseName: "Tyre replacement",
+        description: "Incorrect amount entered", amountPaise: 10000,
+      },
+    });
+    const service = new HistoricalCorrectionService(
+      records,
+      { currentActor: async () => ({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT }) },
+      { resolve: async target => {
+        const row = target.data as Record<string, unknown>;
+        if (target.id !== expense.id || row.kind !== "expense" || row.schemaVersion !== 1) {
+          throw new Error("maintenance_expense_correction_target_invalid");
+        }
+        return {
+          featureId: "maintenance",
+          allowedFieldPaths: ["amountPaise"],
+          validateProjectedData: value => {
+            const projected = value as Record<string, unknown>;
+            if (projected.kind !== "expense" || !Number.isSafeInteger(projected.amountPaise) ||
+                (projected.amountPaise as number) < 0) throw new Error("maintenance_expense_correction_value_invalid");
+          },
+        };
+      } },
+      "web",
+      () => NOW,
+    );
+    const input = {
+      correctionId: "maintenance-correction-1", targetRecordId: expense.id,
+      expectedTargetRevision: expense.revision, expectedChainRevision: 0,
+      fieldPath: "amountPaise", afterValue: 12500, reason: "Receipt total was entered incorrectly",
+      businessEffectiveDate: expense.data.expenseDate,
+    } as const;
+    const first = await service.submit(input);
+    const replay = await service.submit(input);
+    const originalRecord = await records.get<typeof expense.data>(expense.id);
+    const chain = await service.listForTarget(expense.id);
+    expect(first).toMatchObject({ chainRevision: 1, currentData: { amountPaise: 12500 } });
+    expect(replay.correction.correctionId).toBe(first.correction.correctionId);
+    expect(originalRecord?.data.amountPaise).toBe(10000);
+    expect(chain).toHaveLength(1);
+    expect(projectHistoricalCorrectionsV1(originalRecord?.data, chain)).toMatchObject({
+      status: "valid", chainRevision: 1, data: { amountPaise: 12500 },
+    });
   });
 
   it("fails closed when author attribution or target revision is unavailable", async () => {
