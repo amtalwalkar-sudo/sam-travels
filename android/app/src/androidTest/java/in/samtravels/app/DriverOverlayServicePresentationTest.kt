@@ -172,6 +172,15 @@ class DriverOverlayServicePresentationTest {
         val previousState = db.records().get("driver-state")
         val now = java.time.Instant.now().toString()
         try {
+            // Isolate each instrumentation case from a START_STICKY service left by
+            // an earlier case. Do not overwrite the durable fixture while that
+            // service can still be reading or rendering its previous projection.
+            instrumentation.runOnMainSync {
+                activity.stopService(Intent(activity, DriverOverlayService::class.java))
+            }
+            assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
+                !isOverlayServiceRunning(app)
+            })
             assertTrue("Emulator must grant overlay permission", Settings.canDrawOverlays(app))
             val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
                 .put("state", "shift_active").put("shiftStartedAt", now).put("lastEventId", "overlay-$tripId")
@@ -186,8 +195,7 @@ class DriverOverlayServicePresentationTest {
                 findNode(ui) { it.text?.toString()?.contains(formLabel) == true } != null
             }
             if (!attached) {
-                val running = (app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-                    .getRunningServices(100).any { it.service.className == DriverOverlayService::class.java.name }
+                val running = isOverlayServiceRunning(app)
                 val windows = ui.windows.joinToString { window ->
                     "${window.type}:${window.title}:${window.root?.childCount}"
                 }
@@ -207,7 +215,9 @@ class DriverOverlayServicePresentationTest {
                 activity.stopService(Intent(activity, DriverOverlayService::class.java))
                 activity.finish()
             }
-            SystemClock.sleep(300)
+            assertTrue("Overlay service must stop after instrumentation case", waitUntil(10_000) {
+                !isOverlayServiceRunning(app)
+            })
             db.records().remove("work:trip-financial-obligation:$tripId")
             db.records().remove("__sam_travels_form_working_copy__:${if (tripId.endsWith("cancel")) "work.trip-cancellation-fee" else "work.trip-completed-financials"}:$tripId")
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
@@ -215,6 +225,12 @@ class DriverOverlayServicePresentationTest {
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
         }
     }
+
+    private fun isOverlayServiceRunning(context: Context): Boolean =
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
+            .getRunningServices(100).any {
+                it.service.className == DriverOverlayService::class.java.name
+            }
 
     private fun tapAt(ui: UiAutomation, x: Int, y: Int) {
         val downTime = SystemClock.uptimeMillis()
