@@ -11,13 +11,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 /** Recovery-focused attached-window acceptance, kept separate from gesture presentation tests. */
 @RunWith(AndroidJUnit4::class)
 class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresentationTestSupport() {
-    @Test fun overlayStartupRecoveryRetainsPendingIntentWhenLocationPermissionIsRevoked() {
+    @Test fun overlayStartupRecoveryRetainsExpiredPendingIntentForAttention() {
         val tripId = "overlay-startup-recovery-permission"
         withAttachedOverlay(tripId, { db, now ->
             DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-startup-financial-event", now, null)
             DriverTripFinancialStore.ensureDraft(db, tripId)
         }) { ui, db ->
-            val transitionAt = java.time.Instant.now().toString()
+            val transitionAt = java.time.Instant.now().minusSeconds(120).toString()
             val commandId = "overlay-startup-pending-trip"
             val command = JSONObject()
                 .put("schemaVersion", 1).put("workflowVersion", 2)
@@ -30,15 +30,13 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
             val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
             val eventsBefore = DriverWorkflowStore.listEvents(db).size
 
-            shell(ui, "pm revoke ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_FINE_LOCATION")
-            shell(ui, "pm revoke ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_COARSE_LOCATION")
             restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
 
             assertTrue("Native service startup must recover the pending intent and retain it for attention", waitUntil {
                 val row = db.records().get("driver-intent:$commandId") ?: return@waitUntil false
                 val intent = JSONObject(row.json)
                 intent.optString("status") == "needs_attention" &&
-                    intent.optString("reason") == "permission_denied"
+                    intent.optString("reason") == "gps_recovery_window_expired"
             })
             assertEquals("Permission loss must not commit a trip transition", revisionBefore,
                 DriverWorkflowStore.snapshot(db).optInt("revision"))
@@ -47,8 +45,6 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
             assertEquals("Pending intent must remain durable for later recovery", commandId,
                 JSONObject(db.records().get("driver-intent:$commandId")!!.json)
                     .getJSONObject("command").getString("eventId"))
-            shell(ui, "pm grant ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_FINE_LOCATION")
-            shell(ui, "pm grant ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_COARSE_LOCATION")
             db.records().remove("driver-intent:$commandId")
         }
     }
