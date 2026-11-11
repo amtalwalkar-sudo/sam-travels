@@ -248,6 +248,7 @@ class DriverWorkflowStoreTest {
                 else -> "fault-outbox"
             }
             try {
+                DriverWorkflowIdentityTestFixtures.seed(local, "driver-test", "person-test")
                 DriverWorkflowStore.queue(local, command(eventId))
                 local.openHelper.writableDatabase.execSQL(sql)
                 val failure = runCatching { DriverWorkflowStore.complete(local, eventId, gps()) }.exceptionOrNull()
