@@ -27,5 +27,9 @@ internal object DriverWorkflowIdentityTestFixtures {
             .put("driverId", driverId).put("personId", personId))
         put("identity:person:$personId", JSONObject().put("schemaVersion", 1).put("personId", personId)
             .put("displayName", "Test Driver").put("roles", JSONArray().put("driver")).put("status", "active"))
+        if (db.records().get("feature:driver-records:driver:$driverId") == null) {
+            put("feature:driver-records:driver:$driverId", JSONObject().put("schemaVersion", 1)
+                .put("driverId", driverId).put("name", "Test Driver").put("lifecycleState", "active"))
+        }
     }
 }
