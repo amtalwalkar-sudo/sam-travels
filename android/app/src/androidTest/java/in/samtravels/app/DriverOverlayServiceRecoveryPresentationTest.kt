@@ -77,7 +77,7 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
 
             restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
 
-            assertTrue("Recreated service must restore the same completed-ride financial draft", waitUntil {
+            val restored = waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "31.25" } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Toll (₹)" && it.text?.toString() == "4.50" } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Parking (₹)" && it.text?.toString() == "2.75" } != null &&
@@ -89,7 +89,16 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
                         it.className?.toString() == "android.widget.CheckedTextView" &&
                             it.text?.toString()?.equals("Driver", ignoreCase = true) == true
                     } != null
-            })
+            }
+            assertTrue(
+                "Recreated service must restore completed-ride draft; running=" +
+                    isOverlayServiceRunning(InstrumentationRegistry.getInstrumentation().targetContext) +
+                    " draft=" + db.records().get("__sam_travels_form_working_copy__:work.trip-completed-financials:$tripId")?.json +
+                    " obligation=" + db.records().get("work:trip-financial-obligation:$tripId")?.json +
+                    " hierarchy=" + describeNodes(ui) +
+                    " logs=" + shell(ui, "logcat -d -v brief -s DriverOverlayService:I DriverOverlayService:E").takeLast(9000),
+                restored,
+            )
             assertEquals("Service recreation must not change workflow revision", revisionBefore,
                 DriverWorkflowStore.snapshot(db).optInt("revision"))
             assertEquals("Service recreation must not append workflow events", eventsBefore,
@@ -121,13 +130,22 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
 
             restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
 
-            assertTrue("Recreated service must restore the same cancellation-fee draft", waitUntil {
+            val restored = waitUntil {
                 findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
                     findNode(ui) {
                         it.contentDescription?.toString() == "Required cancellation fee in rupees" &&
                             it.text?.toString() == "18.60"
                     } != null
-            })
+            }
+            assertTrue(
+                "Recreated service must restore cancellation-fee draft; running=" +
+                    isOverlayServiceRunning(InstrumentationRegistry.getInstrumentation().targetContext) +
+                    " draft=" + db.records().get("__sam_travels_form_working_copy__:work.trip-cancellation-fee:$tripId")?.json +
+                    " obligation=" + db.records().get("work:trip-financial-obligation:$tripId")?.json +
+                    " hierarchy=" + describeNodes(ui) +
+                    " logs=" + shell(ui, "logcat -d -v brief -s DriverOverlayService:I DriverOverlayService:E").takeLast(9000),
+                restored,
+            )
             assertEquals("Service recreation must not change workflow revision", revisionBefore,
                 DriverWorkflowStore.snapshot(db).optInt("revision"))
             assertEquals("Service recreation must not append workflow events", eventsBefore,
