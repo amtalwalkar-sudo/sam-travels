@@ -136,14 +136,13 @@ function readPath(source: unknown, path: string): unknown {
 
 function replacePath<T>(source: T, path: string[], value: CorrectionJsonValue): T {
   const [head, ...tail] = path;
-  if (!head || !source || typeof source !== "object" || !Object.prototype.hasOwnProperty.call(source, head)) {
+  if (!head || !source || typeof source !== "object" || Array.isArray(source) ||
+      !Object.prototype.hasOwnProperty.call(source, head)) {
     throw new Error("historical_correction_field_missing");
   }
-  const copy = Array.isArray(source) ? [...source] : { ...(source as Record<string, unknown>) };
-  if (tail.length === 0) (copy as Record<string, unknown>)[head] = value;
-  else (copy as Record<string, unknown>)[head] = replacePath(
-    (source as Record<string, unknown>)[head], tail, value,
-  );
+  const copy: Record<string, unknown> = { ...(source as Record<string, unknown>) };
+  if (tail.length === 0) copy[head] = value;
+  else copy[head] = replacePath((source as Record<string, unknown>)[head], tail, value);
   return copy as T;
 }
 
