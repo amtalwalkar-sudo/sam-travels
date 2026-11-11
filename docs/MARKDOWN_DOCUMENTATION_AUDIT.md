@@ -231,3 +231,24 @@ Phase 2 is complete when:
 - All internal Markdown links resolve.
 - Documentation consistency checks and the repository's relevant architecture/web/Android/integrated CI gates pass on the exact final SHA.
 - PR #69 remains open and unmerged; no APK is released and no phone testing is performed.
+
+
+## 7. Phase 2 reconciliation results
+
+**Reconciliation commit:** `b4df668db3b937dacdc250bedfc9eb774cac3ae6` (the documentation reconciliation commit; a final follow-up audit update may advance the branch head).
+
+Delivered in Phase 2:
+- Added [Contract and Documentation Index](CONTRACT_INDEX.md) as the central navigation and authority map.
+- Linked the root README and architecture overview to the index and clarified that the architecture file is an overview rather than a competing detailed contract.
+- Narrowed the Data Contract to shared data semantics; runtime store ownership, schema/migration formats and transaction/recovery details point to their dedicated owners.
+- Clarified the Shared Foundation Enforcement document as a feature-inheritance checklist subordinate to the Architecture Foundation and detailed owner contracts.
+- Marked the Admin baseline audit and permanent-architecture progress register as historical snapshots.
+- Reconciled the Admin Slice 1 capability proposal's old pre-write gate so it cannot be mistaken for a current instruction to disable existing writes.
+- Clarified that the Finance loan payment workflow remains an unratified proposal even though payment UI/service implementation exists; implementation is not retroactive approval of the proposal.
+- Updated the Form Conformance Audit with the latest verified code-baseline CI evidence while preserving its partial status and outstanding acceptance gaps.
+- Corrected the stale claim that no integrated CI evidence existed, while retaining the specific architecture-foundation sub-gates as open until their own evidence is recorded.
+- Updated the Admin implementation plan and historical architecture progress navigation.
+
+**Repository-wide link validation:** All 65 tracked Markdown files at the reconciliation head were inspected for relative Markdown links. No broken internal Markdown links were found. The original 63-file Phase 1 inventory remains the baseline count; the two additional files are this audit and the contract index.
+
+**Scope confirmation:** No application source, database schema, migration, runtime behavior, APK publication or phone testing was changed or performed in this documentation reconciliation.

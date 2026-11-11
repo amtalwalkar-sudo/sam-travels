@@ -13,12 +13,19 @@
 5. Historical records retain their original baseline and are not current implementation status.
 6. Machine-readable versioned contracts are authoritative for the fields and rules they define; prose documents link to them rather than copy their values.
 
+## Project entry points
+
+- [Repository README](../README.md) — project overview and documentation entry point.
+- [Architecture overview](../ARCHITECTURE.md) — high-level system map; detailed rules remain in the owner contracts below.
+- [Development Plan](../DEVELOPMENT_PLAN.md) — staged delivery history and plan.
+
 ## Normative contracts and their scope
 
 | Responsibility | Authoritative owner | Scope boundary |
 |---|---|---|
 | Approved architecture scope and non-goals | [Permanent Application Architecture](PERMANENT_APPLICATION_ARCHITECTURE.md) | Frozen scope; not implementation proof |
 | Shared architecture foundation and composition | [Architecture Foundation](ARCHITECTURE_FOUNDATION_CONTRACT.md) | Capability boundaries, application composition and shared guarantees |
+| Shared feature inheritance checklist | [Shared Foundation Enforcement](SHARED_FOUNDATION_ENFORCEMENT_CONTRACT.md) | Feature-onboarding checklist derived from Architecture Foundation; detailed rules defer to their owner contracts |
 | Capability ownership and cross-feature responsibility | [Authority and Responsibility Map](AUTHORITY_AND_RESPONSIBILITY_ALLOTMENT_MAP.md) | Ownership, dependencies and conflict precedence |
 | Feature module and extension boundaries | [Feature Module](FEATURE_MODULE_CONTRACT.md) | Feature APIs, ownership and isolation |
 | Feature lifecycle and compatibility | [Feature Extension Lifecycle](FEATURE_EXTENSION_LIFECYCLE_CONTRACT.md) | Enable/disable/retire and upgrade compatibility |
