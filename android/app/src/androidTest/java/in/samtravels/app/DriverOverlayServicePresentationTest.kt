@@ -146,6 +146,32 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
         }
     }
 
+    @Test fun interruptedHeaderDragDoesNotDispatchWorkflowOrChangeDurableRevision() {
+        val tripId = "overlay-interrupted-header-drag"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-interrupted-event", now, null)
+            DriverTripFinancialStore.ensureDraft(db, tripId)
+        }) { ui, db ->
+            val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
+            val eventsBefore = DriverWorkflowStore.listEvents(db).size
+            val intentsBefore = DriverWorkflowStore.listIntents(db).size
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
+            assertTrue("Header drag target must be attached", header != null)
+            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            cancelSwipeAt(ui, bounds.centerX(), bounds.centerY(),
+                bounds.centerX() + 80, bounds.centerY() + 80)
+            assertTrue("Interrupted presentation drag must leave panel attached", waitUntil {
+                findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null
+            })
+            assertEquals("Interrupted drag must not dispatch workflow transitions", revisionBefore,
+                DriverWorkflowStore.snapshot(db).optInt("revision"))
+            assertEquals("Interrupted drag must not append workflow events", eventsBefore,
+                DriverWorkflowStore.listEvents(db).size)
+            assertEquals("Interrupted drag must not queue workflow intents", intentsBefore,
+                DriverWorkflowStore.listIntents(db).size)
+        }
+    }
+
     @Test fun attachedCancellationFeeFormRetainsValueAfterMinimizeAndRestore() {
         val tripId = "overlay-minimize-restore-cancel"
         withAttachedOverlay(tripId, { db, now ->

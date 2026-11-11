@@ -51,6 +51,23 @@ abstract class DriverOverlayServicePresentationTestSupport {
         }
     }
 
+    protected fun cancelSwipeAt(ui: UiAutomation, fromX: Int, fromY: Int, toX: Int, toY: Int) {
+        val downTime = SystemClock.uptimeMillis()
+        val events = listOf(
+            MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
+                fromX.toFloat(), fromY.toFloat(), 0),
+            MotionEvent.obtain(downTime, downTime + 100, MotionEvent.ACTION_MOVE,
+                toX.toFloat(), toY.toFloat(), 0),
+            MotionEvent.obtain(downTime, downTime + 200, MotionEvent.ACTION_CANCEL,
+                toX.toFloat(), toY.toFloat(), 0),
+        ).onEach { it.source = InputDevice.SOURCE_TOUCHSCREEN }
+        try {
+            events.forEach { assertTrue("Interrupted gesture event must inject", ui.injectInputEvent(it, true)) }
+        } finally {
+            events.forEach(MotionEvent::recycle)
+        }
+    }
+
     protected fun tapAt(ui: UiAutomation, x: Int, y: Int) {
         val downTime = SystemClock.uptimeMillis()
         val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0).apply {
