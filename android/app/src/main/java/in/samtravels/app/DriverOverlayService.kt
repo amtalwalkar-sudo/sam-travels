@@ -162,7 +162,7 @@ class DriverOverlayService:Service(){
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
   panelParams=params
-  try{window.addView(root,params);refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(error:Exception){android.util.Log.e("DriverOverlayService","Window attachment failed",error);panel=null;panelParams=null;stopSelf()}
+  try{window.addView(root,params);android.util.Log.i("DriverOverlayService","panel_attached root="+root.hashCode());refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(error:Exception){android.util.Log.e("DriverOverlayService","Window attachment failed",error);panel=null;panelParams=null;stopSelf()}
  }
  private fun refresh(message:String?=null){executor.execute{try{
   NativeStartupRecovery.ensure(db)
@@ -314,16 +314,19 @@ class DriverOverlayService:Service(){
    contentDescription="Driver controls minimized. Tap to reopen"
    isClickable=true
    isFocusable=true
-   setOnClickListener{restorePanel()}
+   setOnTouchListener{_,event->android.util.Log.i("DriverOverlayService","bubble_touch action=${event.actionMasked} x=${event.rawX} y=${event.rawY}");false}
+   setOnClickListener{android.util.Log.i("DriverOverlayService","bubble_click");restorePanel()}
   }
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
   bubble=chip;bubbleParams=params
-  try{window.addView(chip,params)}catch(_:Exception){bubble=null;bubbleParams=null;stopSelf()}
+  try{window.addView(chip,params);android.util.Log.i("DriverOverlayService","bubble_attached view=${chip.hashCode()} x=${params.x} y=${params.y}")}catch(error:Exception){android.util.Log.e("DriverOverlayService","Bubble attachment failed",error);bubble=null;bubbleParams=null;stopSelf()}
  }
  private fun restorePanel(){
+  android.util.Log.i("DriverOverlayService","restore_requested bubble=${bubble?.hashCode()}")
   bubble?.let{runCatching{window.removeView(it)}};bubble=null;bubbleParams=null
   showPanel()
+  android.util.Log.i("DriverOverlayService","restore_finished panelAttached=${panel!=null}")
  }
  private fun elapsedInterval():String{
   val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
