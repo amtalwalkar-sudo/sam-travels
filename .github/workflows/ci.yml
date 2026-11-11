@@ -145,8 +145,23 @@ jobs:
       - name: Install Android Emulator host runtime dependency
         run: |
           set -euo pipefail
-          sudo apt-get -o Acquire::Retries=5 update
-          sudo apt-get -o Acquire::Retries=5 install -y libpulse0
+          # Avoid the runner's Azure apt mirror, whose DNS has repeatedly failed.
+          # Use a public Ubuntu mirror with bounded network timeouts.
+          source_list="$(mktemp)"
+          trap 'rm -f "$source_list"' EXIT
+          echo "deb [arch=amd64] https://mirrors.edge.kernel.org/ubuntu jammy main universe" | tee "$source_list"
+          sudo apt-get \
+            -o Dir::Etc::sourcelist="$source_list" \
+            -o Dir::Etc::sourceparts="-" \
+            -o Acquire::Retries=2 \
+            -o Acquire::https::Timeout=15 \
+            -o Acquire::http::Timeout=15 update
+          sudo apt-get \
+            -o Dir::Etc::sourcelist="$source_list" \
+            -o Dir::Etc::sourceparts="-" \
+            -o Acquire::Retries=2 \
+            -o Acquire::https::Timeout=15 \
+            -o Acquire::http::Timeout=15 install -y libpulse0
           ldconfig -p | grep -q 'libpulse\\.so\\.0'
       - name: Install and verify Android Emulator SDK package
         run: |
