@@ -48,6 +48,8 @@ class DriverTripFinancialPanel(
   params?.let{it.flags=if(visible||cancellationFeeVisible)it.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv() else it.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;runCatching{panel?.let{view->window.updateViewLayout(view,it)}}}
  }
 
+ private fun dp(value:Int)=(value*context.resources.displayMetrics.density).toInt()
+
  private inner class TripForm(private val tripId:String) {
   val root=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(visual.overlayCompactPadding),dp(visual.fieldGap),dp(visual.overlayCompactPadding),dp(visual.fieldGap));background=GradientDrawable().apply{setColor(visual.surface);cornerRadius=dp(visual.cardRadius).toFloat();setStroke(dp(1),visual.border)}}
   private val title=TextView(context).apply{text="Fare required · "+tripId;textSize=visual.formHeadingSp;setTextColor(visual.textStrong)}
