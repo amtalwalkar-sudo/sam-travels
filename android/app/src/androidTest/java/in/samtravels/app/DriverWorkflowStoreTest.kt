@@ -160,6 +160,7 @@ class DriverWorkflowStoreTest {
         context.deleteDatabase(databaseName)
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
+        DriverWorkflowIdentityTestFixtures.seed(first, "driver-test", "person-test")
         DriverWorkflowStore.queue(first, command("persistent-event"))
         first.close()
 
@@ -203,6 +204,7 @@ class DriverWorkflowStoreTest {
         context.deleteDatabase(databaseName)
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
+        DriverWorkflowIdentityTestFixtures.seed(first, "driver-test", "person-test")
         DriverWorkflowStore.queue(first, command("durable-replay"))
         val committed = DriverWorkflowStore.complete(first, "durable-replay", gps())
         assertEquals(1, committed.getInt("revision"))
