@@ -13,7 +13,6 @@ import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.Executors
-import kotlin.math.abs
 class DriverOverlayService:Service(){
  private val executor=Executors.newSingleThreadExecutor()
  private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
@@ -122,7 +121,6 @@ class DriverOverlayService:Service(){
   val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
   timerText=elapsed
   content.addView(elapsed)
-  installPanelDrag(header)
   val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
   swipeLabel=label
   content.addView(label)
@@ -306,19 +304,6 @@ class DriverOverlayService:Service(){
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
- private fun installPanelDrag(handle:View){
-  var downX=0f;var downY=0f;var initialX=0;var initialY=0
-  handle.setOnTouchListener{view,event->
-   val params=panelParams
-   when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;view.parent?.requestDisallowInterceptTouchEvent(true)};true}
-    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(downY-event.rawY>=dp(48)&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
-    MotionEvent.ACTION_UP->{view.parent?.requestDisallowInterceptTouchEvent(false);if(params!=null&&downY-event.rawY>=dp(48)&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
-    MotionEvent.ACTION_CANCEL->{view.parent?.requestDisallowInterceptTouchEvent(false);true}
-    else->true
-   }
-  }
- }
  private fun minimizePanel(){
   val current=panel?:return
   runCatching{window.removeView(current)}
@@ -328,20 +313,11 @@ class DriverOverlayService:Service(){
    setBackgroundColor(android.graphics.Color.rgb(24,54,74));setPadding(dp(12),dp(10),dp(12),dp(10))
    contentDescription="Driver controls minimized. Tap to reopen"
    isClickable=true
+   isFocusable=true
    setOnClickListener{restorePanel()}
   }
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
-  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false;var bubbleTouchStarted=false
-  chip.setOnTouchListener{_,event->
-   when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false;bubbleTouchStarted=true;true}
-    MotionEvent.ACTION_MOVE->{val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;params.x=(initialX+dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{window.updateViewLayout(chip,params)};true}
-    MotionEvent.ACTION_UP->{if(!bubbleTouchStarted){true}else{bubbleTouchStarted=false;if(!moved)chip.performClick() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}}
-    MotionEvent.ACTION_CANCEL->true
-    else->true
-   }
-  }
   bubble=chip;bubbleParams=params
   try{window.addView(chip,params)}catch(_:Exception){bubble=null;bubbleParams=null;stopSelf()}
  }
