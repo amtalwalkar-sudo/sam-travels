@@ -50,6 +50,12 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
+      - name: Install headless Chromium for rendered PWA acceptance
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Submit and verify Maintenance correction through the rendered PWA
+        run: node scripts/maintenance-correction-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
     runs-on: ubuntu-24.04
