@@ -181,7 +181,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
         assertEquals("The original expense must remain unchanged", 10000L,
             original.getJSONObject("data").getLong("amountPaise"))
-        assertEquals("Exactly one correction must be appended", 1, correctionRows.size)
+        assertEquals("Exactly one correction must be appended; stored IDs: ${database.records().list().map { it.id }}", 1, correctionRows.size)
         val correction = correctionRows.single().getJSONObject("data")
         assertEquals(10000L, correction.getLong("beforeValue"))
         assertEquals(15000L, correction.getLong("afterValue"))
