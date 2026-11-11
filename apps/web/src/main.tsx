@@ -58,6 +58,7 @@ import { registerComplianceBrowserBackupParticipant } from "./compliance-backup"
 import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
 import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
+import { initializePersonIdentityRuntime } from "./person-identity-runtime";
 import { App } from "./ui/App";
 import "./ui/styles.css";
 
@@ -72,6 +73,7 @@ async function bootstrap(): Promise<void> {
   registerMaintenanceBrowserBackupParticipant();
   registerFinanceBrowserBackupParticipant();
   const repository = await createPlatformRepository();
+  await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
