@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import type { AtomicRecordRepository } from "../../../../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository } from "../../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { GeneralMaintenanceExpenseV1 } from "../../../../packages/application/src/maintenance-service";
 import { HistoricalCorrectionService } from "../../../../packages/application/src/historical-correction-service";
@@ -8,7 +8,7 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 
-export function createMaintenanceExpenseCorrectionService(records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"]) {
+export function createMaintenanceExpenseCorrectionService(records: AtomicRecordBatchRepository, source: RecordEnvelope<unknown>["source"]) {
   return new HistoricalCorrectionService(records, getPersonIdentityService(), {
     resolve: async (record: RecordEnvelope<unknown>) => {
       const data = record.data as Record<string, unknown>;
@@ -87,6 +87,7 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
     </small>)}
     {open && <form className="admin-capability-form" onSubmit={submit}>
       <label>Corrected amount (₹)<input required type="number" min="0" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} /></label>
+      <small>Before: {money(expense.data.amountPaise)} · After: {Number.isFinite(Number(amount)) && Number(amount) >= 0 ? money(Math.round(Number(amount) * 100)) : "Enter a valid amount"}</small>
       <label>Reason for correction<input required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>
       <div className="loan-form-actions">
         <button className="admin-primary" disabled={busy}>Append correction</button>

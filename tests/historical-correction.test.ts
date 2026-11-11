@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertCorrectionAuthority,
@@ -16,7 +16,7 @@ import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
 
 type Sample = { createdBy: string; amountPaise: number; note: string };
 
-class MemoryRecords implements AtomicRecordRepository {
+class MemoryRecords implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
