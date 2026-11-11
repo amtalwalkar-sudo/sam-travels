@@ -47,6 +47,57 @@ class DriverWorkflowIdentityAttributionTest {
             assertEquals("pending_location", JSONObject(isolated.records().get("driver-intent:unlinked-event")!!.json).getString("status"))
         } finally { isolated.close() }
     }
+
+    @Test fun liveOverlayWorkflowV2AttributesShiftAndSubsequentOverlayEventsToLinkedPerson() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            val driverId = "driver-live-overlay"
+            val personId = "person-live-overlay"
+            DriverWorkflowIdentityTestFixtures.seed(db, driverId, personId)
+            val now = java.time.Instant.now().toString()
+            val vehicleId = "feature:vehicle:MH01AB1234"
+            fun put(id: String, data: JSONObject) {
+                val envelope = JSONObject().put("id", id).put("schemaVersion", 1)
+                    .put("createdAt", now).put("updatedAt", now).put("source", "android")
+                    .put("revision", 1).put("data", data)
+                db.records().put(StoredRecord(id, envelope.toString(), 1, now))
+            }
+            put(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
+                .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
+                .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
+                .put("ownership", "Owned").put("lifecycleState", "active"))
+            put("feature:driver-records:assignment:$driverId", JSONObject()
+                .put("schemaVersion", 1).put("driverId", driverId)
+                .put("assignments", org.json.JSONArray().put(JSONObject()
+                    .put("assignmentId", "assignment-live-overlay").put("vehicleId", vehicleId)
+                    .put("assignedAt", now)))
+
+            val startId = "live-overlay-shift-start"
+            val start = command(startId).put("workflowVersion", 2)
+            DriverWorkflowStore.queue(db, start)
+            DriverWorkflowStore.complete(db, startId, gps())
+            val firstEvent = JSONObject(db.logBookEvents().list().single().json)
+            assertEquals("native_overlay", firstEvent.getJSONObject("command").getString("originSurface"))
+            assertEquals("person-live-overlay", firstEvent.getJSONObject("createdBy").getString("personId"))
+            assertEquals("person-live-overlay", DriverWorkflowStore.snapshot(db)
+                .getJSONObject("shiftAuthor").getString("personId"))
+
+            val endId = "live-overlay-shift-end"
+            val end = JSONObject().put("schemaVersion", 1).put("commandId", endId)
+                .put("eventId", endId).put("eventType", "shift_end").put("originSurface", "native_overlay")
+                .put("transitionAt", java.time.Instant.now().toString()).put("expectedPriorState", "shift_active")
+                .put("expectedRevision", 1).put("idempotencyKey", endId).put("workflowVersion", 2)
+            DriverWorkflowStore.queue(db, end)
+            DriverWorkflowStore.complete(db, endId, gps())
+            val events = db.logBookEvents().list().map { JSONObject(it.json) }
+            assertEquals(2, events.size)
+            assertTrue(events.all { it.getJSONObject("command").getString("originSurface") == "native_overlay" })
+            assertTrue(events.all { it.getJSONObject("createdBy").getString("personId") == personId })
+            assertTrue(events.all { it.getJSONObject("createdBy").getString("role") == "driver" })
+        } finally { db.close() }
+    }
+
     @Test fun inactiveLinkedDriverCannotAuthorANativeOverlayEvent() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
