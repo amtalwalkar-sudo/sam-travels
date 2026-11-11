@@ -127,7 +127,7 @@ export const LOAN_DETAILS_FORM_V1 = Object.freeze<FormDefinition>({
   id: "admin.loan-details",
   version: 1,
   owner: "finance-loans",
-  purpose: "Create or update loan details and its EMI calculation inputs",
+  purpose: "Create an immutable loan details record and its EMI calculation inputs",
   primaryAction: "save",
   fields: [
     { id: "vehicleId", label: "Vehicle", type: "text", required: true },

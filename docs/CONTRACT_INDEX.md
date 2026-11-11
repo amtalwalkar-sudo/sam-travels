@@ -66,6 +66,7 @@
 
 | Document | Role and boundary |
 |---|---|
+| [Intelligent Business Advisor Vision](INTELLIGENT_BUSINESS_ADVISOR_VISION.md) | Living product vision and future Performance workstream hand-off; proposals remain distinct from approved contracts and implementation authorization |
 | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved product rules; does not prove implementation |
 | [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Delivery slices and completion definition; follows product and technical owners |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guide for adding features/calculations; not a replacement contract |
@@ -82,6 +83,8 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 
 - [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index bring the current total to 65.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
+- [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
+
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.
 - [Permanent Architecture Progress](PERMANENT_APPLICATION_ARCHITECTURE_PROGRESS.md) — staged implementation history.

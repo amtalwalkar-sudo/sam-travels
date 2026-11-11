@@ -144,7 +144,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 | Fare ₹1,850; customer Toll ₹320 | ₹2,170 | ₹0 | ₹1,850 |
 | Fare ₹0; no Toll/Parking | ₹0 | ₹0 | ₹0 |
 
-- Fare entries may be edited until the trip is finalized. Any correction after finalization must preserve historical auditability under the financial correction contract; the precise post-finalization correction UX is not defined here.
+- Financial values may be changed while the linked obligation is an unsubmitted working draft. Once Fare/Toll/Parking or Cancellation Fee is submitted as a business record, it is immutable and must not be edited or deleted. The only permitted post-submission exception is correction of a driver-entered mistake. That correction must append a linked correction record preserving the original value and business-event identity, record the driver context, correction time and reason, remain idempotent, and be covered by backup/restore and PWA/Capacitor/overlay parity. The correction UX and detailed correction schema are not yet defined by this contract; do not enable post-submit edits until a dedicated financial correction contract and acceptance tests are approved.
 
 ## 6. Shared PWA and native Android overlay workflow
 

@@ -97,23 +97,6 @@ export class MaintenanceService {
     }) as Promise<RecordEnvelope<MaintenanceVisitV1>>;
   }
 
-  async editVisit(input: {
-    id: string; expectedRevision: number; data: MaintenanceVisitInput;
-  }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
-    const current = await this.records.get(input.id);
-    if (!current || current.data.kind !== "visit") throw new Error("maintenance_visit_not_found");
-    if (current.data.vehicleId !== input.data.vehicleId) throw new Error("maintenance_vehicle_identity_immutable");
-    await this.requireVehicle(input.data.vehicleId);
-    const data: MaintenanceVisitV1 = {
-      ...input.data, schemaVersion: 1, kind: "visit",
-      totalPaise: this.calculateVisitTotal(input.data.items),
-    };
-    if (data.nextServiceDate && data.nextServiceDate < data.maintenanceDate) {
-      throw new Error("maintenance_next_service_date_before_visit");
-    }
-    return this.records.update({ id: input.id, expectedRevision: input.expectedRevision, data }) as Promise<RecordEnvelope<MaintenanceVisitV1>>;
-  }
-
   async createExpense(input: {
     uuid: string; data: MaintenanceExpenseInput; source: FeatureRecordSource;
   }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
@@ -123,17 +106,6 @@ export class MaintenanceService {
       id: recordId("expense", input.uuid), data, source: input.source,
       businessDate: data.expenseDate,
     }) as Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>>;
-  }
-
-  async editExpense(input: {
-    id: string; expectedRevision: number; data: MaintenanceExpenseInput;
-  }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
-    const current = await this.records.get(input.id);
-    if (!current || current.data.kind !== "expense") throw new Error("maintenance_expense_not_found");
-    if (current.data.vehicleId !== input.data.vehicleId) throw new Error("maintenance_vehicle_identity_immutable");
-    await this.requireVehicle(input.data.vehicleId);
-    const data: GeneralMaintenanceExpenseV1 = { ...input.data, schemaVersion: 1, kind: "expense" };
-    return this.records.update({ id: input.id, expectedRevision: input.expectedRevision, data }) as Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>>;
   }
 
   async getRateHistory(vehicleId: string): Promise<{

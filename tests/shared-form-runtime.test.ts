@@ -207,7 +207,7 @@ describe("shared form runtime", () => {
     const valid = {
       vehicleId: "feature:vehicle:MH01AB1234", loanName: "Vehicle loan", lenderName: "Bank",
       principalPaise: 12500000, annualInterestRateBasisPoints: 950, loanStartDate: "2020-01-01",
-      tenureMonths: 60, firstEmiDate: "2020-02-01", _recordRevision: 3,
+      tenureMonths: 60, firstEmiDate: "2020-02-01",
     };
     expect(validateFormValues(LOAN_DETAILS_FORM_V1, valid)).toEqual([]);
     expect(validateFormValues(LOAN_DETAILS_FORM_V1, { ...valid, loanStartDate: "2020-02-30" }))

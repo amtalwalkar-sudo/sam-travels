@@ -1,6 +1,6 @@
 # Admin Functional Specification
 
-**Status:** Approved and frozen at the product-design level  
+**Status:** Approved and frozen at the product-design level, subject only to explicit owner-approved policy amendments (latest: historical-record immutability, 2026-11-11)  
 **Approval date:** 2026-11-07  
 **Implementation status:** Partial web workspace and section UI exist; end-to-end implementation and acceptance are not yet complete. This document authorizes product behaviour but does not itself prove runtime conformance.  
 **Scope:** The six Admin sections and their approved product behaviour in Sam Travels
@@ -142,7 +142,6 @@ Maintain the legal and regulatory requirements applicable to each vehicle. Examp
 
 - Add compliance
 - View compliance details
-- Edit compliance details
 - Renew compliance
 - View renewal history
 
@@ -157,7 +156,7 @@ Maintain the legal and regulatory requirements applicable to each vehicle. Examp
 | Total cost | Cost for this compliance record |
 | Supporting document | Optional attachment |
 
-Multiple records of the same compliance type may exist for one vehicle. Historical records are retained.
+Multiple records of the same compliance type may exist for one vehicle. Once saved, a compliance record is immutable; historical records are retained. Correct an entry mistake only through a traceable driver-entry correction where applicable, not by editing Admin compliance history.
 
 ### Renewal workflow
 
@@ -212,8 +211,9 @@ Loan is a vehicle-specific Admin section for viewing and managing the vehicle's 
 
 - Add loan
 - View loan details
-- Edit loan details
 - View loan history
+
+Saved original loan details are immutable after creation. The Loan details edit action is not permitted; Admin may view the saved details and add the separately approved payment, prepayment, and settlement events. A mistaken driver entry may be corrected only through the owner-approved traceable correction process; no generic Admin edit or delete is allowed.
 
 ### Loan fields
 
@@ -304,7 +304,6 @@ Maintain vehicle-related service visits, repairs, and expenses. Maintenance type
 
 - Add maintenance record
 - View maintenance details
-- Edit maintenance details
 - View maintenance history
 
 ### Maintenance visit fields
@@ -328,7 +327,7 @@ A service visit may contain multiple expense items. Example:
 | Labour | ₹800 |
 | **Visit total** | **₹3,300** |
 
-Items may be added or edited later. The visit total is the sum of its items and is used in actual maintenance expense history.
+Items may be added, removed, or revised while the visit is an unsubmitted working draft. Once the maintenance visit is saved as a historical record, it is immutable. The visit total is the sum of its draft items and is used in actual maintenance expense history.
 
 ### General maintenance expenses
 
@@ -346,7 +345,7 @@ Include these entries in the vehicle's actual maintenance expense history.
 
 ### Odometer and service reminders
 
-- Odometer reading is optional and may be entered or edited later.
+- Odometer reading is optional and may be entered or revised while the record is an unsubmitted working draft. A saved historical maintenance record is immutable.
 - Never invent or estimate a missing odometer reading.
 - Support next-service reminders by date, kilometre reading, or both.
 - Check kilometre-based reminders when a vehicle odometer reading is updated.
@@ -450,3 +449,17 @@ This document is a frozen product specification, not a claim that Admin has been
 - [Driver Workflow Contract](DRIVER_WORKFLOW_CONTRACT.md)
 
 If an applicable contract is updated, this specification must be reviewed for compatibility; do not duplicate its technical rules here.
+
+
+## 15. Owner-approved historical-record immutability amendment — 2026-11-11
+
+The owner has clarified the business rule: submitted historical business records must never be edited or deleted in a way that changes or erases history. The only permitted post-submission edit exception is correction of a driver-entered mistake, and it must preserve the original value and a trace of the correction. This amendment supersedes any contrary “Edit details” action or later-edit wording in this specification:
+
+- **Compliance:** saved coverage records are immutable; renewal creates a new linked record.
+- **Loan details:** saved original loan details are immutable; no edit/delete action. Payments, prepayments, and settlements remain separate Finance-owned append-only events under their contracts.
+- **Maintenance:** saved visits and expenses are immutable; changes are allowed only in an unsubmitted working draft. Previously exposed saved-record edit service paths have been removed.
+- **Driver/Vehicle master profiles:** profile maintenance remains allowed only where it does not rewrite historical snapshots or event records. The Work/Trip contracts freeze driver/vehicle context into historical shifts/trips.
+- **Driver-entered Work/Trip financial records:** drafts may change before submission. Submitted Fare/Toll/Parking/Cancellation Fee records are immutable except via a dedicated append-only correction workflow; that workflow is not yet implemented or enabled.
+- **No historical delete controls:** no user-facing delete action is permitted for submitted business records. Repository cleanup/removal operations must be purpose-scoped so they cannot remove historical business-event records.
+
+This amendment updates product policy only. Technical implementation and acceptance evidence remain in the owning feature contracts and [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md).
