@@ -27,8 +27,10 @@ class DriverOverlayService:Service(){
  private val main=Handler(Looper.getMainLooper())
  @Volatile private var intervalStartedAt:String?=null
  @Volatile private var activeLocationEventId:String?=null
+ // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
+ private var serviceDestroyed=false
  private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  @Volatile private var startupRecoveryReady=false
@@ -131,6 +133,8 @@ class DriverOverlayService:Service(){
   }.getOrNull()
   main.post{
    if(state=="idle"){main.post{presentation.removePanel();stopSelf()};return@post}
+   // Location-request state is owned by the main thread. Read it only here,
+   // alongside presentation updates, rather than from the database executor.
    val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
     swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
    presentation.updateTimer(elapsedInterval())
@@ -189,7 +193,21 @@ class DriverOverlayService:Service(){
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
   }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
+ /**
+  * All location-request state and LocationManager lifecycle operations are main-thread
+  * confined. Callers may be on the database executor; marshal them before touching
+  * activeLocationEventId, listener/timeout references, or the wake lock.
+  */
  private fun acquireLocation(id:String,command:JSONObject,intent:JSONObject){
+  if(Looper.myLooper()!=Looper.getMainLooper()){
+   main.post{if(!serviceDestroyed)acquireLocationOnMain(id,command,intent)}
+   return
+  }
+  if(serviceDestroyed)return
+  acquireLocationOnMain(id,command,intent)
+ }
+ private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
+  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" }
   try{
    if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
@@ -263,5 +281,16 @@ class DriverOverlayService:Service(){
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;presentation.removePanel();executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
+ override fun onDestroy(){
+  check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
+  serviceDestroyed=true
+  activeLocationTimeout?.let{main.removeCallbacks(it)}
+  activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}}
+  activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
+  releaseGpsWakeLock()
+  databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null
+  presentation.removePanel();executor.shutdown()
+  if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true)
+  super.onDestroy()
+ }
 }
