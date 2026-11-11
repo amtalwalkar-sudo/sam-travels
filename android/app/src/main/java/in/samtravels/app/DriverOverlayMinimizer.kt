@@ -90,11 +90,7 @@ internal object DriverOverlayMinimizer {
             android.util.Log.i("DriverOverlayService", "bubble_attached view=${chip.hashCode()} x=${params.x} y=${params.y}")
         } catch (error: Exception) {
             android.util.Log.e("DriverOverlayService", "Bubble attachment failed", error)
-            bubble = null
-            bubbleParams = null
             onAttachmentFailure()
         }
     }
-
-    /** Clamp overlay coordinates to the display's currently visible (system-bar-excluded) frame. */
 }

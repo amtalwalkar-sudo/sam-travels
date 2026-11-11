@@ -318,7 +318,7 @@ internal class DriverOverlayPresentation(
         runCatching { window.removeView(current) }
         panel = null
         panelParams = null
-        DriverOverlayMinimizer.minimize(context, window, elapsedText, ::dp, ::restorePanel, onAttachmentFailure) { chip, params ->
+        DriverOverlayMinimizer.minimize(context, window, elapsedText, ::dp, ::restorePanel, { bubble = null; bubbleParams = null; onAttachmentFailure() }) { chip, params ->
             bubble = chip
             bubbleParams = params
         }
