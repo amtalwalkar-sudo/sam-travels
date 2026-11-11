@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -72,7 +73,7 @@ class DriverOverlayServicePresentationTest {
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized overlay bubble must be attached", bubble != null)
             val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
-            shell(ui, "input tap ${bubbleBounds.centerX()} ${bubbleBounds.centerY()}")
+            tapAt(ui, bubbleBounds.centerX(), bubbleBounds.centerY())
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
@@ -199,6 +200,19 @@ class DriverOverlayServicePresentationTest {
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+        }
+    }
+
+    private fun tapAt(ui: UiAutomation, x: Int, y: Int) {
+        val downTime = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0)
+        val up = MotionEvent.obtain(downTime, downTime + 80, MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0)
+        try {
+            assertTrue("Overlay touch-down must be injected", ui.injectInputEvent(down, true))
+            assertTrue("Overlay touch-up must be injected", ui.injectInputEvent(up, true))
+        } finally {
+            down.recycle()
+            up.recycle()
         }
     }
 
