@@ -8,8 +8,6 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.InputDevice
-import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -67,8 +65,11 @@ class DriverOverlayServicePresentationTest {
             setText(ui, "Parking (₹)", "7.89")
             choosePayer(ui, 1, "Customer")
             scrollToTop(ui)
-            clickText(ui, "Minimize controls")
-            assertTrue("Minimize control must replace the panel with its bubble", waitUntil {
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
+            assertTrue("Attached overlay header must be available to drag", header != null)
+            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            shell(ui, "input swipe ${bounds.centerX()} ${bounds.centerY()} ${bounds.centerX()} 1 450")
+            assertTrue("Dragging the header to the top must minimize the attached panel", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
@@ -94,8 +95,11 @@ class DriverOverlayServicePresentationTest {
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, _ ->
             setText(ui, "Required cancellation fee in rupees", "12.34")
-            clickText(ui, "Minimize controls")
-            assertTrue("Minimize control must replace the cancellation form with its bubble", waitUntil {
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
+            assertTrue("Attached cancellation overlay header must be available to drag", header != null)
+            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            shell(ui, "input swipe ${bounds.centerX()} ${bounds.centerY()} ${bounds.centerX()} 1 450")
+            assertTrue("Dragging the cancellation header to the top must minimize the panel", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
@@ -201,16 +205,6 @@ class DriverOverlayServicePresentationTest {
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
-        }
-    }
-
-    private fun injectMotion(ui: UiAutomation, action: Int, x: Float, y: Float, downTime: Long) {
-        val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
-        event.source = InputDevice.SOURCE_TOUCHSCREEN
-        try {
-            assertTrue("Overlay gesture event must be injected", ui.injectInputEvent(event, true))
-        } finally {
-            event.recycle()
         }
     }
 
