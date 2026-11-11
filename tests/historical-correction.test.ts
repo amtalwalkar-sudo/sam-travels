@@ -63,11 +63,21 @@ describe("person identity service", () => {
       schemaVersion: 1, personId: "person-1", displayName: "Business owner",
       roles: ["driver", "admin"], status: "active",
     };
+    let configuredPin: string | undefined;
     const identity = new PersonIdentityService(
       { get: async id => id === person.personId ? person : undefined },
-      { verify: async pin => pin === "2468" },
+      {
+        isConfigured: async () => configuredPin !== undefined,
+        configure: async pin => { configuredPin = pin; },
+        verify: async pin => configuredPin === pin,
+      },
       () => NOW,
     );
+    await expect(identity.activate("person-1", "admin", "2468"))
+      .rejects.toThrow("business_admin_pin_not_configured");
+    await identity.configureInitialAdminPin("2468");
+    await expect(identity.configureInitialAdminPin("1357"))
+      .rejects.toThrow("business_admin_pin_already_configured");
     const driver = await identity.activate("person-1", "driver");
     const admin = await identity.activate("person-1", "admin", "2468");
     expect(driver.actorId).toBe(admin.actorId);
