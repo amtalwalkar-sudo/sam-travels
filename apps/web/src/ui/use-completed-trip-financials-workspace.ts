@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
 import { getPlatformRecordSource } from "../native-store";
+import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
@@ -38,7 +39,9 @@ export function useCompletedTripFinancialsWorkspace(
       submit:async command=>{
         if(command.formId!==TRIP_COMPLETED_FINANCIALS_FORM_V1.id||command.action!=="submit")throw new Error("unsupported_trip_financial_form");
         const values=command.values as {farePaise:number;tollPaise?:number;tollPayer?:"driver"|"customer";parkingPaise?:number;parkingPayer?:"driver"|"customer"};
-        return submitCompletedFinancials(platformRepository,getPlatformRecordSource(),command.instanceId,values,command.operationId);
+        const actor = await getPersonIdentityService().currentActor();
+        return submitCompletedFinancials(platformRepository,getPlatformRecordSource(),command.instanceId,values,command.operationId,undefined,
+          { personId: actor.actorId, role: actor.role });
       },
     });
   },[platformRepository]);
