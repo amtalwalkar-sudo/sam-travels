@@ -87,6 +87,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Permanent Architecture Progress](PERMANENT_APPLICATION_ARCHITECTURE_PROGRESS.md) — staged implementation history.
 - [Stage 2 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md), [Stage 4 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md), [Stage 5 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md) — stage-specific evidence.
 - [Architecture Hardening Implementation Contract](ARCHITECTURE_HARDENING_IMPLEMENTATION_CONTRACT.md) and [Reliability Audit](RELIABILITY_AUDIT.md) — historical implementation/reliability records.
+- [Authoritative Workflow v2 Migration and Integration](AUTHORITATIVE_WORKFLOW_V2_MIGRATION_AND_INTEGRATION.md) — retained migration/product decision reference; current implementation semantics are owned by Driver Workflow and Work/Trip Snapshot Integration.
 - [Phase 2 Foundation](PHASE_2_FOUNDATION.md) and [Phase 3 Workflow](PHASE_3_WORKFLOW.md) — completed phase records.
 
 ## Machine-readable contracts and reference artifacts
