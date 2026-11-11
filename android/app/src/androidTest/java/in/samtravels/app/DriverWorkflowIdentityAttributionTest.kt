@@ -47,4 +47,23 @@ class DriverWorkflowIdentityAttributionTest {
             assertEquals("pending_location", JSONObject(isolated.records().get("driver-intent:unlinked-event")!!.json).getString("status"))
         } finally { isolated.close() }
     }
+    @Test fun inactiveLinkedDriverCannotAuthorANativeOverlayEvent() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
+        try {
+            DriverWorkflowIdentityTestFixtures.seed(db, "driver-inactive", "person-inactive")
+            val row = db.records().get("feature:driver-records:driver:driver-inactive")!!
+            val envelope = JSONObject(row.json)
+            envelope.getJSONObject("data").put("lifecycleState", "inactive")
+            db.records().put(StoredRecord(row.id, envelope.toString(), row.schemaVersion, row.updatedAt))
+            DriverWorkflowStore.queue(db, command("inactive-overlay-event"))
+            val failure = runCatching { DriverWorkflowStore.complete(db, "inactive-overlay-event", gps()) }.exceptionOrNull()
+            assertEquals("driver_person_profile_invalid", failure?.message)
+            assertTrue(db.logBookEvents().list().isEmpty())
+            assertEquals("pending_location", JSONObject(
+                db.records().get("driver-intent:inactive-overlay-event")!!.json,
+            ).getString("status"))
+        } finally { db.close() }
+    }
+
 }
