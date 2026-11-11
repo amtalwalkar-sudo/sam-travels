@@ -93,8 +93,9 @@ try {
   await page.getByRole("button", { name: "Activate role" }).click();
   await page.getByRole("status").filter({ hasText: "Role activated" }).waitFor();
 
-  await page.getByRole("button", { name: /Maintenance/ }).click();
-  await page.getByLabel("Vehicle", { exact: true }).selectOption({ label: "MH01AB1234" });
+  await page.locator(".admin-section-trigger").filter({ hasText: "Maintenance" }).click();
+  const maintenancePanel = page.locator(".admin-capability-panel").filter({ hasText: "Record actual service visits" });
+  await maintenancePanel.locator("label").filter({ hasText: "Vehicle" }).locator("select").selectOption({ label: "MH01AB1234" });
   await page.getByText("Browser acceptance repair", { exact: false }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
   await expenseCard.getByRole("button", { name: "Correct amount / view history" }).click();
