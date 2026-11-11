@@ -52,6 +52,8 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
 
 type PinVerifierRecordV1 = Readonly<{ schemaVersion: 1; algorithm: "PBKDF2-SHA256"; iterations: 310000; salt: string; digest: string }>;
 const encoder = new TextEncoder();
+const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
+  bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 const encode = (bytes: Uint8Array) => {
   let binary = "";
   bytes.forEach(byte => { binary += String.fromCharCode(byte); });
@@ -104,7 +106,7 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
   private async derive(pin: string, salt: Uint8Array, iterations: number): Promise<string> {
     const key = await crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, ["deriveBits"]);
     const bits = new Uint8Array(await crypto.subtle.deriveBits(
-      { name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256,
+      { name: "PBKDF2", hash: "SHA-256", salt: toArrayBuffer(salt), iterations }, key, 256,
     ));
     const encoded = encode(bits);
     bits.fill(0);
