@@ -75,14 +75,20 @@ class DriverOverlayServicePresentationTest {
             assertTrue("Minimized overlay bubble must be attached", bubble != null)
             val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
             tapAt(ui, bubbleBounds.centerX(), bubbleBounds.centerY())
-            assertTrue("Tapping the bubble must restore the financial form; bounds=$bubbleBounds hierarchy=${describeNodes(ui)} logs=${shell(ui, "logcat -d -s DriverOverlayService:I DriverOverlayService:E").takeLast(9000)}", waitUntil {
+            assertTrue("Tapping the bubble must restore the financial form; bounds=$bubbleBounds hierarchy=${describeNodes(ui)} logs=${shell(ui, "logcat -d -v brief | grep -E 'DriverOverlayService|AndroidRuntime' | tail -80").takeLast(9000)}", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "12.34" } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Toll (₹)" && it.text?.toString() == "4.56" } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Parking (₹)" && it.text?.toString() == "7.89" } != null &&
-                    spinners(ui).getOrNull(0)?.text?.toString()?.contains("Driver", ignoreCase = true) == true &&
-                    spinners(ui).getOrNull(1)?.text?.toString()?.contains("Customer", ignoreCase = true) == true
+                    findNode(ui) {
+                        it.className?.toString() == "android.widget.CheckedTextView" &&
+                            it.text?.toString()?.equals("Driver", ignoreCase = true) == true
+                    } != null &&
+                    findNode(ui) {
+                        it.className?.toString() == "android.widget.CheckedTextView" &&
+                            it.text?.toString()?.equals("Customer", ignoreCase = true) == true
+                    } != null
             })
         }
     }
