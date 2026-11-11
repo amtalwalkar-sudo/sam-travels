@@ -148,53 +148,11 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 ## 6. Shared PWA and native Android overlay workflow
 
-### One workflow, two surfaces
+The PWA and native Android overlay are two presentation surfaces over the same driver workflow, not separate applications or state machines. They use the same versioned commands, domain transition policy, validation, calculations, durable records, pending/finalization states, and authoritative repository boundary. On installed Android, Room is authoritative; browser-only PWA operation uses the corresponding IndexedDB adapter.
 
-- The PWA and native Android overlay expose the same driver workflow, not separate applications or state machines.
-- Both surfaces use the same versioned commands, domain transition policy, validation, calculations, durable records, pending/finalization states, and Room-backed application/repository boundary on installed Android.
-- The browser-only PWA uses the corresponding IndexedDB adapter under the same domain/application contracts.
-- A command from either surface is validated against the latest committed state/revision and is persisted once. Committed changes propagate to the other active surface locally and in real time.
-- The overlay must remain able to issue valid driver actions while the PWA WebView is paused, recreated, or not visible. It must not create parallel records or use cloud sync as live synchronization.
-- Both surfaces reconcile the latest durable revision on attach/resume and display the same pending, completed, rejected, or needs-attention result.
-- The UI may acknowledge a gesture immediately as received/pending. It must not claim a transition or financial entry is committed before the authoritative durable operation succeeds.
+The overlay's complete product and platform behaviour—including availability and permission, shift-controlled visibility, supported actions, swipe parity, dragging the expanded overlay to minimize, upward-swipe minimization, draggable and left/right dockable bubble, tap-to-restore, financial/cancellation form parity, lifecycle recovery, accessibility, and acceptance tests—is defined only by [DRIVER_OVERLAY_CONTRACT.md](DRIVER_OVERLAY_CONTRACT.md). That document is the single normative authority for overlay-specific behaviour. Do not restate or introduce a competing overlay interaction contract here.
 
-### Overlay visibility follows the PWA-controlled shift lifecycle
-
-- The main PWA is the controller of shift start/end. The overlay does not have an independent shift lifecycle or its own start/end shift authority.
-- When the overlay feature is enabled and its required Android permission is granted, show the native overlay only after the shift-start transition has durably committed.
-- Close/hide the overlay only after the shift-end transition has durably committed.
-- A failed, rejected, or still-pending shift start must not show an active-shift overlay. A failed, rejected, or still-pending shift end must not close the overlay as though the shift ended.
-- The overlay's visibility is a projection of the authoritative shift state. On process restart, WebView recreation, or overlay reattachment, reconcile from the durable shift projection before showing operational controls.
-- Overlay permission denial/revocation or the user disabling the overlay affects overlay availability only; it must not create a second shift state or block otherwise valid local shift/trip operations in the PWA.
-- Android cannot display the overlay while the screen is physically off. Reconcile and show it when the display wakes if the shift remains active and the feature is enabled/authorized.
-
-### Automatic activation, minimized bubble, and synchronized swipe presentation
-
-- Overlay availability is configured through the Android overlay permission/feature capability, but operational activation follows the durable shift lifecycle automatically: after the PWA's shift-start transition is committed, start/show the overlay; after shift-end is committed, dismiss the operational overlay and bubble. Shift start/end controls remain exclusively in the PWA.
-- The overlay must reconcile visibility and state from the authoritative Room projection on service start, process restart, PWA/WebView recreation, and display wake. It must never show an active shift based only on a gesture or uncommitted/pending command.
-- The overlay has exactly these driver actions: swipe to create trip / Going to pickup, swipe to Start ride, swipe to End ride, and Cancel ride before Start ride. It must not expose Start shift or End shift actions.
-- The PWA and overlay state-aware swipe bars share a versioned presentation/interaction contract (action label, valid state, enabled/pending behavior, gesture threshold, reset behavior, accessibility semantics). Their rendered implementations may use platform-native controls, but design/interaction updates must be applied together and parity tests must protect the contract.
-- Either surface may issue a valid swipe action. Both surfaces observe the same durable transition and update together after commit; no UI-local timer or gesture progress is authoritative.
-- The overlay can be minimized by dragging it or by an upward swipe that moves it beyond the screen's upper edge. Minimized mode is a draggable bubble that can be positioned and docked/fixed to the left or right screen edge. Tapping the bubble restores the operational overlay.
-- The bubble displays an elapsed timer for the current state interval. Timer values are derived from persisted state-entry timestamps, continue accurately while the app is backgrounded or process is recreated (subject to device clock integrity), and reconcile from the same Room projection as the PWA. The bubble does not keep its own timer authority.
-- When an action transition requires a form (including Fare, mandatory cancellation fee, Toll, Parking, and applicable payer/amount fields), the same versioned form definition and application use case are used from both surfaces. Present the form on the surface the driver is actively operating; if the form is pending or interrupted, retain a recoverable working copy and durable workflow status so the driver can resume from either surface without duplicate submission.
-
-### Full trip and financial-entry parity
-
-The overlay must support all driver trip operations, not merely a subset of buttons:
-- Create trip / begin Going to pickup.
-- Start ride.
-- End ride.
-- Cancel ride.
-- Enter Fare, including explicit zero and the distinction between empty and zero.
-- Enter optional Toll and Parking amounts for completed rides only.
-- Select Driver or Customer independently as payer for each entered Toll/Parking amount on a completed ride.
-- Enter and resume the mandatory cancellation-fee entry for cancelled trips, including an explicit ₹0 amount.
-- Resume and complete a pending Fare/financial-entry workflow.
-
-These actions must call the same application use cases and validators as the PWA. The overlay must not implement separate financial formulas, payer rules, fare-required checks, or finalization logic. Changes made in either surface must be reflected in the other after the shared durable commit.
-
-Odometer entry and confirmation are shift-start/shift-end workflow requirements. Their UI may be hosted by the PWA or native surface, but both must call the same shift/odometer application contract if exposed on both.
+Driver business semantics remain owned by this contract: the PWA controls shift start/end; overlay actions use the same driver commands and use cases; pending financial work remains durable and recoverable; and no overlay presentation action changes business state. The overlay contract supplements these rules without changing shift, trip, odometer, or financial meaning.
 
 ## 7. Operational date
 
@@ -229,7 +187,7 @@ No implementation may invent these behaviours. Each requires an explicit product
 ## 10. Contract ownership and acceptance
 
 - This contract owns the driver workflow's product rules and state semantics, including automatic 04:00 logical-shift rotation and deferred odometer confirmation.
-- `ANDROID_NATIVE_CONTRACT.md` owns Android overlay/bridge execution, Room ownership, permissions, lifecycle and platform behavior; this document adds the explicit shift-controlled overlay visibility and workflow parity requirements.
+- `DRIVER_OVERLAY_CONTRACT.md` is the single authority for overlay-specific behaviour and duties. `ANDROID_NATIVE_CONTRACT.md` owns cross-cutting Android/Room/bridge/platform guarantees; this document owns driver business semantics and points to the overlay contract for presentation and lifecycle behaviour.
 - `LOCATION_AND_STATE_TIMING_CONTRACT.md` owns GPS evidence, timestamp integrity, duration derivation, and timer recovery; this document identifies the distinct driver events that require that evidence.
 - `FEATURE_MODULE_CONTRACT.md` owns feature boundaries, public entry points, calculation ownership, forms as adapters, and add-on isolation.
 - `TRANSACTION_AND_RECOVERY_CONTRACT.md`, persistence, backup, security, and lifecycle contracts remain authoritative for their existing guarantees.
