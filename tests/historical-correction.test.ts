@@ -17,9 +17,7 @@ import { FeatureRecordService } from "../packages/application/src/feature-record
 import { assertMaintenanceRecordV1 } from "../packages/features/maintenance";
 import { PersonIdentityService } from "../packages/application/src/person-identity-service";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
-
 type Sample = { createdBy: string; amountPaise: number; note: string };
-
 class MemoryRecords implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
@@ -41,7 +39,6 @@ class MemoryRecords implements AtomicRecordBatchRepository {
     return true;
   }
 }
-
 const NOW = "2026-11-11T10:00:00.000Z";
 const ADMIN_VERIFIED_AT = NOW;
 function original(): RecordEnvelope<Sample> {
@@ -70,7 +67,6 @@ function makeService(records: MemoryRecords, actor: CorrectionActorV1) {
     () => NOW,
   );
 }
-
 describe("person identity service", () => {
   it("keeps one person ID while switching Driver and PIN-verified Admin roles", async () => {
     const person: BusinessPersonV1 = {
@@ -105,18 +101,15 @@ describe("person identity service", () => {
     await expect(identity.currentActor()).rejects.toThrow("business_actor_not_active");
   });
 });
-
 describe("historical correction policy", () => {
   it("allows driver self-correction and admin correction of another actor's entry", () => {
     expect(() => assertCorrectionAuthority({ role: "driver", actorId: "driver-1" }, "driver-1")).not.toThrow();
     expect(() => assertCorrectionAuthority({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT }, "driver-1")).not.toThrow();
   });
-
   it("rejects a driver correcting another driver's entry", () => {
     expect(() => assertCorrectionAuthority({ role: "driver", actorId: "driver-2" }, "driver-1"))
       .toThrow("historical_correction_forbidden");
   });
-
   it("rejects malformed or unattributed correction events", () => {
     expect(() => assertHistoricalCorrectionV1({
       schemaVersion: 1, correctionId: "c1", targetRecordId: "r1", targetRecordRevision: 1,
@@ -126,7 +119,6 @@ describe("historical correction policy", () => {
     expect(() => assertCorrectionAuthority({ role: "driver", actorId: "" }, "driver-1"))
       .toThrow("historical_correction_actor_unattributed");
   });
-
   it("projects a valid correction chain once and retains the original payload", () => {
     const source = original().data;
     const first: HistoricalCorrectionV1 = {
@@ -144,7 +136,6 @@ describe("historical correction policy", () => {
     expect(projection.data).toMatchObject({ amountPaise: 13000 });
     expect(source.amountPaise).toBe(10000);
   });
-
   it("marks forks and stale before-values for attention instead of last-write-wins", () => {
     const first: HistoricalCorrectionV1 = {
       schemaVersion: 1, correctionId: "c1", targetRecordId: "r1", targetRecordRevision: 1,
@@ -158,7 +149,6 @@ describe("historical correction policy", () => {
       .toBe("correction_before_value_mismatch");
   });
 });
-
 describe("HistoricalCorrectionService", () => {
   it("appends a correction without mutating the original and replays idempotently", async () => {
     const records = new MemoryRecords();
@@ -176,7 +166,6 @@ describe("HistoricalCorrectionService", () => {
     expect((await records.get<Sample>("feature:sample:record-1"))?.data.amountPaise).toBe(10000);
     expect(await service.listForTarget("feature:sample:record-1")).toHaveLength(1);
   });
-
   it("allows Admin to correct any author's record, but denies a different Driver", async () => {
     const records = new MemoryRecords();
     await records.put(original());
@@ -192,8 +181,6 @@ describe("HistoricalCorrectionService", () => {
     });
     expect(result.currentData).toMatchObject({ amountPaise: 11000 });
   });
-
-
   it("runs the Maintenance Expense correction pilot end to end without changing the original", async () => {
     const records = new MemoryRecords();
     const vehicleId = "feature:vehicle:vehicle-1";
@@ -255,7 +242,6 @@ describe("HistoricalCorrectionService", () => {
       status: "valid", chainRevision: 1, data: { amountPaise: 12500 },
     });
   });
-
   it("attributes Maintenance Expense and enforces Driver self-correction and Admin authority", async () => {
     await browserDatabase.records.clear();
     const records = new DexieRecordRepository();
@@ -339,7 +325,6 @@ describe("HistoricalCorrectionService", () => {
     ]));
     await browserDatabase.records.clear();
   });
-
   it("serializes concurrent corrections to the same target chain", async () => {
     const records = new MemoryRecords();
     await records.put(original());
@@ -357,7 +342,6 @@ describe("HistoricalCorrectionService", () => {
     expect(chain).toHaveLength(1);
     expect(projectHistoricalCorrectionsV1(original().data, chain).status).toBe("valid");
   });
-
   it("fails closed when author attribution or target revision is unavailable", async () => {
     const records = new MemoryRecords();
     await records.put(original());
@@ -391,7 +375,6 @@ describe("HistoricalCorrectionService", () => {
       afterValue: 11000, reason: "stale",
     })).rejects.toThrow("historical_correction_target_revision_changed");
   });
-
   it("rejects stale chains, disallowed fields and correction-id payload reuse", async () => {
     const records = new MemoryRecords();
     await records.put(original());
