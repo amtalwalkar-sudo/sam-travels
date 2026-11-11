@@ -314,7 +314,7 @@ class DriverOverlayService:Service(){
    val params=panelParams
    when(event.actionMasked){
     MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false};true}
-    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
+    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
     MotionEvent.ACTION_UP->{if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
     MotionEvent.ACTION_CANCEL->{true}
     else->true
@@ -332,12 +332,12 @@ class DriverOverlayService:Service(){
   }
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
-  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false
+  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false;var bubbleTouchStarted=false
   chip.setOnTouchListener{_,event->
    when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false;true}
+    MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false;bubbleTouchStarted=true;true}
     MotionEvent.ACTION_MOVE->{val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;params.x=(initialX+dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{window.updateViewLayout(chip,params)};true}
-    MotionEvent.ACTION_UP->{if(!moved)restorePanel() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}
+    MotionEvent.ACTION_UP->{if(!bubbleTouchStarted){true}else{bubbleTouchStarted=false;if(!moved)restorePanel() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}}
     MotionEvent.ACTION_CANCEL->true
     else->true
    }
