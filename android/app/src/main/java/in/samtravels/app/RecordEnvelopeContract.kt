@@ -26,6 +26,16 @@ internal object RecordEnvelopeContract {
         require(revision >= 1.0 && revision <= MAX_SAFE_INTEGER) { "record_invalid_revision" }
         require(record.has("data")) { "record_data_required" }
 
+        if (record.has("createdBy") && !record.isNull("createdBy")) {
+            val author = record.optJSONObject("createdBy")
+                ?: throw IllegalArgumentException("record_invalid_author_provenance")
+            val personId = author.optString("personId")
+            require(Regex("^[A-Za-z0-9_-]{1,128}$").matches(personId) &&
+                (author.optString("role") == "driver" || author.optString("role") == "admin")) {
+                "record_invalid_author_provenance"
+            }
+        }
+
         if (record.has("businessDate")) {
             val date = record.opt("businessDate") as? String
             require(date != null && runCatching { LocalDate.parse(date).toString() == date }.getOrDefault(false)) {
