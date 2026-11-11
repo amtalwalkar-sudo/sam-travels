@@ -50,7 +50,7 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
   }
   async function activate(e:FormEvent){
     e.preventDefault();setBusy(true);setMessage("");
-    try{const actor=await identity.activate(selectedPerson,selectedRole,selectedRole==="admin"?pin:undefined);setActive(actor.actorId+" · "+actor.role);setPin("");setMessage("Role activated.");}
+    try{if(selectedRole==="driver"&&!Object.values(links).includes(selectedPerson))throw new Error("Link this person to a Driver profile before activating Driver role.");const actor=await identity.activate(selectedPerson,selectedRole,selectedRole==="admin"?pin:undefined);setActive(actor.actorId+" · "+actor.role);setPin("");setMessage("Role activated.");}
     catch(e){setActive("");setMessage(e instanceof Error?e.message:"Role activation failed");}finally{setBusy(false);}
   }
   return <section className="admin-capability-panel" aria-label="People and roles">
