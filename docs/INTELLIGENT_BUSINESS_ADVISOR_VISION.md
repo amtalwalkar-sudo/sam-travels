@@ -1,7 +1,7 @@
 # Intelligent Business Advisor — Product Vision and Evolution Blueprint
 
 **Document ID:** ST-INTELLIGENCE-VISION  
-**Version:** 1.1  
+**Version:** 1.2  
 **Status:** Living product vision; architecture direction under discussion  
 **Owner:** Product owner  
 **Last updated:** 2026-11-11  
@@ -254,34 +254,23 @@ The following principles are intended to guide all future advisor capabilities:
 8. **Privacy and security:** any new processing or integration must follow the repository's security, network-access, and data-minimization contracts.
 9. **No false acceptance claims:** CI, emulator, physical-device, and real-world data acceptance are distinct evidence categories.
 
-### 6.1 Business-event evidence and verification
+### 6.1 Authoritative business entries and evidence
 
-A successful application write proves that a value was durably captured; it does not prove that the reported real-world event or amount is true. The advisor must preserve that distinction in its data model, analysis, and language.
+An authorised driver or admin entry is the official business record under the owner's operating policy. Fare agreement, collection, toll/parking, fuel, maintenance, loan and payment entries do not require independent third-party proof before being accepted or used in business calculations.
 
-Use the following evidence states as the approved product vocabulary:
+Keep three concepts distinct:
 
-- **Reported:** entered or asserted by an owner, driver, employee, or other identified source; sufficient corroboration has not been established.
-- **Corroborated:** supported by one or more relevant, separately identified evidence sources. Multiple records copied from the same original assertion do not constitute independent corroboration.
-- **Verified:** the event satisfies the explicit, event-type-specific verification requirements approved for that business event. A successful form submission, a valid database commit, or a GPS snapshot alone is not sufficient.
-- **Conflicting:** available evidence materially disagrees and the discrepancy has not been resolved.
-- **Unknown:** available evidence is insufficient to determine the event's status.
+- **Authoritative business record:** the authorised driver/admin entry is accepted as the business's official record.
+- **Technically validated:** the app validates required fields, permitted values, identity and relationships, revision/duplicate rules, and durable commit. This establishes application integrity, not independent proof of the real-world event.
+- **Independently corroborated (optional):** a separate receipt, reference, payment source, or other evidence supports the entry. This may improve context but is not a prerequisite for business acceptance unless a specific exception is separately approved.
 
-These states are not a universal linear progression. An event may remain reported, become corroborated, require review because evidence conflicts, or remain unknown. Do not automatically promote a state merely because time passed or a related record was created.
+The advisor must not downgrade an authorised entry merely because no external evidence is attached. It must also not claim that it independently confirmed a customer payment or third-party expense settlement when it did not. The advisor can use authoritative, technically valid entries in calculations and describe them accurately as driver/admin-entered business records.
 
-The evidence model must preserve, where applicable:
+Conflicting records, duplicate submissions, invalid relationships, missing required fields, or unresolved corrections must be surfaced. Preserve source channel, responsible actor where available, original business date, capture/commit times, revision history, correction/reversal history, and the basis for any reconciliation. A system-observed GPS event is a separate operational signal; it is not a prerequisite for accepting the driver's financial entry.
 
-- Who or what supplied each assertion or observation, and when it was supplied/observed.
-- The original event time separately from capture, receipt, persistence, and review times.
-- Evidence type, source identity, provenance, integrity/reference, and the business event it supports.
-- Whether sources are genuinely independent or derive from the same original input.
-- The verification rule/version applied, decision time, reviewer/actor, and reason for any manual resolution.
-- Corrections, reversals, conflicting claims, and unresolved limitations without erasing history.
+Every insight and calculation must declare its source coverage and assumptions. It should distinguish recorded business income/expense from independently confirmed cash movement only when that distinction is relevant to the question. Do not invent confidence scores or require external corroboration by default.
 
-Verification requirements are event-specific. GPS can corroborate a location/time observation but does not by itself prove that a trip was commercially completed, that a fare was agreed, or that cash was collected. A manually entered fare is a reported amount until the relevant collection evidence is available. Missing evidence does not prove that an event did not occur.
-
-Every insight and calculation must declare the evidence states and source completeness it accepts. A record may be technically durable and usable for one operational purpose while remaining ineligible for a financial conclusion. If the evidence is insufficient, the advisor must say so and explain what is missing rather than inventing a confidence score or silently treating the record as verified.
-
-This is a product-level requirement. The current implementation must be audited before defining storage fields, event-specific verification rules, or implementation scope. This section does not assert that evidence-state tracking or independent corroboration is already implemented.
+This is the approved business policy. The audit must determine whether current implementations technically enforce and preserve it; this section does not assert that every feature already meets those requirements.
 
 ## 7. Relationship to existing Sam Travels architecture and contracts
 
@@ -360,7 +349,8 @@ These subjects remain open for future product discussions:
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-11-11 | Initial living vision, proposed eight-layer architecture, trust principles, and future Performance workstream hand-off. |
-| 1.1 | 2026-11-11 | Approve the reported/corroborated/verified/conflicting/unknown evidence vocabulary and event-specific verification principle; link business-event reliability audit work. |
+| 1.1 | 2026-11-11 | Initial business-event evidence vocabulary. |
+| 1.2 | 2026-11-11 | Clarify that authorised driver/admin entries are authoritative business records; technical validation is separate from optional independent corroboration. |
 
 ---
 
