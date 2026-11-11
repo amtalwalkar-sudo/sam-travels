@@ -172,6 +172,81 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
         }
     }
 
+    @Test fun completedRideDraftSurvivesOverlayServiceRecreation() {
+        val tripId = "overlay-service-restart-fare"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-service-restart-event", now, null)
+            DriverTripFinancialStore.ensureDraft(db, tripId)
+        }) { ui, db ->
+            clickText(ui, "Add Toll / Parking")
+            setText(ui, "Fare (₹)", "31.25")
+            setText(ui, "Toll (₹)", "4.50")
+            choosePayer(ui, 0, "Customer")
+            setText(ui, "Parking (₹)", "2.75")
+            choosePayer(ui, 1, "Driver")
+            val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
+            val eventsBefore = DriverWorkflowStore.listEvents(db).size
+            val intentsBefore = DriverWorkflowStore.listIntents(db).size
+
+            restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
+
+            assertTrue("Recreated service must restore the same completed-ride financial draft", waitUntil {
+                findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "31.25" } != null &&
+                    findNode(ui) { it.contentDescription?.toString() == "Toll (₹)" && it.text?.toString() == "4.50" } != null &&
+                    findNode(ui) { it.contentDescription?.toString() == "Parking (₹)" && it.text?.toString() == "2.75" } != null &&
+                    findNode(ui) {
+                        it.className?.toString() == "android.widget.CheckedTextView" &&
+                            it.text?.toString()?.equals("Customer", ignoreCase = true) == true
+                    } != null &&
+                    findNode(ui) {
+                        it.className?.toString() == "android.widget.CheckedTextView" &&
+                            it.text?.toString()?.equals("Driver", ignoreCase = true) == true
+                    } != null
+            })
+            assertEquals("Service recreation must not change workflow revision", revisionBefore,
+                DriverWorkflowStore.snapshot(db).optInt("revision"))
+            assertEquals("Service recreation must not append workflow events", eventsBefore,
+                DriverWorkflowStore.listEvents(db).size)
+            assertEquals("Service recreation must not queue workflow intents", intentsBefore,
+                DriverWorkflowStore.listIntents(db).size)
+            val obligation = JSONObject(db.records().get("work:trip-financial-obligation:$tripId")!!.json)
+                .getJSONObject("data")
+            assertEquals("pending", obligation.getString("status"))
+        }
+    }
+
+    @Test fun cancellationFeeDraftSurvivesOverlayServiceRecreation() {
+        val tripId = "overlay-service-restart-cancel"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-service-restart-cancel-event", now)
+            DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
+        }) { ui, db ->
+            setText(ui, "Required cancellation fee in rupees", "18.60")
+            val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
+            val eventsBefore = DriverWorkflowStore.listEvents(db).size
+            val intentsBefore = DriverWorkflowStore.listIntents(db).size
+
+            restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
+
+            assertTrue("Recreated service must restore the same cancellation-fee draft", waitUntil {
+                findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
+                    findNode(ui) {
+                        it.contentDescription?.toString() == "Required cancellation fee in rupees" &&
+                            it.text?.toString() == "18.60"
+                    } != null
+            })
+            assertEquals("Service recreation must not change workflow revision", revisionBefore,
+                DriverWorkflowStore.snapshot(db).optInt("revision"))
+            assertEquals("Service recreation must not append workflow events", eventsBefore,
+                DriverWorkflowStore.listEvents(db).size)
+            assertEquals("Service recreation must not queue workflow intents", intentsBefore,
+                DriverWorkflowStore.listIntents(db).size)
+            val obligation = JSONObject(db.records().get("work:trip-financial-obligation:$tripId")!!.json)
+                .getJSONObject("data")
+            assertEquals("pending", obligation.getString("status"))
+        }
+    }
+
     @Test fun attachedCancellationFeeFormRetainsValueAfterMinimizeAndRestore() {
         val tripId = "overlay-minimize-restore-cancel"
         withAttachedOverlay(tripId, { db, now ->
@@ -220,6 +295,23 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
             val data = JSONObject(db.records().get("work:trip-financial-obligation:$tripId")!!.json).getJSONObject("data")
             assertEquals(0L, data.getLong("feePaise"))
         }
+    }
+
+    private fun restartOverlayService(app: Context) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            app.stopService(Intent(app, DriverOverlayService::class.java))
+        }
+        assertTrue("Overlay service must stop before recreation", waitUntil(10_000) {
+            !isOverlayServiceRunning(app)
+        })
+        instrumentation.runOnMainSync {
+            val intent = Intent(app, DriverOverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= 26) app.startForegroundService(intent) else app.startService(intent)
+        }
+        assertTrue("Overlay service must restart", waitUntil(10_000) {
+            isOverlayServiceRunning(app)
+        })
     }
 
     private fun withAttachedOverlay(
