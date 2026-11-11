@@ -15,7 +15,7 @@ const CORRECTION_PREFIX = "historical-correction:";
 export type HistoricalCorrectionTargetPolicyV1 = Readonly<{
   featureId: string;
   /** Must come from trusted persisted author provenance, never from a form value. */
-  originalAuthorId: string;
+  originalAuthorId?: string;
   /** Feature-owned allowlist; broad object mutation is deliberately unsupported. */
   allowedFieldPaths: readonly string[];
   validateProjectedData(data: unknown): void;
@@ -128,7 +128,6 @@ export class HistoricalCorrectionService {
     if (target.revision !== input.expectedTargetRevision) throw new Error("historical_correction_target_revision_changed");
 
     const policy = await this.targetResolver.resolve(target);
-    if (!policy.originalAuthorId) throw new Error("historical_correction_target_author_unattributed");
     if (!policy.allowedFieldPaths.includes(input.fieldPath)) throw new Error("historical_correction_field_not_allowed");
     assertCorrectionAuthority(actor, policy.originalAuthorId);
 
