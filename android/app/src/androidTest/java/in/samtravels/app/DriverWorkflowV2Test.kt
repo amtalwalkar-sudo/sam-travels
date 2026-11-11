@@ -51,9 +51,7 @@ class DriverWorkflowV2Test {
             db.records().put(StoredRecord(id,envelope.toString(),1,created))
         }
         putFeatureRecord("work:selected-driver",JSONObject().put("schemaVersion",1).put("driverId","driver-v2"))
-        putFeatureRecord("identity:driver-person-link:driver-v2",JSONObject().put("schemaVersion",1).put("driverId","driver-v2").put("personId","person-v2"))
-        putFeatureRecord("identity:person:person-v2",JSONObject().put("schemaVersion",1).put("personId","person-v2")
-            .put("displayName","Driver V2").put("roles",org.json.JSONArray().put("driver")).put("status","active"))
+        DriverWorkflowIdentityTestFixtures.seed(db, "driver-v2", "person-v2")
         putFeatureRecord("feature:driver-records:driver:driver-v2",JSONObject().put("schemaVersion",1)
             .put("driverId","driver-v2").put("name","Driver V2").put("lifecycleState","active"))
         putFeatureRecord("feature:driver-records:assignment:driver-v2",JSONObject().put("schemaVersion",1)
