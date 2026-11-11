@@ -21,6 +21,15 @@ export type PersonActorSessionV1 = Readonly<{
 
 const PERSON_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
+export function toCorrectionActorV1(person: BusinessPersonV1, session: PersonActorSessionV1) {
+  assertPersonCanAct(person, session);
+  return {
+    role: session.role,
+    actorId: person.personId,
+    ...(session.role === "admin" ? { adminPinVerifiedAt: session.adminPinVerifiedAt } : {}),
+  } as const;
+}
+
 export function assertBusinessPersonV1(value: unknown): asserts value is BusinessPersonV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("business_person_invalid");
   const person = value as Record<string, unknown>;
