@@ -316,7 +316,8 @@ class DriverOverlayService:Service(){
    when(event.actionMasked){
     MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false};true}
     MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
-    MotionEvent.ACTION_UP->{if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}\n    MotionEvent.ACTION_CANCEL->{true}
+    MotionEvent.ACTION_UP->{if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
+    MotionEvent.ACTION_CANCEL->{true}
     else->true
    }
   }
