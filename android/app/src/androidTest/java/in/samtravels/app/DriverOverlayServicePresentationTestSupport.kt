@@ -204,3 +204,98 @@ abstract class DriverOverlayServicePresentationTestSupport {
     }
 
 }
+
+
+    protected fun restartOverlayService(app: Context) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.runOnMainSync {
+            app.stopService(Intent(app, DriverOverlayService::class.java))
+        }
+        assertTrue("Overlay service must stop before recreation", waitUntil(10_000) {
+            !isOverlayServiceRunning(app)
+        })
+        instrumentation.runOnMainSync {
+            val intent = Intent(app, DriverOverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= 26) app.startForegroundService(intent) else app.startService(intent)
+        }
+        assertTrue("Overlay service must restart", waitUntil(10_000) {
+            isOverlayServiceRunning(app)
+        })
+    }
+
+    protected fun withAttachedOverlay(
+        tripId: String,
+        prepare: (LocalDatabase, String) -> Unit,
+        exercise: (UiAutomation, LocalDatabase) -> Unit,
+    ) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = instrumentation.targetContext
+        val ui = instrumentation.uiAutomation
+        ui.setServiceInfo(ui.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        })
+        shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
+        shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
+        shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
+        val activity = instrumentation.startActivitySync(
+            Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        ) as MainActivity
+        val db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+            .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+        val previousState = db.records().get("driver-state")
+        val now = java.time.Instant.now().toString()
+        try {
+            // Isolate each instrumentation case from a START_STICKY service left by
+            // an earlier case. Do not overwrite the durable fixture while that
+            // service can still be reading or rendering its previous projection.
+            instrumentation.runOnMainSync {
+                activity.stopService(Intent(activity, DriverOverlayService::class.java))
+            }
+            assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
+                !isOverlayServiceRunning(app)
+            })
+            assertTrue("Emulator must grant overlay permission", Settings.canDrawOverlays(app))
+            val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
+                .put("state", "shift_active").put("shiftStartedAt", now).put("lastEventId", "overlay-$tripId")
+            db.records().put(StoredRecord("driver-state", JSONObject().put("value", active).toString(), 1, now))
+            prepare(db, now)
+            instrumentation.runOnMainSync {
+                val intent = Intent(activity, DriverOverlayService::class.java)
+                if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
+            }
+            val formLabel = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required"
+            val attached = waitUntil {
+                findNode(ui) { it.text?.toString()?.contains(formLabel) == true } != null
+            }
+            if (!attached) {
+                val running = isOverlayServiceRunning(app)
+                val windows = ui.windows.joinToString { window ->
+                    "${window.type}:${window.title}:${window.root?.childCount}"
+                }
+                val activeRoot = ui.rootInActiveWindow?.let { "${it.className}:${it.text}:${it.childCount}" } ?: "none"
+                val logs = shell(ui, "logcat -d -s DriverOverlayService:E").takeLast(5000)
+                val state = runCatching { DriverWorkflowStore.snapshot(db).toString() }.getOrDefault("invalid")
+                assertTrue(
+                    "Overlay form did not attach; serviceRunning=$running canDraw=${Settings.canDrawOverlays(app)} " +
+                        "fineLocation=${app.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)} " +
+                        "state=$state windows=$windows activeRoot=$activeRoot logs=$logs",
+                    attached,
+                )
+            }
+            exercise(ui, db)
+        } finally {
+            instrumentation.runOnMainSync {
+                activity.stopService(Intent(activity, DriverOverlayService::class.java))
+                activity.finish()
+            }
+            assertTrue("Overlay service must stop after instrumentation case", waitUntil(10_000) {
+                !isOverlayServiceRunning(app)
+            })
+            db.records().remove("work:trip-financial-obligation:$tripId")
+            db.records().remove("__sam_travels_form_working_copy__:${if (tripId.endsWith("cancel")) "work.trip-cancellation-fee" else "work.trip-completed-financials"}:$tripId")
+            if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
+            db.close()
+            shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+        }
+    }
