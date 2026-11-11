@@ -129,7 +129,9 @@ export class HistoricalCorrectionService {
 
     const policy = await this.targetResolver.resolve(target);
     if (!policy.allowedFieldPaths.includes(input.fieldPath)) throw new Error("historical_correction_field_not_allowed");
-    assertCorrectionAuthority(actor, policy.originalAuthorId);
+    // Prefer immutable envelope provenance; resolver fallback exists only for verified legacy adapters.
+    const originalAuthorId = target.createdBy?.personId ?? policy.originalAuthorId;
+    assertCorrectionAuthority(actor, originalAuthorId);
 
     const corrections = await this.listForTarget(input.targetRecordId);
     if (corrections.some(item => item.targetRecordRevision !== target.revision)) {
