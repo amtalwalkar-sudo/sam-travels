@@ -6,7 +6,7 @@ const AdminServicesContext = createContext<{ services: AdminPresentationServices
 
 export function AdminServicesProvider({ services, identityRecords, children }: {
   services: AdminPresentationServices;
-  identityRecords: AtomicRecordRepository;
+  identityRecords: AtomicRecordBatchRepository;
   children: ReactNode;
 }) {
   return <AdminServicesContext.Provider value={{ services, identityRecords }}>{children}</AdminServicesContext.Provider>;
