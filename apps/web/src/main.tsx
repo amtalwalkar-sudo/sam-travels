@@ -258,11 +258,8 @@ async function bootstrap(): Promise<void> {
             tenureMonths,
             firstEmiDate: String(values.firstEmiDate ?? ""),
           };
-          if (typeof values._recordRevision === "number") {
-            return getApplicationFinanceLoanService().update({
-              id: String(values._recordId ?? ""), expectedRevision: values._recordRevision, details,
-            });
-          }
+          // Legacy edit drafts carry record metadata; reject them instead of mutating or duplicating history.
+          if (typeof values._recordRevision === "number") throw new Error("finance_loan_details_immutable");
           return getApplicationFinanceLoanService().create({
             uuid: command.instanceId, details, source: getApplicationRecordSource(),
           });
