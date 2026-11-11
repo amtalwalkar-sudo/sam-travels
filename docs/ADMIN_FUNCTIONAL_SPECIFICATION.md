@@ -463,3 +463,15 @@ The owner has clarified the business rule: submitted historical business records
 - **No historical delete controls:** no user-facing delete action is permitted for submitted business records. Repository cleanup/removal operations must be purpose-scoped so they cannot remove historical business-event records.
 
 This amendment updates product policy only. Technical implementation and acceptance evidence remain in the owning feature contracts and [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md).
+
+## 16. Cross-feature correction policy alignment — 2026-11-11
+
+The [Forgiving Data Entry and Historical Correction Contract](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) now owns the shared policy for correcting mistakes in submitted driver- and admin-entered business records. It supersedes any interpretation of Section 15 that would permanently exclude admin-entered records from a safe correction path.
+
+- The immutability rule remains: no ordinary post-submission edit or delete of historical records.
+- A permitted correction is a new append-only, attributable, reasoned event linked to the original; the original remains unchanged and available in history.
+- The same shared audit, idempotency, recovery, and calculation-restatement safeguards apply to admin-entered records.
+- This does **not** grant every admin unrestricted correction authority or enable a correction UI/service. Driver self-correction, admin intervention, approval requirements, and feature-specific permissions remain open for explicit owner decision under the shared contract.
+- Until the required permission, actor-attribution, domain-validation, persistence, and acceptance contracts are implemented and verified, submitted records remain immutable and existing correction paths remain disabled or limited to already approved domain-specific behaviour.
+
+This is a product-policy alignment only. It does not authorize Admin runtime changes or alter Finance-owned payment, prepayment, settlement, or reversal semantics.
