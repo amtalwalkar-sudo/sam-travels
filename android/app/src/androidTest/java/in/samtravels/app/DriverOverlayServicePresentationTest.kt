@@ -71,7 +71,12 @@ class DriverOverlayServicePresentationTest {
             val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
             val downTime = SystemClock.uptimeMillis()
             injectMotion(ui, MotionEvent.ACTION_DOWN, bounds.centerX().toFloat(), bounds.centerY().toFloat(), downTime)
-            injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), 1f, downTime)
+            val dragSteps = 8
+            for (step in 1..dragSteps) {
+                val y = bounds.centerY() + (1f - bounds.centerY()) * step / dragSteps
+                injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), y, downTime)
+                SystemClock.sleep(40)
+            }
             injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
             assertTrue("Dragging the header to the top must minimize the attached panel", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
