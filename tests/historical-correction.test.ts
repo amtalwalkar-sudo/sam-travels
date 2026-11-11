@@ -10,7 +10,7 @@ import {
 } from "../packages/domain/src/historical-correction";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
 import { PersonIdentityService } from "../packages/application/src/person-identity-service";
-import { assertBusinessPersonV1, assertPersonCanAct, type BusinessPersonV1 } from "../packages/domain/src/person-identity";
+import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
 
 type Sample = { createdBy: string; amountPaise: number; note: string };
 
