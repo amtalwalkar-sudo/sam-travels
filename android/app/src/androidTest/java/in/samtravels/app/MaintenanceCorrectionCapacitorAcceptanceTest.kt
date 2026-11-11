@@ -201,7 +201,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             assertNotNull("Correction record must be stored through the Room-backed repository",
                 database.records().get(correctionRows.single().getString("id")))
 
-            // Switch the live WebView identity to Driver One and prove self-correction.
             assertTrue("Driver One can be selected", evaluate(activity, """
                 (() => {
                   const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
@@ -248,7 +247,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             assertTrue("Driver self-correction should append", awaitJavascript(activity,
                 "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Correction appended')", 15_000))
 
-            // Activate Driver One against Driver Two's expense: the rendered UI must fail closed.
             assertTrue("Other Driver record should be available", awaitJavascript(activity,
                 "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
             assertTrue("Other Driver correction form should open", evaluate(activity, """
@@ -289,7 +287,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                 .filter { it.id.startsWith(correctionPrefix) }
                 .count { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == otherExpenseId }.getOrDefault(false) })
 
-            // Snapshot, clear, restore, and verify the exact live-WebView correction chain.
             val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
             NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
             assertEquals("Restore must begin from an empty business-record set", 0, database.records().list()
