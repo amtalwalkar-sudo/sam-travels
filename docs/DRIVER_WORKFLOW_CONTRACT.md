@@ -53,7 +53,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 - Trip creation records its own event ID, actual timestamp, and event-scoped GPS evidence. It starts the pickup-approach duration.
 - Trip creation and Start ride are distinct business events. Do not collapse them into one generic trip-start event.
 - Do not require a separate pickup-arrival confirmation or create a pickup-arrival event. The driver can proceed to Start ride or Cancel ride when ready.
-- The driver-facing state-aware bottom swipe bar is positioned immediately above the bottom navigation and presents the current action stage:
+- The driver-facing state-aware bottom swipe bar is positioned immediately above the bottom navigation and presents the current action stage. Its state-to-action labels and event mapping are defined by `contracts/driver-swipe-presentation-v1.json`; this mapping is presentation metadata, not a second workflow state machine. The domain/application workflow remains authoritative and validates each command against the latest committed state and revision. The interaction contract defines left-to-right completion, intent travel, one-action-per-gesture, cancellation/reset, pending feedback, and accessibility semantics. PWA and native overlay adapters may use different platform gesture controls but must preserve those semantics:
   1. **Going to pickup** — a trip exists and its approach interval is open.
   2. **Start trip** — the next valid actions are Start ride or Cancel ride; this is an action/presentation stage, not a separate pickup-arrival business event.
   3. **End trip** — a ride is active and End ride is the valid completion action.

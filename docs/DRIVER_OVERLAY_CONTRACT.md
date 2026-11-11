@@ -28,7 +28,7 @@ Authority: this is the single normative contract for overlay-specific behaviour 
 - The expanded overlay is a focused operational panel showing the current durable driver state, the next valid action, relevant elapsed time, and any required pending form or recoverable status.
 - Its trip actions are: create trip / enter Going to pickup, Start ride, End ride, and Cancel ride before Start ride. Only actions valid for the current committed state are enabled.
 - The overlay must not expose Start shift or End shift controls. Shift start/end remain PWA-controlled.
-- The PWA and overlay use the same versioned state-aware swipe/action contract where the workflow specifies a swipe bar: action label, valid state, enabled/pending behaviour, gesture threshold, reset behaviour, and accessibility semantics. Either surface may issue a valid action.
+- The PWA and overlay use the same versioned state-aware swipe/action contract (`contracts/driver-swipe-presentation-v1.json`) where the workflow specifies a swipe bar. Shared visual tokens are defined separately in `contracts/driver-presentation-v1.json`; both platform adapters consume those tokens while allowing the overlay a compact layout. Presentation changes must not redefine workflow validity, form semantics, persistence, or command ownership: action label, valid state, enabled/pending behaviour, gesture threshold, reset behaviour, and accessibility semantics. Either surface may issue a valid action.
 - Immediate gesture feedback may acknowledge receipt/pending only. It must not claim a business transition is committed before the shared durable command succeeds.
 - Do not add map, dispatch, passenger-booking, fleet-management, or unrelated controls to the overlay.
 

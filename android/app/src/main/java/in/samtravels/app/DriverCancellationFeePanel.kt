@@ -1,6 +1,8 @@
 package `in`.samtravels.app
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.text.Editable
 import android.text.TextWatcher
@@ -22,6 +24,7 @@ class DriverCancellationFeePanel(
     private val main:Handler,
     private val onRefresh:(String)->Unit,
 ) {
+    private val visual=DriverPresentationContract.fromAssets(context)
     private var tripId:String?=null
     private var label:TextView?=null
     private var input:EditText?=null
@@ -31,13 +34,17 @@ class DriverCancellationFeePanel(
 
     fun attach(root:LinearLayout) {
         label=TextView(context).apply {
-            text="Cancellation fee required";textSize=12f
-            setTextColor(android.graphics.Color.rgb(24,54,74));visibility=View.GONE
+            text="Cancellation fee required";textSize=visual.formHeadingSp
+            setTextColor(visual.textStrong);visibility=View.GONE
         }
         root.addView(label)
         input=EditText(context).apply {
             hint="Cancellation fee (₹)"
             inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            textSize=visual.labelSp
+            setTextColor(visual.textStrong)
+            backgroundTintList=ColorStateList.valueOf(visual.border)
+            minHeight=dp(visual.fieldHeight)
             contentDescription="Required cancellation fee in rupees"
             visibility=View.GONE
             addTextChangedListener(object:TextWatcher {
@@ -53,9 +60,9 @@ class DriverCancellationFeePanel(
                 }
             })
         }
-        root.addView(input,LinearLayout.LayoutParams(dp(210),dp(48)))
+        root.addView(input,LinearLayout.LayoutParams(dp(visual.overlayWidth-visual.overlayCompactPadding*2),dp(visual.fieldHeight)))
         saveButton=Button(context).apply {
-            text="Save cancellation fee";visibility=View.GONE
+            text="Save cancellation fee";textSize=visual.labelSp;setTextColor(visual.surfaceRaised);backgroundTintList=ColorStateList.valueOf(visual.accent);minHeight=dp(visual.fieldHeight);visibility=View.GONE
             setOnClickListener { submit() }
         }
         root.addView(saveButton)

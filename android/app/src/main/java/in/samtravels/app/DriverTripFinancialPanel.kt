@@ -1,6 +1,8 @@
 package `in`.samtravels.app
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.text.Editable
 import android.text.TextWatcher
@@ -17,14 +19,15 @@ class DriverTripFinancialPanel(
  private val context:Context, private val db:LocalDatabase, private val executor:Executor,
  private val main:Handler, private val onRefresh:(String)->Unit,
 ) {
+ private val visual=DriverPresentationContract.fromAssets(context)
  private val rows=linkedMapOf<String,TripForm>()
  private var heading:TextView?=null
  private var container:LinearLayout?=null
 
  fun attach(root:LinearLayout) {
-  heading=TextView(context).apply{text="Fare and trip financials";textSize=12f;visibility=View.GONE}
+  heading=TextView(context).apply{text="Fare and trip financials";textSize=visual.formHeadingSp;setTextColor(visual.textStrong);visibility=View.GONE}
   root.addView(heading)
-  container=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
+  container=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(visual.fieldGap),0,0);visibility=View.GONE}
   root.addView(container)
  }
 
@@ -46,22 +49,22 @@ class DriverTripFinancialPanel(
  }
 
  private inner class TripForm(private val tripId:String) {
-  val root=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(8),0,dp(8))}
-  private val title=TextView(context).apply{text="Fare required · "+tripId;textSize=12f}
+  val root=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(visual.overlayCompactPadding),dp(visual.fieldGap),dp(visual.overlayCompactPadding),dp(visual.fieldGap));background=GradientDrawable().apply{setColor(visual.surface);cornerRadius=dp(visual.cardRadius).toFloat();setStroke(dp(1),visual.border)}}
+  private val title=TextView(context).apply{text="Fare required · "+tripId;textSize=visual.formHeadingSp;setTextColor(visual.textStrong)}
   private val fare=amountInput("Fare (₹)")
-  private val optionalToggle=Button(context).apply{text="Add Toll / Parking (optional)"}
+  private val optionalToggle=Button(context).apply{text="Add Toll / Parking (optional)";textSize=visual.labelSp;setTextColor(visual.textStrong);backgroundTintList=ColorStateList.valueOf(visual.accentSoft);minHeight=dp(visual.fieldHeight)}
   private val optional=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;visibility=View.GONE}
   private val toll=amountInput("Toll (₹)")
   private val tollPayer=payerSpinner()
   private val parking=amountInput("Parking (₹)")
   private val parkingPayer=payerSpinner()
-  private val submit=Button(context).apply{text="Submit trip financials"}
+  private val submit=Button(context).apply{text="Submit trip financials";textSize=visual.labelSp;setTextColor(visual.surfaceRaised);backgroundTintList=ColorStateList.valueOf(visual.accent);minHeight=dp(visual.fieldHeight)}
   private var suppress=false
   /** Keep active edits authoritative while asynchronous Room invalidations rerender this panel. */
   private var hasLocalEdits=false
 
   init {
-   root.addView(title);root.addView(fare,LinearLayout.LayoutParams(-1,dp(48)))
+   root.addView(title);root.addView(fare,LinearLayout.LayoutParams(-1,dp(visual.fieldHeight)))
    root.addView(optionalToggle);root.addView(optional)
    optional.addView(toll,LinearLayout.LayoutParams(-1,dp(48)));optional.addView(tollPayer)
    optional.addView(parking,LinearLayout.LayoutParams(-1,dp(48)));optional.addView(parkingPayer)
@@ -93,10 +96,11 @@ class DriverTripFinancialPanel(
 
   private fun amountInput(label:String)=EditText(context).apply{
    hint=label;inputType=InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+   textSize=visual.labelSp;setTextColor(visual.textStrong);backgroundTintList=ColorStateList.valueOf(visual.border);minHeight=dp(visual.fieldHeight)
    contentDescription=label
   }
   private fun payerSpinner()=Spinner(context).apply{
-   adapter=ArrayAdapter(context,android.R.layout.simple_spinner_dropdown_item,listOf("Select payer","Driver","Customer"))
+   adapter=ArrayAdapter(context,android.R.layout.simple_spinner_dropdown_item,listOf("Select payer","Driver","Customer"));backgroundTintList=ColorStateList.valueOf(visual.border)
   }
   private fun selectPayer(spinner:Spinner,value:String){spinner.setSelection(when(value){"driver"->1;"customer"->2;else->0})}
   private fun setText(input:EditText,value:String){if(!input.hasFocus()&&input.text.toString()!=value)input.setText(value)}

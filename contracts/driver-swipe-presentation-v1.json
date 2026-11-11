@@ -43,5 +43,7 @@
       "label": "Cancel ride",
       "eventType": "cancel_ride"
     }
-  }
+  },
+  "workflowAuthority": "docs/DRIVER_WORKFLOW_CONTRACT.md",
+  "semantics": "Action labels and event mappings are presentation metadata only; the shared domain/application workflow validates every transition against the latest committed state and revision."
 }

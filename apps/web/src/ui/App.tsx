@@ -2,6 +2,7 @@ import { useState, type ComponentType } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { AtomicRecordRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
+import { driverPresentationCssVars } from "./driver-presentation";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
 import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -73,7 +74,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
               </div>
             </section>
 
-            <section className="driver-card">
+            <section className="driver-card" style={driverPresentationCssVars}>
               <div className="driver-head">
                 <div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver ? "Restoring state" : driver.state.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2></div>
                 <span className={driver ? "pill good" : "pill"}>{driver ? "REV " + driver.revision : "LOADING"}</span>
@@ -103,7 +104,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                 </>}
                 {driver?.state === "trip_active" && swipeAction && <SwipeActionBar label={swipeAction.label} disabled={driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
               </div>
-              {pendingCancellationFees.length > 0 && <div className="pending-list" aria-live="polite">
+              {pendingCancellationFees.length > 0 && <div className="pending-list driver-form-list" aria-live="polite">
                 <strong>Cancellation fee required</strong>
                 <p>Save the fee for each cancelled trip before starting another Work action or ending the shift. Enter ₹0 when no fee applies.</p>
                 {pendingCancellationFees.map(obligation => {

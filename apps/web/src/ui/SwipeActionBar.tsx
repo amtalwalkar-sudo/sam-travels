@@ -41,7 +41,7 @@ export function SwipeActionBar({ label, disabled = false, onConfirm }: SwipeActi
   useEffect(() => { reset(); }, [label, disabled]);
 
   const completePointer = (event: PointerEvent<HTMLInputElement>) => {
-    const didSwipe = draggedRef.current && pointerStartXRef.current !== null && event.clientX > pointerStartXRef.current && progressRef.current >= 95;
+    const didSwipe = draggedRef.current && pointerStartXRef.current !== null && event.clientX > pointerStartXRef.current && progressRef.current >= swipePresentation.gesture.completionPercent;
     pointerStartXRef.current = null;
     draggedRef.current = false;
     if (didSwipe) complete();

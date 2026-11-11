@@ -24,10 +24,16 @@ internal class DriverSwipePresentationContract private constructor(
         internal fun parse(json: JSONObject): DriverSwipePresentationContract {
             require(json.optString("contractId") == "sam-travels.driver-swipe-presentation")
             require(json.optInt("version", -1) == 1)
+            require(json.optString("workflowAuthority") == "docs/DRIVER_WORKFLOW_CONTRACT.md")
+            require(json.optString("semantics").isNotBlank())
             val gesture = json.getJSONObject("gesture")
             require(gesture.optString("axis") == "horizontal")
             require(gesture.optString("direction") == "left-to-right")
             require(gesture.optBoolean("oneActionPerGesture"))
+            val resetOn = gesture.getJSONArray("resetOn").let { array -> (0 until array.length()).map { array.getString(it) }.toSet() }
+            require(resetOn.containsAll(setOf("cancel", "incomplete", "disabled", "state-change", "blur")))
+            val webTravel = gesture.getJSONObject("minimumIntentTravel").getInt("webCssPx")
+            require(webTravel > 0)
             val completion = gesture.getInt("completionPercent")
             val travel = gesture.getJSONObject("minimumIntentTravel").getInt("nativeDp")
             require(completion in 1..100 && travel > 0)

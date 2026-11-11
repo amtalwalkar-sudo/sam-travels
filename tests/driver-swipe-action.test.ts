@@ -49,3 +49,16 @@ describe("versioned cross-surface swipe presentation contract", () => {
     });
   });
 });
+
+
+describe("shared driver presentation contract", () => {
+  it("keeps workflow and interaction authorities separate from visual tokens", async () => {
+    const presentation = await import("../contracts/driver-presentation-v1.json");
+    expect(presentation.default.contractId).toBe("sam-travels.driver-presentation");
+    expect(presentation.default.workflowAuthority).toBe("docs/DRIVER_WORKFLOW_CONTRACT.md");
+    expect(presentation.default.interactionAuthority).toBe("contracts/driver-swipe-presentation-v1.json");
+    expect(presentation.default.principles.sharedVisualLanguage).toBe(true);
+    expect(presentation.default.principles.identicalLayoutsRequired).toBe(false);
+    expect(presentation.default.principles.overlayUsesCompactLayout).toBe(true);
+  });
+});

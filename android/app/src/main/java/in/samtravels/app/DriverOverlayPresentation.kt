@@ -2,6 +2,8 @@ package `in`.samtravels.app
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.view.Gravity
@@ -34,6 +36,8 @@ internal class DriverOverlayPresentation(
     private val onRecovery: () -> Unit,
     private val onAttachmentFailure: () -> Unit,
 ) {
+    private val visual = DriverPresentationContract.fromAssets(context)
+
     lateinit var window: WindowManager
         private set
     var panel: LinearLayout? = null
@@ -67,18 +71,18 @@ internal class DriverOverlayPresentation(
         window = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(android.graphics.Color.WHITE)
+            background = GradientDrawable().apply { setColor(visual.surfaceRaised); cornerRadius = dp(visual.cardRadius).toFloat(); setStroke(dp(1), visual.border) }
         }
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(14), dp(18), dp(14))
+            setPadding(dp(visual.overlayPanelPadding), dp(visual.overlayPanelPadding), dp(visual.overlayPanelPadding), dp(visual.overlayPanelPadding))
         }
         val scroll = ScrollView(context).apply {
             isFillViewport = false
             clipToPadding = false
         }
         scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
-        root.addView(scroll, LinearLayout.LayoutParams(dp(270), dp(560)))
+        root.addView(scroll, LinearLayout.LayoutParams(dp(visual.overlayWidth), dp(visual.overlayMaxHeight)))
 
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -86,8 +90,8 @@ internal class DriverOverlayPresentation(
         }
         val header = TextView(context).apply {
             text = "Sam Travels · Driver"
-            textSize = 14f
-            setTextColor(android.graphics.Color.rgb(24, 54, 74))
+            textSize = visual.headingSp
+            setTextColor(visual.textStrong)
         }
         status = header
         headerRow.addView(header, LinearLayout.LayoutParams(0, dp(40), 1f))
@@ -144,8 +148,8 @@ internal class DriverOverlayPresentation(
 
         val elapsed = TextView(context).apply {
             text = "00:00:00"
-            textSize = 18f
-            setTextColor(android.graphics.Color.rgb(24, 54, 74))
+            textSize = visual.headingSp + 4f
+            setTextColor(visual.textStrong)
             setPadding(2, 6, 2, 6)
         }
         timerText = elapsed
@@ -153,8 +157,8 @@ internal class DriverOverlayPresentation(
 
         val label = TextView(context).apply {
             text = "Swipe to Going to pickup"
-            textSize = 12f
-            setTextColor(android.graphics.Color.rgb(36, 73, 94))
+            textSize = visual.labelSp
+            setTextColor(visual.textStrong)
             setPadding(2, 10, 2, 4)
         }
         swipeLabel = label
@@ -163,6 +167,8 @@ internal class DriverOverlayPresentation(
         val slider = SeekBar(context).apply {
             max = 100
             progress = 0
+            progressTintList = ColorStateList.valueOf(visual.accent)
+            thumbTintList = ColorStateList.valueOf(visual.accent)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {}
                 override fun onStartTrackingTouch(bar: SeekBar?) {}
@@ -199,10 +205,14 @@ internal class DriverOverlayPresentation(
             false
         }
         swipeBar = slider
-        content.addView(slider, LinearLayout.LayoutParams(dp(230), dp(48)))
+        content.addView(slider, LinearLayout.LayoutParams(dp(visual.overlayWidth - visual.overlayPanelPadding * 2), dp(visual.swipeHeight)))
 
         val cancel = Button(context).apply {
             text = swipePresentation.secondaryAction("going_to_pickup")?.label ?: "Cancel ride"
+            textSize = visual.labelSp
+            setTextColor(visual.dangerText)
+            backgroundTintList = ColorStateList.valueOf(visual.dangerSurface)
+            minHeight = dp(visual.fieldHeight)
             setOnClickListener {
                 onTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType ?: return@setOnClickListener)
             }
@@ -293,6 +303,8 @@ internal class DriverOverlayPresentation(
         swipeBar?.visibility = if (swipeText == null) View.GONE else View.VISIBLE
         swipeBar?.progress = 0
         swipeBar?.isEnabled = canSwipe
+        swipeBar?.alpha = if (canSwipe) 1f else visual.disabledOpacity
+        swipeLabel?.setTextColor(if (canSwipe) visual.textStrong else visual.hint)
         cancelButton?.visibility = if (state == "going_to_pickup") View.VISIBLE else View.GONE
         cancelButton?.isEnabled = !pending && !financialPending && state == "going_to_pickup"
         cancellationFeePanel?.render(
