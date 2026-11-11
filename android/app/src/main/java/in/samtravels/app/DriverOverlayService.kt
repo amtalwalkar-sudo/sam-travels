@@ -14,7 +14,6 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.Executors
 import kotlin.math.abs
-
 class DriverOverlayService:Service(){
  private val executor=Executors.newSingleThreadExecutor()
  private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
