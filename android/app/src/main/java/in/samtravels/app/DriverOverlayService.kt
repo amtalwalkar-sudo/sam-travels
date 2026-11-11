@@ -313,27 +313,9 @@ class DriverOverlayService:Service(){
   handle.setOnTouchListener{view,event->
    val params=panelParams
    when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{
-     if(params!=null){
-      downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y
-      view.parent?.requestDisallowInterceptTouchEvent(true)
-     }
-     true
-    }
-    MotionEvent.ACTION_MOVE->{
-     if(params!=null){
-      val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt()
-      if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true}
-      params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy
-      runCatching{panel?.let{window.updateViewLayout(it,params)}}
-     }
-     true
-    }
-    MotionEvent.ACTION_UP->{
-     view.parent?.requestDisallowInterceptTouchEvent(false)
-     if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true}
-     true
-    }
+    MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;view.parent?.requestDisallowInterceptTouchEvent(true)};true}
+    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
+    MotionEvent.ACTION_UP->{view.parent?.requestDisallowInterceptTouchEvent(false);if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
     MotionEvent.ACTION_CANCEL->{view.parent?.requestDisallowInterceptTouchEvent(false);true}
     else->true
    }
