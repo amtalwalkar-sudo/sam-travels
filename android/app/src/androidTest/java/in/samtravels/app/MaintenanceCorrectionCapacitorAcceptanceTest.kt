@@ -123,10 +123,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                 const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
                 const role = roleLabel?.querySelector('select');
                 if (!person || !role) return false;
-                person.value = Array.from(person.options).find(option => option.textContent.trim() === 'Correction Admin')?.value ?? '';
-                person.dispatchEvent(new Event('change', { bubbles: true }));
-                role.value = 'admin';
-                role.dispatchEvent(new Event('change', { bubbles: true }));
+                const setSelect = (select, value) => {
+                  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+                  setter.call(select, value);
+                  select.dispatchEvent(new Event('input', { bubbles: true }));
+                  select.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+                setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Correction Admin')?.value ?? '');
+                setSelect(role, 'admin');
                 return true;
               })()
           """))
@@ -205,10 +209,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                 const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
                 const role = roleLabel?.querySelector('select');
                 if (!person || !role) return false;
-                person.value = Array.from(person.options).find(option => option.textContent.trim() === 'Driver One')?.value ?? '';
-                person.dispatchEvent(new Event('change', { bubbles: true }));
-                role.value = 'driver';
-                role.dispatchEvent(new Event('change', { bubbles: true }));
+                const setSelect = (select, value) => {
+                  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+                  setter.call(select, value);
+                  select.dispatchEvent(new Event('input', { bubbles: true }));
+                  select.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+                setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Driver One')?.value ?? '');
+                setSelect(role, 'driver');
                 return Boolean(person.value);
               })()
           """))
