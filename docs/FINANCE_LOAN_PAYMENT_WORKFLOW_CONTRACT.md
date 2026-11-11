@@ -8,7 +8,7 @@
 
 This contract extends the approved Finance Loan calculation contract without changing its formula or historical schedule versions. Finance owns payment records, allocations, idempotency, correction history, and payment status. Admin is only a presentation/access point and must call Finance application services.
 
-## 1. Approved allocation policy
+## 1. Proposed allocation policy (not ratified)
 
 1. By default, apply a payment to the oldest due EMI with an unpaid amount, then continue chronologically to later due EMIs.
 2. The user may review and manually adjust the proposed allocation before the payment is committed. The final allocation must not exceed the payment amount or the unpaid amount of each selected EMI.

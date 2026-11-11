@@ -1,10 +1,12 @@
 # Repository Markdown Documentation Audit — Phase 1
 
-**Status:** Phase 1 inventory and authority audit complete; Phase 2 reconciliation is the next step.  
+**Status:** Phase 1 inventory and authority audit complete; Phase 2 reconciliation complete. The original Phase 1 baseline covered 63 Markdown files; the current repository contains 65, including this audit and the Contract Index.  
 **Audit baseline:** PR #69 branch `reliability/stage-6-process-recovery-proof`, commit `1d4f5ddd08ad38591dba82b3537f353d8705ca30`.  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
 **Inventory:** 63 tracked Markdown files across the repository.  
-**CI evidence at baseline:** Sam Travels CI run #42979514553 completed successfully on the exact baseline SHA. This is repository verification evidence, not proof of physical-device acceptance.
+**CI evidence at baseline:** Sam Travels CI run #42979514553 completed successfully on the exact Phase 1 baseline SHA. The subsequent current-head verification is recorded below. CI is repository verification evidence, not proof of physical-device acceptance.
+
+**Latest verified PR head before this documentation follow-up:** `a82cdc6493245b4b690675d89a29b88473dd0359`; CI run #42983027847 (attempt 2) passed architecture, web, Android and integrated regression jobs. Production geocoder verification and merged-main APK publication were skipped. Physical-device and live Dropbox acceptance remain separate.
 
 ## 1. Purpose and method
 
@@ -78,7 +80,7 @@ The current status statements are inconsistent with later implementation evidenc
 
 ### 2.6 Finance contracts contain stale lifecycle labels
 
-The calculation contract is approved. The payment workflow contract still says “proposed v1” and “not implementation authorization”, while the form conformance audit records migrated Loan payment UI and service-backed submission. Prepayment already describes implementation; settlement says approved for implementation. Phase 2 must align status labels with implementation evidence without changing financial policy or inferring approval for any unapproved calculation.
+The calculation contract is approved. The payment workflow remains an unratified proposal while the form conformance audit records migrated Loan payment UI and service-backed submission. The payment document's section heading “Approved allocation policy” contradicted its explicit unratified status; Phase 2 corrects the heading to “Proposed allocation policy (not ratified)”. Prepayment describes implemented behaviour; settlement remains approved for implementation. Implementation evidence must not be treated as retroactive product or policy approval.
 
 ### 2.7 Backup, lifecycle and platform acceptance are described in multiple places
 
@@ -136,7 +138,7 @@ This is the target ownership map for Phase 2. Existing documents should be reuse
 | Architecture checks and CI evidence requirements | `ARCHITECTURE_ENFORCEMENT.md` and `PLATFORM_ACCEPTANCE_CONTRACT.md` | Implementation hardening plan records staged delivery, not a second permanent policy |
 | Diagnostics and change-impact | `STAGE_5_DIAGNOSTICS_AND_CHANGE_IMPACT.md` | Historical Stage 5 audit/progress docs retain proof snapshots |
 
-## 4. Full 63-file inventory and Phase 2 treatment
+## 4. Full Phase 1 63-file inventory and Phase 2 treatment
 
 “Keep” means retain as an owner/supporting document with scope clarified. “Reconcile” means update duplicated rules, authority wording, links or stale status. “Historical” means preserve the evidence and label it as a dated snapshot; do not rewrite its original baseline as current.
 
@@ -168,7 +170,7 @@ This is the target ownership map for Phase 2. Existing documents should be reuse
 | 24 | `docs/FEATURE_EXTENSION_LIFECYCLE_CONTRACT.md` | Feature lifecycle contract | Keep; reconcile stale verification status |
 | 25 | `docs/FEATURE_MODULE_CONTRACT.md` | Feature module/extension contract | Keep as module boundary owner; clarify relationship to architecture foundation |
 | 26 | `docs/FINANCE_LOAN_CALCULATION_CONTRACT.md` | Loan calculation contract | Keep as calculation owner |
-| 27 | `docs/FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md` | Loan payment contract | Reconcile stale “proposed/not authorized” status with current implementation evidence |
+| 27 | `docs/FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md` | Unratified Loan payment policy proposal | Keep proposal status explicit; section headings must not imply approval; implementation evidence remains separate |
 | 28 | `docs/FINANCE_LOAN_PREPAYMENT_CONTRACT.md` | Loan prepayment contract | Keep; validate status/evidence link |
 | 29 | `docs/FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md` | Loan settlement/closure contract | Reconcile implementation and acceptance status |
 | 30 | `docs/FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md` | Calculation approval record | Keep as approval boundary; link from calculation owners |
@@ -225,7 +227,7 @@ Phase 1 is complete when this inventory, findings and owner map are committed on
 Phase 2 is complete when:
 - A central contract/documentation index identifies the owner, scope and status of every normative contract and points to plans, audits, historical records and operational guides.
 - Root README and architecture overview route readers to that index.
-- All 63 Markdown files are either authoritative, supporting, operational, historical or reference material with an explicit role.
+- All 65 tracked Markdown files at the reconciliation head (the 63-file Phase 1 inventory plus this audit and the Contract Index) are either authoritative, supporting, operational, historical or reference material with an explicit role.
 - Duplicated normative passages are replaced by concise statements and links to the owner.
 - Contradictory or stale status/authority wording is reconciled without falsifying historical evidence.
 - All internal Markdown links resolve.
@@ -248,6 +250,7 @@ Delivered in Phase 2:
 - Updated the Form Conformance Audit with the latest verified code-baseline CI evidence while preserving its partial status and outstanding acceptance gaps.
 - Corrected the stale claim that no integrated CI evidence existed, while retaining the specific architecture-foundation sub-gates as open until their own evidence is recorded.
 - Updated the Admin implementation plan and historical architecture progress navigation.
+- Removed the Finance Loan payment contract's contradictory “Approved allocation policy” heading; it now accurately identifies the section as proposed and not ratified. The implemented payment UI/service remains implementation evidence only.
 
 **Repository-wide link validation:** All 65 tracked Markdown files at the reconciliation head were inspected for relative Markdown links. No broken internal Markdown links were found. The original 63-file Phase 1 inventory remains the baseline count; the two additional files are this audit and the contract index.
 
