@@ -48,8 +48,6 @@ class DriverWorkflowStoreTest {
         .put("fixAt", java.time.Instant.now().toString())
         .put("provider", "android-test")
 
-
-
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
         DriverWorkflowStore.queue(db, command("event-1"))
         val next = DriverWorkflowStore.complete(db, "event-1", gps())
@@ -197,7 +195,6 @@ class DriverWorkflowStoreTest {
             .getString("status"))
     }
 
-
     @Test fun committedTransitionReplayAfterRoomReopenCannotDuplicateEventOrOutbox() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "driver-workflow-commit-replay-test.db"
@@ -285,7 +282,6 @@ class DriverWorkflowStoreTest {
         assertTrue(DriverWorkflowStore.firstPendingLocation(db) == null)
         assertTrue(DriverWorkflowStore.firstRecoverableIntent(db) == null)
     }
-
 
     @Test fun durableRoomRestoreAndReopenMatchesTheCompleteDexieProjectionOracle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -383,8 +379,6 @@ class DriverWorkflowStoreTest {
             context.deleteDatabase(databaseName)
         }
     }
-
-
 
     @Test fun malformedPersistedEventFailsClosedAtRoomReadBoundary() {
         db.logBookEvents().put(LogBookEventRecord(
