@@ -62,7 +62,7 @@ There is one authority per concern, not one catch-all owner for the whole system
 A concern must not acquire competing registries, duplicated durable state, parallel business services, alternate write paths, or shadow configuration. If an existing implementation requires a separate platform-specific adapter, that adapter must implement the same authoritative contract and must not become a second business authority. Additions must extend the existing owner and registration path unless a reviewed contract explicitly establishes a new owner.
 ## Driver workflow product contract
 
-The approved shift, trip, odometer, fare, toll, parking, operational-date, and shared PWA/native overlay product rules are defined in [DRIVER_WORKFLOW_CONTRACT.md](DRIVER_WORKFLOW_CONTRACT.md). That contract supplements this module contract; it does not change feature ownership or persistence boundaries.
+The approved shift, trip, odometer, fare, toll, parking, and operational-date product rules are defined in [DRIVER_WORKFLOW_CONTRACT.md](DRIVER_WORKFLOW_CONTRACT.md). All overlay-specific behaviour and duties—including presentation gestures, minimization, bubble docking, restore, lifecycle, and overlay acceptance—are defined only in [DRIVER_OVERLAY_CONTRACT.md](DRIVER_OVERLAY_CONTRACT.md). These contracts supplement this module contract; they do not change feature ownership or persistence boundaries.
 
 - Work/Shift owns shift state and shift-level odometer readings, including personal/business distance derivation.
 - Log Book/Trips owns trip lifecycle records and trip-level Fare, Toll, Parking, and cancellation-fee records when those capabilities are implemented. Do not move trip financial-entry rules into UI components or the Work/Shift screen.
