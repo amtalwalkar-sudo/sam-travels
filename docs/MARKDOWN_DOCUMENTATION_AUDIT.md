@@ -6,7 +6,7 @@
 **Phase 1 inventory:** 63 tracked Markdown files; the audit and Contract Index were added afterward, bringing the current total to 65.  
 **CI evidence at baseline:** Sam Travels CI run #42979514553 completed successfully on the exact Phase 1 baseline SHA. The subsequent current-head verification is recorded below. CI is repository verification evidence, not proof of physical-device acceptance.
 
-**Latest verified PR head before this documentation follow-up:** `a82cdc6493245b4b690675d89a29b88473dd0359`; CI run #42983027847 (attempt 2) passed architecture, web, Android and integrated regression jobs. Production geocoder verification and merged-main APK publication were skipped. Physical-device and live Dropbox acceptance remain separate.
+**Latest exact PR-head verification:** `fb68b569d5a40b409aba310077ede31711374d68`; CI run #42986058063 completed successfully. Architecture, web regression/build, Android reliability gate and integrated regression all passed. Production geocoder verification was skipped; merged-main APK publication was not run for this PR. Physical-device and live Dropbox acceptance remain separate.
 
 ## 1. Purpose and method
 
