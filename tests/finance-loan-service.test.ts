@@ -57,42 +57,20 @@ describe("FinanceLoanService", () => {
     expect(loan.data.scheduleVersions[0].output.rows).toHaveLength(12);
   });
 
-  it("preserves previous schedule versions when a calculation input changes", async () => {
+  it("rejects edits to saved loan details so the historical loan record remains immutable", async () => {
     const { service } = setup();
     const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
-    const oldSchedule = created.data.scheduleVersions[0];
-    const updated = await service.update({
+    await expect(service.update({
       id: created.id, expectedRevision: 1,
       details: { ...details, annualInterestRateBasisPoints: 1350 },
-    });
-    expect(updated.data.currentScheduleVersion).toBe(2);
-    expect(updated.data.scheduleVersions).toHaveLength(2);
-    expect(updated.data.scheduleVersions[0]).toEqual(oldSchedule);
-    expect(updated.data.scheduleVersions[1].input.annualInterestRateBasisPoints).toBe(1350);
+    })).rejects.toThrow("finance_loan_details_immutable");
+    const current = await service.get(created.id);
+    expect(current).toEqual(created);
   });
 
-  it("does not create a new schedule for non-calculation detail edits", async () => {
-    const { service } = setup();
-    const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
-    const updated = await service.update({
-      id: created.id, expectedRevision: 1,
-      details: { ...details, loanName: "Updated display name", loanAccountReference: "REF-001" },
-    });
-    expect(updated.data.currentScheduleVersion).toBe(1);
-    expect(updated.data.scheduleVersions).toHaveLength(1);
-    expect(updated.data.details.loanName).toBe("Updated display name");
-  });
 
-  it("rejects stale updates and prevents reassignment to another vehicle", async () => {
-    const { service } = setup();
-    const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
-    await expect(service.update({
-      id: created.id, expectedRevision: 0, details,
-    })).rejects.toThrow("feature_record_expected_revision_invalid");
-    await expect(service.update({
-      id: created.id, expectedRevision: 1, details: { ...details, vehicleId: "feature:vehicle:MH02CD5678" },
-    })).rejects.toThrow("finance_loan_vehicle_identity_immutable");
-  });
+
+
 
 
   it("locks calculation inputs after immutable prepayment history exists", async () => {
