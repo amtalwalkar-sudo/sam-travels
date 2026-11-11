@@ -87,7 +87,7 @@ try {
   await page.getByRole("button", { name: "Enroll person" }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled" }).waitFor();
 
-  await page.getByLabel("Person", { exact: true }).selectOption({ label: "Browser Acceptance Admin" });
+  await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: "Browser Acceptance Admin" });
   await page.getByLabel("Active role").selectOption("admin");
   await page.getByLabel("Admin PIN").fill("4831");
   await page.getByRole("button", { name: "Activate role" }).click();
