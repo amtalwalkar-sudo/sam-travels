@@ -70,7 +70,7 @@ class DriverCancellationFeePanel(
         label?.visibility=if(visible)View.VISIBLE else View.GONE
         input?.visibility=if(visible)View.VISIBLE else View.GONE
         saveButton?.visibility=if(visible)View.VISIBLE else View.GONE
-        val text=feePaise?.let{BigDecimal.valueOf(it,2).stripTrailingZeros().toPlainString()}.orEmpty()
+        val text=feePaise?.let{BigDecimal.valueOf(it,2).setScale(2).toPlainString()}.orEmpty()
         if(!hasLocalEdits&&input?.text?.toString()!=text) {
             suppressChanges=true
             input?.setText(text)

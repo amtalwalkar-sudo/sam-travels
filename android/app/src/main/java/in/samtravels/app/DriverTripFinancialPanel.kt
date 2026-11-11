@@ -100,7 +100,7 @@ class DriverTripFinancialPanel(
   }
   private fun selectPayer(spinner:Spinner,value:String){spinner.setSelection(when(value){"driver"->1;"customer"->2;else->0})}
   private fun setText(input:EditText,value:String){if(!input.hasFocus()&&input.text.toString()!=value)input.setText(value)}
-  private fun format(values:JSONObject,key:String):String=if(values.has(key))BigDecimal.valueOf(values.optLong(key),2).stripTrailingZeros().toPlainString()else ""
+  private fun format(values:JSONObject,key:String):String=if(values.has(key))BigDecimal.valueOf(values.optLong(key),2).setScale(2).toPlainString()else ""
   private fun parse(value:String):Long?{
    val parts=value.split(".")
    if(value.isEmpty()||parts.size>2||parts[0].isEmpty()||!parts[0].all{it in '0'..'9'}||
