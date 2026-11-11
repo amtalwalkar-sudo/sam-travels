@@ -1,7 +1,7 @@
 # Intelligent Business Advisor — Product Vision and Evolution Blueprint
 
 **Document ID:** ST-INTELLIGENCE-VISION  
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Living product vision; architecture direction under discussion  
 **Owner:** Product owner  
 **Last updated:** 2026-11-11  
@@ -254,6 +254,35 @@ The following principles are intended to guide all future advisor capabilities:
 8. **Privacy and security:** any new processing or integration must follow the repository's security, network-access, and data-minimization contracts.
 9. **No false acceptance claims:** CI, emulator, physical-device, and real-world data acceptance are distinct evidence categories.
 
+### 6.1 Business-event evidence and verification
+
+A successful application write proves that a value was durably captured; it does not prove that the reported real-world event or amount is true. The advisor must preserve that distinction in its data model, analysis, and language.
+
+Use the following evidence states as the approved product vocabulary:
+
+- **Reported:** entered or asserted by an owner, driver, employee, or other identified source; sufficient corroboration has not been established.
+- **Corroborated:** supported by one or more relevant, separately identified evidence sources. Multiple records copied from the same original assertion do not constitute independent corroboration.
+- **Verified:** the event satisfies the explicit, event-type-specific verification requirements approved for that business event. A successful form submission, a valid database commit, or a GPS snapshot alone is not sufficient.
+- **Conflicting:** available evidence materially disagrees and the discrepancy has not been resolved.
+- **Unknown:** available evidence is insufficient to determine the event's status.
+
+These states are not a universal linear progression. An event may remain reported, become corroborated, require review because evidence conflicts, or remain unknown. Do not automatically promote a state merely because time passed or a related record was created.
+
+The evidence model must preserve, where applicable:
+
+- Who or what supplied each assertion or observation, and when it was supplied/observed.
+- The original event time separately from capture, receipt, persistence, and review times.
+- Evidence type, source identity, provenance, integrity/reference, and the business event it supports.
+- Whether sources are genuinely independent or derive from the same original input.
+- The verification rule/version applied, decision time, reviewer/actor, and reason for any manual resolution.
+- Corrections, reversals, conflicting claims, and unresolved limitations without erasing history.
+
+Verification requirements are event-specific. GPS can corroborate a location/time observation but does not by itself prove that a trip was commercially completed, that a fare was agreed, or that cash was collected. A manually entered fare is a reported amount until the relevant collection evidence is available. Missing evidence does not prove that an event did not occur.
+
+Every insight and calculation must declare the evidence states and source completeness it accepts. A record may be technically durable and usable for one operational purpose while remaining ineligible for a financial conclusion. If the evidence is insufficient, the advisor must say so and explain what is missing rather than inventing a confidence score or silently treating the record as verified.
+
+This is a product-level requirement. The current implementation must be audited before defining storage fields, event-specific verification rules, or implementation scope. This section does not assert that evidence-state tracking or independent corroboration is already implemented.
+
 ## 7. Relationship to existing Sam Travels architecture and contracts
 
 This document is subordinate to existing normative repository contracts. It adds product direction; it does not duplicate or supersede their detailed rules.
@@ -324,14 +353,16 @@ These subjects remain open for future product discussions:
 8. Business-history context and the scope of any business-memory capability.
 9. Owner-facing evidence drill-down and correction workflows.
 10. Privacy, retention, and processing boundaries for future intelligence services.
+11. Event-type-specific evidence requirements and corroboration sources for Trips, fares, collections, expenses, fuel, maintenance, and financial obligations.
 
 ## 11. Version history
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-11-11 | Initial living vision, proposed eight-layer architecture, trust principles, and future Performance workstream hand-off. |
+| 1.1 | 2026-11-11 | Approve the reported/corroborated/verified/conflicting/unknown evidence vocabulary and event-specific verification principle; link business-event reliability audit work. |
 
 ---
 
-**Current status:** Vision recorded; detailed product and technical decisions remain open where explicitly identified.  
+**Current status:** Vision recorded; business-event evidence vocabulary approved; event-specific verification rules and technical implementation remain to be audited and approved.  
 **Implementation status:** No Performance-screen, calculation-engine, data-model, or runtime implementation is authorized by this document.
