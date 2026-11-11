@@ -1,5 +1,9 @@
 # Architecture
 
+## Documentation authority
+
+This file is the architecture overview, not a second copy of every detailed contract. The [Contract and Documentation Index](docs/CONTRACT_INDEX.md) identifies the owner for each architecture, data, persistence, workflow, form, platform, recovery and presentation rule. Resolve conflicts in the named owner contract; supporting documents link to it.
+
 ## Permanent application architecture scope
 
 The approved, frozen scope and staged implementation/acceptance criteria for the permanent feature and independently customisable UI/UX architecture are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and gap-based implementation baseline are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). These documents supplement the detailed contracts below; they do not replace Stage 5 or any owning contract.

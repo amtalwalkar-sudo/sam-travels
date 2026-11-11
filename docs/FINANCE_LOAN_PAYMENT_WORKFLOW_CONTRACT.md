@@ -1,6 +1,6 @@
 # Finance Loan Payment Workflow Contract
 
-**Status:** Proposed v1 contract for review; not implementation authorization  
+**Status:** Proposed v1 policy draft; not formally ratified as the authoritative payment-allocation policy. Loan payment UI and Finance service implementation are recorded separately in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md). Existing implementation does not, by itself, approve every proposal in this draft.  
 **Owner:** Finance  
 **Scope:** Recording actual loan payments and allocating them against scheduled EMI obligations  
 **Currency:** INR; all persisted amounts are integer paise  
@@ -143,4 +143,4 @@ This contract does not authorize:
 - early-settlement quotes, foreclosure charges, settlement payment, or loan closure;
 - automatic allocation migration when a new schedule version is created.
 
-Each requires its own Finance-owned contract and tests. Payment UI actions remain disabled until this contract is approved, the Finance service and durable persistence are implemented, atomicity/idempotency and backup/restore tests pass, and the complete CI gate is green.
+Each requires its own Finance-owned contract and tests. This proposal must not be read as a current instruction to disable the already-implemented Loan payment UI. The current runtime implementation and its tests are tracked in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md). Before this draft is treated as the normative allocation policy, its rules must be explicitly ratified against the implemented Finance service and tests. Do not infer approval of any excluded workflow from this proposal.

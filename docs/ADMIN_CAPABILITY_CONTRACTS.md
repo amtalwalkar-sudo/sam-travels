@@ -1,11 +1,11 @@
 # Admin Capability Contracts — Slice 1
 
-**Status:** Slice 1 contract proposal; review and CI required before persistent writes are enabled  
+**Status:** Historical Slice 1 technical-design proposal. Its original pre-write gate describes the initial onboarding stage and is superseded by subsequent implementation. Do not read it as an instruction to disable existing Admin writes. Current migration evidence is in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md); product behaviour remains owned by [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md).  
 **Authority:** `ADMIN_FUNCTIONAL_SPECIFICATION.md`, `ADMIN_IMPLEMENTATION_PLAN.md`, and the existing feature, persistence, lifecycle, backup, transaction/recovery, and form contracts  
 **Scope:** Stable ownership, record identity, public boundaries, and initial persistence/backup registration for the six Admin sections  
 **Runtime/UI changes:** None in this document
 
-This document turns the approved Admin ownership map into implementation contracts. It does not create an Admin database, change the shell, enable writes, or authorize unapproved business rules. Where an integration's actual source contract has not yet been audited, it is explicitly gated rather than guessed.
+This document records the initial Slice 1 capability ownership and persistence design. It does not itself enable writes or authorize unapproved business rules. Its initial implementation gates are historical; later feature migrations and their current evidence are tracked in the form conformance audit and owning Finance, Compliance, Maintenance, Vehicle, Driver and persistence contracts.
 
 ## 1. Capability inventory and stable identities
 
@@ -177,7 +177,7 @@ The exact `Expiring soon` threshold and reminder delivery mechanism must follow 
 - Historical schedule versions are calculations only, not evidence of payment. They must not infer, create, reallocate, or change actual payment records.
 - This policy governs original schedule revisions only. It does not authorize payment, prepayment, re-amortization, settlement, or closure workflows; those remain gated by their separate Finance contracts below.
 
-**Explicitly gated workflows:** payment writes/allocation (including partial/overpayment, reversal/correction, duplicates, and payment-to-EMI allocation); prepayment allocation and reduce-tenure/reduce-EMI re-amortization; early-settlement quote and closure transitions. Each requires its own Finance-owned lifecycle/calculation contract and tests before the corresponding command or UI action is enabled. The presence of fields/actions in the product specification is not permission to invent those semantics.
+**Historical Slice 1 gate:** payment allocation, prepayment/re-amortization, and early-settlement/closure were excluded from this initial capability proposal until Finance-owned rules and tests existed. Subsequent Finance contracts and implementation work are recorded separately. This paragraph is not a current UI/write-disable instruction; consult the Finance owner contracts and current conformance evidence before changing these workflows.
 
 ### 3.6 Maintenance — `maintenance`
 
@@ -274,7 +274,7 @@ The following are required before the relevant writes or workflows are enabled:
 - [ ] Negative tests prove duplicate IDs, missing participants, wrong namespaces, broken relationships, unsupported versions, stale revisions, and partial transaction failures are rejected.
 - [ ] Full architecture, Web, Android, and integrated regression CI passes on the exact PR commit.
 
-Persistent writes remain disabled until every applicable acceptance item for the owner is complete. A green documentation-only PR does not satisfy runtime acceptance.
+**Historical exit rule for the initial Slice 1 proposal:** each capability required its owner-specific acceptance before enabling its writes. This sentence records the original gate; it does not describe current runtime availability. Current implementation and acceptance claims must be grounded in the latest exact-SHA conformance evidence and the relevant owner contract.
 
 ## 9. Explicit non-goals
 
