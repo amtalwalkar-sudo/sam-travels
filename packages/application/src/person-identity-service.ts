@@ -23,6 +23,8 @@ export interface AdminPinVerifier {
  * One person ID is retained when switching between Driver and Admin roles.
  * Admin authority exists only after the injected PIN verifier succeeds.
  */
+const ADMIN_SESSION_TTL_MS = 5 * 60 * 1000;
+
 export class PersonIdentityService {
   private activeActor?: CorrectionActorV1;
 
@@ -55,6 +57,14 @@ export class PersonIdentityService {
 
   async currentActor(): Promise<CorrectionActorV1> {
     if (!this.activeActor) throw new Error("business_actor_not_active");
+    if (this.activeActor.role === "admin") {
+      const verifiedAt = Date.parse(this.activeActor.adminPinVerifiedAt ?? "");
+      const age = Date.parse(this.now()) - verifiedAt;
+      if (!Number.isFinite(verifiedAt) || age < 0 || age > ADMIN_SESSION_TTL_MS) {
+        this.activeActor = undefined;
+        throw new Error("business_admin_session_expired");
+      }
+    }
     return this.activeActor;
   }
 
