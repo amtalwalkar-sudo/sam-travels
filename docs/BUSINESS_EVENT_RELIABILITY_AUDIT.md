@@ -203,6 +203,30 @@ Optional corroboration (receipt/reference/payment reference) can add context, bu
 
 The initial gap is not that independent corroboration is missing. The remaining audit must determine whether actor attribution, source channel, correction history, auditability, validation, platform parity, and recovery are sufficiently implemented for each feature. Do not add generic verification flags or demand external evidence as a shortcut.
 
+
+
+### Initial intelligence eligibility matrix
+
+This is an initial source-readiness assessment, not approval of new metrics or formulas.
+
+| Business question / measure | Current source | Initial eligibility | Limitation to disclose |
+|---|---|---|---|
+| Trip count and trip duration | Immutable Work events and transition timestamps | **Eligible for tested, internally consistent trip records** | Unmatched/overlapping events must remain visible as needs-attention; physical-device timing acceptance remains separate. |
+| Recorded trip Fare | Required completed-trip Fare entry | **Eligible as authoritative recorded Fare** | Do not rename it customer cash collected. |
+| Actual customer collection | No separate trip collection amount/status found | **Not eligible as a distinct measure yet** | A Fare entry alone cannot answer how much was collected or whether it was partial/unpaid. |
+| Customer charge including Toll/Parking | Fare plus customer-paid Toll/Parking payer fields | **Eligible as recorded customer charge** | This is a calculated charge, not proof of collection. |
+| Recorded driver Toll/Parking expense | Trip-linked amount and payer fields | **Eligible as authoritative recorded expense** | Does not separately capture whether a third party was paid; accepted as business entry under owner policy. |
+| Fuel spend | Generic Maintenance expense with free-text name | **Conditionally usable after explicit category mapping** | Free text is not a stable fuel category; do not infer from description heuristics without an approved mapping. |
+| Fuel volume, price per litre, consumption | No dedicated fuel purchase schema found | **Not eligible** | No structured litres/quantity or unit price in inspected form. |
+| Trip distance / fuel efficiency | Event GPS snapshots and shift odometer requirements | **Not eligible per trip from current GPS path alone** | Transition fixes are not a route trace; shift odometer does not allocate kilometres to individual trips. |
+| Maintenance cost by vehicle | Vehicle-linked visits and general expense records | **Eligible as recorded maintenance expense** | Provider, amount and odometer remain authorised entries; prior edits are not retained by generic revision history. |
+| Scheduled EMI and amortization | Versioned loan calculation schedule | **Eligible as deterministic schedule output** | It is an app calculation from entered loan inputs, not a lender statement. |
+| Recorded loan payments / reversals | Finance payment ledger and allocations | **Eligible as recorded Finance history** | Payment method/reference is entered context; actual lender posting is not independently checked. Payment-allocation policy contract remains proposed/unratified. |
+| Remaining scheduled loan obligations | Schedule versions plus payment/prepayment history | **Conditionally eligible as app-calculated position** | Must be labelled calculated from recorded entries, not lender-confirmed outstanding balance; reconcile contract status first. |
+| Whole-vehicle profitability | Fare, expenses, fuel and distance sources | **Not yet reliably eligible as a complete measure** | Separate collection, structured fuel and trip-level distance are missing or incomplete. |
+
+The advisor may still provide partial insights from eligible inputs, but it must state the scope (for example, recorded Fare less recorded driver-paid Toll/Parking before Fuel), rather than present an incomplete subtotal as net profit.
+
 ## 6. Remaining audit work
 
 | Work item | Scope | Status |
@@ -241,5 +265,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.5 | 2026-11-11 | Extend Trips/driver activity review: immutable driver/vehicle snapshots, event GPS, manual state machine, anomaly-preserving history, and limits on per-trip distance inference. |
 | 0.6 | 2026-11-11 | Identify that generic feature updates increment revisions but replace the prior payload; contrast this with immutable Work events and append-only Finance payment/reversal history. |
 | 0.7 | 2026-11-11 | Add the initial PWA, Capacitor WebView, and native overlay coverage matrix; distinguish shared business services from storage-adapter and cross-client acceptance evidence. |
+| 0.8 | 2026-11-11 | Add an initial intelligence eligibility matrix separating recorded Fare from collection, generic fuel spend from structured fuel data, and schedule calculations from lender-confirmed balances. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
