@@ -118,13 +118,7 @@ class DriverOverlayService:Service(){
   val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14))}
   val scroll=ScrollView(this).apply{isFillViewport=false;clipToPadding=false}
   scroll.addView(content,ViewGroup.LayoutParams(-1,-2));root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
-  val headerRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
-  val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
-  status=header
-  headerRow.addView(header,LinearLayout.LayoutParams(0,dp(40),1f))
-  val minimize=Button(this).apply{text="Minimize";textSize=11f;isAllCaps=false;contentDescription="Minimize controls";setOnClickListener{minimizePanel()}}
-  headerRow.addView(minimize,LinearLayout.LayoutParams(-2,dp(40)))
-  content.addView(headerRow)
+  val headerRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL};val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))};status=header;headerRow.addView(header,LinearLayout.LayoutParams(0,dp(40),1f));val minimize=Button(this).apply{text="Minimize";textSize=11f;isAllCaps=false;contentDescription="Minimize controls";setOnClickListener{minimizePanel()}};headerRow.addView(minimize,LinearLayout.LayoutParams(-2,dp(40)));content.addView(headerRow)
   val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
   timerText=elapsed
   content.addView(elapsed)
