@@ -378,6 +378,24 @@ describe("HistoricalCorrectionService", () => {
     expect(await admin.listForTarget(expense.id)).toHaveLength(2);
   });
 
+  it("serializes concurrent corrections to the same target chain", async () => {
+    const records = new MemoryRecords();
+    await records.put(original());
+    const first = makeService(records, { role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT });
+    const second = makeService(records, { role: "admin", actorId: "admin-2", adminPinVerifiedAt: ADMIN_VERIFIED_AT });
+    const results = await Promise.allSettled([
+      first.submit({ correctionId: "parallel-a", targetRecordId: "feature:sample:record-1",
+        expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise", afterValue: 12000, reason: "first" }),
+      second.submit({ correctionId: "parallel-b", targetRecordId: "feature:sample:record-1",
+        expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise", afterValue: 13000, reason: "second" }),
+    ]);
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+    const chain = await first.listForTarget("feature:sample:record-1");
+    expect(chain).toHaveLength(1);
+    expect(projectHistoricalCorrectionsV1(original().data, chain).status).toBe("valid");
+  });
+
   it("fails closed when author attribution or target revision is unavailable", async () => {
     const records = new MemoryRecords();
     await records.put(original());
