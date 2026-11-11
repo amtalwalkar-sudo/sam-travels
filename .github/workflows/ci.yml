@@ -94,7 +94,9 @@ jobs:
           NODE
   android:
     needs: web
-    runs-on: ubuntu-24.04
+    # Ubuntu 22.04 hosted images include the PulseAudio runtime required by the emulator.
+    # Keep the Android gate independent of apt mirror availability on Ubuntu 24.04.
+    runs-on: ubuntu-22.04
     env:
       VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
@@ -140,18 +142,14 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install Android Emulator host dependencies
+      - name: Verify Android Emulator host dependencies
         run: |
           set -euo pipefail
-          if ldconfig -p | grep -q 'libpulse\.so\.0'; then
-            echo "Android Emulator PulseAudio runtime is already available"
-            exit 0
-          fi
-          # The hosted Ubuntu image can start with an empty apt package index.
-          # Refresh its configured Ubuntu 24.04 indexes before installing the t64 package.
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get install --yes --no-install-recommends libpulse0t64
-          ldconfig -p | grep -q 'libpulse\.so\.0'
+          ldconfig -p | grep -q 'libpulse\.so\.0' || {
+            echo "Ubuntu 22.04 runner is missing the PulseAudio runtime required by Android Emulator" >&2
+            exit 1
+          }
+          echo "Android Emulator PulseAudio runtime is available"
       - name: Install and verify Android Emulator SDK package
         run: |
           set -euo pipefail
