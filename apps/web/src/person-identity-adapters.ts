@@ -68,7 +68,7 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
   }
 
   async configure(pin: string): Promise<void> {
-    if (!/^\\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
+    if (!/^\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
     if (await this.isConfigured()) throw new Error("business_admin_pin_already_configured");
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const record: PinVerifierRecordV1 = {
@@ -79,7 +79,7 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
   }
 
   async verify(pin: string): Promise<boolean> {
-    if (!/^\\d{4,12}$/.test(pin)) return false;
+    if (!/^\d{4,12}$/.test(pin)) return false;
     const raw = await this.vault.get(ADMIN_PIN_KEY);
     if (!raw) return false;
     let record: PinVerifierRecordV1;
