@@ -183,6 +183,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             database.records().list().filter { it.id.startsWith(correctionPrefix) }
                 .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == expenseId }.getOrDefault(false) }
                 .forEach { database.records().remove(it.id) }
+            database.records().list().filter { it.id.startsWith("identity:person:") }
+                .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") == "Correction Admin" }.getOrDefault(false) }
+                .forEach { database.records().remove(it.id) }
+            runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             instrumentation.runOnMainSync { activity.finish() }
             database.close()
         }
