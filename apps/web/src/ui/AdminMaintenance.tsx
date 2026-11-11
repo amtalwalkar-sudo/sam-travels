@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
 import { useAdminServices, useAdminIdentityRecords } from "./admin-services-context";
-import { HistoricalCorrectionService, type HistoricalCorrectionTargetResolver } from "../../../../packages/application/src/historical-correction-service";
+import { HistoricalCorrectionService } from "../../../../packages/application/src/historical-correction-service";
+import { projectHistoricalCorrectionsV1 } from "../../../../packages/domain/src/historical-correction";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import { getPersonIdentityService } from "../person-identity-runtime";
 import "./AdminWorkspace.css";
@@ -26,7 +27,7 @@ type ActiveForm = RecordMode | "rate" | null;
 export function MaintenanceSection() {
   const services = useAdminServices();
   const identityRecords = useAdminIdentityRecords();
-  const correctionService = new HistoricalCorrectionService(identityRecords, getPersonIdentityService(), {
+  const correctionService = useMemo(() => new HistoricalCorrectionService(identityRecords, getPersonIdentityService(), {
     resolve: async (record: RecordEnvelope<unknown>) => {
       const data = record.data as Record<string, unknown>;
       if (!record.id.startsWith("feature:maintenance:expense:") || data.kind !== "expense" || data.schemaVersion !== 1 ||
@@ -40,7 +41,7 @@ export function MaintenanceSection() {
         }
       } };
     },
-  }, services.recordSource);
+  }, services.recordSource), [identityRecords, services.recordSource]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
   const [records, setRecords] = useState<Maintenance | null>(null);
@@ -80,7 +81,7 @@ export function MaintenanceSection() {
       services.formRuntime.listDrafts(MAINTENANCE_RATE_FORM_V1),
     ]);
     setDrafts([...visits, ...expenses, ...rates].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
-  }, [services]);
+  }, [services, correctionService]);
 
   const loadVehicleRecords = useCallback(async (id: string) => {
     if (!id) { setRecords(null); setReminders([]); return; }
@@ -88,7 +89,14 @@ export function MaintenanceSection() {
       services.maintenance.listVehicleRecords(id),
       services.maintenance.getServiceReminderStates(id, today()),
     ]);
-    setRecords(history);
+    const expenses = await Promise.all(history.expenses.map(async expense => {
+      const corrections = await correctionService.listForTarget(expense.id);
+      const projection = projectHistoricalCorrectionsV1(expense.data, corrections);
+      setCorrectionHistory(current => ({ ...current, [expense.id]: corrections }));
+      if (projection.status !== "valid") setMessage("A Maintenance Expense correction chain needs review; original data is shown.");
+      return projection.status === "valid" ? { ...expense, data: projection.data } : expense;
+    }));
+    setRecords({ ...history, expenses });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
   }, [services]);
 
