@@ -1,7 +1,7 @@
 import type { AtomicRecordRepository } from "../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../packages/core/src/types";
 import type { CredentialVault } from "../../../packages/core/src/credentials";
-import type { BusinessPersonV1 } from "../../../packages/domain/src/person-identity";
+import { assertBusinessPersonV1, type BusinessPersonV1 } from "../../../packages/domain/src/person-identity";
 import type { BusinessPersonRepository, AdminPinVerifier } from "../../../packages/application/src/person-identity-service";
 
 const PERSON_PREFIX = "identity:person:";
@@ -18,24 +18,23 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
   async get(personId: string): Promise<BusinessPersonV1 | undefined> {
     const row = await this.records.get<BusinessPersonV1>(PERSON_PREFIX + personId);
     if (!row) return undefined;
-    if (row.data?.schemaVersion !== 1 || row.data.personId !== personId) {
-      throw new Error("business_person_record_invalid");
-    }
+    try { assertBusinessPersonV1(row.data); }
+    catch { throw new Error("business_person_record_invalid"); }
+    if (row.data.personId !== personId) throw new Error("business_person_record_invalid");
     return row.data;
   }
 
   async list(): Promise<BusinessPersonV1[]> {
     const rows = await this.records.list<BusinessPersonV1>();
     return rows.filter(row => row.id.startsWith(PERSON_PREFIX)).map(row => {
-      if (row.data?.schemaVersion !== 1 || row.id !== PERSON_PREFIX + row.data.personId) {
-        throw new Error("business_person_record_invalid");
-      }
+      try { assertBusinessPersonV1(row.data); }
+      catch { throw new Error("business_person_record_invalid"); }
+      if (row.id !== PERSON_PREFIX + row.data.personId) throw new Error("business_person_record_invalid");
       return row.data;
     });
   }
 
   async save(person: BusinessPersonV1): Promise<BusinessPersonV1> {
-    const { assertBusinessPersonV1 } = await import("../../../packages/domain/src/person-identity");
     assertBusinessPersonV1(person);
     const id = PERSON_PREFIX + person.personId;
     const current = await this.records.get<BusinessPersonV1>(id);
@@ -83,21 +82,23 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
     if (!/^\d{4,12}$/.test(pin)) return false;
     const raw = await this.vault.get(ADMIN_PIN_KEY);
     if (!raw) return false;
-    let record: PinVerifierRecordV1;
     try {
-      record = JSON.parse(raw) as PinVerifierRecordV1;
+      const record = JSON.parse(raw) as PinVerifierRecordV1;
       if (record.schemaVersion !== 1 || record.algorithm !== "PBKDF2-SHA256" ||
           record.iterations !== 310000 || typeof record.salt !== "string" ||
           typeof record.digest !== "string") return false;
+      const candidate = decode(await this.derive(pin, decode(record.salt), record.iterations));
+      const expected = decode(record.digest);
+      if (candidate.length !== expected.length) {
+        candidate.fill(0); expected.fill(0);
+        return false;
+      }
+      let difference = 0;
+      for (let index = 0; index < candidate.length; index++) difference |= candidate[index] ^ expected[index];
+      candidate.fill(0);
+      expected.fill(0);
+      return difference === 0;
     } catch { return false; }
-    const candidate = decode(await this.derive(pin, decode(record.salt), record.iterations));
-    const expected = decode(record.digest);
-    if (candidate.length !== expected.length) return false;
-    let difference = 0;
-    for (let index = 0; index < candidate.length; index++) difference |= candidate[index] ^ expected[index];
-    candidate.fill(0);
-    expected.fill(0);
-    return difference === 0;
   }
 
   private async derive(pin: string, salt: Uint8Array, iterations: number): Promise<string> {
