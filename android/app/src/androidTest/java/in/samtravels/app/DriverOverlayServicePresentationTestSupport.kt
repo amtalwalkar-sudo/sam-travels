@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 /** Starts the real foreground service and operates its attached WindowManager form window. */
 @RunWith(AndroidJUnit4::class)
 
-open class DriverOverlayServicePresentationTestSupport {
+abstract class DriverOverlayServicePresentationTestSupport {
     protected fun isOverlayServiceRunning(context: Context): Boolean =
         (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .getRunningServices(100).any {

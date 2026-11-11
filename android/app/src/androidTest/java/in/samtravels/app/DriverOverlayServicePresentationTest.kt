@@ -113,7 +113,7 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
             assertTrue("Overlay header must be attached as the panel drag target", header != null)
             val headerBounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
             swipeAt(ui, headerBounds.centerX(), headerBounds.centerY(),
-                headerBounds.centerX() + 24, headerBounds.centerY() - 180)
+                headerBounds.centerX() + 24, headerBounds.centerY() - 240)
 
             assertTrue("Upward header gesture must minimize to the bubble; headerBounds=$headerBounds; overlayLogs=${shell(ui, "logcat -d -v brief -s DriverOverlayService:I")}; hierarchy=${describeNodes(ui)}", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null

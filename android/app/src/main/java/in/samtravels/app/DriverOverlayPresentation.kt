@@ -99,6 +99,7 @@ internal class DriverOverlayPresentation(
         var panelStartY = 0
         var panelGestureMoved = false
         header.setOnTouchListener { view, event ->
+            android.util.Log.i("DriverOverlayService", "header_touch action=${event.actionMasked} rawX=${event.rawX} rawY=${event.rawY}")
             val params = panelParams ?: return@setOnTouchListener false
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -116,6 +117,7 @@ internal class DriverOverlayPresentation(
                     if (kotlin.math.abs(dx) > threshold || kotlin.math.abs(dy) > threshold) {
                         panelGestureMoved = true
                         if (dy < -dp(72) && kotlin.math.abs(dy) > kotlin.math.abs(dx) * 1.2f) {
+                            android.util.Log.i("DriverOverlayService", "header_swipe_minimize dy=$dy dx=$dx")
                             minimizePanel()
                             return@setOnTouchListener true
                         }
