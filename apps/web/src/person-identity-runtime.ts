@@ -1,5 +1,5 @@
 import type { RecordEnvelope } from "../../../packages/core/src/types";
-import type { RecordRepository } from "../../../packages/core/src/repositories";
+import type { AtomicRecordRepository } from "../../../packages/core/src/repositories";
 import { PersonIdentityService } from "../../../packages/application/src/person-identity-service";
 import { PersistentBusinessPersonRepository, SecureAdminPinVerifier } from "./person-identity-adapters";
 import { createCredentialVault } from "./secure-vault";
@@ -8,7 +8,7 @@ let identityService: PersonIdentityService | undefined;
 
 /** Bind durable identity and the platform secure credential vault at app bootstrap. */
 export async function initializePersonIdentityRuntime(
-  records: RecordRepository,
+  records: AtomicRecordRepository,
   source: RecordEnvelope<unknown>["source"],
 ): Promise<PersonIdentityService> {
   if (identityService) throw new Error("person_identity_runtime_already_initialized");
