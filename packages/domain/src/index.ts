@@ -5,3 +5,4 @@ export {GPS_EVENT_FIX_POLICY,validateGpsFix} from "../../core/src/gps";
 export * from "./driver-workflow";
 
 export * from "./historical-correction";
+export * from "./person-identity";
