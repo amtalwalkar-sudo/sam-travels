@@ -284,7 +284,7 @@ object DriverWorkflowStore {
                 .put("committedAt", now)
                 .put("revision", revision)
                 .put("createdBy", DriverWorkflowIdentity.resolveDriverAuthor(db, command, current))
-            DriverWorkflowContract.validateEvent(eventRecord)
+            DriverWorkflowContract.validateNewlyCommittedEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
             DriverWorkflowContract.validateIntent(intent)

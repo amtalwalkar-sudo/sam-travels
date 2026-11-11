@@ -27,6 +27,7 @@ class DriverWorkflowIdentityAttributionTest {
             DriverWorkflowStore.queue(db, command("attributed-event"))
             DriverWorkflowStore.complete(db, "attributed-event", gps())
             val event = JSONObject(db.logBookEvents().list().single().json)
+            assertEquals("native_overlay", event.getJSONObject("command").getString("originSurface"))
             assertEquals("person-test", event.getJSONObject("createdBy").getString("personId"))
             assertEquals("driver", event.getJSONObject("createdBy").getString("role"))
         } finally { db.close() }

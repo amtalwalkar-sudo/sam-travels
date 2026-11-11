@@ -122,6 +122,12 @@ internal object DriverWorkflowContract {
         }
     }
 
+    /** New commits must be attributable; legacy command rows remain readable through validateStoredEvent. */
+    fun validateNewlyCommittedEvent(event: JSONObject) {
+        validateEvent(event)
+        require(event.has("createdBy")) { "driver_event_author_required" }
+    }
+
     /** Legacy v1 Log Book rows predate the command/GPS event envelope and remain immutable source history. */
     fun validateStoredEvent(event: JSONObject) {
         if (event.has("command")) {
