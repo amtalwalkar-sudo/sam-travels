@@ -10,7 +10,6 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.InputDevice
-import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -209,11 +208,9 @@ class DriverOverlayServicePresentationTest {
         val downTime = SystemClock.uptimeMillis()
         val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0).apply {
             source = InputDevice.SOURCE_TOUCHSCREEN
-            displayId = Display.DEFAULT_DISPLAY
         }
         val up = MotionEvent.obtain(downTime, downTime + 80, MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0).apply {
             source = InputDevice.SOURCE_TOUCHSCREEN
-            displayId = Display.DEFAULT_DISPLAY
         }
         try {
             assertTrue("Overlay touch-down must be injected", ui.injectInputEvent(down, true))
