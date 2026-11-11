@@ -148,40 +148,5 @@ export class FinanceLoanService {
     details: FinanceLoanDetailsV1;
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
     throw new Error("finance_loan_details_immutable");
-  }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
-    assertRecordId(input.id);
-    const current = await this.records.get(input.id);
-    if (!current) throw new Error("finance_loan_not_found");
-    if (current.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
-    if (current.data.details.vehicleId !== input.details.vehicleId) {
-      throw new Error("finance_loan_vehicle_identity_immutable");
-    }
-    await this.requireVehicle(input.details.vehicleId);
-    const changed = this.calculationInputsChanged(current.data.details, input.details);
-    if (changed) {
-      const prepaymentState = await this.repository.get(PREPAYMENT_PREFIX + input.id.slice(PREFIX.length));
-      if (prepaymentState) throw new Error("finance_loan_prepayment_schedule_locked");
-    }
-    const createdAt = this.now();
-    const scheduleVersions = changed
-      ? [...current.data.scheduleVersions,
-          this.buildScheduleVersion(current.data.currentScheduleVersion + 1, input.details, createdAt)]
-      : current.data.scheduleVersions;
-    const next: FinanceLoanRecordV1 = {
-      schemaVersion: 1,
-      kind: "loan",
-      details: Object.freeze({ ...input.details }),
-      currentScheduleVersion: changed
-        ? current.data.currentScheduleVersion + 1
-        : current.data.currentScheduleVersion,
-      scheduleVersions,
-      lifecycleState: current.data.lifecycleState ?? "active",
-    };
-    return this.records.update({
-      id: input.id,
-      expectedRevision: input.expectedRevision,
-      data: next,
-      now: createdAt,
-    });
   }
 }
