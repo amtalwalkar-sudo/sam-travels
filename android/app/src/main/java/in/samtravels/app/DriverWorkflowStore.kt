@@ -52,31 +52,6 @@ object DriverWorkflowStore {
         return JSONObject().put("schemaVersion",1).put("driverId",driverId).put("assignmentId",assignmentId).put("vehicleId",vehicleId)
     }
 
-    /** Resolve immutable event authorship from the selected Driver profile and persisted identity link. */
-    private fun resolveDriverAuthor(db: LocalDatabase, command: JSONObject, current: JSONObject): JSONObject {
-        val context = command.optJSONObject("driverContext") ?: command.optJSONObject("tripContext")
-            ?: current.optJSONObject("shiftContext") ?: current.optJSONObject("tripContext")
-        val driverId = context?.optString("driverId")?.takeIf { it.isNotBlank() }
-            ?: run {
-                val selected = db.records().get("work:selected-driver") ?: error("work_driver_not_selected")
-                JSONObject(selected.json).optJSONObject("data")?.optString("driverId")?.takeIf { it.isNotBlank() }
-                    ?: error("work_selected_driver_invalid")
-            }
-        val linkRow = db.records().get("identity:driver-person-link:$driverId") ?: error("driver_person_link_missing")
-        val link = JSONObject(linkRow.json).optJSONObject("data") ?: error("driver_person_link_invalid")
-        require(link.optInt("schemaVersion", -1) == 1 && link.optString("driverId") == driverId) { "driver_person_link_invalid" }
-        val personId = link.optString("personId")
-        require(personId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "driver_person_link_invalid" }
-        val personRow = db.records().get("identity:person:$personId") ?: error("driver_person_identity_missing")
-        val person = JSONObject(personRow.json).optJSONObject("data") ?: error("driver_person_identity_invalid")
-        val roles = person.optJSONArray("roles") ?: error("driver_person_identity_invalid")
-        require(person.optInt("schemaVersion", -1) == 1 && person.optString("personId") == personId &&
-            person.optString("status") == "active" && (0 until roles.length()).any { roles.optString(it) == "driver" }) {
-            "driver_person_identity_inactive"
-        }
-        return JSONObject().put("personId", personId).put("role", "driver")
-    }
-
     internal fun operationalDateAt(value:String):String {
         val local=java.time.OffsetDateTime.parse(value).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata"))
         return (if(local.hour<4)local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
@@ -308,7 +283,7 @@ object DriverWorkflowStore {
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
-                .put("createdBy", resolveDriverAuthor(db, command, current))
+                .put("createdBy", DriverWorkflowIdentity.resolveDriverAuthor(db, command, current))
             DriverWorkflowContract.validateEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 
