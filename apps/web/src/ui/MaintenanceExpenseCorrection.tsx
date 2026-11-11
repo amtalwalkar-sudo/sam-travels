@@ -68,7 +68,7 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
       if (!Number.isFinite(Number(amount)) || !Number.isSafeInteger(amountPaise) || amountPaise < 0) {
         throw new Error("Enter a valid amount.");
       }
-      const result = await service.submit({
+      await service.submit({
         correctionId: correctionId.current ?? (correctionId.current = crypto.randomUUID().replaceAll("-", "")), targetRecordId: expense.id,
         expectedTargetRevision: expense.revision, expectedChainRevision: expectedChainRevision.current ?? (expectedChainRevision.current = chain.length),
         fieldPath: "amountPaise", afterValue: amountPaise, reason,
