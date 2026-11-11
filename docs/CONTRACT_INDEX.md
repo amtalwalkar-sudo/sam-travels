@@ -66,6 +66,7 @@
 
 | Document | Role and boundary |
 |---|---|
+| [Intelligent Business Advisor Vision](INTELLIGENT_BUSINESS_ADVISOR_VISION.md) | Living product vision and future Performance workstream hand-off; proposals remain distinct from approved contracts and implementation authorization |
 | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved product rules; does not prove implementation |
 | [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Delivery slices and completion definition; follows product and technical owners |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guide for adding features/calculations; not a replacement contract |
