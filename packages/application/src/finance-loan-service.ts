@@ -60,7 +60,6 @@ export type FinanceLoanVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
 };
 const PREFIX = "feature:finance:loan:";
-const PREPAYMENT_PREFIX = "feature:finance:prepayments:";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function recordId(uuid: string): string {
@@ -82,7 +81,7 @@ export class FinanceLoanService {
   private readonly records: FeatureRecordService<FinanceLoanRecordV1>;
 
   constructor(
-    private readonly repository: AtomicRecordRepository,
+    repository: AtomicRecordRepository,
     private readonly vehicles: FinanceLoanVehicleDirectory,
     validate: FinanceLoanRecordValidator,
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
