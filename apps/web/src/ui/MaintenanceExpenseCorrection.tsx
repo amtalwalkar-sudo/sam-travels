@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { AtomicRecordBatchRepository } from "../../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { GeneralMaintenanceExpenseV1 } from "../../../../packages/application/src/maintenance-service";
@@ -51,6 +51,8 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
   const [history, setHistory] = useState<Awaited<ReturnType<HistoricalCorrectionService["listForTarget"]>>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  // Keep the same operation identity after an ambiguous submission failure so a retry replays safely.
+  const correctionId = useRef<string | null>(null);
   useEffect(() => {
     let live = true;
     void service.listForTarget(expense.id).then(rows => { if (live) setHistory(rows); })
@@ -66,12 +68,13 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
         throw new Error("Enter a valid amount.");
       }
       const result = await service.submit({
-        correctionId: crypto.randomUUID().replaceAll("-", ""), targetRecordId: expense.id,
+        correctionId: correctionId.current ?? (correctionId.current = crypto.randomUUID().replaceAll("-", "")), targetRecordId: expense.id,
         expectedTargetRevision: expense.revision, expectedChainRevision: chain.length,
         fieldPath: "amountPaise", afterValue: amountPaise, reason,
         businessEffectiveDate: expense.data.expenseDate,
       });
       setHistory([...chain, result.correction]);
+      correctionId.current = null;
       setOpen(false); setReason("");
       setMessage("Correction appended. The original expense record remains unchanged.");
       await onCorrected();
@@ -86,9 +89,9 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
       {item.recordedAt} · {money(Number(item.beforeValue))} → {money(Number(item.afterValue))} · {item.actor.role} · {item.reason}
     </small>)}
     {open && <form className="admin-capability-form" onSubmit={submit}>
-      <label>Corrected amount (₹)<input required type="number" min="0" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} /></label>
+      <label>Corrected amount (₹)<input required type="number" min="0" step="0.01" value={amount} onChange={event => { correctionId.current = null; setAmount(event.target.value); }} /></label>
       <small>Before: {money(expense.data.amountPaise)} · After: {Number.isFinite(Number(amount)) && Number(amount) >= 0 ? money(Math.round(Number(amount) * 100)) : "Enter a valid amount"}</small>
-      <label>Reason for correction<input required maxLength={1000} value={reason} onChange={event => setReason(event.target.value)} /></label>
+      <label>Reason for correction<input required maxLength={1000} value={reason} onChange={event => { correctionId.current = null; setReason(event.target.value); }} /></label>
       <div className="loan-form-actions">
         <button className="admin-primary" disabled={busy}>Append correction</button>
         <button className="admin-secondary" type="button" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
