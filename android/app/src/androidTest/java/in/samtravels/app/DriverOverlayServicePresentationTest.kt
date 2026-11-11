@@ -78,7 +78,7 @@ class DriverOverlayServicePresentationTest {
                 SystemClock.sleep(40)
             }
             injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
-            assertTrue("Dragging the header to the top must minimize the attached panel", waitUntil {
+            assertTrue("Dragging the header to the top must minimize the attached panel; hierarchy=${describeNodes(ui)} logs=${shell(ui, "logcat -d -s DriverOverlayService:D DriverOverlayService:E").takeLast(5000)}", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
