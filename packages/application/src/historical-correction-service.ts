@@ -1,4 +1,4 @@
-import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import { RECORD_ENVELOPE_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { RecordEnvelope } from "../../core/src/types";
 import {
@@ -11,6 +11,8 @@ import {
 } from "../../domain/src/historical-correction";
 
 const CORRECTION_PREFIX = "historical-correction:";
+const CORRECTION_CHAIN_PREFIX = "historical-correction-chain:";
+type HistoricalCorrectionChainHeadV1 = Readonly<{ schemaVersion: 1; targetRecordId: string; chainRevision: number; headCorrectionId?: string }>;
 
 export type HistoricalCorrectionTargetPolicyV1 = Readonly<{
   featureId: string;
@@ -70,7 +72,7 @@ function sameIntent(existing: HistoricalCorrectionV1, input: SubmitHistoricalCor
  */
 export class HistoricalCorrectionService {
   constructor(
-    private readonly records: AtomicRecordRepository,
+    private readonly records: AtomicRecordBatchRepository,
     private readonly actorProvider: HistoricalCorrectionActorProvider,
     private readonly targetResolver: HistoricalCorrectionTargetResolver,
     private readonly source: RecordEnvelope<unknown>["source"],
@@ -182,9 +184,39 @@ export class HistoricalCorrectionService {
       businessDate: input.businessEffectiveDate,
       source: this.source,
       revision: 1,
+      createdBy: { personId: actor.actorId, role: actor.role },
       data: correction,
     };
-    if (!await this.records.compareAndSet(correctionRecordId, null, envelope)) {
+    // Serialize each target chain and append the correction in one transaction.
+    // A per-correction CAS alone lets two IDs claim the same chain revision.
+    const chainHeadId = CORRECTION_CHAIN_PREFIX + encodeURIComponent(input.targetRecordId);
+    const currentHead = await this.records.get<HistoricalCorrectionChainHeadV1>(chainHeadId);
+    if (currentHead) {
+      const head = currentHead.data;
+      if (head.schemaVersion !== 1 || head.targetRecordId !== input.targetRecordId ||
+          head.chainRevision !== projection.chainRevision || head.headCorrectionId !== projection.headCorrectionId) {
+        throw new Error("historical_correction_chain_needs_attention");
+      }
+    }
+    const nextHead: RecordEnvelope<HistoricalCorrectionChainHeadV1> = {
+      id: chainHeadId,
+      schemaVersion: RECORD_ENVELOPE_SCHEMA_VERSION,
+      createdAt: currentHead?.createdAt ?? recordedAt,
+      updatedAt: recordedAt,
+      source: this.source,
+      revision: (currentHead?.revision ?? 0) + 1,
+      data: {
+        schemaVersion: 1,
+        targetRecordId: input.targetRecordId,
+        chainRevision: projected.chainRevision,
+        ...(projected.headCorrectionId ? { headCorrectionId: projected.headCorrectionId } : {}),
+      },
+    };
+    const committed = await this.records.compareAndSetMany([
+      { id: correctionRecordId, expectedRevision: null, next: envelope },
+      { id: chainHeadId, expectedRevision: currentHead?.revision ?? null, next: nextHead },
+    ]);
+    if (!committed) {
       const replay = await this.records.get<HistoricalCorrectionV1>(correctionRecordId);
       if (replay) {
         assertHistoricalCorrectionV1(replay.data);
@@ -192,7 +224,7 @@ export class HistoricalCorrectionService {
           return { correction: replay.data, currentData: projected.data, chainRevision: projected.chainRevision };
         }
       }
-      throw new Error("historical_correction_id_conflict");
+      throw new Error("historical_correction_stale_chain");
     }
 
     const committedCorrections = await this.listForTarget(input.targetRecordId);
