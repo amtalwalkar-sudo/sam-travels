@@ -205,6 +205,21 @@ The shared FeatureRecordService update path reads the current record, checks exp
 
 **Rating: Partial — two concrete mutation paths fixed, broader path audit remains.** Revision checks prevent stale writes but do not preserve old values. Next, inventory every remaining UI affordance and service/API mutation route, distinguish setup/profile maintenance from historical business-event editing, and preserve only the driver-entry correction exception. No delete path for historical business records is permitted. Any permitted correction path must be tested for original-value retention, actor attribution, reason, idempotency, and backup/restore.
 
+### User-facing mutation surface inventory (inspected paths)
+
+- **Work/Trip:** the inspected driver-facing workflow and financial closeout screens expose submit/transition actions, not edit/delete actions for completed business events. In-progress form drafts remain editable under the shared form contract; that is not a submitted historical record.
+- **Timeline:** the registered Timeline presentation is read-only; no edit/delete control was found in the inspected screen.
+- **Vehicle and Driver Admin profiles:** Edit controls remain for master/profile records. The Work/Trip contracts snapshot vehicle/driver context at shift/trip boundaries, so profile edits do not rewrite prior trip snapshots. These are not historical event corrections.
+- **Business Setup:** the business-start-date singleton can be updated. The form contract states that Finance/Compliance historical dates are independent of this setting; its broader reporting impact remains to be verified before treating it as fully history-neutral.
+- **Compliance:** renewal is recorded as a new linked record; the service documents and enforces immutable prior coverage.
+- **Maintenance:** no history edit UI was found; the underlying visit/expense edit service operations have now been removed.
+- **Loan details:** the saved-record edit affordance and service update behavior have now been disabled.
+- **Finance payment reversal:** reversal is an appended compensating ledger entry that retains the original payment, not deletion.
+- **Infrastructure deletion:** repository `remove` and feature-upgrade batch-delete operations exist for storage cleanup, working-copy lifecycle, restore/reset, and migration coordination. These are not user-facing business-record delete controls; each call site's target ownership still needs verification.
+- **Legacy envelope marker:** `RecordEnvelope.deletedAt` remains an optional accepted field and the historical Dexie schema retains a deletedAt index. No setter/consumer was identified in the inspected source paths. Do not remove it from the schema until legacy-data compatibility and all consumers are exhaustively verified.
+
+This inventory is limited to the inspected Work, registered Timeline, and Admin surfaces/services. The permitted driver-entry correction path itself is not implemented or acceptance-verified yet; do not silently enable post-submit editing until its append-only correction semantics, actor/reason trace, and recovery behaviour are designed and tested.
+
 ## 5. Authoritative business-entry policy and initial gaps
 
 The owner has clarified that authorised driver/admin entries are authoritative business records. Driver-entered Fare, Toll, Parking and Cancellation Fee amounts are accepted as authoritative business entries after technical validation; independent third-party proof is not required. There is no separate customer-collection feature, and fuel records have not been implemented. Customer-collection-specific and fuel-record-specific calculations are explicitly out of scope for this audit; do not report those intentionally absent features as defects.
@@ -249,23 +264,23 @@ The advisor may provide scoped insights from eligible inputs, but must state the
 |---|---|---|
 | A. Architecture and authority map | Trace PWA, Android WebView, overlay, shared application services, adapters and durable stores | Partial — shared React/services and Dexie/Room split verified; remaining feature map and actor provenance remain |
 | B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — state machine, immutable snapshots, event GPS, parity/restart and anomaly-preserving history inspected; per-trip distance and physical acceptance remain limited |
-| C. Financial business events | Fare, collections, toll, parking, fuel, maintenance, loans, payments, prepayments and settlements | Partial — Fare/toll/parking, generic expense (possible fuel spend), Maintenance and Finance inspected; distinct trip collection and structured fuel data are gaps |
-| D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and selected financial forms inspected; every feature form and correction/history path not yet inventoried |
-| E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared application path, driver parity fixture, paired Room surfaces, and selected financial tests exist; full per-domain PWA/Capacitor matrix remains |
-| F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — Dexie/Room atomic paths and selected browser/native reopen, backup and restore tests inspected; physical-device and full cloud acceptance remain |
-| G. Evidence/corroboration model | Authorised source policy, actor attribution, optional corroboration, conflict and correction provenance | Partial — owner policy clarified; source channel exists, generic feature updates overwrite prior payloads, and complete actor/history tracing remains open |
-| H. Intelligence eligibility | Per-metric data sufficiency, source states, partial totals and traceability | Unknown — requires candidate metric/source mapping |
+| C. Financial business events | Fare, Toll, Parking, Cancellation Fee, Maintenance, Loans, payments, prepayments and settlements | Partial — current authoritative entries and Finance history inventoried; separate collection and fuel-specific records are intentionally out of scope, not defects |
+| D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, permitted driver-entry correction and history retention | Partial — shared runtime and selected forms verified; submitted Maintenance/Loan edits disabled; complete correction-path and actor/reason acceptance remains |
+| E. Cross-platform equivalence | Equivalent PWA, Capacitor WebView and native overlay operations and canonical outputs | Partial — shared React/application path, Dexie/Room split, driver parity fixture and selected financial tests exist; full field-by-field per-event differential matrix remains |
+| F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — selected Dexie/Room transaction, process-restart, backup round-trip and injected browser restore-failure tests inspected; full acceptance matrix across platforms and lifecycle combinations remains |
+| G. Record policy and provenance | Authoritative entry policy, actor attribution, correction retention, and deletion-path audit | Partial — two mutation paths fixed; profile/config updates are distinct from historical events; actor attribution remains unresolved; internal repository deletion and legacy deletedAt compatibility need complete call-site/data review |
+| H. Intelligence eligibility | Existing-record data sufficiency, deterministic calculation inputs/outputs and traceability | Partial — initial eligibility matrix is complete for the in-scope record types; Finance payment-allocation contract governance and final source-to-metric trace remain |
 
 ## 7. Audit rules and next sequence
 
-1. Finish the feature-by-feature source-of-truth map before changing code.
-2. For each business event, record capture surface, authoritative command/service, authoritative store, required fields, source/provenance, recovery, correction path, corroboration sources, and intelligence eligibility.
-3. Build equivalent PWA/Android fixtures for each high-value event and compare canonical business outputs, not merely UI success.
-4. Confirm that each feature treats authorised driver/admin entries as authoritative and technically validates fields, identity, relationships, revisions, and commits.
-5. Map optional corroboration separately; do not make it a prerequisite unless the owner approves a specific exception.
-6. Trace actor attribution, permitted driver-entry corrections, history retention, and backup/restore across the in-scope existing records. Fuel capture is intentionally out of scope.
-7. Build equivalent PWA/Android fixtures for high-value events and compare canonical business outputs, not merely UI success.
-8. Only after the audit and product-owner approval, create focused technical contracts and implement the smallest validated gaps.
+1. Finish the mutation-path and source-of-truth inventory across all in-scope feature records, including user-facing controls and service/API paths.
+2. For each in-scope business event, record capture surface, authoritative command/service, authoritative store, required fields, source/provenance, recovery, correction path, and calculation eligibility.
+3. Build equivalent PWA/Capacitor fixtures for high-value events and compare canonical business outputs field by field, not merely UI success.
+4. Confirm authorised driver/admin entries are authoritative and technically validated for fields, identity, relationships, revisions, and durable commits.
+5. Verify the permitted driver-entry correction semantics: original retained, correction actor/reason traced, idempotent, and recoverable. Do not enable post-submit edit until this is verified.
+6. Complete the failure/recovery and backup/restore acceptance matrix across PWA, Capacitor Room-backed WebView, and native overlay where applicable.
+7. Finish source-to-calculation eligibility trace for existing records and reconcile the Finance payment-allocation contract status. Separate customer collection and fuel features remain out of scope.
+8. Only after evidence and product-owner approval, implement the smallest validated remaining gaps.
 9. Keep physical-device and real-world operational acceptance distinct from CI/emulator evidence.
 
 Do not weaken existing transaction, persistence, privacy, GPS, form, or platform acceptance contracts to satisfy this audit. Do not change business rules or calculations as part of evidence classification without separate approval.
@@ -285,5 +300,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.9 | 2026-11-11 | Deepen recovery/parity evidence: confirm Android force-stop process-restart test, actual Capacitor bridge-to-rendered-workspace test, Room paired-surface financial tests, and PWA failure-injected backup recovery. |
 | 1.0 | 2026-11-11 | Reconcile the feature inventory with the current Form Conformance Audit: all current Admin forms use the shared runtime; the same React/JavaScript path runs in Capacitor WebView, while the native overlay is a separate Work/Trip client. |
 | 1.1 | 2026-11-11 | Clarify historical immutability policy and scope exclusions; remove submitted Maintenance visit/expense edits and saved Loan details edit UI/service behavior, with focused tests. |
+| 1.2 | 2026-11-11 | Inventory user-facing Work/Timeline/Admin mutation surfaces; distinguish profile/config updates and append-only reversals from historical edits; note legacy deletedAt and internal repository removal compatibility items. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, the permitted driver-entry correction path, platform parity and recovery. Separate customer collection and fuel records are intentionally absent and excluded from this audit. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
