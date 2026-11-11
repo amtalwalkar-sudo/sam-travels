@@ -1,9 +1,9 @@
-# Repository Markdown Documentation Audit — Phase 1
+# Repository Markdown Documentation Audit and Reconciliation
 
 **Status:** Phase 1 inventory and authority audit complete; Phase 2 reconciliation complete. The original Phase 1 baseline covered 63 Markdown files; the current repository contains 65, including this audit and the Contract Index.  
 **Audit baseline:** PR #69 branch `reliability/stage-6-process-recovery-proof`, commit `1d4f5ddd08ad38591dba82b3537f353d8705ca30`.  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
-**Inventory:** 63 tracked Markdown files across the repository.  
+**Phase 1 inventory:** 63 tracked Markdown files; the audit and Contract Index were added afterward, bringing the current total to 65.  
 **CI evidence at baseline:** Sam Travels CI run #42979514553 completed successfully on the exact Phase 1 baseline SHA. The subsequent current-head verification is recorded below. CI is repository verification evidence, not proof of physical-device acceptance.
 
 **Latest verified PR head before this documentation follow-up:** `a82cdc6493245b4b690675d89a29b88473dd0359`; CI run #42983027847 (attempt 2) passed architecture, web, Android and integrated regression jobs. Production geocoder verification and merged-main APK publication were skipped. Physical-device and live Dropbox acceptance remain separate.
