@@ -9,6 +9,9 @@ describe("shared driver visual presentation", () => {
     expect(cssVars["--driver-accent"]).toBe("#254F65");
     expect(cssVars["--driver-field-height"]).toBe("48px");
     expect(cssVars["--driver-card-radius"]).toBe("13px");
+    expect(cssVars["--driver-state-pending-surface"]).toBe("#EDF2F5");
+    expect(cssVars["--driver-state-error-text"]).toBe("#A34840");
+    expect(cssVars["--driver-motion-duration"]).toBe("120ms");
   });
 
   it("keeps compact overlay sizing independent from the PWA layout", () => {
@@ -22,6 +25,7 @@ describe("shared driver visual presentation", () => {
   });
 
   it("defines explicit shared visual states", () => {
+    expect(driverPresentationContract.motion.respectReducedMotion).toBe(true);
     expect(Object.keys(driverPresentationContract.visualStates).sort()).toEqual([
       "default", "disabled", "error", "pending", "success",
     ]);

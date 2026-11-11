@@ -49,10 +49,35 @@
     "formHeadingSp": 12
   },
   "visualStates": {
-    "default": { "surface": "#F6F9FA", "border": "#DBE5EA", "text": "#234B60" },
-    "pending": { "surface": "#EDF2F5", "border": "#DBE5EA", "text": "#234B60" },
-    "success": { "surface": "#EFF8F1", "border": "#CDE6D2", "text": "#28613A" },
-    "error": { "surface": "#FFF6F4", "border": "#EFD8D5", "text": "#A34840" },
-    "disabled": { "surface": "#F6F9FA", "border": "#DBE5EA", "text": "#8A98A1" }
+    "default": {
+      "surface": "#F6F9FA",
+      "border": "#DBE5EA",
+      "text": "#234B60"
+    },
+    "pending": {
+      "surface": "#EDF2F5",
+      "border": "#DBE5EA",
+      "text": "#234B60"
+    },
+    "success": {
+      "surface": "#EFF8F1",
+      "border": "#CDE6D2",
+      "text": "#28613A"
+    },
+    "error": {
+      "surface": "#FFF6F4",
+      "border": "#EFD8D5",
+      "text": "#A34840"
+    },
+    "disabled": {
+      "surface": "#F6F9FA",
+      "border": "#DBE5EA",
+      "text": "#8A98A1"
+    }
+  },
+  "motion": {
+    "transitionDurationMs": 120,
+    "completionDurationMs": 160,
+    "respectReducedMotion": true
   }
 }

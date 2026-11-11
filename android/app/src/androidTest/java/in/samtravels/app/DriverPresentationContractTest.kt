@@ -23,5 +23,12 @@ class DriverPresentationContractTest {
         assertTrue(contract.disabledOpacity in 0f..1f)
         assertEquals(0xFFF6F9FA.toInt(), contract.surface)
         assertEquals(0xFF234B60.toInt(), contract.textStrong)
+        assertEquals(0xFFEDF2F5.toInt(), contract.state("pending").surface)
+        assertEquals(0xFFA34840.toInt(), contract.state("error").text)
+        assertEquals(120, contract.motionDurationMs)
+        assertEquals(160, contract.completionDurationMs)
+        assertEquals(0xFFEDF2F5.toInt(), contract.state("pending").surface)
+        assertEquals(0xFFA34840.toInt(), contract.state("error").text)
+        assertEquals(120, contract.motionDurationMs)
     }
 }

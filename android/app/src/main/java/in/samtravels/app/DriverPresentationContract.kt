@@ -33,7 +33,13 @@ internal class DriverPresentationContract private constructor(
     val strongLabelSp: Float,
     val hintSp: Float,
     val formHeadingSp: Float,
+    val motionDurationMs: Int,
+    val completionDurationMs: Int,
+    val visualStates: Map<String, VisualState>,
 ) {
+    data class VisualState(val surface: Int, val border: Int, val text: Int)
+    fun state(name: String): VisualState = visualStates.getValue(name)
+
     companion object {
         private const val ASSET = "driver-presentation-v1.json"
 
@@ -48,13 +54,27 @@ internal class DriverPresentationContract private constructor(
             val spacing = json.getJSONObject("spacing")
             val sizing = json.getJSONObject("sizing")
             val type = json.getJSONObject("typography")
-            val states = json.getJSONObject("visualStates")
-            require(states.has("default") && states.has("pending") && states.has("success") &&
-                states.has("error") && states.has("disabled"))
             fun color(key: String) = Color.parseColor(colors.getString(key))
+            fun positive(source: JSONObject, key: String) = source.getInt(key).also { require(it > 0) }
+            val states = json.getJSONObject("visualStates")
+            val visualStates = linkedMapOf<String, VisualState>()
+            val stateKeys = states.keys()
+            while (stateKeys.hasNext()) {
+                val stateName = stateKeys.next()
+                val state = states.getJSONObject(stateName)
+                visualStates[stateName] = VisualState(
+                    Color.parseColor(state.getString("surface")),
+                    Color.parseColor(state.getString("border")),
+                    Color.parseColor(state.getString("text")),
+                )
+            }
+            require(visualStates.keys == setOf("default", "pending", "success", "error", "disabled"))
+            val motion = json.getJSONObject("motion")
+            require(motion.optBoolean("respectReducedMotion"))
+            val motionDuration = positive(motion, "transitionDurationMs")
+            val completionDuration = positive(motion, "completionDurationMs")
             val opacity = colors.getDouble("disabledOpacity").toFloat()
             require(opacity in 0f..1f)
-            fun positive(source: JSONObject, key: String) = source.getInt(key).also { require(it > 0) }
             return DriverPresentationContract(
                 color("surface"), color("surfaceRaised"), color("border"), color("text"),
                 color("textStrong"), color("accent"), color("accentSoft"), color("dangerSurface"),
@@ -65,7 +85,7 @@ internal class DriverPresentationContract private constructor(
                 positive(sizing, "overlayWidth"), positive(sizing, "overlayMaxHeight"),
                 type.getInt("headingSp").toFloat(), type.getInt("labelSp").toFloat(),
                 type.getInt("strongLabelSp").toFloat(), type.getInt("hintSp").toFloat(),
-                type.getInt("formHeadingSp").toFloat(),
+                type.getInt("formHeadingSp").toFloat(), motionDuration, completionDuration, visualStates,
             )
         }
     }

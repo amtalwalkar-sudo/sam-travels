@@ -25,7 +25,7 @@ class DriverTripFinancialPanel(
  private var container:LinearLayout?=null
 
  fun attach(root:LinearLayout) {
-  heading=TextView(context).apply{text="Fare and trip financials";textSize=visual.formHeadingSp;setTextColor(visual.textStrong);visibility=View.GONE}
+  heading=TextView(context).apply{text="Fare and trip financials";textSize=visual.formHeadingSp;setTextColor(visual.state("pending").text);visibility=View.GONE}
   root.addView(heading)
   container=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(0,dp(visual.fieldGap),0,0);visibility=View.GONE}
   root.addView(container)
@@ -51,7 +51,7 @@ class DriverTripFinancialPanel(
  private fun dp(value:Int)=(value*context.resources.displayMetrics.density).toInt()
 
  private inner class TripForm(private val tripId:String) {
-  val root=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(visual.overlayCompactPadding),dp(visual.fieldGap),dp(visual.overlayCompactPadding),dp(visual.fieldGap));background=GradientDrawable().apply{setColor(visual.surface);cornerRadius=dp(visual.cardRadius).toFloat();setStroke(dp(1),visual.border)}}
+  val root=LinearLayout(context).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(visual.overlayCompactPadding),dp(visual.fieldGap),dp(visual.overlayCompactPadding),dp(visual.fieldGap));background=GradientDrawable().apply{setColor(visual.state("pending").surface);cornerRadius=dp(visual.cardRadius).toFloat();setStroke(dp(1),visual.state("pending").border)}}
   private val title=TextView(context).apply{text="Fare required · "+tripId;textSize=visual.formHeadingSp;setTextColor(visual.textStrong)}
   private val fare=amountInput("Fare (₹)")
   private val optionalToggle=Button(context).apply{text="Add Toll / Parking (optional)";textSize=visual.labelSp;setTextColor(visual.textStrong);backgroundTintList=ColorStateList.valueOf(visual.accentSoft);minHeight=dp(visual.fieldHeight)}

@@ -303,8 +303,9 @@ internal class DriverOverlayPresentation(
         swipeBar?.visibility = if (swipeText == null) View.GONE else View.VISIBLE
         swipeBar?.progress = 0
         swipeBar?.isEnabled = canSwipe
-        swipeBar?.alpha = if (canSwipe) 1f else visual.disabledOpacity
-        swipeLabel?.setTextColor(if (canSwipe) visual.textStrong else visual.hint)
+        swipeBar?.animate()?.alpha(if (canSwipe) 1f else visual.disabledOpacity)?.setDuration(visual.motionDurationMs.toLong())
+        swipeLabel?.setTextColor(if (canSwipe) visual.state("default").text else visual.state("disabled").text)
+        status?.setTextColor(if (pending) visual.state("pending").text else if (expiredPending) visual.state("error").text else visual.state("default").text)
         cancelButton?.visibility = if (state == "going_to_pickup") View.VISIBLE else View.GONE
         cancelButton?.isEnabled = !pending && !financialPending && state == "going_to_pickup"
         cancellationFeePanel?.render(

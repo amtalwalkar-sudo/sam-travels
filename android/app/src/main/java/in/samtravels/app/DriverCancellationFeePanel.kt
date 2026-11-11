@@ -35,7 +35,7 @@ class DriverCancellationFeePanel(
     fun attach(root:LinearLayout) {
         label=TextView(context).apply {
             text="Cancellation fee required";textSize=visual.formHeadingSp
-            setTextColor(visual.textStrong);visibility=View.GONE
+            setTextColor(visual.state("pending").text);visibility=View.GONE
         }
         root.addView(label)
         input=EditText(context).apply {
@@ -73,6 +73,8 @@ class DriverCancellationFeePanel(
         window:WindowManager,panel:View?,params:WindowManager.LayoutParams?,
     ) {
         if(tripId!=currentTripId)hasLocalEdits=false
+        label?.text="Cancellation fee required"
+        label?.setTextColor(visual.state("pending").text)
         tripId=currentTripId
         label?.visibility=if(visible)View.VISIBLE else View.GONE
         input?.visibility=if(visible)View.VISIBLE else View.GONE
@@ -100,7 +102,7 @@ class DriverCancellationFeePanel(
     private fun submit() {
         val currentTrip=tripId?:return
         val fee=parsePaise(input?.text?.toString().orEmpty())
-        if(fee==null) { label?.text="Enter a valid fee; ₹0 is allowed";return }
+        if(fee==null) { label?.text="Enter a valid fee; ₹0 is allowed";label?.setTextColor(visual.state("error").text);return }
         saveButton?.isEnabled=false
         executor.execute {
             try {

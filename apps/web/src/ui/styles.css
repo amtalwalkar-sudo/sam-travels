@@ -164,3 +164,9 @@ button{font:inherit}
 .driver-form-list .pending-row summary{color:var(--driver-text-strong,#234b60);font-weight:700;cursor:pointer}
 .driver-form-list .pending-row button{min-height:var(--driver-field-height,48px);border:1px solid var(--driver-border,#d8e1e7);background:var(--driver-accent-soft,#f7fafb);color:var(--driver-text-strong,#31566a);border-radius:var(--driver-button-radius,11px);padding:8px 11px;font-size:var(--driver-label-size,11px);font-weight:700}
 .driver-form-list .pending-row small{color:var(--driver-text,#60727d);line-height:1.5}
+
+.driver-form-list .pending-row{background:var(--driver-state-pending-surface,#edf2f5);border-color:var(--driver-state-pending-border,#dbe5ea);border-radius:var(--driver-field-radius,10px);padding:10px}
+.driver-form-list .pending-row button:disabled,.driver-form-list .pending-row input:disabled,.driver-form-list .pending-row select:disabled{background:var(--driver-state-disabled-surface,#f6f9fa);border-color:var(--driver-state-disabled-border,#dbe5ea);color:var(--driver-state-disabled-text,#8a98a1);opacity:var(--driver-disabled-opacity,.45)}
+.driver-presentation-success{background:var(--driver-state-success-surface,#eff8f1);border-color:var(--driver-state-success-border,#cde6d2);color:var(--driver-state-success-text,#28613a)}
+.driver-presentation-error{background:var(--driver-state-error-surface,#fff6f4);border-color:var(--driver-state-error-border,#efd8d5);color:var(--driver-state-error-text,#a34840)}
+@media(prefers-reduced-motion:reduce){.swipe-action-bar,.swipe-action-range,.driver-form-list .pending-row{transition:none!important}}
