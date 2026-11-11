@@ -27,7 +27,6 @@ class DriverOverlayService:Service(){
   )
  }
  private val main=Handler(Looper.getMainLooper())
- private lateinit var window:WindowManager
  @Volatile private var intervalStartedAt:String?=null
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
@@ -76,7 +75,7 @@ class DriverOverlayService:Service(){
     startupRecoveryReady=false
     startupRecoveryFailed=true
     LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
-    main.post{showPanel();refresh("Recovery required · actions disabled")}
+    main.post{presentation.showPanel();refresh("Recovery required · actions disabled")}
    }
   }
   return START_STICKY
