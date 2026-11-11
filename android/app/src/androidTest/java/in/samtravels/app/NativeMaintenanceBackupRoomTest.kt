@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -100,7 +102,7 @@ class NativeMaintenanceBackupRoomTest {
     }
 
     @Test
-    fun maintenanceExpenseCorrectionChainCommitsAtomicallyAndSurvivesNativeRecovery() {
+    fun maintenanceExpenseCorrectionChainCommitsAtomicallyAndSurvivesNativeRecovery() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
