@@ -23,9 +23,17 @@ class MemoryRecords implements AtomicRecordBatchRepository {
   async list<T>() { return [...this.rows.values()] as RecordEnvelope<T>[]; }
   async remove(id: string) { this.rows.delete(id); }
   async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
-    const current = this.rows.get(id);
-    if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
-    this.rows.set(id, next as RecordEnvelope<unknown>);
+    return this.compareAndSetMany([{ id, expectedRevision, next: next as RecordEnvelope<unknown> }]);
+  }
+  async compareAndSetMany(mutations: readonly { id: string; expectedRevision: number | null; next: RecordEnvelope<unknown> }[]) {
+    if (!mutations.length || new Set(mutations.map(item => item.id)).size !== mutations.length) return false;
+    for (const item of mutations) {
+      const current = this.rows.get(item.id);
+      if (item.next.id !== item.id ||
+          (item.expectedRevision === null ? current !== undefined : current?.revision !== item.expectedRevision) ||
+          item.next.revision !== (item.expectedRevision ?? 0) + 1) return false;
+    }
+    mutations.forEach(item => this.rows.set(item.id, item.next));
     return true;
   }
 }
