@@ -272,6 +272,14 @@ Every insight and calculation must declare its source coverage and assumptions. 
 
 This is the approved business policy. The audit must determine whether current implementations technically enforce and preserve it; this section does not assert that every feature already meets those requirements.
 
+### 6.2 Forgiving capture and correction-safe history
+
+Sam Travels must be forgiving to drivers and admins while remaining strict about submitted business history. Drafts should be easy to recover and correct; submitted records must not be silently overwritten or erased. A discovered mistake is represented by an attributable, reasoned, append-only correction linked to its original record. The current business view uses the corrected fact once, while the original entry and correction chain remain explainable.
+
+PWA, Capacitor WebView, and native overlay are capture surfaces over the same business semantics. Data quality must distinguish authorised business entries, technical validation, corrections, pending/incomplete work, conflicts, invalid events, and optional independent corroboration. Corrected historical facts may restate current calculations, but prior as-known results and their calculation/input provenance must remain explainable. Missing information must never be fabricated or silently treated as zero.
+
+The normative [Forgiving Data Entry and Historical Correction Contract](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) owns the cross-feature policy, correction safeguards, and implementation gates. It does not authorize runtime correction functionality or new Performance metrics. Exact driver/admin permissions remain an explicit product decision.
+
 ## 7. Relationship to existing Sam Travels architecture and contracts
 
 This document is subordinate to existing normative repository contracts. It adds product direction; it does not duplicate or supersede their detailed rules.
@@ -280,6 +288,7 @@ Relevant owners include:
 
 - [Architecture overview](../ARCHITECTURE.md) — layers, dependency direction, persistence ownership, offline-first and feature boundaries.
 - [Data Contract](../DATA_CONTRACT.md) — meaning of data, dates, money, units, and value states.
+- [Forgiving Data Entry and Historical Correction Contract](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) — forgiving capture, immutable submitted history, correction provenance, data-quality eligibility, and historical calculation reproducibility.
 - [Architecture Foundation Contract](ARCHITECTURE_FOUNDATION_CONTRACT.md) — shared application and capability guarantees.
 - [Feature Module Contract](FEATURE_MODULE_CONTRACT.md) — feature ownership, public APIs, calculations, and integrations.
 - [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) — developer guidance for adding features and calculations.
@@ -351,6 +360,7 @@ These subjects remain open for future product discussions:
 | 1.0 | 2026-11-11 | Initial living vision, proposed eight-layer architecture, trust principles, and future Performance workstream hand-off. |
 | 1.1 | 2026-11-11 | Initial business-event evidence vocabulary. |
 | 1.2 | 2026-11-11 | Clarify that authorised driver/admin entries are authoritative business records; technical validation is separate from optional independent corroboration. |
+| 1.3 | 2026-11-11 | Link the owner-approved forgiving-entry and historical-correction principles to the new normative cross-feature contract. |
 
 ---
 

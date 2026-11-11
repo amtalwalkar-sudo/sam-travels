@@ -453,7 +453,7 @@ If an applicable contract is updated, this specification must be reviewed for co
 
 ## 15. Owner-approved historical-record immutability amendment — 2026-11-11
 
-The owner has clarified the business rule: submitted historical business records must never be edited or deleted in a way that changes or erases history. The only permitted post-submission edit exception is correction of a driver-entered mistake, and it must preserve the original value and a trace of the correction. This amendment supersedes any contrary “Edit details” action or later-edit wording in this specification:
+The owner has clarified the business rule: submitted historical business records must never be edited or deleted in a way that changes or erases history. At the time of this amendment, the initially approved correction exception covered driver-entered mistakes; Section 16 and the shared correction contract subsequently define the complete Driver/Admin permission boundary. All corrections must preserve the original value and a trace of the correction. This amendment supersedes any contrary “Edit details” action or later-edit wording in this specification:
 
 - **Compliance:** saved coverage records are immutable; renewal creates a new linked record.
 - **Loan details:** saved original loan details are immutable; no edit/delete action. Payments, prepayments, and settlements remain separate Finance-owned append-only events under their contracts.
@@ -463,3 +463,19 @@ The owner has clarified the business rule: submitted historical business records
 - **No historical delete controls:** no user-facing delete action is permitted for submitted business records. Repository cleanup/removal operations must be purpose-scoped so they cannot remove historical business-event records.
 
 This amendment updates product policy only. Technical implementation and acceptance evidence remain in the owning feature contracts and [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md).
+
+## 16. Cross-feature correction policy alignment — 2026-11-11
+
+The [Forgiving Data Entry and Historical Correction Contract](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) now owns the shared policy for correcting mistakes in submitted driver- and admin-entered business records. It supersedes any interpretation of Section 15 that would permanently exclude admin-entered records from a safe correction path.
+
+- The immutability rule remains: no ordinary post-submission edit or delete of historical records.
+- A permitted correction is a new append-only, attributable, reasoned event linked to the original; the original remains unchanged and available in history.
+- The same shared audit, idempotency, recovery, and calculation-restatement safeguards apply to admin-entered records.
+- **Driver permission:** a Driver may correct only submitted records originally entered by that same Driver.
+- **Admin permission:** an Admin may correct submitted records originally entered by any Driver or Admin, including the Admin's own entries.
+- A Driver may not correct another Driver's or an Admin's entry. An Admin may intervene without the original author submitting the correction.
+- Both roles use the same append-only, attributable, reasoned correction model. Neither role may silently overwrite or delete the submitted original.
+- This permission applies only to record types whose owning feature contract and implementation support correction; it does not bypass feature-specific financial closure, reversal, allocation, or other safeguards. No blanket Admin approval of ordinary Driver self-corrections is required by this owner decision.
+- Until the required permission, actor-attribution, domain-validation, persistence, and acceptance contracts are implemented and verified, submitted records remain immutable and existing correction paths remain disabled or limited to already approved domain-specific behaviour.
+
+This is a product-policy alignment only. It does not authorize Admin runtime changes or alter Finance-owned payment, prepayment, settlement, or reversal semantics.

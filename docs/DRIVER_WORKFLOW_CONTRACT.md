@@ -107,7 +107,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 - A lower-than-previous confirmed start reading is not a normal edit. It requires a separate controlled correction path.
 - A correction must preserve the original reading and record the corrected reading, correction timestamp, and reason. It must be auditable; never overwrite the original value silently.
-- Corrections follow the shared historical-correction and transaction/recovery contracts.
+- Corrections follow the [Forgiving Data Entry and Historical Correction Contract](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) and the [Transaction and Recovery Contract](TRANSACTION_AND_RECOVERY_CONTRACT.md). The correction path must preserve the original odometer reading and apply the same append-only, attributable, idempotent semantics as other submitted business facts.
 
 ## 5. Fare, toll, parking, and trip financial finalization
 

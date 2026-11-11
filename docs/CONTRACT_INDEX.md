@@ -30,6 +30,7 @@
 | Feature module and extension boundaries | [Feature Module](FEATURE_MODULE_CONTRACT.md) | Feature APIs, ownership and isolation |
 | Feature lifecycle and compatibility | [Feature Extension Lifecycle](FEATURE_EXTENSION_LIFECYCLE_CONTRACT.md) | Enable/disable/retire and upgrade compatibility |
 | Data meaning, time, money, units and value states | [Data Contract](../DATA_CONTRACT.md) | Shared data semantics; not platform store selection |
+| Forgiving entry, immutable history, append-only correction, data quality and calculation restatement | [Forgiving Data Entry and Historical Correction](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) | Cross-feature correction policy and safeguards; feature contracts retain domain semantics and implementation remains separately gated |
 | Runtime authoritative store ownership | [Local Persistence](LOCAL_PERSISTENCE_CONTRACT.md) | IndexedDB versus Room ownership and repository boundaries |
 | Record/schema/backup format versioning | [Persistence Schema](PERSISTENCE_SCHEMA_CONTRACT.md) | Envelopes, schema versions, migrations and serialized formats |
 | Atomic commands, idempotency, outbox and recovery | [Transaction and Recovery](TRANSACTION_AND_RECOVERY_CONTRACT.md) | Durable intent, completion, replay and restore ordering |
@@ -81,7 +82,7 @@
 
 These records are evidence snapshots, not live policy. Their recorded base SHA, PR and CI run remain historical.
 
-- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index bring the current total to 65.
+- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
 

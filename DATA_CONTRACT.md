@@ -14,6 +14,12 @@ Persisted business records should use a common envelope:
 
 Feature-specific fields remain in typed feature entities; avoid a giant untyped catch-all record.
 
+## Submitted history and correction policy
+
+The `deletedAt` envelope field is a compatibility/tombstone mechanism, not blanket permission to delete submitted historical business events. Submitted business records must not be silently overwritten or erased. Draft cleanup, transient-record expiry, and any domain-specific tombstone use must be explicitly scoped by the owning contract and must not remove historical business facts.
+
+Post-submission corrections are represented as new, linked, attributable, reasoned events. The original payload and its original time/provenance remain preserved. The current business projection applies a valid correction once, without double counting the original and replacement. The shared [Forgiving Data Entry and Historical Correction Contract](docs/FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) owns cross-feature correction and calculation-history safeguards; feature contracts retain domain-specific semantics.
+
 ## Transition intent, GPS snapshot, and status
 
 Every shift/trip lifecycle action begins as an immutable transition intent with a stable event ID, event type, transition timestamp, source, schema version, and idempotency key. Required event types include shift start/end, trip start/end, and ride cancellation.
