@@ -178,6 +178,11 @@ class DriverWorkflowParityInterruptionTest {
             .put("horizontalAccuracyM", 8.0).put("fixAt", at).put("provider", "android-test")
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restore-driver"))
+            putRecord("identity:driver-person-link:restore-driver", JSONObject().put("schemaVersion", 1)
+                .put("driverId", "restore-driver").put("personId", "restore-person"))
+            putRecord("identity:person:restore-person", JSONObject().put("schemaVersion", 1)
+                .put("personId", "restore-person").put("displayName", "Restore Driver")
+                .put("roles", JSONArray().put("driver")).put("status", "active"))
             putRecord("feature:driver-records:driver:restore-driver", JSONObject().put("schemaVersion", 1)
                 .put("driverId", "restore-driver").put("name", "Restore Driver").put("lifecycleState", "active"))
             putRecord("feature:driver-records:assignment:restore-driver", JSONObject().put("schemaVersion", 1)
