@@ -116,8 +116,11 @@ function jsonEqual(left: unknown, right: unknown): boolean {
 }
 
 /** Driver corrections are self-only. Admin corrections may target either role's records. */
-export function assertCorrectionAuthority(actor: CorrectionActorV1, originalAuthorId: string): void {
-  if (!actor.actorId || !originalAuthorId) throw new Error("historical_correction_actor_unattributed");
+export function assertCorrectionAuthority(actor: CorrectionActorV1, originalAuthorId?: string): void {
+  if (!actor.actorId) throw new Error("historical_correction_actor_unattributed");
+  if (actor.role === "driver" && !originalAuthorId) {
+    throw new Error("historical_correction_target_author_unattributed");
+  }
   if (actor.role === "driver" && actor.actorId !== originalAuthorId) {
     throw new Error("historical_correction_forbidden");
   }
