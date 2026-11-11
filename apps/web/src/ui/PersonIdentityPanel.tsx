@@ -33,6 +33,7 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
   async function enroll(e:FormEvent){
     e.preventDefault();setBusy(true);setMessage("");
     try{
+      if(pinConfigured){const actor=await identity.currentActor();if(actor.role!=="admin")throw new Error("An active PIN-verified Admin session is required to enroll people or assign roles.");}
       const personId=crypto.randomUUID().replaceAll("-","");
       await identity.registerPerson({schemaVersion:1,personId,displayName:name.trim(),roles,status:"active"});
       if(roles.includes("admin")&&!pinConfigured){await identity.configureInitialAdminPin(pin);setPin("");setPinConfigured(true);}
@@ -42,6 +43,7 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
   async function link(driverId:string,personId:string){
     setBusy(true);setMessage("");
     try{
+      if(pinConfigured){const actor=await identity.currentActor();if(actor.role!=="admin")throw new Error("An active PIN-verified Admin session is required to link Driver profiles.");}
       const person=people.find(p=>p.personId===personId);
       if(personId&&(!person||!person.roles.includes("driver")))throw new Error("Choose an enrolled person with the Driver role.");
       if(personId)await saveDriverPersonLink(records,getPlatformRecordSource(),driverId,personId);
