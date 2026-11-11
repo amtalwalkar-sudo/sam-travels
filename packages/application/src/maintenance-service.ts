@@ -97,9 +97,7 @@ export class MaintenanceService {
     }) as Promise<RecordEnvelope<MaintenanceVisitV1>>;
   }
 
-  async editVisit(input: {
-    id: string; expectedRevision: number; data: MaintenanceVisitInput;
-  }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
+): Promise<RecordEnvelope<MaintenanceVisitV1>> {
     const current = await this.records.get(input.id);
     if (!current || current.data.kind !== "visit") throw new Error("maintenance_visit_not_found");
     if (current.data.vehicleId !== input.data.vehicleId) throw new Error("maintenance_vehicle_identity_immutable");
@@ -125,9 +123,7 @@ export class MaintenanceService {
     }) as Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>>;
   }
 
-  async editExpense(input: {
-    id: string; expectedRevision: number; data: MaintenanceExpenseInput;
-  }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
+): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
     const current = await this.records.get(input.id);
     if (!current || current.data.kind !== "expense") throw new Error("maintenance_expense_not_found");
     if (current.data.vehicleId !== input.data.vehicleId) throw new Error("maintenance_vehicle_identity_immutable");
