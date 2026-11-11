@@ -3,12 +3,9 @@ import type { AdminPresentationServices, FormWorkingCopy } from "../../../../pac
 import { LOAN_DETAILS_FORM_V1 } from "../../../../packages/application/src";
 import { useAdminServices } from "./admin-services-context";
 
-type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
 type Props = {
   vehicleId: string;
   vehicleActive: boolean;
-  requestedEdit: Loan | null;
-  onEditConsumed: () => void;
   onChanged: () => Promise<void>;
 };
 type Values = {
@@ -31,7 +28,7 @@ const fromCopy = (copy: FormWorkingCopy): Values => ({
   firstEmiDate: String(copy.values.firstEmiDate ?? ""),
 });
 
-export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEditConsumed, onChanged }: Props) {
+export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) {
   const services = useAdminServices();
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
   const [copy, setCopy] = useState<FormWorkingCopy | null>(null);
@@ -88,39 +85,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
     finally { setBusy(false); }
   }
 
-  async function startEdit(loan: Loan) {
-    setBusy(true);
-    try {
-      const existingDrafts = await services.formRuntime.listDrafts(LOAN_DETAILS_FORM_V1);
-      const existingEdit = existingDrafts.find(draft => draft.values._recordId === loan.id);
-      let next = await services.formRuntime.open(LOAN_DETAILS_FORM_V1, existingEdit?.instanceId ?? crypto.randomUUID());
-      const initial: Record<string, unknown> = {
-        vehicleId: loan.data.details.vehicleId,
-        loanName: loan.data.details.loanName,
-        lenderName: loan.data.details.lenderName,
-        loanAccountReference: loan.data.details.loanAccountReference ?? "",
-        principalPaise: loan.data.details.principalPaise,
-        annualInterestRateBasisPoints: loan.data.details.annualInterestRateBasisPoints,
-        loanStartDate: loan.data.details.loanStartDate,
-        tenureMonths: loan.data.details.tenureMonths,
-        firstEmiDate: loan.data.details.firstEmiDate,
-        _recordId: loan.id,
-        _recordRevision: loan.revision,
-      };
-      // An existing unfinished edit is resumed as-is; a fresh edit captures the current record revision.
-      if (Object.keys(next.values).length === 0) {
-        for (const [field, value] of Object.entries(initial)) next = await services.formRuntime.update(LOAN_DETAILS_FORM_V1, next, field, value);
-      }
-      activate(next);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not open loan details."); }
-    finally { setBusy(false); onEditConsumed(); }
-  }
 
-  useEffect(() => {
-    if (requestedEdit && requestedEdit.data.details.vehicleId === vehicleId) void startEdit(requestedEdit);
-    // startEdit is intentionally driven only by the parent request identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedEdit?.id, vehicleId]);
 
   async function resume(draft: FormWorkingCopy) {
     setBusy(true);
@@ -177,7 +142,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
       copyRef.current = null;
       setCopy(null);
       setValues(EMPTY);
-      setMessage("Loan details saved. The Finance service preserves prior EMI schedule versions when calculation inputs change.");
+      setMessage("Loan details saved as an immutable historical record.");
       await Promise.all([loadDrafts(), onChanged()]);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Loan details could not be saved."); }
     finally { setBusy(false); }
@@ -196,7 +161,7 @@ export function LoanDetailsForm({ vehicleId, vehicleActive, requestedEdit, onEdi
       </div>}
     </>}
     {copy && <form className="loan-form" onSubmit={save}>
-      <strong>{typeof copy.values._recordRevision === "number" ? "Edit loan details" : "New loan details"}</strong>
+      <strong>New loan details</strong>
       <div className="loan-form-grid">
         <label>Loan name<input required value={values.loanName} onChange={event => updateField("loanName", event.target.value)} /></label>
         <label>Lender name<input required value={values.lenderName} onChange={event => updateField("lenderName", event.target.value)} /></label>
