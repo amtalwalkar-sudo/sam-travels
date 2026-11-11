@@ -165,6 +165,16 @@ The architecture reuses the same JavaScript business services for PWA and Capaci
 
 The browser repository performs compare-and-set batches inside a Dexie read/write transaction. The Android RoomStore plugin performs revision-checked writes and batches inside Room transactions. Android Room uses multi-instance invalidation for WebView/overlay clients. The inspected driver and completed-trip financial tests cover persistent Room reopen, paired WebView/overlay visibility, stale competing drafts, and native backup/restore. PWA tests cover IndexedDB reopen/recovery, and browser backup participants validate driver/assignment, vehicle, maintenance and finance relationships. Android backup participants and tests cover driver, vehicle, maintenance, loan/payment and prepayment records. These are useful safeguards against silent loss and malformed restores.
 
+Additional inspected acceptance tests materially strengthen the baseline:
+
+- The Android process-restart instrumentation test is designed to run preparation and recovery in separate instrumentation invocations, with target/test packages force-stopped between them. This tests actual process death and startup recovery on the CI emulator, not only closing/reopening a Room instance.
+- The Capacitor bridge instrumentation test exercises a Room-backed native overlay draft update through the actual Capacitor plugin, WebView listener and rendered React workspace refresh. It verifies the UI refresh path, not only database visibility.
+- The Android trip-financial store test verifies persistent Room reopen, native backup/restore, WebView/overlay shared Room visibility, and stale overlay submission not overwriting a newer WebView draft.
+- The PWA driver workflow tests exercise IndexedDB reopen, pending-intent recovery, event/outbox replay and state consistency. The PWA backup recovery tests inject interrupted export/restore failures and verify rollback/current-data preservation.
+- PWA and Android driver workflow tests independently execute the same shared parity fixture. This is useful cross-platform contract evidence, though it is not a single live differential test that runs both platform adapters against the same captured operation and compares every persisted field.
+
+The Android process-death evidence is emulator instrumentation only; it does not replace physical-device/OEM testing. The Capacitor bridge test covers a completed-trip financial working-copy refresh, not every Admin form or every financial submission path.
+
 **Rating: Partial-to-verified for the tested storage and backup paths.** Automated tests demonstrate selected transaction, reopen, recovery, relationship validation and backup round trips. They do not prove every process-kill timing, Android OEM behaviour, browser eviction condition, live Dropbox connection, or physical-phone lifecycle. The user-facing backup and restore flows still need a complete cross-platform acceptance matrix.
 
 ## 4.14 Provenance and actor attribution
@@ -266,5 +276,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.6 | 2026-11-11 | Identify that generic feature updates increment revisions but replace the prior payload; contrast this with immutable Work events and append-only Finance payment/reversal history. |
 | 0.7 | 2026-11-11 | Add the initial PWA, Capacitor WebView, and native overlay coverage matrix; distinguish shared business services from storage-adapter and cross-client acceptance evidence. |
 | 0.8 | 2026-11-11 | Add an initial intelligence eligibility matrix separating recorded Fare from collection, generic fuel spend from structured fuel data, and schedule calculations from lender-confirmed balances. |
+| 0.9 | 2026-11-11 | Deepen recovery/parity evidence: confirm Android force-stop process-restart test, actual Capacitor bridge-to-rendered-workspace test, Room paired-surface financial tests, and PWA failure-injected backup recovery. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
