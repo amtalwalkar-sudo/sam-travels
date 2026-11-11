@@ -86,7 +86,7 @@ export class FinanceLoanService {
     private readonly vehicles: FinanceLoanVehicleDirectory,
     validate: FinanceLoanRecordValidator,
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
-    private readonly calculationInputsChanged: FinanceLoanInputsChanged,
+    _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {
     this.records = new FeatureRecordService(repository, {
@@ -142,10 +142,12 @@ export class FinanceLoanService {
     return records;
   }
 
-  async update(input: {
+  async update(_input: {
     id: string;
     expectedRevision: number;
     details: FinanceLoanDetailsV1;
+  }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
+    throw new Error("finance_loan_details_immutable");
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
     assertRecordId(input.id);
     const current = await this.records.get(input.id);
