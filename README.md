@@ -2,7 +2,7 @@
 
 ## Documentation authority
 
-Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, product specification, implementation guide, audit and historical record. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the 63-file inventory and reconciliation decisions.
+Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, product specification, implementation guide, audit and historical record. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the 63-file baseline inventory and reconciliation decisions.
 
 ## Permanent application architecture
 

@@ -49,7 +49,7 @@
 | Finance loan calculation | [Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI and amortization mathematics |
 | Finance loan payment policy | [Loan Payment Workflow](FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md) | Proposal only until formally ratified; implementation does not approve this draft |
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
-| Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved settlement/closure rules |
+| Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
 | Performance calculation approval | [Finance and Performance Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approval boundary; no unapproved metric/accounting policy |
 | Admin product behaviour | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved six-section Admin product behaviour |
 | Admin capability technical design | [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Historical Slice 1 design; product and shared technical owners prevail |
@@ -80,7 +80,7 @@
 
 These records are evidence snapshots, not live policy. Their recorded base SHA, PR and CI run remain historical.
 
-- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — current 63-file inventory and reconciliation decisions.
+- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index bring the current total to 65.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.
