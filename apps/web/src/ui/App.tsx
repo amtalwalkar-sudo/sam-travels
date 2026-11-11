@@ -201,7 +201,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
         {activeScreen === "Performance" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
+        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace identityRecords={platformRepository} />} /></AdminServicesProvider>}
     </ShellRenderer>
   );
 }
