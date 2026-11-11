@@ -147,7 +147,11 @@ jobs:
             echo "Android Emulator PulseAudio runtime is already available"
             exit 0
           fi
+          # The hosted Ubuntu image can start with an empty apt package index.
+          # Refresh its configured Ubuntu 24.04 indexes before installing the t64 package.
+          sudo apt-get -o Acquire::Retries=3 update
           sudo apt-get install --yes --no-install-recommends libpulse0t64
+          ldconfig -p | grep -q 'libpulse\.so\.0'
       - name: Install and verify Android Emulator SDK package
         run: |
           set -euo pipefail
