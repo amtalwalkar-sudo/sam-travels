@@ -168,7 +168,7 @@ class KotlinArchitectureBoundaryTest {
             "service_destroy_must_run_on_main_thread"
         ))
         assertTrue("Database completion must remain delegated to the executor", source.contains(
-            "private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){\\n  executor.execute"
+            "private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){\n  executor.execute"
         ))
     }
 
