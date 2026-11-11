@@ -10,6 +10,7 @@ import {
 } from "../packages/domain/src/historical-correction";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
+import { FeatureRecordService } from "../packages/application/src/feature-record-service";
 import { assertMaintenanceRecordV1 } from "../packages/features/maintenance";
 import { PersonIdentityService } from "../packages/application/src/person-identity-service";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
@@ -250,6 +251,68 @@ describe("HistoricalCorrectionService", () => {
     expect(projectHistoricalCorrectionsV1(originalRecord?.data, chain)).toMatchObject({
       status: "valid", chainRevision: 1, data: { amountPaise: 12500 },
     });
+  });
+
+  it("attributes Maintenance Expense and enforces Driver self-correction and Admin authority", async () => {
+    const records = new MemoryRecords();
+    const vehicleId = "feature:vehicle:vehicle-actor";
+    const maintenance = new MaintenanceService(
+      records, assertMaintenanceRecordV1,
+      { getById: async id => id === vehicleId ? {
+        id, schemaVersion: 1, createdAt: NOW, updatedAt: NOW, source: "web", revision: 1,
+        data: { lifecycleState: "active" },
+      } : undefined },
+      () => 0, instant => instant.slice(0, 10), () => NOW,
+    );
+    FeatureRecordService.setAuthorResolver(async () => ({ personId: "person-driver", role: "driver" }));
+    const expense = await maintenance.createExpense({
+      uuid: "00000000-0000-4000-8000-000000000099", source: "web",
+      data: { vehicleId, expenseDate: "2026-11-10", expenseName: "Repair",
+        description: "Test attribution", amountPaise: 9000 },
+    });
+    expect(expense.createdBy).toEqual({ personId: "person-driver", role: "driver" });
+    const resolveTarget = async (target: RecordEnvelope<unknown>) => {
+      if (target.id !== expense.id || (target.data as Record<string, unknown>).kind !== "expense") {
+        throw new Error("maintenance_expense_correction_target_invalid");
+      }
+      return { featureId: "maintenance", allowedFieldPaths: ["amountPaise"], validateProjectedData: value => {
+        const data = value as Record<string, unknown>;
+        if (!Number.isSafeInteger(data.amountPaise) || (data.amountPaise as number) < 0) {
+          throw new Error("maintenance_expense_correction_value_invalid");
+        }
+      } };
+    };
+    const own = new HistoricalCorrectionService(
+      records, { currentActor: async () => ({ role: "driver", actorId: "person-driver" }) },
+      { resolve: resolveTarget }, "web", () => NOW,
+    );
+    const first = await own.submit({
+      correctionId: "expense-self-correction", targetRecordId: expense.id,
+      expectedTargetRevision: expense.revision, expectedChainRevision: 0,
+      fieldPath: "amountPaise", afterValue: 9500, reason: "Corrected receipt total",
+    });
+    expect(first.currentData).toMatchObject({ amountPaise: 9500 });
+    const otherDriver = new HistoricalCorrectionService(
+      records, { currentActor: async () => ({ role: "driver", actorId: "person-other" }) },
+      { resolve: resolveTarget }, "web", () => NOW,
+    );
+    await expect(otherDriver.submit({
+      correctionId: "expense-other-driver", targetRecordId: expense.id,
+      expectedTargetRevision: expense.revision, expectedChainRevision: 1,
+      fieldPath: "amountPaise", afterValue: 9700, reason: "Not my record",
+    })).rejects.toThrow("historical_correction_forbidden");
+    const admin = new HistoricalCorrectionService(
+      records, { currentActor: async () => ({ role: "admin", actorId: "person-admin", adminPinVerifiedAt: ADMIN_VERIFIED_AT }) },
+      { resolve: resolveTarget }, "web", () => NOW,
+    );
+    const second = await admin.submit({
+      correctionId: "expense-admin-correction", targetRecordId: expense.id,
+      expectedTargetRevision: expense.revision, expectedChainRevision: 1,
+      fieldPath: "amountPaise", afterValue: 9700, reason: "Admin verified receipt",
+    });
+    expect(second.currentData).toMatchObject({ amountPaise: 9700 });
+    expect((await records.get<typeof expense.data>(expense.id))?.data.amountPaise).toBe(9000);
+    expect(await admin.listForTarget(expense.id)).toHaveLength(2);
   });
 
   it("fails closed when author attribution or target revision is unavailable", async () => {
