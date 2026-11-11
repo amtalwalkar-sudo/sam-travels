@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
@@ -226,6 +227,7 @@ class DriverOverlayServicePresentationTest {
 
     private fun injectMotion(ui: UiAutomation, action: Int, x: Float, y: Float, downTime: Long) {
         val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+        event.source = InputDevice.SOURCE_TOUCHSCREEN
         try {
             assertTrue("Overlay gesture event must be injected", ui.injectInputEvent(event, true))
         } finally {
