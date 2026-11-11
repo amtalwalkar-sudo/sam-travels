@@ -13,6 +13,9 @@ internal object DriverWorkflowIdentity {
                 JSONObject(selected.json).optJSONObject("data")?.optString("driverId")?.takeIf { it.isNotBlank() }
                     ?: error("work_selected_driver_invalid")
             }
+        val driverRow = db.records().get("feature:driver-records:driver:$driverId") ?: error("driver_person_profile_missing")
+        val driver = JSONObject(driverRow.json).optJSONObject("data") ?: error("driver_person_profile_invalid")
+        require(driver.optString("driverId") == driverId) { "driver_person_profile_invalid" }
         val linkRow = db.records().get("identity:driver-person-link:$driverId") ?: error("driver_person_link_missing")
         val link = JSONObject(linkRow.json).optJSONObject("data") ?: error("driver_person_link_invalid")
         require(link.optInt("schemaVersion", -1) == 1 && link.optString("driverId") == driverId) { "driver_person_link_invalid" }
