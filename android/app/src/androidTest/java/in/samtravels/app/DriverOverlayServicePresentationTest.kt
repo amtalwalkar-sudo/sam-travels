@@ -100,7 +100,7 @@ class DriverOverlayServicePresentationTest {
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized cancellation overlay bubble must be attached", bubble != null)
             val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
-            shell(ui, "input tap ${bubbleBounds.centerX()} ${bubbleBounds.centerY()}")
+            tapAt(ui, bubbleBounds.centerX(), bubbleBounds.centerY())
             assertTrue("Tapping the cancellation bubble must restore the form", waitUntil {
                 findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
                     findNode(ui) {
