@@ -33,7 +33,7 @@ export class PersonIdentityService {
   ) {}
 
   async configureInitialAdminPin(pin: string): Promise<void> {
-    if (!/^\\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
+    if (!/^\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
     if (await this.adminPin.isConfigured()) throw new Error("business_admin_pin_already_configured");
     await this.adminPin.configure(pin);
   }
@@ -63,6 +63,7 @@ export class PersonIdentityService {
   }
 
   private async verifyAdmin(personId: string, pin?: string): Promise<PersonActorSessionV1> {
+    if (!await this.adminPin.isConfigured()) throw new Error("business_admin_pin_not_configured");
     if (typeof pin !== "string" || pin.length < 4 || pin.length > 12 || !/^\d+$/.test(pin)) {
       throw new Error("business_admin_pin_required");
     }
