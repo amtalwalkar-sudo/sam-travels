@@ -28,16 +28,7 @@ class DriverWorkflowStoreTest {
     @After fun closeDatabase() = db.close()
 
     private fun command(id: String, event: String = "shift_start", seedIdentity: Boolean = true): JSONObject {
-        if (seedIdentity && db.records().get("work:selected-driver") == null) {
-            val now = java.time.Instant.now().toString()
-            db.records().put(StoredRecord("work:selected-driver", JSONObject().put("data",
-                JSONObject().put("schemaVersion", 1).put("driverId", "driver-test")).toString(), 1, now))
-            db.records().put(StoredRecord("identity:driver-person-link:driver-test", JSONObject().put("data",
-                JSONObject().put("schemaVersion", 1).put("driverId", "driver-test").put("personId", "person-test")).toString(), 1, now))
-            db.records().put(StoredRecord("identity:person:person-test", JSONObject().put("data",
-                JSONObject().put("schemaVersion", 1).put("personId", "person-test").put("displayName", "Test Driver")
-                    .put("roles", org.json.JSONArray().put("driver")).put("status", "active")).toString(), 1, now))
-        }
+        if (seedIdentity) DriverWorkflowIdentityTestFixtures.seed(db, "driver-test", "person-test")
         return JSONObject()
             .put("schemaVersion", 1)
             .put("commandId", id)
@@ -75,25 +66,6 @@ class DriverWorkflowStoreTest {
         assertEquals(1, outbox.getInt("payloadVersion"))
         assertEquals(1, JSONObject(db.records().get("driver-state")!!.json)
             .getJSONObject("value").getInt("revision"))
-    }
-
-    @Test fun committedNativeEventCarriesLinkedPersonAuthorAndFailsClosedWithoutLink() {
-        DriverWorkflowStore.queue(db, command("attributed-event"))
-        DriverWorkflowStore.complete(db, "attributed-event", gps())
-        val event = JSONObject(db.logBookEvents().list().single().json)
-        assertEquals("person-test", event.getJSONObject("createdBy").getString("personId"))
-        assertEquals("driver", event.getJSONObject("createdBy").getString("role"))
-
-        val isolated = Room.inMemoryDatabaseBuilder(
-            ApplicationProvider.getApplicationContext<Context>(), LocalDatabase::class.java,
-        ).allowMainThreadQueries().build()
-        try {
-            DriverWorkflowStore.queue(isolated, command("unlinked-event", seedIdentity = false))
-            val failure = runCatching { DriverWorkflowStore.complete(isolated, "unlinked-event", gps()) }.exceptionOrNull()
-            assertEquals("work_driver_not_selected", failure?.message)
-            assertTrue(isolated.logBookEvents().list().isEmpty())
-            assertEquals("pending_location", JSONObject(isolated.records().get("driver-intent:unlinked-event")!!.json).getString("status"))
-        } finally { isolated.close() }
     }
 
     @Test fun failedGpsValidationLeavesIntentPendingAndProjectionUnchanged() {
