@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import "fake-indexeddb/auto";
+import { DexieRecordRepository, browserDatabase } from "../packages/storage-browser/src/index";
 import type { AtomicRecordBatchRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
@@ -254,7 +256,8 @@ describe("HistoricalCorrectionService", () => {
   });
 
   it("attributes Maintenance Expense and enforces Driver self-correction and Admin authority", async () => {
-    const records = new MemoryRecords();
+    await browserDatabase.records.clear();
+    const records = new DexieRecordRepository();
     const vehicleId = "feature:vehicle:vehicle-actor";
     const maintenance = new MaintenanceService(
       records, assertMaintenanceRecordV1,
@@ -313,6 +316,7 @@ describe("HistoricalCorrectionService", () => {
     expect(second.currentData).toMatchObject({ amountPaise: 9700 });
     expect((await records.get<typeof expense.data>(expense.id))?.data.amountPaise).toBe(9000);
     expect(await admin.listForTarget(expense.id)).toHaveLength(2);
+    await browserDatabase.records.clear();
   });
 
   it("serializes concurrent corrections to the same target chain", async () => {
