@@ -225,6 +225,7 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
                     .getJSONObject("command").getString("eventId"))
             shell(ui, "pm grant ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_FINE_LOCATION")
             shell(ui, "pm grant ${InstrumentationRegistry.getInstrumentation().targetContext.packageName} android.permission.ACCESS_COARSE_LOCATION")
+            db.records().remove("driver-intent:$commandId")
         }
     }
 
