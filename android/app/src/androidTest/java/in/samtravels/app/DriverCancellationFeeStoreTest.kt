@@ -64,6 +64,7 @@ class DriverCancellationFeeStoreTest {
             .put("createdAt",now).put("updatedAt",now).put("source","android").put("revision",1)
             .put("data",JSONObject().put("schemaVersion",1).put("driverId","driver-1").put("lockedShiftId","shift-1"))
         db.records().put(StoredRecord("work:selected-driver",selected.toString(),1,now))
+        DriverWorkflowIdentityTestFixtures.seedLink(db, "driver-1", "person-1")
 
         val create=v2Command("trip-1","trip_create","shift_active",1,java.time.Instant.now().toString())
         DriverWorkflowStore.queue(db,create)
