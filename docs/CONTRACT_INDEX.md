@@ -82,7 +82,7 @@
 
 These records are evidence snapshots, not live policy. Their recorded base SHA, PR and CI run remain historical.
 
-- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index bring the current total to 65.
+- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
 
