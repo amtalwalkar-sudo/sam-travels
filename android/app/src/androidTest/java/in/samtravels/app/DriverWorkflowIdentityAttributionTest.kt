@@ -71,7 +71,7 @@ class DriverWorkflowIdentityAttributionTest {
                 .put("schemaVersion", 1).put("driverId", driverId)
                 .put("assignments", org.json.JSONArray().put(JSONObject()
                     .put("assignmentId", "assignment-live-overlay").put("vehicleId", vehicleId)
-                    .put("assignedAt", now)))
+                    .put("assignedAt", now))))
 
             val startId = "live-overlay-shift-start"
             val start = command(startId).put("workflowVersion", 2)
