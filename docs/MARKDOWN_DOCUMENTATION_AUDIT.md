@@ -235,7 +235,7 @@ Phase 2 is complete when:
 
 ## 7. Phase 2 reconciliation results
 
-**Reconciliation commit:** `b4df668db3b937dacdc250bedfc9eb774cac3ae6` (the documentation reconciliation commit; a final follow-up audit update may advance the branch head).
+**Core reconciliation commit:** `b4df668db3b937dacdc250bedfc9eb774cac3ae6`. Subsequent documentation-only commits completed the index coverage and clarified current-versus-historical verification wording. The final exact branch head and its CI result are recorded by PR #69.
 
 Delivered in Phase 2:
 - Added [Contract and Documentation Index](CONTRACT_INDEX.md) as the central navigation and authority map.
