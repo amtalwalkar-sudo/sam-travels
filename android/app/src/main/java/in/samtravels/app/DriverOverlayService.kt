@@ -26,7 +26,7 @@ class DriverOverlayService:Service(){
  }
  private val main=Handler(Looper.getMainLooper())
  @Volatile private var intervalStartedAt:String?=null
- @Volatile private var activeLocationEventId:String?=null
+ private var activeLocationEventId:String?=null
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -224,6 +224,7 @@ class DriverOverlayService:Service(){
    lateinit var listener:LocationListener
    lateinit var timeout:Runnable
    fun finish(location:Location?=null,reason:String="location_timeout"){
+    check(Looper.myLooper()==Looper.getMainLooper()){ "location_finish_must_run_on_main_thread" }
     if(finished)return
     finished=true
     main.removeCallbacks(timeout)
