@@ -61,6 +61,16 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
             choosePayer(ui, 0, "Customer")
             setText(ui, "Parking (₹)", "2.75")
             choosePayer(ui, 1, "Driver")
+            assertTrue("Completed-ride working copy must commit the edited values before service recreation", waitUntil {
+                val row = db.records().get("__sam_travels_form_working_copy__:work.trip-completed-financials:$tripId")
+                    ?: return@waitUntil false
+                val values = JSONObject(row.json).getJSONObject("data").getJSONObject("values")
+                values.optLong("farePaise", -1L) == 3125L &&
+                    values.optLong("tollPaise", -1L) == 450L &&
+                    values.optString("tollPayer") == "customer" &&
+                    values.optLong("parkingPaise", -1L) == 275L &&
+                    values.optString("parkingPayer") == "driver"
+            })
             val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
             val eventsBefore = DriverWorkflowStore.listEvents(db).size
             val intentsBefore = DriverWorkflowStore.listIntents(db).size
@@ -99,6 +109,12 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "18.60")
+            assertTrue("Cancellation-fee working copy must commit the edited value before service recreation", waitUntil {
+                val row = db.records().get("__sam_travels_form_working_copy__:work.trip-cancellation-fee:$tripId")
+                    ?: return@waitUntil false
+                val values = JSONObject(row.json).getJSONObject("data").getJSONObject("values")
+                values.optLong("cancellationFeePaise", -1L) == 1860L
+            })
             val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
             val eventsBefore = DriverWorkflowStore.listEvents(db).size
             val intentsBefore = DriverWorkflowStore.listIntents(db).size
