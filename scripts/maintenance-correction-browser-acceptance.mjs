@@ -30,7 +30,7 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.evaluate(async ({ vehicleId, expenseId, timestamp }) => {
-    const request = indexedDB.open("sam-travels-browser", 6);
+    const request = indexedDB.open("sam-travels-browser");
     request.onupgradeneeded = () => {
       const db = request.result;
       const make = (name, keyPath, indexes = []) => {
