@@ -39,7 +39,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
         val correctionPrefix = "historical-correction:"
         val now = Instant.now().toString()
-        val adminPin = "4831"
         val vehicle = envelope(vehicleId, now, JSONObject()
             .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
             .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
@@ -75,8 +74,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                   const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
                   const input = label?.querySelector('input[type=checkbox]');
                   if (!input) return false;
-                  input.checked = true;
-                  input.dispatchEvent(new Event('change', { bubbles: true }));
+                  input.click();
                   return true;
                 })()
             """))
