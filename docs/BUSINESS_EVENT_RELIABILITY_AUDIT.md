@@ -130,6 +130,30 @@ The current main-branch file-tree inventory contains no clearly named standalone
 
 **Rating: Unknown.** Search the actual Admin/Work forms and backup adapters to determine whether fuel is represented through a generic expense form or is not yet implemented. Do not infer fuel capture from a calculation or UI label alone.
 
+## 4.10 Shared PWA and Capacitor application path
+
+The inspected composition root uses one React application and one shared set of JavaScript application services/form definitions. At startup, Capacitor platform detection selects RoomRecordRepository for native Android or DexieRecordRepository for browser-only PWA. Both adapters implement the same repository interfaces; the shared application services and SharedFormRuntime operate above that boundary. Record source is set to web or android. The native Android overlay is a separate native Work/Trip presentation that uses the Room-backed driver/financial stores; it is not the general Admin form UI.
+
+**Rating: Verified at architecture/composition level; Partial for end-to-end parity.** The same Admin forms and application service contracts are composed for PWA and Capacitor WebView, while the native overlay has specific Work/Trip forms. This substantially reduces business-rule drift, but the underlying storage adapters and native overlay paths remain different implementations and require equivalent acceptance tests per event type. A successful PWA test alone does not prove Android Room behaviour.
+
+## 4.11 Persistence, backup and recovery coverage
+
+The browser repository performs compare-and-set batches inside a Dexie read/write transaction. The Android RoomStore plugin performs revision-checked writes and batches inside Room transactions. Android Room uses multi-instance invalidation for WebView/overlay clients. The inspected driver and completed-trip financial tests cover persistent Room reopen, paired WebView/overlay visibility, stale competing drafts, and native backup/restore. PWA tests cover IndexedDB reopen/recovery, and browser backup participants validate driver/assignment, vehicle, maintenance and finance relationships. Android backup participants and tests cover driver, vehicle, maintenance, loan/payment and prepayment records. These are useful safeguards against silent loss and malformed restores.
+
+**Rating: Partial-to-verified for the tested storage and backup paths.** Automated tests demonstrate selected transaction, reopen, recovery, relationship validation and backup round trips. They do not prove every process-kill timing, Android OEM behaviour, browser eviction condition, live Dropbox connection, or physical-phone lifecycle. The user-facing backup and restore flows still need a complete cross-platform acceptance matrix.
+
+## 4.12 Provenance and actor attribution
+
+The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is useful platform provenance, but it is not by itself an authenticated human-actor identity. Driver workflow commands carry driver context and origin surface; generic Admin feature records inspected so far do not consistently carry an explicit actor ID in their shared envelope. The responsible person may be implicit in the current app/account/session boundary, but that must be traced and verified before the advisor promises per-person accountability.
+
+**Rating: Partial / Unknown by feature.** Platform/source provenance is present; complete human actor attribution and immutable correction history are not yet demonstrated for all business records. This is an audit gap, not authorization to add actor fields before checking the authentication/session and privacy contracts.
+
+## 4.13 Finance contract governance
+
+The implemented loan payment ledger supports payment allocation, unallocated credit, reversals and settlements. However, the inspected FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md still labels its v1 allocation policy as a proposed draft that is not formally ratified. The implementation and its tests are therefore ahead of the normative policy status. This does not prove the code is wrong, but it is a contract-governance gap that must be reconciled before treating every payment-allocation behaviour as an approved business rule.
+
+**Rating: Partial.** Preserve existing runtime behaviour during the audit; reconcile the implemented behaviour against the owner's approved Finance policy and update the contract through normal approval rather than silently assuming the draft is ratified.
+
 ## 5. Authoritative business-entry policy and initial gaps
 
 The owner has clarified that authorised driver/admin entries are authoritative business records. Fare agreement, customer collection, trip expenses, fuel, maintenance, and finance entries are not required to have independent third-party proof before being accepted into the business record or used in calculations.
@@ -150,13 +174,13 @@ The initial gap is not that independent corroboration is missing. The remaining 
 
 | Work item | Scope | Status |
 |---|---|---|
-| A. Architecture and authority map | Trace PWA, Android WebView, overlay, shared application services, adapters and durable stores | Partial — baseline paths inspected; full feature map remains |
+| A. Architecture and authority map | Trace PWA, Android WebView, overlay, shared application services, adapters and durable stores | Partial — shared React/services and Dexie/Room split verified; remaining feature map and actor provenance remain |
 | B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — core command/event/outbox paths and representative parity/restart tests inspected; full actor attribution and scenario matrix remain |
 | C. Financial business events | Fare, collections, toll, parking, fuel, maintenance, loans, payments, prepayments and settlements | Partial — Work/Trip closeout, maintenance, loan schedule and payment ledger contracts inspected; fuel capture path and complete Android form parity still require tracing |
 | D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and selected financial forms inspected; every feature form and correction/history path not yet inventoried |
-| E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared contracts and selected parity/bridge tests exist; full scenario matrix remains |
-| F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — substantial automation exists; remaining paths and physical-device limits remain |
-| G. Evidence/corroboration model | Source independence, event-specific rules, review and correction provenance | Unknown / not implemented in inspected paths |
+| E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared application path, driver parity fixture, paired Room surfaces, and selected financial tests exist; full per-domain PWA/Capacitor matrix remains |
+| F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — Dexie/Room atomic paths and selected browser/native reopen, backup and restore tests inspected; physical-device and full cloud acceptance remain |
+| G. Evidence/corroboration model | Authorised source policy, actor attribution, optional corroboration, conflict and correction provenance | Partial — owner policy clarified; source channel exists, complete human actor attribution and correction history remain unknown |
 | H. Intelligence eligibility | Per-metric data sufficiency, source states, partial totals and traceability | Unknown — requires candidate metric/source mapping |
 
 ## 7. Audit rules and next sequence
@@ -179,5 +203,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 |---|---|---|
 | 0.1 | 2026-11-11 | Initial baseline architecture and business-event evidence review at main commit `f766725`. |
 | 0.2 | 2026-11-11 | Clarify owner policy: authorised driver/admin entries are authoritative; technical validation is distinct from optional independent corroboration. Add driver/vehicle, maintenance and finance feature inventory findings. |
+| 0.3 | 2026-11-11 | Trace shared PWA/Capacitor composition, Dexie/Room transaction paths, selected backup/restore tests, actor provenance gap, and Finance payment-contract governance mismatch. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
