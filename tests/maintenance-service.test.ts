@@ -50,7 +50,7 @@ const visitInput = {
 };
 
 describe("MaintenanceService", () => {
-  it("saves visit items and derived total as one revisioned record", async () => {
+  it("creates maintenance history as immutable business records", async () => {
     const { service } = setup();
     const created = await service.createVisit({
       uuid: "123e4567-e89b-42d3-a456-426614174010",
@@ -58,16 +58,11 @@ describe("MaintenanceService", () => {
     });
     expect(created.data.totalPaise).toBe(250000);
     expect(created.businessDate).toBe("2026-10-05");
-
-    const edited = await service.editVisit({
-      id: created.id, expectedRevision: 1,
-      data: { ...visitInput, items: [{ ...visitInput.items[0], amountPaise: 225000 }] },
-    });
-    expect(edited.revision).toBe(2);
-    expect(edited.data.totalPaise).toBe(225000);
-    await expect(service.editVisit({
-      id: created.id, expectedRevision: 1, data: visitInput,
-    })).rejects.toThrow("feature_record_stale_revision");
+    expect(created.revision).toBe(1);
+    expect("editVisit" in service).toBe(false);
+    expect("editExpense" in service).toBe(false);
+    const history = await service.listVehicleRecords(vehicleId);
+    expect(history.visits[0]).toEqual(created);
   });
 
   it("keeps general expenses separate and sums only actual expenses", async () => {
