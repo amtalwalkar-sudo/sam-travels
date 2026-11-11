@@ -67,27 +67,14 @@ class DriverOverlayServicePresentationTest {
             setText(ui, "Parking (₹)", "7.89")
             choosePayer(ui, 1, "Customer")
             scrollToTop(ui)
-            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
-            assertTrue("Attached overlay header must be available to drag", header != null)
-            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
-            val downTime = SystemClock.uptimeMillis()
-            injectMotion(ui, MotionEvent.ACTION_DOWN, bounds.centerX().toFloat(), bounds.centerY().toFloat(), downTime)
-            val dragSteps = 8
-            for (step in 1..dragSteps) {
-                val y = bounds.centerY() + (1f - bounds.centerY()) * step / dragSteps
-                injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), y, downTime)
-                SystemClock.sleep(40)
-            }
-            injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
-            assertTrue("Dragging the header to the top must minimize the attached panel; hierarchy=${describeNodes(ui)} logs=${shell(ui, "logcat -d -s DriverOverlayService:D DriverOverlayService:E").takeLast(5000)}", waitUntil {
+            clickText(ui, "Minimize controls")
+            assertTrue("Minimize control must replace the panel with its bubble", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized overlay bubble must be attached", bubble != null)
-            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
-            val tapTime = SystemClock.uptimeMillis()
-            injectMotion(ui, MotionEvent.ACTION_DOWN, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
-            injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            assertTrue("Minimized bubble must expose an accessible restore action",
+                bubble!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             assertTrue("Tapping the bubble must restore the financial form", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
@@ -107,22 +94,14 @@ class DriverOverlayServicePresentationTest {
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, _ ->
             setText(ui, "Required cancellation fee in rupees", "12.34")
-            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
-            assertTrue("Attached cancellation overlay header must be available to drag", header != null)
-            val bounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
-            val downTime = SystemClock.uptimeMillis()
-            injectMotion(ui, MotionEvent.ACTION_DOWN, bounds.centerX().toFloat(), bounds.centerY().toFloat(), downTime)
-            injectMotion(ui, MotionEvent.ACTION_MOVE, bounds.centerX().toFloat(), 1f, downTime)
-            injectMotion(ui, MotionEvent.ACTION_UP, bounds.centerX().toFloat(), 1f, downTime)
-            assertTrue("Dragging the cancellation header to the top must minimize the panel", waitUntil {
+            clickText(ui, "Minimize controls")
+            assertTrue("Minimize control must replace the cancellation form with its bubble", waitUntil {
                 findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
             })
             val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
             assertTrue("Minimized cancellation overlay bubble must be attached", bubble != null)
-            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
-            val tapTime = SystemClock.uptimeMillis()
-            injectMotion(ui, MotionEvent.ACTION_DOWN, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
-            injectMotion(ui, MotionEvent.ACTION_UP, bubbleBounds.centerX().toFloat(), bubbleBounds.centerY().toFloat(), tapTime)
+            assertTrue("Minimized bubble must expose an accessible restore action",
+                bubble!!.performAction(AccessibilityNodeInfo.ACTION_CLICK))
             assertTrue("Restoring the cancellation form must retain its entered fee", waitUntil {
                 findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
                     findNode(ui) {

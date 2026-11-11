@@ -118,9 +118,13 @@ class DriverOverlayService:Service(){
   val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14))}
   val scroll=ScrollView(this).apply{isFillViewport=false;clipToPadding=false}
   scroll.addView(content,ViewGroup.LayoutParams(-1,-2));root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
+  val headerRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
   val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
   status=header
-  content.addView(header)
+  headerRow.addView(header,LinearLayout.LayoutParams(0,dp(40),1f))
+  val minimize=Button(this).apply{text="Minimize";textSize=11f;isAllCaps=false;contentDescription="Minimize controls";setOnClickListener{minimizePanel()}}
+  headerRow.addView(minimize,LinearLayout.LayoutParams(-2,dp(40)))
+  content.addView(headerRow)
   val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
   timerText=elapsed
   content.addView(elapsed)
@@ -314,8 +318,8 @@ class DriverOverlayService:Service(){
    val params=panelParams
    when(event.actionMasked){
     MotionEvent.ACTION_DOWN->{if(params!=null){downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;view.parent?.requestDisallowInterceptTouchEvent(true)};true}
-    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
-    MotionEvent.ACTION_UP->{view.parent?.requestDisallowInterceptTouchEvent(false);if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
+    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(downY-event.rawY>=dp(48)&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
+    MotionEvent.ACTION_UP->{view.parent?.requestDisallowInterceptTouchEvent(false);if(params!=null&&downY-event.rawY>=dp(48)&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
     MotionEvent.ACTION_CANCEL->{view.parent?.requestDisallowInterceptTouchEvent(false);true}
     else->true
    }
@@ -329,6 +333,8 @@ class DriverOverlayService:Service(){
    text="⏱ "+elapsedInterval();textSize=13f;setTextColor(android.graphics.Color.WHITE)
    setBackgroundColor(android.graphics.Color.rgb(24,54,74));setPadding(dp(12),dp(10),dp(12),dp(10))
    contentDescription="Driver controls minimized. Tap to reopen"
+   isClickable=true
+   setOnClickListener{restorePanel()}
   }
   val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
   val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
@@ -337,7 +343,7 @@ class DriverOverlayService:Service(){
    when(event.actionMasked){
     MotionEvent.ACTION_DOWN->{downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false;bubbleTouchStarted=true;true}
     MotionEvent.ACTION_MOVE->{val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;params.x=(initialX+dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{window.updateViewLayout(chip,params)};true}
-    MotionEvent.ACTION_UP->{if(!bubbleTouchStarted){true}else{bubbleTouchStarted=false;if(!moved)restorePanel() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}}
+    MotionEvent.ACTION_UP->{if(!bubbleTouchStarted){true}else{bubbleTouchStarted=false;if(!moved)chip.performClick() else {val screenWidth=resources.displayMetrics.widthPixels;params.gravity=if(event.rawX<screenWidth/2f)Gravity.START or Gravity.CENTER_VERTICAL else Gravity.END or Gravity.CENTER_VERTICAL;params.x=0;runCatching{window.updateViewLayout(chip,params)}};true}}
     MotionEvent.ACTION_CANCEL->true
     else->true
    }
