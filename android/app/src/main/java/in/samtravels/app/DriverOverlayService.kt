@@ -229,6 +229,11 @@ class DriverOverlayService:Service(){
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
+ private fun elapsedInterval():String{
+  val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
+  val seconds=((System.currentTimeMillis()-start)/1000).coerceAtLeast(0)
+  return "%02d:%02d:%02d".format(seconds/3600,(seconds%3600)/60,seconds%60)
+ }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
