@@ -96,6 +96,14 @@ internal object DriverWorkflowContract {
             (command.optString("eventType")!="shift_start"||command.has("driverContext"))&&
             (command.optString("eventType")!="trip_create"||command.has("tripContext"))) { "missing_lifecycle_snapshot" }
         require((event.opt("eventId") as? String) == command.optString("eventId")) { "driver_event_identity_mismatch" }
+        if (event.has("createdBy")) {
+            val author = event.optJSONObject("createdBy") ?: error("invalid_driver_event_author")
+            val personId = author.optString("personId")
+            require(author.keys().asSequence().toSet() == setOf("personId", "role") &&
+                personId.matches(Regex("[A-Za-z0-9_-]{1,128}")) && author.optString("role") == "driver") {
+                "invalid_driver_event_author"
+            }
+        }
         val revision = integer(event, "revision")
         require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }
         parseInstant(event.optString("committedAt"), "invalid_driver_event_timestamp")
