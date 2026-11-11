@@ -7,6 +7,8 @@ import { LoanDetailsForm } from "./LoanDetailsForm";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import { useAdminServices } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
+import type { AtomicRecordRepository } from "../../../../packages/core/src/repositories";
+import { PersonIdentityPanel } from "./PersonIdentityPanel";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
@@ -22,7 +24,7 @@ function money(paise: number): string {
 function rate(basisPoints: number): string {
   return (basisPoints / 100).toFixed(2) + "% p.a.";
 }
-export function AdminWorkspace() {
+export function AdminWorkspace({ identityRecords }: { identityRecords: AtomicRecordRepository }) {
   const services = useAdminServices();
   const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -66,6 +68,7 @@ export function AdminWorkspace() {
       <div><small>BUSINESS ADMINISTRATION</small><h2>Admin</h2><p>Manage business and vehicle records. Each section uses its owning capability.</p></div>
       <span className="admin-local-tag">LOCAL RECORDS</span>
     </div>
+    <PersonIdentityPanel records={identityRecords} />
     <div className="admin-section-list">
       {SECTIONS.map(section => <div className="admin-section" key={section}>
         <button className={expanded === section ? "admin-section-trigger active" : "admin-section-trigger"}

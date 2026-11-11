@@ -26,6 +26,7 @@ import {
   initializeApplicationFinanceLoanSettlementService,
   initializeApplicationRecordSource,
   RecordFormWorkingCopyRepository,
+  FeatureRecordService,
   SharedFormRuntime,
   BUSINESS_SETUP_FORM_V1,
   VEHICLE_FORM_V1,
@@ -58,7 +59,7 @@ import { registerComplianceBrowserBackupParticipant } from "./compliance-backup"
 import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
 import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
-import { initializePersonIdentityRuntime } from "./person-identity-runtime";
+import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { App } from "./ui/App";
 import "./ui/styles.css";
 
@@ -74,6 +75,10 @@ async function bootstrap(): Promise<void> {
   registerFinanceBrowserBackupParticipant();
   const repository = await createPlatformRepository();
   await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
+  FeatureRecordService.setAuthorResolver(async () => {
+    const actor = await getPersonIdentityService().currentActor();
+    return { personId: actor.actorId, role: actor.role };
+  });
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
