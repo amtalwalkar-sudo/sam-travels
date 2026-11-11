@@ -288,9 +288,16 @@ internal class DriverOverlayPresentation(
             contentDescription = "Driver controls minimized. Tap to reopen"
             isClickable = true
             isFocusable = true
-            setOnTouchListener { _, event ->
+            setOnTouchListener { view, event ->
                 android.util.Log.i("DriverOverlayService", "bubble_touch action=${event.actionMasked} x=${event.rawX} y=${event.rawY}")
-                false
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_UP -> {
+                        view.performClick()
+                        true
+                    }
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_CANCEL -> true
+                    else -> true
+                }
             }
             setOnClickListener {
                 android.util.Log.i("DriverOverlayService", "bubble_click")
