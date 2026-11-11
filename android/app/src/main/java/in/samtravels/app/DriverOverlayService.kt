@@ -16,21 +16,19 @@ import java.util.concurrent.Executors
 class DriverOverlayService:Service(){
  private val executor=Executors.newSingleThreadExecutor()
  private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
+ private val presentation by lazy {
+  DriverOverlayPresentation(
+   this,db,executor,main,swipePresentation,{elapsedInterval()},
+   {message->refresh(message)},
+   {runSwipeTransition()},
+   {event->runTransition(event)},
+   {runRecovery()},
+   {stopSelf()},
+  )
+ }
  private val main=Handler(Looper.getMainLooper())
  private lateinit var window:WindowManager
- private var panel:LinearLayout?=null
- private var panelParams:WindowManager.LayoutParams?=null
- private var bubble:TextView?=null
- private var bubbleParams:WindowManager.LayoutParams?=null
- private var timerText:TextView?=null
  @Volatile private var intervalStartedAt:String?=null
- private val timerTick=object:Runnable{override fun run(){updateTimer();main.postDelayed(this,1000)}}
- private var status:TextView?=null
- private var recoveryButton:Button?=null
- private var swipeLabel:TextView?=null
- private var swipeBar:SeekBar?=null
- private var cancelButton:Button?=null
- private var cancellationFeePanel:DriverCancellationFeePanel?=null;private var tripFinancialPanel:DriverTripFinancialPanel?=null
  @Volatile private var activeLocationEventId:String?=null
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
@@ -72,7 +70,7 @@ class DriverOverlayService:Service(){
      db.invalidationTracker.addObserver(databaseObserver!!)
     }
     val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
-    main.post{if(active){showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
+    main.post{if(active){presentation.showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
    }catch(error:Exception){
     android.util.Log.e("DriverOverlayService","Repository startup failed",error)
     startupRecoveryReady=false
@@ -110,60 +108,6 @@ class DriverOverlayService:Service(){
    }
   }
  }
- private fun showPanel(){
-  if(panel!=null)return
-  window=getSystemService(WINDOW_SERVICE) as WindowManager
-  val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setBackgroundColor(android.graphics.Color.WHITE)}
-  val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(18),dp(14),dp(18),dp(14))}
-  val scroll=ScrollView(this).apply{isFillViewport=false;clipToPadding=false}
-  scroll.addView(content,ViewGroup.LayoutParams(-1,-2));root.addView(scroll,LinearLayout.LayoutParams(dp(270),dp(560)))
-  val headerRow=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL};val header=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))};status=header;headerRow.addView(header,LinearLayout.LayoutParams(0,dp(40),1f));val minimize=Button(this).apply{text="Minimize";textSize=11f;isAllCaps=false;contentDescription="Minimize controls";setOnClickListener{minimizePanel()}};headerRow.addView(minimize,LinearLayout.LayoutParams(-2,dp(40)));content.addView(headerRow)
-  val elapsed=TextView(this).apply{text="00:00:00";textSize=18f;setTextColor(android.graphics.Color.rgb(24,54,74));setPadding(2,6,2,6)}
-  timerText=elapsed
-  content.addView(elapsed)
-  val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
-  swipeLabel=label
-  content.addView(label)
-  val slider=SeekBar(this).apply{
-   max=100
-   progress=0
-   setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-    override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean){}
-    override fun onStartTrackingTouch(bar:SeekBar?){}
-    override fun onStopTrackingTouch(bar:SeekBar?){bar?.progress=0}
-   })
-  }
-  var swipeStartX:Float?=null
-  var swipeMoved=false
-  slider.setOnTouchListener{_,event->
-   when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{swipeStartX=event.rawX;swipeMoved=false}
-    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(swipePresentation.minimumIntentTravelDp))swipeMoved=true}
-    MotionEvent.ACTION_UP->{
-     val confirmed=swipeMoved&&slider.progress>=swipePresentation.completionPercent
-     swipeStartX=null;swipeMoved=false
-     if(confirmed)runSwipeTransition()
-     slider.progress=0
-    }
-    MotionEvent.ACTION_CANCEL->{swipeStartX=null;swipeMoved=false;slider.progress=0}
-   }
-   false
-  }
-  swipeBar=slider
-  content.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
-  val cancel=Button(this).apply{text=swipePresentation.secondaryAction("going_to_pickup")?.label?: "Cancel ride";setOnClickListener{runTransition(swipePresentation.secondaryAction("going_to_pickup")?.eventType?:return@setOnClickListener)}}
-  cancelButton=cancel
-  content.addView(cancel)
-  cancellationFeePanel=DriverCancellationFeePanel(this,db,executor,main){message->refresh(message)};cancellationFeePanel?.attach(content)
-  tripFinancialPanel=DriverTripFinancialPanel(this,db,executor,main){message->refresh(message)};tripFinancialPanel?.attach(content)
-  recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
-  content.addView(recoveryButton)
-  panel=root
-  val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
-  val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
-  panelParams=params
-  try{window.addView(root,params);android.util.Log.i("DriverOverlayService","panel_attached root="+root.hashCode());refresh();main.removeCallbacks(timerTick);main.post(timerTick)}catch(error:Exception){android.util.Log.e("DriverOverlayService","Window attachment failed",error);panel=null;panelParams=null;stopSelf()}
- }
  private fun refresh(message:String?=null){executor.execute{try{
   NativeStartupRecovery.ensure(db)
   startupRecoveryReady=true
@@ -189,36 +133,22 @@ class DriverOverlayService:Service(){
     ?.optJSONObject("command")?.optString("transitionAt")?.takeIf{it.isNotBlank()}
   }.getOrNull()
   main.post{
-   if(state=="idle"){main.post{removePanel();stopSelf()};return@post}
-   val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
-   val nextStatus=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
-   if(status?.text?.toString()!=nextStatus){status?.text=nextStatus;status?.announceForAccessibility(nextStatus)}
-   updateTimer()
-   val swipeAction=swipePresentation.action(state)
-   val swipeText=swipeAction?.let{"Swipe to "+it.label}
-   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
-   swipeLabel?.text=swipeText?: "Trip action unavailable"
-   swipeLabel?.contentDescription=swipeText?: "Trip action unavailable"
-   swipeBar?.contentDescription=swipeText?: "Trip action unavailable"
-   swipeLabel?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
-   swipeBar?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
-   swipeBar?.progress=0
-   swipeBar?.isEnabled=canSwipe
-   cancelButton?.visibility=if(state=="going_to_pickup")View.VISIBLE else View.GONE
-   cancelButton?.isEnabled=!pending&&!financialPending&&activeLocationEventId==null&&state=="going_to_pickup"
-   cancellationFeePanel?.render(
-    feeTripId,feePaise,financialPending,financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null,
-    window,panel,panelParams,
+   if(state=="idle"){main.post{presentation.removePanel();stopSelf()};return@post}
+   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
+    swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
+   presentation.updateTimer(elapsedInterval())
+   presentation.render(
+    state,s.optInt("revision"),pending,expiredPending,financialPending,canSwipe,
+    feeTripId,feePaise,financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null,
+    completedFinancialForms,message,
    )
-   tripFinancialPanel?.render(completedFinancialForms,financialPending,window,panel,panelParams)
   }
  }catch(_:Exception){
   startupRecoveryReady=false
   startupRecoveryFailed=true
   LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
   main.post{
-   status?.text="Recovery required · actions disabled"
-   recoveryButton?.isEnabled=false
+   presentation.setRecoveryBlocked()
   }
  }}}
  private fun runRecovery(){
@@ -237,7 +167,6 @@ class DriverOverlayService:Service(){
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
- private fun dp(value:Int):Int=(value*resources.displayMetrics.density).toInt()
  private fun runSwipeTransition(){
   if(!startupRecoveryReady)return
   executor.execute{
@@ -251,8 +180,7 @@ class DriverOverlayService:Service(){
  }
  private fun runTransition(event:String){
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
-  status?.text="Saving action · GPS pending"
-  main.post{swipeBar?.isEnabled=false;cancelButton?.isEnabled=false}
+  presentation.setSavingStatus()
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
@@ -304,47 +232,6 @@ class DriverOverlayService:Service(){
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
- private fun minimizePanel(){
-  val current=panel?:return
-  runCatching{window.removeView(current)}
-  panel=null;panelParams=null
-  val chip=TextView(this).apply{
-   text="⏱ "+elapsedInterval();textSize=13f;setTextColor(android.graphics.Color.WHITE)
-   setBackgroundColor(android.graphics.Color.rgb(24,54,74));setPadding(dp(12),dp(10),dp(12),dp(10))
-   contentDescription="Driver controls minimized. Tap to reopen"
-   isClickable=true
-   isFocusable=true
-   setOnTouchListener{_,event->android.util.Log.i("DriverOverlayService","bubble_touch action=${event.actionMasked} x=${event.rawX} y=${event.rawY}");false}
-   setOnClickListener{android.util.Log.i("DriverOverlayService","bubble_click");restorePanel()}
-  }
-  val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
-  val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.START or Gravity.CENTER_VERTICAL;x=0;y=0}
-  bubble=chip;bubbleParams=params
-  try{window.addView(chip,params);android.util.Log.i("DriverOverlayService","bubble_attached view=${chip.hashCode()} x=${params.x} y=${params.y}")}catch(error:Exception){android.util.Log.e("DriverOverlayService","Bubble attachment failed",error);bubble=null;bubbleParams=null;stopSelf()}
- }
- private fun restorePanel(){
-  android.util.Log.i("DriverOverlayService","restore_requested bubble=${bubble?.hashCode()}")
-  bubble?.let{runCatching{window.removeView(it)}};bubble=null;bubbleParams=null
-  showPanel()
-  android.util.Log.i("DriverOverlayService","restore_finished panelAttached=${panel!=null}")
- }
- private fun elapsedInterval():String{
-  val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
-  val seconds=((System.currentTimeMillis()-start)/1000).coerceAtLeast(0)
-  return "%02d:%02d:%02d".format(seconds/3600,(seconds%3600)/60,seconds%60)
- }
- private fun updateTimer(){
-  val value=elapsedInterval()
-  timerText?.text=value
-  bubble?.text="⏱ "+value
- }
- private fun removePanel(){
-  main.removeCallbacks(timerTick)
-  panel?.let{try{window.removeView(it)}catch(_:Exception){}}
-  panel=null;panelParams=null
-  bubble?.let{try{window.removeView(it)}catch(_:Exception){}}
-  bubble=null;bubbleParams=null
- }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
   val transitionAt=intent.optJSONObject("command")?.optString("transitionAt").orEmpty()
@@ -374,5 +261,5 @@ class DriverOverlayService:Service(){
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;removePanel();executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
+ override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;presentation.removePanel();executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
 }
