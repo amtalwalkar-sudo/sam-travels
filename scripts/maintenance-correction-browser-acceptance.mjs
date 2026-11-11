@@ -100,6 +100,7 @@ try {
   await maintenancePanel.waitFor();
   const vehicleSelect = maintenancePanel.locator("select").first();
   await vehicleSelect.selectOption({ label: "MH01AB1234" });
+  await maintenancePanel.locator("details.loan-schedule > summary").click();
   await page.getByText("Browser acceptance repair", { exact: false }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
   await expenseCard.getByRole("button", { name: "Correct amount / view history" }).click();
