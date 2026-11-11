@@ -181,9 +181,9 @@ The Android process-death evidence is emulator instrumentation only; it does not
 
 ## 4.14 Provenance and actor attribution
 
-The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is useful platform provenance, but it is not by itself an authenticated human-actor identity. Driver workflow commands carry driver context and origin surface; generic Admin feature records inspected so far do not consistently carry an explicit actor ID in their shared envelope. The responsible person may be implicit in the current app/account/session boundary, but that must be traced and verified before the advisor promises per-person accountability.
+The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is platform provenance, not necessarily authenticated human identity. Driver workflow events carry driver context; generic Admin feature records inspected so far do not consistently carry an explicit actor ID in the envelope. The audit must trace the existing authenticated account/session boundary and determine what actor attribution is already available before proposing any new fields.
 
-**Rating: Partial / Unknown by feature.** Platform/source provenance is present; complete human actor attribution and immutable correction history are not yet demonstrated for all business records. This is an audit gap, not authorization to add actor fields before checking the authentication/session and privacy contracts.
+**Rating: Partial / Unknown by feature.** For the narrow correction exception below, actor identity and correction reason must be traceable. Do not add generic actor fields until the authentication/session and privacy contracts have been checked.
 
 ## 4.15 Finance contract governance
 
@@ -191,17 +191,23 @@ The implemented loan payment ledger supports payment allocation, unallocated cre
 
 **Rating: Partial.** Preserve existing runtime behaviour during the audit; reconcile the implemented behaviour against the owner's approved Finance policy and update the contract through normal approval rather than silently assuming the draft is ratified.
 
+## 4.16 Historical record immutability and permitted driver corrections
 
+Owner-approved operating rule clarified during this audit:
 
-## 4.16 Correction and historical revision retention
+- Historical business records must not be edited or deleted in a way that silently changes history.
+- The only permitted edit exception is correction of a driver-entered mistake.
+- A correction must preserve the prior value and a trace of the correction; it must not erase the original entry or its business-event identity.
+- Reversal workflows that append a compensating entry and retain the original (for example, Finance payment reversal) are not deletion and should remain available where contractually approved.
+- Setup/profile changes may be assessed separately when they do not rewrite historical snapshots or transaction records; do not confuse these with editing historical business events.
 
-The shared FeatureRecordService update path reads the current record, checks expectedRevision, then compare-and-sets a replacement envelope with revision + 1. In the inspected generic path, the previous payload is not appended to a revision-history collection. This applies to feature records using this service, including Driver, Vehicle and Maintenance records. Loan detail updates preserve versioned EMI schedule calculations when their inputs change, but the loan detail record itself is still a current aggregate; Finance payments use an append-only ledger and explicit reversal entries. Driver workflow events are immutable and retained separately.
+The shared FeatureRecordService update path reads the current record, checks expectedRevision, then compare-and-sets a replacement envelope with revision + 1. In the inspected generic path, the previous payload is not appended to a revision-history collection. This applies to feature records using this service, including Driver, Vehicle and Maintenance records. Loan detail updates preserve versioned EMI schedule calculations when inputs change, but the loan detail record itself is still a current aggregate; Finance payments use an append-only ledger and explicit reversal entries. Driver workflow events are immutable and retained separately.
 
-**Rating: Partial / traceability gap.** Revision checks prevent stale overwrites, but a revision counter alone does not let the advisor reconstruct every prior value or explain who changed it. The audit must determine whether any separate audit facility exists outside the inspected service. If not, decide which business records require append-only correction history and actor/reason attribution. Do not retrofit history into every feature indiscriminately before the retention, privacy, backup, and recovery implications are reviewed.
+**Rating: Policy gap requiring path-by-path enforcement.** Revision checks prevent stale writes but do not preserve old values. The next audit pass must identify every UI affordance and service/API mutation route, distinguish setup/profile maintenance from historical business-event editing, and retain only the driver-entry correction exception. No delete path for historical business records is permitted. Any correction path must be tested for original-value retention, actor attribution, reason, idempotency, and backup/restore.
 
 ## 5. Authoritative business-entry policy and initial gaps
 
-The owner has clarified that authorised driver/admin entries are authoritative business records. Fare agreement, customer collection, trip expenses, fuel, maintenance, and finance entries are not required to have independent third-party proof before being accepted into the business record or used in calculations.
+The owner has clarified that authorised driver/admin entries are authoritative business records. Driver-entered Fare, Toll, Parking and Cancellation Fee amounts are accepted as authoritative business entries after technical validation; independent third-party proof is not required. There is no separate customer-collection feature, and fuel records have not been implemented. Customer-collection-specific and fuel-record-specific calculations are explicitly out of scope for this audit; do not report those intentionally absent features as defects.
 
 The reliability requirement is therefore to establish that the entry:
 
@@ -219,26 +225,24 @@ The initial gap is not that independent corroboration is missing. The remaining 
 
 ### Initial intelligence eligibility matrix
 
-This is an initial source-readiness assessment, not approval of new metrics or formulas.
+This is an initial source-readiness assessment for existing captured records only. It does not approve new metrics or formulas. Customer-collection and fuel-specific measures are excluded because those features/data are intentionally absent.
 
 | Business question / measure | Current source | Initial eligibility | Limitation to disclose |
 |---|---|---|---|
 | Trip count and trip duration | Immutable Work events and transition timestamps | **Eligible for tested, internally consistent trip records** | Unmatched/overlapping events must remain visible as needs-attention; physical-device timing acceptance remains separate. |
-| Recorded trip Fare | Required completed-trip Fare entry | **Eligible as authoritative recorded Fare** | Do not rename it customer cash collected. |
-| Actual customer collection | No separate trip collection amount/status found | **Not eligible as a distinct measure yet** | A Fare entry alone cannot answer how much was collected or whether it was partial/unpaid. |
-| Customer charge including Toll/Parking | Fare plus customer-paid Toll/Parking payer fields | **Eligible as recorded customer charge** | This is a calculated charge, not proof of collection. |
-| Recorded driver Toll/Parking expense | Trip-linked amount and payer fields | **Eligible as authoritative recorded expense** | Does not separately capture whether a third party was paid; accepted as business entry under owner policy. |
-| Fuel spend | Generic Maintenance expense with free-text name | **Conditionally usable after explicit category mapping** | Free text is not a stable fuel category; do not infer from description heuristics without an approved mapping. |
-| Fuel volume, price per litre, consumption | No dedicated fuel purchase schema found | **Not eligible** | No structured litres/quantity or unit price in inspected form. |
-| Trip distance / fuel efficiency | Event GPS snapshots and shift odometer requirements | **Not eligible per trip from current GPS path alone** | Transition fixes are not a route trace; shift odometer does not allocate kilometres to individual trips. |
-| Maintenance cost by vehicle | Vehicle-linked visits and general expense records | **Eligible as recorded maintenance expense** | Provider, amount and odometer remain authorised entries; prior edits are not retained by generic revision history. |
+| Recorded trip Fare | Required completed-trip Fare entry | **Eligible as authoritative recorded Fare** | It represents the entered fare amount; no separate collection feature exists. |
+| Customer charge including Toll/Parking | Fare plus customer-paid Toll/Parking payer fields | **Eligible as recorded customer charge** | This is a calculated charge, not a separate collection record. |
+| Recorded driver Toll/Parking expense | Trip-linked amount and payer fields | **Eligible as authoritative recorded expense** | Accepted as driver-entered business entry; third-party settlement proof is not required. |
+| Recorded Cancellation Fee | Required cancellation-fee entry | **Eligible as authoritative recorded Cancellation Fee** | Explicit zero is valid; this is not Fare and does not create a completed ride. |
+| Maintenance cost by vehicle | Vehicle-linked visits and general expense records | **Eligible as recorded maintenance expense** | Values are authoritative entries after validation; historical edit routes must be constrained to permitted driver-entry correction policy. |
 | Scheduled EMI and amortization | Versioned loan calculation schedule | **Eligible as deterministic schedule output** | It is an app calculation from entered loan inputs, not a lender statement. |
 | Recorded loan payments / reversals | Finance payment ledger and allocations | **Eligible as recorded Finance history** | Payment method/reference is entered context; actual lender posting is not independently checked. Payment-allocation policy contract remains proposed/unratified. |
 | Remaining scheduled loan obligations | Schedule versions plus payment/prepayment history | **Conditionally eligible as app-calculated position** | Must be labelled calculated from recorded entries, not lender-confirmed outstanding balance; reconcile contract status first. |
-| Whole-vehicle profitability | Fare, expenses, fuel and distance sources | **Not yet reliably eligible as a complete measure** | Separate collection, structured fuel and trip-level distance are missing or incomplete. |
+| Fuel volume, fuel spend by fuel category, price/litre, consumption or fuel efficiency | No dedicated fuel records | **Out of scope for this audit** | Fuel capture has not been implemented; do not infer fuel from free-text expenses. |
+| Customer collection amount/status | No separate collection feature | **Out of scope for this audit** | Fare is authoritative as entered, but there is no separate collection event/field. |
+| Whole-vehicle profitability | Would require approved metric definition and presently absent fuel/collection-specific records | **Out of scope for this audit's current-record eligibility pass** | Do not claim complete vehicle profitability from partial totals. |
 
-The advisor may still provide partial insights from eligible inputs, but it must state the scope (for example, recorded Fare less recorded driver-paid Toll/Parking before Fuel), rather than present an incomplete subtotal as net profit.
-
+The advisor may provide scoped insights from eligible inputs, but must state the scope and avoid presenting incomplete subtotals as net profit.
 ## 6. Remaining audit work
 
 | Work item | Scope | Status |
