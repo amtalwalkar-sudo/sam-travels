@@ -309,14 +309,32 @@ class DriverOverlayService:Service(){
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
  private fun installPanelDrag(handle:View){
-  var downX=0f;var downY=0f;var initialX=0;var initialY=0;var moved=false
-  handle.setOnTouchListener{_,event->
+  var downX=0f;var downY=0f;var initialX=0;var initialY=0
+  handle.setOnTouchListener{view,event->
    val params=panelParams
    when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{if(params!=null){android.util.Log.d("DriverOverlayService","panel drag down rawY=${event.rawY}");downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y;moved=false};true}
-    MotionEvent.ACTION_MOVE->{if(params!=null){val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt();android.util.Log.d("DriverOverlayService","panel drag move rawY=${event.rawY} dy=$dy");if(abs(dx)>dp(6)||abs(dy)>dp(6))moved=true;if(event.rawY<dp(24)){android.util.Log.d("DriverOverlayService","panel drag minimize rawY=${event.rawY} threshold=${dp(24)}");minimizePanel();return@setOnTouchListener true};params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy;runCatching{panel?.let{window.updateViewLayout(it,params)}}};true}
-    MotionEvent.ACTION_UP->{if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true};true}
-    MotionEvent.ACTION_CANCEL->{true}
+    MotionEvent.ACTION_DOWN->{
+     if(params!=null){
+      downX=event.rawX;downY=event.rawY;initialX=params.x;initialY=params.y
+      view.parent?.requestDisallowInterceptTouchEvent(true)
+     }
+     true
+    }
+    MotionEvent.ACTION_MOVE->{
+     if(params!=null){
+      val dx=(event.rawX-downX).toInt();val dy=(event.rawY-downY).toInt()
+      if(event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true}
+      params.x=(initialX-dx).coerceAtLeast(0);params.y=initialY+dy
+      runCatching{panel?.let{window.updateViewLayout(it,params)}}
+     }
+     true
+    }
+    MotionEvent.ACTION_UP->{
+     view.parent?.requestDisallowInterceptTouchEvent(false)
+     if(params!=null&&event.rawY<dp(24)){minimizePanel();return@setOnTouchListener true}
+     true
+    }
+    MotionEvent.ACTION_CANCEL->{view.parent?.requestDisallowInterceptTouchEvent(false);true}
     else->true
    }
   }
@@ -343,7 +361,7 @@ class DriverOverlayService:Service(){
    }
   }
   bubble=chip;bubbleParams=params
-  try{window.addView(chip,params);android.util.Log.d("DriverOverlayService","minimized bubble attached")}catch(error:Exception){android.util.Log.e("DriverOverlayService","minimized bubble attachment failed",error);bubble=null;bubbleParams=null;stopSelf()}
+  try{window.addView(chip,params)}catch(_:Exception){bubble=null;bubbleParams=null;stopSelf()}
  }
  private fun restorePanel(){
   bubble?.let{runCatching{window.removeView(it)}};bubble=null;bubbleParams=null
