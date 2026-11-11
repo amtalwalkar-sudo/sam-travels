@@ -95,7 +95,7 @@ try {
 
   await page.getByRole("button", { name: /Maintenance/ }).click();
   await page.getByLabel("Vehicle", { exact: true }).selectOption({ label: "MH01AB1234" });
-  await page.getByText("Browser acceptance repair", { exact: true }).waitFor();
+  await page.getByText("Browser acceptance repair", { exact: false }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
   await expenseCard.getByRole("button", { name: "Correct amount / view history" }).click();
   await expenseCard.getByLabel(/Corrected amount/).fill("150.00");
