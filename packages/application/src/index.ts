@@ -1,4 +1,5 @@
 export * from "./record-service";
+export * from "./historical-correction-service";
 export * from "./driver-workflow-service";
 export * from "./form-submission-port";
 export * from "./admin-form-definitions";
