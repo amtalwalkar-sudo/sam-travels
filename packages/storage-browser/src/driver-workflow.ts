@@ -17,17 +17,52 @@ const sameCommand=(left:DriverIntent["command"],right:DriverIntent["command"])=>
 export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  private listeners=new Set<(s:DriverStateProjection)=>void>();
  async getSnapshot(){const value=(await states().get("driver-state"))?.value??EMPTY_DRIVER_STATE;assertDriverStateContract(value);return value}
- async queueIntent(intent:DriverIntent){assertDriverIntentContract(intent);if(intent.status!=="pending_location")throw new Error("invalid_driver_intent");return browserDatabase.transaction("rw",states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){assertDriverIntentContract(old);if(!sameCommand(old.command,intent.command))throw new Error("duplicate_command_id_conflict");return old}const existing=await intents().toArray();existing.forEach(assertDriverIntentContract);if(existing.some(i=>i.command.eventId!==intent.command.eventId&&(i.command.commandId===intent.command.commandId||i.command.idempotencyKey===intent.command.idempotencyKey)))throw new Error("duplicate_command_identity_conflict");const s=await this.getSnapshot();if(intent.command.expectedRevision!==s.revision||intent.command.expectedPriorState!==s.state)throw new Error("stale_revision");const active=existing.find(i=>(i.status==="pending_location"||(i.status==="needs_attention"&&i.reason!=="gps_recovery_window_expired"))&&i.command.expectedRevision===s.revision);if(active)throw new Error("competing_transition_pending");await intents().add(intent);return intent})}
+ async queueIntent(intent:DriverIntent){assertDriverIntentContract(intent);if(intent.status!=="pending_location")throw new Error("invalid_driver_intent");return browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){assertDriverIntentContract(old);if(!sameCommand(old.command,intent.command))throw new Error("duplicate_command_id_conflict");return old}const existing=await intents().toArray();existing.forEach(assertDriverIntentContract);if(existing.some(i=>i.command.eventId!==intent.command.eventId&&(i.command.commandId===intent.command.commandId||i.command.idempotencyKey===intent.command.idempotencyKey)))throw new Error("duplicate_command_identity_conflict");const s=await this.getSnapshot();
+ if(intent.command.eventType==="shift_end"){
+  const outstanding=(await browserDatabase.records.toArray()).some(record=>
+   record.id.startsWith("work:trip-financial-obligation:")&&
+   (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
+   (record.data as {kind?:string;status?:string}).status==="pending");
+  if(outstanding)throw new Error("trip_cancellation_fee_required");
+ }
+ if(intent.command.expectedRevision!==s.revision||intent.command.expectedPriorState!==s.state)throw new Error("stale_revision");const active=existing.find(i=>(i.status==="pending_location"||(i.status==="needs_attention"&&i.reason!=="gps_recovery_window_expired"))&&i.command.expectedRevision===s.revision);if(active)throw new Error("competing_transition_pending");await intents().add(intent);return intent})}
  async getIntent(id:string){const intent=await intents().get(id);if(intent)assertDriverIntentContract(intent);return intent}
  async reactivateIntent(id:string){return browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(!i)throw new Error("intent_missing");assertDriverIntentContract(i);if(i.status!=="needs_attention"&&i.status!=="pending_location")throw new Error("intent_not_recoverable");const s=await this.getSnapshot();if(i.command.expectedRevision!==s.revision||i.command.expectedPriorState!==s.state)throw new Error("stale_revision");const next={...i,status:"pending_location" as const,updatedAt:new Date().toISOString(),reason:undefined};assertDriverIntentContract(next);await intents().put(next);return next})}
  async listPending(){const pending=await intents().where("status").anyOf("pending_location","needs_attention").toArray();pending.forEach(assertDriverIntentContract);return pending}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
-  const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot(),plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;assertDriverStateContract(next);let command=intent.command;
+  const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot();
+   if(intent.command.eventType==="shift_end"){
+    const outstanding=(await browserDatabase.records.toArray()).some(record=>
+     record.id.startsWith("work:trip-financial-obligation:")&&
+     (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
+     (record.data as {kind?:string;status?:string}).status==="pending");
+    if(outstanding)throw new Error("trip_cancellation_fee_required");
+   }
+   const plan=validateDriverCompletion(current,intent,gps,Date.parse(now));if(!plan.ok)throw new Error(plan.error);const next=plan.value;assertDriverStateContract(next);let command=intent.command;
    if(command.workflowVersion===2&&command.eventType==="shift_start")command={...command,driverContext:resolveWorkDriverContext(await browserDatabase.records.toArray(),command.transitionAt)};
    else if(command.workflowVersion===2&&command.eventType==="trip_create"){
     if(!current.shiftId||!current.shiftContext)throw new Error("work_shift_context_missing");
     command={...command,tripContext:{schemaVersion:1,shiftId:current.shiftId,driverId:current.shiftContext.driverId,assignmentId:current.shiftContext.assignmentId,vehicleId:current.shiftContext.vehicleId,operationalDate:operationalDateAt(command.transitionAt)}};
    } else if(command.eventType==="trip_start")command={...command,driverContext:resolveDriverContextV1(await browserDatabase.records.toArray())};
+   if(command.eventType==="cancel_ride"){
+    const tripId=current.activeTripId;
+    if(!tripId)throw new Error("cancelled_trip_identity_missing");
+    const obligationId="work:trip-financial-obligation:"+tripId;
+    const existingObligation=await browserDatabase.records.get(obligationId);
+    if(existingObligation)throw new Error("trip_financial_obligation_already_exists");
+    await browserDatabase.records.put({
+     id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
+     data:{schemaVersion:1,tripId,kind:"cancellation_fee",status:"pending",cancellationEventId:id,createdAt:now},
+    });
+   }
+   if(command.eventType==="end_ride"){
+    const tripId=current.activeTripId;
+    if(!tripId)throw new Error("completed_trip_identity_missing");
+    const obligationId="work:trip-financial-obligation:"+tripId;
+    if(await browserDatabase.records.get(obligationId))throw new Error("trip_financial_obligation_already_exists");
+    await browserDatabase.records.put({id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
+     data:{schemaVersion:1,tripId,kind:"completed_ride_financials",status:"pending",endRideEventId:id,createdAt:now,tripContext:current.tripContext}});
+   }
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
      const selected=await browserDatabase.records.get("work:selected-driver");
@@ -59,5 +94,19 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  }
  async markNeedsAttention(id:string,reason:string){await browserDatabase.transaction("rw",states(),intents(),async()=>{const i=await intents().get(id);if(i){assertDriverIntentContract(i);if(i.status!=="recorded"){const next={...i,status:"needs_attention" as const,reason,updatedAt:new Date().toISOString()};assertDriverIntentContract(next);await intents().put(next)}}})}
  async listEvents(){const result=await events().orderBy("committedAt").toArray();result.forEach(assertDriverEventContract);return result}
+ async listUndeliveredEvents(){
+  const pending=(await outbox().toArray()).filter(row=>!row.delivered).sort((a,b)=>a.revision-b.revision);
+  const result:DriverEvent[]=[];
+  for(const row of pending){assertDriverOutboxContract(row);const event=await events().get(row.eventId);if(!event)throw new Error("outbox_event_missing");assertDriverEventContract(event);result.push(event)}
+  return result;
+ }
+ async markEventDelivered(eventId:string){
+  await browserDatabase.transaction("rw",outbox(),async()=>{
+   const row=await outbox().where("eventId").equals(eventId).first();
+   if(!row)throw new Error("outbox_event_missing");
+   assertDriverOutboxContract(row);
+   await outbox().put({...row,delivered:true});
+  });
+ }
  subscribe(fn:(s:DriverStateProjection)=>void){this.listeners.add(fn);return()=>this.listeners.delete(fn)}
 }

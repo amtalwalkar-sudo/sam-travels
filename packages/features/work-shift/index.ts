@@ -1,5 +1,5 @@
 /** Public Work/Shift capability contract. */
-export { getDriverSwipeAction } from "./driver-swipe-action";
+export { getDriverSwipeAction, driverSwipePresentationContract } from "./driver-swipe-action";
 export type { DriverSwipeAction } from "./driver-swipe-action";
 export {
   DriverWorkflowService,

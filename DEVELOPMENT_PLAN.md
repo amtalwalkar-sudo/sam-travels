@@ -1,8 +1,10 @@
 # Development Plan
 
+> **Plan provenance:** This document retains the staged architecture plan and its original phase decisions. Some scope guards below describe earlier documentation-only planning work and are historical, not a statement that the current PR is documentation-only. Current contract ownership is indexed in [docs/CONTRACT_INDEX.md](docs/CONTRACT_INDEX.md); current implementation and acceptance evidence must be read from the relevant audit at its named SHA.
+
 ## Permanent application architecture enhancement
 
-The approved, frozen scope is [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and evidence-based gap matrix are [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). Implementation proceeds only through the approved stages and gates; Stage 5 remains authoritative and the first real business-feature onboarding remains deferred.
+The approved, frozen scope is [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and evidence-based gap matrix are [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). Implementation proceeds only through the approved stages and gates; Stage 5 remains authoritative. Current feature onboarding and acceptance are tracked by the owning feature contracts and their conformance audits.
 
 
 Sam Travels is delivered through **seven phases**. Work proceeds in order, with reviewable gates. Phase 1 architecture and contracts are approved. Phase 2 establishes the application and persistence foundation on this same pull request.
@@ -107,7 +109,7 @@ Sam Travels is delivered through **seven phases**. Work proceeds in order, with 
 - Device-only limitations and results are recorded separately; CI green is not represented as physical-device acceptance.
 - User reviews the evidence and explicitly authorizes proceeding to the next runtime feature phase.
 
-**Scope guard:** This phase is a plan only. The present PR remains documentation-only. No application source, UI, database schema, migration, Android service, GPS behavior, or runtime workflow is changed until the user separately authorizes implementation.
+**Historical scope guard:** This statement applied to the original planning phase when it was written. It does not describe the current PR #69, which contains implementation and integration work. Current PR scope and acceptance must be read from PR #69 and the exact-SHA evidence linked by the [Contract and Documentation Index](docs/CONTRACT_INDEX.md).
 
 ## Phase 5 — Business modules (incremental, deferred)
 

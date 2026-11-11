@@ -373,18 +373,27 @@ internal object NativeBackupRecovery {
  * first opens the authoritative database. A failed recovery never opens the gate.
  */
 internal object NativeStartupRecovery {
-    @Volatile private var ready = false
+    // Capacitor plugins and the overlay each own a Room handle, but named
+    // handles can point at the same durable database file. Cache recovery by
+    // database identity, not Kotlin object identity, to avoid repeatedly
+    // replaying the same recovery scan on every cross-plugin operation.
+    // In-memory test databases have no name and remain instance-scoped.
+    @Volatile private var readyDatabaseKey: String? = null
+
+    private fun key(database: LocalDatabase): String =
+        database.openHelper.databaseName ?: "memory:" + System.identityHashCode(database)
 
     @Synchronized
     fun ensure(database: LocalDatabase): List<String> {
-        if (ready) return emptyList()
+        val databaseKey = key(database)
+        if (readyDatabaseKey == databaseKey) return emptyList()
         val recovered = NativeBackupRecovery.recoverPending(database)
-        ready = true
+        readyDatabaseKey = databaseKey
         return recovered
     }
 
     @Synchronized
     fun invalidate() {
-        ready = false
+        readyDatabaseKey = null
     }
 }

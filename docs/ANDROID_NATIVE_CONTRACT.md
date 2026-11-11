@@ -14,25 +14,11 @@ Capacitor and the native Android layer are mandatory parts of the Sam Travels fo
 - Android native components perform event-scoped location acquisition and durable journal work without blocking the UI thread.
 - Room stores native-critical pending intents and events that must survive WebView reloads and app process death.
 
-## Overlay
+## Native driver overlay
 
-- Use a native Android overlay; request `SYSTEM_ALERT_WINDOW` only when the user enables the feature.
-- Explain why the permission is needed and provide a clear disabled state when it is denied or revoked.
-- Overlay lifecycle must be independent of a particular WebView instance.
-- Overlay visibility is impossible while the display is physically off; resume/reconcile when the display wakes.
-- The overlay is a separate presentation feature and is not a prerequisite for event-based GPS acquisition.
+The single normative specification for native driver overlay duties and behaviour is [DRIVER_OVERLAY_CONTRACT.md](DRIVER_OVERLAY_CONTRACT.md). It defines permission and availability, shift-controlled visibility, supported driver actions, shared PWA/native workflow, swipe interaction parity, dragging the expanded overlay to minimize, upward-swipe minimization, draggable/dockable bubble, tap-to-restore, financial/cancellation form parity, lifecycle recovery, accessibility, and overlay-specific acceptance tests.
 
-### Shift-controlled overlay lifecycle and workflow parity
-
-- The PWA is the controller of shift start/end; the overlay has no independent shift lifecycle or start/end authority.
-- When the overlay feature is enabled and the required Android permission is granted, show it only after the shift-start transition has durably committed. Hide/close it only after the shift-end transition has durably committed.
-- A failed, rejected, or pending shift start must not show an active-shift overlay. A failed, rejected, or pending shift end must not hide it as though the shift ended.
-- Overlay visibility is a projection of the authoritative shift state. Reconcile the durable state before showing operational controls after process restart, WebView recreation, or overlay reattachment.
-- Permission denial/revocation or user disablement affects overlay availability only; it must not create a second shift state or block otherwise valid PWA driver operations.
-- The overlay must support the complete driver workflow: trip creation/Going to pickup, Start ride, End ride, Cancel ride, Fare entry (including explicit zero), optional Toll and Parking entries, independent Driver/Customer payer selection for each entered amount, and completion of pending financial entry.
-- PWA and overlay must use the same application use cases, validation, calculations, durable records, and pending/finalization states. Do not implement overlay-specific financial rules or a parallel form workflow.
-- If odometer entry is exposed in the overlay, it must use the same shift/odometer application contract and validation as the PWA.
-- The screen-off visibility limitation remains: reconcile and show the overlay after the display wakes if the shift remains active and the feature is enabled/authorized.
+This contract continues to own the cross-cutting Android guarantees used by the overlay: Room is the sole installed-app business authority; the native bridge and service must use the shared application/repository boundary; Android permissions and lifecycle restrictions must be handled honestly; native I/O remains off the main thread; and the overlay must not create a parallel state machine, writable business store, or GPS acquisition path. Where an overlay-specific presentation or lifecycle detail is needed, follow `DRIVER_OVERLAY_CONTRACT.md` rather than duplicating or redefining it here.
 
 ## Event-based location acquisition
 

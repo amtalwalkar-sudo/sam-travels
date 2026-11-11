@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getDriverSwipeAction } from "../packages/features/work-shift";
+import { driverSwipePresentationContract, getDriverSwipeAction } from "../packages/features/work-shift";
 
 describe("state-aware trip swipe action", () => {
   it("offers Going to pickup only while a shift is active", () => {
@@ -28,5 +28,37 @@ describe("state-aware trip swipe action", () => {
     expect(getDriverSwipeAction("needs_attention")).toBeUndefined();
     expect(getDriverSwipeAction("approach_active")).toBeUndefined();
     expect(getDriverSwipeAction(undefined)).toBeUndefined();
+  });
+});
+
+describe("versioned cross-surface swipe presentation contract", () => {
+  it("declares the same action mapping and gesture thresholds used by the native overlay", () => {
+    expect(driverSwipePresentationContract.contractId).toBe("sam-travels.driver-swipe-presentation");
+    expect(driverSwipePresentationContract.version).toBe(1);
+    expect(driverSwipePresentationContract.gesture.completionPercent).toBe(95);
+    expect(driverSwipePresentationContract.gesture.minimumIntentTravel.nativeDp).toBe(24);
+    expect(driverSwipePresentationContract.gesture.minimumIntentTravel.webCssPx).toBe(24);
+    expect(driverSwipePresentationContract.actions).toEqual({
+      shift_active: { label: "Going to pickup", eventType: "trip_create" },
+      going_to_pickup: { label: "Start trip", eventType: "start_ride" },
+      trip_active: { label: "End trip", eventType: "end_ride" },
+    });
+    expect(driverSwipePresentationContract.secondaryActions.going_to_pickup).toEqual({
+      label: "Cancel ride",
+      eventType: "cancel_ride",
+    });
+  });
+});
+
+
+describe("shared driver presentation contract", () => {
+  it("keeps workflow and interaction authorities separate from visual tokens", async () => {
+    const presentation = await import("../contracts/driver-presentation-v1.json");
+    expect(presentation.default.contractId).toBe("sam-travels.driver-presentation");
+    expect(presentation.default.workflowAuthority).toBe("docs/DRIVER_WORKFLOW_CONTRACT.md");
+    expect(presentation.default.interactionAuthority).toBe("contracts/driver-swipe-presentation-v1.json");
+    expect(presentation.default.principles.sharedVisualLanguage).toBe(true);
+    expect(presentation.default.principles.identicalLayoutsRequired).toBe(false);
+    expect(presentation.default.principles.overlayUsesCompactLayout).toBe(true);
   });
 });

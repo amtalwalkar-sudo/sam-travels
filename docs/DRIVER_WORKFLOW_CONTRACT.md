@@ -27,15 +27,15 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 - One logical shift may contain multiple manually created trips.
 - The driver may go Offline at any time except while a ride is active (after Start ride and before End ride).
-- A trip created in Going to pickup is a real trip. Before a driver manually ends the shift while that trip is still in pickup approach, the driver must select Cancel trip and complete/save the cancellation-fee form. Only then may the shift end. The trip must never be silently abandoned, deleted, or treated as completed.
-- After a trip is cancelled and its cancellation-fee form is saved, the driver remains Online and may create another trip or manually go Offline.
+- A trip created in Going to pickup is a real trip. Before a driver manually ends the shift while that trip is still in pickup approach, the driver must select Cancel trip and complete/save the required cancellation-fee entry. The cancellation fee is mandatory, and an explicitly entered fee of ₹0 is valid. A trip must never be silently abandoned, deleted, or treated as completed.
+- After a trip is cancelled and its mandatory cancellation-fee entry is saved, the driver remains Online and may create another trip or manually go Offline.
 - **04:00 automatic logical-shift boundary:** At 04:00 Asia/Kolkata, KFE closes the previous logical shift and starts a new logical shift while keeping the driver's Online session continuously active. Do not require an Offline/Online toggle and do not represent this as a break in the driver's Online session.
 - Trips created before 04:00 remain assigned to the previous logical shift; trips created at or after 04:00 belong to the new logical shift. A trip already in progress at 04:00 remains wholly assigned to the shift in which it was created; never split a trip across shifts.
 - The 04:00 boundary is durable, uniquely identified, idempotent, and recoverable if the app is closed, stopped, or offline at that time. Reconciliation must create exactly one boundary/new logical shift, not duplicates.
 - The new logical shift's odometer start value is prefilled from the last confirmed odometer reading. The driver may confirm or edit it; an upward edit records the difference as personal kilometres under the approved odometer rule. Keep the confirmation pending until it can be safely presented.
-- Do not interrupt an active trip with an odometer pop-up. If no trip is active at 04:00, present the confirmation then. If a trip is in pickup approach, wait until it is cancelled and its cancellation-fee form is saved. If a ride is active, wait until End ride and the Fare form are saved. Then present the odometer confirmation. The Online session remains active throughout.
+- Do not interrupt an active trip with an odometer pop-up. If no trip is active at 04:00, present the confirmation then. If a trip is in pickup approach, wait until it is cancelled and its mandatory cancellation-fee entry is saved. If a ride is active, wait until End ride and the Fare form are saved. Then present the odometer confirmation. The Online session remains active throughout.
 - A manually ended shift records its actual transition timestamp and its own event-scoped GPS evidence. Its required shift-end odometer reading must be entered before it can end.
-- A shift-end command must not be committed while an actual ride remains active or while a pickup-approach trip has not been cancelled and its cancellation-fee form saved.
+- A shift-end command must not be committed while an actual ride remains active or while a pickup-approach trip has not been cancelled and its mandatory cancellation-fee entry remains unsaved.
 
 ### Shift duration presentation
 
@@ -53,7 +53,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 - Trip creation records its own event ID, actual timestamp, and event-scoped GPS evidence. It starts the pickup-approach duration.
 - Trip creation and Start ride are distinct business events. Do not collapse them into one generic trip-start event.
 - Do not require a separate pickup-arrival confirmation or create a pickup-arrival event. The driver can proceed to Start ride or Cancel ride when ready.
-- The driver-facing state-aware bottom swipe bar is positioned immediately above the bottom navigation and presents the current action stage:
+- The driver-facing state-aware bottom swipe bar is positioned immediately above the bottom navigation and presents the current action stage. Its state-to-action labels and event mapping are defined by `contracts/driver-swipe-presentation-v1.json`; this mapping is presentation metadata, not a second workflow state machine. The domain/application workflow remains authoritative and validates each command against the latest committed state and revision. The interaction contract defines left-to-right completion, intent travel, one-action-per-gesture, cancellation/reset, pending feedback, and accessibility semantics. PWA and native overlay adapters may use different platform gesture controls but must preserve those semantics:
   1. **Going to pickup** — a trip exists and its approach interval is open.
   2. **Start trip** — the next valid actions are Start ride or Cancel ride; this is an action/presentation stage, not a separate pickup-arrival business event.
   3. **End trip** — a ride is active and End ride is the valid completion action.
@@ -134,7 +134,7 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 - **Net Trip Earnings (before fuel)** = Fare − driver-paid Toll − driver-paid Parking.
 - Customer-paid Toll/Parking are pass-through amounts. They increase the customer charge but are neither driver income nor driver expenses.
 - Fuel and other operating expenses are not subtracted in this trip-level calculation; later Performance calculations may define their own approved rules.
-- Cancellation fees are separate financial entries for cancelled trips. Do not merge them into Fare or assume the completed-ride Fare/Toll/Parking rules automatically define cancellation-fee requirements.
+- Cancellation fees are separate financial entries for cancelled trips. A cancellation-fee entry is mandatory after Cancel ride, and an explicitly entered fee of ₹0 is valid. Cancelled-trip financial entry has no Toll or Parking fields. Do not merge a cancellation fee into Fare.
 
 ### Examples
 
@@ -148,41 +148,11 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 ## 6. Shared PWA and native Android overlay workflow
 
-### One workflow, two surfaces
+The PWA and native Android overlay are two presentation surfaces over the same driver workflow, not separate applications or state machines. They use the same versioned commands, domain transition policy, validation, calculations, durable records, pending/finalization states, and authoritative repository boundary. On installed Android, Room is authoritative; browser-only PWA operation uses the corresponding IndexedDB adapter.
 
-- The PWA and native Android overlay expose the same driver workflow, not separate applications or state machines.
-- Both surfaces use the same versioned commands, domain transition policy, validation, calculations, durable records, pending/finalization states, and Room-backed application/repository boundary on installed Android.
-- The browser-only PWA uses the corresponding IndexedDB adapter under the same domain/application contracts.
-- A command from either surface is validated against the latest committed state/revision and is persisted once. Committed changes propagate to the other active surface locally and in real time.
-- The overlay must remain able to issue valid driver actions while the PWA WebView is paused, recreated, or not visible. It must not create parallel records or use cloud sync as live synchronization.
-- Both surfaces reconcile the latest durable revision on attach/resume and display the same pending, completed, rejected, or needs-attention result.
-- The UI may acknowledge a gesture immediately as received/pending. It must not claim a transition or financial entry is committed before the authoritative durable operation succeeds.
+The overlay's complete product and platform behaviour—including availability and permission, shift-controlled visibility, supported actions, swipe parity, dragging the expanded overlay to minimize, upward-swipe minimization, draggable and left/right dockable bubble, tap-to-restore, financial/cancellation form parity, lifecycle recovery, accessibility, and acceptance tests—is defined only by [DRIVER_OVERLAY_CONTRACT.md](DRIVER_OVERLAY_CONTRACT.md). That document is the single normative authority for overlay-specific behaviour. Do not restate or introduce a competing overlay interaction contract here.
 
-### Overlay visibility follows the PWA-controlled shift lifecycle
-
-- The main PWA is the controller of shift start/end. The overlay does not have an independent shift lifecycle or its own start/end shift authority.
-- When the overlay feature is enabled and its required Android permission is granted, show the native overlay only after the shift-start transition has durably committed.
-- Close/hide the overlay only after the shift-end transition has durably committed.
-- A failed, rejected, or still-pending shift start must not show an active-shift overlay. A failed, rejected, or still-pending shift end must not close the overlay as though the shift ended.
-- The overlay's visibility is a projection of the authoritative shift state. On process restart, WebView recreation, or overlay reattachment, reconcile from the durable shift projection before showing operational controls.
-- Overlay permission denial/revocation or the user disabling the overlay affects overlay availability only; it must not create a second shift state or block otherwise valid local shift/trip operations in the PWA.
-- Android cannot display the overlay while the screen is physically off. Reconcile and show it when the display wakes if the shift remains active and the feature is enabled/authorized.
-
-### Full trip and financial-entry parity
-
-The overlay must support all driver trip operations, not merely a subset of buttons:
-- Create trip / begin Going to pickup.
-- Start ride.
-- End ride.
-- Cancel ride.
-- Enter Fare, including explicit zero and the distinction between empty and zero.
-- Enter optional Toll and Parking amounts.
-- Select Driver or Customer independently as payer for each entered Toll/Parking amount.
-- Resume and complete a pending Fare/financial-entry workflow.
-
-These actions must call the same application use cases and validators as the PWA. The overlay must not implement separate financial formulas, payer rules, fare-required checks, or finalization logic. Changes made in either surface must be reflected in the other after the shared durable commit.
-
-Odometer entry and confirmation are shift-start/shift-end workflow requirements. Their UI may be hosted by the PWA or native surface, but both must call the same shift/odometer application contract if exposed on both.
+Driver business semantics remain owned by this contract: the PWA controls shift start/end; overlay actions use the same driver commands and use cases; pending financial work remains durable and recoverable; and no overlay presentation action changes business state. The overlay contract supplements these rules without changing shift, trip, odometer, or financial meaning.
 
 ## 7. Operational date
 
@@ -191,7 +161,7 @@ Odometer entry and confirmation are shift-start/shift-end workflow requirements.
 - Assign a trip's operational date and logical-shift ID when the trip is created. Both remain fixed for the lifetime of the trip, even if the trip crosses 04:00.
 - Example: a trip created at 03:50 and ended at 04:20 belongs to the previous operational day and previous logical shift. A trip created at 04:00 or later belongs to the new operational day and new logical shift.
 - At 04:00, rotate the logical shift automatically while retaining one continuous Online session. The old shift boundary and new shift identity must be committed/recovered idempotently; do not synthesize an Offline/Online cycle.
-- An active trip at the boundary remains assigned to its creation shift. Defer the new shift's odometer confirmation until the current trip workflow is safely resolved: after cancellation-fee save for a pickup-approach cancellation, or after Fare save for a completed ride. If no trip is active, show the confirmation at the boundary.
+- An active trip at the boundary remains assigned to its creation shift. Defer the new shift's odometer confirmation until the current trip workflow is safely resolved: after cancellation and save of the mandatory cancellation-fee entry, or after Fare save for a completed ride. If no trip is active, show the confirmation at the boundary.
 - Prefill the new logical shift's odometer confirmation with the last confirmed odometer reading. Allow confirmation or an upward edit; under the approved rule, record the increase as personal kilometres. Do not show the prompt while the driver is in an active ride.
 - Store UTC instants and the relevant local date/time-zone context; use the existing `Asia/Kolkata` timezone contract for boundary interpretation.
 
@@ -208,8 +178,7 @@ Odometer entry and confirmation are shift-start/shift-end workflow requirements.
 
 The following are intentionally not guessed or silently decided by this contract:
 1. Whether a pending Fare entry blocks creation of another trip or other driver actions.
-2. Cancellation-fee required/optional rules, zero-value treatment, payer, and whether cancellation records support Toll/Parking.
- 3. Whether controlled odometer corrections alter only the corrected shift or require recalculation/review of later shift distance allocations.
+2. Whether controlled odometer corrections alter only the corrected shift or require recalculation/review of later shift distance allocations.
 4. Thresholds or warnings for unusually large odometer differences.
 5. The exact user interaction for editing a financial entry after trip finalization, while preserving auditable corrections.
 
@@ -218,7 +187,7 @@ No implementation may invent these behaviours. Each requires an explicit product
 ## 10. Contract ownership and acceptance
 
 - This contract owns the driver workflow's product rules and state semantics, including automatic 04:00 logical-shift rotation and deferred odometer confirmation.
-- `ANDROID_NATIVE_CONTRACT.md` owns Android overlay/bridge execution, Room ownership, permissions, lifecycle and platform behavior; this document adds the explicit shift-controlled overlay visibility and workflow parity requirements.
+- `DRIVER_OVERLAY_CONTRACT.md` is the single authority for overlay-specific behaviour and duties. `ANDROID_NATIVE_CONTRACT.md` owns cross-cutting Android/Room/bridge/platform guarantees; this document owns driver business semantics and points to the overlay contract for presentation and lifecycle behaviour.
 - `LOCATION_AND_STATE_TIMING_CONTRACT.md` owns GPS evidence, timestamp integrity, duration derivation, and timer recovery; this document identifies the distinct driver events that require that evidence.
 - `FEATURE_MODULE_CONTRACT.md` owns feature boundaries, public entry points, calculation ownership, forms as adapters, and add-on isolation.
 - `TRANSACTION_AND_RECOVERY_CONTRACT.md`, persistence, backup, security, and lifecycle contracts remain authoritative for their existing guarantees.

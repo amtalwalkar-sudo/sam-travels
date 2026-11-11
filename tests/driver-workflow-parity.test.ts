@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import parity from "./fixtures/driver-workflow-parity-v1.json";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
@@ -80,13 +80,21 @@ describe("shared driver workflow parity and interruption contract", () => {
     await browserDatabase.close();
     await browserDatabase.open();
     repository = new DexieDriverWorkflowRepository();
-    service = new DriverWorkflowService(repository, {
-      capture: async () => gpsAt(pendingAt),
-    });
+    const captureRecoveredFix = vi.fn(async (transitionAt: string) => gpsAt(transitionAt));
+    service = new DriverWorkflowService(repository, { capture: captureRecoveredFix });
     expect(await repository.getIntent(parity.interruptedEventId)).toMatchObject({ status: "pending_location" });
-    const recovered = await service.retry(parity.interruptedEventId);
-    expect(recovered.status).toBe("recorded");
-    states.push(recovered.snapshot.state);
+
+    // Exercise the same automatic startup path used by the PWA after IndexedDB reopen.
+    await service.resumePendingBackground();
+    await vi.waitFor(async () => {
+      expect(await repository.getIntent(parity.interruptedEventId)).toMatchObject({ status: "recorded" });
+    });
+    expect(captureRecoveredFix).toHaveBeenCalledTimes(1);
+    expect(captureRecoveredFix).toHaveBeenCalledWith(pendingAt);
+    const recovered = await repository.getSnapshot();
+    expect(recovered).toMatchObject({ state: "trip_active", revision: 3 });
+    expect((await repository.listEvents()).filter(event => event.eventId === parity.interruptedEventId)).toHaveLength(1);
+    states.push(recovered.state);
 
     states.push((await sendAfterRecovery(repository, service, "end_ride", "parity-ride-end", base + 3_000)).snapshot.state);
     states.push((await sendAfterRecovery(repository, service, "shift_end", "parity-shift-end", base + 4_000)).snapshot.state);

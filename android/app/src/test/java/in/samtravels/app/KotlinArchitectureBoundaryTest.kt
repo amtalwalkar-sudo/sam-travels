@@ -61,6 +61,8 @@ class KotlinArchitectureBoundaryTest {
     private val approvedRoomGateways = setOf(
         "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
         "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+        "android/app/src/main/java/in/samtravels/app/DriverWorkflowOutbox.kt",
+        "android/app/src/main/java/in/samtravels/app/DriverCancellationFeeStore.kt",
         "android/app/src/main/java/in/samtravels/app/WorkDriverContextResolver.kt",
         "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
         "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
@@ -146,4 +148,54 @@ class KotlinArchitectureBoundaryTest {
         }
         error("Could not locate Sam Travels repository root from ${System.getProperty("user.dir")}")
     }
+    @Test
+    fun overlayLocationRequestLifecycleIsConfinedToMainThread() {
+        val root = findRepositoryRoot()
+        val source = File(root, "android/app/src/main/java/in/samtravels/app/DriverOverlayService.kt").readText()
+        assertTrue("Background callers must marshal location acquisition to main", source.contains(
+            "if(Looper.myLooper()!=Looper.getMainLooper()){"
+        ))
+        assertTrue("Posted acquisition must not run after service destruction", source.contains(
+            "main.post{if(!serviceDestroyed)acquireLocationOnMain(id,command,intent)}"
+        ))
+        assertTrue("LocationManager registration must use the main looper", source.contains(
+            "manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())"
+        ))
+        assertTrue("Location completion must remain on main", source.contains(
+            "location_finish_must_run_on_main_thread"
+        ))
+        assertTrue("Service teardown must be main-thread-owned", source.contains(
+            "service_destroy_must_run_on_main_thread"
+        ))
+        assertTrue("Database completion must remain delegated to the executor", source.contains(
+            "private fun complete(id:String,command:JSONObject,intent:JSONObject,location:Location){\n  executor.execute"
+        ))
+    }
+
+    @Test
+    fun overlayServiceDelegatesAllWindowAndViewOwnershipToPresentationAdapter() {
+        val root = findRepositoryRoot()
+        val source = File(root, "android/app/src/main/java/in/samtravels/app/DriverOverlayService.kt").readText()
+        val forbiddenPresentationOwnership = listOf(
+            "WindowManager",
+            "android.view",
+            "android.widget",
+            "setOnTouchListener",
+            "addView(",
+            "removeView(",
+            "LinearLayout(",
+            "TextView(",
+            "SeekBar(",
+        )
+        val violations = forbiddenPresentationOwnership.filter { source.contains(it) }
+        assertTrue(
+            "DriverOverlayService must delegate disposable overlay UI to DriverOverlayPresentation: $violations",
+            violations.isEmpty(),
+        )
+        assertTrue(
+            "Service must retain its presentation adapter boundary",
+            source.contains("DriverOverlayPresentation(") || source.contains("DriverOverlayPresentation"),
+        )
+    }
+
 }

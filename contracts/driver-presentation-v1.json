@@ -1,0 +1,83 @@
+{
+  "contractId": "sam-travels.driver-presentation",
+  "version": 1,
+  "workflowAuthority": "docs/DRIVER_WORKFLOW_CONTRACT.md",
+  "interactionAuthority": "contracts/driver-swipe-presentation-v1.json",
+  "principles": {
+    "sharedVisualLanguage": true,
+    "identicalLayoutsRequired": false,
+    "overlayUsesCompactLayout": true,
+    "businessRulesOwnedByWorkflowAndFormContracts": true
+  },
+  "colors": {
+    "surface": "#F6F9FA",
+    "surfaceRaised": "#FFFFFF",
+    "border": "#DBE5EA",
+    "text": "#60727D",
+    "textStrong": "#234B60",
+    "accent": "#254F65",
+    "accentSoft": "#EDF2F5",
+    "dangerSurface": "#FFF6F4",
+    "dangerBorder": "#EFD8D5",
+    "dangerText": "#A34840",
+    "hint": "#8A98A1",
+    "disabledOpacity": 0.45
+  },
+  "shape": {
+    "cardRadius": 13,
+    "fieldRadius": 10,
+    "buttonRadius": 11
+  },
+  "spacing": {
+    "webCardPadding": 11,
+    "overlayPanelPadding": 14,
+    "overlayCompactPadding": 10,
+    "fieldGap": 8,
+    "formGap": 10
+  },
+  "sizing": {
+    "fieldHeight": 48,
+    "swipeHeight": 44,
+    "overlayWidth": 270,
+    "overlayMaxHeight": 560
+  },
+  "typography": {
+    "headingSp": 14,
+    "labelSp": 11,
+    "strongLabelSp": 12,
+    "hintSp": 9,
+    "formHeadingSp": 12
+  },
+  "visualStates": {
+    "default": {
+      "surface": "#F6F9FA",
+      "border": "#DBE5EA",
+      "text": "#234B60"
+    },
+    "pending": {
+      "surface": "#EDF2F5",
+      "border": "#DBE5EA",
+      "text": "#234B60"
+    },
+    "success": {
+      "surface": "#EFF8F1",
+      "border": "#CDE6D2",
+      "text": "#28613A"
+    },
+    "error": {
+      "surface": "#FFF6F4",
+      "border": "#EFD8D5",
+      "text": "#A34840"
+    },
+    "disabled": {
+      "surface": "#F6F9FA",
+      "border": "#DBE5EA",
+      "text": "#8A98A1"
+    }
+  },
+  "motion": {
+    "transitionDurationMs": 120,
+    "completionDurationMs": 160,
+    "respectReducedMotion": true
+  }
+}

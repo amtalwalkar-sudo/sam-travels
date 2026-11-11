@@ -1,4 +1,4 @@
-# Data and Persistence Contract
+# Data Contract — Shared Data Semantics
 
 ## Record envelope
 

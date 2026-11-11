@@ -6,6 +6,7 @@ import {DexieRecordRepository} from "../packages/storage-browser/src";
 import {WorkDriverSelectionService} from "../packages/application/src/work-driver-selection-service";
 import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/work-shift";
 import {buildTripHistory} from "../packages/domain/src/trip-history";
+import {TripFinancialService} from "../packages/application/src/trip-financial-service";
 import {operationalDateAt} from "../packages/domain/src/work-driver-context";
 import type {GpsFix} from "../packages/core/src/types";
 
@@ -65,10 +66,26 @@ describe("version 2 Work trip lifecycle",()=>{
   expect((await repository.getSnapshot()).state).toBe("trip_active");
   await send("end_ride","ride-v2-1-end",3_000);
   expect((await repository.getSnapshot()).state).toBe("shift_active");
+  const completedObligation=await recordsRepository.get<{data:{kind:string;status:string;endRideEventId:string}}>("work:trip-financial-obligation:trip-v2-1");
+  expect(completedObligation?.data).toMatchObject({kind:"completed_ride_financials",status:"pending",endRideEventId:"ride-v2-1-end"});
 
   await send("trip_create","trip-v2-2",4_000);
   await send("cancel_ride","trip-v2-2-cancel",5_000);
   expect((await repository.getSnapshot()).state).toBe("shift_active");
+  const cancellationObligation=await recordsRepository.get<{schemaVersion:number;tripId:string;kind:string;status:string;cancellationEventId:string}>(
+   "work:trip-financial-obligation:trip-v2-2",
+  );
+  expect(cancellationObligation?.data).toMatchObject({
+   schemaVersion:1,tripId:"trip-v2-2",kind:"cancellation_fee",status:"pending",cancellationEventId:"trip-v2-2-cancel",
+  });
+  expect(cancellationObligation?.data).not.toHaveProperty("toll");
+  expect(cancellationObligation?.data).not.toHaveProperty("parking");
+  fixAt=new Date(base+6_000).toISOString();
+  const blockedEnd=createDriverCommandV2(await repository.getSnapshot(),"shift_end","pwa","shift-v2-end",fixAt);
+  await expect(service.dispatch(blockedEnd)).rejects.toThrow("trip_cancellation_fee_required");
+  expect(await repository.getIntent("shift-v2-end")).toBeUndefined();
+  const financial=new TripFinancialService(recordsRepository,"web");
+  await financial.submitCancellationFee("trip-v2-2",0,"cancellation-fee-op");
   await send("shift_end","shift-v2-end",6_000);
   expect((await repository.getSnapshot()).state).toBe("idle");
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBeUndefined();

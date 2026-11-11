@@ -5,11 +5,11 @@ import type { DriverStateProjection, DriverTransitionCommand } from "../../../..
 import { getPlatformRecordSource } from "../native-store";
 import {
   createDriverWorkflow,
-  disableNativeOverlay,
-  enableNativeOverlay,
 } from "../driver-workflow";
 import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
+import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
+import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
@@ -27,18 +27,18 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [workflow, setWorkflow] = useState<DriverWorkflowService | null>(null);
   const [pending, setPending] = useState<{ command: DriverTransitionCommand; status: string; reason?: string }[]>([]);
   const [driverBusy, setDriverBusy] = useState(false);
-  const [overlayMessage, setOverlayMessage] = useState("");
   const [driverMessage, setDriverMessage] = useState("Restoring driver state…");
   const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const [selectionService, setSelectionService] = useState<WorkDriverSelectionService | null>(null);
-
+  const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
   const gateway = useMemo(() => repo ? new NetworkGateway(repo) : null, [repo]);
+
 
   useEffect(() => {
     let live = true;
@@ -74,7 +74,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const selection = new WorkDriverSelectionService(platformRecords, repository);
         const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();
-        setDriverChoices(allRecords.filter(row => row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
+        setDriverChoices(allRecords.filter(row => typeof row.id === "string" && row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
           .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
           .filter(row => typeof row.driverId === "string" && typeof row.name === "string" && row.lifecycleState === "active")
           .map(row => ({driverId:row.driverId!,name:row.name!})));
@@ -119,6 +119,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const unsubscribeState = service.subscribe((snapshot) => {
           if (live) {
             setDriver(snapshot);
+            // Native Room invalidation can represent financial/form record changes even when
+            // the driver workflow revision is unchanged. Refresh record-backed workspaces too.
+            setWorkspaceRefreshKey(current => current + 1);
             refreshWorkflowStatus();
           }
         });
@@ -154,24 +157,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       unsubscribe?.();
     };
   }, []);
-
-  async function enableOverlay() {
-    try {
-      await enableNativeOverlay();
-      setOverlayMessage("Native driver overlay enabled");
-    } catch (cause) {
-      setOverlayMessage(cause instanceof Error ? cause.message : "Overlay permission required");
-    }
-  }
-
-  async function disableOverlay() {
-    try {
-      await disableNativeOverlay();
-      setOverlayMessage("Native driver overlay disabled");
-    } catch (cause) {
-      setOverlayMessage(cause instanceof Error ? cause.message : "Unable to disable overlay");
-    }
-  }
 
   async function retry(eventId: string) {
     if (!workflow || driverBusy) return;
@@ -273,7 +258,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   }).format(now);
   const shiftOn = driver?.state !== undefined && driver.state !== "idle" && driver.state !== "needs_attention";
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
-  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired");
+  const cancellationFees = useCancellationFeeWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
+  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
+  // A pending Fare does not block other actions: that product rule remains explicitly unresolved.
+  const pendingBlocksWorkflow = pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
+    cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;
 
   const enrichmentQueue = useMemo(
     () => repo && gateway ? new TimelineEnrichmentQueue(repo, gateway, new GeoapifyProxyReverseGeocoder()) : undefined,
@@ -352,9 +341,15 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
 
 
   return {
-    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, overlayMessage, driverMessage,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy, driverMessage,
+    ...cancellationFees,
+    ...completedTripFinancials,
     shiftOn, tripOn, localClock, elapsed,
-    actions: { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver },
+    actions: { retry, toggleNetwork, dispatch, selectDriver,
+      updateCancellationFeeDraft: cancellationFees.updateCancellationFeeDraft,
+      submitCancellationFee: cancellationFees.submitCancellationFee,
+      updateCompletedTripFinancialDraft: completedTripFinancials.updateCompletedTripFinancialDraft,
+      submitCompletedTripFinancials: completedTripFinancials.submitCompletedTripFinancials },
     driverChoices, selectedDriverId, loadTimeline,
   };
 }

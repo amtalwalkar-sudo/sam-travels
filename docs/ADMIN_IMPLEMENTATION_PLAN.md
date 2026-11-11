@@ -24,7 +24,9 @@ Loan is one Admin section but its domain, lifecycle, calculations, and persisten
 
 ## Current implementation status and evidence boundary
 
-The current web source contains an AdminWorkspace composition with entry points for Business setup, Vehicle, Driver, Compliance, Loan, and Maintenance. This confirms that an Admin workspace and section-level UI implementations exist; it does not, by itself, prove that every section is complete end to end.
+The current web source contains an AdminWorkspace composition with entry points for Business setup, Vehicle, Driver, Compliance, Loan, and Maintenance. The shared form migration and the Work/Trip overlay form evidence are recorded in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md). This confirms implementation slices and automated coverage; it does not, by itself, prove that every section and every backup/restore/recovery path is complete end to end.
+
+Use the [Contract and Documentation Index](CONTRACT_INDEX.md) to resolve the product and technical authorities for each capability. This plan remains the delivery/completion checklist; the baseline audit is historical and must not be used as current implementation status.
 
 Completion remains governed by the definition above: each section must use its owning capability, persist and reload through the authoritative platform store, participate in complete backup/restore and recovery, and pass the relevant workflow and failure-path tests. A rendered screen or form is not evidence of durable workflow completion.
 

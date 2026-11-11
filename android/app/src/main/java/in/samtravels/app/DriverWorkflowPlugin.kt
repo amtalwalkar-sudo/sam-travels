@@ -77,7 +77,7 @@ class DriverWorkflowPlugin:Plugin(){
   }
  }
  @PluginMethod fun disableOverlay(call:PluginCall){try{context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE).edit().putBoolean("overlay_enabled",false).putBoolean("boot_resume_deferred",false).commit();context.stopService(Intent(context,DriverOverlayService::class.java));call.resolve()}catch(e:Exception){call.reject("Unable to stop native driver overlay",e)}}
- @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val out=JSObject();out.put("snapshot",state());call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
+ @PluginMethod fun getSnapshot(call:PluginCall){executor.execute{try{val snapshot=state();if(snapshot.optString("state")=="shift_active"&&context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE).getBoolean("overlay_activation_pending",false)){reconcileOverlayForCommittedState("shift_start",snapshot)};val out=JSObject();out.put("snapshot",snapshot);call.resolve(out)}catch(e:Exception){call.reject("Driver state read failed",e)}}}
  @PluginMethod fun queueIntent(call:PluginCall){
   val command=call.getObject("command");if(command==null){call.reject("Command required");return}
   executor.execute{try{ensureStartupRecovery();val intent=DriverWorkflowStore.queue(db,command);val out=JSObject();out.put("intent",intent);call.resolve(out)}
@@ -141,10 +141,43 @@ class DriverWorkflowPlugin:Plugin(){
   }catch(e:SecurityException){call.reject("Location permission unavailable","PERMISSION_DENIED",e)}
    catch(e:Exception){call.reject("Unable to acquire event location","LOCATION_UNAVAILABLE",e)}
  }
+ private fun reconcileOverlayForCommittedState(eventType:String, committed:JSONObject){
+  val preferences=context.getSharedPreferences("sam_travels_driver_overlay",Context.MODE_PRIVATE)
+  when(eventType){
+   "shift_start" -> {
+    if(!Settings.canDrawOverlays(context)){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","permission","overlay_permission_required")
+     return
+    }
+    if(!hasLocationPermission()){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","permission","location_permission_required")
+     return
+    }
+    try{
+     val service=Intent(context,DriverOverlayService::class.java)
+     if(android.os.Build.VERSION.SDK_INT>=26)context.startForegroundService(service)else context.startService(service)
+     preferences.edit().putBoolean("overlay_enabled",true).putBoolean("overlay_activation_pending",false).putBoolean("boot_resume_deferred",false).commit()
+    }catch(e:Exception){
+     preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",true).commit()
+     LocalDiagnostics.record(context,"overlay","auto_activate","service","overlay_start_failed")
+    }
+   }
+   "shift_end" -> {
+    preferences.edit().putBoolean("overlay_enabled",false).putBoolean("overlay_activation_pending",false).putBoolean("boot_resume_deferred",false).commit()
+    context.stopService(Intent(context,DriverOverlayService::class.java))
+   }
+  }
+ }
  @PluginMethod fun completeIntent(call:PluginCall){
   val eventId=call.getString("eventId");val gps=call.getObject("gps")
   if(eventId.isNullOrBlank()||gps==null){call.reject("Event id and GPS evidence required");return}
-  executor.execute{try{ensureStartupRecovery();val committed=DriverWorkflowStore.complete(db,eventId,gps)
+  executor.execute{try{
+   ensureStartupRecovery()
+   val committed=DriverWorkflowStore.complete(db,eventId,gps)
+   val eventType=DriverWorkflowStore.eventTypeForIntent(db,eventId)
+   reconcileOverlayForCommittedState(eventType,committed)
    val out=JSObject();out.put("snapshot",committed);call.resolve(out)
    val eventData=JSObject();eventData.put("snapshot",committed);notifyListeners("driverStateChanged",eventData)
   }catch(e:Exception){LocalDiagnostics.record(context,"workflow","complete_intent","workflow","operation_failed");call.reject("Driver transition was not committed: "+(e.message?:"unknown failure"),"TRANSITION_FAILED",e)}}
@@ -155,6 +188,12 @@ class DriverWorkflowPlugin:Plugin(){
    catch(e:Exception){LocalDiagnostics.record(context,"recovery","retry_intent","recovery","retry_failed");call.reject("Unable to resume pending intent: "+(e.message?:"unknown failure"),"INTENT_RECOVERY_FAILED",e)}}
  }
  @PluginMethod fun listEvents(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowStore.listEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Driver event history read failed",e)}}}
+ @PluginMethod fun listUndeliveredEvents(call:PluginCall){executor.execute{try{ensureStartupRecovery();val arr=JSONArray();DriverWorkflowOutbox.listUndeliveredEvents(db).forEach{arr.put(it)};val out=JSObject();out.put("events",arr);call.resolve(out)}catch(e:Exception){call.reject("Pending integration event read failed",e)}}}
+ @PluginMethod fun markEventDelivered(call:PluginCall){
+  val id=call.getString("eventId");if(id.isNullOrBlank()){call.reject("Event id required");return}
+  executor.execute{try{ensureStartupRecovery();DriverWorkflowOutbox.markEventDelivered(db,id);call.resolve()}
+   catch(e:Exception){call.reject("Unable to acknowledge integration event",e)}}
+ }
  @PluginMethod fun markNeedsAttention(call:PluginCall){
   val id=call.getString("eventId");val reason=call.getString("reason")?:"location_unavailable"
   if(id.isNullOrBlank()){call.reject("Event id required");return}

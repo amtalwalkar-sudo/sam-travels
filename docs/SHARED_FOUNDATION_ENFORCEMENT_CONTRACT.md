@@ -3,7 +3,7 @@
 Status: approved architectural requirement; runtime enforcement and acceptance are tracked in the dedicated foundation implementation phase.
 Scope: every current and future Sam Travels workflow, including driver shifts/trips, odometer, financial entries, future business modules, PWA, and Android native overlay.
 
-This document is a normative extension of [ARCHITECTURE_FOUNDATION_CONTRACT.md](ARCHITECTURE_FOUNDATION_CONTRACT.md). It makes the existing persistence, transaction, GPS, lifecycle, offline, recovery, compatibility, backup, diagnostics, and architecture rules mandatory shared services rather than optional per-feature choices. It does not replace the detailed owning contracts.
+This document is the shared-feature inheritance and onboarding checklist derived from [ARCHITECTURE_FOUNDATION_CONTRACT.md](ARCHITECTURE_FOUNDATION_CONTRACT.md). It requires every feature to consume the shared guarantees; it is not a competing detailed specification. For exact persistence, transaction, GPS, lifecycle, offline, recovery, compatibility, backup, diagnostics and architecture rules, the named owner contracts in [Contract and Documentation Index](CONTRACT_INDEX.md) prevail. If wording differs, update this checklist to reference the owner rather than maintaining a second rule.
 
 ## 1. Mandatory inheritance
 

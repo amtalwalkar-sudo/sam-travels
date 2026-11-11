@@ -18,6 +18,8 @@ type NativeApi = {
   queueIntent(options: { command: DriverIntent["command"] }): Promise<{ intent: DriverIntent }>;
   listPending(): Promise<{ intents: DriverIntent[] }>;
   listEvents(): Promise<{ events: DriverEvent[] }>;
+  listUndeliveredEvents(): Promise<{ events: DriverEvent[] }>;
+  markEventDelivered(options: { eventId: string }): Promise<void>;
   retryIntent(options: { eventId: string }): Promise<{ intent: DriverIntent }>;
   captureLocation(options: { transitionAt: string }): Promise<GpsFix>;
   completeIntent(options: { eventId: string; gps: GpsFix }): Promise<{ snapshot: DriverStateProjection }>;
@@ -78,6 +80,14 @@ export class NativeDriverWorkflowRepository implements DriverWorkflowRepository 
 
   async listEvents(): Promise<DriverEvent[]> {
     return (await NativeDriver.listEvents()).events;
+  }
+
+  async listUndeliveredEvents(): Promise<DriverEvent[]> {
+    return (await NativeDriver.listUndeliveredEvents()).events;
+  }
+
+  markEventDelivered(eventId: string): Promise<void> {
+    return NativeDriver.markEventDelivered({ eventId });
   }
 
   subscribe(listener: (snapshot: DriverStateProjection) => void) {

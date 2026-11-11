@@ -22,31 +22,15 @@ class BackupPlugin : Plugin() {
     private val checkpointPrefix = NativeBackupRecovery.CHECKPOINT_PREFIX
     private val journalPrefix = NativeBackupRecovery.JOURNAL_PREFIX
     private fun isInternal(id: String) = NativeBackupRecovery.isInternalRecord(id)
- private fun ensureStartupRecovery() { NativeStartupRecovery.ensure(db) }
+ private fun ensureStartupRecovery(): List<String> = NativeStartupRecovery.ensure(db)
 
 
-    private fun businessRecords(): JSONArray =
-        NativeBackupCoverage.exportBusinessRecords(db, ::isInternal)
-
-    private fun snapshotRevision(records: JSONArray): Int {
-        for (index in 0 until records.length()) {
-            val row = records.optJSONObject(index) ?: continue
-            if (row.optString("id") == "driver-state") {
-                val storedJson = runCatching { JSONObject(row.optString("json")) }.getOrNull()
-                return storedJson?.optJSONObject("value")?.optInt("revision", 0) ?: 0
-            }
-        }
-        return 0
-    }
-
-    private fun makeSnapshot(): JSONObject {
-        val records = businessRecords()
-        return JSONObject()
-            .put("records", records)
-            .put("snapshotRevision", snapshotRevision(records))
-            .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)
-            .put("participants", NativeBackupCoverage.participantManifest())
-    }
+    private fun makeSnapshot(): NativeSnapshotBundle =
+        NativeSnapshotBuilder.build(
+            db,
+            ::isInternal,
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown",
+        )
 
     private fun saveInternal(id: String, value: JSONObject, now: String) {
         db.records().put(StoredRecord(id, value.toString(), 1, now))
@@ -71,20 +55,12 @@ class BackupPlugin : Plugin() {
         executor.execute {
             try {
                 ensureStartupRecovery()
-                var snapshot: JSONObject? = null
+                var snapshot: NativeSnapshotBundle? = null
                 db.runInTransaction { snapshot = makeSnapshot() }
-                val value = snapshot ?: error("snapshot_unavailable")
-                val manifest = JSONObject()
-                    .put("applicationVersion", context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown")
-                    .put("schemaVersion", 1)
-                    .put("createdAt", Instant.now().toString())
-                    .put("businessTimezone", "Asia/Kolkata")
-                    .put("snapshotRevision", value.optInt("snapshotRevision"))
-                    .put("recordCounts", JSONObject().put("records", value.getJSONArray("records").length()))
-                    .put("participants", NativeBackupCoverage.participantManifest())
+                val bundle = snapshot ?: error("snapshot_unavailable")
                 val out = JSObject()
-                out.put("snapshot", value)
-                out.put("manifest", manifest)
+                out.put("snapshot", bundle.snapshot)
+                out.put("manifest", bundle.manifest)
                 call.resolve(out)
             } catch (error: Exception) {
                 LocalDiagnostics.record(context, "backup", "export_snapshot", "backup", "export_failed")
@@ -146,7 +122,7 @@ class BackupPlugin : Plugin() {
                 val id = UUID.randomUUID().toString()
                 db.runInTransaction {
                     val checkpoint = makeSnapshot()
-                    saveInternal(checkpointPrefix + id, checkpoint, now)
+                    saveInternal(checkpointPrefix + id, checkpoint.snapshot, now)
                     saveInternal(
                         journalPrefix + id,
                         JSONObject().put("id", id).put("createdAt", now).put("status", "checkpoint"),
@@ -164,7 +140,7 @@ class BackupPlugin : Plugin() {
                         )
                     }
 
-                    val restored = businessRecords()
+                    val restored = makeSnapshot().snapshot.getJSONArray("records")
                     require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
                     val restoredById = (0 until restored.length()).associate {
                         val record = restored.getJSONObject(it)
@@ -209,7 +185,8 @@ class BackupPlugin : Plugin() {
                 call.resolve(out)
             } catch (error: Exception) {
                 LocalDiagnostics.record(context, "recovery", "recover_pending_checkpoints", "backup", "recovery_failed")
-                call.reject("Pending restore recovery failed; retained checkpoints remain available", error)
+                val reason = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+                call.reject("Pending restore recovery failed; retained checkpoints remain available ($reason)", error)
             }
         }
     }

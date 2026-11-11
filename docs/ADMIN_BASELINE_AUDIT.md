@@ -1,6 +1,6 @@
 # Admin Baseline Audit
 
-**Status:** Slice 0 audit recorded; runtime implementation has not started.
+**Historical status:** Slice 0 pre-implementation baseline. The statement that runtime implementation had not started describes only the audited base below; it is not current project status. Current Admin implementation evidence is tracked in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) and [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md).
 **Audited base:** `main` at `c9c3c096f96a5cf54ab995b252e831be4a168a24` (after Finance contract PR #28 and Admin plan PR #29).
 **Purpose:** Record the actual capability owners and platform integration points before adding Admin persistence or UI.
 

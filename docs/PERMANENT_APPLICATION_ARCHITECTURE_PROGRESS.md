@@ -1,5 +1,7 @@
 # Permanent Application Architecture — Implementation Progress
 
+> **Historical progress register:** The stage rows and linked PR/run references below record the staged architecture work at their original baselines. They are not a live status report for PR #69. Current contract ownership is in [Contract and Documentation Index](CONTRACT_INDEX.md); current PR acceptance must be read from the exact head SHA and its CI evidence.
+
 **Frozen scope:** [PERMANENT_APPLICATION_ARCHITECTURE.md](PERMANENT_APPLICATION_ARCHITECTURE.md)  
 **Baseline audit:** [PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md)
 

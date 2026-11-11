@@ -17,6 +17,8 @@ export interface DriverWorkflowRepository {
   completeIntent(eventId: string, gps: GpsFix, now?: string): Promise<DriverStateProjection>;
   markNeedsAttention(eventId: string, reason: string): Promise<void>;
   listEvents(): Promise<DriverEvent[]>;
+  listUndeliveredEvents(): Promise<DriverEvent[]>;
+  markEventDelivered(eventId: string): Promise<void>;
   subscribe(listener: (snapshot: DriverStateProjection) => void): () => void;
 }
 
@@ -155,37 +157,34 @@ export class DriverWorkflowService {
     this.backgroundTasks.set(eventId, task);
   }
 
-  /** Replay committed events on startup so a process death cannot lose integration delivery. */
+  /** Replay only durable, unacknowledged outbox events after startup or interruption. */
   async replayCommittedEvents(): Promise<{ delivered: number; pending: number }> {
-    if (!this.publishEvent) return { delivered: 0, pending: 0 };
-    const events = await this.repository.listEvents();
+    if (!this.publishEvent) {
+      return { delivered: 0, pending: (await this.repository.listUndeliveredEvents()).length };
+    }
+    const events = await this.repository.listUndeliveredEvents();
     let delivered = 0;
     for (const event of events) {
       if (this.deliveredIntegrationEventIds.has(event.eventId)) continue;
       if (await this.publishCommittedEvent(event)) delivered += 1;
     }
-    return { delivered, pending: this.pendingIntegrationEventIds.size };
+    const pending = await this.repository.listUndeliveredEvents();
+    return { delivered, pending: pending.length };
   }
 
-  /** Retry only failed deliveries; successful event consumers need not be replayed on every poll. */
+  /** Retry only events whose durable outbox acknowledgement is still false. */
   async retryPendingIntegrations(): Promise<{ delivered: number; pending: number }> {
-    if (!this.publishEvent || this.pendingIntegrationEventIds.size === 0) {
-      return { delivered: 0, pending: this.pendingIntegrationEventIds.size };
-    }
-    const pendingIds = [...this.pendingIntegrationEventIds];
-    const events = await this.repository.listEvents();
-    let delivered = 0;
-    for (const eventId of pendingIds) {
-      const event = events.find((candidate) => candidate.eventId === eventId);
-      if (event && await this.publishCommittedEvent(event)) delivered += 1;
-    }
-    return { delivered, pending: this.pendingIntegrationEventIds.size };
+    return this.replayCommittedEvents();
   }
 
   private async publishCommittedEvent(event: DriverEvent): Promise<boolean> {
     if (!this.publishEvent || this.deliveredIntegrationEventIds.has(event.eventId)) return true;
     try {
       await this.publishEvent(event);
+      // A crash between consumer success and this acknowledgement can replay the
+      // event; consumers therefore remain idempotent by eventId. The durable
+      // acknowledgement prevents routine process restarts from replaying it.
+      await this.repository.markEventDelivered(event.eventId);
       this.pendingIntegrationEventIds.delete(event.eventId);
       this.deliveredIntegrationEventIds.add(event.eventId);
       return true;
@@ -203,6 +202,12 @@ export class DriverWorkflowService {
     if (!event) {
       this.pendingIntegrationEventIds.add(eventId);
       return false;
+    }
+    const undelivered = await this.repository.listUndeliveredEvents();
+    if (!undelivered.some((candidate) => candidate.eventId === eventId)) {
+      this.deliveredIntegrationEventIds.add(eventId);
+      this.pendingIntegrationEventIds.delete(eventId);
+      return true;
     }
     return this.publishCommittedEvent(event);
   }

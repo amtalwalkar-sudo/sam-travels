@@ -46,6 +46,7 @@ class DriverWorkflowStoreTest {
         .put("provider", "android-test")
 
 
+
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
         DriverWorkflowStore.queue(db, command("event-1"))
         val next = DriverWorkflowStore.complete(db, "event-1", gps())
@@ -389,4 +390,5 @@ class DriverWorkflowStoreTest {
         val failure = runCatching { DriverWorkflowStore.listEvents(db) }.exceptionOrNull()
         assertTrue(failure is IllegalArgumentException)
     }
+
 }

@@ -1,4 +1,5 @@
 import type { getApplicationBusinessSettingsService } from "./business-settings-runtime";
+import type { SharedFormRuntime } from "./shared-form-runtime";
 import type { getApplicationVehicleService } from "./vehicle-runtime";
 import type { getApplicationDriverRecordsService } from "./driver-records-runtime";
 import type { getApplicationDriverAssignmentService } from "./driver-assignment-runtime";
@@ -15,6 +16,7 @@ import type { getApplicationRecordSource } from "./platform-context";
  * to the Admin presentation. UI components never locate global services.
  */
 export type AdminPresentationServices = Readonly<{
+  formRuntime: SharedFormRuntime;
   businessSettings: ReturnType<typeof getApplicationBusinessSettingsService>;
   vehicles: ReturnType<typeof getApplicationVehicleService>;
   driverRecords: ReturnType<typeof getApplicationDriverRecordsService>;

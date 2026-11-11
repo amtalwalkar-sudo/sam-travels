@@ -93,6 +93,7 @@ class RoomStorePlugin : Plugin() {
     private val db by lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+            .enableMultiInstanceInvalidation()
             .build()
     }
 

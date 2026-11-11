@@ -2,8 +2,8 @@ import { useState, type ComponentType } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { AtomicRecordRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
+import { driverPresentationCssVars } from "./driver-presentation";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
-import { nativeOverlayAvailable } from "../driver-workflow";
 import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
@@ -39,9 +39,12 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
-    overlayMessage, driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
+    driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
+    pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
+    pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
   } = workspace;
-  const { enableOverlay, disableOverlay, retry, toggleNetwork, dispatch, selectDriver } = workspace.actions;
+  const { retry, toggleNetwork, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee,
+    updateCompletedTripFinancialDraft, submitCompletedTripFinancials } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
@@ -71,7 +74,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
               </div>
             </section>
 
-            <section className="driver-card">
+            <section className="driver-card" style={driverPresentationCssVars}>
               <div className="driver-head">
                 <div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver ? "Restoring state" : driver.state.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2></div>
                 <span className={driver ? "pill good" : "pill"}>{driver ? "REV " + driver.revision : "LOADING"}</span>
@@ -101,6 +104,80 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                 </>}
                 {driver?.state === "trip_active" && swipeAction && <SwipeActionBar label={swipeAction.label} disabled={driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
               </div>
+              {pendingCancellationFees.length > 0 && <div className="pending-list driver-form-list" aria-live="polite">
+                <strong>Cancellation fee required</strong>
+                <p>Save the fee for each cancelled trip before starting another Work action or ending the shift. Enter ₹0 when no fee applies.</p>
+                {pendingCancellationFees.map(obligation => {
+                  const tripId = obligation.data.tripId;
+                  return <div className="pending-row" key={obligation.id}>
+                    <label>
+                      Cancellation fee (₹)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={cancellationFeeDrafts[tripId] ?? ""}
+                        onChange={event => void updateCancellationFeeDraft(tripId, event.target.value)}
+                        disabled={cancellationFeeBusy}
+                        aria-label="Cancellation fee in rupees"
+                      />
+                    </label>
+                    <button
+                      className="primary-action"
+                      disabled={cancellationFeeBusy || (cancellationFeeDrafts[tripId] ?? "") === ""}
+                      onClick={() => void submitCancellationFee(tripId)}
+                    >Save cancellation fee</button>
+                  </div>;
+                })}
+              </div>}
+              {pendingCompletedTripFinancials.length > 0 && <div className="pending-list" aria-live="polite">
+                <strong>Fare and trip financials required</strong>
+                <p>Enter Fare to complete this ride's financial entry. ₹0 is valid. Toll and Parking are optional; choose a payer separately for each amount entered.</p>
+                {pendingCompletedTripFinancials.map(obligation => {
+                  const tripId=obligation.data.tripId;
+                  const draft=completedTripFinancialDrafts[tripId]??{fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""};
+                  const summary=completedTripFinancialSummaries[tripId];
+                  return <div className="pending-row" key={obligation.id}>
+                    <label>Fare (₹)
+                      <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.fare}
+                        onChange={event=>void updateCompletedTripFinancialDraft(tripId,"fare",event.target.value)}
+                        disabled={completedTripFinancialBusy} aria-label="Fare in rupees" />
+                    </label>
+                    <details>
+                      <summary>Add Toll (optional)</summary>
+                      <label>Toll (₹)
+                        <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.toll}
+                          onChange={event=>void updateCompletedTripFinancialDraft(tripId,"toll",event.target.value)}
+                          disabled={completedTripFinancialBusy} aria-label="Toll in rupees" />
+                      </label>
+                      <label>Toll paid by
+                        <select value={draft.tollPayer} onChange={event=>void updateCompletedTripFinancialDraft(tripId,"tollPayer",event.target.value)}
+                          disabled={completedTripFinancialBusy}>
+                          <option value="">Select payer</option><option value="driver">Driver</option><option value="customer">Customer</option>
+                        </select>
+                      </label>
+                    </details>
+                    <details>
+                      <summary>Add Parking (optional)</summary>
+                      <label>Parking (₹)
+                        <input type="number" min="0" step="0.01" inputMode="decimal" value={draft.parking}
+                          onChange={event=>void updateCompletedTripFinancialDraft(tripId,"parking",event.target.value)}
+                          disabled={completedTripFinancialBusy} aria-label="Parking in rupees" />
+                      </label>
+                      <label>Parking paid by
+                        <select value={draft.parkingPayer} onChange={event=>void updateCompletedTripFinancialDraft(tripId,"parkingPayer",event.target.value)}
+                          disabled={completedTripFinancialBusy}>
+                          <option value="">Select payer</option><option value="driver">Driver</option><option value="customer">Customer</option>
+                        </select>
+                      </label>
+                    </details>
+                    {summary && <small>Customer charge ₹{(summary.customerChargePaise/100).toFixed(2)} · Driver expenses ₹{(summary.driverExpensesPaise/100).toFixed(2)} · Net trip earnings before fuel ₹{(summary.netTripEarningsBeforeFuelPaise/100).toFixed(2)}</small>}
+                    <button className="primary-action" disabled={completedTripFinancialBusy||draft.fare===""}
+                      onClick={()=>void submitCompletedTripFinancials(tripId)}>Submit trip financials</button>
+                  </div>;
+                })}
+              </div>}
               {pending.length > 0 && <div className="pending-list">
                 <strong>Pending recovery</strong>
                 {pending.map((item) => <div className="pending-row" key={item.command.eventId}>
@@ -111,11 +188,6 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                       ? <small>GPS check running in the background</small>
                       : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
                 </div>)}
-              </div>}
-              {nativeOverlayAvailable() && <div className="overlay-control">
-                <button className="secondary-action" onClick={enableOverlay}>Enable floating controls</button>
-                <button className="secondary-action" onClick={disableOverlay}>Disable overlay</button>
-                <span>{overlayMessage || "Optional · requires display-over-other-apps permission"}</span>
               </div>}
               <small className="driver-note">Each action is saved locally first. GPS is sampled asynchronously until reliable evidence arrives; the state changes only after the event is committed.</small>
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>

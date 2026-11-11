@@ -44,7 +44,7 @@ internal object BackgroundBackupScheduler {
 class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) : Worker(context, parameters) {
     private val db by lazy {
         Room.databaseBuilder(applicationContext, LocalDatabase::class.java, "sam-travels.db")
-            .addMigrations(LocalDatabase.MIGRATION_1_2)
+            .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation()
             .build()
     }
@@ -169,37 +169,16 @@ class DailyDropboxBackupWorker(context: Context, parameters: WorkerParameters) :
     }
 
     private fun makeSnapshot(): Pair<JSONObject, JSONObject> {
-        NativeBackupCoverage.assertRoomSchemaCovered(db)
-        var result: Pair<JSONObject, JSONObject>? = null
+        var result: NativeSnapshotBundle? = null
         db.runInTransaction {
-            val records = org.json.JSONArray()
-            db.records().list().filterNot {
-                it.id.startsWith("__sam_travels_recovery_checkpoint__:") ||
-                    it.id.startsWith("__sam_travels_recovery_journal__:")
-            }.forEach { row ->
-                records.put(JSONObject().put("id", row.id).put("json", row.json)
-                    .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt))
-            }
-            var revision = 0
-            for (i in 0 until records.length()) {
-                val row = records.getJSONObject(i)
-                if (row.optString("id") == "driver-state") {
-                    revision = runCatching {
-                        JSONObject(row.optString("json")).optJSONObject("value")?.optInt("revision", 0) ?: 0
-                    }.getOrDefault(0)
-                }
-            }
-            val snapshot = JSONObject().put("records", records).put("snapshotRevision", revision).put("schemaVersion", 1)
-            val manifest = JSONObject()
-                .put("applicationVersion", applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionName ?: "unknown")
-                .put("schemaVersion", 1)
-                .put("createdAt", Instant.now().toString())
-                .put("businessTimezone", "Asia/Kolkata")
-                .put("snapshotRevision", revision)
-                .put("recordCounts", JSONObject().put("records", records.length()))
-            result = snapshot to manifest
+            result = NativeSnapshotBuilder.build(
+                db,
+                NativeBackupRecovery::isInternalRecord,
+                applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0).versionName ?: "unknown",
+            )
         }
-        return result ?: error("backup_snapshot_unavailable")
+        val bundle = result ?: error("backup_snapshot_unavailable")
+        return bundle.snapshot to bundle.manifest
     }
 
     private fun accessToken(clientId: String, forceRefresh: Boolean = false): String? {

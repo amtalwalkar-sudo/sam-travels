@@ -1,51 +1,36 @@
 package `in`.samtravels.app
 
-import android.app.Service
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
+import android.app.*
+import android.content.*
 import android.content.pm.ServiceInfo
-import android.content.Context
-import android.content.Intent
 import android.graphics.PixelFormat
-import android.location.Criteria
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Build
-import android.os.Handler
-import android.os.IBinder
-import android.os.Looper
-import android.os.PowerManager
+import android.location.*
+import android.os.*
 import android.provider.Settings
-import android.view.Gravity
-import android.view.MotionEvent
-import android.view.WindowManager
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.SeekBar
-import android.widget.TextView
 import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.Executors
-import kotlin.math.abs
-
 class DriverOverlayService:Service(){
  private val executor=Executors.newSingleThreadExecutor()
+ private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
+ private val presentation by lazy {
+  DriverOverlayPresentation(
+   this,db,executor,main,swipePresentation,{elapsedInterval()},
+   {message->refresh(message)},
+   {runSwipeTransition()},
+   {event->runTransition(event)},
+   {runRecovery()},
+   {stopSelf()},
+  )
+ }
  private val main=Handler(Looper.getMainLooper())
- private lateinit var window:WindowManager
- private var panel:LinearLayout?=null
- private var status:TextView?=null
- private val actionButtons=mutableMapOf<String,Button>()
- private var recoveryButton:Button?=null
- private var swipeLabel:TextView?=null
- private var swipeBar:SeekBar?=null
- private var cancelButton:Button?=null
- @Volatile private var activeLocationEventId:String?=null
+ @Volatile private var intervalStartedAt:String?=null
+ private var activeLocationEventId:String?=null
+ // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
+ private var serviceDestroyed=false
  private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  @Volatile private var startupRecoveryReady=false
@@ -73,7 +58,7 @@ class DriverOverlayService:Service(){
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
-  try{enterForeground()}catch(_:Exception){stopSelf();return START_NOT_STICKY}
+  try{enterForeground()}catch(error:Exception){android.util.Log.e("DriverOverlayService","Foreground startup failed",error);stopSelf();return START_NOT_STICKY}
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
@@ -83,12 +68,14 @@ class DriverOverlayService:Service(){
      databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
      db.invalidationTracker.addObserver(databaseObserver!!)
     }
-    main.post{showPanel();recoverPendingAfterServiceStart()}
+    val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
+    main.post{if(active){presentation.showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
    }catch(error:Exception){
+    android.util.Log.e("DriverOverlayService","Repository startup failed",error)
     startupRecoveryReady=false
     startupRecoveryFailed=true
     LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
-    main.post{showPanel();refresh("Recovery required · actions disabled")}
+    main.post{presentation.showPanel();refresh("Recovery required · actions disabled")}
    }
   }
   return START_STICKY
@@ -120,58 +107,6 @@ class DriverOverlayService:Service(){
    }
   }
  }
- private fun showPanel(){
-  if(panel!=null)return
-  window=getSystemService(WINDOW_SERVICE) as WindowManager
-  val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,14,18,14);setBackgroundColor(android.graphics.Color.WHITE)}
-  status=TextView(this).apply{text="Sam Travels · Driver";textSize=14f;setTextColor(android.graphics.Color.rgb(24,54,74))}
-  root.addView(status)
-  val shiftStart=Button(this).apply{text="Start shift";setOnClickListener{runTransition("shift_start")}}
-  val shiftEnd=Button(this).apply{text="End shift";setOnClickListener{runTransition("shift_end")}}
-  actionButtons["shift_start"]=shiftStart
-  actionButtons["shift_end"]=shiftEnd
-  root.addView(shiftStart)
-  val label=TextView(this).apply{text="Swipe to Going to pickup";textSize=12f;setTextColor(android.graphics.Color.rgb(36,73,94));setPadding(2,10,2,4)}
-  swipeLabel=label
-  root.addView(label)
-  val slider=SeekBar(this).apply{
-   max=100
-   progress=0
-   setOnSeekBarChangeListener(object:SeekBar.OnSeekBarChangeListener{
-    override fun onProgressChanged(bar:SeekBar?,progress:Int,fromUser:Boolean){}
-    override fun onStartTrackingTouch(bar:SeekBar?){}
-    override fun onStopTrackingTouch(bar:SeekBar?){bar?.progress=0}
-   })
-  }
-  var swipeStartX:Float?=null
-  var swipeMoved=false
-  slider.setOnTouchListener{_,event->
-   when(event.actionMasked){
-    MotionEvent.ACTION_DOWN->{swipeStartX=event.rawX;swipeMoved=false}
-    MotionEvent.ACTION_MOVE->{val start=swipeStartX;if(start!=null&&event.rawX-start>=dp(24))swipeMoved=true}
-    MotionEvent.ACTION_UP->{
-     val confirmed=swipeMoved&&slider.progress>=95
-     swipeStartX=null;swipeMoved=false
-     if(confirmed)runSwipeTransition()
-     slider.progress=0
-    }
-    MotionEvent.ACTION_CANCEL->{swipeStartX=null;swipeMoved=false;slider.progress=0}
-   }
-   false
-  }
-  swipeBar=slider
-  root.addView(slider,LinearLayout.LayoutParams(dp(230),dp(48)))
-  val cancel=Button(this).apply{text="Cancel trip";setOnClickListener{runTransition("cancel_ride")}}
-  cancelButton=cancel
-  root.addView(cancel)
-  root.addView(shiftEnd)
-  recoveryButton=Button(this).apply{text="Retry pending action";setOnClickListener{runRecovery()};isEnabled=false}
-  root.addView(recoveryButton)
-  panel=root
-  val type=if(Build.VERSION.SDK_INT>=26)WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE
-  val params=WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,WindowManager.LayoutParams.WRAP_CONTENT,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,PixelFormat.TRANSLUCENT).apply{gravity=Gravity.END or Gravity.CENTER_VERTICAL;x=12;y=0}
-  try{window.addView(root,params);refresh()}catch(_:Exception){panel=null;stopSelf()}
- }
  private fun refresh(message:String?=null){executor.execute{try{
   NativeStartupRecovery.ensure(db)
   startupRecoveryReady=true
@@ -180,37 +115,41 @@ class DriverOverlayService:Service(){
   val intents=DriverWorkflowStore.listIntents(db)
   val pending=DriverWorkflowStore.firstRecoverableIntent(db)!=null
   val expiredPending=intents.any{it.optString("reason")=="gps_recovery_window_expired"}
+  val feeData=DriverCancellationFeeStore.pendingObligation(db)?.optJSONObject("data")
+  val feeTripId=feeData?.optString("tripId")?.takeIf{!it.isNullOrBlank()}
+  val feeDraft=feeTripId?.let{DriverCancellationFeeStore.ensureCancellationFeeDraft(db,it)}
+  val feePaise=feeDraft?.optJSONObject("values")?.let{values->
+   if(values.has("cancellationFeePaise"))values.optLong("cancellationFeePaise",-1L).takeIf{it>=0L} else null
+  }
+  val completedFinancialForms=DriverTripFinancialStore.pendingObligations(db).mapNotNull{obligation->
+   val tripId=obligation.optJSONObject("data")?.optString("tripId")?.takeIf{it.isNotBlank()}?:return@mapNotNull null
+   JSONObject().put("obligation",obligation).put("draft",DriverTripFinancialStore.ensureDraft(db,tripId))
+  }
+  val financialPending=feeTripId!=null
   val state=s.optString("state")
+  intervalStartedAt=if(state=="idle")null else runCatching{
+   DriverWorkflowStore.listEvents(db).firstOrNull{it.optString("eventId")==s.optString("lastEventId")}
+    ?.optJSONObject("command")?.optString("transitionAt")?.takeIf{it.isNotBlank()}
+  }.getOrNull()
   main.post{
-   val baseStatus="Sam Travels · "+state.replace("_"," ")+" · r"+s.optInt("revision")
-   status?.text=message?:(if(pending)"Action awaiting GPS · "+state.replace("_"," ") else if(expiredPending)baseStatus+" · previous GPS action expired" else baseStatus)
-   val swipeText=when(DriverTransitionPolicy.swipeEvent(state)){
-    "trip_create"->"Swipe to Going to pickup"
-    "start_ride"->"Swipe to Start trip"
-    "end_ride"->"Swipe to End trip"
-    else->null
-   }
-   val canSwipe=!pending&&activeLocationEventId==null&&swipeText!=null&&(state!="shift_active"||s.has("shiftContext"))
-   swipeLabel?.text=swipeText?: "Trip action unavailable"
-   swipeLabel?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
-   swipeBar?.visibility=if(swipeText==null)View.GONE else View.VISIBLE
-   swipeBar?.progress=0
-   swipeBar?.isEnabled=canSwipe
-   cancelButton?.visibility=if(state=="going_to_pickup")View.VISIBLE else View.GONE
-   cancelButton?.isEnabled=!pending&&activeLocationEventId==null&&state=="going_to_pickup"
-   actionButtons["shift_start"]?.visibility=if(state=="idle")View.VISIBLE else View.GONE
-   actionButtons["shift_start"]?.isEnabled=!pending&&state=="idle"
-   actionButtons["shift_end"]?.visibility=if(state=="shift_active")View.VISIBLE else View.GONE
-   actionButtons["shift_end"]?.isEnabled=!pending&&state=="shift_active"
+   if(state=="idle"){main.post{presentation.removePanel();stopSelf()};return@post}
+   // Location-request state is owned by the main thread. Read it only here,
+   // alongside presentation updates, rather than from the database executor.
+   val canSwipe=!pending&&!financialPending&&activeLocationEventId==null&&
+    swipePresentation.action(state)!=null&&(state!="shift_active"||s.has("shiftContext"))
+   presentation.updateTimer(elapsedInterval())
+   presentation.render(
+    state,s.optInt("revision"),pending,expiredPending,financialPending,canSwipe,
+    feeTripId,feePaise,financialPending&&feePaise!=null&&!pending&&activeLocationEventId==null,
+    completedFinancialForms,message,
+   )
   }
  }catch(_:Exception){
   startupRecoveryReady=false
   startupRecoveryFailed=true
   LocalDiagnostics.record(applicationContext,"recovery","repository_startup","recovery","startup_blocked")
   main.post{
-   status?.text="Recovery required · actions disabled"
-   recoveryButton?.isEnabled=false
-   actionButtons.values.forEach{it.isEnabled=false}
+   presentation.setRecoveryBlocked()
   }
  }}}
  private fun runRecovery(){
@@ -229,22 +168,20 @@ class DriverOverlayService:Service(){
    val resumed=DriverWorkflowStore.reactivate(db,id);acquireLocation(id,command,resumed)
   }catch(e:Exception){main.post{refresh("Recovery unavailable · "+(e.message?:"retry later"))}}}
  }
- private fun dp(value:Int):Int=(value*resources.displayMetrics.density).toInt()
  private fun runSwipeTransition(){
   if(!startupRecoveryReady)return
   executor.execute{
    try{
     NativeStartupRecovery.ensure(db)
     val state=DriverWorkflowStore.snapshot(db).optString("state")
-    val event=DriverTransitionPolicy.swipeEvent(state)
+    val event=swipePresentation.action(state)?.eventType
     if(event!=null)main.post{runTransition(event)}else main.post{refresh("No trip action is available in this state")}
    }catch(error:Exception){main.post{refresh("Unable to read current trip state · "+(error.message?:"retry"))}}
   }
  }
  private fun runTransition(event:String){
   if(!startupRecoveryReady){refresh("Recovery required · actions disabled");return}
-  status?.text="Saving action · GPS pending"
-  main.post{actionButtons.values.forEach{it.isEnabled=false};swipeBar?.isEnabled=false;cancelButton?.isEnabled=false}
+  presentation.setSavingStatus()
   executor.execute{try{
    NativeStartupRecovery.ensure(db)
    startupRecoveryReady=true
@@ -256,7 +193,21 @@ class DriverOverlayService:Service(){
    val intent=DriverWorkflowStore.queue(db,command);acquireLocation(id,command,intent)
   }catch(e:Exception){main.post{refresh("Action not queued · "+(e.message?:"storage error"))}}}
  }
+ /**
+  * All location-request state and LocationManager lifecycle operations are main-thread
+  * confined. Callers may be on the database executor; marshal them before touching
+  * activeLocationEventId, listener/timeout references, or the wake lock.
+  */
  private fun acquireLocation(id:String,command:JSONObject,intent:JSONObject){
+  if(Looper.myLooper()!=Looper.getMainLooper()){
+   main.post{if(!serviceDestroyed)acquireLocationOnMain(id,command,intent)}
+   return
+  }
+  if(serviceDestroyed)return
+  acquireLocationOnMain(id,command,intent)
+ }
+ private fun acquireLocationOnMain(id:String,command:JSONObject,intent:JSONObject){
+  check(Looper.myLooper()==Looper.getMainLooper()){ "location_request_must_run_on_main_thread" }
   try{
    if(activeLocationEventId!=null){if(activeLocationEventId==id)return;markAttention(id,intent,"another_location_request_active");return}
    if(checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED&&checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)!=android.content.pm.PackageManager.PERMISSION_GRANTED){markAttention(id,intent,"permission_denied");return}
@@ -273,6 +224,7 @@ class DriverOverlayService:Service(){
    lateinit var listener:LocationListener
    lateinit var timeout:Runnable
    fun finish(location:Location?=null,reason:String="location_timeout"){
+    check(Looper.myLooper()==Looper.getMainLooper()){ "location_finish_must_run_on_main_thread" }
     if(finished)return
     finished=true
     main.removeCallbacks(timeout)
@@ -295,6 +247,11 @@ class DriverOverlayService:Service(){
    manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
+ }
+ private fun elapsedInterval():String{
+  val start=intervalStartedAt?.let{runCatching{java.time.Instant.parse(it).toEpochMilli()}.getOrNull()}?:return "00:00:00"
+  val seconds=((System.currentTimeMillis()-start)/1000).coerceAtLeast(0)
+  return "%02d:%02d:%02d".format(seconds/3600,(seconds%3600)/60,seconds%60)
  }
  private fun releaseGpsWakeLock(){val lock=gpsWakeLock;gpsWakeLock=null;if(lock?.isHeld==true)try{lock.release()}catch(_:Exception){}}
  private fun markAttention(id:String,intent:JSONObject,reason:String){
@@ -325,5 +282,16 @@ class DriverOverlayService:Service(){
    }catch(e:Exception){markAttention(id,intent,e.message?:"commit_failed")}
   }
  }
- override fun onDestroy(){activeLocationTimeout?.let{main.removeCallbacks(it)};releaseGpsWakeLock();activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}};activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null;panel?.let{try{window.removeView(it)}catch(_:Exception){}};panel=null;executor.shutdown();if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true);super.onDestroy()}
+ override fun onDestroy(){
+  check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
+  serviceDestroyed=true
+  activeLocationTimeout?.let{main.removeCallbacks(it)}
+  activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}}
+  activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
+  releaseGpsWakeLock()
+  databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null
+  presentation.removePanel();executor.shutdown()
+  if(Build.VERSION.SDK_INT>=24)stopForeground(STOP_FOREGROUND_REMOVE)else stopForeground(true)
+  super.onDestroy()
+ }
 }

@@ -65,6 +65,13 @@ object DriverWorkflowStore {
         return state
     }
 
+    /** Read a committed command's type through the Work persistence boundary. */
+    fun eventTypeForIntent(db: LocalDatabase, eventId: String): String =
+        db.records().get("driver-intent:$eventId")
+            ?.let { JSONObject(it.json).optJSONObject("command")?.optString("eventType") }
+            .orEmpty()
+
+
     private fun save(db: LocalDatabase, key: String, value: JSONObject, now: String) {
         db.records().put(StoredRecord(key, value.toString(), 1, now))
     }
@@ -123,6 +130,7 @@ object DriverWorkflowStore {
             require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
+            if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
@@ -193,6 +201,7 @@ object DriverWorkflowStore {
             
             require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"), nowInstant)) { "gps_recovery_window_expired" }
             val current = snapshot(db)
+            if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
@@ -255,7 +264,16 @@ object DriverWorkflowStore {
                 "trip_end", "ride_cancel" -> next.remove("tripStartedAt")
                 "trip_create" -> next.put("activeTripId",eventId).put("tripContext",command.getJSONObject("tripContext"))
                 "start_ride" -> next.put("tripStartedAt",command.getString("transitionAt"))
-                "end_ride", "cancel_ride" -> {next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")}
+                "end_ride" -> {
+                    val tripId=current.optString("activeTripId")
+                    require(tripId.isNotBlank()) { "completed_trip_identity_missing" }
+                    DriverTripFinancialStore.createPendingObligation(db,tripId,eventId,now,current.optJSONObject("tripContext"))
+                    next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
+                }
+                "cancel_ride" -> {
+                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now)
+                    next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
+                }
             }
 
             DriverWorkflowContract.validateState(next)

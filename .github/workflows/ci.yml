@@ -126,14 +126,8 @@ jobs:
         with:
           gradle-version: 8.11.1
       - run: gradle -p android assembleDebug assembleDebugAndroidTest testDebugUnitTest assembleRelease
-      - name: Publish installable debug APK for PR device verification
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: sam-travels-driver-location-pr-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
+      - name: Run focused Android GPS lifecycle threading contract test
+        run: gradle -p android :app:testDebugUnitTest --tests 'in.samtravels.app.KotlinArchitectureBoundaryTest.overlayLocationRequestLifecycleIsConfinedToMainThread'
       - name: Publish generated Room schema history
         uses: actions/upload-artifact@v4
         with:
@@ -148,8 +142,13 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Install Android Emulator host dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes libpulse0
+          set -euo pipefail
+          if dpkg-query -W -f='${Status}' libpulse0 2>/dev/null | grep -q 'install ok installed'; then
+            echo "libpulse0 is already installed"
+            exit 0
+          fi
+          sudo timeout 300 apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          sudo timeout 180 apt-get install --yes --no-install-recommends libpulse0
       - name: Install and verify Android Emulator SDK package
         run: |
           set -euo pipefail

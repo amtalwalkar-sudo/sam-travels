@@ -1,5 +1,9 @@
 # Architecture
 
+## Documentation authority
+
+This file is the architecture overview, not a second copy of every detailed contract. The [Contract and Documentation Index](docs/CONTRACT_INDEX.md) identifies the owner for each architecture, data, persistence, workflow, form, platform, recovery and presentation rule. Resolve conflicts in the named owner contract; supporting documents link to it.
+
 ## Permanent application architecture scope
 
 The approved, frozen scope and staged implementation/acceptance criteria for the permanent feature and independently customisable UI/UX architecture are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE.md](docs/PERMANENT_APPLICATION_ARCHITECTURE.md). The Stage 0 repository audit and gap-based implementation baseline are recorded in [docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md](docs/PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md). These documents supplement the detailed contracts below; they do not replace Stage 5 or any owning contract.
@@ -70,7 +74,7 @@ The approved cross-cutting rules for ownership, compatibility, recovery, six wor
 
 ## Driver workflow and business rules
 
-The approved single-driver shift, trip, odometer, Fare/Toll/Parking, operational-date, and PWA/native overlay workflow is defined in [docs/DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md). It is the product-rule authority for that workflow and supplements the shared architecture foundation, feature, Android, transaction/recovery, and GPS/time contracts. Those existing contracts retain authority for their respective technical guarantees.
+The approved single-driver shift, trip, odometer, Fare/Toll/Parking, and operational-date business workflow is defined in [docs/DRIVER_WORKFLOW_CONTRACT.md](docs/DRIVER_WORKFLOW_CONTRACT.md). All native driver overlay-specific behaviour and duties are consolidated in the single [docs/DRIVER_OVERLAY_CONTRACT.md](docs/DRIVER_OVERLAY_CONTRACT.md), including permission/visibility, workflow parity, swipe actions, drag-to-minimize, upward-swipe minimization, draggable/dockable bubble, tap-to-restore, form recovery, and acceptance. Android, transaction/recovery, feature, and GPS/time contracts retain authority for their cross-cutting technical guarantees and defer overlay-specific behaviour to that single contract.
 
 ## UI/UX and application shell foundation
 

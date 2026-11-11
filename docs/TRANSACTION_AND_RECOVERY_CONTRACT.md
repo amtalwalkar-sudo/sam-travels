@@ -2,7 +2,7 @@
 
 ## Purpose and guarantees
 
-This contract defines how Sam Travels accepts, persists, completes, publishes, and recovers a local business action when GPS, storage, the WebView, the native overlay, the Android process, or the device is interrupted.
+This contract defines how Sam Travels accepts, persists, completes, publishes, and recovers a local business action when GPS, storage, the WebView, the native overlay, the Android process, or the device is interrupted. Overlay-specific visibility, gestures, minimize/bubble/restore behaviour, and presentation recovery are specified in [DRIVER_OVERLAY_CONTRACT.md](DRIVER_OVERLAY_CONTRACT.md); this document remains authoritative for the shared durable-intent, atomic-completion, idempotency, outbox, and crash-recovery guarantees.
 
 The guarantee is **durable, ordered, idempotent recovery**, not magical exactly-once execution. Delivery and replay may occur more than once; stable identities and transactional deduplication ensure that one accepted business effect is applied at most once. No layer may claim an action is recorded before its authoritative local commit succeeds.
 
