@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import "fake-indexeddb/auto";
-import { DexieRecordRepository, browserDatabase } from "../packages/storage-browser/src/index";
+import { DexieRecordRepository } from "../packages/storage-browser/src/index";
+import { browserDatabase } from "../packages/storage-browser/src/database";
 import type { AtomicRecordBatchRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
