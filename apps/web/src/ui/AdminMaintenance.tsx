@@ -3,7 +3,10 @@ import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItem
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminServices, useAdminIdentityRecords } from "./admin-services-context";
+import { HistoricalCorrectionService, type HistoricalCorrectionTargetResolver } from "../../../../packages/application/src/historical-correction-service";
+import type { RecordEnvelope } from "../../../../packages/core/src/types";
+import { getPersonIdentityService } from "../person-identity-runtime";
 import "./AdminWorkspace.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
@@ -22,6 +25,22 @@ type ActiveForm = RecordMode | "rate" | null;
 
 export function MaintenanceSection() {
   const services = useAdminServices();
+  const identityRecords = useAdminIdentityRecords();
+  const correctionService = new HistoricalCorrectionService(identityRecords, getPersonIdentityService(), {
+    resolve: async (record: RecordEnvelope<unknown>) => {
+      const data = record.data as Record<string, unknown>;
+      if (!record.id.startsWith("feature:maintenance:expense:") || data.kind !== "expense" || data.schemaVersion !== 1 ||
+          typeof data.amountPaise !== "number" || !Number.isSafeInteger(data.amountPaise) || data.amountPaise < 0) {
+        throw new Error("maintenance_expense_correction_target_invalid");
+      }
+      return { featureId: "maintenance", allowedFieldPaths: ["amountPaise"], validateProjectedData: value => {
+        const projected = value as Record<string, unknown>;
+        if (projected.kind !== "expense" || !Number.isSafeInteger(projected.amountPaise) || (projected.amountPaise as number) < 0) {
+          throw new Error("maintenance_expense_correction_value_invalid");
+        }
+      } };
+    },
+  }, services.recordSource);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
   const [records, setRecords] = useState<Maintenance | null>(null);
@@ -45,6 +64,10 @@ export function MaintenanceSection() {
   const [rate, setRate] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [correctingExpenseId, setCorrectingExpenseId] = useState<string | null>(null);
+  const [correctionAmount, setCorrectionAmount] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionHistory, setCorrectionHistory] = useState<Record<string, Array<{correctionId:string;beforeValue:unknown;afterValue:unknown;reason:string;actor:{actorId:string;role:string};recordedAt:string}>>>({});
 
   const definitionFor = (form: ActiveForm) => form === "visit" ? MAINTENANCE_VISIT_FORM_V1
     : form === "expense" ? MAINTENANCE_EXPENSE_FORM_V1
@@ -377,6 +400,34 @@ export function MaintenanceSection() {
         {records?.expenses.map(expense => <article className="admin-capability-record" key={expense.id}><div>
           <strong>{expense.data.expenseName} · {money(expense.data.amountPaise)}</strong>
           <small>{expense.data.expenseDate} · {expense.data.description}</small>
+          <button className="admin-secondary" type="button" disabled={busy} onClick={async () => {
+            setCorrectingExpenseId(expense.id); setCorrectionAmount((expense.data.amountPaise / 100).toFixed(2)); setCorrectionReason("");
+            const history = await correctionService.listForTarget(expense.id);
+            setCorrectionHistory(current => ({...current,[expense.id]:history}));
+          }}>Correct amount / view history</button>
+          {(correctionHistory[expense.id] ?? []).map(item => <small key={item.correctionId}>Correction {item.recordedAt} · {money(Number(item.beforeValue))} → {money(Number(item.afterValue))} · {item.actor.role} · {item.reason}</small>)}
+          {correctingExpenseId === expense.id && <form className="admin-capability-form" onSubmit={async event => {
+            event.preventDefault(); setBusy(true); setMessage("");
+            try {
+              const history = await correctionService.listForTarget(expense.id);
+              const amountPaise = Math.round(Number(correctionAmount) * 100);
+              if (!Number.isSafeInteger(amountPaise) || amountPaise < 0 || !Number.isFinite(Number(correctionAmount))) throw new Error("Enter a valid amount.");
+              const result = await correctionService.submit({
+                correctionId: crypto.randomUUID().replaceAll("-", ""), targetRecordId: expense.id,
+                expectedTargetRevision: expense.revision, expectedChainRevision: history.length,
+                fieldPath: "amountPaise", afterValue: amountPaise, reason: correctionReason,
+                businessEffectiveDate: expense.data.expenseDate,
+              });
+              setCorrectionHistory(current => ({...current,[expense.id]:[...history,result.correction]}));
+              setCorrectingExpenseId(null); setMessage("Correction appended. Original expense record was not changed.");
+              await loadVehicleRecords(vehicleId);
+            } catch (error) { setMessage(error instanceof Error ? error.message : "Correction failed."); }
+            finally { setBusy(false); }
+          }}>
+            <label>Corrected amount (₹)<input required type="number" min="0" step="0.01" value={correctionAmount} onChange={event=>setCorrectionAmount(event.target.value)} /></label>
+            <label>Reason for correction<input required maxLength={1000} value={correctionReason} onChange={event=>setCorrectionReason(event.target.value)} /></label>
+            <div className="loan-form-actions"><button className="admin-primary" disabled={busy}>Append correction</button><button className="admin-secondary" type="button" disabled={busy} onClick={()=>setCorrectingExpenseId(null)}>Cancel</button></div>
+          </form>}
         </div></article>)}
       </details>
     </>}
