@@ -146,6 +146,21 @@ The inspected composition root uses one React application and one shared set of 
 
 **Rating: Verified at architecture/composition level; Partial for end-to-end parity.** The same Admin forms and application service contracts are composed for PWA and Capacitor WebView, while the native overlay has specific Work/Trip forms. This substantially reduces business-rule drift, but the underlying storage adapters and native overlay paths remain different implementations and require equivalent acceptance tests per event type. A successful PWA test alone does not prove Android Room behaviour.
 
+
+
+### Cross-platform coverage matrix — initial inventory
+
+| Capability | Browser-only PWA | Capacitor WebView | Native Android overlay | Evidence inspected / remaining gap |
+|---|---|---|---|---|
+| Shared Admin forms and feature services | Shared React/JavaScript application and Dexie | Same React/JavaScript application and services, RoomRecordRepository bridge | Not the Admin presentation surface | Composition path verified. Full end-to-end Room-backed submission tests for every Admin feature remain to be mapped. |
+| Shift/trip workflow | Browser workflow adapter + IndexedDB | Same shared application layer with Room-backed native storage | Native Kotlin workflow store + Room | Browser and Android tests use the shared parity fixture and cover selected interruption/reopen paths. Complete lifecycle and physical-device matrix remains. |
+| Fare/toll/parking closeout | Shared form/service over Dexie | Shared form/service over Room | Native trip financial store over same Room database | Browser service tests, Android Room store tests, paired WebView/overlay visibility and selected backup tests exist. A single canonical PWA-vs-Android output comparison for all financial scenarios is not yet demonstrated. |
+| Driver/vehicle/assignment | Shared feature services over Dexie | Shared feature services over Room | Admin form not in native overlay; data visible through Room | Service and backup validators exist on both storage implementations. Full platform submission parity remains. |
+| Maintenance | Shared feature service/form over Dexie | Shared feature service/form over Room | Admin form not in native overlay | Service tests and browser/native backup validation exist. Full Android WebView form-submission/recovery acceptance remains. |
+| Loans/payments/prepayments/settlements | Shared Finance services/forms over Dexie | Same JavaScript Finance services/forms over Room | Admin form not in native overlay | Service-level tests plus browser/native backup validators exist. Full Android Room-backed form submission and correction/recovery acceptance remains. |
+
+The architecture reuses the same JavaScript business services for PWA and Capacitor WebView, which reduces duplicate business logic. It does not eliminate the need to test the Dexie and Room adapters separately. The native overlay is an additional Work/Trip client with its own Kotlin presentation/store paths; tests that prove two Room clients see the same record do not by themselves prove browser-to-Android equivalence.
+
 ## 4.13 Persistence, backup and recovery coverage
 
 The browser repository performs compare-and-set batches inside a Dexie read/write transaction. The Android RoomStore plugin performs revision-checked writes and batches inside Room transactions. Android Room uses multi-instance invalidation for WebView/overlay clients. The inspected driver and completed-trip financial tests cover persistent Room reopen, paired WebView/overlay visibility, stale competing drafts, and native backup/restore. PWA tests cover IndexedDB reopen/recovery, and browser backup participants validate driver/assignment, vehicle, maintenance and finance relationships. Android backup participants and tests cover driver, vehicle, maintenance, loan/payment and prepayment records. These are useful safeguards against silent loss and malformed restores.
@@ -225,5 +240,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.4 | 2026-11-11 | Identify that Work/Trip stores Fare but no separate customer-collection record in the inspected schema; distinguish generic Maintenance expense capture from a dedicated Fuel ledger. |
 | 0.5 | 2026-11-11 | Extend Trips/driver activity review: immutable driver/vehicle snapshots, event GPS, manual state machine, anomaly-preserving history, and limits on per-trip distance inference. |
 | 0.6 | 2026-11-11 | Identify that generic feature updates increment revisions but replace the prior payload; contrast this with immutable Work events and append-only Finance payment/reversal history. |
+| 0.7 | 2026-11-11 | Add the initial PWA, Capacitor WebView, and native overlay coverage matrix; distinguish shared business services from storage-adapter and cross-client acceptance evidence. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
