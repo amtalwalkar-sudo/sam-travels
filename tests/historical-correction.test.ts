@@ -9,6 +9,9 @@ import {
   type HistoricalCorrectionV1,
 } from "../packages/domain/src/historical-correction";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
+import { assertBusinessPersonV1, assertPersonCanAct, type BusinessPersonV1 } from "../packages/domain/src/person-identity";
+
+const ADMIN_VERIFIED_AT = NOW;
 
 type Sample = { createdBy: string; amountPaise: number; note: string };
 
@@ -57,7 +60,7 @@ function makeService(records: MemoryRecords, actor: CorrectionActorV1) {
 describe("historical correction policy", () => {
   it("allows driver self-correction and admin correction of another actor's entry", () => {
     expect(() => assertCorrectionAuthority({ role: "driver", actorId: "driver-1" }, "driver-1")).not.toThrow();
-    expect(() => assertCorrectionAuthority({ role: "admin", actorId: "admin-1" }, "driver-1")).not.toThrow();
+    expect(() => assertCorrectionAuthority({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT }, "driver-1")).not.toThrow();
   });
 
   it("rejects a driver correcting another driver's entry", () => {
@@ -133,7 +136,7 @@ describe("HistoricalCorrectionService", () => {
       expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise",
       afterValue: 11000, reason: "attempt",
     })).rejects.toThrow("historical_correction_forbidden");
-    const result = await makeService(records, { role: "admin", actorId: "admin-1" }).submit({
+    const result = await makeService(records, { role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT }).submit({
       correctionId: "admin-fix", targetRecordId: "feature:sample:record-1",
       expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise",
       afterValue: 11000, reason: "Admin correction",
@@ -156,7 +159,7 @@ describe("HistoricalCorrectionService", () => {
       afterValue: 11000, reason: "not attributed",
     })).rejects.toThrow("historical_correction_target_author_unattributed");
     const adminWithoutOriginalAuthor = new HistoricalCorrectionService(
-      records, { currentActor: async () => ({ role: "admin", actorId: "admin-1" }) },
+      records, { currentActor: async () => ({ role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT }) },
       { resolve: async () => ({ featureId: "sample", allowedFieldPaths: ["amountPaise"],
         validateProjectedData: () => undefined }) },
       "web", () => NOW,
@@ -167,7 +170,7 @@ describe("HistoricalCorrectionService", () => {
       afterValue: 10500, reason: "Admin corrected legacy entry",
     });
     expect(legacyAdminCorrection.currentData).toMatchObject({ amountPaise: 10500 });
-    const service = makeService(records, { role: "admin", actorId: "admin-1" });
+    const service = makeService(records, { role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT });
     await expect(service.submit({
       correctionId: "stale", targetRecordId: "feature:sample:record-1",
       expectedTargetRevision: 2, expectedChainRevision: 0, fieldPath: "amountPaise",
@@ -178,7 +181,7 @@ describe("HistoricalCorrectionService", () => {
   it("rejects stale chains, disallowed fields and correction-id payload reuse", async () => {
     const records = new MemoryRecords();
     await records.put(original());
-    const service = makeService(records, { role: "admin", actorId: "admin-1" });
+    const service = makeService(records, { role: "admin", actorId: "admin-1", adminPinVerifiedAt: ADMIN_VERIFIED_AT });
     const input = {
       correctionId: "reuse-id", targetRecordId: "feature:sample:record-1",
       expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise",
