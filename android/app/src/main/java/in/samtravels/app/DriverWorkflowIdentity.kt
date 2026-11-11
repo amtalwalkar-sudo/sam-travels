@@ -5,6 +5,9 @@ import org.json.JSONObject
 /** Resolves the trusted Driver actor from persisted profile-to-person identity records. */
 internal object DriverWorkflowIdentity {
     fun resolveDriverAuthor(db: LocalDatabase, command: JSONObject, current: JSONObject): JSONObject {
+        // The person who started an active shift remains its author even if an Admin
+        // deactivates or edits the Driver profile while the shift is in progress.
+        current.optJSONObject("shiftAuthor")?.let { return JSONObject(it.toString()) }
         val context = command.optJSONObject("driverContext") ?: command.optJSONObject("tripContext")
             ?: current.optJSONObject("shiftContext") ?: current.optJSONObject("tripContext")
         val driverId = context?.optString("driverId")?.takeIf { it.isNotBlank() }

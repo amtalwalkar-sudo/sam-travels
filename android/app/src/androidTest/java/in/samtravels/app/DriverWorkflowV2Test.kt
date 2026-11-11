@@ -75,6 +75,7 @@ class DriverWorkflowV2Test {
         val started=run("shift-v2","shift_start","idle",0)
         assertEquals("shift-v2",started.getString("shiftId"))
         assertEquals("driver-v2",started.getJSONObject("shiftContext").getString("driverId"))
+        assertEquals("person-v2",started.getJSONObject("shiftAuthor").getString("personId"))
         val selectedAfterStart=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertEquals("shift-v2",selectedAfterStart.getString("lockedShiftId"))
 
@@ -88,6 +89,8 @@ class DriverWorkflowV2Test {
 
         val pickup=run("trip-v2","trip_create","shift_active",1)
         assertEquals("going_to_pickup",pickup.getString("state"))
+        assertEquals("person-v2",DriverWorkflowStore.listEvents(db).first { it.optString("eventId") == "trip-v2" }
+            .getJSONObject("createdBy").getString("personId"))
         assertEquals("shift-v2",pickup.getJSONObject("tripContext").getString("shiftId"))
         assertEquals("assignment-v2",pickup.getJSONObject("tripContext").getString("assignmentId"))
         assertTrue(pickup.getJSONObject("tripContext").getString("operationalDate").matches(Regex("\\d{4}-\\d{2}-\\d{2}")))
@@ -105,6 +108,7 @@ class DriverWorkflowV2Test {
         DriverCancellationFeeStore.submitCancellationFee(db,"trip-v2-cancel",0L)
         val shiftEnded=run("shift-end-v2","shift_end","shift_active",6)
         assertEquals("idle",shiftEnded.getString("state"))
+        assertFalse(shiftEnded.has("shiftAuthor"))
         val selectedAfterEnd=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertFalse(selectedAfterEnd.has("lockedShiftId"))
         val events=DriverWorkflowStore.listEvents(db)

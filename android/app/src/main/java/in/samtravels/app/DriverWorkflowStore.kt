@@ -224,6 +224,7 @@ object DriverWorkflowStore {
             } else if(eventType=="trip_start") command.put("driverContext",resolveDriverContext(db))
             intent.put("command",command)
             DriverWorkflowContract.validateCommand(command)
+            val author = DriverWorkflowIdentity.resolveDriverAuthor(db, command, current)
             val nextState = DriverTransitionPolicy.target(current.optString("state"), eventType)
                 ?: error("invalid_transition")
             val revision = current.optInt("revision") + 1
@@ -236,7 +237,7 @@ object DriverWorkflowStore {
 
             when (eventType) {
                 "shift_start" -> {
-                    next.put("shiftStartedAt",command.getString("transitionAt"))
+                    next.put("shiftStartedAt",command.getString("transitionAt")).put("shiftAuthor", author)
                     if(command.optInt("workflowVersion",1)==2) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
                         val envelope=JSONObject(selectedRow.json)
@@ -249,7 +250,7 @@ object DriverWorkflowStore {
                     }
                 }
                 "shift_end" -> {
-                    next.remove("shiftStartedAt");next.remove("shiftId");next.remove("shiftContext")
+                    next.remove("shiftStartedAt");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
                     if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
                         val envelope=JSONObject(selectedRow.json)
@@ -283,7 +284,7 @@ object DriverWorkflowStore {
                 .put("gps", gps)
                 .put("committedAt", now)
                 .put("revision", revision)
-                .put("createdBy", DriverWorkflowIdentity.resolveDriverAuthor(db, command, current))
+                .put("createdBy", author)
             DriverWorkflowContract.validateNewlyCommittedEvent(eventRecord)
             intent.put("status", "recorded").put("updatedAt", now).remove("reason")
 

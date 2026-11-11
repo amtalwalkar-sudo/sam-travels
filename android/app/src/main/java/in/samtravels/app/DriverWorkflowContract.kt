@@ -70,6 +70,14 @@ internal object DriverWorkflowContract {
         }
         if(state.has("shiftId"))require(state.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_shift_id" }
         if(state.has("activeTripId"))require(state.optString("activeTripId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_trip_id" }
+        if (state.has("shiftAuthor")) {
+            val author = state.optJSONObject("shiftAuthor") ?: error("invalid_driver_state_author")
+            require(author.keys().asSequence().toSet() == setOf("personId", "role") &&
+                author.optString("personId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+                author.optString("role") == "driver" && state.optString("state") != "idle") {
+                "invalid_driver_state_author"
+            }
+        }
         if(state.has("shiftContext")) {
             val c=state.optJSONObject("shiftContext")?:error("invalid_driver_state_context")
             require(c.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&c.optInt("schemaVersion",-1)==1&&
