@@ -107,7 +107,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             """, 10_000))
             assertTrue("Admin identity should activate with the configured PIN", evaluate(activity, """
                 (() => {
-                  const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim().startsWith('Person'));
+                  const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Person');
                   const person = personLabel?.querySelector('select');
                   const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
                   const role = roleLabel?.querySelector('select');
@@ -116,14 +116,21 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                   person.dispatchEvent(new Event('change', { bubbles: true }));
                   role.value = 'admin';
                   role.dispatchEvent(new Event('change', { bubbles: true }));
-                  const pinLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
-                  const pin = pinLabel?.querySelector('input');
+                  return true;
+                })()
+            """))
+            assertTrue("Admin PIN input should appear after choosing the Admin role", awaitJavascript(activity,
+                "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
+                5_000))
+            assertTrue("Admin PIN should be accepted", evaluate(activity, """
+                (() => {
+                  const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
+                  const pin = label?.querySelector('input');
                   if (!pin) return false;
                   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
                   setter.call(pin, '4831');
                   pin.dispatchEvent(new Event('input', { bubbles: true }));
-                  const form = role.closest('form');
-                  form?.querySelector('button[type=submit]')?.click();
+                  label.closest('form')?.querySelector('button')?.click();
                   return true;
                 })()
             """))
