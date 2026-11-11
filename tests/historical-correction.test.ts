@@ -309,14 +309,34 @@ describe("HistoricalCorrectionService", () => {
       records, { currentActor: async () => ({ role: "admin", actorId: "person-admin", adminPinVerifiedAt: ADMIN_VERIFIED_AT }) },
       { resolve: resolveTarget }, "web", () => NOW,
     );
-    const second = await admin.submit({
+    const adminInput = {
       correctionId: "expense-admin-correction", targetRecordId: expense.id,
       expectedTargetRevision: expense.revision, expectedChainRevision: 1,
       fieldPath: "amountPaise", afterValue: 9700, reason: "Admin verified receipt",
-    });
+      businessEffectiveDate: expense.data.expenseDate,
+    } as const;
+    const second = await admin.submit(adminInput);
+    const replay = await admin.submit(adminInput);
+    const history = await admin.listForTarget(expense.id);
     expect(second.currentData).toMatchObject({ amountPaise: 9700 });
+    expect(replay.correction.correctionId).toBe(second.correction.correctionId);
     expect((await records.get<typeof expense.data>(expense.id))?.data.amountPaise).toBe(9000);
-    expect(await admin.listForTarget(expense.id)).toHaveLength(2);
+    expect(history).toHaveLength(2);
+    expect(history).toMatchObject([
+      { chainRevision: 1, fieldPath: "amountPaise", beforeValue: 9000, afterValue: 9500,
+        reason: "Corrected receipt total", actor: { role: "driver", actorId: "person-driver" } },
+      { chainRevision: 2, supersedesCorrectionId: "expense-self-correction", fieldPath: "amountPaise",
+        beforeValue: 9500, afterValue: 9700, reason: "Admin verified receipt",
+        businessEffectiveDate: "2026-11-10",
+        actor: { role: "admin", actorId: "person-admin", adminPinVerifiedAt: ADMIN_VERIFIED_AT } },
+    ]);
+    expect(projectHistoricalCorrectionsV1((await records.get<typeof expense.data>(expense.id))!.data, history))
+      .toMatchObject({ status: "valid", chainRevision: 2, data: { amountPaise: 9700 } });
+    expect(await records.list()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "historical-correction:expense-self-correction" }),
+      expect.objectContaining({ id: "historical-correction:expense-admin-correction" }),
+      expect.objectContaining({ id: "historical-correction-chain:" + encodeURIComponent(expense.id) }),
+    ]));
     await browserDatabase.records.clear();
   });
 
