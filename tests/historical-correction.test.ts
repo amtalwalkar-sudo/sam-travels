@@ -224,7 +224,7 @@ describe("HistoricalCorrectionService", () => {
         return {
           featureId: "maintenance",
           allowedFieldPaths: ["amountPaise"],
-          validateProjectedData: value => {
+          validateProjectedData: (value: unknown) => {
             const projected = value as Record<string, unknown>;
             if (projected.kind !== "expense" || !Number.isSafeInteger(projected.amountPaise) ||
                 (projected.amountPaise as number) < 0) throw new Error("maintenance_expense_correction_value_invalid");
@@ -275,7 +275,7 @@ describe("HistoricalCorrectionService", () => {
       if (target.id !== expense.id || (target.data as Record<string, unknown>).kind !== "expense") {
         throw new Error("maintenance_expense_correction_target_invalid");
       }
-      return { featureId: "maintenance", allowedFieldPaths: ["amountPaise"], validateProjectedData: value => {
+      return { featureId: "maintenance", allowedFieldPaths: ["amountPaise"], validateProjectedData: (value: unknown) => {
         const data = value as Record<string, unknown>;
         if (!Number.isSafeInteger(data.amountPaise) || (data.amountPaise as number) < 0) {
           throw new Error("maintenance_expense_correction_value_invalid");
