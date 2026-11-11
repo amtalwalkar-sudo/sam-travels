@@ -137,6 +137,21 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
                 }
             })
 
+            val firstDock = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
+            assertTrue("Docked bubble must remain discoverable", firstDock != null)
+            val firstDockBounds = android.graphics.Rect().also { firstDock!!.getBoundsInScreen(it) }
+            val oppositeX = if (firstDockBounds.centerX() < screenWidth / 2) screenWidth - 30 else 30
+            swipeAt(ui, firstDockBounds.centerX(), firstDockBounds.centerY(),
+                oppositeX, firstDockBounds.centerY() - 70)
+            assertTrue("Bubble must also dock to the opposite screen edge", waitUntil {
+                val opposite = findNode(ui) {
+                    it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen"
+                } ?: return@waitUntil false
+                val bounds = android.graphics.Rect().also { opposite.getBoundsInScreen(it) }
+                if (firstDockBounds.centerX() < screenWidth / 2) bounds.centerX() > screenWidth * 2 / 3
+                else bounds.centerX() < screenWidth / 3
+            })
+
             assertEquals("Presentation gestures must not dispatch workflow transitions", before,
                 DriverWorkflowStore.snapshot(db).optInt("revision"))
             assertEquals("Presentation gestures must not append workflow events", eventCountBefore,
