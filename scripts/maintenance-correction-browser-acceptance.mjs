@@ -6,12 +6,10 @@ const vehicleId = "feature:vehicle:MH01AB1234";
 const expenseId = "feature:maintenance:expense:browser-acceptance";
 const timestamp = "2026-10-10T09:00:00.000Z";
 
-const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
-  stdio: ["ignore", "pipe", "pipe"],
+const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
+  detached: true,
+  stdio: "ignore",
 });
-let serverOutput = "";
-server.stdout.on("data", chunk => { serverOutput += chunk.toString(); });
-server.stderr.on("data", chunk => { serverOutput += chunk.toString(); });
 
 let browser;
 try {
@@ -23,7 +21,7 @@ try {
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
-  if (!ready) throw new Error("vite_server_not_ready: " + serverOutput);
+  if (!ready) throw new Error("vite_server_not_ready");
 
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
@@ -147,5 +145,5 @@ try {
   console.log("PASS: browser-driven PWA Maintenance correction appended once; original immutable; provenance and chain head verified.");
 } finally {
   if (browser) await browser.close();
-  server.kill("SIGTERM");
+  try { process.kill(-server.pid, "SIGTERM"); } catch {}
 }
