@@ -99,6 +99,7 @@ class DriverCancellationFeeStoreTest {
 
     @Test fun endRideCreatesCompletedTripFinancialObligation() {
         val now=java.time.Instant.now().toString()
+        DriverWorkflowIdentityTestFixtures.seed(db, "driver-1", "person-1")
         val context=JSONObject().put("schemaVersion",1).put("driverId","driver-1")
             .put("assignmentId","assignment-1").put("vehicleId","feature:vehicle:vehicle-1")
         val state=JSONObject().put("schemaVersion",1).put("revision",1).put("state","shift_active")
