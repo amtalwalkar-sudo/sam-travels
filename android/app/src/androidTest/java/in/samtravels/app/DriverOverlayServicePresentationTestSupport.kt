@@ -203,8 +203,6 @@ abstract class DriverOverlayServicePresentationTestSupport {
         clickText(ui, label)
     }
 
-}
-
 
     protected fun restartOverlayService(app: Context) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -299,3 +297,4 @@ abstract class DriverOverlayServicePresentationTestSupport {
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
         }
     }
+}
