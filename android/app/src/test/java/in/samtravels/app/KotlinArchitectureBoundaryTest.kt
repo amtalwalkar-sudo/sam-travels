@@ -148,4 +148,30 @@ class KotlinArchitectureBoundaryTest {
         }
         error("Could not locate Sam Travels repository root from ${System.getProperty("user.dir")}")
     }
+    @Test
+    fun overlayServiceDelegatesAllWindowAndViewOwnershipToPresentationAdapter() {
+        val root = findRepositoryRoot()
+        val source = File(root, "android/app/src/main/java/in/samtravels/app/DriverOverlayService.kt").readText()
+        val forbiddenPresentationOwnership = listOf(
+            "WindowManager",
+            "android.view",
+            "android.widget",
+            "setOnTouchListener",
+            "addView(",
+            "removeView(",
+            "LinearLayout(",
+            "TextView(",
+            "SeekBar(",
+        )
+        val violations = forbiddenPresentationOwnership.filter { source.contains(it) }
+        assertTrue(
+            "DriverOverlayService must delegate disposable overlay UI to DriverOverlayPresentation: $violations",
+            violations.isEmpty(),
+        )
+        assertTrue(
+            "Service must retain its presentation adapter boundary",
+            source.contains("DriverOverlayPresentation(") || source.contains("DriverOverlayPresentation"),
+        )
+    }
+
 }
