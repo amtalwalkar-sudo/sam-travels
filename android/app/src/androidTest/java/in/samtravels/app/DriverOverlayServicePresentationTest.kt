@@ -99,6 +99,53 @@ class DriverOverlayServicePresentationTest {
         }
     }
 
+    @Test fun panelAndBubblePresentationGesturesDoNotDispatchWorkflowCommandsOrChangeRevision() {
+        val tripId = "overlay-presentation-gestures"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverTripFinancialStore.createPendingObligation(db, tripId, "overlay-gesture-event", now, null)
+            DriverTripFinancialStore.ensureDraft(db, tripId)
+        }) { ui, db ->
+            val before = DriverWorkflowStore.snapshot(db).optInt("revision")
+            val eventCountBefore = DriverWorkflowStore.listEvents(db).size
+            val intentCountBefore = DriverWorkflowStore.listIntents(db).size
+
+            val header = findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true }
+            assertTrue("Overlay header must be attached as the panel drag target", header != null)
+            val headerBounds = android.graphics.Rect().also { header!!.getBoundsInScreen(it) }
+            swipeAt(ui, headerBounds.centerX(), headerBounds.centerY(),
+                headerBounds.centerX() + 24, headerBounds.centerY() - 180)
+
+            assertTrue("Upward header gesture must minimize to the bubble", waitUntil {
+                findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" } != null
+            })
+            val bubble = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
+            assertTrue("Minimized bubble must remain available for dragging", bubble != null)
+            val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
+            val screenWidth = ui.rootInActiveWindow?.let { node ->
+                val rect = android.graphics.Rect()
+                node.getBoundsInScreen(rect)
+                rect.right
+            } ?: InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.widthPixels
+            val targetX = if (bubbleBounds.centerX() < screenWidth / 2) screenWidth - 30 else 30
+            swipeAt(ui, bubbleBounds.centerX(), bubbleBounds.centerY(), targetX, bubbleBounds.centerY() + 90)
+
+            assertTrue("Dragged bubble must stay attached after edge docking", waitUntil {
+                val docked = findNode(ui) { it.contentDescription?.toString() == "Driver controls minimized. Tap to reopen" }
+                if (docked == null) false else {
+                    val bounds = android.graphics.Rect().also { docked.getBoundsInScreen(it) }
+                    bounds.centerX() < screenWidth / 3 || bounds.centerX() > screenWidth * 2 / 3
+                }
+            })
+
+            assertEquals("Presentation gestures must not dispatch workflow transitions", before,
+                DriverWorkflowStore.snapshot(db).optInt("revision"))
+            assertEquals("Presentation gestures must not append workflow events", eventCountBefore,
+                DriverWorkflowStore.listEvents(db).size)
+            assertEquals("Presentation gestures must not queue workflow intents", intentCountBefore,
+                DriverWorkflowStore.listIntents(db).size)
+        }
+    }
+
     @Test fun attachedCancellationFeeFormRetainsValueAfterMinimizeAndRestore() {
         val tripId = "overlay-minimize-restore-cancel"
         withAttachedOverlay(tripId, { db, now ->
@@ -231,6 +278,25 @@ class DriverOverlayServicePresentationTest {
             .getRunningServices(100).any {
                 it.service.className == DriverOverlayService::class.java.name
             }
+
+    private fun swipeAt(ui: UiAutomation, fromX: Int, fromY: Int, toX: Int, toY: Int) {
+        val downTime = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
+            fromX.toFloat(), fromY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val move = MotionEvent.obtain(downTime, downTime + 120, MotionEvent.ACTION_MOVE,
+            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val up = MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
+            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        try {
+            assertTrue("Gesture down must be injected", ui.injectInputEvent(down, true))
+            assertTrue("Gesture move must be injected", ui.injectInputEvent(move, true))
+            assertTrue("Gesture up must be injected", ui.injectInputEvent(up, true))
+        } finally {
+            down.recycle()
+            move.recycle()
+            up.recycle()
+        }
+    }
 
     private fun tapAt(ui: UiAutomation, x: Int, y: Int) {
         val downTime = SystemClock.uptimeMillis()
