@@ -164,6 +164,14 @@ The implemented loan payment ledger supports payment allocation, unallocated cre
 
 **Rating: Partial.** Preserve existing runtime behaviour during the audit; reconcile the implemented behaviour against the owner's approved Finance policy and update the contract through normal approval rather than silently assuming the draft is ratified.
 
+
+
+## 4.16 Correction and historical revision retention
+
+The shared FeatureRecordService update path reads the current record, checks expectedRevision, then compare-and-sets a replacement envelope with revision + 1. In the inspected generic path, the previous payload is not appended to a revision-history collection. This applies to feature records using this service, including Driver, Vehicle and Maintenance records. Loan detail updates preserve versioned EMI schedule calculations when their inputs change, but the loan detail record itself is still a current aggregate; Finance payments use an append-only ledger and explicit reversal entries. Driver workflow events are immutable and retained separately.
+
+**Rating: Partial / traceability gap.** Revision checks prevent stale overwrites, but a revision counter alone does not let the advisor reconstruct every prior value or explain who changed it. The audit must determine whether any separate audit facility exists outside the inspected service. If not, decide which business records require append-only correction history and actor/reason attribution. Do not retrofit history into every feature indiscriminately before the retention, privacy, backup, and recovery implications are reviewed.
+
 ## 5. Authoritative business-entry policy and initial gaps
 
 The owner has clarified that authorised driver/admin entries are authoritative business records. Fare agreement, customer collection, trip expenses, fuel, maintenance, and finance entries are not required to have independent third-party proof before being accepted into the business record or used in calculations.
@@ -190,7 +198,7 @@ The initial gap is not that independent corroboration is missing. The remaining 
 | D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and selected financial forms inspected; every feature form and correction/history path not yet inventoried |
 | E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared application path, driver parity fixture, paired Room surfaces, and selected financial tests exist; full per-domain PWA/Capacitor matrix remains |
 | F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — Dexie/Room atomic paths and selected browser/native reopen, backup and restore tests inspected; physical-device and full cloud acceptance remain |
-| G. Evidence/corroboration model | Authorised source policy, actor attribution, optional corroboration, conflict and correction provenance | Partial — owner policy clarified; source channel exists, complete human actor attribution and correction history remain unknown |
+| G. Evidence/corroboration model | Authorised source policy, actor attribution, optional corroboration, conflict and correction provenance | Partial — owner policy clarified; source channel exists, generic feature updates overwrite prior payloads, and complete actor/history tracing remains open |
 | H. Intelligence eligibility | Per-metric data sufficiency, source states, partial totals and traceability | Unknown — requires candidate metric/source mapping |
 
 ## 7. Audit rules and next sequence
@@ -216,5 +224,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.3 | 2026-11-11 | Trace shared PWA/Capacitor composition, Dexie/Room transaction paths, selected backup/restore tests, actor provenance gap, and Finance payment-contract governance mismatch. |
 | 0.4 | 2026-11-11 | Identify that Work/Trip stores Fare but no separate customer-collection record in the inspected schema; distinguish generic Maintenance expense capture from a dedicated Fuel ledger. |
 | 0.5 | 2026-11-11 | Extend Trips/driver activity review: immutable driver/vehicle snapshots, event GPS, manual state machine, anomaly-preserving history, and limits on per-trip distance inference. |
+| 0.6 | 2026-11-11 | Identify that generic feature updates increment revisions but replace the prior payload; contrast this with immutable Work events and append-only Finance payment/reversal history. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
