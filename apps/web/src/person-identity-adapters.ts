@@ -1,4 +1,4 @@
-import type { RecordRepository } from "../../../packages/core/src/repositories";
+import type { AtomicRecordRepository } from "../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../packages/core/src/types";
 import type { CredentialVault } from "../../../packages/core/src/credentials";
 import type { BusinessPersonV1 } from "../../../packages/domain/src/person-identity";
@@ -10,7 +10,7 @@ const ADMIN_PIN_KEY = "sam-travels-admin-pin-v1";
 /** Person profiles share the existing versioned record store on both PWA and Android. */
 export class PersistentBusinessPersonRepository implements BusinessPersonRepository {
   constructor(
-    private readonly records: RecordRepository,
+    private readonly records: AtomicRecordRepository,
     private readonly source: RecordEnvelope<unknown>["source"],
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
@@ -45,7 +45,8 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
       updatedAt: timestamp, source: this.source, revision: (current?.revision ?? 0) + 1,
       data: person,
     };
-    await this.records.put(next);
+    const committed = await this.records.compareAndSet(id, current?.revision ?? null, next);
+    if (!committed) throw new Error("business_person_revision_conflict");
     return person;
   }
 }
