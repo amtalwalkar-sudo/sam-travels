@@ -263,7 +263,9 @@ abstract class DriverOverlayServicePresentationTestSupport {
                 if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
             }
             val formLabel = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required"
-            val attached = waitUntil {
+            // CI emulators can take longer than the default polling window to
+            // finish native startup recovery and expose the attached form window.
+            val attached = waitUntil(20_000) {
                 findNode(ui) { it.text?.toString()?.contains(formLabel) == true } != null
             }
             if (!attached) {
