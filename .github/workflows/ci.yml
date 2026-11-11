@@ -11,7 +11,7 @@ permissions:
   contents: read
 jobs:
   architecture:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Enforce Stage 5 privacy, trace, platform and impact contracts
         run: npm run check:stage5
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
@@ -52,7 +52,7 @@ jobs:
       - run: npm run build
   geocoder-production:
     name: Production geocoder verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [architecture, web, android]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -94,7 +94,7 @@ jobs:
           NODE
   android:
     needs: web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
@@ -187,7 +187,7 @@ jobs:
     name: Integrated regression gate
     if: always()
     needs: [architecture, web, geocoder-production, android]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require PR checks and, on main, the post-deployment production geocoder check
         env:
