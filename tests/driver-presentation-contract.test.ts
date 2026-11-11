@@ -3,11 +3,12 @@ import { driverPresentationContract, driverPresentationCssVars } from "../apps/w
 
 describe("shared driver visual presentation", () => {
   it("exposes the shared tokens to PWA components", () => {
+    const cssVars = driverPresentationCssVars as unknown as Record<string, string>;
     expect(driverPresentationContract.version).toBe(1);
-    expect(driverPresentationCssVars["--driver-surface"]).toBe("#F6F9FA");
-    expect(driverPresentationCssVars["--driver-accent"]).toBe("#254F65");
-    expect(driverPresentationCssVars["--driver-field-height"]).toBe("48px");
-    expect(driverPresentationCssVars["--driver-card-radius"]).toBe("13px");
+    expect(cssVars["--driver-surface"]).toBe("#F6F9FA");
+    expect(cssVars["--driver-accent"]).toBe("#254F65");
+    expect(cssVars["--driver-field-height"]).toBe("48px");
+    expect(cssVars["--driver-card-radius"]).toBe("13px");
   });
 
   it("keeps compact overlay sizing independent from the PWA layout", () => {
