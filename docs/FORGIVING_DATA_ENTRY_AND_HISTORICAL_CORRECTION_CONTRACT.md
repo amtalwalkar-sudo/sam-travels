@@ -1,7 +1,7 @@
 # Forgiving Data Entry and Historical Correction Contract
 
 **Document ID:** ST-DATA-CORRECTION  
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Owner-approved product principles and cross-cutting safeguards; implementation and role-specific permissions remain separately gated  
 **Scope:** Business data capture, validation, correction, history, data quality, and downstream calculation eligibility across browser PWA, Capacitor Android WebView, and native Android overlay  
 **Authority:** This contract owns the shared product/data-integrity policy for forgiving entry and post-submission correction. Feature contracts continue to own their business meanings, event types, calculations, and domain-specific reversal/closure rules.
@@ -191,8 +191,12 @@ This contract does not approve any new Performance metric, formula, accounting t
 - A correction must be submitted through an authorised capability and validated by the owning domain/application service, not trusted because a UI exposes a button.
 - Every correction must have a traceable actor identity/role and reason at the level required by the approved permission policy.
 - Drivers and admins must not be given unrestricted mutation rights over submitted history.
-- Driver self-correction, admin-initiated correction, admin approval of driver corrections, and correction windows/limits are distinct product permission choices. Their exact combination is **open for explicit owner decision** and must be settled before implementation.
-- Admin-entered records require a safe correction path too; they must not be left permanently wrong merely because the existing explicit exception was first described for driver-entered mistakes.
+- **Driver self-correction:** a Driver may submit a correction only for a submitted record originally entered by that same Driver.
+- **Admin correction:** an Admin may submit a correction for a submitted record originally entered by any Driver or Admin, including the Admin's own entries.
+- These permissions do not permit silent mutation or deletion. Every correction remains a new append-only, attributable, reasoned event linked to the original and validated by the owning domain service.
+- A Driver cannot correct another Driver's or an Admin's entry. An Admin does not need the original author to submit a correction, but must identify the reason and remains accountable through the correction audit trail.
+- The permission applies only to feature/event types whose owning contracts and implementation explicitly support correction. It does not bypass domain-specific financial closure, reversal, allocation, or other safeguards.
+- Admin approval of ordinary Driver self-corrections and global correction windows/limits are not required by this owner decision; any additional feature-specific approval or time boundary must be separately justified and approved before implementation.
 - A permission to correct one feature/event type does not grant authority over another feature's records.
 - Master-profile maintenance remains governed by the relevant feature contract and may not rewrite frozen driver/vehicle/assignment snapshots or submitted historical events.
 
@@ -259,3 +263,4 @@ Do not combine the initial documentation contract with runtime implementation, b
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-11-11 | Record owner-approved forgiving-entry and immutable-history philosophy; define append-only correction, data-quality and calculation-reproducibility safeguards, open permission decisions, and staged implementation gates. |
+| 1.1 | 2026-11-11 | Owner-approved role permissions: Drivers correct only their own submitted entries; Admins may correct any Driver- or Admin-entered record, using the same append-only safeguards. |
