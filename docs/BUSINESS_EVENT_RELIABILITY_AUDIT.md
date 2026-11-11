@@ -100,7 +100,7 @@ The inspected shared definitions distinguish completed-ride Fare (required, expl
 
 **Rating: Partial for capture integrity; authoritative by business policy.** The driver/admin-entered amounts are the official business records and must be accepted for business calculations after technical validation. The app does not independently confirm customer payment or third-party expense settlement, but that is not a prerequisite under the owner's policy. Optional corroborating references may be retained if useful; absence of those references must not downgrade an authorised entry.
 
-### 4.5 Shared forms and working copies
+### 4.6 Shared forms and working copies
 
 The shared form runtime stores working copies in the runtime's authoritative record store, uses revision-aware writes, validates declared fields, and delegates submission to application-owned services. PWA and Android overlay paths exist for the inspected Work/Trip financial forms.
 
@@ -108,7 +108,7 @@ The shared form runtime stores working copies in the runtime's authoritative rec
 
 
 
-## 4.5 Trips and driver activity
+## 4.7 Trips and driver activity
 
 The approved Driver Workflow contract defines a manual, single-driver state machine: shift start, manual trip creation, start ride, end ride or cancel ride, and shift end. Trip creation and Start Ride are distinct events; GPS, motion or elapsed time must not create trips automatically. The Work/Trip integration contract snapshots the selected active driver, active assignment and active vehicle at shift start, then freezes that context into each trip at trip creation. Later Admin edits do not rewrite historical snapshots. The 04:00 Asia/Kolkata operational-day boundary is explicit and tests cover its persistence across a restart.
 
@@ -116,49 +116,49 @@ The workflow persists stable command/event IDs, expected state/revision, idempot
 
 **Rating: Partial-to-verified for tested technical workflow.** The contracts, PWA parity fixture, Android instrumentation tests, restart/replay and trip-history tests provide substantial evidence for the implemented scenarios. Physical-device acceptance and the full lifecycle matrix remain outstanding. Importantly, the inspected event/trip context has transition GPS snapshots, not a continuous path or a per-trip odometer series. Shift odometer readings can support shift-level distance, but precise per-trip distance, route distance or trip fuel efficiency must not be inferred from transition GPS alone.
 
-## 4.6 Driver, vehicle and assignment records
+## 4.8 Driver, vehicle and assignment records
 
 The inspected feature services use stable namespaced identities, strict payload validators, create-only duplicate protection, revision-checked updates, and feature-owned repositories. Vehicle registration identity is normalized before storage, preventing differently formatted duplicates. Driver identity is immutable on update. Assignment history is retained as a sequence of assignment periods; the service checks that driver and vehicle are active, prevents duplicate assignment IDs, enforces one active assignment, and checks chronological order when assigning/unassigning.
 
 **Rating: Partial.** The core identity and relationship rules are explicit and covered by focused service tests. The feature record envelope records source channel (web, android, import, integration), but the inspected generic envelope does not itself identify the human actor. Driver identity can be represented in assignment/workflow data, but a complete actor-attribution and correction-history trace across Admin changes remains to be verified.
 
-## 4.7 Maintenance records
+## 4.9 Maintenance records
 
 The inspected Maintenance feature stores vehicle-linked service visits, itemized expenses, general vehicle expenses, odometer values, provider labels, next-service thresholds, and per-vehicle rate history. Visit totals are recalculated from integer-paise line items and validated against the stored total. Records require a known vehicle; date, amount, item identity, and rate-history ordering are validated. The service supports revision-checked edits and derives actual expense totals from visit and expense records.
 
 **Rating: Partial.** The feature has meaningful structural validation and focused tests for edits, totals, separate general expenses, idempotent rate changes, vehicle relationships, and reminders. The provider/name/amount fields remain authorised business entries, not independently confirmed payments. Odometer readings are entered values; the inspected contract does not establish independent odometer evidence. PWA/Android form and backup parity, actor attribution, and complete correction audit remain to be traced.
 
-## 4.8 Loans, payments, prepayments and settlements
+## 4.10 Loans, payments, prepayments and settlements
 
 The inspected Finance loan service stores loan details and versioned EMI schedule history in a revision-controlled loan aggregate. Schedule versions preserve calculation ID/version and inputs/outputs. Payment entries are maintained in a per-loan ledger with command identity, business date, amount, method, optional reference/note, schedule version, EMI allocations, unallocated credit, and committed status. The service validates allocations, prevents over-allocation, supports idempotent replay, and appends reversals rather than deleting original payment entries. Loan and payment ledger revisions are committed atomically for payment recording. Prepayment revisions preserve source, command, effective date, prior/current schedule versions, calculation inputs/outputs and expected revisions; settlement logic checks due EMI allocations and closes the loan atomically.
 
 **Rating: Partial for technical integrity; authoritative by business policy.** The owner/admin-entered loan, payment, prepayment and settlement records are official business records after app validation. The method/reference fields are contextual evidence, not mandatory independent confirmation. The inspected service tests cover concurrent payment allocation, idempotency, reversal, prepayment schedule revisions, stale previews and settlement/closure. Android UI/bridge parity, actor attribution, backup/restore completeness and edit/correction history still need end-to-end verification.
 
-## 4.9 Fuel capture inventory
+## 4.11 Fuel capture inventory
 
 The current feature inventory contains no dedicated Fuel feature/service, fuel-specific schema, or fuel-specific application service/test suite. However, the Maintenance feature does provide a general vehicle-expense form with free-text expense name/description, amount, date, optional odometer and provider; a driver/admin could therefore record a fuel purchase as a generic vehicle expense. The inspected form does not capture fuel quantity/litres, unit price, fuel type per purchase, station, or a structured fuel transaction category. It should not be treated as a complete fuel ledger without explicit mapping and product approval.
 
 **Rating: Partial for generic amount capture; Unknown for fuel-specific data readiness.** Fuel spend may be recorded as a generic expense, but fuel volume and purchase-level details needed for consumption, price-per-litre, mileage and fuel-efficiency analysis are not represented in the inspected schema. Do not infer them from expense amount or GPS.
 
-## 4.10 Shared PWA and Capacitor application path
+## 4.12 Shared PWA and Capacitor application path
 
 The inspected composition root uses one React application and one shared set of JavaScript application services/form definitions. At startup, Capacitor platform detection selects RoomRecordRepository for native Android or DexieRecordRepository for browser-only PWA. Both adapters implement the same repository interfaces; the shared application services and SharedFormRuntime operate above that boundary. Record source is set to web or android. The native Android overlay is a separate native Work/Trip presentation that uses the Room-backed driver/financial stores; it is not the general Admin form UI.
 
 **Rating: Verified at architecture/composition level; Partial for end-to-end parity.** The same Admin forms and application service contracts are composed for PWA and Capacitor WebView, while the native overlay has specific Work/Trip forms. This substantially reduces business-rule drift, but the underlying storage adapters and native overlay paths remain different implementations and require equivalent acceptance tests per event type. A successful PWA test alone does not prove Android Room behaviour.
 
-## 4.11 Persistence, backup and recovery coverage
+## 4.13 Persistence, backup and recovery coverage
 
 The browser repository performs compare-and-set batches inside a Dexie read/write transaction. The Android RoomStore plugin performs revision-checked writes and batches inside Room transactions. Android Room uses multi-instance invalidation for WebView/overlay clients. The inspected driver and completed-trip financial tests cover persistent Room reopen, paired WebView/overlay visibility, stale competing drafts, and native backup/restore. PWA tests cover IndexedDB reopen/recovery, and browser backup participants validate driver/assignment, vehicle, maintenance and finance relationships. Android backup participants and tests cover driver, vehicle, maintenance, loan/payment and prepayment records. These are useful safeguards against silent loss and malformed restores.
 
 **Rating: Partial-to-verified for the tested storage and backup paths.** Automated tests demonstrate selected transaction, reopen, recovery, relationship validation and backup round trips. They do not prove every process-kill timing, Android OEM behaviour, browser eviction condition, live Dropbox connection, or physical-phone lifecycle. The user-facing backup and restore flows still need a complete cross-platform acceptance matrix.
 
-## 4.12 Provenance and actor attribution
+## 4.14 Provenance and actor attribution
 
 The shared RecordEnvelope stores source channel (web, android, import, integration), creation/update timestamps, optional business date, revision, and payload. This is useful platform provenance, but it is not by itself an authenticated human-actor identity. Driver workflow commands carry driver context and origin surface; generic Admin feature records inspected so far do not consistently carry an explicit actor ID in their shared envelope. The responsible person may be implicit in the current app/account/session boundary, but that must be traced and verified before the advisor promises per-person accountability.
 
 **Rating: Partial / Unknown by feature.** Platform/source provenance is present; complete human actor attribution and immutable correction history are not yet demonstrated for all business records. This is an audit gap, not authorization to add actor fields before checking the authentication/session and privacy contracts.
 
-## 4.13 Finance contract governance
+## 4.15 Finance contract governance
 
 The implemented loan payment ledger supports payment allocation, unallocated credit, reversals and settlements. However, the inspected FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md still labels its v1 allocation policy as a proposed draft that is not formally ratified. The implementation and its tests are therefore ahead of the normative policy status. This does not prove the code is wrong, but it is a contract-governance gap that must be reconciled before treating every payment-allocation behaviour as an approved business rule.
 
