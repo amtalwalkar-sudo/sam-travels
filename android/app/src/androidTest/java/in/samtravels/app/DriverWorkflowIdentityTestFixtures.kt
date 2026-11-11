@@ -13,6 +13,16 @@ internal object DriverWorkflowIdentityTestFixtures {
             db.records().put(StoredRecord(id, envelope.toString(), 1, now))
         }
         put("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", driverId))
+        seedLink(db, driverId, personId)
+    }
+
+    fun seedLink(db: LocalDatabase, driverId: String, personId: String) {
+        val now = Instant.now().toString()
+        fun put(id: String, data: JSONObject) {
+            val envelope = JSONObject().put("id", id).put("schemaVersion", 1).put("createdAt", now)
+                .put("updatedAt", now).put("source", "android").put("revision", 1).put("data", data)
+            db.records().put(StoredRecord(id, envelope.toString(), 1, now))
+        }
         put("identity:driver-person-link:$driverId", JSONObject().put("schemaVersion", 1)
             .put("driverId", driverId).put("personId", personId))
         put("identity:person:$personId", JSONObject().put("schemaVersion", 1).put("personId", personId)
