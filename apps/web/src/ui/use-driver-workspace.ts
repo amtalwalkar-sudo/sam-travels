@@ -74,7 +74,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const selection = new WorkDriverSelectionService(platformRecords, repository);
         const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();
-        setDriverChoices(allRecords.filter(row => row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
+        setDriverChoices(allRecords.filter(row => typeof row.id === "string" && row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
           .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
           .filter(row => typeof row.driverId === "string" && typeof row.name === "string" && row.lifecycleState === "active")
           .map(row => ({driverId:row.driverId!,name:row.name!})));
