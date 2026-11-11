@@ -7,8 +7,8 @@ import { LoanDetailsForm } from "./LoanDetailsForm";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import { useAdminServices } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
-import type { AtomicRecordRepository } from "../../../../packages/core/src/repositories";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
+import { useAdminIdentityRecords } from "./admin-services-context";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
@@ -24,7 +24,8 @@ function money(paise: number): string {
 function rate(basisPoints: number): string {
   return (basisPoints / 100).toFixed(2) + "% p.a.";
 }
-export function AdminWorkspace({ identityRecords }: { identityRecords: AtomicRecordRepository }) {
+export function AdminWorkspace() {
+  const identityRecords = useAdminIdentityRecords();
   const services = useAdminServices();
   const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
