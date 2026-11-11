@@ -90,6 +90,12 @@ class DriverOverlayServicePresentationTest {
                             it.text?.toString()?.equals("Customer", ignoreCase = true) == true
                     } != null
             })
+
+            val restoreLogs = shell(ui, "logcat -d -v brief -s DriverOverlayService:I")
+            assertTrue("Bubble touch boundary was not observed: $restoreLogs", restoreLogs.contains("bubble_touch action=1"))
+            assertTrue("Bubble click callback was not observed: $restoreLogs", restoreLogs.contains("bubble_click"))
+            assertTrue("Restore request was not observed: $restoreLogs", restoreLogs.contains("restore_requested"))
+            assertTrue("Restore completion was not observed: $restoreLogs", restoreLogs.contains("restore_finished panelAttached=true"))
         }
     }
 
