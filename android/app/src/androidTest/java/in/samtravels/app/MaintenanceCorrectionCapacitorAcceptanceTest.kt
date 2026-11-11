@@ -6,6 +6,7 @@ import android.webkit.WebView
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -44,11 +45,17 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
             .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
             .put("ownership", "Owned").put("lifecycleState", "active"))
+        val otherExpenseId = "$expenseId-other"
         val expense = envelope(expenseId, now, JSONObject()
             .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
             .put("expenseDate", "2026-10-10").put("expenseName", "Acceptance tyre repair")
             .put("description", "Acceptance receipt").put("amountPaise", 10000L),
-            JSONObject().put("personId", "driver-owner").put("role", "driver"))
+            JSONObject().put("personId", "person-driver-one").put("role", "driver"))
+        val otherExpense = envelope(otherExpenseId, now, JSONObject()
+            .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
+            .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre repair")
+            .put("description", "Other Driver receipt").put("amountPaise", 20000L),
+            JSONObject().put("personId", "person-driver-two").put("role", "driver"))
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
@@ -56,6 +63,15 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         try {
             database.records().put(vehicle)
             database.records().put(expense)
+            database.records().put(otherExpense)
+            DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
+            DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-two", "person-driver-two")
+            listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
+                val row = database.records().get("identity:person:$personId")!!
+                val payload = JSONObject(row.json)
+                payload.getJSONObject("data").put("displayName", name)
+                database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
+            }
             assertTrue("Capacitor WebView should finish loading the Drive workspace",
                 awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
 
@@ -109,8 +125,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                   const person = personLabel?.querySelector('select');
                   const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
                   const role = roleLabel?.querySelector('select');
-                  if (!person || person.options.length < 2 || !role) return false;
-                  person.value = person.options[1].value;
+                  if (!person || !person.value || !role) return false;
+                  person.value = Array.from(person.options).find(option => option.textContent.trim() === 'Correction Admin')?.value ?? '';
                   person.dispatchEvent(new Event('change', { bubbles: true }));
                   role.value = 'admin';
                   role.dispatchEvent(new Event('change', { bubbles: true }));
@@ -155,7 +171,15 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
                   return set('Corrected amount', '150.00') && set('Reason for correction', 'Verified against original receipt');
                 })()
             """))
-            evaluate(activity, "Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click()")
+            evaluate(activity, """
+                (() => {
+                  const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
+                  if (!button) return false;
+                  button.click();
+                  button.click();
+                  return true;
+                })()
+            """)
             assertTrue("Live correction should be acknowledged by the rendered form", awaitJavascript(activity,
                 "document.body.textContent.includes('Correction appended')", 15_000))
 
@@ -176,15 +200,123 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
             assertNotNull("Correction record must be stored through the Room-backed repository",
                 database.records().get(correctionRows.single().getString("id")))
+
+            // Switch the live WebView identity to Driver One and prove self-correction.
+            assertTrue("Driver One can be selected", evaluate(activity, """
+                (() => {
+                  const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
+                  const person = personLabel?.querySelector('select');
+                  const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
+                  const role = roleLabel?.querySelector('select');
+                  if (!person || !role) return false;
+                  person.value = Array.from(person.options).find(option => option.textContent.trim() === 'Driver One')?.value ?? '';
+                  person.dispatchEvent(new Event('change', { bubbles: true }));
+                  role.value = 'driver';
+                  role.dispatchEvent(new Event('change', { bubbles: true }));
+                  return Boolean(person.value);
+                })()
+            """))
+            evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
+            assertTrue("Driver One role should activate", awaitJavascript(activity,
+                "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
+            assertTrue("Own Maintenance record should be available", awaitJavascript(activity,
+                "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance tyre repair'))", 10_000))
+            assertTrue("Driver self-correction form should open", evaluate(activity, """
+                (() => {
+                  const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+                  card?.querySelector('button')?.click();
+                  return Boolean(card);
+                })()
+            """))
+            assertTrue("Driver self-correction should be submitted", evaluate(activity, """
+                (() => {
+                  const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+                  const set = (labelText, value) => {
+                    const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
+                    const input = label?.querySelector('input');
+                    if (!input) return false;
+                    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+                    setter.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    return true;
+                  };
+                  if (!set('Corrected amount', '160.00') || !set('Reason for correction', 'Driver One verified own receipt')) return false;
+                  Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
+                  return true;
+                })()
+            """))
+            assertTrue("Driver self-correction should append", awaitJavascript(activity,
+                "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Correction appended')", 15_000))
+
+            // Activate Driver One against Driver Two's expense: the rendered UI must fail closed.
+            assertTrue("Other Driver record should be available", awaitJavascript(activity,
+                "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
+            assertTrue("Other Driver correction form should open", evaluate(activity, """
+                (() => {
+                  const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
+                  card?.querySelector('button')?.click();
+                  return Boolean(card);
+                })()
+            """))
+            assertTrue("Another Driver's correction attempt should reach the live form", evaluate(activity, """
+                (() => {
+                  const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
+                  const set = (labelText, value) => {
+                    const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
+                    const input = label?.querySelector('input');
+                    if (!input) return false;
+                    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+                    setter.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    return true;
+                  };
+                  if (!set('Corrected amount', '210.00') || !set('Reason for correction', 'Attempt to alter another Driver record')) return false;
+                  Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
+                  return true;
+                })()
+            """))
+            assertTrue("Another Driver's record must be rejected in the live UI", awaitJavascript(activity,
+                "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'))?.textContent.includes('historical_correction_forbidden')", 15_000))
+
+            val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+                .map { JSONObject(it.json).getJSONObject("data") }
+                .filter { it.optString("targetRecordId") == expenseId }
+                .sortedBy { it.getInt("chainRevision") }
+            assertEquals("Admin append plus Driver self-correction should form a two-entry chain", 2, driverOneChain.size)
+            assertEquals("person-driver-one", driverOneChain.last().getJSONObject("actor").getString("actorId"))
+            assertEquals("Driver One verified own receipt", driverOneChain.last().getString("reason"))
+            assertEquals("Other Driver must receive no correction row", 0, database.records().list()
+                .filter { it.id.startsWith(correctionPrefix) }
+                .count { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == otherExpenseId }.getOrDefault(false) })
+
+            // Snapshot, clear, restore, and verify the exact live-WebView correction chain.
+            val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
+            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            assertEquals("Restore must begin from an empty business-record set", 0, database.records().list()
+                .count { it.id == expenseId || it.id == otherExpenseId || it.id == chainId })
+            NativeBackupCoverage.replaceBusinessRecords(database, backup)
+            val restoredOriginal = JSONObject(database.records().get(expenseId)!!.json)
+            assertEquals("Recovery must preserve the immutable original amount", 10000L,
+                restoredOriginal.getJSONObject("data").getLong("amountPaise"))
+            val restoredCorrections = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+                .map { JSONObject(it.json).getJSONObject("data") }
+                .filter { it.optString("targetRecordId") == expenseId }
+                .sortedBy { it.getInt("chainRevision") }
+            assertEquals(2, restoredCorrections.size)
+            assertEquals(driverOneChain.last().getString("correctionId"), restoredCorrections.last().getString("correctionId"))
+            val restoredHead = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
+            assertEquals(2, restoredHead.getInt("chainRevision"))
+            assertEquals(restoredCorrections.last().getString("correctionId"), restoredHead.getString("headCorrectionId"))
         } finally {
             database.records().remove(expenseId)
+            database.records().remove(otherExpenseId)
             database.records().remove(vehicleId)
             database.records().remove(chainId)
             database.records().list().filter { it.id.startsWith(correctionPrefix) }
-                .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == expenseId }.getOrDefault(false) }
+                .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId }.getOrDefault(false) }
                 .forEach { database.records().remove(it.id) }
             database.records().list().filter { it.id.startsWith("identity:person:") }
-                .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") == "Correction Admin" }.getOrDefault(false) }
+                .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") in setOf("Correction Admin", "Driver One", "Driver Two") }.getOrDefault(false) }
                 .forEach { database.records().remove(it.id) }
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             instrumentation.runOnMainSync { activity.finish() }
