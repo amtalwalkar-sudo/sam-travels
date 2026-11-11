@@ -145,7 +145,7 @@ describe("HistoricalCorrectionService", () => {
     const records = new MemoryRecords();
     await records.put(original());
     const noAuthor = new HistoricalCorrectionService(
-      records, { currentActor: async () => ({ role: "admin", actorId: "admin-1" }) },
+      records, { currentActor: async () => ({ role: "driver", actorId: "driver-1" }) },
       { resolve: async () => ({ featureId: "sample", originalAuthorId: "",
         allowedFieldPaths: ["amountPaise"], validateProjectedData: () => undefined }) },
       "web", () => NOW,
@@ -155,6 +155,18 @@ describe("HistoricalCorrectionService", () => {
       expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise",
       afterValue: 11000, reason: "not attributed",
     })).rejects.toThrow("historical_correction_target_author_unattributed");
+    const adminWithoutOriginalAuthor = new HistoricalCorrectionService(
+      records, { currentActor: async () => ({ role: "admin", actorId: "admin-1" }) },
+      { resolve: async () => ({ featureId: "sample", allowedFieldPaths: ["amountPaise"],
+        validateProjectedData: () => undefined }) },
+      "web", () => NOW,
+    );
+    const legacyAdminCorrection = await adminWithoutOriginalAuthor.submit({
+      correctionId: "legacy-admin-fix", targetRecordId: "feature:sample:record-1",
+      expectedTargetRevision: 1, expectedChainRevision: 0, fieldPath: "amountPaise",
+      afterValue: 10500, reason: "Admin corrected legacy entry",
+    });
+    expect(legacyAdminCorrection.currentData).toMatchObject({ amountPaise: 10500 });
     const service = makeService(records, { role: "admin", actorId: "admin-1" });
     await expect(service.submit({
       correctionId: "stale", targetRecordId: "feature:sample:record-1",
