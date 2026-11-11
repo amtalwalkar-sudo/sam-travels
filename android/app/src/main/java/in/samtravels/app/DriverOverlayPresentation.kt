@@ -321,7 +321,7 @@ internal class DriverOverlayPresentation(
         DriverOverlayMinimizer.minimize(context, window, elapsedText, ::dp, ::restorePanel, { bubble = null; bubbleParams = null; onAttachmentFailure() }) { chip, params ->
             bubble = chip
             bubbleParams = params
-        }
+        }, { bubbleParams })
     }
 
     private fun restorePanel() {

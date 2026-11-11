@@ -19,6 +19,7 @@ internal object DriverOverlayMinimizer {
         restorePanel: () -> Unit,
         onAttachmentFailure: () -> Unit,
         onAttached: (TextView, WindowManager.LayoutParams) -> Unit,
+        bubbleParams: () -> WindowManager.LayoutParams?,
     ) {
         val chip = TextView(context).apply {
             text = "⏱ " + elapsedText()
@@ -36,7 +37,7 @@ internal object DriverOverlayMinimizer {
             var bubbleDragged = false
             setOnTouchListener { view, event ->
                 android.util.Log.i("DriverOverlayService", "bubble_touch action=${event.actionMasked} x=${event.rawX} y=${event.rawY}")
-                val params = bubbleParams ?: return@setOnTouchListener false
+                val params = bubbleParams() ?: return@setOnTouchListener false
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         bubbleDownX = event.rawX
@@ -51,12 +52,12 @@ internal object DriverOverlayMinimizer {
                         val dy = event.rawY - bubbleDownY
                         if (kotlin.math.abs(dx) > dp(10) || kotlin.math.abs(dy) > dp(10)) {
                             bubbleDragged = true
-                            moveBubbleWithinUsableBounds(params, bubbleStartX + dx.toInt(), bubbleStartY + dy.toInt())
+                            DriverOverlayBoundsGestures.moveBubbleWithinUsableBounds(context, window, view, params, bubbleStartX + dx.toInt(), bubbleStartY + dy.toInt(), dp)
                         }
                         true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (bubbleDragged) dockBubbleToNearestEdge(params) else view.performClick()
+                        if (bubbleDragged) DriverOverlayBoundsGestures.dockBubbleToNearestEdge(context, window, view, params) else view.performClick()
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> true
