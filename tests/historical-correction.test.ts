@@ -9,6 +9,7 @@ import {
   type HistoricalCorrectionV1,
 } from "../packages/domain/src/historical-correction";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
+import { PersonIdentityService } from "../packages/application/src/person-identity-service";
 import { assertBusinessPersonV1, assertPersonCanAct, type BusinessPersonV1 } from "../packages/domain/src/person-identity";
 
 type Sample = { createdBy: string; amountPaise: number; note: string };
@@ -55,6 +56,28 @@ function makeService(records: MemoryRecords, actor: CorrectionActorV1) {
     () => NOW,
   );
 }
+
+describe("person identity service", () => {
+  it("keeps one person ID while switching Driver and PIN-verified Admin roles", async () => {
+    const person: BusinessPersonV1 = {
+      schemaVersion: 1, personId: "person-1", displayName: "Business owner",
+      roles: ["driver", "admin"], status: "active",
+    };
+    const identity = new PersonIdentityService(
+      { get: async id => id === person.personId ? person : undefined },
+      { verify: async pin => pin === "2468" },
+      () => NOW,
+    );
+    const driver = await identity.activate("person-1", "driver");
+    const admin = await identity.activate("person-1", "admin", "2468");
+    expect(driver.actorId).toBe(admin.actorId);
+    expect(driver.role).toBe("driver");
+    expect(admin).toMatchObject({ role: "admin", actorId: "person-1", adminPinVerifiedAt: NOW });
+    await expect(identity.activate("person-1", "admin", "1111")).rejects.toThrow("business_admin_pin_invalid");
+    identity.clear();
+    await expect(identity.currentActor()).rejects.toThrow("business_actor_not_active");
+  });
+});
 
 describe("historical correction policy", () => {
   it("allows driver self-correction and admin correction of another actor's entry", () => {
