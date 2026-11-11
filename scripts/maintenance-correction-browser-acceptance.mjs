@@ -27,7 +27,8 @@ try {
 
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
-  await page.goto("about:blank");
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.evaluate(async ({ vehicleId, expenseId, timestamp }) => {
     const request = indexedDB.open("sam-travels-browser", 6);
     request.onupgradeneeded = () => {
@@ -77,7 +78,6 @@ try {
     db.close();
   }, { vehicleId, expenseId, timestamp });
 
-  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
@@ -93,7 +93,7 @@ try {
   await page.getByRole("button", { name: "Activate role" }).click();
   await page.getByRole("status").filter({ hasText: "Role activated" }).waitFor();
 
-  await page.getByRole("button", { name: "Maintenance", exact: true }).click();
+  await page.getByRole("button", { name: /Maintenance/ }).click();
   await page.getByLabel("Vehicle", { exact: true }).selectOption({ label: "MH01AB1234" });
   await page.getByText("Browser acceptance repair", { exact: true }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
