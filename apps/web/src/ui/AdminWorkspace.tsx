@@ -29,7 +29,6 @@ export function AdminWorkspace() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loanScheduleHistories, setLoanScheduleHistories] = useState<Record<string, LoanScheduleHistory>>({});
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
-  const [requestedEdit, setRequestedEdit] = useState<Loan | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -79,7 +78,7 @@ export function AdminWorkspace() {
             <div className="admin-vehicle-context">
               <label htmlFor="admin-vehicle">Selected vehicle</label>
               <select id="admin-vehicle" value={selectedVehicleId}
-                onChange={event => { setSelectedVehicleId(event.target.value); setRequestedEdit(null); }}>
+                onChange={event => { setSelectedVehicleId(event.target.value); }}>
                 <option value="">Select vehicle</option>
                 {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.data.registrationNumber} · {vehicle.data.make} {vehicle.data.model} ({vehicle.data.lifecycleState})
