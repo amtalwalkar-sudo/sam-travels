@@ -30,16 +30,7 @@ class DriverWorkflowOutboxTest {
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
         val at = Instant.now()
-        val now = at.toString()
-        fun put(id: String, data: JSONObject) {
-            val envelope = JSONObject().put("id", id).put("schemaVersion", 1).put("createdAt", now)
-                .put("updatedAt", now).put("source", "android").put("revision", 1).put("data", data)
-            first.records().put(StoredRecord(id, envelope.toString(), 1, now))
-        }
-        put("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "outbox-driver"))
-        put("identity:driver-person-link:outbox-driver", JSONObject().put("schemaVersion", 1).put("driverId", "outbox-driver").put("personId", "outbox-person"))
-        put("identity:person:outbox-person", JSONObject().put("schemaVersion", 1).put("personId", "outbox-person")
-            .put("displayName", "Outbox Driver").put("roles", org.json.JSONArray().put("driver")).put("status", "active"))
+        DriverWorkflowIdentityTestFixtures.seed(first, "outbox-driver", "outbox-person")
         DriverWorkflowStore.queue(
             first,
             command("durable-outbox-ack").put("transitionAt", at.toString()),
