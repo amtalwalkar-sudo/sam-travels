@@ -1,6 +1,6 @@
 import { assertRecordEnvelope, RECORD_ENVELOPE_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { AtomicRecordRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 
 export type FeatureRecordDefinition<Data> = Readonly<{
   featureId: string;
@@ -51,6 +51,7 @@ export class FeatureRecordService<Data> {
     source: FeatureRecordSource;
     businessDate?: string;
     now?: string;
+    createdBy?: RecordAuthorV1;
   }): Promise<RecordEnvelope<Data>> {
     this.assertOwnedId(input.id);
     this.definition.validate(input.data);
@@ -63,6 +64,7 @@ export class FeatureRecordService<Data> {
       businessDate: input.businessDate,
       source: input.source,
       revision: 1,
+      ...(input.createdBy ? { createdBy: input.createdBy } : {}),
       data: input.data,
     };
     assertRecordEnvelope(record);
