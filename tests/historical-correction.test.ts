@@ -11,8 +11,6 @@ import {
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
 import { assertBusinessPersonV1, assertPersonCanAct, type BusinessPersonV1 } from "../packages/domain/src/person-identity";
 
-const ADMIN_VERIFIED_AT = NOW;
-
 type Sample = { createdBy: string; amountPaise: number; note: string };
 
 class MemoryRecords implements AtomicRecordRepository {
@@ -30,6 +28,7 @@ class MemoryRecords implements AtomicRecordRepository {
 }
 
 const NOW = "2026-11-11T10:00:00.000Z";
+const ADMIN_VERIFIED_AT = NOW;
 function original(): RecordEnvelope<Sample> {
   return {
     id: "feature:sample:record-1", schemaVersion: 1, createdAt: NOW, updatedAt: NOW,
