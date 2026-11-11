@@ -119,7 +119,7 @@ internal class DriverOverlayPresentation(
                             minimizePanel()
                             return@setOnTouchListener true
                         }
-                        movePanelWithinUsableBounds(params, panelStartX + dx.toInt(), panelStartY + dy.toInt())
+                        DriverOverlayBoundsGestures.movePanelWithinUsableBounds(context, window, view, params, panelStartX + dx.toInt(), panelStartY + dy.toInt(), ::dp)
                     }
                     true
                 }
@@ -318,123 +318,10 @@ internal class DriverOverlayPresentation(
         runCatching { window.removeView(current) }
         panel = null
         panelParams = null
-        val chip = TextView(context).apply {
-            text = "⏱ " + elapsedText()
-            textSize = 13f
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundColor(android.graphics.Color.rgb(24, 54, 74))
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            contentDescription = "Driver controls minimized. Tap to reopen"
-            isClickable = true
-            isFocusable = true
-            var bubbleDownX = 0f
-            var bubbleDownY = 0f
-            var bubbleStartX = 0
-            var bubbleStartY = 0
-            var bubbleDragged = false
-            setOnTouchListener { view, event ->
-                android.util.Log.i("DriverOverlayService", "bubble_touch action=${event.actionMasked} x=${event.rawX} y=${event.rawY}")
-                val params = bubbleParams ?: return@setOnTouchListener false
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        bubbleDownX = event.rawX
-                        bubbleDownY = event.rawY
-                        bubbleStartX = params.x
-                        bubbleStartY = params.y
-                        bubbleDragged = false
-                        true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        val dx = event.rawX - bubbleDownX
-                        val dy = event.rawY - bubbleDownY
-                        if (kotlin.math.abs(dx) > dp(10) || kotlin.math.abs(dy) > dp(10)) {
-                            bubbleDragged = true
-                            moveBubbleWithinUsableBounds(params, bubbleStartX + dx.toInt(), bubbleStartY + dy.toInt())
-                        }
-                        true
-                    }
-                    MotionEvent.ACTION_UP -> {
-                        if (bubbleDragged) dockBubbleToNearestEdge(params) else view.performClick()
-                        true
-                    }
-                    MotionEvent.ACTION_CANCEL -> true
-                    else -> true
-                }
-            }
-            setOnClickListener {
-                android.util.Log.i("DriverOverlayService", "bubble_click")
-                restorePanel()
-            }
+        DriverOverlayMinimizer.minimize(context, window, elapsedText, ::dp, ::restorePanel, onAttachmentFailure) { chip, params ->
+            bubble = chip
+            bubbleParams = params
         }
-        val type = if (Build.VERSION.SDK_INT >= 26) {
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        } else {
-            WindowManager.LayoutParams.TYPE_PHONE
-        }
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            x = 0
-            y = 0
-        }
-        bubble = chip
-        bubbleParams = params
-        try {
-            window.addView(chip, params)
-            android.util.Log.i("DriverOverlayService", "bubble_attached view=${chip.hashCode()} x=${params.x} y=${params.y}")
-        } catch (error: Exception) {
-            android.util.Log.e("DriverOverlayService", "Bubble attachment failed", error)
-            bubble = null
-            bubbleParams = null
-            onAttachmentFailure()
-        }
-    }
-
-    /** Clamp overlay coordinates to the display's currently visible (system-bar-excluded) frame. */
-    private fun usableBounds(view: View): android.graphics.Rect {
-        val bounds = android.graphics.Rect()
-        view.getWindowVisibleDisplayFrame(bounds)
-        if (bounds.width() <= 0 || bounds.height() <= 0) {
-            val metrics = context.resources.displayMetrics
-            bounds.set(0, 0, metrics.widthPixels, metrics.heightPixels)
-        }
-        return bounds
-    }
-
-    private fun movePanelWithinUsableBounds(params: WindowManager.LayoutParams, x: Int, y: Int) {
-        val current = panel ?: return
-        val bounds = usableBounds(current)
-        params.gravity = Gravity.START or Gravity.TOP
-        params.x = x.coerceIn(0, (bounds.width() - current.width).coerceAtLeast(0))
-        params.y = y.coerceIn(0, (bounds.height() - current.height).coerceAtLeast(0))
-        runCatching { window.updateViewLayout(current, params) }
-    }
-
-    private fun moveBubbleWithinUsableBounds(params: WindowManager.LayoutParams, x: Int, y: Int) {
-        val current = bubble ?: return
-        val bounds = usableBounds(current)
-        params.gravity = Gravity.START or Gravity.TOP
-        params.x = x.coerceIn(0, (bounds.width() - current.width).coerceAtLeast(0))
-        params.y = y.coerceIn(0, (bounds.height() - current.height).coerceAtLeast(0))
-        runCatching { window.updateViewLayout(current, params) }
-    }
-
-    /** On release, dock to the nearest horizontal edge while retaining a clamped vertical position. */
-    private fun dockBubbleToNearestEdge(params: WindowManager.LayoutParams) {
-        val current = bubble ?: return
-        val bounds = usableBounds(current)
-        params.gravity = Gravity.START or Gravity.TOP
-        val left = params.x
-        val right = (bounds.width() - current.width).coerceAtLeast(0)
-        params.x = if (left + current.width / 2 < bounds.width() / 2) 0 else right
-        params.y = params.y.coerceIn(0, (bounds.height() - current.height).coerceAtLeast(0))
-        runCatching { window.updateViewLayout(current, params) }
-        android.util.Log.i("DriverOverlayService", "bubble_docked edge=${if (params.x == 0) "left" else "right"} x=${params.x} y=${params.y}")
     }
 
     private fun restorePanel() {
