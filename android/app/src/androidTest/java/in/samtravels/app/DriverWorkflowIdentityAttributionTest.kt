@@ -7,7 +7,10 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import androidx.test.ext.junit.runners.AndroidJUnit4
 
+@RunWith(AndroidJUnit4::class)
 class DriverWorkflowIdentityAttributionTest {
     private fun command(id: String) = JSONObject().put("schemaVersion", 1).put("commandId", id)
         .put("eventId", id).put("eventType", "shift_start").put("originSurface", "native_overlay")
@@ -30,9 +33,12 @@ class DriverWorkflowIdentityAttributionTest {
 
         val isolated = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
         try {
+            val now = java.time.Instant.now().toString()
+            val selected = JSONObject().put("data", JSONObject().put("schemaVersion", 1).put("driverId", "driver-without-link"))
+            isolated.records().put(StoredRecord("work:selected-driver", selected.toString(), 1, now))
             DriverWorkflowStore.queue(isolated, command("unlinked-event"))
             val failure = runCatching { DriverWorkflowStore.complete(isolated, "unlinked-event", gps()) }.exceptionOrNull()
-            assertEquals("work_driver_not_selected", failure?.message)
+            assertEquals("driver_person_link_missing", failure?.message)
             assertTrue(isolated.logBookEvents().list().isEmpty())
             assertEquals("pending_location", JSONObject(isolated.records().get("driver-intent:unlinked-event")!!.json).getString("status"))
         } finally { isolated.close() }
