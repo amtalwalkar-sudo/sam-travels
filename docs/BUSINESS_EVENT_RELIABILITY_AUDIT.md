@@ -106,6 +106,16 @@ The shared form runtime stores working copies in the runtime's authoritative rec
 
 **Rating: Partial.** This supports consistent capture and recovery, but a working-copy or successful submission status is not a business verification status. A crash between domain submission and working-copy status update must remain safe through operation idempotency; exact coverage across every form and lifecycle remains to be audited.
 
+
+
+## 4.5 Trips and driver activity
+
+The approved Driver Workflow contract defines a manual, single-driver state machine: shift start, manual trip creation, start ride, end ride or cancel ride, and shift end. Trip creation and Start Ride are distinct events; GPS, motion or elapsed time must not create trips automatically. The Work/Trip integration contract snapshots the selected active driver, active assignment and active vehicle at shift start, then freezes that context into each trip at trip creation. Later Admin edits do not rewrite historical snapshots. The 04:00 Asia/Kolkata operational-day boundary is explicit and tests cover its persistence across a restart.
+
+The workflow persists stable command/event IDs, expected state/revision, idempotency keys, pending intents, event-scoped GPS evidence and an outbox. The trip-history projection rebuilds from revision-ordered immutable events and deliberately preserves unmatched closes and overlapping trip anomalies as needs_attention rather than dropping them. GPS fixes are event-time location observations under the 50-metre/30-second policy; this is not continuous route tracking.
+
+**Rating: Partial-to-verified for tested technical workflow.** The contracts, PWA parity fixture, Android instrumentation tests, restart/replay and trip-history tests provide substantial evidence for the implemented scenarios. Physical-device acceptance and the full lifecycle matrix remain outstanding. Importantly, the inspected event/trip context has transition GPS snapshots, not a continuous path or a per-trip odometer series. Shift odometer readings can support shift-level distance, but precise per-trip distance, route distance or trip fuel efficiency must not be inferred from transition GPS alone.
+
 ## 4.6 Driver, vehicle and assignment records
 
 The inspected feature services use stable namespaced identities, strict payload validators, create-only duplicate protection, revision-checked updates, and feature-owned repositories. Vehicle registration identity is normalized before storage, preventing differently formatted duplicates. Driver identity is immutable on update. Assignment history is retained as a sequence of assignment periods; the service checks that driver and vehicle are active, prevents duplicate assignment IDs, enforces one active assignment, and checks chronological order when assigning/unassigning.
@@ -126,9 +136,9 @@ The inspected Finance loan service stores loan details and versioned EMI schedul
 
 ## 4.9 Fuel capture inventory
 
-The current main-branch file-tree inventory contains no clearly named standalone Fuel feature/service, fuel record schema, or fuel-specific application service/test suite. The Work/Trip financial closeout inspected so far captures fare, toll and parking, but does not include a fuel purchase or fuel quantity/odometer entry. Maintenance has a general expense record, but it should not be assumed to be the fuel ledger without tracing the UI and business contract.
+The current feature inventory contains no dedicated Fuel feature/service, fuel-specific schema, or fuel-specific application service/test suite. However, the Maintenance feature does provide a general vehicle-expense form with free-text expense name/description, amount, date, optional odometer and provider; a driver/admin could therefore record a fuel purchase as a generic vehicle expense. The inspected form does not capture fuel quantity/litres, unit price, fuel type per purchase, station, or a structured fuel transaction category. It should not be treated as a complete fuel ledger without explicit mapping and product approval.
 
-**Rating: Unknown.** Search the actual Admin/Work forms and backup adapters to determine whether fuel is represented through a generic expense form or is not yet implemented. Do not infer fuel capture from a calculation or UI label alone.
+**Rating: Partial for generic amount capture; Unknown for fuel-specific data readiness.** Fuel spend may be recorded as a generic expense, but fuel volume and purchase-level details needed for consumption, price-per-litre, mileage and fuel-efficiency analysis are not represented in the inspected schema. Do not infer them from expense amount or GPS.
 
 ## 4.10 Shared PWA and Capacitor application path
 
@@ -175,8 +185,8 @@ The initial gap is not that independent corroboration is missing. The remaining 
 | Work item | Scope | Status |
 |---|---|---|
 | A. Architecture and authority map | Trace PWA, Android WebView, overlay, shared application services, adapters and durable stores | Partial — shared React/services and Dexie/Room split verified; remaining feature map and actor provenance remain |
-| B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — core command/event/outbox paths and representative parity/restart tests inspected; full actor attribution and scenario matrix remain |
-| C. Financial business events | Fare, collections, toll, parking, fuel, maintenance, loans, payments, prepayments and settlements | Partial — Work/Trip fare/toll/parking (no separate trip collection field identified), maintenance, loan schedule and payment ledger contracts inspected; fuel capture path and complete Android form parity still require tracing |
+| B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — state machine, immutable snapshots, event GPS, parity/restart and anomaly-preserving history inspected; per-trip distance and physical acceptance remain limited |
+| C. Financial business events | Fare, collections, toll, parking, fuel, maintenance, loans, payments, prepayments and settlements | Partial — Fare/toll/parking, generic expense (possible fuel spend), Maintenance and Finance inspected; distinct trip collection and structured fuel data are gaps |
 | D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and selected financial forms inspected; every feature form and correction/history path not yet inventoried |
 | E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared application path, driver parity fixture, paired Room surfaces, and selected financial tests exist; full per-domain PWA/Capacitor matrix remains |
 | F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — Dexie/Room atomic paths and selected browser/native reopen, backup and restore tests inspected; physical-device and full cloud acceptance remain |
@@ -204,6 +214,7 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 0.1 | 2026-11-11 | Initial baseline architecture and business-event evidence review at main commit `f766725`. |
 | 0.2 | 2026-11-11 | Clarify owner policy: authorised driver/admin entries are authoritative; technical validation is distinct from optional independent corroboration. Add driver/vehicle, maintenance and finance feature inventory findings. |
 | 0.3 | 2026-11-11 | Trace shared PWA/Capacitor composition, Dexie/Room transaction paths, selected backup/restore tests, actor provenance gap, and Finance payment-contract governance mismatch. |
-| 0.4 | 2026-11-11 | Identify that Work/Trip stores Fare but no separate customer-collection record in the inspected schema; record Fuel form/service as not located in the registered feature inventory. |
+| 0.4 | 2026-11-11 | Identify that Work/Trip stores Fare but no separate customer-collection record in the inspected schema; distinguish generic Maintenance expense capture from a dedicated Fuel ledger. |
+| 0.5 | 2026-11-11 | Extend Trips/driver activity review: immutable driver/vehicle snapshots, event GPS, manual state machine, anomaly-preserving history, and limits on per-trip distance inference. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
