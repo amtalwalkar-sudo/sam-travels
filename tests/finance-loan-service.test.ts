@@ -73,7 +73,7 @@ describe("FinanceLoanService", () => {
 
 
 
-  it("locks calculation inputs after immutable prepayment history exists", async () => {
+  it("keeps saved loan details immutable even when prepayment history exists", async () => {
     const { repository, service } = setup();
     const created = await service.create({ uuid: "123e4567-e89b-42d3-a456-426614174000", details, source: "web" });
     await repository.put({
@@ -87,7 +87,7 @@ describe("FinanceLoanService", () => {
     await expect(service.update({
       id: created.id, expectedRevision: 1,
       details: { ...details, annualInterestRateBasisPoints: 1350 },
-    })).rejects.toThrow("finance_loan_prepayment_schedule_locked");
+    })).rejects.toThrow("finance_loan_details_immutable");
   });
 
   it("retains historical loan dates independent of business start date", async () => {
