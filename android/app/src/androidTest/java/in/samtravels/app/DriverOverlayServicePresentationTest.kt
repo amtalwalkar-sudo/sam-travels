@@ -9,6 +9,8 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.MotionEvent
+import android.view.InputDevice
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import android.app.UiAutomation
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -74,7 +76,7 @@ class DriverOverlayServicePresentationTest {
             assertTrue("Minimized overlay bubble must be attached", bubble != null)
             val bubbleBounds = android.graphics.Rect().also { bubble!!.getBoundsInScreen(it) }
             tapAt(ui, bubbleBounds.centerX(), bubbleBounds.centerY())
-            assertTrue("Tapping the bubble must restore the financial form", waitUntil {
+            assertTrue("Tapping the bubble must restore the financial form; bounds=$bubbleBounds hierarchy=${describeNodes(ui)} logs=${shell(ui, "logcat -d -s DriverOverlayService:I DriverOverlayService:E").takeLast(9000)}", waitUntil {
                 findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null &&
                     findNode(ui) { it.text?.toString()?.contains("Fare required") == true } != null &&
                     findNode(ui) { it.contentDescription?.toString() == "Fare (₹)" && it.text?.toString() == "12.34" } != null &&
@@ -205,8 +207,14 @@ class DriverOverlayServicePresentationTest {
 
     private fun tapAt(ui: UiAutomation, x: Int, y: Int) {
         val downTime = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0)
-        val up = MotionEvent.obtain(downTime, downTime + 80, MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0)
+        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat(), 0).apply {
+            source = InputDevice.SOURCE_TOUCHSCREEN
+            displayId = Display.DEFAULT_DISPLAY
+        }
+        val up = MotionEvent.obtain(downTime, downTime + 80, MotionEvent.ACTION_UP, x.toFloat(), y.toFloat(), 0).apply {
+            source = InputDevice.SOURCE_TOUCHSCREEN
+            displayId = Display.DEFAULT_DISPLAY
+        }
         try {
             assertTrue("Overlay touch-down must be injected", ui.injectInputEvent(down, true))
             assertTrue("Overlay touch-up must be injected", ui.injectInputEvent(up, true))
