@@ -119,7 +119,7 @@ internal class DriverOverlayPresentation(
                             minimizePanel()
                             return@setOnTouchListener true
                         }
-                        DriverOverlayBoundsGestures.movePanelWithinUsableBounds(context, window, view, params, panelStartX + dx.toInt(), panelStartY + dy.toInt(), ::dp)
+                        DriverOverlayBoundsGestures.movePanelWithinUsableBounds(context, window, panel ?: return@setOnTouchListener true, params, panelStartX + dx.toInt(), panelStartY + dy.toInt(), ::dp)
                     }
                     true
                 }
