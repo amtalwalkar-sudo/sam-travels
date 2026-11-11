@@ -64,6 +64,7 @@ describe("person identity service", () => {
       roles: ["driver", "admin"], status: "active",
     };
     let configuredPin: string | undefined;
+    let currentNow = NOW;
     const identity = new PersonIdentityService(
       { get: async id => id === person.personId ? person : undefined },
       {
@@ -71,7 +72,7 @@ describe("person identity service", () => {
         configure: async pin => { configuredPin = pin; },
         verify: async pin => configuredPin === pin,
       },
-      () => NOW,
+      () => currentNow,
     );
     await expect(identity.activate("person-1", "admin", "2468"))
       .rejects.toThrow("business_admin_pin_not_configured");
@@ -83,6 +84,8 @@ describe("person identity service", () => {
     expect(driver.actorId).toBe(admin.actorId);
     expect(driver.role).toBe("driver");
     expect(admin).toMatchObject({ role: "admin", actorId: "person-1", adminPinVerifiedAt: NOW });
+    currentNow = "2026-11-11T10:06:00.000Z";
+    await expect(identity.currentActor()).rejects.toThrow("business_admin_session_expired");
     await expect(identity.activate("person-1", "admin", "1111")).rejects.toThrow("business_admin_pin_invalid");
     identity.clear();
     await expect(identity.currentActor()).rejects.toThrow("business_actor_not_active");
