@@ -13,6 +13,8 @@ export interface BusinessPersonRepository {
 
 /** Platform adapter must verify a PIN without exposing or persisting plaintext here. */
 export interface AdminPinVerifier {
+  isConfigured(): Promise<boolean>;
+  configure(pin: string): Promise<void>;
   verify(pin: string): Promise<boolean>;
 }
 
@@ -30,7 +32,14 @@ export class PersonIdentityService {
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
+  async configureInitialAdminPin(pin: string): Promise<void> {
+    if (!/^\\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
+    if (await this.adminPin.isConfigured()) throw new Error("business_admin_pin_already_configured");
+    await this.adminPin.configure(pin);
+  }
+
   async activate(personId: string, role: BusinessRoleV1, pin?: string): Promise<CorrectionActorV1> {
+    this.activeActor = undefined;
     const person = await this.people.get(personId);
     if (!person) throw new Error("business_person_not_found");
     assertBusinessPersonV1(person);
