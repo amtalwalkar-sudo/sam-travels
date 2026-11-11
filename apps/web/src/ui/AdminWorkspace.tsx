@@ -94,8 +94,6 @@ export function AdminWorkspace() {
                 </div>
                 <LoanDetailsForm vehicleId={selectedVehicle.id}
                   vehicleActive={selectedVehicle.data.lifecycleState === "active"}
-                  requestedEdit={requestedEdit}
-                  onEditConsumed={() => setRequestedEdit(null)}
                   onChanged={refresh} />
                 {vehicleLoans.length === 0 ? <p className="admin-hint">No loans recorded for this vehicle yet.</p> :
                   <div className="loan-record-list">{vehicleLoans.map(loan => {
@@ -120,7 +118,6 @@ export function AdminWorkspace() {
                     return <article className="loan-record" key={loan.id}>
                       <div className="loan-record-heading">
                         <div><strong>{loan.data.details.loanName}</strong><small>{loan.data.details.lenderName} · {rate(loan.data.details.annualInterestRateBasisPoints)}</small></div>
-                        <button className="admin-secondary" type="button" onClick={() => setRequestedEdit(loan)}>Edit details</button>
                       </div>
                       <div className="loan-metrics">
                         <div><small>Active schedule principal</small><strong>{money(schedulePrincipal)}</strong></div>
