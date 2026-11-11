@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 import type { RecordEnvelope } from "../packages/core/src/types";
-import type { RecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { CredentialVault } from "../packages/core/src/credentials";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
 import { PersistentBusinessPersonRepository, SecureAdminPinVerifier } from "../apps/web/src/person-identity-adapters";
 
-class MemoryRecords implements RecordRepository {
+class MemoryRecords implements AtomicRecordRepository {
   rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
   async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
   async remove(id: string) { this.rows.delete(id); }
+  async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
+    const current = this.rows.get(id);
+    if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
+    this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
 }
 
 class MemoryVault implements CredentialVault {
