@@ -263,10 +263,9 @@ class DriverOverlayServicePresentationTest {
     }
 
     private fun scrollToTop(ui: UiAutomation) {
+        val anchor = findNode(ui) { it.contentDescription?.toString() == "Parking (₹)" } ?: return
+        val scroll = scrollAncestor(anchor) ?: return
         repeat(16) {
-            val scroll = allNodes(ui).firstOrNull {
-                it.className?.toString() == "android.widget.ScrollView"
-            } ?: return
             if (!scroll.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)) return
             SystemClock.sleep(120)
         }
