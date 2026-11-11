@@ -7,8 +7,6 @@ import android.graphics.PixelFormat
 import android.location.*
 import android.os.*
 import android.provider.Settings
-import android.view.*
-import android.widget.*
 import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
