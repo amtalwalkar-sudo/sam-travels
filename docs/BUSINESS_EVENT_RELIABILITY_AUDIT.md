@@ -24,13 +24,13 @@ Passing the first does not automatically pass the second. A durable owner-entere
 
 ### 2.1 Business-event evidence states — approved product vocabulary
 
-- **Reported:** entered/asserted by an identified person or source; not sufficiently corroborated.
-- **Corroborated:** supported by relevant separately identified evidence. Copies/derivatives of one assertion are not independent sources.
-- **Verified:** meets the approved evidence requirements for that event type. Successful saving or GPS alone is insufficient.
-- **Conflicting:** material evidence disagrees and is unresolved.
-- **Unknown:** available evidence is insufficient to determine status.
+- **Authoritative business record:** an entry made by an authorised driver or admin is the official business record under the owner's stated operating policy. It is accepted for business records and calculations without requiring independent evidence.
+- **Technically validated:** the app has validated required fields, permitted values, identity/relationships, revision/duplicate rules, and durable commit. This describes application integrity, not independent proof of the real-world event.
+- **Independently corroborated (optional):** a separate evidence source supports the entry. This is useful when available, but is not a prerequisite for accepting an authorised driver/admin entry.
+- **Conflicting:** the app or a reviewer has identified a material conflict between business records or optional evidence that requires resolution.
+- **Unknown / not captured:** the app has no sufficient authorised entry or usable information for the requested conclusion.
 
-These are evidence states, not an automatic status ladder. Missing evidence is not proof that an event did not happen. Verification rules must be specific to the event type and versioned. No confidence score is approved by this audit.
+Do not label an authorised driver/admin entry as merely untrusted or provisional because independent evidence is absent. Do not claim that the app independently confirmed a real-world payment or expense unless a genuinely separate source exists. Missing optional evidence does not make the authoritative business record invalid. These labels are descriptive, not an automatic status ladder. No confidence score is approved by this audit.
 
 ### 2.2 Audit result labels
 
@@ -60,8 +60,8 @@ This establishes successful execution of those automated jobs, not proof of all 
 - Physical Android phone/OEM lifecycle acceptance.
 - PWA real-browser lifecycle matrix beyond automated tests inspected.
 - Live Dropbox account acceptance.
-- Independent corroboration of real-world fares, collections, expenses, fuel purchases, or maintenance events.
-- Production event verification states and event-specific evidence policies.
+- Optional independent corroboration of fares, collections, expenses, fuel purchases, or maintenance events.
+- A generic production event-verification state. The approved policy is authoritative authorised entry plus technical validation; optional corroboration is separate.
 
 ## 4. Architecture and capture findings
 
@@ -98,7 +98,7 @@ Inspected code shows stable command/event identity, idempotency keys, expected s
 
 The inspected shared definitions distinguish completed-ride Fare (required, explicit zero valid) from optional Toll/Parking with independent payer selections. Cancellation Fee is a separate required closeout, with explicit zero valid and no Toll/Parking fields. Values are represented in integer paise and trip-linked obligations are created at the driver transition boundary. Application services validate and use revision-aware/idempotent submission; the Android overlay has corresponding Room-backed submission stores and instrumented tests.
 
-**Rating: Partial for business-event reliability.** The implementation demonstrates that the values are captured and persisted consistently under tested conditions. The inspected schemas identify the entered amounts, operation identity, and related trip/transition, but do not establish independent evidence that the fare was agreed, that the customer paid, or that an expense was actually incurred/paid. Such values must be treated as **Reported** until event-specific corroboration requirements are designed and satisfied.
+**Rating: Partial for capture integrity; authoritative by business policy.** The driver/admin-entered amounts are the official business records and must be accepted for business calculations after technical validation. The app does not independently confirm customer payment or third-party expense settlement, but that is not a prerequisite under the owner's policy. Optional corroborating references may be retained if useful; absence of those references must not downgrade an authorised entry.
 
 ### 4.5 Shared forms and working copies
 
@@ -106,28 +106,54 @@ The shared form runtime stores working copies in the runtime's authoritative rec
 
 **Rating: Partial.** This supports consistent capture and recovery, but a working-copy or successful submission status is not a business verification status. A crash between domain submission and working-copy status update must remain safe through operation idempotency; exact coverage across every form and lifecycle remains to be audited.
 
-## 5. Initial business-event reliability gap
+## 4.6 Driver, vehicle and assignment records
 
-The inspected driver event schema stores command, GPS snapshot, commit time, and revision. The inspected Trip financial obligations store the trip link, entered amounts/payer values, operation identity, submission status, and timestamps. In the inspected paths, no event-specific corroboration/verification decision is represented as an authoritative status.
+The inspected feature services use stable namespaced identities, strict payload validators, create-only duplicate protection, revision-checked updates, and feature-owned repositories. Vehicle registration identity is normalized before storage, preventing differently formatted duplicates. Driver identity is immutable on update. Assignment history is retained as a sequence of assignment periods; the service checks that driver and vehicle are active, prevents duplicate assignment IDs, enforces one active assignment, and checks chronological order when assigning/unassigning.
 
-Therefore, at this baseline:
+**Rating: Partial.** The core identity and relationship rules are explicit and covered by focused service tests. The feature record envelope records source channel (web, android, import, integration), but the inspected generic envelope does not itself identify the human actor. Driver identity can be represented in assignment/workflow data, but a complete actor-attribution and correction-history trace across Admin changes remains to be verified.
 
-- Driver transitions may be **durably recorded**, but that alone does not make the real-world event **Verified**.
-- GPS evidence may corroborate a location/time observation, but does not independently prove the commercial event.
-- Fare and cancellation-fee amounts entered through forms are **Reported** unless supported by a separately approved evidence rule and corroborating source.
-- A submitted payment/expense form proves that the application accepted the entry, not necessarily that money moved or the expense occurred.
-- No advisor output may silently promote these records to Verified.
+## 4.7 Maintenance records
 
-This is a product/data capability gap, not yet a demonstrated persistence defect. Do not add generic verification flags to every record as a shortcut. First define evidence requirements by business-event type and map them to authoritative source contracts.
+The inspected Maintenance feature stores vehicle-linked service visits, itemized expenses, general vehicle expenses, odometer values, provider labels, next-service thresholds, and per-vehicle rate history. Visit totals are recalculated from integer-paise line items and validated against the stored total. Records require a known vehicle; date, amount, item identity, and rate-history ordering are validated. The service supports revision-checked edits and derives actual expense totals from visit and expense records.
+
+**Rating: Partial.** The feature has meaningful structural validation and focused tests for edits, totals, separate general expenses, idempotent rate changes, vehicle relationships, and reminders. The provider/name/amount fields remain authorised business entries, not independently confirmed payments. Odometer readings are entered values; the inspected contract does not establish independent odometer evidence. PWA/Android form and backup parity, actor attribution, and complete correction audit remain to be traced.
+
+## 4.8 Loans, payments, prepayments and settlements
+
+The inspected Finance loan service stores loan details and versioned EMI schedule history in a revision-controlled loan aggregate. Schedule versions preserve calculation ID/version and inputs/outputs. Payment entries are maintained in a per-loan ledger with command identity, business date, amount, method, optional reference/note, schedule version, EMI allocations, unallocated credit, and committed status. The service validates allocations, prevents over-allocation, supports idempotent replay, and appends reversals rather than deleting original payment entries. Loan and payment ledger revisions are committed atomically for payment recording. Prepayment revisions preserve source, command, effective date, prior/current schedule versions, calculation inputs/outputs and expected revisions; settlement logic checks due EMI allocations and closes the loan atomically.
+
+**Rating: Partial for technical integrity; authoritative by business policy.** The owner/admin-entered loan, payment, prepayment and settlement records are official business records after app validation. The method/reference fields are contextual evidence, not mandatory independent confirmation. The inspected service tests cover concurrent payment allocation, idempotency, reversal, prepayment schedule revisions, stale previews and settlement/closure. Android UI/bridge parity, actor attribution, backup/restore completeness and edit/correction history still need end-to-end verification.
+
+## 4.9 Fuel capture inventory
+
+The current main-branch file-tree inventory contains no clearly named standalone Fuel feature/service, fuel record schema, or fuel-specific application service/test suite. The Work/Trip financial closeout inspected so far captures fare, toll and parking, but does not include a fuel purchase or fuel quantity/odometer entry. Maintenance has a general expense record, but it should not be assumed to be the fuel ledger without tracing the UI and business contract.
+
+**Rating: Unknown.** Search the actual Admin/Work forms and backup adapters to determine whether fuel is represented through a generic expense form or is not yet implemented. Do not infer fuel capture from a calculation or UI label alone.
+
+## 5. Authoritative business-entry policy and initial gaps
+
+The owner has clarified that authorised driver/admin entries are authoritative business records. Fare agreement, customer collection, trip expenses, fuel, maintenance, and finance entries are not required to have independent third-party proof before being accepted into the business record or used in calculations.
+
+The reliability requirement is therefore to establish that the entry:
+
+- Came through an authorised capture path and, where applicable, identifies the responsible driver/admin.
+- Passed the owning feature's field, money/date, identity, and relationship validation.
+- Was committed to the authoritative local store and can be recovered/replayed safely.
+- Was not silently overwritten by a duplicate or competing PWA/Android submission.
+- Retains enough history to explain corrections, reversals, and the current value.
+
+Optional corroboration (receipt/reference/payment reference) can add context, but it is not a gate. GPS is a separate system-observed location/time signal; it is not needed to prove a driver-entered fare or expense. The advisor may use authoritative, technically validated entries while being transparent that they are owner/driver-entered business records rather than independently confirmed third-party events.
+
+The initial gap is not that independent corroboration is missing. The remaining audit must determine whether actor attribution, source channel, correction history, auditability, validation, platform parity, and recovery are sufficiently implemented for each feature. Do not add generic verification flags or demand external evidence as a shortcut.
 
 ## 6. Remaining audit work
 
 | Work item | Scope | Status |
 |---|---|---|
 | A. Architecture and authority map | Trace PWA, Android WebView, overlay, shared application services, adapters and durable stores | Partial — baseline paths inspected; full feature map remains |
-| B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — core path inspected; exhaustive acceptance map remains |
-| C. Financial business events | Fare, collection, toll, parking, fuel, maintenance, loan/payment and settlements | Partial — Work/Trip closeout inspected; remaining domains not yet inspected |
-| D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and Work/Trip inspected; every form not yet inventoried |
+| B. Driver workflow evidence | Trips, shift transitions, GPS, event identity, context, recovery and history | Partial — core command/event/outbox paths and representative parity/restart tests inspected; full actor attribution and scenario matrix remain |
+| C. Financial business events | Fare, collections, toll, parking, fuel, maintenance, loans, payments, prepayments and settlements | Partial — Work/Trip closeout, maintenance, loan schedule and payment ledger contracts inspected; fuel capture path and complete Android form parity still require tracing |
+| D. Form capture quality | Definitions, validation, draft persistence, submission idempotency, correction/audit history | Partial — shared runtime and selected financial forms inspected; every feature form and correction/history path not yet inventoried |
 | E. Cross-platform equivalence | Equivalent PWA and Android operations and canonical outputs | Partial — shared contracts and selected parity/bridge tests exist; full scenario matrix remains |
 | F. Durability and recovery | Failure injection, process recreation, migrations, backup/restore and replay | Partial — substantial automation exists; remaining paths and physical-device limits remain |
 | G. Evidence/corroboration model | Source independence, event-specific rules, review and correction provenance | Unknown / not implemented in inspected paths |
@@ -138,10 +164,12 @@ This is a product/data capability gap, not yet a demonstrated persistence defect
 1. Finish the feature-by-feature source-of-truth map before changing code.
 2. For each business event, record capture surface, authoritative command/service, authoritative store, required fields, source/provenance, recovery, correction path, corroboration sources, and intelligence eligibility.
 3. Build equivalent PWA/Android fixtures for each high-value event and compare canonical business outputs, not merely UI success.
-4. Define evidence requirements for Trips, Fare/collection, Toll/Parking, Fuel, Maintenance, Loans/payments and other domains separately.
-5. Define what the system can observe, what a person asserts, what can independently corroborate it, and what remains unknowable.
-6. Only after the audit and product-owner approval, create focused technical contracts and implement the smallest validated gaps.
-7. Keep physical-device and real-world operational acceptance distinct from CI/emulator evidence.
+4. Confirm that each feature treats authorised driver/admin entries as authoritative and technically validates fields, identity, relationships, revisions, and commits.
+5. Map optional corroboration separately; do not make it a prerequisite unless the owner approves a specific exception.
+6. Complete the fuel capture path inventory and trace actor attribution, corrections, history, and backup/restore across all financial domains.
+7. Build equivalent PWA/Android fixtures for high-value events and compare canonical business outputs, not merely UI success.
+8. Only after the audit and product-owner approval, create focused technical contracts and implement the smallest validated gaps.
+9. Keep physical-device and real-world operational acceptance distinct from CI/emulator evidence.
 
 Do not weaken existing transaction, persistence, privacy, GPS, form, or platform acceptance contracts to satisfy this audit. Do not change business rules or calculations as part of evidence classification without separate approval.
 
@@ -150,5 +178,6 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | Version | Date | Change |
 |---|---|---|
 | 0.1 | 2026-11-11 | Initial baseline architecture and business-event evidence review at main commit `f766725`. |
+| 0.2 | 2026-11-11 | Clarify owner policy: authorised driver/admin entries are authoritative; technical validation is distinct from optional independent corroboration. Add driver/vehicle, maintenance and finance feature inventory findings. |
 
-**Current conclusion:** Sam Travels has a substantial local-first capture and recovery foundation for the inspected Work/Trip paths. The reviewed evidence does not yet justify calling manually entered business amounts or all real-world events independently verified. The full reliability audit remains in progress.
+**Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, correction history, platform parity and recovery. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
