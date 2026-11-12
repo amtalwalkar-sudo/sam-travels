@@ -54,7 +54,7 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
-      - name: Submit and verify Maintenance correction through the rendered PWA
+      - name: Verify PWA service-worker cache boundaries and rollback retention\n        run: node scripts/pwa-service-worker-contract.mjs\n      - name: Submit and verify Maintenance correction through the rendered PWA
         run: node scripts/maintenance-correction-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
