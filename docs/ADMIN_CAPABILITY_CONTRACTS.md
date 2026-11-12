@@ -142,22 +142,32 @@ The exact Driver Records ↔ Work public integration contract is an implementati
 
 ### 3.4 Compliance — `compliance`
 
-**Owned record:** vehicle-scoped compliance item with Admin-defined name, validity start/end dates, total cost in INR paise, optional supporting-document reference, and optional link to the prior record created by renewal.
+**Owned records:**
+- Compliance record: vehicle ID, admin-defined compliance name, actual inclusive validity start/end dates, total cost in INR paise, optional supporting-document reference, and optional preceding-record ID for a renewal.
+- Overlap review event: immutable event ID, exact affected source record IDs and revisions, review decision (confirmed or rejected), reviewer/actor identity and role, mandatory rationale, and recorded timestamp. The event is separate from and never mutates either compliance record.
+- Correction events: Compliance-targeted entries in the shared append-only historical-correction chain, using a Compliance-owned target policy and allowed-field policy.
 
-**Operations:** create/read/edit compliance record; renew by creating a linked record; list history; query validity/gaps/overlaps and daily cost for a vehicle/date range.
+**Operations:** create/read/list compliance records; create a linked renewal; query validity, gaps, overlaps and daily allocations for a vehicle/date range; record an explicit overlap review decision; query review history; submit an authorized historical correction through the shared correction service.
 
 **Invariants:**
-- Valid-from and valid-to dates are inclusive and valid-to cannot precede valid-from.
-- Renewal creates a new record linked to the previous record; it never overwrites the prior record or its cost/document history.
-- Backdated and historical records are allowed.
-- Gap detection reports uncovered dates; it never fills them automatically.
-- Overlap detection warns about possible duplicate coverage. Any accepted overlap remains traceable to its source records and must not silently double-count.
-- Daily cost uses full precision internally and the approved financial rounding/display policy; source-record breakdown remains available.
-- Missing document is a valid explicit state, not a failed record.
-- Compliance owns vehicle compliance records; Driver Records remains the owner of driver licence data.
+- Valid-from and valid-to are valid ISO calendar dates, inclusive; valid-to cannot precede valid-from.
+- A renewal creates a new record linked to its predecessor. It never overwrites the predecessor or its cost/document history.
+- The new record's dates are the actual dates applicable to its source document. Do not shift dates to remove overlaps or gaps.
+- Early renewals and overlapping validity periods are permitted. A linked renewal must not be rejected solely because its valid-from date is on or before the predecessor's valid-to date.
+- Backdated and historical records are allowed. A late renewal leaves the actual uncovered historical period visible.
+- Gap analysis returns uncovered date ranges and inclusive day counts; it never fills or implies coverage.
+- Overlap analysis returns the exact intersection, day count and both/all source record identities. Gaps and overlaps remain separate result collections.
+- An overlap remains unconfirmed until an append-only review event records an explicit decision. A confirmation is scoped to exact source IDs and revisions and is invalidated for analysis purposes when a source correction changes the reviewed facts.
+- Review events are independently durable and attributable. Restore validates event schema, actor/decision fields, source existence, and source revision relationship. Broken, missing, or conflicting relationships fail closed; no confirmation is inferred.
+- Daily allocation for a record is its total cost in paise divided by its inclusive validity-day count. Use exact rational arithmetic internally and preserve source-level provenance.
+- Each source record contributes no more than once on a date. Before current explicit confirmation, the combined amount for an overlapping compliance item/date range is withheld. After confirmation, include every distinct source record's actual daily allocation and show each contribution separately.
+- Confirmation never changes validity dates, hides the overlap, or authorizes duplicate source rows.
+- Missing supporting document is a valid explicit state and is visibly represented.
+- Compliance owns vehicle compliance records and review events; Driver Records remains the owner of driver licence facts.
+- Historical corrections use the shared append-only correction service and a Compliance-owned target policy. Original records and correction events remain available; corrected projections trigger targeted re-analysis and stale any review whose source revision no longer matches.
+- Backup/export and restore validate compliance renewals, review-event relationships, and correction provenance on both browser and Android adapters.
 
-The exact `Expiring soon` threshold and reminder delivery mechanism must follow the approved product decision and a supported notification capability; this contract does not invent a threshold or claim reminders are delivered. Compliance may consume a versioned, read-only Driver Records licence query only after that public query is defined and registered.
-
+**Expiry and presentation policy:** The product specification sets the Admin-only Expiring soon threshold to 15 calendar days and prohibits notification delivery. The feature must not invent a second threshold or claim reminders are delivered. Admin's default view is fleet-wide with a vehicle filter, distinct gap and overlap lists, source-level daily-cost breakdown, and explicit review state. These are presentation requirements; Admin does not own the underlying data or calculations.
 ### 3.5 Finance Loan — `finance`
 
 **Owned records:** vehicle-linked loan details and immutable calculation/schedule provenance. Finance remains the only owner of loan records, calculations, balances, and repayment workflows.
@@ -236,7 +246,7 @@ Each participant owns only its namespace and validates:
 - every row has the correct feature prefix and participant owner;
 - record envelope and payload schema are supported;
 - stable IDs are unique within the participant;
-- all required same-feature relationships resolve (driver assignments, compliance renewals, maintenance visit items, rate/accrual provenance, and Finance schedule provenance);
+- all required same-feature relationships resolve (driver assignments, compliance renewals and overlap review-event source references, maintenance visit items, rate/accrual provenance, and Finance schedule provenance);
 - cross-feature references resolve against the complete staged snapshot (for example vehicle IDs), without reaching into another feature's private tables;
 - missing required references, unsupported versions, duplicate IDs, malformed money/date values, or unknown feature namespaces fail closed before replacement.
 
