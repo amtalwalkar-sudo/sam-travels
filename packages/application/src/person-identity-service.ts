@@ -10,6 +10,7 @@ import {
 export interface BusinessPersonRepository {
   get(personId: string): Promise<BusinessPersonV1 | undefined>;
   save?(person: BusinessPersonV1): Promise<BusinessPersonV1>;
+  remove?(personId: string): Promise<void>;
   list?(): Promise<BusinessPersonV1[]>;
 }
 
@@ -41,28 +42,46 @@ export class PersonIdentityService {
     return this.people.list();
   }
 
-  async registerPerson(person: BusinessPersonV1): Promise<BusinessPersonV1> {
+  async registerPerson(person: BusinessPersonV1, initialAdminPin?: string): Promise<BusinessPersonV1> {
     assertBusinessPersonV1(person);
     if (!this.people.save) throw new Error("business_person_repository_read_only");
-    const existing = await this.people.get(person.personId);
-    if (existing) throw new Error("business_person_already_exists");
-    return this.people.save(person);
+    if (await this.people.get(person.personId)) throw new Error("business_person_already_exists");
+
+    if (await this.adminPin.isConfigured()) {
+      await this.requireAdmin();
+      return this.people.save(person);
+    }
+
+    // First-use bootstrap is deliberately limited to the first enrolled Admin.
+    // The PIN is configured by this service operation, never by an unauthenticated
+    // standalone method or a presentation-layer check.
+    if (!person.roles.includes("admin")) throw new Error("business_initial_admin_required");
+    if (!/^\d{4,12}$/.test(initialAdminPin ?? "")) throw new Error("business_admin_pin_invalid_format");
+    if (!this.people.list) throw new Error("business_person_repository_list_unavailable");
+    if ((await this.people.list()).length !== 0) throw new Error("business_initial_admin_bootstrap_closed");
+
+    await this.people.save(person);
+    try {
+      await this.adminPin.configure(initialAdminPin!);
+    } catch (error) {
+      await this.people.remove?.(person.personId);
+      throw error;
+    }
+    this.activeActor = toCorrectionActorV1(person, {
+      personId: person.personId, role: "admin", adminPinVerifiedAt: this.now(),
+    });
+    return person;
   }
 
   async updatePerson(person: BusinessPersonV1): Promise<BusinessPersonV1> {
     assertBusinessPersonV1(person);
     if (!this.people.save) throw new Error("business_person_repository_read_only");
+    await this.requireAdmin();
     if (!await this.people.get(person.personId)) throw new Error("business_person_not_found");
     return this.people.save(person);
   }
 
   async isAdminPinConfigured(): Promise<boolean> { return this.adminPin.isConfigured(); }
-
-  async configureInitialAdminPin(pin: string): Promise<void> {
-    if (!/^\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");
-    if (await this.adminPin.isConfigured()) throw new Error("business_admin_pin_already_configured");
-    await this.adminPin.configure(pin);
-  }
 
   async activate(personId: string, role: BusinessRoleV1, pin?: string): Promise<CorrectionActorV1> {
     this.activeActor = undefined;
@@ -94,6 +113,12 @@ export class PersonIdentityService {
 
   clear(): void {
     this.activeActor = undefined;
+  }
+
+  private async requireAdmin(): Promise<CorrectionActorV1> {
+    const actor = await this.currentActor();
+    if (actor.role !== "admin" || !actor.adminPinVerifiedAt) throw new Error("business_admin_authority_required");
+    return actor;
   }
 
   private async verifyAdmin(personId: string, pin?: string): Promise<PersonActorSessionV1> {
