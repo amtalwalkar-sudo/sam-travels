@@ -30,3 +30,6 @@ export type {
   ComplianceOverlapReviewStatus,
   ComplianceOverlapReviewV1,
 } from "./overlap-review";
+
+export { ComplianceOverlapReviewService } from "./overlap-review-service";
+export type { ComplianceOverlapReviewActorProvider } from "./overlap-review-service";
