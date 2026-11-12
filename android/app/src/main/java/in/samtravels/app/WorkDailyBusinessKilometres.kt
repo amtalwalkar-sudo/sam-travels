@@ -51,16 +51,25 @@ internal object WorkDailyBusinessKilometres {
             "daily_business_km_duplicate_shift"
         }
         val businessKm = odometer.getLong("businessKm")
+        val allocationStatus = if (DriverWorkflowStore.operationalDateAt(command.getString("transitionAt")) == operationalDate)
+            "allocated" else "awaiting_operational_boundary"
         entries.put(
             JSONObject().put("shiftId", shiftId).put("shiftStartEventId", shiftId).put("shiftEndEventId", eventId)
                 .put("shiftStartedAt", startedAt).put("shiftEndedAt", command.getString("transitionAt"))
-                .put("startOdometerKm", startKm).put("endOdometerKm", endKm).put("businessKm", businessKm),
+                 .put("startOdometerKm", startKm).put("endOdometerKm", endKm).put("businessKm", businessKm)
+                .put("allocationStatus", allocationStatus),
         )
         var total = 0L
-        for (index in 0 until entries.length()) total = Math.addExact(total, entries.getJSONObject(index).getLong("businessKm"))
+        var unallocated = 0L
+        for (index in 0 until entries.length()) {
+            val entry = entries.getJSONObject(index)
+            if (entry.optString("allocationStatus") == "allocated") total = Math.addExact(total, entry.getLong("businessKm"))
+            else if (entry.optString("allocationStatus") == "awaiting_operational_boundary") unallocated = Math.addExact(unallocated, entry.getLong("businessKm"))
+            else error("daily_business_km_allocation_status_invalid")
+        }
         val data = JSONObject().put("schemaVersion", 1).put("kind", "daily_business_kilometres")
             .put("vehicleId", vehicleId).put("operationalDate", operationalDate)
-            .put("entries", entries).put("totalBusinessKm", total)
+            .put("entries", entries).put("totalBusinessKm", total).put("unallocatedBusinessKm", unallocated)
         val envelope = JSONObject().put("id", dailyId).put("schemaVersion", 1)
             .put("createdAt", existingEnvelope?.optString("createdAt") ?: now).put("updatedAt", now)
             .put("source", "integration").put("revision", (existingEnvelope?.optInt("revision") ?: 0) + 1)
