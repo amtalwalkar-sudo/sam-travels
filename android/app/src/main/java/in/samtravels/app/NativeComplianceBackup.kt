@@ -5,6 +5,7 @@ import java.time.LocalDate
 import java.time.Instant
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.math.BigDecimal
 
 /** Installs Compliance Room backup validation before native backup, restore, or recovery. */
 internal object NativeComplianceBackup {
@@ -100,6 +101,18 @@ internal object NativeComplianceBackup {
 
         },
     )
+
+    private fun jsonValuesEqual(left: Any?, right: Any?): Boolean {
+        if (left === JSONObject.NULL || right === JSONObject.NULL) {
+            return left === JSONObject.NULL && right === JSONObject.NULL
+        }
+        if (left is Number && right is Number) {
+            return runCatching {
+                BigDecimal(left.toString()).compareTo(BigDecimal(right.toString())) == 0
+            }.getOrDefault(false)
+        }
+        return left == right
+    }
 
     private fun encoded(value: String): String =
         URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20").replace("%3A", ":")
@@ -237,7 +250,7 @@ internal object NativeComplianceBackup {
                 val before = correction.get("beforeValue")
                 require(correction.optInt("chainRevision") == index + 1 &&
                     correction.optString("supersedesCorrectionId").ifBlank { null } == previous &&
-                    JSONObject.valueToString(projected.get(field)) == JSONObject.valueToString(before)) {
+                    jsonValuesEqual(projected.get(field), before)) {
                     "historical_correction_chain_needs_attention"
                 }
                 projected.put(field, correction.get("afterValue"))
