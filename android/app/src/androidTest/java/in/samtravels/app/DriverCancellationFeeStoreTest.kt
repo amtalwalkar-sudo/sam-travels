@@ -64,6 +64,7 @@ class DriverCancellationFeeStoreTest {
             .put("createdAt",now).put("updatedAt",now).put("source","android").put("revision",1)
             .put("data",JSONObject().put("schemaVersion",1).put("driverId","driver-1").put("lockedShiftId","shift-1"))
         db.records().put(StoredRecord("work:selected-driver",selected.toString(),1,now))
+        DriverWorkflowIdentityTestFixtures.seedLink(db, "driver-1", "person-1")
 
         val create=v2Command("trip-1","trip_create","shift_active",1,java.time.Instant.now().toString())
         DriverWorkflowStore.queue(db,create)
@@ -86,6 +87,7 @@ class DriverCancellationFeeStoreTest {
         val saved=DriverCancellationFeeStore.submitCancellationFee(db,"trip-1",0L)
         assertEquals("submitted",saved.getJSONObject("data").getString("status"))
         assertEquals(0L,saved.getJSONObject("data").getLong("feePaise"))
+        assertEquals("person-1", saved.getJSONObject("createdBy").getString("personId"))
         assertEquals("submitted",JSONObject(db.records().get(
             "__sam_travels_form_working_copy__:work.trip-cancellation-fee:trip-1")!!.json)
             .getJSONObject("data").getString("status"))
@@ -97,6 +99,7 @@ class DriverCancellationFeeStoreTest {
 
     @Test fun endRideCreatesCompletedTripFinancialObligation() {
         val now=java.time.Instant.now().toString()
+        DriverWorkflowIdentityTestFixtures.seed(db, "driver-1", "person-1")
         val context=JSONObject().put("schemaVersion",1).put("driverId","driver-1")
             .put("assignmentId","assignment-1").put("vehicleId","feature:vehicle:vehicle-1")
         val state=JSONObject().put("schemaVersion",1).put("revision",1).put("state","shift_active")

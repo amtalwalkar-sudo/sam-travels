@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminServices, useAdminIdentityRecords } from "./admin-services-context";
+import { createMaintenanceExpenseCorrectionService, projectMaintenanceExpenses, MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
 import "./AdminWorkspace.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
@@ -22,6 +23,8 @@ type ActiveForm = RecordMode | "rate" | null;
 
 export function MaintenanceSection() {
   const services = useAdminServices();
+  const identityRecords = useAdminIdentityRecords();
+  const correctionService = useMemo(() => createMaintenanceExpenseCorrectionService(identityRecords, services.recordSource), [identityRecords, services.recordSource]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
   const [records, setRecords] = useState<Maintenance | null>(null);
@@ -65,9 +68,10 @@ export function MaintenanceSection() {
       services.maintenance.listVehicleRecords(id),
       services.maintenance.getServiceReminderStates(id, today()),
     ]);
-    setRecords(history);
+    const expenses = await projectMaintenanceExpenses(history.expenses, correctionService);
+    setRecords({ ...history, expenses });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
-  }, [services]);
+  }, [services, correctionService]);
 
   const refresh = useCallback(async (requestedId: string) => {
     try {
@@ -377,6 +381,7 @@ export function MaintenanceSection() {
         {records?.expenses.map(expense => <article className="admin-capability-record" key={expense.id}><div>
           <strong>{expense.data.expenseName} · {money(expense.data.amountPaise)}</strong>
           <small>{expense.data.expenseDate} · {expense.data.description}</small>
+          <MaintenanceExpenseCorrection expense={expense} service={correctionService} onCorrected={() => loadVehicleRecords(vehicleId)} />
         </div></article>)}
       </details>
     </>}

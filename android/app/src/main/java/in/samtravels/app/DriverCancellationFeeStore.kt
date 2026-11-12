@@ -99,11 +99,12 @@ object DriverCancellationFeeStore {
                 return@runInTransaction
             }
             require(data.optString("status")=="pending") { "cancellation_fee_obligation_invalid" }
+            val createdBy = DriverWorkflowIdentity.resolveDriverAuthor(db, JSONObject(), DriverWorkflowStore.snapshot(db))
             val values=copy.optJSONObject("values")?:error("form_working_copy_invalid")
             require(values.has("cancellationFeePaise")&&values.optLong("cancellationFeePaise",-1L)==feePaise) { "cancellation_fee_draft_mismatch" }
             val now=Instant.now().toString()
             data.put("status","submitted").put("feePaise",feePaise).put("operationId",operationId).put("submittedAt",now)
-            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("data",data)
+            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("createdBy",createdBy).put("data",data)
             copy.put("status","submitted").put("revision",copy.optInt("revision")+1).put("updatedAt",now)
             copyEnvelope.put("revision",copyEnvelope.optInt("revision")+1).put("updatedAt",now).put("data",copy)
             db.records().put(StoredRecord(obligationId,envelope.toString(),obligationRow.schemaVersion,now))
@@ -197,13 +198,14 @@ object DriverCancellationFeeStore {
                 return@runInTransaction
             }
             require(data.optString("status")=="pending") { "completed_trip_financial_obligation_invalid" }
+            val createdBy = DriverWorkflowIdentity.resolveDriverAuthor(db, JSONObject(), DriverWorkflowStore.snapshot(db))
             require(sameCompletedTripFinancialValues(copyValues,values)) { "completed_trip_financial_draft_mismatch" }
             val now=Instant.now().toString()
             listOf("farePaise","tollPaise","tollPayer","parkingPaise","parkingPayer").forEach { key ->
                 if(values.has(key))data.put(key,values.get(key)) else data.remove(key)
             }
             data.put("status","submitted").put("operationId",operationId).put("submittedAt",now)
-            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("data",data)
+            envelope.put("revision",envelope.optInt("revision")+1).put("updatedAt",now).put("createdBy",createdBy).put("data",data)
             copy.put("status","submitted").put("revision",copy.optInt("revision")+1).put("updatedAt",now)
             copyEnvelope.put("revision",copyEnvelope.optInt("revision")+1).put("updatedAt",now).put("data",copy)
             db.records().put(StoredRecord(id,envelope.toString(),row.schemaVersion,now))

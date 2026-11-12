@@ -33,7 +33,10 @@ class DriverTripFinancialStoreTest {
    DriverTripFinancialStore.ensureDraft(db,"trip-fare-2")
    val zero=JSONObject().put("farePaise",0L)
    DriverTripFinancialStore.updateDraft(db,"trip-fare-2",zero)
-   assertEquals("submitted",DriverTripFinancialStore.submit(db,"trip-fare-2",zero).getJSONObject("data").getString("status"))
+   DriverWorkflowIdentityTestFixtures.seed(db,"driver-fare-2","person-fare-2")
+   val submitted=DriverTripFinancialStore.submit(db,"trip-fare-2",zero)
+   assertEquals("submitted",submitted.getJSONObject("data").getString("status"))
+   assertEquals("person-fare-2",submitted.getJSONObject("createdBy").getString("personId"))
    assertTrue(runCatching {
     DriverTripFinancialStore.updateDraft(db,"trip-fare-2",JSONObject().put("farePaise",100L).put("tollPayer","driver"))
    }.isFailure)
@@ -133,6 +136,7 @@ class DriverTripFinancialStoreTest {
    DriverTripFinancialStore.ensureDraft(overlay,tripId)
    val overlayValues=JSONObject().put("farePaise",12345L)
    DriverTripFinancialStore.updateDraft(overlay,tripId,overlayValues)
+   DriverWorkflowIdentityTestFixtures.seed(overlay,"driver-stale","person-stale")
 
    // The WebView client edits the same durable working copy after the overlay read.
    val webViewValues=JSONObject().put("farePaise",23456L)

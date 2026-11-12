@@ -10,6 +10,7 @@ import {
 export interface BusinessPersonRepository {
   get(personId: string): Promise<BusinessPersonV1 | undefined>;
   save?(person: BusinessPersonV1): Promise<BusinessPersonV1>;
+  list?(): Promise<BusinessPersonV1[]>;
 }
 
 /** Platform adapter must verify a PIN without exposing or persisting plaintext here. */
@@ -35,6 +36,11 @@ export class PersonIdentityService {
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 
+  async listPeople(): Promise<BusinessPersonV1[]> {
+    if (!this.people.list) throw new Error("business_person_repository_list_unavailable");
+    return this.people.list();
+  }
+
   async registerPerson(person: BusinessPersonV1): Promise<BusinessPersonV1> {
     assertBusinessPersonV1(person);
     if (!this.people.save) throw new Error("business_person_repository_read_only");
@@ -49,6 +55,8 @@ export class PersonIdentityService {
     if (!await this.people.get(person.personId)) throw new Error("business_person_not_found");
     return this.people.save(person);
   }
+
+  async isAdminPinConfigured(): Promise<boolean> { return this.adminPin.isConfigured(); }
 
   async configureInitialAdminPin(pin: string): Promise<void> {
     if (!/^\d{4,12}$/.test(pin)) throw new Error("business_admin_pin_invalid_format");

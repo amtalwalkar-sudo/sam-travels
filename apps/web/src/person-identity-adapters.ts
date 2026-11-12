@@ -113,3 +113,21 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
     return encoded;
   }
 }
+
+
+const DRIVER_PERSON_LINK_PREFIX = "identity:driver-person-link:";
+export type DriverPersonLinkV1 = Readonly<{ schemaVersion: 1; driverId: string; personId: string }>;
+export async function getDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<DriverPersonLinkV1 | undefined> {
+  const row = await records.get<DriverPersonLinkV1>(DRIVER_PERSON_LINK_PREFIX + driverId);
+  if (!row) return undefined;
+  if (row.data.schemaVersion !== 1 || row.data.driverId !== driverId || !row.data.personId) throw new Error("driver_person_link_invalid");
+  return row.data;
+}
+export async function saveDriverPersonLink(records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], driverId: string, personId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId) || !/^[A-Za-z0-9_-]{1,128}$/.test(personId)) throw new Error("driver_person_link_invalid");
+  const id = DRIVER_PERSON_LINK_PREFIX + driverId;
+  const current = await records.get<DriverPersonLinkV1>(id);
+  const now = new Date().toISOString();
+  const next: RecordEnvelope<DriverPersonLinkV1> = { id, schemaVersion: 1, createdAt: current?.createdAt ?? now, updatedAt: now, source, revision: (current?.revision ?? 0) + 1, data: { schemaVersion: 1, driverId, personId } };
+  if (!await records.compareAndSet(id, current?.revision ?? null, next)) throw new Error("driver_person_link_revision_conflict");
+}

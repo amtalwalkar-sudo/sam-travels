@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
 import { getPlatformRecordSource } from "../native-store";
+import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
@@ -16,7 +17,10 @@ export function useCancellationFeeWorkspace(
   const [cancellationFeeBusy, setCancellationFeeBusy] = useState(false);
   const draftQueue = useRef(new Map<string,Promise<void>>());
   const service = useMemo(
-    () => new TripFinancialService(platformRepository, getPlatformRecordSource()),
+    () => new TripFinancialService(platformRepository, getPlatformRecordSource(), undefined, async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { personId: actor.actorId, role: actor.role };
+    }),
     [platformRepository],
   );
   const forms = useMemo(() => {

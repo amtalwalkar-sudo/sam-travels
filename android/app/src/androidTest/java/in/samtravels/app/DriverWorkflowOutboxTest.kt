@@ -30,6 +30,7 @@ class DriverWorkflowOutboxTest {
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
         val at = Instant.now()
+        DriverWorkflowIdentityTestFixtures.seed(first, "outbox-driver", "outbox-person")
         DriverWorkflowStore.queue(
             first,
             command("durable-outbox-ack").put("transitionAt", at.toString()),

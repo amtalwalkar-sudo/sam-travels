@@ -10,6 +10,8 @@ export type FeatureRecordDefinition<Data> = Readonly<{
 
 export type FeatureRecordSource = RecordEnvelope<unknown>["source"];
 
+type FeatureRecordAuthorResolver = () => Promise<RecordAuthorV1>;
+
 /**
  * The only generic persistence entry point for feature-owned records.
  *
@@ -19,6 +21,8 @@ export type FeatureRecordSource = RecordEnvelope<unknown>["source"];
  * or cross-feature relationships.
  */
 export class FeatureRecordService<Data> {
+  private static authorResolver?: FeatureRecordAuthorResolver;
+  static setAuthorResolver(resolver: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
   constructor(
     private readonly repository: AtomicRecordRepository,
     private readonly definition: FeatureRecordDefinition<Data>,
@@ -56,6 +60,8 @@ export class FeatureRecordService<Data> {
     this.assertOwnedId(input.id);
     this.definition.validate(input.data);
     const timestamp = input.now ?? this.now();
+    const createdBy = input.createdBy ?? (FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
+    if (FeatureRecordService.authorResolver && !createdBy) throw new Error("business_actor_not_active");
     const record: RecordEnvelope<Data> = {
       id: input.id,
       schemaVersion: RECORD_ENVELOPE_SCHEMA_VERSION,
@@ -64,7 +70,7 @@ export class FeatureRecordService<Data> {
       businessDate: input.businessDate,
       source: input.source,
       revision: 1,
-      ...(input.createdBy ? { createdBy: input.createdBy } : {}),
+      ...(createdBy ? { createdBy } : {}),
       data: input.data,
     };
     assertRecordEnvelope(record);

@@ -10,9 +10,11 @@ import android.provider.Settings
 import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 class DriverOverlayService:Service(){
- private val executor=Executors.newSingleThreadExecutor()
+ private val executor=ThreadPoolExecutor(1,1,0L,TimeUnit.MILLISECONDS,LinkedBlockingQueue(),{r->Thread(r,"DriverOverlayService").apply{isDaemon=true}},{_,_->})
  private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
  private val presentation by lazy {
   DriverOverlayPresentation(
@@ -30,7 +32,7 @@ class DriverOverlayService:Service(){
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
- private var serviceDestroyed=false
+ @Volatile private var serviceDestroyed=false
  private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  @Volatile private var startupRecoveryReady=false

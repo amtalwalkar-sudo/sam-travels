@@ -28,6 +28,7 @@ class DriverWorkflowContractTest {
         ))
         .put("committedAt", "2026-11-06T08:00:01Z")
         .put("revision", 1)
+        .put("createdBy", JSONObject().put("personId", "person-1").put("role", "driver"))
 
     @Test
     fun acceptsCurrentCommandIntentStateEventAndOutboxContracts() {
@@ -38,6 +39,14 @@ class DriverWorkflowContractTest {
         DriverWorkflowContract.validateOutbox(JSONObject(
             """{"id":"driver-state:1","eventId":"event-1","revision":1,"integrationId":"logbook.work-driver-events.v1","contractVersion":1,"eventName":"work.driver-event-committed","payloadVersion":1,"delivered":false,"createdAt":"2026-11-06T08:00:01Z"}""",
         ))
+    }
+
+    @Test
+    fun requiresAuthorForNewCommitsWhileKeepingHistoricalCommandRowsReadable() {
+        val unattributed = event().apply { remove("createdBy") }
+        assertThrows(IllegalArgumentException::class.java) { DriverWorkflowContract.validateNewlyCommittedEvent(unattributed) }
+        DriverWorkflowContract.validateStoredEvent(unattributed)
+        DriverWorkflowContract.validateNewlyCommittedEvent(event())
     }
 
     @Test

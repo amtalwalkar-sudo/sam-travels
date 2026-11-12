@@ -3,6 +3,8 @@ import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getPlatformRecordSource } from "../native-store";
+import { getDriverPersonLink } from "../person-identity-adapters";
+import { getPersonIdentityService } from "../person-identity-runtime";
 import {
   createDriverWorkflow,
 } from "../driver-workflow";
@@ -189,6 +191,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   async function selectDriver(driverId:string) {
     if (!selectionService || !driverId) return;
     try {
+      const link = await getDriverPersonLink(platformRepository, driverId);
+      if (!link) throw new Error("Link this Driver profile to an enrolled person before starting work.");
+      await getPersonIdentityService().activate(link.personId, "driver");
       const selected = await selectionService.selectDriver(driverId, getPlatformRecordSource());
       setSelectedDriverId(selected.driverId);
       setDriverMessage("Work Driver selected");
