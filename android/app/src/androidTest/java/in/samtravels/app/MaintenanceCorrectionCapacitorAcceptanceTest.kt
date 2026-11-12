@@ -40,7 +40,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
         .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
         .put("ownership", "Owned").put("lifecycleState", "active"))
-      val otherExpenseId = "$expenseId-other"
+      val otherExpenseId = expenseId.dropLast(36) + UUID.randomUUID()
       val expense = envelope(expenseId, now, JSONObject()
         .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
         .put("expenseDate", "2026-10-10").put("expenseName", "Acceptance tyre repair")
@@ -74,7 +74,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
         assertTrue("Admin workspace should render", awaitJavascript(activity,
             "document.querySelector('.admin-workspace') !== null", 15_000))
-        
         assertTrue("Person name field should render", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
         assertTrue("Admin role checkbox should be selectable", evaluate(activity, """
