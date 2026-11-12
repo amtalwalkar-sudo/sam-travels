@@ -74,8 +74,20 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
           assertComplianceOverlapReviewV1(record.data);
           const review = record.data as ComplianceOverlapReviewV1;
           if (review.eventId !== record.id) throw new Error("compliance_overlap_review_identity_mismatch");
-          for (const source of review.sourceRecords) {
+          const sourceRecords = review.sourceRecords.map(source => {
             if (!ids.has(source.recordId)) throw new Error("compliance_overlap_review_source_not_found");
+            const envelope = owned.find(item => item.id === source.recordId)!;
+            assertComplianceRecordV1(envelope.data);
+            return envelope.data;
+          });
+          const [first, second] = sourceRecords;
+          if (first.vehicleId !== second.vehicleId || first.complianceName !== second.complianceName) {
+            throw new Error("compliance_overlap_review_source_mismatch");
+          }
+          const overlapFrom = first.validFrom > second.validFrom ? first.validFrom : second.validFrom;
+          const overlapTo = first.validTo < second.validTo ? first.validTo : second.validTo;
+          if (overlapFrom > overlapTo || overlapFrom !== review.from || overlapTo !== review.to) {
+            throw new Error("compliance_overlap_review_scope_mismatch");
           }
           return review;
         });
