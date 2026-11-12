@@ -33,7 +33,8 @@ function assertRecordId(id: string): void {
 
 /**
  * Compliance owns vehicle legal-coverage records. A renewal is a new immutable
- * record linked to its predecessor; this service never rewrites old coverage.
+ * record linked to its predecessor; actual document dates are preserved even
+ * when the new period begins before the predecessor expires.
  */
 export class ComplianceService {
   private readonly records: FeatureRecordService<ComplianceRecordV1>;
@@ -68,9 +69,8 @@ export class ComplianceService {
           previous.data.complianceName !== input.data.complianceName) {
         throw new Error("compliance_renewal_source_mismatch");
       }
-      if (input.data.validFrom <= previous.data.validTo) {
-        throw new Error("compliance_renewal_period_not_after_previous");
-      }
+      // Do not compare validity dates here: early renewal may create a legitimate
+      // overlap, and late renewal must preserve the actual historical gap.
     }
     return this.records.create({
       id, data: input.data, source: input.source, businessDate: input.businessDate,
@@ -93,8 +93,7 @@ export class ComplianceService {
         const previous = byId.get(record.data.renewedFromRecordId);
         if (!previous) throw new Error("compliance_renewal_source_not_found");
         if (previous.data.vehicleId !== record.data.vehicleId ||
-            previous.data.complianceName !== record.data.complianceName ||
-            record.data.validFrom <= previous.data.validTo) {
+            previous.data.complianceName !== record.data.complianceName) {
           throw new Error("compliance_renewal_source_mismatch");
         }
       }
