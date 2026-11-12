@@ -178,9 +178,10 @@ describe("version 2 Work trip lifecycle",()=>{
   const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(fixAt)});
   const startAt=new Date(base-24*60*60*1000).toISOString();
   const start=await repository.getSnapshot();
-  const startCommand=createDriverCommandV2(start,"shift_start","pwa","boundary-shift-start",startAt,{schemaVersion:1,readingKm:45000});
-  fixAt=startAt;
+  const startCommand=createDriverCommandV2(start,"shift_start","pwa","boundary-shift-start",fixAt,{schemaVersion:1,readingKm:45000});
   await service.dispatch(startCommand);
+  const started=await repository.getSnapshot();
+  await browserDatabase.driverState.put({id:"driver-state",value:{...started,shiftStartedAt:startAt}});
   const active=await repository.getSnapshot();
   const boundaryAt=nextOperationalBoundaryAt(active.shiftStartedAt!);
   expect(isOperationalBoundaryPending(active.shiftStartedAt,Date.parse(boundaryAt))).toBe(true);
