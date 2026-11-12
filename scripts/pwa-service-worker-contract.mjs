@@ -43,7 +43,7 @@ await dispatch("install", { waitUntil(promise) { this.pending = promise; } });
 assert.ok(stores.has("sam-travels-shell-2"), "install creates the versioned shell cache");
 assert.ok(stores.get("sam-travels-shell-2").has("/"), "install precaches the app shell");
 
-for (const name of ["sam-travels-shell-1", "sam-travels-shell-2", "sam-travels-shell-3"]) stores.set(name, new Map());
+for (const name of ["sam-travels-shell-1", "sam-travels-shell-3"]) stores.set(name, new Map());
 await dispatch("activate", { waitUntil(promise) { this.pending = promise; } });
 assert.deepEqual([...stores.keys()].sort(), ["sam-travels-shell-2", "sam-travels-shell-3"]);
 assert.equal(claimed, true, "activation claims clients after retaining a rollback cache");
