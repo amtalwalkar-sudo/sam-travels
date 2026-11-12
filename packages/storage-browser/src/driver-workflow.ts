@@ -108,7 +108,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
      await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:{...data,lockedShiftId:command.eventId}});
      next.shiftStartedAt=command.rotation.boundaryAt;next.shiftId=command.eventId;next.shiftContext=current.shiftContext;
      next.shiftStartOdometerKm=command.odometer.readingKm;next.lastConfirmedOdometerKm=command.odometer.readingKm;
-    } else if(command.eventType==="shift_end"||command.eventType==="shift_rotate"){
+    } else if(command.eventType==="shift_end"){
      const selected=await browserDatabase.records.get("work:selected-driver");
      if(current.shiftId){
       if(!selected)throw new Error("work_driver_not_selected");
