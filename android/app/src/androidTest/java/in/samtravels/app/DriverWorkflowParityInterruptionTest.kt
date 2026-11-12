@@ -36,7 +36,12 @@ class DriverWorkflowParityInterruptionTest {
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay")
             .put("transitionAt", java.time.Instant.now().toString())
-            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
+            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
+                when (event) {
+                    "shift_start" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1000))
+                    "shift_end" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1100).put("businessKm", 100))
+                }
+            }
         fun complete(id: String, event: String, state: String, revision: Int): JSONObject {
             DriverWorkflowStore.queue(durable, command(id, event, state, revision))
             return DriverWorkflowStore.complete(durable, id, JSONObject()
@@ -113,7 +118,12 @@ class DriverWorkflowParityInterruptionTest {
         fun command(id: String, event: String, state: String, revision: Int, at: String) = JSONObject()
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
-            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
+            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
+                when (event) {
+                    "shift_start" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1000))
+                    "shift_end" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1100).put("businessKm", 100))
+                }
+            }
         fun completeAt(id: String, event: String, state: String, revision: Int, at: String): JSONObject {
             DriverWorkflowStore.queue(durable, command(id, event, state, revision, at), java.time.Instant.parse(at))
             return DriverWorkflowStore.complete(durable, id, JSONObject().put("latitude", 19.076)
@@ -173,7 +183,12 @@ class DriverWorkflowParityInterruptionTest {
         fun command(id: String, event: String, state: String, revision: Int, at: String) = JSONObject()
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
-            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
+            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
+                when (event) {
+                    "shift_start" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1000))
+                    "shift_end" -> put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1100).put("businessKm", 100))
+                }
+            }
         fun gps(at: String) = JSONObject().put("latitude", 19.076).put("longitude", 72.8777)
             .put("horizontalAccuracyM", 8.0).put("fixAt", at).put("provider", "android-test")
         try {
