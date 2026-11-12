@@ -28,6 +28,7 @@ class DriverWorkflowV2Test {
             .put("commandId",id).put("eventId",id).put("eventType","shift_start")
             .put("originSurface","native_overlay").put("transitionAt",java.time.Instant.now().toString())
             .put("expectedPriorState","idle").put("expectedRevision",0).put("idempotencyKey",id)
+            .put("odometer",JSONObject().put("schemaVersion",1).put("readingKm",45000))
         DriverWorkflowStore.queue(db,command)
         val failure=runCatching { DriverWorkflowStore.complete(db,id,gps()) }.exceptionOrNull()
         assertEquals("work_driver_not_selected",failure?.message)
@@ -63,12 +64,17 @@ class DriverWorkflowV2Test {
             .put("vehicleType","Sedan").put("fuelType","Petrol").put("yearOfManufacture",2024)
             .put("ownership","Owned").put("lifecycleState","active"))
 
-        fun v2Command(id:String,event:String,state:String,revision:Int)=JSONObject()
+        fun v2Command(id:String,event:String,state:String,revision:Int,odometer:JSONObject?=null)=JSONObject()
             .put("schemaVersion",1).put("workflowVersion",2).put("commandId",id).put("eventId",id)
             .put("eventType",event).put("originSurface","native_overlay").put("transitionAt",java.time.Instant.now().toString())
-            .put("expectedPriorState",state).put("expectedRevision",revision).put("idempotencyKey",id)
+            .put("expectedPriorState",state).put("expectedRevision",revision).put("idempotencyKey",id).apply { if(odometer!=null)put("odometer",odometer) }
         fun run(id:String,event:String,state:String,revision:Int):JSONObject {
-            DriverWorkflowStore.queue(db,v2Command(id,event,state,revision))
+            val odometer=when(event) {
+                "shift_start"->JSONObject().put("schemaVersion",1).put("readingKm",45000)
+                "shift_end"->JSONObject().put("schemaVersion",1).put("readingKm",45200).put("businessKm",200)
+                else->null
+            }
+            DriverWorkflowStore.queue(db,v2Command(id,event,state,revision,odometer))
             return DriverWorkflowStore.complete(db,id,gps())
         }
 
@@ -111,6 +117,13 @@ class DriverWorkflowV2Test {
         assertFalse(shiftEnded.has("shiftAuthor"))
         val selectedAfterEnd=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertFalse(selectedAfterEnd.has("lockedShiftId"))
+        assertEquals(45200,shiftEnded.getLong("lastConfirmedOdometerKm"))
+        val dailyId="work:daily-business-km:"+java.net.URLEncoder.encode("feature:vehicle:MH01AB1234","UTF-8")+":"+DriverWorkflowStore.operationalDateAt(eventsDateFallback())
+        val dailyRow=db.records().get(dailyId)
+        assertTrue("Daily business kilometre record must be committed with shift end",dailyRow!=null)
+        val daily=JSONObject(dailyRow!!.json).getJSONObject("data")
+        assertEquals(200,daily.getLong("totalBusinessKm"))
+        assertEquals("shift-end-v2",daily.getJSONArray("entries").getJSONObject(0).getString("shiftEndEventId"))
         val events=DriverWorkflowStore.listEvents(db)
         assertEquals(7,events.size)
         assertTrue(JSONObject(events.first { it.optString("eventId")=="shift-v2" }.toString())
