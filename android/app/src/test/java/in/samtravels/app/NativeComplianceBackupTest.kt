@@ -96,4 +96,18 @@ class NativeComplianceBackupTest {
         }
         org.junit.Assert.assertEquals("compliance_renewal_source_not_found", error.message)
     }
+ 
+    @Test
+    fun acceptsEarlyRenewalWithActualOverlappingDates() = withParticipants {
+        val records = JSONArray()
+            .put(vehicleRow())
+            .put(complianceRow())
+            .put(
+                complianceRow(
+                    id = "feature:compliance:123e4567-e89b-42d3-a456-426614174001",
+                    renewal = "feature:compliance:123e4567-e89b-42d3-a456-426614174000",
+                ),
+            )
+        NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
+    }
 }
