@@ -68,7 +68,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         }
         assertTrue("Capacitor WebView should finish loading the Drive workspace",
             awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-        assertTrue("Admin navigation appears", awaitJavascript(activity,
+        assertTrue("Admin nav", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
             10_000))
         evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
@@ -110,7 +110,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Correction Admin')) &&
             Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
         """, 15_000))
-        assertTrue("Admin identity should activate with the configured PIN", evaluate(activity, """
+        assertTrue("Admin PIN activation", evaluate(activity, """
             (() => {
               const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
               const person = personLabel?.querySelector('select');
@@ -146,7 +146,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Admin activates", awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
         evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
-        assertTrue("Maintenance expense loads", awaitJavascript(activity,
+        assertTrue("Maintenance loads", awaitJavascript(activity,
             "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
         evaluate(activity, """
             (() => {
@@ -158,7 +158,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         """)
         assertTrue("Correction form opens", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-        assertTrue("Correction values entered", evaluate(activity, """
+        assertTrue("Correction inputs", evaluate(activity, """
             (() => {
               const set = (labelText, value) => {
                 const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -181,7 +181,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return true;
             })()
         """)
-        assertTrue("Correction acknowledged", awaitJavascript(activity,
+        assertTrue("Correction saved", awaitJavascript(activity,
             "document.body.textContent.includes('Correction appended')", 15_000))
         val original = JSONObject(database.records().get(expenseId)!!.json)
         val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
@@ -200,7 +200,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
         assertNotNull("Correction record must be stored through the Room-backed repository",
             database.records().get(correctionRows.single().getString("id")))
-        assertTrue("Driver One selected", evaluate(activity, """
+        assertTrue("Driver selected", evaluate(activity, """
             (() => {
               const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
               const person = personLabel?.querySelector('select');
@@ -219,9 +219,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             })()
         """))
         evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
-        assertTrue("Driver One activates", awaitJavascript(activity,
+        assertTrue("Driver activates", awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
-        assertTrue("Own Maintenance record appears", awaitJavascript(activity,
+        assertTrue("Own record appears", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance tyre repair'))", 10_000))
         assertTrue("Driver button", evaluate(activity, """
             (() => {
@@ -232,10 +232,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return Boolean(button);
             })()
         """))
-        assertTrue("Driver form opens", awaitJavascript(activity,
+        assertTrue("Driver form", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.querySelector('label input') !== null",
             5_000))
-        assertTrue("Driver correction submitted", evaluate(activity, """
+        assertTrue("Driver submits", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
               const set = (labelText, value) => {
@@ -252,18 +252,22 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return true;
             })()
         """))
-        assertTrue("Driver correction appended", awaitJavascript(activity,
+        assertTrue("Driver saved", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Correction appended')", 15_000))
-        assertTrue("Other record appears", awaitJavascript(activity,
+        assertTrue("Other record", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
-        assertTrue("Other form opens", evaluate(activity, """
+        assertTrue("Other form button", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
-              if (!card?.querySelector('input')) card?.querySelector('button')?.click();
-              return Boolean(card?.querySelector('input'));
+              const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
+              button?.click();
+              return Boolean(button);
             })()
         """))
-        assertTrue("Other Driver form accepts input", evaluate(activity, """
+        assertTrue("Other form opens", awaitJavascript(activity,
+            "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'))?.querySelector('label input') !== null",
+            5_000))
+        assertTrue("Other input", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
               const set = (labelText, value) => {
@@ -280,7 +284,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return true;
             })()
         """))
-        assertTrue("Other Driver rejected", awaitJavascript(activity,
+        assertTrue("Other rejected", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'))?.textContent.includes('historical_correction_forbidden')", 15_000))
         val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
             .map { JSONObject(it.json).getJSONObject("data") }
