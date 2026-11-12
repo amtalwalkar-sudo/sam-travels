@@ -75,20 +75,35 @@ describe("person identity service", () => {
     };
     let configuredPin: string | undefined;
     let currentNow = NOW;
+    const people = new Map<string, BusinessPersonV1>();
     const identity = new PersonIdentityService(
-      { get: async id => id === person.personId ? person : undefined },
+      {
+        get: async id => people.get(id),
+        list: async () => [...people.values()],
+        save: async value => { people.set(value.personId, value); return value; },
+        remove: async id => { people.delete(id); },
+      },
       {
         isConfigured: async () => configuredPin !== undefined,
-        configure: async pin => { configuredPin = pin; },
+        configure: async pin => {
+          if (configuredPin !== undefined) throw new Error("business_admin_pin_already_configured");
+          configuredPin = pin;
+        },
         verify: async pin => configuredPin === pin,
       },
       () => currentNow,
     );
     await expect(identity.activate("person-1", "admin", "2468"))
-      .rejects.toThrow("business_admin_pin_not_configured");
-    await identity.configureInitialAdminPin("2468");
-    await expect(identity.configureInitialAdminPin("1357"))
-      .rejects.toThrow("business_admin_pin_already_configured");
+      .rejects.toThrow("business_person_not_found");
+    await identity.registerPerson(person, "2468");
+    await expect(identity.registerPerson({
+      schemaVersion: 1, personId: "person-2", displayName: "Second person", roles: ["driver"], status: "active",
+    })).rejects.toThrow("business_actor_not_active");
+    await expect(identity.updatePerson({ ...person, displayName: "Unauthorised update" }))
+      .rejects.toThrow("business_actor_not_active");
+    await expect(identity.registerPerson({
+      schemaVersion: 1, personId: "person-2", displayName: "Second person", roles: ["driver"], status: "active",
+    }, "1357")).rejects.toThrow("business_actor_not_active");
     const driver = await identity.activate("person-1", "driver");
     const admin = await identity.activate("person-1", "admin", "2468");
     expect(driver.actorId).toBe(admin.actorId);
