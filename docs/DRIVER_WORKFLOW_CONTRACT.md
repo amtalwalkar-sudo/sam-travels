@@ -83,6 +83,8 @@ Authority: this contract owns the driver workflow's product semantics. It supple
 
 ## 4. Odometer rules
 
+The additive v2 implementation and daily-distance projection are specified by [Work/Shift Odometer and Daily Business-Kilometre Contract](WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md). That contract supplements the product rules below and defines the persisted command/event/projection shape and acceptance gates.
+
 ### Shift-start reading
 
 - Require an odometer reading at every shift start and every shift end.
