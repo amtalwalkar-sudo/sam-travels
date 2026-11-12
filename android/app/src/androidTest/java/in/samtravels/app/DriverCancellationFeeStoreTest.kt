@@ -78,7 +78,8 @@ class DriverCancellationFeeStoreTest {
         assertFalse(obligation.getJSONObject("data").has("toll"))
         assertFalse(obligation.getJSONObject("data").has("parking"))
 
-        val end=v2Command("shift-end-1","shift_end","shift_active",3,java.time.Instant.now().toString())\n            .put("odometer",JSONObject().put("schemaVersion",1).put("readingKm",100).put("businessKm",0))
+        val end=v2Command("shift-end-1","shift_end","shift_active",3,java.time.Instant.now().toString())
+            .put("odometer",JSONObject().put("schemaVersion",1).put("readingKm",100).put("businessKm",0))
         assertEquals("trip_cancellation_fee_required",
             runCatching { DriverWorkflowStore.queue(db,end) }.exceptionOrNull()?.message)
 
