@@ -46,3 +46,4 @@ export * from "./timeline-reverse-geocoding";
 
 export * from "./timeline-enrichment-queue";
 export type { AdminPresentationServices } from "./admin-presentation-services";
+export * from "./compliance-overlap-review-service";
