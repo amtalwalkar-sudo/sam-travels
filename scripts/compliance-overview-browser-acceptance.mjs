@@ -108,8 +108,8 @@ try {
   await complianceSection.locator(".admin-section-trigger").click();
   const overview = complianceSection.locator(".compliance-fleet-overview");
   await overview.waitFor();
-  await overview.getByText("Coverage gaps", { exact: true }).waitFor();
-  await overview.getByText("Overlapping records", { exact: true }).waitFor();
+  await overview.getByRole("heading", { name: "Coverage gaps", exact: true }).waitFor();
+  await overview.getByRole("heading", { name: "Overlapping records", exact: true }).waitFor();
   const counts = async () => ({
     records: await overview.locator(".compliance-overview-counts > div").nth(0).locator("strong").textContent(),
     gaps: await overview.locator(".compliance-overview-counts > div").nth(1).locator("strong").textContent(),
