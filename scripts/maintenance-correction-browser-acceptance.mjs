@@ -6,7 +6,7 @@ const vehicleId = "feature:vehicle:MH01AB1234";
 const expenseId = "feature:maintenance:expense:browser-acceptance";
 const timestamp = "2026-10-10T09:00:00.000Z";
 
-const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
+const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
   detached: true,
   stdio: "ignore",
 });
