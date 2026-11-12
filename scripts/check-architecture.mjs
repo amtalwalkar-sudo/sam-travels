@@ -164,6 +164,7 @@ const androidPersistenceGateways = new Set([
   "android/app/src/main/java/in/samtravels/app/DriverWorkflowOutbox.kt",
   "android/app/src/main/java/in/samtravels/app/DriverCancellationFeeStore.kt",
   "android/app/src/main/java/in/samtravels/app/WorkDriverContextResolver.kt",
+  "android/app/src/main/java/in/samtravels/app/WorkDailyBusinessKilometreStore.kt",
   "android/app/src/main/java/in/samtravels/app/RoomStorePlugin.kt",
   "android/app/src/main/java/in/samtravels/app/BackupPlugin.kt",
   "android/app/src/main/java/in/samtravels/app/DailyDropboxBackupWorker.kt",
