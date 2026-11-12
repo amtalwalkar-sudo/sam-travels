@@ -122,7 +122,8 @@ try {
   await overview.getByText("Insurance · Expiring soon", { exact: true }).waitFor();
   const expiredPucRecords = overview.locator("article.admin-capability-record").filter({ hasText: "PUC · Expired" });
   if (await expiredPucRecords.count() !== 2) throw new Error("expired_puc_status_not_rendered_for_both_records");
-  await overview.getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true }).waitFor();
+  const withheldCosts = overview.getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true });
+  if (await withheldCosts.count() !== 2) throw new Error("unconfirmed_overlap_costs_not_withheld_for_both_vehicles");
 
   const filter = overview.locator("#compliance-fleet-filter");
   await filter.selectOption(secondaryVehicleId);
