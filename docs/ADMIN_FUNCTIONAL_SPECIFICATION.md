@@ -1,7 +1,7 @@
 # Admin Functional Specification
 
 **Status:** Approved and frozen at the product-design level, subject only to explicit owner-approved policy amendments (latest: historical-record immutability, 2026-11-11)  
-**Approval date:** 2026-11-07  
+**Approval date:** 2026-11-07; Compliance policy amendment approved 2026-11-12  
 **Implementation status:** Partial web workspace and section UI exist; end-to-end implementation and acceptance are not yet complete. This document authorizes product behaviour but does not itself prove runtime conformance.  
 **Scope:** The six Admin sections and their approved product behaviour in Sam Travels
 
@@ -136,7 +136,7 @@ Licence details belong to Driver. Compliance may read the driver's licence-expir
 
 ### Purpose
 
-Maintain the legal and regulatory requirements applicable to each vehicle. Examples include insurance, road tax, and permits. The list is not fixed: different vehicles may have different compliance requirements. Admin defines the compliance name when creating a record.
+Maintain the legal and regulatory requirements applicable to each vehicle. Examples include insurance, road tax, permits, fitness and pollution certificates. The list is not fixed: different vehicles may have different compliance requirements. Admin defines the compliance name when creating a record.
 
 ### Actions
 
@@ -144,6 +144,7 @@ Maintain the legal and regulatory requirements applicable to each vehicle. Examp
 - View compliance details
 - Renew compliance
 - View renewal history
+- Review detected coverage overlaps
 
 ### Record fields
 
@@ -151,56 +152,94 @@ Maintain the legal and regulatory requirements applicable to each vehicle. Examp
 |---|---|
 | Compliance name | Admin-defined free text |
 | Vehicle | Taken from the selected vehicle context |
-| Valid from | Required start date |
-| Valid to | Required end date |
+| Valid from | Actual start date printed on / applicable to the document |
+| Valid to | Actual end date printed on / applicable to the document |
 | Total cost | Cost for this compliance record |
-| Supporting document | Optional attachment |
+| Supporting document | Optional attachment; absence must be visibly indicated |
+| Renewal link | Optional link to the preceding compliance record |
 
-Multiple records of the same compliance type may exist for one vehicle. Once saved, a compliance record is immutable; historical records are retained. Correct an entry mistake only through a traceable driver-entry correction where applicable, not by editing Admin compliance history.
+Multiple records of the same compliance type may exist for one vehicle. Once saved, a compliance record is immutable. Historical records are retained. Correct an entry mistake only through the traceable, append-only correction process defined by the Forgiving Data Entry and Historical Correction Contract and the Compliance-owned correction policy; never edit or delete a submitted record in place.
 
-### Renewal workflow
+### Renewal and validity-date rules
 
 Renewal is a dedicated action that creates a new linked record; it does not overwrite the prior record.
 
 - Carry forward the compliance name and vehicle.
 - Link the new record to the prior record.
-- Admin enters the new validity start/end dates, renewal cost, and optional new supporting document.
-- Preserve the prior record and its cost/history unchanged.
+- Enter the actual validity start and end dates applicable to the new document, its renewal cost, and optional new supporting document.
+- Preserve the prior record and its cost/document history unchanged.
 - Early renewal is allowed, including when the old record has not yet expired.
+- Never shift, backdate, extend, or normalize a document's validity dates merely to avoid an overlap or gap.
+- Late renewal does not erase the uncovered historical period. The new record begins on its actual effective date.
+- Different compliance types may have different statutory rules. Use the dates and requirements applicable to the particular document/type; do not assume one universal renewal convention.
+- Valid-to must not precede valid-from. Both dates are inclusive.
 
-### Gaps, overlaps, and historical corrections
+### Coverage gaps and overlaps
 
-- Allow backdated and historical compliance records.
-- Detect a gap between consecutive validity periods for the same compliance item; show the uncovered dates and number of uncovered days.
-- Do not automatically extend or fill a validity gap.
-- A gap means that this compliance item has no valid coverage for those dates. Other valid compliance items continue to apply normally.
-- Detect overlapping periods and warn about possible duplicate coverage or double counting.
-- Legitimate overlaps may be accepted after explicit confirmation. Their cost treatment must remain traceable to the underlying records and must not silently double-count.
-- Corrections to historical records recalculate the affected historical dates according to the approved calculation contract.
-- A missing supporting document is allowed but must be visibly indicated.
-- When a vehicle becomes inactive or is sold, retain its compliance history and stop treating it as an active operating vehicle.
+Coverage analysis is performed for the same vehicle and compliance name. Different compliance names are analyzed independently.
 
-### Status and reminders
+**Gaps**
+- Detect uncovered dates between applicable validity periods and report the exact first and last uncovered dates and inclusive day count.
+- A gap remains part of the historical record after a later renewal.
+- Never automatically extend a prior document, fill a gap, or imply that uncovered days were legally compliant.
+- A gap for one compliance item does not invalidate other compliance items.
+
+**Overlaps**
+- Detect intersecting validity periods and report the exact first and last overlapping dates, inclusive day count, and both source record identities.
+- Present gaps and overlaps as two separate lists; do not combine them into one issue list.
+- A detected overlap is unconfirmed until an explicit review decision is durably recorded.
+- Legitimate separate policies/documents may be accepted after explicit confirmation. Confirmation does not alter either document's dates or erase the overlap.
+- An overlap review event is append-only and linked to the affected source records. It records the reviewer/actor identity and role, decision, mandatory reason or confirmation rationale, recorded timestamp, stable event ID, and the relevant source record identities/revisions. The review event does not mutate the original compliance records.
+- A confirmation applies only to the exact source records and overlap being reviewed. If either source record is subsequently corrected or superseded, the prior review does not automatically authorize the changed overlap; the affected analysis requires review again.
+- Rejection or unresolved review leaves the overlap unconfirmed. Do not silently treat it as accepted.
+- Backup and restore must preserve and validate review events and their source relationships. Missing or conflicting review references fail closed and require attention; restore must not infer confirmation.
+
+### Daily compliance cost
+
+For an individual compliance record:
+
+**Daily allocation = total record cost in INR paise ÷ number of inclusive validity days.**
+
+- Count both valid-from and valid-to dates.
+- Apply a record's allocation only on dates within that record's actual validity period.
+- Use exact rational arithmetic internally; do not round daily allocations before aggregation. Round only for display under the shared financial precision rules.
+- Preserve a per-date breakdown identifying each source record and its exact allocation.
+- Uncovered dates have no allocation for that compliance item. Zero financial cost does not mean the vehicle is legally compliant.
+- Before an overlap has an explicit, current confirmation, show the overlap and source allocations separately but withhold the combined total for the affected compliance item/date range.
+- After explicit confirmation, include both (or all) distinct source records' actual daily allocations on each overlapping date. Display each source contribution and the resulting combined amount.
+- Confirmation is not permission to duplicate a source record: each source record contributes at most once per date.
+- A review becoming stale after a source correction invalidates the prior confirmation for the changed overlap until reviewed again.
+- Totals remain scoped to the selected vehicle and requested date range. Fleet overview aggregates must retain vehicle and source-record provenance and must not collapse separate vehicles into one compliance calculation.
+
+### Historical corrections and audit history
+
+- Compliance historical corrections use the shared append-only historical-correction foundation through a Compliance-owned target policy and workflow.
+- Preserve the original record, original values, actor/source, original timestamps, business-effective dates, correction reason, and correction chain.
+- Corrections are new attributable events; they never rewrite submitted history in place.
+- Recompute only affected date projections under the approved, versioned calculation rules. Preserve the as-originally-recorded view and the current corrected projection.
+- Re-run gap/overlap analysis after a correction. Any overlap confirmation whose source identity/revision no longer matches must be treated as stale and reviewed again.
+- Retain original and corrected records, overlap review events, and calculation provenance through backup, restore, and recovery.
+
+### Status and Admin presentation
 
 For each compliance item, show one of:
 - Valid
 - Expiring soon
 - Expired
 
-Show the vehicle's total daily compliance cost. Recommended reminder points are 30, 15, and 7 days before expiry, and on expiry. Reminder intervals may be configurable in a later approved scope.
+The operational Expiring soon indicator begins 15 calendar days before the valid-to date (inclusive of the 15th day) and is Admin-only. Expired begins after the valid-to date. This is an operational indicator, not a statutory grace period or a change to document validity.
 
-### Daily compliance cost
+- No device notifications, push notifications, or reminder delivery are authorized by this specification.
+- Missing supporting documents are allowed but must be visibly identified.
+- The default Compliance overview is fleet-wide and combines records across vehicles without losing vehicle context.
+- Provide a vehicle filter to narrow the overview to one vehicle.
+- Show coverage gaps and overlaps in separate lists.
+- Show the overlap review state (unreviewed, confirmed, rejected, or stale/needs review) and source records.
+- Show daily allocations and their source breakdown; show the combined amount only when the relevant overlap is confirmed.
+- Retain the selected vehicle prominently in vehicle-specific views.
+- Inactive/sold vehicles retain their compliance history and are not treated as active operating vehicles.
 
-For an individual compliance record:
-
-**Daily cost = total record cost ÷ number of validity days.**
-
-- Count both the valid-from and valid-to dates (inclusive date counting).
-- Apply the record's daily cost only on dates within its own validity period.
-- Use full precision internally and round only for display under the shared financial precision rules.
-- Sum applicable daily costs for the selected vehicle, while preserving the source-record breakdown.
-- Uncovered days have zero cost for that compliance item. Zero financial cost does not mean the vehicle is legally compliant.
-
+The Admin presentation is a replaceable read/query and command surface. It does not own Compliance records, review-event persistence, calculations, or correction history.
 ## 8. Loan
 
 ### Purpose and ownership
