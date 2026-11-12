@@ -223,11 +223,13 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
         assertTrue("Own Maintenance record appears", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance tyre repair'))", 10_000))
-        assertTrue("Driver correction action exists", evaluate(activity, """
+        assertTrue("Driver button", evaluate(activity, """
             (() => {
               document.querySelector('details.loan-schedule')?.setAttribute('open','');
               const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
-              return Boolean(Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'))?.click());
+              const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
+              button?.click();
+              return Boolean(button);
             })()
         """))
         assertTrue("Driver form opens", awaitJavascript(activity,
