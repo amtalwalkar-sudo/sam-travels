@@ -148,26 +148,30 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install Android Emulator host runtime dependency
+      - name: Ensure Android Emulator host runtime dependency
         run: |
           set -euo pipefail
-          # Avoid the runner's Azure apt mirror, whose DNS has repeatedly failed.
-          # Use a public Ubuntu mirror with bounded network timeouts.
+          # The Ubuntu 22.04 runner image normally includes libpulse0. Avoid
+          # contacting an apt mirror unless the emulator runtime is genuinely absent.
+          if ldconfig -p | grep -Fq 'libpulse.so.0'; then
+            echo "Android Emulator PulseAudio runtime is already available"
+            exit 0
+          fi
           source_list="$(mktemp)"
           trap 'rm -f "$source_list"' EXIT
-          echo "deb [arch=amd64] https://mirrors.edge.kernel.org/ubuntu jammy main universe" | tee "$source_list"
+          echo "deb [arch=amd64] https://archive.ubuntu.com/ubuntu jammy main universe" > "$source_list"
           sudo apt-get \
             -o Dir::Etc::sourcelist="$source_list" \
             -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=2 \
-            -o Acquire::https::Timeout=15 \
-            -o Acquire::http::Timeout=15 update
+            -o Acquire::Retries=3 \
+            -o Acquire::https::Timeout=20 \
+            -o Acquire::http::Timeout=20 update
           sudo apt-get \
             -o Dir::Etc::sourcelist="$source_list" \
             -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=2 \
-            -o Acquire::https::Timeout=15 \
-            -o Acquire::http::Timeout=15 install -y libpulse0
+            -o Acquire::Retries=3 \
+            -o Acquire::https::Timeout=20 \
+            -o Acquire::http::Timeout=20 install -y libpulse0
           ldconfig -p | grep -Fq 'libpulse.so.0'
       - name: Install and verify Android Emulator SDK package
         run: |

@@ -240,5 +240,33 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
         }
     }
 
+    @Test fun pendingCancellationFeeDraftSurvivesForegroundServiceRestart() {
+        val tripId = "overlay-service-restart-cancel"
+        withAttachedOverlay(tripId, { db, now ->
+            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-service-restart-event", now)
+            DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
+        }) { ui, db ->
+            setText(ui, "Required cancellation fee in rupees", "12.34")
+            val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
+            val eventsBefore = DriverWorkflowStore.listEvents(db).size
+            val intentsBefore = DriverWorkflowStore.listIntents(db).size
+
+            restartOverlayService(InstrumentationRegistry.getInstrumentation().targetContext)
+
+            assertTrue("A recreated foreground service must reattach the same cancellation draft", waitUntil(20_000) {
+                findNode(ui) { it.text?.toString()?.contains("Cancellation fee required") == true } != null &&
+                    findNode(ui) {
+                        it.contentDescription?.toString() == "Required cancellation fee in rupees" &&
+                            it.text?.toString() == "12.34"
+                    } != null
+            })
+            assertEquals("Service recreation must not change the active Work revision", revisionBefore,
+                DriverWorkflowStore.snapshot(db).optInt("revision"))
+            assertEquals("Service recreation must not append a workflow event", eventsBefore,
+                DriverWorkflowStore.listEvents(db).size)
+            assertEquals("Service recreation must not duplicate a workflow intent", intentsBefore,
+                DriverWorkflowStore.listIntents(db).size)
+        }
+    }
 
 }
