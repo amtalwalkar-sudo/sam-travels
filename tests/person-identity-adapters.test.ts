@@ -50,7 +50,7 @@ describe("persistent person identity adapters", () => {
     });
     await removeDriverPersonLink(records, "driver-1");
     expect(await getDriverPersonLink(records, "driver-1")).toBeUndefined();
-    expect(records.rows.has("identity:driver-person-link:driver-1")).toBe(false);
+    expect(records.rows.get("identity:driver-person-link:driver-1")?.deletedAt).toBeTruthy();
   });
 
   it("stores only a salted PIN verifier and verifies correct and incorrect PINs", async () => {
