@@ -33,15 +33,20 @@ describe("version 2 Work trip lifecycle",()=>{
   await selection.selectDriver("driver-v2");
   let fixAt=new Date(base).toISOString();
   const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(fixAt)});
-  const send=async(type:"shift_start"|"shift_end"|"trip_create"|"start_ride"|"end_ride"|"cancel_ride",id:string,offset:number)=>{
+  const send=async(type:"shift_start"|"shift_end"|"trip_create"|"start_ride"|"end_ride"|"cancel_ride",id:string,offset:number,readingKm?:number)=>{
    fixAt=new Date(base+offset).toISOString();
    const snapshot=await repository.getSnapshot();
-   const command=createDriverCommandV2(snapshot,type,"pwa",id,fixAt);
+   const odometer=type==="shift_start"&&readingKm!==undefined
+    ?{schemaVersion:1 as const,readingKm,...(snapshot.lastConfirmedOdometerKm===undefined?{}:{previousConfirmedKm:snapshot.lastConfirmedOdometerKm,personalKm:readingKm-snapshot.lastConfirmedOdometerKm})}
+    :type==="shift_end"&&readingKm!==undefined
+     ?{schemaVersion:1 as const,readingKm,businessKm:readingKm-(snapshot.shiftStartOdometerKm??readingKm)}
+     :undefined;
+   const command=createDriverCommandV2(snapshot,type,"pwa",id,fixAt,odometer);
    const result=await service.dispatch(command);
    expect(result.status).toBe("recorded");
    return result.snapshot;
   };
-  await send("shift_start","shift-v2",0);
+  await send("shift_start","shift-v2",0,45000);
   const afterShift=await repository.getSnapshot();
   expect(afterShift.shiftId).toBe("shift-v2");
   expect(afterShift.shiftContext).toEqual({schemaVersion:1,driverId:"driver-v2",assignmentId:"assignment-v2",vehicleId:"feature:vehicle:MH01AB1234"});
@@ -81,13 +86,20 @@ describe("version 2 Work trip lifecycle",()=>{
   expect(cancellationObligation?.data).not.toHaveProperty("toll");
   expect(cancellationObligation?.data).not.toHaveProperty("parking");
   fixAt=new Date(base+6_000).toISOString();
-  const blockedEnd=createDriverCommandV2(await repository.getSnapshot(),"shift_end","pwa","shift-v2-end",fixAt);
+  const blockedSnapshot=await repository.getSnapshot();
+  const blockedEnd=createDriverCommandV2(blockedSnapshot,"shift_end","pwa","shift-v2-end",fixAt,{schemaVersion:1,readingKm:45200,businessKm:200});
   await expect(service.dispatch(blockedEnd)).rejects.toThrow("trip_cancellation_fee_required");
   expect(await repository.getIntent("shift-v2-end")).toBeUndefined();
   const financial=new TripFinancialService(recordsRepository,"web");
   await financial.submitCancellationFee("trip-v2-2",0,"cancellation-fee-op");
-  await send("shift_end","shift-v2-end",6_000);
+  await send("shift_end","shift-v2-end",6_000,45200);
   expect((await repository.getSnapshot()).state).toBe("idle");
+  const dailyDistance=await recordsRepository.get<{schemaVersion:1;kind:string;vehicleId:string;operationalDate:string;entries:Array<{shiftId:string;shiftEndEventId:string;startOdometerKm:number;endOdometerKm:number;businessKm:number}>;totalBusinessKm:number}>(
+   "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(new Date(base).toISOString()),
+  );
+  expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:200});
+  expect(dailyDistance?.data.entries[0]).toMatchObject({shiftId:"shift-v2",shiftEndEventId:"shift-v2-end",startOdometerKm:45000,endOdometerKm:45200,businessKm:200});
+  expect((await repository.getSnapshot()).lastConfirmedOdometerKm).toBe(45200);
   expect((await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver"))?.data.lockedShiftId).toBeUndefined();
 
   const events=await repository.listEvents();
