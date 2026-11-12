@@ -46,6 +46,9 @@ class DriverWorkflowParityInterruptionTest {
 
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "parity-driver"))
+            putRecord("identity:driver-person-link:parity-driver", JSONObject().put("schemaVersion", 1).put("driverId", "parity-driver").put("personId", "parity-person"))
+            putRecord("identity:person:parity-person", JSONObject().put("schemaVersion", 1).put("personId", "parity-person")
+                .put("displayName", "Parity Driver").put("roles", JSONArray().put("driver")).put("status", "active"))
             putRecord("feature:driver-records:driver:parity-driver", JSONObject().put("schemaVersion", 1)
                 .put("driverId", "parity-driver").put("name", "Parity Driver").put("lifecycleState", "active"))
             putRecord("feature:driver-records:assignment:parity-driver", JSONObject().put("schemaVersion", 1)
@@ -119,6 +122,9 @@ class DriverWorkflowParityInterruptionTest {
         }
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "boundary-driver"))
+            putRecord("identity:driver-person-link:boundary-driver", JSONObject().put("schemaVersion", 1).put("driverId", "boundary-driver").put("personId", "boundary-person"))
+            putRecord("identity:person:boundary-person", JSONObject().put("schemaVersion", 1).put("personId", "boundary-person")
+                .put("displayName", "Boundary Driver").put("roles", JSONArray().put("driver")).put("status", "active"))
             putRecord("feature:driver-records:driver:boundary-driver", JSONObject().put("schemaVersion", 1)
                 .put("driverId", "boundary-driver").put("name", "Boundary Driver").put("lifecycleState", "active"))
             putRecord("feature:driver-records:assignment:boundary-driver", JSONObject().put("schemaVersion", 1)
@@ -172,6 +178,11 @@ class DriverWorkflowParityInterruptionTest {
             .put("horizontalAccuracyM", 8.0).put("fixAt", at).put("provider", "android-test")
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restore-driver"))
+            putRecord("identity:driver-person-link:restore-driver", JSONObject().put("schemaVersion", 1)
+                .put("driverId", "restore-driver").put("personId", "restore-person"))
+            putRecord("identity:person:restore-person", JSONObject().put("schemaVersion", 1)
+                .put("personId", "restore-person").put("displayName", "Restore Driver")
+                .put("roles", JSONArray().put("driver")).put("status", "active"))
             putRecord("feature:driver-records:driver:restore-driver", JSONObject().put("schemaVersion", 1)
                 .put("driverId", "restore-driver").put("name", "Restore Driver").put("lifecycleState", "active"))
             putRecord("feature:driver-records:assignment:restore-driver", JSONObject().put("schemaVersion", 1)

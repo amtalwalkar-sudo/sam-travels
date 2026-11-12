@@ -70,6 +70,14 @@ internal object DriverWorkflowContract {
         }
         if(state.has("shiftId"))require(state.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_shift_id" }
         if(state.has("activeTripId"))require(state.optString("activeTripId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_trip_id" }
+        if (state.has("shiftAuthor")) {
+            val author = state.optJSONObject("shiftAuthor") ?: error("invalid_driver_state_author")
+            require(author.keys().asSequence().toSet() == setOf("personId", "role") &&
+                author.optString("personId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+                author.optString("role") == "driver" && state.optString("state") != "idle") {
+                "invalid_driver_state_author"
+            }
+        }
         if(state.has("shiftContext")) {
             val c=state.optJSONObject("shiftContext")?:error("invalid_driver_state_context")
             require(c.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&c.optInt("schemaVersion",-1)==1&&
@@ -96,6 +104,14 @@ internal object DriverWorkflowContract {
             (command.optString("eventType")!="shift_start"||command.has("driverContext"))&&
             (command.optString("eventType")!="trip_create"||command.has("tripContext"))) { "missing_lifecycle_snapshot" }
         require((event.opt("eventId") as? String) == command.optString("eventId")) { "driver_event_identity_mismatch" }
+        if (event.has("createdBy")) {
+            val author = event.optJSONObject("createdBy") ?: error("invalid_driver_event_author")
+            val personId = author.optString("personId")
+            require(author.keys().asSequence().toSet() == setOf("personId", "role") &&
+                personId.matches(Regex("[A-Za-z0-9_-]{1,128}")) && author.optString("role") == "driver") {
+                "invalid_driver_event_author"
+            }
+        }
         val revision = integer(event, "revision")
         require(revision == integer(command, "expectedRevision") + 1L) { "driver_event_revision_mismatch" }
         parseInstant(event.optString("committedAt"), "invalid_driver_event_timestamp")
@@ -112,6 +128,12 @@ internal object DriverWorkflowContract {
         require(kotlin.math.abs(Duration.between(transitionAt, fixAt).toMillis()) <= 30_000L) {
             "invalid_driver_event_gps"
         }
+    }
+
+    /** New commits must be attributable; legacy command rows remain readable through validateStoredEvent. */
+    fun validateNewlyCommittedEvent(event: JSONObject) {
+        validateEvent(event)
+        require(event.has("createdBy")) { "driver_event_author_required" }
     }
 
     /** Legacy v1 Log Book rows predate the command/GPS event envelope and remain immutable source history. */

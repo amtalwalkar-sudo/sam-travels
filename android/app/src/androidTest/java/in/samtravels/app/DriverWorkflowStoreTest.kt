@@ -27,16 +27,19 @@ class DriverWorkflowStoreTest {
 
     @After fun closeDatabase() = db.close()
 
-    private fun command(id: String, event: String = "shift_start") = JSONObject()
-        .put("schemaVersion", 1)
-        .put("commandId", id)
-        .put("eventId", id)
-        .put("eventType", event)
-        .put("originSurface", "native_overlay")
-        .put("transitionAt", java.time.Instant.now().toString())
-        .put("expectedPriorState", "idle")
-        .put("expectedRevision", 0)
-        .put("idempotencyKey", id)
+    private fun command(id: String, event: String = "shift_start", seedIdentity: Boolean = true): JSONObject {
+        if (seedIdentity) DriverWorkflowIdentityTestFixtures.seed(db, "driver-test", "person-test")
+        return JSONObject()
+            .put("schemaVersion", 1)
+            .put("commandId", id)
+            .put("eventId", id)
+            .put("eventType", event)
+            .put("originSurface", "native_overlay")
+            .put("transitionAt", java.time.Instant.now().toString())
+            .put("expectedPriorState", "idle")
+            .put("expectedRevision", 0)
+            .put("idempotencyKey", id)
+    }
 
     private fun gps(accuracy: Double = 8.0) = JSONObject()
         .put("latitude", 19.076)
@@ -44,8 +47,6 @@ class DriverWorkflowStoreTest {
         .put("horizontalAccuracyM", accuracy)
         .put("fixAt", java.time.Instant.now().toString())
         .put("provider", "android-test")
-
-
 
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
         DriverWorkflowStore.queue(db, command("event-1"))
@@ -56,6 +57,10 @@ class DriverWorkflowStoreTest {
         assertEquals("recorded", JSONObject(db.records().get("driver-intent:event-1")!!.json).getString("status"))
         assertEquals(1, db.logBookEvents().list().size)
         assertEquals("event-1", JSONObject(db.logBookEvents().list().single().json).getString("eventId"))
+        val committedEvent = JSONObject(db.logBookEvents().list().single().json)
+        assertEquals("native_overlay", committedEvent.getJSONObject("command").getString("originSurface"))
+        assertEquals("person-test", committedEvent.getJSONObject("createdBy").getString("personId"))
+        assertEquals("driver", committedEvent.getJSONObject("createdBy").getString("role"))
         val outbox = JSONObject(db.records().get("driver-outbox:1")!!.json)
         assertEquals("logbook.work-driver-events.v1", outbox.getString("integrationId"))
         assertEquals(1, outbox.getInt("contractVersion"))
@@ -157,6 +162,7 @@ class DriverWorkflowStoreTest {
         context.deleteDatabase(databaseName)
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
+        DriverWorkflowIdentityTestFixtures.seed(first, "driver-test", "person-test")
         DriverWorkflowStore.queue(first, command("persistent-event"))
         first.close()
 
@@ -193,13 +199,13 @@ class DriverWorkflowStoreTest {
             .getString("status"))
     }
 
-
     @Test fun committedTransitionReplayAfterRoomReopenCannotDuplicateEventOrOutbox() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "driver-workflow-commit-replay-test.db"
         context.deleteDatabase(databaseName)
         val first = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
             .allowMainThreadQueries().build()
+        DriverWorkflowIdentityTestFixtures.seed(first, "driver-test", "person-test")
         DriverWorkflowStore.queue(first, command("durable-replay"))
         val committed = DriverWorkflowStore.complete(first, "durable-replay", gps())
         assertEquals(1, committed.getInt("revision"))
@@ -243,6 +249,7 @@ class DriverWorkflowStoreTest {
                 else -> "fault-outbox"
             }
             try {
+                DriverWorkflowIdentityTestFixtures.seed(local, "driver-test", "person-test")
                 DriverWorkflowStore.queue(local, command(eventId))
                 local.openHelper.writableDatabase.execSQL(sql)
                 val failure = runCatching { DriverWorkflowStore.complete(local, eventId, gps()) }.exceptionOrNull()
@@ -279,7 +286,6 @@ class DriverWorkflowStoreTest {
         assertTrue(DriverWorkflowStore.firstPendingLocation(db) == null)
         assertTrue(DriverWorkflowStore.firstRecoverableIntent(db) == null)
     }
-
 
     @Test fun durableRoomRestoreAndReopenMatchesTheCompleteDexieProjectionOracle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -377,8 +383,6 @@ class DriverWorkflowStoreTest {
             context.deleteDatabase(databaseName)
         }
     }
-
-
 
     @Test fun malformedPersistedEventFailsClosedAtRoomReadBoundary() {
         db.logBookEvents().put(LogBookEventRecord(

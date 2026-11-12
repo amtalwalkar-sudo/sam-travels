@@ -10,7 +10,7 @@ These versions are intentionally separate; do not conflate them.
 | Contract | Current version | Authority |
 |---|---:|---|
 | Record envelope | 1 | `packages/core/src/persistence-contract.ts` |
-| Browser IndexedDB/Dexie database | 5 | `packages/storage-browser/src/database.ts` |
+| Browser IndexedDB/Dexie database | 6 | `packages/storage-browser/src/database.ts` |
 | Android Room database | 3 | `android/app/src/main/java/in/samtravels/app/LocalDatabase.kt` |
 | Backup snapshot and manifest | 1 | Core and native backup snapshot contracts |
 | Backup participant payload | 1 per participant | Browser participant registry / Room participant annotations and adapters |
@@ -52,15 +52,16 @@ Browser and native storage validate these discriminants at enqueue/commit, persi
 
 ### Browser IndexedDB / Dexie
 
-Current database version: **5**. The ordered upgrade history is retained in `packages/storage-browser/src/database.ts`:
+Current database version: **6**. The ordered upgrade history is retained in `packages/storage-browser/src/database.ts`:
 
 - v1: authoritative `records` table.
 - v2: driver state, intents, events, and outbox tables.
 - v3: recovery checkpoint table.
 - v4: encrypted credential vault tables.
-- v5: bounded diagnostics table.
+- v5: bounded diagnostics table introduced with the Stage 5 diagnostics contract.
+- v6: current schema declaration retains the v1-v5 stores and indexes; no new business table or record format is introduced by this version increment.
 
-Dexie upgrades are additive and ordered. Historical v1 databases must open through the complete v1→v5 chain. Never delete or recreate an existing database as a migration fallback.
+Dexie upgrades are additive and ordered. Historical v1 databases must open through the complete v1→v6 chain. Never delete or recreate an existing database as a migration fallback.
 
 ### Android Room
 

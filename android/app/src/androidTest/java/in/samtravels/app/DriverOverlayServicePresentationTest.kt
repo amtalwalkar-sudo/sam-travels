@@ -45,7 +45,10 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
                 val row = db.records().get("work:trip-financial-obligation:$tripId") ?: return@waitUntil false
                 JSONObject(row.json).getJSONObject("data").optString("status") == "submitted"
             })
-            val data = JSONObject(db.records().get("work:trip-financial-obligation:$tripId")!!.json).getJSONObject("data")
+            val submittedEnvelope = JSONObject(db.records().get("work:trip-financial-obligation:$tripId")!!.json)
+            assertEquals("overlay-person", submittedEnvelope.getJSONObject("createdBy").getString("personId"))
+            assertEquals("driver", submittedEnvelope.getJSONObject("createdBy").getString("role"))
+            val data = submittedEnvelope.getJSONObject("data")
             assertEquals(0L, data.getLong("farePaise"))
             assertEquals(1234L, data.getLong("tollPaise"))
             assertEquals("driver", data.getString("tollPayer"))

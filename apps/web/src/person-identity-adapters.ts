@@ -34,6 +34,10 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
     });
   }
 
+  async remove(personId: string): Promise<void> {
+    await this.records.remove(PERSON_PREFIX + personId);
+  }
+
   async save(person: BusinessPersonV1): Promise<BusinessPersonV1> {
     assertBusinessPersonV1(person);
     const id = PERSON_PREFIX + person.personId;
@@ -111,5 +115,40 @@ export class SecureAdminPinVerifier implements AdminPinVerifier {
     const encoded = encode(bits);
     bits.fill(0);
     return encoded;
+  }
+}
+
+
+const DRIVER_PERSON_LINK_PREFIX = "identity:driver-person-link:";
+export type DriverPersonLinkV1 = Readonly<{ schemaVersion: 1; driverId: string; personId: string }>;
+export async function getDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<DriverPersonLinkV1 | undefined> {
+  const row = await records.get<DriverPersonLinkV1>(DRIVER_PERSON_LINK_PREFIX + driverId);
+  if (!row || row.deletedAt) return undefined;
+  if (row.data.schemaVersion !== 1 || row.data.driverId !== driverId || !row.data.personId) throw new Error("driver_person_link_invalid");
+  return row.data;
+}
+export async function saveDriverPersonLink(records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], driverId: string, personId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId) || !/^[A-Za-z0-9_-]{1,128}$/.test(personId)) throw new Error("driver_person_link_invalid");
+  const id = DRIVER_PERSON_LINK_PREFIX + driverId;
+  const current = await records.get<DriverPersonLinkV1>(id);
+  const now = new Date().toISOString();
+  const next: RecordEnvelope<DriverPersonLinkV1> = { id, schemaVersion: 1, createdAt: current?.createdAt ?? now, updatedAt: now, source, revision: (current?.revision ?? 0) + 1, data: { schemaVersion: 1, driverId, personId } };
+  if (!await records.compareAndSet(id, current?.revision ?? null, next)) throw new Error("driver_person_link_revision_conflict");
+}
+
+export async function removeDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId)) throw new Error("driver_person_link_invalid");
+  const id = DRIVER_PERSON_LINK_PREFIX + driverId;
+  const current = await records.get<DriverPersonLinkV1>(id);
+  if (!current || current.deletedAt) return;
+  if (current.data.schemaVersion !== 1 || current.data.driverId !== driverId || !current.data.personId) {
+    throw new Error("driver_person_link_invalid");
+  }
+  const now = new Date().toISOString();
+  const tombstone: RecordEnvelope<DriverPersonLinkV1> = {
+    ...current, updatedAt: now, revision: current.revision + 1, deletedAt: now,
+  };
+  if (!await records.compareAndSet(id, current.revision, tombstone)) {
+    throw new Error("driver_person_link_revision_conflict");
   }
 }

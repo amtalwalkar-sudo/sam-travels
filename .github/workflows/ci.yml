@@ -11,7 +11,7 @@ permissions:
   contents: read
 jobs:
   architecture:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Enforce Stage 5 privacy, trace, platform and impact contracts
         run: npm run check:stage5
   web:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
@@ -50,9 +50,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
       - run: npm run build
+      - name: Install headless Chromium for rendered PWA acceptance
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Verify PWA service-worker cache boundaries and rollback retention
+        run: node scripts/pwa-service-worker-contract.mjs
+      - name: Submit and verify Maintenance correction through the rendered PWA
+        run: node scripts/maintenance-correction-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [architecture, web, android]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -94,7 +102,9 @@ jobs:
           NODE
   android:
     needs: web
-    runs-on: ubuntu-latest
+    # Ubuntu 22.04 hosted images include the PulseAudio runtime required by the emulator.
+    # Keep the Android gate independent of apt mirror availability on Ubuntu 24.04.
+    runs-on: ubuntu-22.04
     env:
       VITE_GEOAPIFY_PROXY_URL: https://sam-travels.amtalwalkar.workers.dev
     steps:
@@ -140,15 +150,31 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install Android Emulator host dependencies
+      - name: Ensure Android Emulator host runtime dependency
         run: |
           set -euo pipefail
-          if dpkg-query -W -f='${Status}' libpulse0 2>/dev/null | grep -q 'install ok installed'; then
-            echo "libpulse0 is already installed"
+          # The Ubuntu 22.04 runner image normally includes libpulse0. Avoid
+          # contacting an apt mirror unless the emulator runtime is genuinely absent.
+          if ldconfig -p | grep -Fq 'libpulse.so.0'; then
+            echo "Android Emulator PulseAudio runtime is already available"
             exit 0
           fi
-          sudo timeout 300 apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
-          sudo timeout 180 apt-get install --yes --no-install-recommends libpulse0
+          source_list="$(mktemp)"
+          trap 'rm -f "$source_list"' EXIT
+          echo "deb [arch=amd64] https://archive.ubuntu.com/ubuntu jammy main universe" > "$source_list"
+          sudo apt-get \
+            -o Dir::Etc::sourcelist="$source_list" \
+            -o Dir::Etc::sourceparts="-" \
+            -o Acquire::Retries=3 \
+            -o Acquire::https::Timeout=20 \
+            -o Acquire::http::Timeout=20 update
+          sudo apt-get \
+            -o Dir::Etc::sourcelist="$source_list" \
+            -o Dir::Etc::sourceparts="-" \
+            -o Acquire::Retries=3 \
+            -o Acquire::https::Timeout=20 \
+            -o Acquire::http::Timeout=20 install -y libpulse0
+          ldconfig -p | grep -Fq 'libpulse.so.0'
       - name: Install and verify Android Emulator SDK package
         run: |
           set -euo pipefail
@@ -173,7 +199,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
+            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
@@ -187,7 +213,7 @@ jobs:
     name: Integrated regression gate
     if: always()
     needs: [architecture, web, geocoder-production, android]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require PR checks and, on main, the post-deployment production geocoder check
         env:

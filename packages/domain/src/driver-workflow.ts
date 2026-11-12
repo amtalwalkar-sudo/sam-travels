@@ -4,7 +4,7 @@ import { validateGpsFix } from "../../core/src/gps";
 import type { RecordEnvelope } from "../../core/src/types";
 export type DriverIntentStatus = "pending_location" | "needs_attention" | "recorded" | "rejected";
 export type DriverIntent = { command: DriverTransitionCommand; status: DriverIntentStatus; createdAt: string; updatedAt: string; reason?: string };
-export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number };
+export type DriverEvent = { eventId: string; command: DriverTransitionCommand; gps: GpsFix; committedAt: string; revision: number; createdBy?: { personId: string; role: "driver" } };
 export type DriverTransitionError = "invalid_command" | "stale_revision" | "invalid_transition" | "duplicate_command" | "gps_required" | "gps_invalid" | "intent_missing";
 export type DriverResult<T> = { ok: true; value: T } | { ok: false; error: DriverTransitionError };
 export const GPS_RECOVERY_WINDOW_MS = 30_000;
@@ -153,6 +153,11 @@ export function assertDriverEventContract(value: unknown): asserts value is Driv
  if ((event.command as DriverTransitionCommand).workflowVersion === 2 &&
      (((event.command as DriverTransitionCommand).eventType === "shift_start" && !(event.command as DriverTransitionCommand).driverContext) ||
       ((event.command as DriverTransitionCommand).eventType === "trip_create" && !(event.command as DriverTransitionCommand).tripContext))) throw new Error("missing_lifecycle_snapshot");
+ if (event.createdBy !== undefined) {
+  const author = event.createdBy as Record<string, unknown>;
+  if (!author || Object.keys(author).sort().join(",") !== "personId,role" || typeof author.personId !== "string" ||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(author.personId) || author.role !== "driver") throw new Error("invalid_driver_event_author");
+ }
  if (event.eventId !== (event.command as DriverTransitionCommand).eventId ||
      !validInstant(event.committedAt) ||
      !Number.isSafeInteger(event.revision) || (event.revision as number) < 1 || (event.revision as number) !== (event.command as DriverTransitionCommand).expectedRevision + 1) {

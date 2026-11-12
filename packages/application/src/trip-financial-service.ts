@@ -1,5 +1,5 @@
 import type { AtomicRecordRepository, RecordRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import { validateCancellationFeeSubmission, validateCompletedTripFinancialSubmission } from "./driver-form-definitions";
 
 export type CancellationFeeObligation = Readonly<{
@@ -26,6 +26,7 @@ export class TripFinancialService {
     private readonly records: RecordRepository & AtomicRecordRepository,
     private readonly source: RecordEnvelope<unknown>["source"],
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
   ) {}
 
   async pendingCancellationFees(): Promise<readonly RecordEnvelope<CancellationFeeObligation>[]> {
@@ -60,11 +61,14 @@ export class TripFinancialService {
     if (current.data.status !== "pending") throw new Error("cancellation_fee_obligation_invalid");
 
     const submittedAt = this.now();
+    const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+    if (this.currentAuthor && !createdBy) throw new Error("business_actor_not_active");
     const next: RecordEnvelope<CancellationFeeObligation> = {
       ...current,
       revision: current.revision + 1,
       updatedAt: submittedAt,
       source: this.source,
+      ...(createdBy ? { createdBy } : {}),
       data: {
         ...current.data,
         status: "submitted",
@@ -105,6 +109,7 @@ export function calculateTripFinancialSummary(values: CompletedTripFinancialValu
 export async function submitCompletedTripFinancials(
   records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], tripId: string,
   values: CompletedTripFinancialValues, operationId: string, now: () => string = () => new Date().toISOString(),
+  createdBy?: RecordAuthorV1,
 ): Promise<RecordEnvelope<CompletedTripFinancialObligation>> {
   const issues = validateCompletedTripFinancialSubmission({ tripId, ...values });
   if (issues.length) throw new Error(issues[0]);
@@ -124,6 +129,7 @@ export async function submitCompletedTripFinancials(
   const submittedAt = now();
   const next: RecordEnvelope<CompletedTripFinancialObligation> = {
     ...current, revision: current.revision + 1, updatedAt: submittedAt, source,
+    ...(createdBy ? { createdBy } : {}),
     data: { ...current.data, ...values, status: "submitted", operationId, submittedAt },
   };
   if (!await records.compareAndSet(id, current.revision, next)) {

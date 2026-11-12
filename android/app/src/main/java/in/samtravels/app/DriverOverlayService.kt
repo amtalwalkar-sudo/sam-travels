@@ -10,9 +10,11 @@ import android.provider.Settings
 import androidx.room.Room
 import org.json.JSONObject
 import java.util.UUID
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 class DriverOverlayService:Service(){
- private val executor=Executors.newSingleThreadExecutor()
+ private val executor=ThreadPoolExecutor(1,1,0L,TimeUnit.MILLISECONDS,LinkedBlockingQueue(),{r->Thread(r,"DriverOverlayService").apply{isDaemon=true}},{_,_->})
  private val swipePresentation by lazy{DriverSwipePresentationContract.fromAssets(this)}
  private val presentation by lazy {
   DriverOverlayPresentation(
@@ -30,7 +32,7 @@ class DriverOverlayService:Service(){
  // These request fields are read and written only on the main thread.
  private var activeLocationListener:LocationListener?=null
  private var activeLocationTimeout:Runnable?=null
- private var serviceDestroyed=false
+ @Volatile private var serviceDestroyed=false
  private var gpsWakeLock:PowerManager.WakeLock?=null
  private var databaseObserver:androidx.room.InvalidationTracker.Observer?=null
  @Volatile private var startupRecoveryReady=false
@@ -54,7 +56,8 @@ class DriverOverlayService:Service(){
    startForeground(notificationId,notification)
   }
  }
- private val db by lazy{Room.databaseBuilder(applicationContext,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
+ private val db by lazy{DriverOverlayDatabaseFactory.open(applicationContext)}
+ private val locationSource by lazy{DriverLocationSourceFactory.create(this)}
  override fun onBind(intent:Intent?):IBinder?=null
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int{
   if(!Settings.canDrawOverlays(this)){stopSelf();return START_NOT_STICKY}
@@ -214,8 +217,7 @@ class DriverOverlayService:Service(){
    val transitionAt=command.optString("transitionAt")
    val remainingMs=DriverRecoveryPolicy.remainingGpsWindowMillis(transitionAt)
    if(remainingMs<=0L){markAttention(id,intent,"gps_recovery_window_expired");return}
-   val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
-   val provider=if(manager.isProviderEnabled(LocationManager.GPS_PROVIDER))LocationManager.GPS_PROVIDER else manager.getBestProvider(Criteria().apply{accuracy=Criteria.ACCURACY_FINE},true)
+   val provider=locationSource.bestProvider()
    if(provider==null){markAttention(id,intent,"location_unavailable");return}
    activeLocationEventId=id
    val powerManager=getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -228,7 +230,7 @@ class DriverOverlayService:Service(){
     if(finished)return
     finished=true
     main.removeCallbacks(timeout)
-    try{manager.removeUpdates(listener)}catch(_:Exception){}
+    try{locationSource.removeUpdates(listener)}catch(_:Exception){}
     activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
     releaseGpsWakeLock()
     if(location!=null)complete(id,command,intent,location)else markAttention(id,intent,reason)
@@ -244,7 +246,7 @@ class DriverOverlayService:Service(){
     }
    }
    activeLocationListener=listener;activeLocationTimeout=timeout
-   manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())
+   locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())
    main.postDelayed(timeout,remainingMs)
   }catch(e:Exception){activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null;releaseGpsWakeLock();markAttention(id,intent,"location_unavailable")}
  }
@@ -286,7 +288,7 @@ class DriverOverlayService:Service(){
   check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
   serviceDestroyed=true
   activeLocationTimeout?.let{main.removeCallbacks(it)}
-  activeLocationListener?.let{try{(getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(it)}catch(_:Exception){}}
+  activeLocationListener?.let{try{locationSource.removeUpdates(it)}catch(_:Exception){}}
   activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
   releaseGpsWakeLock()
   databaseObserver?.let{db.invalidationTracker.removeObserver(it)};databaseObserver=null

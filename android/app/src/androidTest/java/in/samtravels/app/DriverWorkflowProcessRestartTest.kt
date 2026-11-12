@@ -44,6 +44,9 @@ class DriverWorkflowProcessRestartTest {
             .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver"))
+            putRecord("identity:driver-person-link:restart-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver").put("personId", "restart-person"))
+            putRecord("identity:person:restart-person", JSONObject().put("schemaVersion", 1).put("personId", "restart-person")
+                .put("displayName", "Restart Driver").put("roles", JSONArray().put("driver")).put("status", "active"))
             putRecord("feature:driver-records:driver:restart-driver", JSONObject().put("schemaVersion", 1)
                 .put("driverId", "restart-driver").put("name", "Restart Driver").put("lifecycleState", "active"))
             putRecord("feature:driver-records:assignment:restart-driver", JSONObject().put("schemaVersion", 1)

@@ -61,6 +61,7 @@ class KotlinArchitectureBoundaryTest {
     private val approvedRoomGateways = setOf(
         "android/app/src/main/java/in/samtravels/app/LocalDatabase.kt",
         "android/app/src/main/java/in/samtravels/app/DriverWorkflowStore.kt",
+        "android/app/src/main/java/in/samtravels/app/DriverWorkflowIdentity.kt",
         "android/app/src/main/java/in/samtravels/app/DriverWorkflowOutbox.kt",
         "android/app/src/main/java/in/samtravels/app/DriverCancellationFeeStore.kt",
         "android/app/src/main/java/in/samtravels/app/WorkDriverContextResolver.kt",
@@ -158,8 +159,15 @@ class KotlinArchitectureBoundaryTest {
         assertTrue("Posted acquisition must not run after service destruction", source.contains(
             "main.post{if(!serviceDestroyed)acquireLocationOnMain(id,command,intent)}"
         ))
-        assertTrue("LocationManager registration must use the main looper", source.contains(
-            "manager.requestLocationUpdates(provider,0L,0f,listener,Looper.getMainLooper())"
+        assertTrue("The service must request platform location through its main-thread boundary", source.contains(
+            "locationSource.requestLocationUpdates(provider,listener,Looper.getMainLooper())"
+        ))
+        val locationSource = File(root, "android/app/src/main/java/in/samtravels/app/DriverOverlayRuntimeFactories.kt").readText()
+        assertTrue("The platform adapter must forward the supplied main looper to LocationManager", locationSource.contains(
+            "manager.requestLocationUpdates(provider, 0L, 0f, listener, looper)"
+        ))
+        assertTrue("Service completion must unregister the active location listener", source.contains(
+            "locationSource.removeUpdates(listener)"
         ))
         assertTrue("Location completion must remain on main", source.contains(
             "location_finish_must_run_on_main_thread"

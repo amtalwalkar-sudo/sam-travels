@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import type { AtomicRecordRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { driverPresentationCssVars } from "./driver-presentation";
 import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
@@ -31,7 +31,7 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository }>;
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
 export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository }: AppProps) {
@@ -201,7 +201,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
         {activeScreen === "Performance" && (
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
+        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
     </ShellRenderer>
   );
 }

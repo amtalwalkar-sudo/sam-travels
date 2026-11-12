@@ -3,7 +3,7 @@ import type { RecordEnvelope } from "../packages/core/src/types";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { CredentialVault } from "../packages/core/src/credentials";
 import type { BusinessPersonV1 } from "../packages/domain/src/person-identity";
-import { PersistentBusinessPersonRepository, SecureAdminPinVerifier } from "../apps/web/src/person-identity-adapters";
+import { PersistentBusinessPersonRepository, SecureAdminPinVerifier, getDriverPersonLink, removeDriverPersonLink, saveDriverPersonLink } from "../apps/web/src/person-identity-adapters";
 
 class MemoryRecords implements AtomicRecordRepository {
   rows = new Map<string, RecordEnvelope<unknown>>();
@@ -40,6 +40,17 @@ describe("persistent person identity adapters", () => {
     expect(records.rows.get("identity:person:person-owner")).toMatchObject({
       source: "web", revision: 1, data: person,
     });
+  });
+
+  it("persists Driver profile unlinking across repository reads", async () => {
+    const records = new MemoryRecords();
+    await saveDriverPersonLink(records, "web", "driver-1", "person-1");
+    expect(await getDriverPersonLink(records, "driver-1")).toMatchObject({
+      schemaVersion: 1, driverId: "driver-1", personId: "person-1",
+    });
+    await removeDriverPersonLink(records, "driver-1");
+    expect(await getDriverPersonLink(records, "driver-1")).toBeUndefined();
+    expect(records.rows.get("identity:driver-person-link:driver-1")?.deletedAt).toBeTruthy();
   });
 
   it("stores only a salted PIN verifier and verifies correct and incorrect PINs", async () => {

@@ -33,6 +33,12 @@ class DriverTripFinancialPanelPresentationTest {
         val submitted = CountDownLatch(1)
         try {
             val now = java.time.Instant.now().toString()
+            DriverWorkflowIdentityTestFixtures.seed(db, "overlay-driver", "overlay-person")
+            val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
+                .put("state", "shift_active").put("shiftStartedAt", now).put("lastEventId", "overlay-ui-shift")
+                .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "overlay-driver")
+                    .put("assignmentId", "overlay-assignment").put("vehicleId", "feature:vehicle:overlay-vehicle"))
+            db.records().put(StoredRecord("driver-state", JSONObject().put("value", active).toString(), 1, now))
             DriverTripFinancialStore.createPendingObligation(
                 db, "overlay-ui-trip", "overlay-ui-end-ride", now, null,
             )

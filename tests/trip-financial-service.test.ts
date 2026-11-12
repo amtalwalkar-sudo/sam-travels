@@ -55,6 +55,15 @@ describe("TripFinancialService cancellation fee closeout", () => {
     expect(await service.pendingCancellationFees()).toHaveLength(0);
   });
 
+  it("persists the active person as author on submitted cancellation fees", async () => {
+    const records = new MemoryRecords();
+    await records.put(obligation("trip_author"));
+    const service = new TripFinancialService(records, "web", () => "2026-11-10T01:00:00.000Z",
+      async () => ({ personId: "person-driver-1", role: "driver" }));
+    const submitted = await service.submitCancellationFee("trip_author", 2500, "operation_author");
+    expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
+  });
+
   it("rejects a missing obligation, negative amounts and a conflicting replay", async () => {
     const records = new MemoryRecords();
     const service = new TripFinancialService(records, "web");
@@ -106,6 +115,16 @@ describe("TripFinancialService cancellation fee closeout", () => {
 
 describe("completed-trip financial concurrent submission", () => {
   const values = { farePaise: 12345, tollPaise: 500, tollPayer: "customer" as const };
+
+  it("persists the active person as author on submitted completed-trip financials", async () => {
+    const records = new MemoryRecords();
+    await records.put(completedObligation("trip_completed_author"));
+    const submitted = await submitCompletedTripFinancials(
+      records, "web", "trip_completed_author", values, "operation_author",
+      () => "2026-11-10T01:00:00.000Z", { personId: "person-driver-1", role: "driver" },
+    );
+    expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
+  });
 
   it("accepts concurrent replay of the same operation and payload", async () => {
     const records = new MemoryRecords();
