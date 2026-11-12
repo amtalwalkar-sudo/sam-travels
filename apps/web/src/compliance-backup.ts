@@ -19,6 +19,7 @@ const PREFIX = "feature:compliance:";
 const REVIEW_PREFIX = "compliance-overlap-review:";
 const CORRECTION_PREFIX = "historical-correction:";
 const CORRECTION_CHAIN_PREFIX = "historical-correction-chain:";
+const REVIEW_HEAD_PREFIX = "compliance-overlap-review-head:";
 const CORRECTABLE_FIELDS = new Set([
   "complianceName", "validFrom", "validTo", "totalCostPaise", "supportingDocumentRef",
 ]);
@@ -88,11 +89,22 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
         group.push(review);
         reviewGroups.set(key, group);
       }
-      for (const group of reviewGroups.values()) {
+      for (const [key, group] of reviewGroups) {
         const latest = [...group].sort((a, b) => b.decisionRevision - a.decisionRevision)[0];
-        // The resolver checks complete revision/supersession links. A stale source
-        // revision remains valid history; it must not make the backup un-restorable.
+        // A stale source revision is valid history; chain corruption is not.
         resolveComplianceOverlapReview(latest.sourceRecords, latest.from, latest.to, group);
+        const headId = REVIEW_HEAD_PREFIX + encodeURIComponent(key);
+        const headEnvelope = records.find(record => record.id === headId);
+        if (!headEnvelope) throw new Error("compliance_overlap_review_head_missing");
+        const head = headEnvelope.data as Record<string, unknown>;
+        if (head.schemaVersion !== 1 || head.overlapKey !== key ||
+            head.decisionRevision !== latest.decisionRevision || head.headEventId !== latest.eventId) {
+          throw new Error("compliance_overlap_review_head_mismatch");
+        }
+      }
+      if (records.some(record => record.id.startsWith(REVIEW_HEAD_PREFIX) &&
+          ![...reviewGroups.keys()].some(key => record.id === REVIEW_HEAD_PREFIX + encodeURIComponent(key)))) {
+        throw new Error("compliance_overlap_review_orphan_head");
       }
 
       const corrections: HistoricalCorrectionV1[] = records
