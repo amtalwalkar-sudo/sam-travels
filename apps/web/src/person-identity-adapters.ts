@@ -123,7 +123,7 @@ const DRIVER_PERSON_LINK_PREFIX = "identity:driver-person-link:";
 export type DriverPersonLinkV1 = Readonly<{ schemaVersion: 1; driverId: string; personId: string }>;
 export async function getDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<DriverPersonLinkV1 | undefined> {
   const row = await records.get<DriverPersonLinkV1>(DRIVER_PERSON_LINK_PREFIX + driverId);
-  if (!row) return undefined;
+  if (!row || row.deletedAt) return undefined;
   if (row.data.schemaVersion !== 1 || row.data.driverId !== driverId || !row.data.personId) throw new Error("driver_person_link_invalid");
   return row.data;
 }
@@ -138,5 +138,17 @@ export async function saveDriverPersonLink(records: AtomicRecordRepository, sour
 
 export async function removeDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<void> {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId)) throw new Error("driver_person_link_invalid");
-  await records.remove(DRIVER_PERSON_LINK_PREFIX + driverId);
+  const id = DRIVER_PERSON_LINK_PREFIX + driverId;
+  const current = await records.get<DriverPersonLinkV1>(id);
+  if (!current || current.deletedAt) return;
+  if (current.data.schemaVersion !== 1 || current.data.driverId !== driverId || !current.data.personId) {
+    throw new Error("driver_person_link_invalid");
+  }
+  const now = new Date().toISOString();
+  const tombstone: RecordEnvelope<DriverPersonLinkV1> = {
+    ...current, updatedAt: now, revision: current.revision + 1, deletedAt: now,
+  };
+  if (!await records.compareAndSet(id, current.revision, tombstone)) {
+    throw new Error("driver_person_link_revision_conflict");
+  }
 }
