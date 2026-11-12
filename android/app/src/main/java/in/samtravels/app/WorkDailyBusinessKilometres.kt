@@ -4,6 +4,28 @@ import org.json.JSONObject
 
 /** Appends an immutable shift contribution to the vehicle's daily Work distance projection. */
 internal object WorkDailyBusinessKilometres {
+    fun validateTransition(current: JSONObject, command: JSONObject) {
+        val eventType = command.optString("eventType")
+        val odometer = command.optJSONObject("odometer")
+        if (command.optInt("workflowVersion", 1) == 2 && eventType == "shift_start") {
+            val reading = odometer?.getLong("readingKm") ?: error("shift_odometer_required")
+            if (current.has("lastConfirmedOdometerKm")) {
+                val previous = current.getLong("lastConfirmedOdometerKm")
+                require(reading >= previous && odometer.optLong("previousConfirmedKm", -1L) == previous &&
+                    odometer.optLong("personalKm", -1L) == reading - previous) { "shift_start_odometer_invalid" }
+            } else require(!odometer.has("previousConfirmedKm") && !odometer.has("personalKm")) {
+                "shift_start_odometer_invalid"
+            }
+        }
+        if (command.optInt("workflowVersion", 1) == 2 && eventType == "shift_end") {
+            val start = current.optLong("shiftStartOdometerKm", -1L)
+            val end = odometer?.optLong("readingKm", -1L) ?: -1L
+            require(start >= 0L && end >= start && odometer?.optLong("businessKm", -1L) == end - start) {
+                "shift_end_odometer_invalid"
+            }
+        }
+    }
+
     fun append(db: LocalDatabase, current: JSONObject, command: JSONObject, eventId: String, now: String) {
         val shiftId = current.optString("shiftId")
         val context = current.optJSONObject("shiftContext") ?: error("work_shift_context_missing")
