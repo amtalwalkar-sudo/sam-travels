@@ -6,6 +6,7 @@ const source = await readFile(new URL("../public/sw.js", import.meta.url), "utf8
 const handlers = new Map();
 const stores = new Map();
 let networkCalls = 0;
+let offline = false;
 let claimed = false;
 
 function makeCache(name) {
@@ -29,6 +30,7 @@ const self = {
 };
 const fetch = async request => {
   networkCalls += 1;
+  if (offline) throw new Error("network_unavailable");
   return { ok: true, type: "basic", url: request.url, clone() { return this; } };
 };
 runInNewContext(source, { self, caches, fetch, URL, Promise, Set, Number, Math });
@@ -63,4 +65,14 @@ assert.ok(stores.get("sam-travels-shell-2").has("/assets/app-hash.js"), "approve
 handlers.get("fetch")({ request: assetRequest, respondWith(promise) { assetResponse = promise; } });
 await assetResponse;
 assert.equal(networkCalls, 1, "cached shell assets are served without another network request");
-console.log("PASS: PWA service worker caches only approved shell assets, excludes business/API data, and retains a rollback cache.");
+
+offline = true;
+let offlineNavigation;
+handlers.get("fetch")({
+  request: { url: "https://sam-travels.test/maintenance/offline-check", method: "GET", mode: "navigate" },
+  respondWith(promise) { offlineNavigation = promise; },
+});
+const fallback = await offlineNavigation;
+assert.equal(fallback.path, "/", "offline deep-link navigation falls back to the cached app shell");
+assert.equal(fallback.source, "install", "offline fallback is the precached shell, not business data");
+console.log("PASS: PWA service worker caches only approved shell assets, excludes business/API data, retains rollback cache, and falls back to the app shell for offline navigation.");
