@@ -113,3 +113,22 @@ describe("Compliance browser backup participant", () => {
     await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("compliance_renewal_source_not_found");
   });
 });
+
+
+  it("exports an early renewal with its actual overlapping validity dates", async () => {
+    await seedValidRecords();
+    await browserDatabase.records.put({
+      id: "feature:compliance:123e4567-e89b-42d3-a456-426614174001",
+      schemaVersion: 1, createdAt: "2026-11-07T00:00:00.000Z",
+      updatedAt: "2026-11-07T00:00:00.000Z", source: "web", revision: 1,
+      data: {
+        schemaVersion: 1, vehicleId: "feature:vehicle:MH01AB1234",
+        complianceName: "Insurance", validFrom: "2026-12-01",
+        validTo: "2027-11-30", totalCostPaise: 400000,
+        renewedFromRecordId: "feature:compliance:123e4567-e89b-42d3-a456-426614174000",
+      },
+    });
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    expect(snapshot.data.records.filter(row => row.id.startsWith("feature:compliance:"))).toHaveLength(2);
+  });
+});
