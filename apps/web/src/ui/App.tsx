@@ -115,18 +115,19 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                 </>}
                 {driver?.state === "shift_active" && <>
                   {swipeAction && <SwipeActionBar label={swipeAction.label} disabled={!driver?.shiftContext || driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
-                  <label className="driver-selection">Shift-end odometer (km)
-                    <input type="number" min={driver?.shiftStartOdometerKm ?? 0} step="1" inputMode="numeric"
-                      value={shiftEndOdometer || (driver?.shiftStartOdometerKm === undefined ? "" : String(driver.shiftStartOdometerKm))}
-                      onChange={event => setShiftEndOdometer(event.target.value)} disabled={driverBusy} />
-                  </label>
-                  {driver?.shiftStartOdometerKm !== undefined &&
-                    <small className="driver-note">Business kilometres: {Math.max(0, Number(shiftEndOdometer || driver.shiftStartOdometerKm) - driver.shiftStartOdometerKm)} km</small>}
-                  <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow ||
-                    (shiftEndOdometer === "" && driver?.shiftStartOdometerKm === undefined) ||
-                    !Number.isSafeInteger(Number(shiftEndOdometer || driver?.shiftStartOdometerKm)) ||
-                    Number(shiftEndOdometer || driver?.shiftStartOdometerKm) < (driver?.shiftStartOdometerKm ?? 0)}
-                    onClick={() => dispatch("shift_end", Number(shiftEndOdometer || driver?.shiftStartOdometerKm))}>End shift</button>
+                  {driver?.shiftStartOdometerKm !== undefined ? <>
+                    <label className="driver-selection">Shift-end odometer (km)
+                      <input type="number" min={driver.shiftStartOdometerKm} step="1" inputMode="numeric"
+                        value={shiftEndOdometer || String(driver.shiftStartOdometerKm)}
+                        onChange={event => setShiftEndOdometer(event.target.value)} disabled={driverBusy} />
+                    </label>
+                    <small className="driver-note">Business kilometres: {Math.max(0, Number(shiftEndOdometer || driver.shiftStartOdometerKm) - driver.shiftStartOdometerKm)} km</small>
+                    <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow ||
+                      !Number.isSafeInteger(Number(shiftEndOdometer || driver.shiftStartOdometerKm)) ||
+                      Number(shiftEndOdometer || driver.shiftStartOdometerKm) < driver.shiftStartOdometerKm}
+                      onClick={() => dispatch("shift_end", Number(shiftEndOdometer || driver.shiftStartOdometerKm))}>End shift</button>
+                  </> : <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow}
+                    onClick={() => dispatch("shift_end")}>End legacy shift</button>}
                   {!driver?.shiftContext && <small className="driver-note">This shift uses legacy v1 history. End it and start a new shift to create v2 trips with a fixed Driver and Vehicle snapshot.</small>}
                 </>}
                 {driver?.state === "going_to_pickup" && <>
