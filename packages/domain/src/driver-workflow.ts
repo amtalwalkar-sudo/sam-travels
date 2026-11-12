@@ -127,9 +127,9 @@ export function assertDriverStateContract(value: unknown): asserts value is Driv
  }
  if (state.activeTripId !== undefined && (typeof state.activeTripId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.activeTripId))) throw new Error("invalid_driver_state_trip_id");
  for (const key of ["shiftStartOdometerKm","lastConfirmedOdometerKm"] as const) {
-  if (state[key] !== undefined && (!Number.isSafeInteger(state[key]) || (state[key] as number) < 0)) throw new Error("invalid_driver_state_odometer");
+  if (state[key] !== undefined && (typeof state[key] !== "number" || !Number.isSafeInteger(state[key]) || (state[key] as number) < 0)) throw new Error("invalid_driver_state_odometer");
  }
- if (state.state !== "idle" && state.shiftStartOdometerKm !== undefined && state.lastConfirmedOdometerKm !== undefined &&
+ if (state.state !== "idle" && typeof state.shiftStartOdometerKm === "number" && typeof state.lastConfirmedOdometerKm === "number" &&
      state.shiftStartOdometerKm < state.lastConfirmedOdometerKm) throw new Error("invalid_driver_state_odometer_order");
 
  if (state.lastEventId !== undefined && (typeof state.lastEventId !== "string" || !state.lastEventId.trim())) {
