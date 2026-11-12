@@ -30,6 +30,10 @@ describe("person identity service", () => {
       },
       () => currentNow,
     );
+    people.set("existing-driver", {
+      schemaVersion: 1, personId: "existing-driver", displayName: "Existing Driver",
+      roles: ["driver"], status: "active",
+    });
     await expect(identity.activate("person-1", "admin", "2468"))
       .rejects.toThrow("business_person_not_found");
     await identity.registerPerson(person, "2468");
