@@ -112,9 +112,6 @@ describe("Compliance browser backup participant", () => {
     });
     await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("compliance_renewal_source_not_found");
   });
-});
-
-
   it("exports an early renewal with its actual overlapping validity dates", async () => {
     await seedValidRecords();
     await browserDatabase.records.put({
