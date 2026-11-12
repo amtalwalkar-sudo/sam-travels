@@ -86,8 +86,7 @@ internal object NativeComplianceBackup {
                     val previousId = data.optString("renewedFromRecordId")
                     val previous = records[previousId] ?: error("compliance_renewal_source_not_found")
                     require(previous.optString("vehicleId") == data.optString("vehicleId") &&
-                        previous.optString("complianceName") == data.optString("complianceName") &&
-                        LocalDate.parse(data.getString("validFrom")).isAfter(LocalDate.parse(previous.getString("validTo")))) {
+                        previous.optString("complianceName") == data.optString("complianceName")) {
                         "compliance_renewal_source_mismatch"
                     }
                 }
