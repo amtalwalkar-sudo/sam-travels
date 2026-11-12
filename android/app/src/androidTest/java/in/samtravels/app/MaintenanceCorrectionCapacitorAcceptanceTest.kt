@@ -188,7 +188,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
         assertEquals("Original expense unchanged", 10000L,
             original.getJSONObject("data").getLong("amountPaise"))
-        assertEquals("Exactly one correction must be appended; stored IDs: ${database.records().list().map { it.id }}", 1, correctionRows.size)
+        assertEquals("One correction appended", 1, correctionRows.size)
         val correction = correctionRows.single().getJSONObject("data")
         assertEquals(10000L, correction.getLong("beforeValue"))
         assertEquals(15000L, correction.getLong("afterValue"))
@@ -284,7 +284,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             .map { JSONObject(it.json).getJSONObject("data") }
             .filter { it.optString("targetRecordId") == expenseId }
             .sortedBy { it.getInt("chainRevision") }
-        assertEquals("Admin append plus Driver self-correction should form a two-entry chain", 2, driverOneChain.size)
+        assertEquals("Two-entry correction chain", 2, driverOneChain.size)
         assertEquals("person-driver-one", driverOneChain.last().getJSONObject("actor").getString("actorId"))
         assertEquals("Driver One verified own receipt", driverOneChain.last().getString("reason"))
         assertEquals("Other Driver must receive no correction row", 0, database.records().list()
