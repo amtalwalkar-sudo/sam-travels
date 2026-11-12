@@ -4,6 +4,7 @@ import { DRIVER_FORM_V1, COMPLIANCE_FORM_V1 } from "../../../../packages/applica
 import { useAdminServices } from "./admin-services-context";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import "./AdminWorkspace.css";
+import { AdminComplianceOverview } from "./AdminComplianceOverview";
 export { MaintenanceSection } from "./AdminMaintenance";
 
 type Driver = Awaited<ReturnType<AdminPresentationServices["driverRecords"]["list"]>>[number];
@@ -246,6 +247,7 @@ export function ComplianceSection() {
     finally{setBusy(false);}
   }
   return <div className="admin-capability-panel">
+    <AdminComplianceOverview />
     <p className="admin-hint">Expiry warning is 15 calendar days: Valid (&gt;15 days), Expiring soon (1–15 days), Expired (past valid-to date). This is an operational warning only, not a legal grace period. Renewals create a new immutable record linked to the previous coverage.</p>
     <div className="admin-vehicle-context"><label>Vehicle</label><select value={vehicleId} onChange={e=>{setVehicleId(e.target.value);setFormOpen(false);setCopy(undefined);copyRef.current=undefined;}}><option value="">Select vehicle</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.data.registrationNumber}</option>)}</select></div>
     {vehicleId&&!formOpen&&<button className="admin-primary" type="button" onClick={()=>void beginForm()}>Add compliance / renewal</button>}

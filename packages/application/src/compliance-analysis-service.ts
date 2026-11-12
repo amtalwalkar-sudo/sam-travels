@@ -48,6 +48,8 @@ export class ComplianceAnalysisService {
   }
 
   async getOverview(): Promise<ComplianceOverview> {
+    const actor = await this.identity.currentActor();
+    if (actor.role !== "admin") throw new Error("business_admin_authority_required");
     const [records, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
     const groups = new Map<string, { vehicleId: string; complianceName: string }>();
     for (const record of records) {

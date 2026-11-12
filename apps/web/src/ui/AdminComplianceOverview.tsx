@@ -115,7 +115,7 @@ export function AdminComplianceOverview() {
           const key = overlapKey(item);
           const first = overview.records.find(record => record.id === item.firstRecordId);
           const second = overview.records.find(record => record.id === item.secondRecordId);
-          const needsReview = item.reviewStatus !== "confirmed" && item.reviewStatus !== "rejected";
+          const needsReview = item.reviewStatus !== "confirmed";
           return <article className="compliance-overlap-card" key={key}>
             <div className="compliance-overlap-heading">
               <strong>{item.complianceName} · {vehicleName(item.vehicleId)}</strong>
