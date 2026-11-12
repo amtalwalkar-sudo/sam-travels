@@ -17,6 +17,7 @@ export type DriverTransitionCommand={
  workflowVersion?:2;
  driverContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
  tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
+ odometer?:{schemaVersion:1;readingKm:number;previousConfirmedKm?:number;personalKm?:number;businessKm?:number};
 };
 export type DriverStateProjection={
  schemaVersion:1;
@@ -30,6 +31,8 @@ export type DriverStateProjection={
  shiftContext?:{schemaVersion:1;driverId:string;assignmentId:string;vehicleId:string};
  activeTripId?:string;
  tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
+ shiftStartOdometerKm?:number;
+ lastConfirmedOdometerKm?:number;
 };
 export type NativeBridgeRequest<T>={bridgeVersion:typeof BRIDGE_CONTRACT_VERSION;requestId:string;payload:T};
 export type NativeBridgeResponse<T>={bridgeVersion:typeof BRIDGE_CONTRACT_VERSION;requestId:string;result:T};
