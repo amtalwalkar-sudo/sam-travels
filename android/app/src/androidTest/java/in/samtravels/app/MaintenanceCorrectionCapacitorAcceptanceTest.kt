@@ -74,7 +74,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
         assertTrue("Admin workspace should render", awaitJavascript(activity,
             "document.querySelector('.admin-workspace') !== null", 15_000))
-        // Enrol the first PIN-verified Admin through the real identity panel.
+        
         assertTrue("Person name field should render", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
         assertTrue("Admin role checkbox should be selectable", evaluate(activity, """
@@ -143,7 +143,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return true;
             })()
         """))
-        assertTrue("PIN-verified Admin session should activate", awaitJavascript(activity,
+        assertTrue("PIN-verified Admin session should activate; status: " + evaluate(activity, "document.querySelector('[role=status]')?.textContent") + "; selected role: " + evaluate(activity, "Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'))?.querySelector('select')?.value), awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
         evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
         assertTrue("Seeded Maintenance expense should load", awaitJavascript(activity,
