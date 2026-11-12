@@ -207,20 +207,8 @@ object DriverWorkflowStore {
                     command.optString("expectedPriorState") == current.optString("state"),
             ) { "stale_revision" }
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"), nowInstant)
+            WorkDailyBusinessKilometres.validateTransition(current,command)
             val eventType=command.optString("eventType")
-            val odometer=command.optJSONObject("odometer")
-            if(command.optInt("workflowVersion",1)==2&&eventType=="shift_start") {
-                val reading=odometer?.getLong("readingKm")?:error("shift_odometer_required")
-                if(current.has("lastConfirmedOdometerKm")) {
-                    val previous=current.getLong("lastConfirmedOdometerKm")
-                    require(reading>=previous&&odometer.optLong("previousConfirmedKm",-1L)==previous&&odometer.optLong("personalKm",-1L)==reading-previous) { "shift_start_odometer_invalid" }
-                } else require(!odometer.has("previousConfirmedKm")&&!odometer.has("personalKm")) { "shift_start_odometer_invalid" }
-            }
-            if(command.optInt("workflowVersion",1)==2&&eventType=="shift_end") {
-                val start=current.optLong("shiftStartOdometerKm",-1L)
-                val end=odometer?.optLong("readingKm",-1L)?:-1L
-                require(start>=0L&&end>=start&&odometer?.optLong("businessKm",-1L)==end-start) { "shift_end_odometer_invalid" }
-            }
 
             val eventType=command.optString("eventType")
             if(command.optInt("workflowVersion",1)==2) {
