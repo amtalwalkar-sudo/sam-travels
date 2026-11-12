@@ -32,8 +32,7 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
         const previousData = previous.data;
         assertComplianceRecordV1(previousData);
         if (previousData.vehicleId !== data.vehicleId ||
-            previousData.complianceName !== data.complianceName ||
-            data.validFrom <= previousData.validTo) {
+            previousData.complianceName !== data.complianceName) {
           throw new Error("compliance_renewal_source_mismatch");
         }
       }
@@ -63,8 +62,7 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
         const previousData = previous.data;
         assertComplianceRecordV1(previousData);
         if (previousData.vehicleId !== data.vehicleId ||
-            previousData.complianceName !== data.complianceName ||
-            data.validFrom <= previousData.validTo) {
+            previousData.complianceName !== data.complianceName) {
           throw new Error("compliance_renewal_source_mismatch");
         }
       }
