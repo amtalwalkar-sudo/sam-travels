@@ -44,6 +44,14 @@ export function assertRecordEnvelope(value: unknown): asserts value is RecordEnv
     throw new Error("record_invalid_revision");
   }
   if (!Object.prototype.hasOwnProperty.call(record, "data")) throw new Error("record_data_required");
+  if (record.createdBy !== undefined) {
+    const author = record.createdBy as Record<string, unknown> | null;
+    if (!author || typeof author !== "object" || Array.isArray(author) ||
+        typeof author.personId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(author.personId) ||
+        (author.role !== "driver" && author.role !== "admin")) {
+      throw new Error("record_invalid_author_provenance");
+    }
+  }
   if (record.businessDate !== undefined && !isBusinessDate(record.businessDate)) {
     throw new Error("record_invalid_business_date");
   }

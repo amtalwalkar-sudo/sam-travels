@@ -33,6 +33,9 @@ describe("formal persistence contracts and historical fixtures", () => {
     expect(() => assertRecordEnvelope({ ...validRecord, businessDate: "2025-02-30" })).toThrow("record_invalid_business_date");
     expect(() => assertRecordEnvelope({ ...validRecord, source: "unknown" })).toThrow("record_invalid_source");
     expect(() => assertRecordEnvelope({ ...validRecord, updatedAt: "2025-04-02T00:00:00.000Z" })).toThrow("record_invalid_timestamps");
+    expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "person-1", role: "driver" } })).not.toThrow();
+    expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "", role: "admin" } })).toThrow("record_invalid_author_provenance");
+    expect(() => assertRecordEnvelope({ ...validRecord, createdBy: { personId: "person-1", role: "owner" } })).toThrow("record_invalid_author_provenance");
   });
 
   it("rejects malformed records at the browser persistence adapter", async () => {
