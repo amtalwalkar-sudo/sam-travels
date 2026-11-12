@@ -5,7 +5,7 @@ const CORE = ["/", "/manifest.webmanifest", "/icon.svg"];
 function isShellAsset(request) {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || request.method !== "GET") return false;
-  if (CORE.includes(url.pathname)) return true;
+  if (request.mode === "navigate" || CORE.includes(url.pathname)) return true;
   return url.pathname.startsWith("/assets/") &&
     /\.(?:js|mjs|css|woff2?|ttf|svg|png|webp|ico)$/i.test(url.pathname);
 }
