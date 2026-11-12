@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import type { AtomicRecordRepository } from "../../../../packages/core/src/repositories";
 import { getPlatformRecordSource } from "../native-store";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { getDriverPersonLink, saveDriverPersonLink } from "../person-identity-adapters";
+import { getDriverPersonLink, removeDriverPersonLink, saveDriverPersonLink } from "../person-identity-adapters";
 import { useAdminServices } from "./admin-services-context";
 import type { BusinessPersonV1, BusinessRoleV1 } from "../../../../packages/domain/src/person-identity";
 import "./AdminWorkspace.css";
@@ -35,8 +35,11 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
     try{
       if(pinConfigured){const actor=await identity.currentActor();if(actor.role!=="admin")throw new Error("An active PIN-verified Admin session is required to enroll people or assign roles.");}
       const personId=crypto.randomUUID().replaceAll("-","");
-      await identity.registerPerson({schemaVersion:1,personId,displayName:name.trim(),roles,status:"active"});
-      if(roles.includes("admin")&&!pinConfigured){await identity.configureInitialAdminPin(pin);setPin("");setPinConfigured(true);}
+      await identity.registerPerson(
+        {schemaVersion:1,personId,displayName:name.trim(),roles,status:"active"},
+        pinConfigured ? undefined : pin,
+      );
+      if(!pinConfigured){setPin("");setPinConfigured(true);}
       setName("");setRoles(["driver"]);setMessage("Person enrolled.");await refresh();
     }catch(e){setMessage(e instanceof Error?e.message:"Person enrollment failed");}finally{setBusy(false);}
   }
@@ -46,8 +49,10 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
       if(pinConfigured){const actor=await identity.currentActor();if(actor.role!=="admin")throw new Error("An active PIN-verified Admin session is required to link Driver profiles.");}
       const person=people.find(p=>p.personId===personId);
       if(personId&&(!person||!person.roles.includes("driver")))throw new Error("Choose an enrolled person with the Driver role.");
-      if(personId)await saveDriverPersonLink(records,getPlatformRecordSource(),driverId,personId);
-      setLinks(current=>({...current,[driverId]:personId}));setMessage("Driver profile link saved.");
+      if(personId) await saveDriverPersonLink(records,getPlatformRecordSource(),driverId,personId);
+      else await removeDriverPersonLink(records,driverId);
+      setLinks(current=>({...current,[driverId]:personId}));
+      setMessage(personId ? "Driver profile link saved." : "Driver profile unlinked.");
     }catch(e){setMessage(e instanceof Error?e.message:"Driver link failed");}finally{setBusy(false);}
   }
   async function activate(e:FormEvent){
@@ -65,7 +70,7 @@ export function PersonIdentityPanel({ records }: { records: AtomicRecordReposito
         <label><input type="checkbox" checked={roles.includes("admin")} onChange={e=>setRoles(v=>e.target.checked?[...v,"admin"]:v.filter(x=>x!=="admin"))}/> Admin role</label>
       </div>
       {roles.includes("admin")&&!pinConfigured&&<label>Set initial Admin PIN<input required minLength={4} maxLength={12} inputMode="numeric" type="password" value={pin} onChange={e=>setPin(e.target.value)}/></label>}
-      <button className="admin-primary" disabled={busy||!name.trim()||!roles.length||(roles.includes("admin")&&!pinConfigured&&!/^\d{4,12}$/.test(pin))}>Enroll person</button>
+      <button className="admin-primary" disabled={busy||!name.trim()||!roles.length||(!pinConfigured&&(!roles.includes("admin")||!/^\d{4,12}$/.test(pin)))}>Enroll person</button>
     </form>
     {drivers.map(d=><label key={d.driverId}>Link {d.name} to person
       <select disabled={busy} value={links[d.driverId]??""} onChange={e=>void link(d.driverId,e.target.value)}>
