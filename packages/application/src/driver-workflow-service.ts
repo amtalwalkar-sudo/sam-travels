@@ -315,6 +315,7 @@ export function createDriverCommand(
 export function createDriverCommandV2(
  snapshot:DriverStateProjection,eventType:DriverTransitionCommand["eventType"],
  originSurface:DriverTransitionCommand["originSurface"],id:string,now=new Date().toISOString(),
+ odometer?:DriverTransitionCommand["odometer"],
 ):DriverTransitionCommand {
  if(!["shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride"].includes(eventType))throw new Error("invalid_lifecycle_v2_event");
  return {schemaVersion:1,workflowVersion:2,commandId:id,eventId:id,eventType,originSurface,transitionAt:now,
