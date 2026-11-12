@@ -229,9 +229,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const previous = driver.lastConfirmedOdometerKm;
         odometer = { schemaVersion: 1, readingKm: odometerKm as number,
           ...(previous === undefined ? {} : { previousConfirmedKm: previous, personalKm: (odometerKm as number) - previous }) };
-      } else if (eventType === "shift_end") {
+      } else if (eventType === "shift_end" && driver.shiftStartOdometerKm !== undefined) {
         if (!Number.isSafeInteger(odometerKm) || (odometerKm as number) < 0) throw new Error("shift_end_odometer_required");
-        if (driver.shiftStartOdometerKm === undefined || (odometerKm as number) < driver.shiftStartOdometerKm) throw new Error("shift_end_odometer_below_shift_start");
+        if ((odometerKm as number) < driver.shiftStartOdometerKm) throw new Error("shift_end_odometer_below_shift_start");
         odometer = { schemaVersion: 1, readingKm: odometerKm as number, businessKm: (odometerKm as number) - driver.shiftStartOdometerKm };
       }
       const command = eventType === "shift_end" && driver.shiftStartOdometerKm === undefined
