@@ -212,6 +212,16 @@ export function validateDriverCompletion(snapshot:DriverStateProjection,intent:D
  const c=intent.command;if(intent.status!=="pending_location")return{ok:false,error:"intent_missing"};
  if(c.expectedRevision!==snapshot.revision||c.expectedPriorState!==snapshot.state)return{ok:false,error:"stale_revision"};
  const target=transitionTarget(snapshot.state,c.eventType);if(!target)return{ok:false,error:"invalid_transition"};
+ if(c.workflowVersion===2&&c.eventType==="shift_start"&&c.odometer){
+  const previous=snapshot.lastConfirmedOdometerKm;
+  if(previous!==undefined&&(c.odometer.readingKm<previous||c.odometer.previousConfirmedKm!==previous||c.odometer.personalKm!==c.odometer.readingKm-previous))return{ok:false,error:"invalid_command"};
+  if(previous===undefined&&(c.odometer.previousConfirmedKm!==undefined||c.odometer.personalKm!==undefined))return{ok:false,error:"invalid_command"};
+ }
+ if(c.workflowVersion===2&&c.eventType==="shift_end"&&c.odometer){
+  if(snapshot.shiftStartOdometerKm===undefined||c.odometer.readingKm<snapshot.shiftStartOdometerKm||
+     c.odometer.businessKm!==c.odometer.readingKm-snapshot.shiftStartOdometerKm)return{ok:false,error:"invalid_command"};
+ }
+
  if(!validateGpsFix(gps,c.transitionAt,nowMs).accepted)return{ok:false,error:"gps_invalid"};
  const next:DriverStateProjection={...snapshot,schemaVersion:1,revision:snapshot.revision+1,state:target,lastEventId:c.eventId};
  if(c.eventType==="shift_start"){
