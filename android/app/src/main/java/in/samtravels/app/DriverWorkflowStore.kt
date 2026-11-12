@@ -254,7 +254,7 @@ object DriverWorkflowStore {
                         next.put("shiftId",eventId).put("shiftContext",command.getJSONObject("driverContext"))
                     }
                 }
-                "shift_rotate" -> DriverShiftRotationStore.apply(db,current,command,eventId,now,next)
+                "shift_rotate" -> WorkDailyBusinessKilometreStore.rotate(db,current,command,eventId,now,next)
                 "shift_end" -> {
                         WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
                         next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
