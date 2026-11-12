@@ -143,7 +143,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return true;
             })()
         """))
-        assertTrue("PIN-verified Admin session should activate; status: " + evaluate(activity, "document.querySelector('[role=status]')?.textContent") + "; selected role: " + evaluate(activity, "Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'))?.querySelector('select')?.value), awaitJavascript(activity,
+        assertTrue("PIN-verified Admin session should activate; status: " + evaluate(activity, """document.querySelector('[role=status]')?.textContent""") + "; selected role: " + evaluate(activity, """Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'))?.querySelector('select')?.value"""), awaitJavascript(activity,
+            "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
         evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
         assertTrue("Seeded Maintenance expense should load", awaitJavascript(activity,
