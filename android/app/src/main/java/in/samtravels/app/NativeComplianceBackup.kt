@@ -216,11 +216,14 @@ internal object NativeComplianceBackup {
             RecordEnvelopeContract.validate(envelope)
             require(envelope.optString("id") == id) { "historical_correction_identity_mismatch" }
             val correction = envelope.getJSONObject("data")
+            // Correction IDs and chain heads are shared across features. This
+            // participant validates only Compliance-owned events; Maintenance
+            // and other feature participants validate their own correction policy.
+            if (correction.optString("featureId") != FEATURE_ID) return@forEach
             val correctionId = correction.optString("correctionId")
             val targetId = correction.optString("targetRecordId")
             require(correction.optInt("schemaVersion", -1) == 1 &&
                 id == correctionPrefix + correctionId &&
-                correction.optString("featureId") == FEATURE_ID &&
                 targetId in targets &&
                 correction.optString("fieldPath") in allowedFields &&
                 correction.optInt("targetRecordRevision", 0) == targets.getValue(targetId).optInt("revision", 0)) {
@@ -277,8 +280,14 @@ internal object NativeComplianceBackup {
             }
         }
         allRows.filter { it.optString("id").startsWith(headPrefix) }.forEach { row ->
-            require(corrections.keys.any { headPrefix + encoded(it) == row.optString("id") }) {
-                "historical_correction_orphan_chain_head"
+            val head = JSONObject(row.getString("json")).optJSONObject("data")
+                ?: error("historical_correction_chain_head_invalid")
+            val targetId = head.optString("targetRecordId")
+            if (targetId.startsWith(RECORD_PREFIX)) {
+                require(targetId in targets && corrections.containsKey(targetId) &&
+                    headPrefix + encoded(targetId) == row.optString("id")) {
+                    "historical_correction_orphan_chain_head"
+                }
             }
         }
     }
