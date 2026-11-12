@@ -8,7 +8,7 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import {
   createDriverWorkflow,
 } from "../driver-workflow";
-import { createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
@@ -234,7 +234,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         if (driver.shiftStartOdometerKm === undefined || (odometerKm as number) < driver.shiftStartOdometerKm) throw new Error("shift_end_odometer_below_shift_start");
         odometer = { schemaVersion: 1, readingKm: odometerKm as number, businessKm: (odometerKm as number) - driver.shiftStartOdometerKm };
       }
-      const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID(), undefined, odometer);
+      const command = eventType === "shift_end" && driver.shiftStartOdometerKm === undefined
+        ? createDriverCommand(driver, eventType, "pwa", crypto.randomUUID())
+        : createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID(), undefined, odometer);
       const result = await workflow.dispatchBackground(command);
       setDriver(result.snapshot);
       const items = await workflow.pending();
