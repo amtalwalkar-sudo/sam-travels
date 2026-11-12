@@ -34,6 +34,10 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
     });
   }
 
+  async remove(personId: string): Promise<void> {
+    await this.records.remove(PERSON_PREFIX + personId);
+  }
+
   async save(person: BusinessPersonV1): Promise<BusinessPersonV1> {
     assertBusinessPersonV1(person);
     const id = PERSON_PREFIX + person.personId;
@@ -130,4 +134,9 @@ export async function saveDriverPersonLink(records: AtomicRecordRepository, sour
   const now = new Date().toISOString();
   const next: RecordEnvelope<DriverPersonLinkV1> = { id, schemaVersion: 1, createdAt: current?.createdAt ?? now, updatedAt: now, source, revision: (current?.revision ?? 0) + 1, data: { schemaVersion: 1, driverId, personId } };
   if (!await records.compareAndSet(id, current?.revision ?? null, next)) throw new Error("driver_person_link_revision_conflict");
+}
+
+export async function removeDriverPersonLink(records: AtomicRecordRepository, driverId: string): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId)) throw new Error("driver_person_link_invalid");
+  await records.remove(DRIVER_PERSON_LINK_PREFIX + driverId);
 }
