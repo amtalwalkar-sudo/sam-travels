@@ -224,9 +224,9 @@ abstract class DriverOverlayServicePresentationTestSupport {
     protected fun withAttachedOverlay(
         tripId: String,
         prepare: (LocalDatabase, String) -> Unit,
-        exercise: (UiAutomation, LocalDatabase) -> Unit,
         databaseName: String = "sam-travels.db",
         expectedFormLabel: String? = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required",
+        exercise: (UiAutomation, LocalDatabase) -> Unit,
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext

@@ -48,7 +48,9 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
             withAttachedOverlay(
                 tripId,
                 { _, _ -> },
-                { ui, db ->
+                databaseName = databaseName,
+                expectedFormLabel = null,
+            ) { ui, db ->
                     val revisionBefore = DriverWorkflowStore.snapshot(db).optInt("revision")
                     val eventsBefore = DriverWorkflowStore.listEvents(db).size
                     val intentsBefore = DriverWorkflowStore.listIntents(db).size
@@ -99,10 +101,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     assertNotNull("Committed native action must have a durable outbox row",
                         db.records().get("driver-outbox:${revisionBefore + 1}"))
                     assertTrue("Completed GPS request must release its listener", locationSource.removed)
-                },
-                databaseName = databaseName,
-                expectedFormLabel = null,
-            )
+            }
         } finally {
             DriverLocationSourceFactory.overrideForTests = null
             DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
