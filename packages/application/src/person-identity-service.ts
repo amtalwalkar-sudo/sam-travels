@@ -59,7 +59,9 @@ export class PersonIdentityService {
     if (!/^\d{4,12}$/.test(initialAdminPin ?? "")) throw new Error("business_admin_pin_invalid_format");
     if (!this.people.list) throw new Error("business_person_repository_list_unavailable");
     if (!this.people.remove) throw new Error("business_person_repository_remove_unavailable");
-    if ((await this.people.list()).length !== 0) throw new Error("business_initial_admin_bootstrap_closed");
+    if ((await this.people.list()).some(existing => existing.roles.includes("admin"))) {
+      throw new Error("business_initial_admin_bootstrap_closed");
+    }
 
     await this.people.save(person);
     try {
