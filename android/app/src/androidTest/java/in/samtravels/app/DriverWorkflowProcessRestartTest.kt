@@ -41,7 +41,9 @@ class DriverWorkflowProcessRestartTest {
         fun command(id: String, event: String, state: String, revision: Int, at: String) = JSONObject()
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
-            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id)
+            .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
+                if (event == "shift_start") put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 12000))
+            }
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver"))
             putRecord("identity:driver-person-link:restart-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver").put("personId", "restart-person"))
