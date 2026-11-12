@@ -8,6 +8,7 @@ import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/
 import {buildTripHistory} from "../packages/domain/src/trip-history";
 import {TripFinancialService} from "../packages/application/src/trip-financial-service";
 import {operationalDateAt} from "../packages/domain/src/work-driver-context";
+import {isOperationalBoundaryPending,nextOperationalBoundaryAt} from "../packages/domain/src/driver-workflow";
 import type {GpsFix} from "../packages/core/src/types";
 
 const base=Date.now()-20_000;
@@ -168,4 +169,41 @@ describe("version 2 Work trip lifecycle",()=>{
   const event={eventId:"legacy-start",command,gps:gpsAt(command.transitionAt),committedAt:command.transitionAt,revision:2};
   expect(buildTripHistory([event])).toMatchObject([{id:"legacy-start",status:"active",startedAt:command.transitionAt}]);
  });
+ it("rotates a v2 shift once at the 04:00 boundary and preserves the selected Driver and Vehicle",async()=>{
+  await browserDatabase.records.bulkPut(records);
+  const repository=new DexieDriverWorkflowRepository();
+  const recordsRepository=new DexieRecordRepository();
+  await new WorkDriverSelectionService(recordsRepository,repository).selectDriver("driver-v2");
+  let fixAt=new Date(base).toISOString();
+  const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(fixAt)});
+  const startAt=new Date(base-24*60*60*1000).toISOString();
+  const start=await repository.getSnapshot();
+  const startCommand=createDriverCommandV2(start,"shift_start","pwa","boundary-shift-start",startAt,{schemaVersion:1,readingKm:45000});
+  fixAt=startAt;
+  await service.dispatch(startCommand);
+  const active=await repository.getSnapshot();
+  const boundaryAt=nextOperationalBoundaryAt(active.shiftStartedAt!);
+  expect(isOperationalBoundaryPending(active.shiftStartedAt,Date.parse(boundaryAt))).toBe(true);
+  expect(isOperationalBoundaryPending(active.shiftStartedAt,Date.parse(boundaryAt)-1)).toBe(false);
+  fixAt=new Date(base).toISOString();
+  const command=createDriverCommandV2(active,"shift_rotate","pwa","boundary-rotate",fixAt,
+   {schemaVersion:1,readingKm:45200,businessKm:200},
+   {schemaVersion:1,outgoingShiftId:active.shiftId!,outgoingShiftStartedAt:active.shiftStartedAt!,outgoingStartOdometerKm:active.shiftStartOdometerKm!,boundaryAt});
+  const result=await service.dispatch(command);
+  expect(result.status).toBe("recorded");
+  expect(result.snapshot).toMatchObject({state:"shift_active",revision:2,shiftId:"boundary-rotate",shiftStartedAt:boundaryAt,shiftStartOdometerKm:45200,lastConfirmedOdometerKm:45200,shiftContext:active.shiftContext});
+  const selected=await recordsRepository.get<{schemaVersion:1;driverId:string;lockedShiftId?:string}>("work:selected-driver");
+  expect(selected?.data).toMatchObject({driverId:"driver-v2",lockedShiftId:"boundary-rotate"});
+  const daily=await recordsRepository.get<{entries:Array<Record<string,unknown>>;totalBusinessKm:number}>(
+   "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(active.shiftStartedAt!),
+  );
+  expect(daily?.data.totalBusinessKm).toBe(200);
+  expect(daily?.data.entries).toMatchObject([{shiftId:"boundary-shift-start",shiftEndEventId:"boundary-rotate",shiftEndedAt:boundaryAt,businessKm:200,allocationStatus:"allocated"}]);
+  await repository.completeIntent("boundary-rotate",gpsAt(fixAt),new Date(base+1_000).toISOString());
+  expect(await repository.listEvents()).toHaveLength(2);
+  expect((await recordsRepository.get<{entries:Array<Record<string,unknown>>;totalBusinessKm:number}>(
+   "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(active.shiftStartedAt!),
+  ))?.data.entries).toHaveLength(1);
+ });
+
 });
