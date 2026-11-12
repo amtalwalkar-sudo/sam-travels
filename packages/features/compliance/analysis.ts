@@ -183,6 +183,6 @@ export function calculateDailyComplianceCost(
     status: "available",
     total,
     breakdown: Object.freeze(breakdown),
-    overlaps: Object.freeze([]),
+    overlaps: Object.freeze(overlaps),
   });
 }
