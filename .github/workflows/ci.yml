@@ -54,7 +54,9 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
-      - name: Verify PWA service-worker cache boundaries and rollback retention\n        run: node scripts/pwa-service-worker-contract.mjs\n      - name: Submit and verify Maintenance correction through the rendered PWA
+      - name: Verify PWA service-worker cache boundaries and rollback retention
+        run: node scripts/pwa-service-worker-contract.mjs
+      - name: Submit and verify Maintenance correction through the rendered PWA
         run: node scripts/maintenance-correction-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
@@ -197,7 +199,9 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
+            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\
+" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\
+" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
