@@ -75,6 +75,17 @@ export function assertDriverCommandContract(value: unknown): asserts value is Dr
  if (command.workflowVersion !== undefined && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
  if (["trip_create","start_ride","end_ride","cancel_ride"].includes(String(command.eventType)) && command.workflowVersion !== 2) throw new Error("invalid_workflow_version");
  if (command.workflowVersion === 2 && !["shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride"].includes(String(command.eventType))) throw new Error("invalid_workflow_version");
+ if (command.workflowVersion === 2 && (command.eventType === "shift_start" || command.eventType === "shift_end")) {
+  const odometer = command.odometer as Record<string, unknown> | undefined;
+  if (!odometer || Object.keys(odometer).some(key => !["schemaVersion","readingKm","previousConfirmedKm","personalKm","businessKm"].includes(key)) ||
+      odometer.schemaVersion !== 1 || !Number.isSafeInteger(odometer.readingKm) || (odometer.readingKm as number) < 0) throw new Error("shift_odometer_required");
+  for (const key of ["previousConfirmedKm","personalKm","businessKm"] as const) {
+   if (odometer[key] !== undefined && (!Number.isSafeInteger(odometer[key]) || (odometer[key] as number) < 0)) throw new Error("shift_odometer_invalid");
+  }
+  if (command.eventType === "shift_start" && odometer.businessKm !== undefined) throw new Error("shift_start_odometer_invalid");
+  if (command.eventType === "shift_end" && (odometer.businessKm === undefined || odometer.personalKm !== undefined || odometer.previousConfirmedKm !== undefined)) throw new Error("shift_end_odometer_invalid");
+ } else if (command.odometer !== undefined) throw new Error("unexpected_shift_odometer");
+
  const tripContext = command.tripContext;
  if (tripContext !== undefined) {
   if (command.workflowVersion !== 2 || command.eventType !== "trip_create" || !tripContext || typeof tripContext !== "object" || Array.isArray(tripContext)) throw new Error("invalid_trip_context");
@@ -115,6 +126,12 @@ export function assertDriverStateContract(value: unknown): asserts value is Driv
       typeof row.operationalDate!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.operationalDate)) throw new Error("invalid_driver_state_trip_context");
  }
  if (state.activeTripId !== undefined && (typeof state.activeTripId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.activeTripId))) throw new Error("invalid_driver_state_trip_id");
+ for (const key of ["shiftStartOdometerKm","lastConfirmedOdometerKm"] as const) {
+  if (state[key] !== undefined && (!Number.isSafeInteger(state[key]) || (state[key] as number) < 0)) throw new Error("invalid_driver_state_odometer");
+ }
+ if (state.state !== "idle" && state.shiftStartOdometerKm !== undefined && state.lastConfirmedOdometerKm !== undefined &&
+     state.shiftStartOdometerKm < state.lastConfirmedOdometerKm) throw new Error("invalid_driver_state_odometer_order");
+
  if (state.lastEventId !== undefined && (typeof state.lastEventId !== "string" || !state.lastEventId.trim())) {
   throw new Error("invalid_driver_state_event_id");
  }
@@ -197,7 +214,13 @@ export function validateDriverCompletion(snapshot:DriverStateProjection,intent:D
  const target=transitionTarget(snapshot.state,c.eventType);if(!target)return{ok:false,error:"invalid_transition"};
  if(!validateGpsFix(gps,c.transitionAt,nowMs).accepted)return{ok:false,error:"gps_invalid"};
  const next:DriverStateProjection={...snapshot,schemaVersion:1,revision:snapshot.revision+1,state:target,lastEventId:c.eventId};
- if(c.eventType==="shift_start")next.shiftStartedAt=c.transitionAt;else if(c.eventType==="shift_end"){next.shiftStartedAt=undefined;next.shiftId=undefined;next.shiftContext=undefined;}
+ if(c.eventType==="shift_start"){
+  next.shiftStartedAt=c.transitionAt;
+  if(c.workflowVersion===2&&c.odometer){next.shiftStartOdometerKm=c.odometer.readingKm;next.lastConfirmedOdometerKm=c.odometer.readingKm;}
+ } else if(c.eventType==="shift_end"){
+  next.shiftStartedAt=undefined;next.shiftId=undefined;next.shiftContext=undefined;next.shiftStartOdometerKm=undefined;
+  if(c.workflowVersion===2&&c.odometer)next.lastConfirmedOdometerKm=c.odometer.readingKm;
+ }
  if(c.eventType==="trip_start"||c.eventType==="start_ride")next.tripStartedAt=c.transitionAt;
  else if(c.eventType==="trip_end"||c.eventType==="ride_cancel"||c.eventType==="end_ride"||c.eventType==="cancel_ride"){next.tripStartedAt=undefined;next.activeTripId=undefined;next.tripContext=undefined;}
  return{ok:true,value:next};
