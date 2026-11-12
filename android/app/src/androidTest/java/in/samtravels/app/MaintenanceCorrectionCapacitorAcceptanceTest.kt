@@ -105,10 +105,11 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         evaluate(activity, "Array.from(document.querySelectorAll('form button[type=submit], form button:not([type])')).find(node => node.textContent.includes('Enroll person'))?.click()")
         assertTrue("Person enrollment should complete", awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-        assertTrue("Admin activation fields should be available", awaitJavascript(activity, """
-            Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim().startsWith('Person')) &&
+        assertTrue("Admin activation fields and the asynchronously refreshed enrolled person must be available", awaitJavascript(activity, """
+            Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
+              Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Correction Admin')) &&
             Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
-        """, 10_000))
+        """, 15_000))
         assertTrue("Admin identity should activate with the configured PIN", evaluate(activity, """
             (() => {
               const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
