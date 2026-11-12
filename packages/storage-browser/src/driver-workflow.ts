@@ -73,7 +73,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     if(existing&&(!previousData||previousData.schemaVersion!==1||previousData.kind!=="daily_business_kilometres"||previousData.vehicleId!==vehicleId||previousData.operationalDate!==operationalDate||!Array.isArray(previousData.entries)))throw new Error("daily_business_km_record_invalid");
     const entries=[...(previousData?.entries??[])];
     if(entries.some(entry=>entry.shiftId===current.shiftId))throw new Error("daily_business_km_duplicate_shift");
-    entries.push({shiftId:current.shiftId,shiftStartEventId:current.shiftId,shiftEndEventId:id,shiftStartedAt:current.shiftStartedAt,shiftEndedAt:command.transitionAt,
+    entries.push({shiftId:current.shiftId,shiftStartEventId:current.shiftId,shiftEndEventId:command.eventId,shiftStartedAt:current.shiftStartedAt,shiftEndedAt:command.transitionAt,
       startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm});
     const totalBusinessKm=entries.reduce((sum,entry)=>sum+Number(entry.businessKm),0);
     if(!Number.isSafeInteger(totalBusinessKm))throw new Error("daily_business_km_total_out_of_range");
