@@ -3,9 +3,10 @@ import type { ComplianceService, ComplianceRecordV1 } from "./compliance-service
 import type { PersonIdentityService } from "./person-identity-service";
 
 export type ComplianceReviewEvent = Readonly<{
+  schemaVersion: 1;
   eventId: string;
   sourceRecords: readonly [{ recordId: string; recordRevision: number }, { recordId: string; recordRevision: number }];
-  from: string; to: string; decision: "confirmed" | "rejected"; decisionRevision: number;
+  from: string; to: string; decision: "confirmed" | "rejected"; decisionRevision: number; supersedesEventId?: string;
   actor: { actorId: string; role: "admin" | "driver" }; rationale: string; recordedAt: string;
 }>;
 export interface ComplianceReviewEventPort {
