@@ -25,14 +25,14 @@ export type ComplianceOverlapReviewV1 = Readonly<{
   recordedAt: string;
 }>;
 
-const REVIEW_ID = /^feature:compliance-overlap-review:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REVIEW_ID = /^compliance-overlap-review:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORD_ID = /^feature:compliance:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function complianceOverlapReviewId(uuid: string): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid)) {
     throw new Error("compliance_overlap_review_uuid_invalid");
   }
-  return "feature:compliance-overlap-review:" + uuid.toLowerCase();
+  return "compliance-overlap-review:" + uuid.toLowerCase();
 }
 
 function isInstant(value: unknown): value is string {
@@ -81,7 +81,7 @@ export function assertComplianceOverlapReviewV1(value: unknown): asserts value i
   if (row.decisionRevision === 1) {
     if (row.supersedesEventId !== undefined) throw new Error("compliance_overlap_review_chain_invalid");
   } else if (typeof row.supersedesEventId !== "string" ||
-      !/^feature:compliance-overlap-review:[0-9a-f-]{36}$/i.test(row.supersedesEventId) ||
+      !/^compliance-overlap-review:[0-9a-f-]{36}$/i.test(row.supersedesEventId) ||
       row.supersedesEventId === row.eventId) {
     throw new Error("compliance_overlap_review_chain_invalid");
   }
@@ -120,12 +120,8 @@ export function resolveComplianceOverlapReview(
       review.from === from && review.to === to;
   });
   if (!samePair.length) return "unreviewed";
-  const current = samePair.filter(review =>
-    review.sourceRecords[0].recordRevision === orderedSources[0].recordRevision &&
-    review.sourceRecords[1].recordRevision === orderedSources[1].recordRevision);
-  if (!current.length) return "stale";
   const byRevision = new Map<number, ComplianceOverlapReviewV1[]>();
-  for (const review of current) {
+  for (const review of samePair) {
     const bucket = byRevision.get(review.decisionRevision) ?? [];
     bucket.push(review);
     byRevision.set(review.decisionRevision, bucket);
@@ -133,10 +129,15 @@ export function resolveComplianceOverlapReview(
   if ([...byRevision.values()].some(bucket => bucket.length !== 1)) return "stale";
   const max = Math.max(...byRevision.keys());
   let previous: string | undefined;
+  let latest: ComplianceOverlapReviewV1 | undefined;
   for (let revision = 1; revision <= max; revision++) {
     const event = byRevision.get(revision)?.[0];
     if (!event || event.supersedesEventId !== previous) return "stale";
     previous = event.eventId;
+    latest = event;
   }
-  return byRevision.get(max)![0].decision;
+  if (!latest ||
+      latest.sourceRecords[0].recordRevision !== orderedSources[0].recordRevision ||
+      latest.sourceRecords[1].recordRevision !== orderedSources[1].recordRevision) return "stale";
+  return latest.decision;
 }
