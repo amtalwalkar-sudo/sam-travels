@@ -56,3 +56,24 @@
 ## Explicit remaining dependency
 
 The approved 04:00 logical-shift rotation and odometer confirmation while Online is still a required follow-on within this foundation. Until that boundary workflow is implemented and accepted, cross-boundary business kilometres remain explicitly unallocated. Maintenance accruals must consume only allocated, confirmed daily business kilometres; they must never accrue against the unallocated bucket.
+
+## 04:00 operational-day boundary rotation (approved)
+
+- The operational-day boundary is 04:00 in `Asia/Kolkata`.
+- A boundary must never interrupt an active trip. If the boundary passes while the driver is going to pickup or is on a trip, the existing logical shift remains active until that trip reaches a terminal state.
+- Once the trip ends, Work presents a required boundary-rotation action and asks for one confirmed odometer reading. It must not silently rotate in the background or infer the reading from GPS, route distance, elapsed time or a prior reading.
+- The confirmed reading closes the outgoing logical shift and starts the incoming logical shift at the same odometer value. The shared reading prevents a gap or double-count between the two logical shifts; the outgoing shift's exact odometer delta is assigned to its existing operational date and the incoming shift starts on the new operational date.
+- Rotation is one authoritative, idempotent operation: persist the outgoing shift-end fact, its daily business-kilometre contribution, the incoming shift-start fact/state, and integration outbox effects atomically. A partial rotation is not allowed. A retry must return the original result and must not append a second daily contribution.
+- The driver and vehicle assignment remain locked/continuous across rotation; rotation must not require reselecting the driver or vehicle, and must preserve the confirmed odometer as the next start baseline.
+- If no trip is active when the boundary is reached, the same required confirmation is presented immediately. If the app is offline, the boundary action remains visible and can be completed under the existing durable offline/GPS recovery rules; it must not fabricate a reading.
+- If the user delays confirmation after 04:00, the pending boundary remains outstanding. No new operational-day kilometres are attributed until the rotation is committed; the system must expose the pending state rather than silently misallocate distance.
+
+### Boundary-rotation acceptance
+
+1. At 03:59, no boundary rotation is requested.
+2. At 04:00 during pickup or an active trip, no shift-end transition is attempted and the trip remains uninterrupted.
+3. When that trip reaches a terminal state after 04:00, Work requests one odometer reading and offers one logical rotation action.
+4. The same odometer value is used as outgoing end and incoming start; the outgoing contribution is allocated once to the old operational date and the new shift belongs to the new operational date.
+5. A boundary reached while idle/shift-active (no trip) requests confirmation immediately.
+6. Rotation survives duplicate taps, GPS retry, process death, offline restart and backup/restore without duplicate events or daily distance.
+7. Driver/vehicle identity and selection lock remain continuous across the rotation.
