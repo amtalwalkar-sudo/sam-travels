@@ -241,21 +241,20 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
+        // Stop any START_STICKY instance before opening or replacing the fixture database.
+        instrumentation.runOnMainSync {
+            activity.stopService(Intent(activity, DriverOverlayService::class.java))
+        }
+        assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
+            !isOverlayServiceRunning(app)
+        })
+        if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val previousState = db.records().get("driver-state")
         val now = java.time.Instant.now().toString()
         try {
-            // Isolate each instrumentation case from a START_STICKY service left by
-            // an earlier case. Do not overwrite the durable fixture while that
-            // service can still be reading or rendering its previous projection.
-            instrumentation.runOnMainSync {
-                activity.stopService(Intent(activity, DriverOverlayService::class.java))
-            }
-            assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
-                !isOverlayServiceRunning(app)
-            })
             assertTrue("Emulator must grant overlay permission", Settings.canDrawOverlays(app))
             DriverWorkflowIdentityTestFixtures.seed(db, "overlay-driver", "overlay-person")
             val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
