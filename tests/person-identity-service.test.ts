@@ -57,4 +57,33 @@ describe("person identity service", () => {
     identity.clear();
     await expect(identity.currentActor()).rejects.toThrow("business_actor_not_active");
   });
+  it("revokes a cached session when the persisted person loses its active role", async () => {
+    const person: BusinessPersonV1 = {
+      schemaVersion: 1, personId: "person-admin", displayName: "Admin",
+      roles: ["driver", "admin"], status: "active",
+    };
+    const people = new Map([[person.personId, person]]);
+    const identity = new PersonIdentityService(
+      {
+        get: async id => people.get(id),
+        list: async () => [...people.values()],
+        save: async value => { people.set(value.personId, value); return value; },
+        remove: async id => { people.delete(id); },
+      },
+      {
+        isConfigured: async () => true,
+        configure: async () => { throw new Error("unexpected_pin_configuration"); },
+        verify: async pin => pin === "2468",
+      },
+      () => NOW,
+    );
+    await identity.activate(person.personId, "admin", "2468");
+    await identity.updatePerson({ ...person, roles: ["driver"] });
+    await expect(identity.currentActor()).rejects.toThrow("business_actor_not_active");
+    await expect(identity.registerPerson({
+      schemaVersion: 1, personId: "another-person", displayName: "Another",
+      roles: ["driver"], status: "active",
+    })).rejects.toThrow("business_actor_not_active");
+  });
+
 });
