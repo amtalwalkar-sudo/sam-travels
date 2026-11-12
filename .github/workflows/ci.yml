@@ -58,6 +58,8 @@ jobs:
         run: node scripts/pwa-service-worker-contract.mjs
       - name: Submit and verify Maintenance correction through the rendered PWA
         run: node scripts/maintenance-correction-browser-acceptance.mjs
+      - name: Verify Maintenance visits, expenses, rate history and reminders through the rendered PWA
+        run: node scripts/maintenance-overview-browser-acceptance.mjs
       - name: Verify fleet Compliance overview and overlap review through the rendered PWA
         run: node scripts/compliance-overview-browser-acceptance.mjs
   geocoder-production:
