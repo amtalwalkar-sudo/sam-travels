@@ -27,7 +27,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
   const start=s.shiftStartOdometerKm,odometer=intent.command.odometer;
   if(start===undefined||odometer.readingKm<start||odometer.businessKm!==odometer.readingKm-start)throw new Error("shift_end_odometer_invalid");
  }
- if(intent.command.eventType==="shift_end"){
+ if(intent.command.eventType==="shift_end"||intent.command.eventType==="shift_rotate"){
   const outstanding=(await browserDatabase.records.toArray()).some(record=>
    record.id.startsWith("work:trip-financial-obligation:")&&
    (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
@@ -40,7 +40,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async listPending(){const pending=await intents().where("status").anyOf("pending_location","needs_attention").toArray();pending.forEach(assertDriverIntentContract);return pending}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
   const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot();
-   if(intent.command.eventType==="shift_end"){
+   if(intent.command.eventType==="shift_end"||intent.command.eventType==="shift_rotate"){
     const outstanding=(await browserDatabase.records.toArray()).some(record=>
      record.id.startsWith("work:trip-financial-obligation:")&&
      (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
@@ -108,7 +108,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
      await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:{...data,lockedShiftId:command.eventId}});
      next.shiftStartedAt=command.rotation.boundaryAt;next.shiftId=command.eventId;next.shiftContext=current.shiftContext;
      next.shiftStartOdometerKm=command.odometer.readingKm;next.lastConfirmedOdometerKm=command.odometer.readingKm;
-    } else if(command.eventType==="shift_end"){
+    } else if(command.eventType==="shift_end"||command.eventType==="shift_rotate"){
      const selected=await browserDatabase.records.get("work:selected-driver");
      if(current.shiftId){
       if(!selected)throw new Error("work_driver_not_selected");
