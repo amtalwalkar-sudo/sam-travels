@@ -222,7 +222,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
         assertTrue("Own Maintenance record should be available", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance tyre repair'))", 10_000))
-        assertTrue("Driver self-correction form should open", evaluate(activity, """
+        assertTrue("Driver correction form opens", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
               if (!card?.querySelector('input')) card?.querySelector('button')?.click();
@@ -250,7 +250,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Correction appended')", 15_000))
         assertTrue("Other Driver record should be available", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
-        assertTrue("Other Driver correction form should open", evaluate(activity, """
+        assertTrue("Other Driver form opens", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
               if (!card?.querySelector('input')) card?.querySelector('button')?.click();
