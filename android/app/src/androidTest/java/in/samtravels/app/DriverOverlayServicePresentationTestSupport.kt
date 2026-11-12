@@ -225,10 +225,13 @@ abstract class DriverOverlayServicePresentationTestSupport {
         tripId: String,
         prepare: (LocalDatabase, String) -> Unit,
         exercise: (UiAutomation, LocalDatabase) -> Unit,
+        databaseName: String = "sam-travels.db",
+        expectedFormLabel: String? = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required",
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
         val ui = instrumentation.uiAutomation
+        DriverOverlayDatabaseFactory.databaseNameOverrideForTests = databaseName
         ui.setServiceInfo(ui.serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         })
@@ -238,7 +241,7 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
-        val db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+        val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val previousState = db.records().get("driver-state")
@@ -265,11 +268,14 @@ abstract class DriverOverlayServicePresentationTestSupport {
                 val intent = Intent(activity, DriverOverlayService::class.java)
                 if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
             }
-            val formLabel = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required"
             // CI emulators can take longer than the default polling window to
             // finish native startup recovery and expose the attached form window.
             val attached = waitUntil(20_000) {
-                findNode(ui) { it.text?.toString()?.contains(formLabel) == true } != null
+                if (expectedFormLabel == null) {
+                    findNode(ui) { it.text?.toString()?.startsWith("Sam Travels ·") == true } != null
+                } else {
+                    findNode(ui) { it.text?.toString()?.contains(expectedFormLabel) == true } != null
+                }
             }
             if (!attached) {
                 val running = isOverlayServiceRunning(app)
@@ -300,6 +306,8 @@ abstract class DriverOverlayServicePresentationTestSupport {
             if (previousState == null) db.records().remove("driver-state") else db.records().put(previousState)
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
+            DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
+            if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
         }
     }
 }
