@@ -161,6 +161,10 @@ async function sendAfterRecovery(
   atMs: number,
 ) {
   const at = new Date(atMs).toISOString();
-  const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, at);
+  const snapshot = await repository.getSnapshot();
+  const odometer = type === "shift_end"
+    ? { schemaVersion: 1 as const, readingKm: (snapshot.shiftStartOdometerKm ?? 1000) + 100, businessKm: 100 }
+    : undefined;
+  const command = createDriverCommandV2(snapshot, type, "pwa", id, at, odometer);
   return service.dispatch(command);
 }
