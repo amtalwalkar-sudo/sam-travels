@@ -137,7 +137,7 @@ describe("version 2 Work trip lifecycle",()=>{
   const startEvent=(await repository.listEvents()).find(event=>event.eventId==="odo-shift-2-start");
   expect(startEvent?.command.odometer).toMatchObject({readingKm:12125,previousConfirmedKm:12100,personalKm:25});
   const invalid=createDriverCommandV2(snapshot,"shift_start","pwa","odo-invalid-lower",new Date(base+2500).toISOString(),
-   {schemaVersion:1,readingKm:12124,previousConfirmedKm:12125,personalKm:-1});
+   {schemaVersion:1,readingKm:12124,previousConfirmedKm:12125,personalKm:0});
   await expect(repository.queueIntent({command:invalid,status:"pending_location",createdAt:fixAt,updatedAt:fixAt}))
    .rejects.toThrow("shift_start_odometer_invalid");
   await send("shift_end","odo-shift-2-end",3000,12125);
