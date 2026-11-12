@@ -45,7 +45,7 @@ try {
   const section = page.locator(".admin-section").filter({ hasText: "Maintenance" });
   await section.locator(".admin-section-trigger").click();
   const panel = section.locator(".admin-capability-panel");
-  await panel.getByLabel("Vehicle").selectOption(vehicleId);
+  await panel.locator(".admin-vehicle-context select").first().selectOption(vehicleId);
   await panel.getByRole("button", { name: "Start service visit" }).click();
   await panel.getByLabel("Maintenance type").fill("Scheduled service");
   await panel.getByLabel("Date").fill(dates.visitDate);
@@ -61,7 +61,7 @@ try {
   await panel.getByRole("button", { name: "Save maintenance record" }).click();
   await panel.getByRole("status").filter({ hasText: "Service visit saved." }).waitFor();
 
-  await panel.getByLabel("Record type").selectOption("expense");
+  await panel.locator(".admin-vehicle-context select").nth(1).selectOption("expense");
   await panel.getByRole("button", { name: "Start general expense" }).click();
   await panel.getByLabel("Expense name").fill("Roadside repair");
   await panel.getByLabel("Date").fill(dates.today);
@@ -82,5 +82,4 @@ try {
   console.log("PASS: Maintenance PWA visit, item totals, general expense, effective-dated rate, odometer reminder and aggregate actual costs.");
 } finally {
   if (browser) await browser.close();
-  try { process.kill(-server.pid, "SIGTERM"); } catch {}
 }
