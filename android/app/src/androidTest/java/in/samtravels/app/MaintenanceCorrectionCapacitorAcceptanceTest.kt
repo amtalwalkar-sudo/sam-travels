@@ -76,7 +76,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             "document.querySelector('.admin-workspace') !== null", 15_000))
         assertTrue("Person name field should render", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-        assertTrue("Admin role checkbox should be selectable", evaluate(activity, """
+        assertTrue("Admin role selectable", evaluate(activity, """
             (() => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
               const input = label?.querySelector('input[type=checkbox]');
@@ -105,7 +105,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         evaluate(activity, "Array.from(document.querySelectorAll('form button[type=submit], form button:not([type])')).find(node => node.textContent.includes('Enroll person'))?.click()")
         assertTrue("Person enrollment should complete", awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-        assertTrue("Admin activation fields and the asynchronously refreshed enrolled person must be available", awaitJavascript(activity, """
+        assertTrue("Admin activation fields and enrolled person appear", awaitJavascript(activity, """
             Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
               Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Correction Admin')) &&
             Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
@@ -150,6 +150,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
         evaluate(activity, """
             (() => {
+              document.querySelector('details.loan-schedule')?.setAttribute('open','');
               const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
               record?.querySelector('button')?.click();
               return Boolean(record);
@@ -185,7 +186,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         val original = JSONObject(database.records().get(expenseId)!!.json)
         val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
             .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
-        assertEquals("The original expense must remain unchanged", 10000L,
+        assertEquals("Original expense unchanged", 10000L,
             original.getJSONObject("data").getLong("amountPaise"))
         assertEquals("Exactly one correction must be appended; stored IDs: ${database.records().list().map { it.id }}", 1, correctionRows.size)
         val correction = correctionRows.single().getJSONObject("data")
@@ -257,7 +258,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               return Boolean(card?.querySelector('input'));
             })()
         """))
-        assertTrue("Another Driver's correction attempt should reach the live form", evaluate(activity, """
+        assertTrue("Other Driver form accepts input", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
               const set = (labelText, value) => {
