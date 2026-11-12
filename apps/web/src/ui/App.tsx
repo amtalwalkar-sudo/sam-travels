@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { SwipeActionBar } from "./SwipeActionBar";
@@ -39,6 +39,10 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
   const [shiftEndOdometer, setShiftEndOdometer] = useState("");
+  useEffect(() => {
+    setShiftStartOdometer("");
+    setShiftEndOdometer("");
+  }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
     repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
     driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
