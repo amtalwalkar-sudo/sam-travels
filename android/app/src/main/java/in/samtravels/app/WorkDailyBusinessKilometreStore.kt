@@ -17,7 +17,7 @@ internal object WorkDailyBusinessKilometreStore {
                 "shift_start_odometer_invalid"
             }
         }
-        if (command.optInt("workflowVersion", 1) == 2 && eventType == "shift_end") {
+        if (command.optInt("workflowVersion", 1) == 2 && (eventType == "shift_end" || eventType == "shift_rotate")) {
             val start = current.optLong("shiftStartOdometerKm", -1L)
             val end = odometer?.optLong("readingKm", -1L) ?: -1L
             require(start >= 0L && end >= start && odometer?.optLong("businessKm", -1L) == end - start) {
@@ -51,11 +51,12 @@ internal object WorkDailyBusinessKilometreStore {
             "daily_business_km_duplicate_shift"
         }
         val businessKm = odometer.getLong("businessKm")
-        val allocationStatus = if (DriverWorkflowStore.operationalDateAt(command.getString("transitionAt")) == operationalDate)
+        val allocationStatus = if (command.optString("eventType")=="shift_rotate" || DriverWorkflowStore.operationalDateAt(command.getString("transitionAt")) == operationalDate)
             "allocated" else "awaiting_operational_boundary"
+        val shiftEndedAt = if(command.optString("eventType")=="shift_rotate") command.getJSONObject("rotation").getString("boundaryAt") else command.getString("transitionAt")
         entries.put(
             JSONObject().put("shiftId", shiftId).put("shiftStartEventId", shiftId).put("shiftEndEventId", eventId)
-                .put("shiftStartedAt", startedAt).put("shiftEndedAt", command.getString("transitionAt"))
+                .put("shiftStartedAt", startedAt).put("shiftEndedAt", shiftEndedAt)
                  .put("startOdometerKm", startKm).put("endOdometerKm", endKm).put("businessKm", businessKm)
                 .put("allocationStatus", allocationStatus),
         )

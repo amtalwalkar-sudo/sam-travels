@@ -79,7 +79,7 @@ object DriverWorkflowStore {
     private fun sameCommand(left: JSONObject, right: JSONObject): Boolean {
         val fields = listOf(
             "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
-            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "workflowVersion", "driverContext", "tripContext", "odometer",
+            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "workflowVersion", "driverContext", "tripContext", "odometer", "rotation",
         )
         return fields.all { field -> (left.opt(field)?.toString() ?: "null") == (right.opt(field)?.toString() ?: "null") }
     }
@@ -97,7 +97,7 @@ object DriverWorkflowStore {
             ) { "invalid_command_identity" }
             Instant.parse(command.getString("transitionAt"))
             require(command.optInt("expectedRevision", -1) >= 0) { "invalid_revision" }
-            require(command.optString("eventType") in setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")) {
+            require(command.optString("eventType") in setOf("shift_start", "shift_end", "shift_rotate", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")) {
                 "invalid_event_type"
             }
             require(command.optString("originSurface") in setOf("pwa", "native_overlay")) {
@@ -254,8 +254,19 @@ object DriverWorkflowStore {
                         next.put("shiftId",eventId).put("shiftContext",command.getJSONObject("driverContext"))
                     }
                 }
+                "shift_rotate" -> {
+                    val rotation=command.getJSONObject("rotation");val odometer=command.getJSONObject("odometer")
+                    require(current.optString("state")=="shift_active"&&current.optString("shiftId")==rotation.optString("outgoingShiftId")&&current.optString("shiftStartedAt")==rotation.optString("outgoingShiftStartedAt")&&current.optLong("shiftStartOdometerKm",-1L)==rotation.optLong("outgoingStartOdometerKm",-2L)&&Instant.parse(command.getString("transitionAt"))>=Instant.parse(rotation.getString("boundaryAt"))) { "shift_rotation_snapshot_mismatch" }
+                    WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
+                    next.put("shiftStartedAt",rotation.getString("boundaryAt")).put("shiftId",eventId).put("shiftContext",current.getJSONObject("shiftContext"))
+                    next.put("shiftStartOdometerKm",odometer.getLong("readingKm")).put("lastConfirmedOdometerKm",odometer.getLong("readingKm"))
+                    val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
+                    val envelope=JSONObject(selectedRow.json);val selected=envelope.optJSONObject("data")?:error("work_selected_driver_invalid")
+                    require(selected.optString("lockedShiftId")==current.optString("shiftId")) { "work_driver_shift_lock_mismatch" }
+                    selected.put("lockedShiftId",eventId);envelope.put("revision",envelope.optInt("revision",0)+1).put("updatedAt",now).put("data",selected)
+                    db.records().put(StoredRecord("work:selected-driver",envelope.toString(),selectedRow.schemaVersion,now))
+                }
                 "shift_end" -> {
-                    if(command.optInt("workflowVersion",1)==2) {
                         WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
                         next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
                     }

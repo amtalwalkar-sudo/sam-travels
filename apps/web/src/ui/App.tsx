@@ -39,12 +39,14 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
   const [shiftEndOdometer, setShiftEndOdometer] = useState("");
+  const [boundaryOdometer, setBoundaryOdometer] = useState("");
   useEffect(() => {
     setShiftStartOdometer("");
     setShiftEndOdometer("");
+    setBoundaryOdometer("");
   }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
-    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, driverBusy,
+    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
     driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
     pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
@@ -118,8 +120,17 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                     onClick={() => dispatch("shift_start", Number(shiftStartOdometer || driver?.lastConfirmedOdometerKm))}>Start shift</button>
                 </>}
                 {driver?.state === "shift_active" && <>
-                  {swipeAction && <SwipeActionBar label={swipeAction.label} disabled={!driver?.shiftContext || driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
-                  {driver?.shiftStartOdometerKm !== undefined ? <>
+                  {pendingBoundary && <div className="pending-list" role="alert">
+                    <strong>04:00 operational-day boundary reached</strong>
+                    <p>Confirm the vehicle odometer to close the outgoing shift and continue with the same Driver and Vehicle.</p>
+                    <label className="driver-selection">Boundary odometer (km)
+                      <input type="number" min={driver.shiftStartOdometerKm ?? 0} step="1" inputMode="numeric" value={boundaryOdometer || String(driver.lastConfirmedOdometerKm ?? driver.shiftStartOdometerKm ?? "")} onChange={event=>setBoundaryOdometer(event.target.value)} disabled={driverBusy}/>
+                    </label>
+                    <button className="primary-action" disabled={driverBusy || !Number.isSafeInteger(Number(boundaryOdometer || driver.lastConfirmedOdometerKm || driver.shiftStartOdometerKm)) || Number(boundaryOdometer || driver.lastConfirmedOdometerKm || driver.shiftStartOdometerKm) < (driver.shiftStartOdometerKm ?? 0)} onClick={()=>dispatch("shift_rotate",Number(boundaryOdometer || driver.lastConfirmedOdometerKm || driver.shiftStartOdometerKm))}>Confirm odometer and rotate shift</button>
+                    <small className="driver-note">Boundary: {boundaryAt ? new Date(boundaryAt).toLocaleString("en-IN",{timeZone:"Asia/Kolkata"}) : "Pending"}</small>
+                  </div>}
+                  {!pendingBoundary && swipeAction && <SwipeActionBar label={swipeAction.label} disabled={!driver?.shiftContext || driverBusy || pendingBlocksWorkflow} onConfirm={() => dispatch(swipeAction.eventType)} />}
+                  {!pendingBoundary && driver?.shiftStartOdometerKm !== undefined ? <>
                     <label className="driver-selection">Shift-end odometer (km)
                       <input type="number" min={driver.shiftStartOdometerKm} step="1" inputMode="numeric"
                         value={shiftEndOdometer || String(driver.shiftStartOdometerKm)}
@@ -130,7 +141,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
                       !Number.isSafeInteger(Number(shiftEndOdometer || driver.shiftStartOdometerKm)) ||
                       Number(shiftEndOdometer || driver.shiftStartOdometerKm) < driver.shiftStartOdometerKm}
                       onClick={() => dispatch("shift_end", Number(shiftEndOdometer || driver.shiftStartOdometerKm))}>End shift</button>
-                  </> : <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow}
+                  </> : !pendingBoundary && <button className="secondary-action" disabled={driverBusy || pendingBlocksWorkflow}
                     onClick={() => dispatch("shift_end")}>End legacy shift</button>}
                   {!driver?.shiftContext && <small className="driver-note">This shift uses legacy v1 history. End it and start a new shift to create v2 trips with a fixed Driver and Vehicle snapshot.</small>}
                 </>}

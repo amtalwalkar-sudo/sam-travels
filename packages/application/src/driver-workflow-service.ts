@@ -315,9 +315,9 @@ export function createDriverCommand(
 export function createDriverCommandV2(
  snapshot:DriverStateProjection,eventType:DriverTransitionCommand["eventType"],
  originSurface:DriverTransitionCommand["originSurface"],id:string,now=new Date().toISOString(),
- odometer?:DriverTransitionCommand["odometer"],
+ odometer?:DriverTransitionCommand["odometer"],rotation?:DriverTransitionCommand["rotation"],
 ):DriverTransitionCommand {
- if(!["shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride"].includes(eventType))throw new Error("invalid_lifecycle_v2_event");
+ if(!["shift_start","shift_end","shift_rotate","trip_create","start_ride","end_ride","cancel_ride"].includes(eventType))throw new Error("invalid_lifecycle_v2_event");
  return {schemaVersion:1,workflowVersion:2,commandId:id,eventId:id,eventType,originSurface,transitionAt:now,
-  expectedPriorState:snapshot.state,expectedRevision:snapshot.revision,idempotencyKey:id,...(odometer?{odometer}:{})};
+  expectedPriorState:snapshot.state,expectedRevision:snapshot.revision,idempotencyKey:id,...(odometer?{odometer}:{}),...(rotation?{rotation}:{})};
 }

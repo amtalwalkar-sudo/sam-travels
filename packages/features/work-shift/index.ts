@@ -18,6 +18,8 @@ export {
   validateDriverCommand,
   validateDriverCompletion,
   isWithinGpsRecoveryWindow,
+  nextOperationalBoundaryAt,
+  isOperationalBoundaryPending,
 } from "../../domain/src/driver-workflow";
 export { buildTripHistory } from "../../domain/src/trip-history";
 export type { TripHistoryRecord, TripHistoryStatus } from "../../domain/src/trip-history";
