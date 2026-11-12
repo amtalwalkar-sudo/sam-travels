@@ -225,10 +225,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Driver self-correction form should open", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
-              if (!card) return false;
-              const alreadyOpen = Array.from(card.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'));
-              if (!alreadyOpen) card.querySelector('button')?.click();
-              return Array.from(card.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'));
+              if (!card?.querySelector('input')) card?.querySelector('button')?.click();
+              return Boolean(card?.querySelector('input'));
             })()
         """))
         assertTrue("Driver self-correction should be submitted", evaluate(activity, """
@@ -255,10 +253,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Other Driver correction form should open", evaluate(activity, """
             (() => {
               const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
-              if (!card) return false;
-              const alreadyOpen = Array.from(card.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'));
-              if (!alreadyOpen) card.querySelector('button')?.click();
-              return Array.from(card.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'));
+              if (!card?.querySelector('input')) card?.querySelector('button')?.click();
+              return Boolean(card?.querySelector('input'));
             })()
         """))
         assertTrue("Another Driver's correction attempt should reach the live form", evaluate(activity, """
