@@ -96,16 +96,21 @@ describe("person identity service", () => {
     await expect(identity.activate("person-1", "admin", "2468"))
       .rejects.toThrow("business_person_not_found");
     await identity.registerPerson(person, "2468");
-    await expect(identity.registerPerson({
+    identity.clear();
+    const secondPerson: BusinessPersonV1 = {
       schemaVersion: 1, personId: "person-2", displayName: "Second person", roles: ["driver"], status: "active",
-    })).rejects.toThrow("business_actor_not_active");
+    };
+    await expect(identity.registerPerson(secondPerson)).rejects.toThrow("business_actor_not_active");
     await expect(identity.updatePerson({ ...person, displayName: "Unauthorised update" }))
       .rejects.toThrow("business_actor_not_active");
-    await expect(identity.registerPerson({
-      schemaVersion: 1, personId: "person-2", displayName: "Second person", roles: ["driver"], status: "active",
-    }, "1357")).rejects.toThrow("business_actor_not_active");
     const driver = await identity.activate("person-1", "driver");
+    await expect(identity.registerPerson(secondPerson)).rejects.toThrow("business_admin_authority_required");
+    await expect(identity.updatePerson({ ...person, displayName: "Driver update" }))
+      .rejects.toThrow("business_admin_authority_required");
     const admin = await identity.activate("person-1", "admin", "2468");
+    await identity.registerPerson(secondPerson);
+    await identity.updatePerson({ ...secondPerson, displayName: "Updated second person" });
+    expect(people.get("person-2")?.displayName).toBe("Updated second person");
     expect(driver.actorId).toBe(admin.actorId);
     expect(driver.role).toBe("driver");
     expect(admin).toMatchObject({ role: "admin", actorId: "person-1", adminPinVerifiedAt: NOW });
