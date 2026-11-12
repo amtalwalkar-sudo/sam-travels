@@ -7,6 +7,8 @@ import {
   getApplicationDriverRecordsService,
   getApplicationDriverAssignmentService,
   getApplicationComplianceService,
+  getApplicationComplianceAnalysisService,
+  initializeApplicationComplianceAnalysisService,
   getApplicationMaintenanceService,
   getApplicationFinanceLoanService,
   getApplicationFinanceLoanPaymentService,
@@ -90,6 +92,9 @@ async function bootstrap(): Promise<void> {
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  initializeApplicationComplianceAnalysisService(
+    getApplicationComplianceService(), repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
@@ -326,6 +331,7 @@ async function bootstrap(): Promise<void> {
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
     compliance: getApplicationComplianceService(),
+    complianceAnalysis: getApplicationComplianceAnalysisService(),
     maintenance: getApplicationMaintenanceService(),
     financeLoans: getApplicationFinanceLoanService(),
     financeLoanPayments: getApplicationFinanceLoanPaymentService(),
