@@ -109,6 +109,11 @@ export class PersonIdentityService {
         throw new Error("business_admin_session_expired");
       }
     }
+    const person = await this.people.get(this.activeActor.actorId);
+    if (!person || person.status !== "active" || !person.roles.includes(this.activeActor.role)) {
+      this.activeActor = undefined;
+      throw new Error("business_actor_not_active");
+    }
     return this.activeActor;
   }
 
