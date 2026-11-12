@@ -58,13 +58,14 @@ export class PersonIdentityService {
     if (!person.roles.includes("admin")) throw new Error("business_initial_admin_required");
     if (!/^\d{4,12}$/.test(initialAdminPin ?? "")) throw new Error("business_admin_pin_invalid_format");
     if (!this.people.list) throw new Error("business_person_repository_list_unavailable");
+    if (!this.people.remove) throw new Error("business_person_repository_remove_unavailable");
     if ((await this.people.list()).length !== 0) throw new Error("business_initial_admin_bootstrap_closed");
 
     await this.people.save(person);
     try {
       await this.adminPin.configure(initialAdminPin!);
     } catch (error) {
-      await this.people.remove?.(person.personId);
+      await this.people.remove(person.personId);
       throw error;
     }
     this.activeActor = toCorrectionActorV1(person, {
