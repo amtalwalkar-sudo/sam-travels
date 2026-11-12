@@ -130,6 +130,7 @@ object DriverWorkflowStore {
             require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
+            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
