@@ -5,7 +5,7 @@ import {
   resolveComplianceOverlapReview,
   type ComplianceRecordV1,
 } from "../packages/features/compliance";
-import { ComplianceOverlapReviewService } from "../packages/application/src/compliance-overlap-review-service";
+import { ComplianceOverlapReviewService } from "../packages/features/compliance";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
