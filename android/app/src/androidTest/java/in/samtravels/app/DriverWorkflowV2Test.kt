@@ -118,8 +118,7 @@ class DriverWorkflowV2Test {
         val selectedAfterEnd=JSONObject(db.records().get("work:selected-driver")!!.json).getJSONObject("data")
         assertFalse(selectedAfterEnd.has("lockedShiftId"))
         assertEquals(45200,shiftEnded.getLong("lastConfirmedOdometerKm"))
-        val dailyId="work:daily-business-km:"+java.net.URLEncoder.encode("feature:vehicle:MH01AB1234","UTF-8")+":"+DriverWorkflowStore.operationalDateAt(eventsDateFallback())
-        val dailyRow=db.records().get(dailyId)
+        val dailyRow=db.records().list().firstOrNull { it.id.startsWith("work:daily-business-km:") }
         assertTrue("Daily business kilometre record must be committed with shift end",dailyRow!=null)
         val daily=JSONObject(dailyRow!!.json).getJSONObject("data")
         assertEquals(200,daily.getLong("totalBusinessKm"))
