@@ -118,7 +118,7 @@ describe("version 2 Work trip lifecycle",()=>{
   const repository=new DexieDriverWorkflowRepository();
   const at=new Date(base).toISOString();
   const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(at)});
-  const command=createDriverCommandV2(await repository.getSnapshot(),"shift_start","pwa","missing-selection",at);
+  const command=createDriverCommandV2(await repository.getSnapshot(),"shift_start","pwa","missing-selection",at,{schemaVersion:1,readingKm:45000});
   const result=await service.dispatch(command);
   expect(result.status).toBe("needs_attention");
   expect(result.snapshot).toMatchObject({state:"idle",revision:0});
