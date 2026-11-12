@@ -207,7 +207,7 @@ object DriverWorkflowStore {
                     command.optString("expectedPriorState") == current.optString("state"),
             ) { "stale_revision" }
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"), nowInstant)
-            WorkDailyBusinessKilometres.validateTransition(current,command)
+            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             val eventType=command.optString("eventType")
 
             val eventType=command.optString("eventType")
@@ -256,7 +256,7 @@ object DriverWorkflowStore {
                     }
                 }
                 "shift_end" -> {
-                    if(command.optInt("workflowVersion",1)==2) WorkDailyBusinessKilometres.append(db,current,command,eventId,now)
+                    if(command.optInt("workflowVersion",1)==2) WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
                     next.remove("shiftStartedAt");next.remove("shiftStartOdometerKm");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
                     if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
