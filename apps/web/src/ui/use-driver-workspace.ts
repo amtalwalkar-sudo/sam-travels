@@ -218,12 +218,23 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     }
   }
 
-  async function dispatch(eventType: DriverTransitionCommand["eventType"]) {
+  async function dispatch(eventType: DriverTransitionCommand["eventType"], odometerKm?: number) {
     if (!workflow || !driver || driverBusy) return;
     setDriverBusy(true);
     setDriverMessage("Action received · saving pending intent");
     try {
-      const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID());
+      let odometer: DriverTransitionCommand["odometer"];
+      if (eventType === "shift_start") {
+        if (!Number.isSafeInteger(odometerKm) || (odometerKm as number) < 0) throw new Error("shift_start_odometer_required");
+        const previous = driver.lastConfirmedOdometerKm;
+        odometer = { schemaVersion: 1, readingKm: odometerKm as number,
+          ...(previous === undefined ? {} : { previousConfirmedKm: previous, personalKm: (odometerKm as number) - previous }) };
+      } else if (eventType === "shift_end") {
+        if (!Number.isSafeInteger(odometerKm) || (odometerKm as number) < 0) throw new Error("shift_end_odometer_required");
+        if (driver.shiftStartOdometerKm === undefined || (odometerKm as number) < driver.shiftStartOdometerKm) throw new Error("shift_end_odometer_below_shift_start");
+        odometer = { schemaVersion: 1, readingKm: odometerKm as number, businessKm: (odometerKm as number) - driver.shiftStartOdometerKm };
+      }
+      const command = createDriverCommandV2(driver, eventType, "pwa", crypto.randomUUID(), undefined, odometer);
       const result = await workflow.dispatchBackground(command);
       setDriver(result.snapshot);
       const items = await workflow.pending();
