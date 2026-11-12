@@ -126,6 +126,6 @@ describe("Compliance browser backup participant", () => {
       },
     });
     const snapshot = await exportBrowserSnapshot("0.1.0");
-    expect(snapshot.data.records.filter(row => row.id.startsWith("feature:compliance:"))).toHaveLength(2);
+    expect(snapshot.data.records.filter(row => (row as { id: string }).id.startsWith("feature:compliance:"))).toHaveLength(2);
   });
 });
