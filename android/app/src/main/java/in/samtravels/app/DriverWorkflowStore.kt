@@ -256,6 +256,7 @@ object DriverWorkflowStore {
                 }
                 "shift_rotate" -> WorkDailyBusinessKilometreStore.rotate(db,current,command,eventId,now,next)
                 "shift_end" -> {
+                    if(command.optInt("workflowVersion",1)==2) {
                         WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
                         next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
                     }
