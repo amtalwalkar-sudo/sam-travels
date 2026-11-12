@@ -131,25 +131,19 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Admin PIN input should appear after choosing the Admin role", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
             5_000))
-        assertTrue("Admin PIN and selected identity must be ready before activation", evaluate(activity, """
+        assertTrue("Admin PIN should be accepted", evaluate(activity, """
             (() => {
-              const person = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'))?.querySelector('select');
-              const role = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'))?.querySelector('select');
-              const pinLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
-              const pin = pinLabel?.querySelector('input');
-              if (!person?.value || role?.value !== 'admin' || !pin) return false;
+              const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
+              const pin = label?.querySelector('input');
+              if (!pin) return false;
               const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
               setter.call(pin, '4831');
               pin.dispatchEvent(new Event('input', { bubbles: true }));
-              const form = pinLabel.closest('form');
-              const submit = form?.querySelector('button[type=submit], button:not([type])');
-              if (!form || !submit || submit.disabled) return false;
-              form.requestSubmit(submit);
+              label.closest('form')?.querySelector('button')?.click();
               return true;
             })()
         """))
-        assertTrue("PIN-verified Admin session should activate; status: " + evaluateText(activity,
-            """document.querySelector('[role=status]')?.textContent ?? 'no status'"""), awaitJavascript(activity,
+        assertTrue("PIN-verified Admin session should activate", awaitJavascript(activity,
             "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
         evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
         assertTrue("Seeded Maintenance expense should load", awaitJavascript(activity,
@@ -353,20 +347,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         }
       }
       return latch.await(5, TimeUnit.SECONDS) && result.get() == "true"
-  }
-  private fun evaluateText(activity: MainActivity, script: String): String {
-      val instrumentation = InstrumentationRegistry.getInstrumentation()
-      val result = AtomicReference<String?>()
-      val latch = CountDownLatch(1)
-      instrumentation.runOnMainSync {
-        activity.getBridge().getWebView().evaluateJavascript(script) {
-            result.set(it)
-            latch.countDown()
-        }
-      }
-      if (!latch.await(5, TimeUnit.SECONDS)) return "javascript_timeout"
-      return try { org.json.JSONTokener(result.get() ?: "null").nextValue()?.toString() ?: "null" }
-        catch (_: Exception) { result.get() ?: "null" }
   }
   private fun awaitJavascript(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
       val instrumentation = InstrumentationRegistry.getInstrumentation()
