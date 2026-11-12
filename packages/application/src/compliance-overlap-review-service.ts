@@ -5,13 +5,13 @@ import {
   assertComplianceRecordIdentity,
   assertComplianceRecordV1,
   type ComplianceRecordV1,
-} from "../../features/compliance/records";
+} from "../../features/compliance";
 import {
   assertComplianceOverlapReviewV1,
   complianceOverlapReviewId,
   type ComplianceOverlapReviewActorV1,
   type ComplianceOverlapReviewV1,
-} from "../../features/compliance/overlap-review";
+} from "../../features/compliance";
 
 const EVENT_PREFIX = "compliance-overlap-review:";
 const HEAD_PREFIX = "compliance-overlap-review-head:";
