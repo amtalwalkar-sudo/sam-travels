@@ -45,7 +45,7 @@ import {
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
-import { assertComplianceRecordV1 } from "../../../packages/features/compliance";
+import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
 import {
   assertMaintenanceRecordV1,
   calculateMaintenanceVisitTotal,
@@ -92,8 +92,18 @@ async function bootstrap(): Promise<void> {
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
+    currentActor: async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { actorId: actor.actorId, role: actor.role };
+    },
+  }, getApplicationRecordSource());
   initializeApplicationComplianceAnalysisService(
-    getApplicationComplianceService(), repository, getPersonIdentityService(), getApplicationRecordSource(),
+    getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
+      analyzeCoverage: analyzeComplianceCoverage,
+      resolveOverlap: resolveComplianceOverlapReview,
+      calculateDailyCost: calculateDailyComplianceCost,
+    },
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
