@@ -138,7 +138,7 @@ try {
   await fitnessCard.getByRole("button", { name: "Reject overlap" }).click();
   await fitnessCard.getByText("rejected", { exact: true }).waitFor();
   await fitnessCard.getByText("Rejected; the overlap remains unconfirmed for cost aggregation.", { exact: true }).waitFor();
-  await fitnessCard.getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true }).waitFor();
+  await overview.locator(".compliance-daily-cost").filter({ hasText: "MH02CD5678" }).getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true }).waitFor();
 
   await filter.selectOption("all");
   const insuranceCard = overview.locator(".compliance-overlap-card").filter({ hasText: "Insurance" });
