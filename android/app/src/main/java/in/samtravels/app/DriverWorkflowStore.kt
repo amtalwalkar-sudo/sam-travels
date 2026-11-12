@@ -210,8 +210,6 @@ object DriverWorkflowStore {
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"), nowInstant)
             WorkDailyBusinessKilometreStore.validateTransition(current,command)
             val eventType=command.optString("eventType")
-
-            val eventType=command.optString("eventType")
             if(command.optInt("workflowVersion",1)==2) {
                 when(eventType) {
                     "shift_start" -> command.put("driverContext",WorkDriverContextResolver.resolve(db,command.getString("transitionAt")))
