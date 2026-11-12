@@ -102,7 +102,7 @@ internal object NativeComplianceBackup {
     )
 
     private fun encoded(value: String): String =
-        URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20")
+        URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20").replace("%3A", ":")
 
     private fun validateOverlapReviewHistory(
         allRows: List<JSONObject>,
@@ -164,7 +164,7 @@ internal object NativeComplianceBackup {
             var previous: String? = null
             ordered.forEachIndexed { index, event ->
                 require(event.optInt("decisionRevision") == index + 1 &&
-                    event.optString("supersedesEventId").ifBlank { null } == previous) {
+                    event.optString("supersedesEventId").takeIf { it.isNotBlank() } == previous) {
                     "compliance_overlap_review_chain_invalid"
                 }
                 previous = event.optString("eventId")
