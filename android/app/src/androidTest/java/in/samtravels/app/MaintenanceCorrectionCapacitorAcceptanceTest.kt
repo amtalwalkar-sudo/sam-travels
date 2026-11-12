@@ -148,7 +148,13 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
         assertTrue("Seeded Maintenance expense should load", awaitJavascript(activity,
             "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
-        evaluate(activity, "Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Correct amount / view history'))?.click()")
+        evaluate(activity, """
+            (() => {
+              const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+              record?.querySelector('button')?.click();
+              return Boolean(record);
+            })()
+        """)
         assertTrue("Correction form should open", awaitJavascript(activity,
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
         assertTrue("Correction values should be entered", evaluate(activity, """
