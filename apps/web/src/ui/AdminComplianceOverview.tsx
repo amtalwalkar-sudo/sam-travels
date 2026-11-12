@@ -27,6 +27,8 @@ export function AdminComplianceOverview() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [vehicleFilter, setVehicleFilter] = useState("all");
   const [rationales, setRationales] = useState<Record<string, string>>({});
+  const [dailyDate, setDailyDate] = useState(today());
+  const [dailyCosts, setDailyCosts] = useState<Array<{ vehicleId: string; result: Awaited<ReturnType<AdminPresentationServices["complianceAnalysis"]["getDailyCost"]>> }>>([]);
   const [busyKey, setBusyKey] = useState("");
   const [message, setMessage] = useState("");
   const refresh = useCallback(async () => {
@@ -42,6 +44,17 @@ export function AdminComplianceOverview() {
     }
   }, [services]);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!overview) return;
+    const vehicleIds = [...new Set(overview.records.map(record => record.data.vehicleId))]
+      .filter(id => vehicleFilter === "all" || id === vehicleFilter);
+    let active = true;
+    void Promise.all(vehicleIds.map(async vehicleId => ({
+      vehicleId, result: await services.complianceAnalysis.getDailyCost(vehicleId, dailyDate),
+    }))).then(rows => { if (active) setDailyCosts(rows); })
+      .catch(error => { if (active) setMessage(error instanceof Error ? error.message : "Could not calculate daily Compliance costs."); });
+    return () => { active = false; };
+  }, [overview, dailyDate, vehicleFilter, services]);
 
   const records = useMemo(() => (overview?.records ?? []).filter(record =>
     vehicleFilter === "all" || record.data.vehicleId === vehicleFilter,
@@ -98,6 +111,16 @@ export function AdminComplianceOverview() {
               </div>
             </article>,
           )}
+      </div>
+      <div className="compliance-overview-section">
+        <div className="compliance-daily-heading"><h3>Daily cost allocation</h3><label>Business date<input type="date" value={dailyDate} onChange={event => setDailyDate(event.target.value)} /></label></div>
+        {dailyCosts.length === 0 ? <p className="admin-hint">No source allocations for this date.</p> : dailyCosts.map(({vehicleId,result}) => <article className="compliance-daily-cost" key={vehicleId}>
+          <strong>{vehicleName(vehicleId)}</strong>
+          {result.breakdown.length === 0 ? <small>No active Compliance records on {dailyDate}.</small> : result.breakdown.map(item => <div key={item.recordId}>
+            <small>{item.complianceName} · {item.recordId}</small><small>{item.cost.numeratorPaise} ÷ {item.cost.denominator} paise per day</small>
+          </div>)}
+          {result.status === "available" && result.total ? <small className="compliance-daily-total">Combined daily allocation: {result.total.numeratorPaise} ÷ {result.total.denominator} paise</small> : <small className="compliance-daily-withheld">Combined amount withheld until every affected overlap is currently confirmed.</small>}
+        </article>)}
       </div>
       <div className="compliance-overview-section">
         <h3>Coverage gaps</h3>

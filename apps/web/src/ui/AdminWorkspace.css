@@ -95,3 +95,13 @@
 .compliance-review-actions label{display:grid;gap:6px;font-size:10px;font-weight:700;color:#596d79}
 .compliance-review-actions textarea{width:100%;box-sizing:border-box;padding:9px;border:1px solid #dce4e8;border-radius:8px;background:#fff;color:#253b48;font:inherit;font-size:11px;resize:vertical}
 @media(max-width:420px){.compliance-fleet-overview{padding:10px}.compliance-overlap-heading{flex-direction:column}}
+
+.compliance-daily-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.compliance-daily-heading label{display:grid;gap:4px;font-size:9px;color:#687984}
+.compliance-daily-heading input{max-width:140px;padding:7px;border:1px solid #dce4e8;border-radius:8px;font:inherit;font-size:10px}
+.compliance-daily-cost{display:grid;gap:8px;padding:11px;border:1px solid #e3e9ed;border-radius:10px;background:#fbfcfd}
+.compliance-daily-cost>strong{font-size:11px;color:#294b5e}
+.compliance-daily-cost>div{display:grid;gap:3px;padding:7px;background:#f3f6f7;border-radius:7px}
+.compliance-daily-cost small{font-size:9px;color:#71808a;overflow-wrap:anywhere}
+.compliance-daily-total{font-weight:750;color:#286747!important}
+.compliance-daily-withheld{font-weight:750;color:#92512d!important}

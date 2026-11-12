@@ -2,6 +2,7 @@ import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import {
   analyzeComplianceCoverage,
+  calculateDailyComplianceCost,
   resolveComplianceOverlapReview,
   ComplianceOverlapReviewService,
   type ComplianceOverlapReviewV1,
@@ -86,6 +87,13 @@ export class ComplianceAnalysisService {
       gaps: Object.freeze(gaps),
       overlaps: Object.freeze(overlaps),
     });
+  }
+
+  async getDailyCost(vehicleId: string, businessDate: string) {
+    const actor = await this.identity.currentActor();
+    if (actor.role !== "admin") throw new Error("business_admin_authority_required");
+    const [records, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
+    return calculateDailyComplianceCost(records, vehicleId, businessDate, reviews);
   }
 
   async recordReview(input: Readonly<{
