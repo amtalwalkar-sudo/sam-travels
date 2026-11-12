@@ -113,6 +113,41 @@ describe("version 2 Work trip lifecycle",()=>{
   expect(history.find(trip=>trip.id==="trip-v2-2")).toMatchObject({status:"cancelled"});
  });
 
+ it("chains confirmed odometer readings, rejects rollback and aggregates multiple shifts",async()=>{
+  await browserDatabase.records.bulkPut(records);
+  const repository=new DexieDriverWorkflowRepository();
+  const recordsRepository=new DexieRecordRepository();
+  await new WorkDriverSelectionService(recordsRepository,repository).selectDriver("driver-v2");
+  let fixAt=new Date(base).toISOString();
+  const service=new DriverWorkflowService(repository,{capture:async()=>gpsAt(fixAt)});
+  const send=async(type:"shift_start"|"shift_end",id:string,offset:number,readingKm:number)=>{
+   fixAt=new Date(base+offset).toISOString();
+   const snapshot=await repository.getSnapshot();
+   const odometer=type==="shift_start"
+    ?{schemaVersion:1 as const,readingKm,...(snapshot.lastConfirmedOdometerKm===undefined?{}:{previousConfirmedKm:snapshot.lastConfirmedOdometerKm,personalKm:readingKm-snapshot.lastConfirmedOdometerKm})}
+    :{schemaVersion:1 as const,readingKm,businessKm:readingKm-(snapshot.shiftStartOdometerKm??readingKm)};
+   const command=createDriverCommandV2(snapshot,type,"pwa",id,fixAt,odometer);
+   return service.dispatch(command);
+  };
+  await send("shift_start","odo-shift-1-start",0,12000);
+  await send("shift_end","odo-shift-1-end",1000,12100);
+  await send("shift_start","odo-shift-2-start",2000,12125);
+  const snapshot=await repository.getSnapshot();
+  expect(snapshot).toMatchObject({shiftStartOdometerKm:12125,lastConfirmedOdometerKm:12125});
+  const startEvent=(await repository.listEvents()).find(event=>event.eventId==="odo-shift-2-start");
+  expect(startEvent?.command.odometer).toMatchObject({readingKm:12125,previousConfirmedKm:12100,personalKm:25});
+  const invalid=createDriverCommandV2(snapshot,"shift_start","pwa","odo-invalid-lower",new Date(base+2500).toISOString(),
+   {schemaVersion:1,readingKm:12124,previousConfirmedKm:12125,personalKm:-1});
+  await expect(repository.queueIntent({command:invalid,status:"pending_location",createdAt:fixAt,updatedAt:fixAt}))
+   .rejects.toThrow("shift_start_odometer_invalid");
+  await send("shift_end","odo-shift-2-end",3000,12125);
+  const daily=await recordsRepository.get<{data:{entries:Array<{businessKm:number}>;totalBusinessKm:number}}> (
+   "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(new Date(base).toISOString()),
+  );
+  expect(daily?.data.entries).toHaveLength(2);
+  expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([100,0]);
+  expect(daily?.data.totalBusinessKm).toBe(100);
+ });
  it("does not advance a shift or write an event when Work Driver selection is missing",async()=>{
   await browserDatabase.records.bulkPut(records);
   const repository=new DexieDriverWorkflowRepository();
