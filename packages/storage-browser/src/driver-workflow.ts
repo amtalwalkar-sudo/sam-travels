@@ -18,6 +18,15 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  private listeners=new Set<(s:DriverStateProjection)=>void>();
  async getSnapshot(){const value=(await states().get("driver-state"))?.value??EMPTY_DRIVER_STATE;assertDriverStateContract(value);return value}
  async queueIntent(intent:DriverIntent){assertDriverIntentContract(intent);if(intent.status!=="pending_location")throw new Error("invalid_driver_intent");return browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){assertDriverIntentContract(old);if(!sameCommand(old.command,intent.command))throw new Error("duplicate_command_id_conflict");return old}const existing=await intents().toArray();existing.forEach(assertDriverIntentContract);if(existing.some(i=>i.command.eventId!==intent.command.eventId&&(i.command.commandId===intent.command.commandId||i.command.idempotencyKey===intent.command.idempotencyKey)))throw new Error("duplicate_command_identity_conflict");const s=await this.getSnapshot();
+ if(intent.command.workflowVersion===2&&intent.command.eventType==="shift_start"&&intent.command.odometer){
+  const previous=s.lastConfirmedOdometerKm,odometer=intent.command.odometer;
+  if(previous!==undefined&&(odometer.readingKm<previous||odometer.previousConfirmedKm!==previous||odometer.personalKm!==odometer.readingKm-previous))throw new Error("shift_start_odometer_invalid");
+  if(previous===undefined&&(odometer.previousConfirmedKm!==undefined||odometer.personalKm!==undefined))throw new Error("shift_start_odometer_invalid");
+ }
+ if(intent.command.workflowVersion===2&&intent.command.eventType==="shift_end"&&intent.command.odometer){
+  const start=s.shiftStartOdometerKm,odometer=intent.command.odometer;
+  if(start===undefined||odometer.readingKm<start||odometer.businessKm!==odometer.readingKm-start)throw new Error("shift_end_odometer_invalid");
+ }
  if(intent.command.eventType==="shift_end"){
   const outstanding=(await browserDatabase.records.toArray()).some(record=>
    record.id.startsWith("work:trip-financial-obligation:")&&
