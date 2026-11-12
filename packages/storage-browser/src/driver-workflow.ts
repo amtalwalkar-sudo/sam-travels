@@ -69,16 +69,18 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     const operationalDate=operationalDateAt(current.shiftStartedAt);
     const id="work:daily-business-km:"+encodeURIComponent(vehicleId)+":"+operationalDate;
     const existing=await browserDatabase.records.get(id);
-    const previousData=existing?.data as {schemaVersion?:number;kind?:string;vehicleId?:string;operationalDate?:string;entries?:Array<Record<string,unknown>>;totalBusinessKm?:number}|undefined;
+    const previousData=existing?.data as {schemaVersion?:number;kind?:string;vehicleId?:string;operationalDate?:string;entries?:Array<Record<string,unknown>>;totalBusinessKm?:number;unallocatedBusinessKm?:number}|undefined;
     if(existing&&(!previousData||previousData.schemaVersion!==1||previousData.kind!=="daily_business_kilometres"||previousData.vehicleId!==vehicleId||previousData.operationalDate!==operationalDate||!Array.isArray(previousData.entries)))throw new Error("daily_business_km_record_invalid");
     const entries=[...(previousData?.entries??[])];
     if(entries.some(entry=>entry.shiftId===current.shiftId))throw new Error("daily_business_km_duplicate_shift");
+    const allocationStatus=operationalDateAt(command.transitionAt)===operationalDate?"allocated":"awaiting_operational_boundary";
     entries.push({shiftId:current.shiftId,shiftStartEventId:current.shiftId,shiftEndEventId:command.eventId,shiftStartedAt:current.shiftStartedAt,shiftEndedAt:command.transitionAt,
-      startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm});
-    const totalBusinessKm=entries.reduce((sum,entry)=>sum+Number(entry.businessKm),0);
-    if(!Number.isSafeInteger(totalBusinessKm))throw new Error("daily_business_km_total_out_of_range");
+      startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm,allocationStatus});
+    const totalBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="allocated"?Number(entry.businessKm):0),0);
+    const unallocatedBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="awaiting_operational_boundary"?Number(entry.businessKm):0),0);
+    if(!Number.isSafeInteger(totalBusinessKm)||!Number.isSafeInteger(unallocatedBusinessKm))throw new Error("daily_business_km_total_out_of_range");
     await browserDatabase.records.put({id,schemaVersion:1,createdAt:existing?.createdAt??now,updatedAt:now,source:"integration",revision:(existing?.revision??0)+1,
-      data:{schemaVersion:1,kind:"daily_business_kilometres",vehicleId,operationalDate,entries,totalBusinessKm}});
+      data:{schemaVersion:1,kind:"daily_business_kilometres",vehicleId,operationalDate,entries,totalBusinessKm,unallocatedBusinessKm}});
    }
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
