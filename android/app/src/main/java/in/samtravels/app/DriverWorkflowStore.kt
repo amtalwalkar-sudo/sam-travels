@@ -130,8 +130,8 @@ object DriverWorkflowStore {
             require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
-            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
+            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
@@ -255,7 +255,10 @@ object DriverWorkflowStore {
                     }
                 }
                 "shift_end" -> {
-                    if(command.optInt("workflowVersion",1)==2) WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
+                    if(command.optInt("workflowVersion",1)==2) {
+                        WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
+                        next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
+                    }
                     next.remove("shiftStartedAt");next.remove("shiftStartOdometerKm");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
                     if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
