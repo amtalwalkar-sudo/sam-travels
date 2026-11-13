@@ -87,7 +87,7 @@ describe("Maintenance browser backup participant", () => {
   it("exports and restores an immutable accrual linked to fully allocated daily kilometres and the effective rate", async () => {
     await seedVehicle(); await seedMaintenance(); await seedDailyAccrual();
     const snapshot = await exportBrowserSnapshot("0.1.0");
-    expect(snapshot.data.records).toHaveLength(4);
+    expect(snapshot.data.records).toHaveLength(5);
     await browserDatabase.records.clear();
     await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });
     expect(await browserDatabase.records.get("feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-11-02")).toBeDefined();
