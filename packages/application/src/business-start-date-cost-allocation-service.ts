@@ -39,6 +39,10 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
   businessSettingsRevision: number;
   generatedAt: string;
   provenance?: Readonly<{ id: string; fingerprint: string }>;
+  provenanceHistory?: readonly Readonly<{
+    id: string; fingerprint: string; businessStartDate: string;
+    businessSettingsRevision: number; calculationVersion: number; createdAt: string;
+  }>[];
   result: BusinessStartDateAllocationResultV1;
 }>;
 
@@ -106,6 +110,19 @@ export class BusinessStartDateCostAllocationService {
     return Object.freeze({ id, fingerprint: digest });
   }
 
+  private async getProvenanceHistory() {
+    if (!this.provenanceRepository) return undefined;
+    const rows = (await this.provenanceRepository.list<AllocationProvenanceV1>())
+      .filter(row => row.id.startsWith(PROVENANCE_PREFIX))
+      .filter(row => row.data?.schemaVersion === 1 && typeof row.data.fingerprint === "string")
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+    return Object.freeze(rows.map(row => Object.freeze({
+      id: row.id, fingerprint: row.data.fingerprint, businessStartDate: row.data.businessStartDate,
+      businessSettingsRevision: row.data.businessSettingsRevision,
+      calculationVersion: row.data.calculationVersion, createdAt: row.createdAt,
+    })));
+  }
+
   async getReport(): Promise<BusinessStartDateCostAllocationReportV1> {
     const [settings, overview, loans] = await Promise.all([
       this.settings.get(), this.complianceAnalysis.getOverview(), this.loans.list(),
@@ -161,11 +178,13 @@ export class BusinessStartDateCostAllocationService {
     const generatedAt = this.now();
     const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
     const provenance = await this.retainProvenance(businessStartDate, settings.revision, result, generatedAt);
+    const provenanceHistory = await this.getProvenanceHistory();
     return Object.freeze({
       businessStartDate,
       businessSettingsRevision: settings.revision,
       generatedAt,
       ...(provenance ? { provenance } : {}),
+      ...(provenanceHistory ? { provenanceHistory } : {}),
       result,
     });
   }

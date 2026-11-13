@@ -47,6 +47,7 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Every allocation result records source identity/revision, Business Start Date, applicable validity/EMI period, Finance schedule version where relevant, allocation calculation ID/version, and amount in paise.
 - Rebuilds for a changed Business Start Date or changed source revision are deterministic and idempotent. Source facts remain immutable; derived projections are replaced only through the repository's approved correction/recovery mechanism.
 - A calculation result must reconcile exactly to its eligible source amount. No missing or duplicate paise.
+- A deterministic fingerprint of the allocation inputs is retained as an append-only provenance record in the platform records table. Identical input states are idempotent; changed Business Start Date/source/schedule inputs create distinct records. The report exposes this history for audit. These metadata records are included by the platform records backup participant.
 
 ## 5. Delivery sequence
 

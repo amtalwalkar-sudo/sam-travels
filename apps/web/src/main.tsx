@@ -111,7 +111,7 @@ async function bootstrap(): Promise<void> {
         }
         return {
           featureId: "compliance",
-          allowedFieldPaths: ["vehicleId", "complianceName", "validFrom", "validTo", "totalCostPaise"],
+          allowedFieldPaths: ["complianceName", "validFrom", "validTo", "totalCostPaise"],
           validateProjectedData: assertComplianceRecordV1,
         };
       },
