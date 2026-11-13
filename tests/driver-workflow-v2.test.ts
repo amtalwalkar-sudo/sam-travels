@@ -142,11 +142,12 @@ describe("version 2 Work trip lifecycle",()=>{
   await expect(repository.queueIntent({command:invalid,status:"pending_location",createdAt:fixAt,updatedAt:fixAt}))
    .rejects.toThrow("shift_start_odometer_invalid");
   await send("shift_end","odo-shift-2-end",3000,12125);
-  const daily=await recordsRepository.get<{entries:Array<{businessKm:number}>;totalBusinessKm:number}> (
+  const daily=await recordsRepository.get<{entries:Array<{businessKm:number;personalKm?:number}>;totalBusinessKm:number}> (
    "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(new Date(base).toISOString()),
   );
   expect(daily?.data.entries).toHaveLength(2);
   expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([100,0]);
+  expect(daily?.data.entries.map(entry=>entry.personalKm)).toEqual([0,25]);
   expect(daily?.data.totalBusinessKm).toBe(100);
  });
  it("does not advance a shift or write an event when Work Driver selection is missing",async()=>{
