@@ -49,13 +49,15 @@ export function registerMaintenanceBrowserBackupParticipant(): () => void {
         if (record.id !== expectedId) throw new Error("maintenance_daily_accrual_identity_mismatch");
         const daily = allRecords.find(item => item.id === data.dailyBusinessKmRecordId);
         if (!daily || daily.revision !== data.dailyBusinessKmRevision) throw new Error("maintenance_daily_accrual_source_missing_or_changed");
-        const source = daily.data as { schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string; entries?: Array<{ businessKm?: number; allocationStatus?: string }>; totalBusinessKm?: number; unallocatedBusinessKm?: number };
+        const source = daily.data as { schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string; entries?: Array<{ businessKm?: number; personalKm?: number; allocationStatus?: string }>; totalBusinessKm?: number; unallocatedBusinessKm?: number };
         const entries = source.entries ?? [];
         const allocatedTotal = entries.reduce((sum, entry) => sum + (entry.businessKm ?? 0), 0);
+        const personalTotal = entries.reduce((sum, entry) => sum + (entry.personalKm ?? 0), 0);
         if (source.schemaVersion !== 1 || source.kind !== "daily_business_kilometres" || source.vehicleId !== data.vehicleId ||
             source.operationalDate !== data.operationalDate || !Array.isArray(source.entries) || source.unallocatedBusinessKm !== 0 ||
             entries.some(entry => entry.allocationStatus !== "allocated" || !Number.isSafeInteger(entry.businessKm) || (entry.businessKm ?? -1) < 0) ||
-            allocatedTotal !== data.businessKm || source.totalBusinessKm !== data.businessKm) {
+            allocatedTotal !== data.businessKm || source.totalBusinessKm !== data.businessKm ||
+            (data.personalKm ?? 0) !== personalTotal || (data.personalAmountPaise ?? 0) !== personalTotal * data.ratePaisePerKm) {
           throw new Error("maintenance_daily_accrual_source_invalid");
         }
         const rateRecord = allRecords.find(item => item.id === maintenanceRateHistoryRecordId(data.vehicleId));
