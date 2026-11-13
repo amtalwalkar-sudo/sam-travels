@@ -1,6 +1,7 @@
 import type { RecordEnvelope } from "../../core/src/types";
 import type { ComplianceService, ComplianceRecordV1 } from "./compliance-service";
 import type { PersonIdentityService } from "./person-identity-service";
+import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 
 export type ComplianceReviewEvent = Readonly<{
   schemaVersion: 1;
@@ -51,6 +52,11 @@ export type ComplianceOverview = Readonly<{
   overlaps: readonly ComplianceOverviewOverlap[];
 }>;
 
+/** Read-only port for append-only corrections belonging to a Compliance source. */
+export type ComplianceHistoricalCorrectionPortV1 = Readonly<{
+  listForTarget(targetRecordId: string): Promise<HistoricalCorrectionV1[]>;
+}>;
+
 /** Application boundary for fleet-wide Compliance analysis and Admin review commands. */
 export class ComplianceAnalysisService {
   constructor(
@@ -58,12 +64,30 @@ export class ComplianceAnalysisService {
     private readonly reviewEvents: ComplianceReviewEventPort,
     private readonly identity: PersonIdentityService,
     private readonly analysis: ComplianceAnalysisFunctions,
+    private readonly historicalCorrections?: ComplianceHistoricalCorrectionPortV1,
   ) {}
+
+  private async projectCorrectedRecords(
+    records: readonly RecordEnvelope<ComplianceRecordV1>[],
+  ): Promise<RecordEnvelope<ComplianceRecordV1>[]> {
+    if (!this.historicalCorrections) return [...records];
+    return Promise.all(records.map(async record => {
+      const corrections = await this.historicalCorrections!.listForTarget(record.id);
+      if (!corrections.length) return record;
+      const projection = projectHistoricalCorrectionsV1(record.data, corrections);
+      if (projection.status !== "valid") {
+        throw new Error("compliance_historical_correction_projection_needs_attention");
+      }
+      this.analysis.validateProjectedComplianceData?.(projection.data);
+      return Object.freeze({ ...record, data: projection.data });
+    }));
+  }
 
   async getOverview(): Promise<ComplianceOverview> {
     const actor = await this.identity.currentActor();
     if (actor.role !== "admin") throw new Error("business_admin_authority_required");
-    const [records, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
+    const [sourceRecords, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
+    const records = await this.projectCorrectedRecords(sourceRecords);
     const groups = new Map<string, { vehicleId: string; complianceName: string }>();
     for (const record of records) {
       const key = record.data.vehicleId + "\u0000" + record.data.complianceName;
@@ -102,7 +126,8 @@ export class ComplianceAnalysisService {
   async getDailyCost(vehicleId: string, businessDate: string) {
     const actor = await this.identity.currentActor();
     if (actor.role !== "admin") throw new Error("business_admin_authority_required");
-    const [records, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
+    const [sourceRecords, reviews] = await Promise.all([this.compliance.list(), this.reviewEvents.list()]);
+    const records = await this.projectCorrectedRecords(sourceRecords);
     return this.analysis.calculateDailyCost(records, vehicleId, businessDate, reviews);
   }
 

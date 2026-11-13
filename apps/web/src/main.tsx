@@ -42,6 +42,7 @@ import {
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
   BusinessStartDateCostAllocationService,
+  HistoricalCorrectionService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -100,12 +101,30 @@ async function bootstrap(): Promise<void> {
       return { actorId: actor.actorId, role: actor.role };
     },
   }, getApplicationRecordSource());
+  const historicalCorrections = new HistoricalCorrectionService(
+    repository,
+    { currentActor: () => getPersonIdentityService().currentActor() },
+    {
+      async resolve(record) {
+        if (!record.id.startsWith("feature:compliance:")) {
+          throw new Error("historical_correction_target_feature_unsupported");
+        }
+        return {
+          featureId: "compliance",
+          allowedFieldPaths: ["vehicleId", "complianceName", "validFrom", "validTo", "totalCostPaise"],
+          validateProjectedData: assertComplianceRecordV1,
+        };
+      },
+    },
+    getApplicationRecordSource(),
+  );
   initializeApplicationComplianceAnalysisService(
     getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
       analyzeCoverage: analyzeComplianceCoverage,
       resolveOverlap: resolveComplianceOverlapReview,
       calculateDailyCost: calculateDailyComplianceCost,
     },
+    historicalCorrections,
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
