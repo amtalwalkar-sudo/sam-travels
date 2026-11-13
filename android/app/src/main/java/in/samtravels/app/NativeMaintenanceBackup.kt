@@ -16,6 +16,7 @@ internal object NativeMaintenanceBackup {
     private const val VISIT_PREFIX = PREFIX + "visit:"
     private const val EXPENSE_PREFIX = PREFIX + "expense:"
     private const val RATE_PREFIX = PREFIX + "rate:"
+    private const val DAILY_ACCRUAL_PREFIX = PREFIX + "daily-accrual:"
     private const val DEFAULT_RATE = 250L
     private val UUID = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}")
     private val sources = setOf("web", "android", "import", "integration")
@@ -54,7 +55,7 @@ internal object NativeMaintenanceBackup {
                 val kind = data.optString("kind")
                 val vehicleId = data.optString("vehicleId")
                 val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found")
-                validatePayload(id, data, kind, vehicle.second)
+                validatePayload(id, data, kind, vehicle.second, allRows)
             }
         },
     )
@@ -73,7 +74,7 @@ internal object NativeMaintenanceBackup {
         }
     }
 
-    private fun validatePayload(id: String, data: JSONObject, kind: String, vehicleCreatedAt: String) {
+    private fun validatePayload(id: String, data: JSONObject, kind: String, vehicleCreatedAt: String, allRows: List<JSONObject>) {
         require(data.optInt("schemaVersion", -1) == 1 && data.optString("vehicleId").startsWith("feature:vehicle:")) {
             "maintenance_record_invalid"
         }
@@ -171,6 +172,56 @@ internal object NativeMaintenanceBackup {
                     }
                     previousDate = effective
                     previousSavedAt = savedAt
+                }
+            }
+            "daily_accrual" -> {
+                val operationalDate = data.optString("operationalDate")
+                val encodedVehicle = URLEncoder.encode(vehicleIdFromData(data), "UTF-8").replace("+", "%20")
+                val expectedId = DAILY_ACCRUAL_PREFIX + encodedVehicle + ":" + operationalDate
+                require(id == expectedId && validDate(operationalDate) &&
+                    validDate(data.optString("rateEffectiveFrom"))) { "maintenance_daily_accrual_identity_mismatch" }
+                assertExactKeys(
+                    data,
+                    setOf("schemaVersion", "kind", "vehicleId", "operationalDate", "dailyBusinessKmRecordId",
+                        "dailyBusinessKmRevision", "businessKm", "rateEffectiveFrom", "ratePaisePerKm", "amountPaise"),
+                    setOf("personalKm", "personalAmountPaise"),
+                )
+                val businessKm = data.opt("businessKm")
+                val rate = data.opt("ratePaisePerKm")
+                val amount = data.opt("amountPaise")
+                require(validInteger(businessKm) && validInteger(rate) && validInteger(amount) &&
+                    data.optLong("businessKm") * data.optLong("ratePaisePerKm") == data.optLong("amountPaise") &&
+                    data.optLong("dailyBusinessKmRevision") > 0L) { "maintenance_daily_accrual_invalid" }
+                require(data.has("personalKm") == data.has("personalAmountPaise")) { "maintenance_daily_accrual_invalid" }
+                if (data.has("personalKm")) {
+                    require(validInteger(data.opt("personalKm")) && validInteger(data.opt("personalAmountPaise")) &&
+                        data.optLong("personalKm") * data.optLong("ratePaisePerKm") == data.optLong("personalAmountPaise")) {
+                        "maintenance_daily_accrual_invalid"
+                    }
+                }
+                val sourceRow = allRows.firstOrNull { it.optString("id") == data.optString("dailyBusinessKmRecordId") }
+                    ?: error("maintenance_daily_accrual_source_missing")
+                val sourceEnvelope = JSONObject(sourceRow.getString("json"))
+                val source = sourceEnvelope.getJSONObject("data")
+                val entries = source.optJSONArray("entries") ?: error("maintenance_daily_accrual_source_invalid")
+                var sourceBusinessKm = 0L
+                var sourcePersonalKm = 0L
+                for (index in 0 until entries.length()) {
+                    val entry = entries.getJSONObject(index)
+                    require(entry.optString("allocationStatus") == "allocated" &&
+                        validInteger(entry.opt("businessKm")) && validInteger(entry.opt("personalKm") ?: 0)) {
+                        "maintenance_daily_accrual_source_invalid"
+                    }
+                    sourceBusinessKm = Math.addExact(sourceBusinessKm, entry.optLong("businessKm"))
+                    sourcePersonalKm = Math.addExact(sourcePersonalKm, entry.optLong("personalKm", 0L))
+                }
+                require(sourceEnvelope.optLong("revision") == data.optLong("dailyBusinessKmRevision") &&
+                    source.optString("kind") == "daily_business_kilometres" &&
+                    source.optString("vehicleId") == data.optString("vehicleId") && source.optString("operationalDate") == operationalDate &&
+                    source.optLong("totalBusinessKm") == sourceBusinessKm && source.optLong("unallocatedBusinessKm") == 0L &&
+                    sourceBusinessKm == data.optLong("businessKm") &&
+                    sourcePersonalKm == data.optLong("personalKm", 0L)) {
+                    "maintenance_daily_accrual_source_invalid"
                 }
             }
             else -> error("maintenance_record_kind_invalid")

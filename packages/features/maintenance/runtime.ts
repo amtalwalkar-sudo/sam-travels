@@ -1,7 +1,7 @@
 import type { FeatureDefinition } from "../../core/src/features";
 import type { FeatureExtensionDefinition } from "../../core/src/feature-extension";
 
-/** Maintenance owns actual vehicle expenses and rate history; trip-distance accrual is not enabled yet. */
+/** Maintenance owns actual expenses, effective-dated rates and immutable daily business-kilometre accrual snapshots. */
 export const MAINTENANCE_FEATURE = Object.freeze({
   id: "maintenance",
   label: "Maintenance",

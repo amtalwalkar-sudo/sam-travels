@@ -75,6 +75,7 @@ class DriverWorkflowIdentityAttributionTest {
 
             val startId = "live-overlay-shift-start"
             val start = command(startId).put("workflowVersion", 2)
+                .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 45000))
             DriverWorkflowStore.queue(db, start)
             DriverWorkflowStore.complete(db, startId, gps())
             val firstEvent = JSONObject(db.logBookEvents().list().single().json)
@@ -87,7 +88,8 @@ class DriverWorkflowIdentityAttributionTest {
             val end = JSONObject().put("schemaVersion", 1).put("commandId", endId)
                 .put("eventId", endId).put("eventType", "shift_end").put("originSurface", "native_overlay")
                 .put("transitionAt", java.time.Instant.now().toString()).put("expectedPriorState", "shift_active")
-                .put("expectedRevision", 1).put("idempotencyKey", endId).put("workflowVersion", 2)
+                 .put("expectedRevision", 1).put("idempotencyKey", endId).put("workflowVersion", 2)
+                .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 45100).put("businessKm", 100))
             DriverWorkflowStore.queue(db, end)
             DriverWorkflowStore.complete(db, endId, gps())
             val events = db.logBookEvents().list().map { JSONObject(it.json) }

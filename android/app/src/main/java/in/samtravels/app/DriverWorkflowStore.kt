@@ -1,5 +1,4 @@
 package `in`.samtravels.app
-
 import org.json.JSONObject
 import java.time.Instant
 
@@ -79,7 +78,7 @@ object DriverWorkflowStore {
     private fun sameCommand(left: JSONObject, right: JSONObject): Boolean {
         val fields = listOf(
             "schemaVersion", "commandId", "eventId", "eventType", "originSurface",
-            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "workflowVersion", "driverContext", "tripContext",
+            "transitionAt", "expectedPriorState", "expectedRevision", "idempotencyKey", "workflowVersion", "driverContext", "tripContext", "odometer", "rotation",
         )
         return fields.all { field -> (left.opt(field)?.toString() ?: "null") == (right.opt(field)?.toString() ?: "null") }
     }
@@ -97,7 +96,7 @@ object DriverWorkflowStore {
             ) { "invalid_command_identity" }
             Instant.parse(command.getString("transitionAt"))
             require(command.optInt("expectedRevision", -1) >= 0) { "invalid_revision" }
-            require(command.optString("eventType") in setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")) {
+            require(command.optString("eventType") in setOf("shift_start", "shift_end", "shift_rotate", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")) {
                 "invalid_event_type"
             }
             require(command.optString("originSurface") in setOf("pwa", "native_overlay")) {
@@ -130,7 +129,8 @@ object DriverWorkflowStore {
             require(!identityConflict) { "duplicate_command_identity_conflict" }
 
             val current = snapshot(db)
-            if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
+            if(command.optString("eventType") in setOf("shift_end","shift_rotate")) DriverCancellationFeeStore.requireNoPendingObligation(db)
+            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
@@ -201,13 +201,13 @@ object DriverWorkflowStore {
             
             require(DriverRecoveryPolicy.isWithinGpsWindow(command.getString("transitionAt"), nowInstant)) { "gps_recovery_window_expired" }
             val current = snapshot(db)
-            if(command.optString("eventType")=="shift_end") DriverCancellationFeeStore.requireNoPendingObligation(db)
+            if(command.optString("eventType") in setOf("shift_end","shift_rotate")) DriverCancellationFeeStore.requireNoPendingObligation(db)
             require(
                 command.optInt("expectedRevision", -1) == current.optInt("revision") &&
                     command.optString("expectedPriorState") == current.optString("state"),
             ) { "stale_revision" }
             DriverTransitionPolicy.validateGpsEvidence(gps, command.getString("transitionAt"), nowInstant)
-
+            WorkDailyBusinessKilometreStore.validateTransition(current,command)
             val eventType=command.optString("eventType")
             if(command.optInt("workflowVersion",1)==2) {
                 when(eventType) {
@@ -239,6 +239,10 @@ object DriverWorkflowStore {
                 "shift_start" -> {
                     next.put("shiftStartedAt",command.getString("transitionAt")).put("shiftAuthor", author)
                     if(command.optInt("workflowVersion",1)==2) {
+                        val reading=command.getJSONObject("odometer").getLong("readingKm")
+                        next.put("shiftStartOdometerKm",reading).put("shiftStartPersonalKm",command.getJSONObject("odometer").optLong("personalKm",0L)).put("lastConfirmedOdometerKm",reading)
+                    }
+                    if(command.optInt("workflowVersion",1)==2) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
                         val envelope=JSONObject(selectedRow.json)
                         val selected=envelope.optJSONObject("data")?:error("work_selected_driver_invalid")
@@ -249,8 +253,13 @@ object DriverWorkflowStore {
                         next.put("shiftId",eventId).put("shiftContext",command.getJSONObject("driverContext"))
                     }
                 }
+                "shift_rotate" -> WorkDailyBusinessKilometreStore.rotate(db,current,command,eventId,now,next)
                 "shift_end" -> {
-                    next.remove("shiftStartedAt");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
+                    if(command.optInt("workflowVersion",1)==2) {
+                        WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
+                        next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
+                    }
+                    next.remove("shiftStartedAt");next.remove("shiftStartOdometerKm");next.remove("shiftStartPersonalKm");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
                     if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
                         val envelope=JSONObject(selectedRow.json)

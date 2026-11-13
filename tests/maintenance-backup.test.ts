@@ -69,6 +69,35 @@ describe("Maintenance browser backup participant", () => {
     });
   }
 
+
+  async function seedDailyAccrual(unallocated = 0) {
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await browserDatabase.records.put({ id: dailyId, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "integration", revision: 2, data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId,
+        operationalDate: "2026-11-02", entries: [
+          { shiftId: "shift-a", shiftStartEventId: "shift-a", shiftEndEventId: "shift-end-a", shiftStartedAt: "2026-11-02T00:00:00.000Z", shiftEndedAt: "2026-11-02T08:00:00.000Z", startOdometerKm: 100, endOdometerKm: 220, businessKm: 120, personalKm: 50, allocationStatus: "allocated" },
+          ...(unallocated ? [{ shiftId: "shift-b", shiftStartEventId: "shift-b", shiftEndEventId: "shift-end-b", shiftStartedAt: "2026-11-02T08:00:00.000Z", shiftEndedAt: "2026-11-02T10:00:00.000Z", startOdometerKm: 220, endOdometerKm: 220 + unallocated, businessKm: unallocated, allocationStatus: "awaiting_operational_boundary" }] : []),
+        ], totalBusinessKm: 120, unallocatedBusinessKm: unallocated } });
+    await browserDatabase.records.put({ id: "feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-11-02",
+      schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "integration", revision: 1, businessDate: "2026-11-02",
+      data: { schemaVersion: 1, kind: "daily_accrual", vehicleId, operationalDate: "2026-11-02", dailyBusinessKmRecordId: dailyId,
+        dailyBusinessKmRevision: 2, businessKm: 120, personalKm: 50, personalAmountPaise: 15000, rateEffectiveFrom: "2026-11-02", ratePaisePerKm: 300, amountPaise: 36000 } });
+  }
+
+  it("exports and restores an immutable accrual linked to fully allocated daily kilometres and the effective rate", async () => {
+    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual();
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    expect(snapshot.data.records).toHaveLength(5);
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });
+    expect((await browserDatabase.records.get("feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-11-02"))?.data).toMatchObject({ personalKm: 50, personalAmountPaise: 15000, amountPaise: 36000 });
+  });
+
+  it("rejects accrual backup when any source kilometres are still unallocated", async () => {
+    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual(25);
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("maintenance_daily_accrual_source_invalid");
+  });
+
   it("exports and restores visits and atomic per-vehicle rate history", async () => {
     await seedVehicle();
     await seedMaintenance();

@@ -21,7 +21,13 @@ export type MaintenanceRateEntryV1 = Readonly<{
 export type MaintenanceRateHistoryV1 = Readonly<{
   schemaVersion: 1; kind: "rate_history"; vehicleId: string; entries: readonly MaintenanceRateEntryV1[];
 }>;
-export type MaintenanceRecordV1 = MaintenanceVisitV1 | GeneralMaintenanceExpenseV1 | MaintenanceRateHistoryV1;
+export type MaintenanceDailyAccrualV1 = Readonly<{
+  schemaVersion: 1; kind: "daily_accrual"; vehicleId: string; operationalDate: string;
+  dailyBusinessKmRecordId: string; dailyBusinessKmRevision: number; businessKm: number;
+  /** Personal kilometres are separate from business maintenance amount. */ personalKm?: number; personalAmountPaise?: number;
+  rateEffectiveFrom: string; ratePaisePerKm: number; amountPaise: number;
+}>;
+export type MaintenanceRecordV1 = MaintenanceVisitV1 | GeneralMaintenanceExpenseV1 | MaintenanceRateHistoryV1 | MaintenanceDailyAccrualV1;
 export type MaintenanceRecordValidator = (value: unknown) => asserts value is MaintenanceRecordV1;
 export type MaintenanceVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
@@ -58,6 +64,7 @@ function isValidDate(value: string): boolean {
 /** Maintenance owns actual visits/expenses and per-vehicle rate history. */
 export class MaintenanceService {
   private readonly records: FeatureRecordService<MaintenanceRecordV1>;
+  private readonly repository: AtomicRecordRepository;
 
   constructor(
     repository: AtomicRecordRepository,
@@ -67,6 +74,7 @@ export class MaintenanceService {
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {
+    this.repository = repository;
     this.records = new FeatureRecordService(repository, {
       featureId: "maintenance",
       recordIdPrefix: PREFIX,
@@ -203,7 +211,77 @@ export class MaintenanceService {
     return eligible[eligible.length - 1];
   }
 
+
+  async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
+    await this.requireVehicle(input.vehicleId);
+    if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
+    const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
+    const daily = await this.repository.get<{
+      schemaVersion: number; kind: string; vehicleId: string; operationalDate: string;
+      entries: Array<{ businessKm: number; personalKm?: number; allocationStatus: string }>;
+      totalBusinessKm: number; unallocatedBusinessKm: number;
+    }>(dailyBusinessKmRecordId);
+    if (!daily) throw new Error("maintenance_daily_business_km_missing");
+    const source = daily.data;
+    if (source.schemaVersion !== 1 || source.kind !== "daily_business_kilometres" ||
+        source.vehicleId !== input.vehicleId || source.operationalDate !== input.operationalDate ||
+        !Array.isArray(source.entries)) throw new Error("maintenance_daily_business_km_invalid");
+    let allocatedKm = 0;
+    let allocatedPersonalKm = 0;
+    let unallocatedKm = 0;
+    for (const entry of source.entries) {
+      const personalKm = entry.personalKm ?? 0;
+      if (!Number.isSafeInteger(personalKm) || personalKm < 0) throw new Error("maintenance_daily_personal_km_invalid");
+      allocatedPersonalKm += personalKm;
+      if (!Number.isSafeInteger(allocatedPersonalKm)) throw new Error("maintenance_daily_personal_km_total_invalid");
+      if (!Number.isSafeInteger(entry.businessKm) || entry.businessKm < 0) throw new Error("maintenance_daily_business_km_invalid");
+      if (entry.allocationStatus === "allocated") allocatedKm += entry.businessKm;
+      else if (entry.allocationStatus === "awaiting_operational_boundary") unallocatedKm += entry.businessKm;
+      else throw new Error("maintenance_daily_business_km_allocation_invalid");
+      if (!Number.isSafeInteger(allocatedKm) || !Number.isSafeInteger(unallocatedKm)) throw new Error("maintenance_daily_business_km_total_invalid");
+    }
+    if (unallocatedKm !== 0 || source.unallocatedBusinessKm !== 0 || source.totalBusinessKm !== allocatedKm) {
+      throw new Error("maintenance_daily_business_km_not_fully_allocated");
+    }
+    const id = "feature:maintenance:daily-accrual:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
+    const matchesSourceSnapshot = (record: RecordEnvelope<MaintenanceRecordV1> | undefined) => {
+      if (!record || record.data.kind !== "daily_accrual") return false;
+      return record.data.vehicleId === input.vehicleId &&
+        record.data.operationalDate === input.operationalDate &&
+        record.data.dailyBusinessKmRecordId === dailyBusinessKmRecordId &&
+        record.data.dailyBusinessKmRevision === daily.revision &&
+        record.data.businessKm === allocatedKm &&
+        (record.data.personalKm ?? 0) === allocatedPersonalKm;
+    };
+    // A committed accrual owns its effective-rate snapshot. Replays must return
+    // that snapshot even if an Admin later appends another rate for the same day.
+    const existing = await this.records.get(id);
+    if (existing) {
+      if (!matchesSourceSnapshot(existing)) throw new Error("maintenance_daily_accrual_immutable_conflict");
+      return existing as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    }
+    const rate = await this.getRateForDate(input.vehicleId, input.operationalDate);
+    const data: MaintenanceDailyAccrualV1 = {
+      schemaVersion: 1, kind: "daily_accrual", vehicleId: input.vehicleId, operationalDate: input.operationalDate,
+      dailyBusinessKmRecordId, dailyBusinessKmRevision: daily.revision, businessKm: allocatedKm,
+      personalKm: allocatedPersonalKm, personalAmountPaise: allocatedPersonalKm * rate.ratePaisePerKm,
+      rateEffectiveFrom: rate.effectiveFrom, ratePaisePerKm: rate.ratePaisePerKm,
+      amountPaise: allocatedKm * rate.ratePaisePerKm,
+    };
+    if (!Number.isSafeInteger(data.amountPaise) || !Number.isSafeInteger(data.personalAmountPaise)) {
+      throw new Error("maintenance_daily_accrual_amount_out_of_range");
+    }
+    try {
+      return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    } catch (error) {
+      const raced = await this.records.get(id);
+      if (matchesSourceSnapshot(raced)) return raced as RecordEnvelope<MaintenanceDailyAccrualV1>;
+      throw error;
+    }
+  }
+
   async listVehicleRecords(vehicleId: string): Promise<{
+    accruals: readonly RecordEnvelope<MaintenanceDailyAccrualV1>[];
     visits: readonly RecordEnvelope<MaintenanceVisitV1>[];
     expenses: readonly RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     rateHistory: readonly MaintenanceRateHistoryEntry[];
@@ -211,10 +289,12 @@ export class MaintenanceService {
     await this.requireVehicle(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
+    const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];
     const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
     const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     const rate = await this.getRateHistory(vehicleId);
     return {
+      accruals: Object.freeze(accruals.sort((a, b) => b.data.operationalDate.localeCompare(a.data.operationalDate))),
       visits: Object.freeze(visits.sort((a, b) => b.data.maintenanceDate.localeCompare(a.data.maintenanceDate))),
       expenses: Object.freeze(expenses.sort((a, b) => b.data.expenseDate.localeCompare(a.data.expenseDate))),
       rateHistory: rate.entries,

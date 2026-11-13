@@ -6,6 +6,7 @@ import {
   assertComplianceRecordV1,
   complianceRecordId,
   type ComplianceRecordV1,
+  type ComplianceOverlapReviewV1,
 } from "../packages/features/compliance";
 
 const vehicleId = "feature:vehicle:MH01AB1234";
@@ -87,5 +88,67 @@ describe("Compliance inclusive date and coverage analysis", () => {
     expect(result.status).toBe("overlap_review_required");
     expect(result.total).toBeNull();
     expect(result.breakdown).toHaveLength(2);
+  });
+});
+
+
+describe("Compliance overlap-confirmed daily allocation", () => {
+  it("includes both actual source allocations only after a current explicit confirmation", () => {
+    const firstId = "feature:compliance:123e4567-e89b-42d3-a456-426614174000";
+    const secondId = "feature:compliance:123e4567-e89b-42d3-a456-426614174001";
+    const records = [
+      { ...record(firstId, { validFrom: "2024-01-01", validTo: "2024-01-10", totalCostPaise: 1000 }), revision: 1 },
+      { ...record(secondId, { validFrom: "2024-01-05", validTo: "2024-01-20", totalCostPaise: 2000 }), revision: 1 },
+    ];
+    const review: ComplianceOverlapReviewV1 = {
+      schemaVersion: 1,
+      eventId: "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174010",
+      sourceRecords: [
+        { recordId: firstId, recordRevision: 1 },
+        { recordId: secondId, recordRevision: 1 },
+      ],
+      from: "2024-01-05",
+      to: "2024-01-10",
+      decision: "confirmed",
+      decisionRevision: 1,
+      actor: { actorId: "admin-1", role: "admin" },
+      rationale: "Separate valid policies were verified.",
+      recordedAt: "2024-01-21T12:00:00.000Z",
+    };
+    const pending = calculateDailyComplianceCost(records, vehicleId, "2024-01-07");
+    expect(pending.status).toBe("overlap_review_required");
+    expect(pending.total).toBeNull();
+    const confirmed = calculateDailyComplianceCost(records, vehicleId, "2024-01-07", [review]);
+    expect(confirmed.status).toBe("available");
+    expect(confirmed.total).toEqual({ numeratorPaise: "225", denominator: "1" });
+    expect(confirmed.overlaps[0].reviewStatus).toBe("confirmed");
+  });
+
+  it("treats a decision tied to an older source revision as stale", () => {
+    const firstId = "feature:compliance:123e4567-e89b-42d3-a456-426614174000";
+    const secondId = "feature:compliance:123e4567-e89b-42d3-a456-426614174001";
+    const records = [
+      { ...record(firstId, { validFrom: "2024-01-01", validTo: "2024-01-10" }), revision: 2 },
+      { ...record(secondId, { validFrom: "2024-01-05", validTo: "2024-01-20" }), revision: 1 },
+    ];
+    const stale: ComplianceOverlapReviewV1 = {
+      schemaVersion: 1,
+      eventId: "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174010",
+      sourceRecords: [
+        { recordId: firstId, recordRevision: 1 },
+        { recordId: secondId, recordRevision: 1 },
+      ],
+      from: "2024-01-05",
+      to: "2024-01-10",
+      decision: "confirmed",
+      decisionRevision: 1,
+      actor: { actorId: "admin-1", role: "admin" },
+      rationale: "Earlier review.",
+      recordedAt: "2024-01-21T12:00:00.000Z",
+    };
+    const result = calculateDailyComplianceCost(records, vehicleId, "2024-01-07", [stale]);
+    expect(result.status).toBe("overlap_review_required");
+    expect(result.total).toBeNull();
+    expect(result.overlaps[0].reviewStatus).toBe("stale");
   });
 });

@@ -6,7 +6,7 @@ import java.time.OffsetDateTime
 
 /** Native mirror of the persisted Work command, intent, state and Log Book event contracts. */
 internal object DriverWorkflowContract {
-    private val eventTypes = setOf("shift_start", "shift_end", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")
+    private val eventTypes = setOf("shift_start", "shift_end", "shift_rotate", "trip_start", "trip_end", "ride_cancel", "trip_create", "start_ride", "end_ride", "cancel_ride")
     private val states = setOf("idle", "shift_active", "going_to_pickup", "trip_active", "approach_active", "needs_attention")
     private val surfaces = setOf("pwa", "native_overlay")
     private val intentStatuses = setOf("pending_location", "needs_attention", "recorded", "rejected")
@@ -30,7 +30,24 @@ internal object DriverWorkflowContract {
         val workflowVersion=if(command.has("workflowVersion")) integer(command,"workflowVersion") else 1L
         require(workflowVersion==1L||workflowVersion==2L) { "invalid_workflow_version" }
         if(eventType in setOf("trip_create","start_ride","end_ride","cancel_ride"))require(workflowVersion==2L) { "invalid_workflow_version" }
-        if(workflowVersion==2L)require(eventType in setOf("shift_start","shift_end","trip_create","start_ride","end_ride","cancel_ride")) { "invalid_workflow_version" }
+        if(workflowVersion==2L)require(eventType in setOf("shift_start","shift_end","shift_rotate","trip_create","start_ride","end_ride","cancel_ride")) { "invalid_workflow_version" }
+        if(workflowVersion==2L&&(eventType=="shift_start"||eventType=="shift_end"||eventType=="shift_rotate")) {
+            val odometer=command.optJSONObject("odometer")?:error("shift_odometer_required")
+            val allowed=setOf("schemaVersion","readingKm","previousConfirmedKm","personalKm","businessKm")
+            require(odometer.keys().asSequence().toSet().all{it in allowed}&&odometer.optInt("schemaVersion",-1)==1) { "shift_odometer_invalid" }
+            fun validKm(key:String,required:Boolean=false):Long? {
+                if(!odometer.has(key)) { require(!required){"shift_odometer_invalid"};return null }
+                val value=odometer.opt(key) as? Number?:error("shift_odometer_invalid")
+                val number=value.toDouble()
+                require(number.isFinite()&&number%1.0==0.0&&number>=0.0&&number<=9_007_199_254_740_991.0) { "shift_odometer_invalid" }
+                return number.toLong()
+            }
+            validKm("readingKm",true)
+            if(eventType=="shift_start") { require(!odometer.has("businessKm")){"shift_start_odometer_invalid"};validKm("previousConfirmedKm");validKm("personalKm") }
+            else { require(!odometer.has("previousConfirmedKm")&&!odometer.has("personalKm")){"shift_end_odometer_invalid"};validKm("businessKm",true) }
+        } else require(!command.has("odometer")) { "unexpected_shift_odometer" }
+        if(eventType=="shift_rotate") { val r=command.optJSONObject("rotation")?:error("invalid_shift_rotation");require(r.keys().asSequence().toSet()==setOf("schemaVersion","outgoingShiftId","outgoingShiftStartedAt","outgoingStartOdometerKm","boundaryAt")&&r.optInt("schemaVersion",-1)==1&&r.optString("outgoingShiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&r.optLong("outgoingStartOdometerKm",-1L)>=0L){"invalid_shift_rotation"};parseInstant(r.optString("outgoingShiftStartedAt"),"invalid_shift_rotation");parseInstant(r.optString("boundaryAt"),"invalid_shift_rotation") } else require(!command.has("rotation")) { "unexpected_shift_rotation" }
+
         if (command.has("driverContext")) {
             require((eventType=="trip_start"&&workflowVersion==1L)||(eventType=="shift_start"&&workflowVersion==2L)) { "invalid_driver_context" }
             val driver=command.optJSONObject("driverContext")?:error("invalid_driver_context")
@@ -70,6 +87,13 @@ internal object DriverWorkflowContract {
         }
         if(state.has("shiftId"))require(state.optString("shiftId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_shift_id" }
         if(state.has("activeTripId"))require(state.optString("activeTripId").matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_trip_id" }
+        listOf("shiftStartOdometerKm","lastConfirmedOdometerKm").forEach { key ->
+            if(state.has(key)) {
+                val value=state.opt(key) as? Number?:error("invalid_driver_state_odometer")
+                require(value.toDouble().isFinite()&&value.toDouble()%1.0==0.0&&value.toDouble()>=0.0) { "invalid_driver_state_odometer" }
+            }
+        }
+
         if (state.has("shiftAuthor")) {
             val author = state.optJSONObject("shiftAuthor") ?: error("invalid_driver_state_author")
             require(author.keys().asSequence().toSet() == setOf("personId", "role") &&

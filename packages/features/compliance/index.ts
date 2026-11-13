@@ -18,3 +18,18 @@ export type {
   PaiseFraction,
 } from "./analysis";
 export { COMPLIANCE_FEATURE, COMPLIANCE_FEATURE_EXTENSION } from "./runtime";
+
+export {
+  assertComplianceOverlapReviewV1,
+  complianceOverlapReviewId,
+  resolveComplianceOverlapReview,
+} from "./overlap-review";
+export type {
+  ComplianceOverlapReviewActorV1,
+  ComplianceOverlapReviewSourceV1,
+  ComplianceOverlapReviewStatus,
+  ComplianceOverlapReviewV1,
+} from "./overlap-review";
+
+export { ComplianceOverlapReviewService } from "./overlap-review-service";
+export type { ComplianceOverlapReviewActorProvider } from "./overlap-review-service";

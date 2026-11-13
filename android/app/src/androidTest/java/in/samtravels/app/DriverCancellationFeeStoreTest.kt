@@ -58,7 +58,7 @@ class DriverCancellationFeeStoreTest {
         val context=JSONObject().put("schemaVersion",1).put("driverId","driver-1")
             .put("assignmentId","assignment-1").put("vehicleId","feature:vehicle:vehicle-1")
         val state=JSONObject().put("schemaVersion",1).put("revision",1).put("state","shift_active")
-            .put("shiftStartedAt",now).put("shiftId","shift-1").put("shiftContext",context)
+            .put("shiftStartedAt",now).put("shiftStartOdometerKm",100).put("lastConfirmedOdometerKm",100).put("shiftId","shift-1").put("shiftContext",context)
         db.records().put(StoredRecord("driver-state",JSONObject().put("value",state).toString(),1,now))
         val selected=JSONObject().put("id","work:selected-driver").put("schemaVersion",1)
             .put("createdAt",now).put("updatedAt",now).put("source","android").put("revision",1)
@@ -79,6 +79,7 @@ class DriverCancellationFeeStoreTest {
         assertFalse(obligation.getJSONObject("data").has("parking"))
 
         val end=v2Command("shift-end-1","shift_end","shift_active",3,java.time.Instant.now().toString())
+            .put("odometer",JSONObject().put("schemaVersion",1).put("readingKm",100).put("businessKm",0))
         assertEquals("trip_cancellation_fee_required",
             runCatching { DriverWorkflowStore.queue(db,end) }.exceptionOrNull()?.message)
 

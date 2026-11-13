@@ -56,7 +56,13 @@ describe("shared driver workflow parity and interruption contract", () => {
     });
     const send = async (type: "shift_start" | "trip_create" | "end_ride" | "shift_end", id: string, offset: number) => {
       const at = new Date(base + offset).toISOString();
-      const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, at);
+      const snapshot = await repository.getSnapshot();
+      const odometer = type === "shift_start"
+        ? { schemaVersion: 1 as const, readingKm: 1000 }
+        : type === "shift_end"
+          ? { schemaVersion: 1 as const, readingKm: (snapshot.shiftStartOdometerKm ?? 1000) + 100, businessKm: 100 }
+          : undefined;
+      const command = createDriverCommandV2(snapshot, type, "pwa", id, at, odometer);
       const result = await service.dispatch(command);
       expect(result.status).toBe("recorded");
       return result.snapshot;
@@ -122,7 +128,13 @@ describe("shared driver workflow parity and interruption contract", () => {
     let repository = new DexieDriverWorkflowRepository();
     await new WorkDriverSelectionService(new DexieRecordRepository(), repository).selectDriver("boundary-driver");
     const commit = async (type: "shift_start" | "trip_create" | "start_ride" | "end_ride" | "shift_end", id: string, at: string) => {
-      const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, at);
+      const snapshot = await repository.getSnapshot();
+      const odometer = type === "shift_start"
+        ? { schemaVersion: 1 as const, readingKm: 1000 }
+        : type === "shift_end"
+          ? { schemaVersion: 1 as const, readingKm: (snapshot.shiftStartOdometerKm ?? 1000) + 100, businessKm: 100 }
+          : undefined;
+      const command = createDriverCommandV2(snapshot, type, "pwa", id, at, odometer);
       await repository.queueIntent({ command, status: "pending_location", createdAt: at, updatedAt: at });
       return repository.completeIntent(id, gpsAt(at), at);
     };
@@ -138,6 +150,9 @@ describe("shared driver workflow parity and interruption contract", () => {
     const ended = await commit("shift_end", "boundary-shift-end", "2026-11-08T22:30:03.000Z");
     expect(ended.state).toBe("idle");
     expect(ended.revision).toBe(5);
+    const dailyDistance=(await browserDatabase.records.toArray()).find(row=>row.id.startsWith("work:daily-business-km:"));
+    expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:0,unallocatedBusinessKm:100});
+    expect((dailyDistance?.data as {entries:Array<{allocationStatus:string}>}).entries[0].allocationStatus).toBe("awaiting_operational_boundary");
   });
 });
 
@@ -149,6 +164,10 @@ async function sendAfterRecovery(
   atMs: number,
 ) {
   const at = new Date(atMs).toISOString();
-  const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, at);
+  const snapshot = await repository.getSnapshot();
+  const odometer = type === "shift_end"
+    ? { schemaVersion: 1 as const, readingKm: (snapshot.shiftStartOdometerKm ?? 1000) + 100, businessKm: 100 }
+    : undefined;
+  const command = createDriverCommandV2(snapshot, type, "pwa", id, at, odometer);
   return service.dispatch(command);
 }

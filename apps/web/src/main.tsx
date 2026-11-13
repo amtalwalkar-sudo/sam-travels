@@ -7,6 +7,8 @@ import {
   getApplicationDriverRecordsService,
   getApplicationDriverAssignmentService,
   getApplicationComplianceService,
+  getApplicationComplianceAnalysisService,
+  initializeApplicationComplianceAnalysisService,
   getApplicationMaintenanceService,
   getApplicationFinanceLoanService,
   getApplicationFinanceLoanPaymentService,
@@ -43,7 +45,7 @@ import {
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
-import { assertComplianceRecordV1 } from "../../../packages/features/compliance";
+import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
 import {
   assertMaintenanceRecordV1,
   calculateMaintenanceVisitTotal,
@@ -61,6 +63,7 @@ import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { App } from "./ui/App";
+import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
@@ -90,6 +93,19 @@ async function bootstrap(): Promise<void> {
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
+    currentActor: async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { actorId: actor.actorId, role: actor.role };
+    },
+  }, getApplicationRecordSource());
+  initializeApplicationComplianceAnalysisService(
+    getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
+      analyzeCoverage: analyzeComplianceCoverage,
+      resolveOverlap: resolveComplianceOverlapReview,
+      calculateDailyCost: calculateDailyComplianceCost,
+    },
+  );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
@@ -326,6 +342,7 @@ async function bootstrap(): Promise<void> {
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
     compliance: getApplicationComplianceService(),
+    complianceAnalysis: getApplicationComplianceAnalysisService(),
     maintenance: getApplicationMaintenanceService(),
     financeLoans: getApplicationFinanceLoanService(),
     financeLoanPayments: getApplicationFinanceLoanPaymentService(),
@@ -335,7 +352,9 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+      <AdminServicesProvider services={adminServices} identityRecords={repository}>
+        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+      </AdminServicesProvider>
     </React.StrictMode>,
   );
 }

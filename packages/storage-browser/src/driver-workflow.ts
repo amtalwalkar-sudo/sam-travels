@@ -18,7 +18,16 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  private listeners=new Set<(s:DriverStateProjection)=>void>();
  async getSnapshot(){const value=(await states().get("driver-state"))?.value??EMPTY_DRIVER_STATE;assertDriverStateContract(value);return value}
  async queueIntent(intent:DriverIntent){assertDriverIntentContract(intent);if(intent.status!=="pending_location")throw new Error("invalid_driver_intent");return browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),async()=>{const old=await intents().get(intent.command.eventId);if(old){assertDriverIntentContract(old);if(!sameCommand(old.command,intent.command))throw new Error("duplicate_command_id_conflict");return old}const existing=await intents().toArray();existing.forEach(assertDriverIntentContract);if(existing.some(i=>i.command.eventId!==intent.command.eventId&&(i.command.commandId===intent.command.commandId||i.command.idempotencyKey===intent.command.idempotencyKey)))throw new Error("duplicate_command_identity_conflict");const s=await this.getSnapshot();
- if(intent.command.eventType==="shift_end"){
+ if(intent.command.workflowVersion===2&&intent.command.eventType==="shift_start"&&intent.command.odometer){
+  const previous=s.lastConfirmedOdometerKm,odometer=intent.command.odometer;
+  if(previous!==undefined&&(odometer.readingKm<previous||odometer.previousConfirmedKm!==previous||odometer.personalKm!==odometer.readingKm-previous))throw new Error("shift_start_odometer_invalid");
+  if(previous===undefined&&(odometer.previousConfirmedKm!==undefined||odometer.personalKm!==undefined))throw new Error("shift_start_odometer_invalid");
+ }
+ if(intent.command.workflowVersion===2&&(intent.command.eventType==="shift_end"||intent.command.eventType==="shift_rotate")&&intent.command.odometer){
+  const start=s.shiftStartOdometerKm,odometer=intent.command.odometer;
+  if(start===undefined||odometer.readingKm<start||odometer.businessKm!==odometer.readingKm-start)throw new Error("shift_end_odometer_invalid");
+ }
+ if(intent.command.eventType==="shift_end"||intent.command.eventType==="shift_rotate"){
   const outstanding=(await browserDatabase.records.toArray()).some(record=>
    record.id.startsWith("work:trip-financial-obligation:")&&
    (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
@@ -31,7 +40,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
  async listPending(){const pending=await intents().where("status").anyOf("pending_location","needs_attention").toArray();pending.forEach(assertDriverIntentContract);return pending}
  async completeIntent(id:string,gps:GpsFix,now=new Date().toISOString()){
   const snapshot=await browserDatabase.transaction("rw",browserDatabase.records,states(),intents(),events(),outbox(),async()=>{const intent=await intents().get(id);if(!intent)throw new Error("intent_missing");assertDriverIntentContract(intent);if(intent.status==="recorded"){const recorded=await events().get(id);if(!recorded)throw new Error("recorded_event_missing");assertDriverEventContract(recorded);if(!sameCommand(recorded.command,intent.command))throw new Error("recorded_event_identity_conflict");const durableOutbox=await outbox().get("driver-state:"+recorded.revision);if(!durableOutbox)throw new Error("recorded_outbox_missing");assertDriverOutboxContract(durableOutbox);if(durableOutbox.eventId!==id)throw new Error("recorded_outbox_identity_conflict");return this.getSnapshot()}if(intent.status!=="pending_location")throw new Error("intent_not_pending");const current=await this.getSnapshot();
-   if(intent.command.eventType==="shift_end"){
+   if(intent.command.eventType==="shift_end"||intent.command.eventType==="shift_rotate"){
     const outstanding=(await browserDatabase.records.toArray()).some(record=>
      record.id.startsWith("work:trip-financial-obligation:")&&
      (record.data as {kind?:string;status?:string}).kind==="cancellation_fee"&&
@@ -63,6 +72,26 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     await browserDatabase.records.put({id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
      data:{schemaVersion:1,tripId,kind:"completed_ride_financials",status:"pending",endRideEventId:id,createdAt:now,tripContext:current.tripContext}});
    }
+   if(command.workflowVersion===2&&(command.eventType==="shift_end"||command.eventType==="shift_rotate")){
+    if(!current.shiftId||!current.shiftContext||!current.shiftStartedAt||current.shiftStartOdometerKm===undefined||!command.odometer)throw new Error("shift_odometer_snapshot_missing");
+    const vehicleId=current.shiftContext.vehicleId;
+    const operationalDate=operationalDateAt(current.shiftStartedAt);
+    const id="work:daily-business-km:"+encodeURIComponent(vehicleId)+":"+operationalDate;
+    const existing=await browserDatabase.records.get(id);
+    const previousData=existing?.data as {schemaVersion?:number;kind?:string;vehicleId?:string;operationalDate?:string;entries?:Array<Record<string,unknown>>;totalBusinessKm?:number;unallocatedBusinessKm?:number}|undefined;
+    if(existing&&(!previousData||previousData.schemaVersion!==1||previousData.kind!=="daily_business_kilometres"||previousData.vehicleId!==vehicleId||previousData.operationalDate!==operationalDate||!Array.isArray(previousData.entries)))throw new Error("daily_business_km_record_invalid");
+    const entries=[...(previousData?.entries??[])];
+    if(entries.some(entry=>entry.shiftId===current.shiftId))throw new Error("daily_business_km_duplicate_shift");
+    const allocationStatus=command.eventType==="shift_rotate"||operationalDateAt(command.transitionAt)===operationalDate?"allocated":"awaiting_operational_boundary";
+    const shiftEndedAt=command.eventType==="shift_rotate"?command.rotation!.boundaryAt:command.transitionAt;
+    entries.push({shiftId:current.shiftId,shiftStartEventId:current.shiftId,shiftEndEventId:command.eventId,shiftStartedAt:current.shiftStartedAt,shiftEndedAt,
+      startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm,personalKm:current.shiftStartPersonalKm??0,allocationStatus});
+    const totalBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="allocated"?Number(entry.businessKm):0),0);
+    const unallocatedBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="awaiting_operational_boundary"?Number(entry.businessKm):0),0);
+    if(!Number.isSafeInteger(totalBusinessKm)||!Number.isSafeInteger(unallocatedBusinessKm))throw new Error("daily_business_km_total_out_of_range");
+    await browserDatabase.records.put({id,schemaVersion:1,createdAt:existing?.createdAt??now,updatedAt:now,source:"integration",revision:(existing?.revision??0)+1,
+      data:{schemaVersion:1,kind:"daily_business_kilometres",vehicleId,operationalDate,entries,totalBusinessKm,unallocatedBusinessKm}});
+   }
    if(command.workflowVersion===2){
     if(command.eventType==="shift_start"){
      const selected=await browserDatabase.records.get("work:selected-driver");
@@ -71,6 +100,14 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
      if(data.lockedShiftId)throw new Error("work_driver_selection_locked_during_shift");
      await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:{...data,lockedShiftId:command.eventId}});
      next.shiftId=command.eventId;next.shiftContext=command.driverContext;
+    } else if(command.eventType==="shift_rotate"){
+     const selected=await browserDatabase.records.get("work:selected-driver");
+     if(!selected||!current.shiftId||!current.shiftContext||!command.rotation||!command.odometer)throw new Error("work_shift_context_missing");
+     const data=selected.data as {schemaVersion:number;driverId:string;lockedShiftId?:string};
+     if(data.lockedShiftId!==current.shiftId)throw new Error("work_driver_shift_lock_mismatch");
+     await browserDatabase.records.put({...selected,revision:selected.revision+1,updatedAt:now,data:{...data,lockedShiftId:command.eventId}});
+     next.shiftStartedAt=command.rotation.boundaryAt;next.shiftId=command.eventId;next.shiftContext=current.shiftContext;
+     next.shiftStartOdometerKm=command.odometer.readingKm;next.lastConfirmedOdometerKm=command.odometer.readingKm;
     } else if(command.eventType==="shift_end"){
      const selected=await browserDatabase.records.get("work:selected-driver");
      if(current.shiftId){

@@ -7,6 +7,7 @@ import {
   maintenanceBusinessDateFromInstant,
 } from "../packages/features/maintenance";
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
+import { accrueMaintenanceForCompletedWorkDay } from "../packages/application/src/maintenance-daily-accrual-integration";
 
 class MemoryRepository implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -32,11 +33,12 @@ const vehicle: RecordEnvelope<{ lifecycleState: string }> = {
 function setup() {
   let now = "2026-11-02T10:00:00.000Z";
   const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+  const repository = new MemoryRepository();
   const service = new MaintenanceService(
-    new MemoryRepository(), assertMaintenanceRecordV1, vehicles,
+    repository, assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => now,
   );
-  return { service, setNow(value: string) { now = value; } };
+  return { service, repository, setNow(value: string) { now = value; } };
 }
 
 const visitInput = {
@@ -151,4 +153,100 @@ describe("MaintenanceService", () => {
     expect(afterReading[0].kilometreStatus).toBe("due");
     expect(afterReading[0].latestOdometerKm).toBe(50200);
   });
+  it("creates one immutable daily accrual only from fully allocated kilometres and snapshots the effective rate", async () => {
+    const { service, repository, setNow } = setup();
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await repository.put({
+      id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-02T08:00:00.000Z",
+      source: "integration", revision: 2,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
+        entries: [{ shiftId: "shift-a", businessKm: 120, personalKm: 50, allocationStatus: "allocated" }],
+        totalBusinessKm: 120, unallocatedBusinessKm: 0 },
+    });
+    await service.setRate({ vehicleId, ratePaisePerKm: 300, commandId: "123e4567-e89b-42d3-a456-426614174099", source: "web" });
+    const first = await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" });
+    expect(first.data).toMatchObject({ businessKm: 120, personalKm: 50, personalAmountPaise: 15000, ratePaisePerKm: 300, amountPaise: 36000, dailyBusinessKmRevision: 2 });
+    expect((await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" })).id).toBe(first.id);
+    setNow("2026-11-03T10:00:00.000Z");
+    await service.setRate({ vehicleId, ratePaisePerKm: 400, commandId: "123e4567-e89b-42d3-a456-426614174098", source: "web" });
+    expect((await service.listVehicleRecords(vehicleId)).accruals[0].data.ratePaisePerKm).toBe(300);
+  });
+
+  it("automatically accrues only a completed 04:00 Work day and replays the immutable rate snapshot", async () => {
+    const { service, repository, setNow } = setup();
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await repository.put({
+      id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-03T00:00:00.000Z",
+      source: "integration", revision: 3,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
+        entries: [{ shiftId: "shift-closed", shiftEndEventId: "rotation-closed", businessKm: 80,
+          personalKm: 15, allocationStatus: "allocated" }],
+        totalBusinessKm: 80, unallocatedBusinessKm: 0 },
+    });
+    await service.setRate({ vehicleId, ratePaisePerKm: 300,
+      commandId: "123e4567-e89b-42d3-a456-426614174088", source: "web" });
+    const event = {
+      eventId: "rotation-closed",
+      command: {
+        schemaVersion: 1, workflowVersion: 2, commandId: "rotation-closed", eventId: "rotation-closed",
+        eventType: "shift_rotate", originSurface: "pwa", transitionAt: "2026-11-03T00:00:00.000Z",
+        expectedPriorState: "shift_active", expectedRevision: 2, idempotencyKey: "rotation-closed",
+        odometer: { schemaVersion: 1, readingKm: 45100, businessKm: 80 },
+        rotation: { schemaVersion: 1, outgoingShiftId: "shift-closed",
+          outgoingShiftStartedAt: "2026-11-02T06:00:00.000Z", outgoingStartOdometerKm: 45020,
+          boundaryAt: "2026-11-03T00:00:00.000Z" },
+      },
+      gps: { latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8,
+        fixAt: "2026-11-03T00:00:00.000Z", provider: "test" },
+      committedAt: "2026-11-03T00:00:00.000Z", revision: 3,
+    } as import("../packages/domain/src/driver-workflow").DriverEvent;
+
+    const first = await accrueMaintenanceForCompletedWorkDay({
+      event, records: repository, maintenance: service, source: "integration",
+    });
+    expect(first?.data).toMatchObject({
+      businessKm: 80, personalKm: 15, ratePaisePerKm: 300,
+      amountPaise: 24000, personalAmountPaise: 4500, dailyBusinessKmRevision: 3,
+    });
+    const replay = await accrueMaintenanceForCompletedWorkDay({
+      event, records: repository, maintenance: service, source: "integration",
+    });
+    expect(replay?.id).toBe(first?.id);
+
+    // A later same-day rate revision must not rewrite the already committed
+    // daily accrual or make its outbox replay fail.
+    setNow("2026-11-02T11:00:00.000Z");
+    await service.setRate({ vehicleId, ratePaisePerKm: 400,
+      commandId: "123e4567-e89b-42d3-a456-426614174087", source: "web" });
+    const afterRateChange = await accrueMaintenanceForCompletedWorkDay({
+      event, records: repository, maintenance: service, source: "integration",
+    });
+    expect(afterRateChange?.data.ratePaisePerKm).toBe(300);
+    expect(afterRateChange?.data.amountPaise).toBe(24000);
+
+    const ordinaryShiftEnd = {
+      ...event,
+      eventId: "ordinary-shift-end",
+      command: { ...event.command, eventId: "ordinary-shift-end", commandId: "ordinary-shift-end",
+        idempotencyKey: "ordinary-shift-end", eventType: "shift_end" },
+    } as import("../packages/domain/src/driver-workflow").DriverEvent;
+    expect(await accrueMaintenanceForCompletedWorkDay({
+      event: ordinaryShiftEnd, records: repository, maintenance: service, source: "integration",
+    })).toBeUndefined();
+  });
+
+  it("rejects daily accrual when a contribution awaits the operational boundary", async () => {
+    const { service, repository } = setup();
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await repository.put({
+      id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-02T08:00:00.000Z",
+      source: "integration", revision: 1,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
+        entries: [{ shiftId: "shift-a", businessKm: 25, allocationStatus: "awaiting_operational_boundary" }],
+        totalBusinessKm: 0, unallocatedBusinessKm: 25 },
+    });
+    await expect(service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" }))
+      .rejects.toThrow("maintenance_daily_business_km_not_fully_allocated");
+  });
+
 });

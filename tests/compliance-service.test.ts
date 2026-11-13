@@ -67,7 +67,22 @@ describe("ComplianceService", () => {
     })).rejects.toThrow("compliance_vehicle_not_found");
   });
 
-  it("rejects renewals without a matching, earlier predecessor", async () => {
+  it("allows an early linked renewal with actual overlapping dates", async () => {
+    const { service } = setup();
+    const previous = await service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174000", data: first, source: "web",
+    });
+    const renewal = await service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174002",
+      data: { ...second, validFrom: "2024-12-01", validTo: "2025-11-30" },
+      source: "web",
+    });
+    expect(renewal.data.validFrom).toBe("2024-12-01");
+    expect(renewal.data.renewedFromRecordId).toBe(previous.id);
+    await expect(service.list()).resolves.toHaveLength(2);
+  });
+
+  it("rejects renewals without a matching predecessor", async () => {
     const { service } = setup();
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174001", data: second, source: "web",
@@ -76,13 +91,9 @@ describe("ComplianceService", () => {
       uuid: "123e4567-e89b-42d3-a456-426614174000", data: first, source: "web",
     });
     await expect(service.create({
-      uuid: "123e4567-e89b-42d3-a456-426614174002",
+      uuid: "123e4567-e89b-42d3-a456-426614174003",
       data: { ...second, vehicleId: "feature:vehicle:MH02CD5678" }, source: "web",
     })).rejects.toThrow("compliance_renewal_source_mismatch");
-    await expect(service.create({
-      uuid: "123e4567-e89b-42d3-a456-426614174003",
-      data: { ...second, validFrom: "2024-12-01" }, source: "web",
-    })).rejects.toThrow("compliance_renewal_period_not_after_previous");
   });
 
   it("rejects a corrupt stored renewal link during listing", async () => {

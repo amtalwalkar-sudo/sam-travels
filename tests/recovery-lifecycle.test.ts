@@ -154,7 +154,8 @@ describe("Stage 4 recovery lifecycle", () => {
     await new WorkDriverSelectionService(new DexieRecordRepository(), repository, () => timestamp).selectDriver("restore-driver");
 
     const shiftAt = new Date(Date.now() - 4_000).toISOString();
-    const shift = createDriverCommandV2(await repository.getSnapshot(), "shift_start", "pwa", "restore-active-shift", shiftAt);
+    const shift = createDriverCommandV2(await repository.getSnapshot(), "shift_start", "pwa", "restore-active-shift", shiftAt,
+      { schemaVersion: 1, readingKm: 12000 });
     await repository.queueIntent({ command: shift, status: "pending_location", createdAt: shiftAt, updatedAt: shiftAt });
     await repository.completeIntent(shift.eventId, {
       latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: shiftAt, provider: "browser-geolocation",

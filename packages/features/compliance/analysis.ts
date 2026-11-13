@@ -3,8 +3,13 @@ import {
   isComplianceCalendarDate,
   type ComplianceRecordV1,
 } from "./records";
+import {
+  resolveComplianceOverlapReview,
+  type ComplianceOverlapReviewStatus,
+  type ComplianceOverlapReviewV1,
+} from "./overlap-review";
 
-export type ComplianceRecordRef = Readonly<{ id: string; data: ComplianceRecordV1 }>;
+export type ComplianceRecordRef = Readonly<{ id: string; data: ComplianceRecordV1; revision?: number }>;
 export type ComplianceGap = Readonly<{ from: string; to: string; days: number }>;
 export type ComplianceOverlap = Readonly<{
   firstRecordId: string;
@@ -112,11 +117,12 @@ export function calculateDailyComplianceCost(
   records: readonly ComplianceRecordRef[],
   vehicleId: string,
   businessDate: string,
+  overlapReviews: readonly ComplianceOverlapReviewV1[] = [],
 ): Readonly<{
   status: "available" | "overlap_review_required";
   total: PaiseFraction | null;
   breakdown: readonly Readonly<{ recordId: string; complianceName: string; cost: PaiseFraction }>[];
-  overlaps: readonly ComplianceOverlap[];
+  overlaps: readonly (ComplianceOverlap & { reviewStatus: ComplianceOverlapReviewStatus })[];
 }> {
   dayNumber(businessDate);
   const active = records.filter(record => {
@@ -132,23 +138,37 @@ export function calculateDailyComplianceCost(
       denominator: String(inclusiveValidityDays(record.data.validFrom, record.data.validTo)),
     }),
   }));
-  const overlaps: ComplianceOverlap[] = [];
+  const overlaps: Array<ComplianceOverlap & { reviewStatus: ComplianceOverlapReviewStatus }> = [];
   for (let left = 0; left < active.length; left++) {
     for (let right = left + 1; right < active.length; right++) {
       const a = active[left];
       const b = active[right];
-      if (a.data.complianceName === b.data.complianceName) {
-        overlaps.push({
-          firstRecordId: a.id,
-          secondRecordId: b.id,
-          from: businessDate,
-          to: businessDate,
-          days: 1,
-        });
-      }
+      if (a.data.complianceName !== b.data.complianceName) continue;
+      const from = a.data.validFrom > b.data.validFrom ? a.data.validFrom : b.data.validFrom;
+      const to = a.data.validTo < b.data.validTo ? a.data.validTo : b.data.validTo;
+      const ordered = [
+        { recordId: a.id, recordRevision: a.revision },
+        { recordId: b.id, recordRevision: b.revision },
+      ].sort((x, y) => x.recordId.localeCompare(y.recordId));
+      const hasRevisions = ordered.every(item => Number.isSafeInteger(item.recordRevision) &&
+        (item.recordRevision as number) > 0);
+      const reviewStatus: ComplianceOverlapReviewStatus = hasRevisions
+        ? resolveComplianceOverlapReview(
+            ordered as [{ recordId: string; recordRevision: number }, { recordId: string; recordRevision: number }],
+            from, to, overlapReviews,
+          )
+        : "unreviewed";
+      overlaps.push({
+        firstRecordId: ordered[0].recordId,
+        secondRecordId: ordered[1].recordId,
+        from,
+        to,
+        days: inclusiveValidityDays(from, to),
+        reviewStatus,
+      });
     }
   }
-  if (overlaps.length) return Object.freeze({
+  if (overlaps.some(overlap => overlap.reviewStatus !== "confirmed")) return Object.freeze({
     status: "overlap_review_required",
     total: null,
     breakdown: Object.freeze(breakdown),
@@ -163,6 +183,6 @@ export function calculateDailyComplianceCost(
     status: "available",
     total,
     breakdown: Object.freeze(breakdown),
-    overlaps: Object.freeze([]),
+    overlaps: Object.freeze(overlaps),
   });
 }
