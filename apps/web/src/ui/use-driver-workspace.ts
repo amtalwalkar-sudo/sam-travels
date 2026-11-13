@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
-import { getPlatformRecordSource } from "../native-store";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
 import {
@@ -14,6 +13,7 @@ import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
 import type { MaintenanceService } from "../../../../packages/application/src/maintenance-service";
+import type { FeatureRecordSource } from "../../../../packages/application/src/feature-record-service";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
@@ -21,7 +21,7 @@ import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../.
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, maintenance: MaintenanceService) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, maintenance: MaintenanceService, recordSource: FeatureRecordSource) {
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -93,7 +93,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
             event,
             records: platformRecords,
             maintenance,
-            source: getPlatformRecordSource(),
+            source: recordSource,
           });
           await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, async () => {
             rebuildTripHistoryProjection(await repository.listEvents());
@@ -206,7 +206,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       const link = await getDriverPersonLink(platformRepository, driverId);
       if (!link) throw new Error("Link this Driver profile to an enrolled person before starting work.");
       await getPersonIdentityService().activate(link.personId, "driver");
-      const selected = await selectionService.selectDriver(driverId, getPlatformRecordSource());
+      const selected = await selectionService.selectDriver(driverId, recordSource);
       setSelectedDriverId(selected.driverId);
       setDriverMessage("Work Driver selected");
     } catch (cause) {
