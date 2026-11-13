@@ -23,12 +23,12 @@ const rows = [
   { installmentNumber: 2, dueDate: "2026-02-01", installmentAmountPaise: 2_800 },
   { installmentNumber: 3, dueDate: "2026-03-01", installmentAmountPaise: 3_100 },
 ];
-function createService(options: { settlement?: boolean; overlap?: boolean } = {}, provenanceRepository?: unknown) {
+function createService(options: { settlement?: boolean; overlap?: boolean; records?: typeof complianceRecord[] } = {}, provenanceRepository?: unknown) {
   const overview = {
-    records: options.overlap ? [complianceRecord, {
+    records: options.records ?? (options.overlap ? [complianceRecord, {
       ...complianceRecord, id: "feature:compliance:123e4567-e89b-42d3-a456-426614174002",
       data: { ...complianceRecord.data, validFrom: "2026-02-01", validTo: "2026-03-31" },
-    }] : [complianceRecord],
+    }] : [complianceRecord]),
     reviews: [], gaps: [],
     overlaps: options.overlap ? [{
       vehicleId: complianceRecord.data.vehicleId, complianceName: "Insurance",
@@ -74,6 +74,35 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(report.result.sources.some(item => item.sourceKind === "emi" && item.scheduleVersion === 2)).toBe(true);
     expect(report.result.daily.every(item => item.date >= report.businessStartDate)).toBe(true);
     expect(report.result.monthly.reduce((sum,item)=>sum+item.amountPaise,0)).toBe(10_000);
+  });
+
+  it("restates daily costs when a renewed Compliance record has a changed premium", async () => {
+    const renewal = {
+      ...complianceRecord,
+      id: "feature:compliance:123e4567-e89b-42d3-a456-426614174099",
+      revision: 1,
+      data: {
+        ...complianceRecord.data,
+        validFrom: "2026-03-01",
+        validTo: "2026-03-31",
+        totalCostPaise: 3_100,
+        renewedFromRecordId: complianceRecord.id,
+      },
+    };
+    const report = await createService({ records: [complianceRecord, renewal] }).getReport();
+    const oldSource = report.result.sources.find(item => item.sourceId === complianceRecord.id)!;
+    const renewedSource = report.result.sources.find(item => item.sourceId === renewal.id)!;
+    expect(oldSource.sourceAmountPaise).toBe(1_000);
+    expect(oldSource.eligibleTo).toBe("2026-02-28");
+    expect(renewedSource.sourceAmountPaise).toBe(3_100);
+    expect(renewedSource.eligibleFrom).toBe("2026-03-01");
+    expect(renewedSource.eligibleTo).toBe("2026-03-31");
+    expect(renewedSource.daily).toHaveLength(31);
+    expect(renewedSource.daily.every(item => item.amountPaise === 100)).toBe(true);
+    expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(100);
+    expect(report.result.allocatedAmountPaise).toBe(10_000 + 3_100);
+    expect(complianceRecord.data.totalCostPaise).toBe(1_000);
+    expect(complianceRecord.data.validTo).toBe("2026-02-28");
   });
 
   it("does not truncate scheduled EMI allocation from settlement paid-through payment facts", async () => {
