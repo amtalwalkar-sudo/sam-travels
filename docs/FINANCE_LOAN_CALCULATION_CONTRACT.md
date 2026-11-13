@@ -6,7 +6,7 @@
 **Currency:** INR  
 **Business date:** Asia/Kolkata date supplied by the owning loan record
 
-This contract defines the Finance-owned calculation used by Loan. Admin is a presentation/access point and must call the Finance capability; it must not calculate EMI, interest, principal allocation, outstanding balance, or schedules itself.
+This contract defines the Finance-owned calculation used by Loan. Admin is a presentation/access point and must call the Finance capability; it must not calculate EMI, interest, principal allocation, outstanding balance, or schedules itself. The separate [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) owns how the complete scheduled EMI amount is carried forward and allocated for business reporting; it does not change this loan-balance/amortization calculation.
 
 This contract is deliberately independent of forms, navigation, vehicle selection UI, persistence adapters, Room, and IndexedDB. Those layers may change without changing this calculation's inputs, outputs, or rules.
 
