@@ -38,7 +38,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [prepaymentDate, setPrepaymentDate] = useState(indiaDate());
   const [prepaymentAmount, setPrepaymentAmount] = useState("");
-  const [prepaymentMode, setPrepaymentMode] = useState<FinanceLoanPrepaymentModeV1>("reduce_tenure");
+  const [, setPrepaymentMode] = useState<FinanceLoanPrepaymentModeV1>("reduce_tenure");
   const [prepaymentPreview, setPrepaymentPreview] = useState<FinanceLoanPrepaymentPreviewV1 | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
