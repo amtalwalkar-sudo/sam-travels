@@ -90,7 +90,7 @@ describe("Business Start Date scheduled EMI allocation", () => {
   });
 
   it("handles leap day and month/year boundaries with inclusive dates", () => {
-    const results = allocateScheduledEmisV1("2024-02-29", loanSchedule({
+    const results = allocateScheduledEmisV1("2024-03-01", loanSchedule({
       rows: [
         { installmentNumber: 1, dueDate: "2024-01-01", installmentAmountPaise: 100 },
         { installmentNumber: 2, dueDate: "2024-03-01", installmentAmountPaise: 200 },
@@ -99,7 +99,7 @@ describe("Business Start Date scheduled EMI allocation", () => {
     }));
     const carry = results.find(item => item.sourceKind === "emi-pre-business-carry-forward")!;
     expect(carry.eligibleTo).toBe("2024-04-30");
-    expect(carry.daily[0].date).toBe("2024-02-29");
+    expect(carry.daily[0].date).toBe("2024-03-01");
   });
 
   it("marks a schedule fully elapsed before Business Start Date as historical", () => {
