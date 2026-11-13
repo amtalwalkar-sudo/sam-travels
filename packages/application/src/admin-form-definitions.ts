@@ -195,3 +195,49 @@ export const LOAN_SETTLEMENT_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "previewJson", label: "Service preview", type: "text", required: true, maxLength: 5000 },
   ],
 });
+
+/** Actual platform fees only; never infer a fee percentage from gross income. */
+export const PLATFORM_FEE_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.platform-fee", version: 1, owner: "business-expenses",
+  purpose: "Record an actual platform fee and its settlement source",
+  primaryAction: "save",
+  fields: [
+    { id: "businessDate", label: "Fee date", type: "date", required: true },
+    { id: "amountRupees", label: "Fee amount (₹)", type: "number", required: true },
+    { id: "reference", label: "Trip / settlement reference", type: "text", required: true, maxLength: 240 },
+    { id: "alreadyNettedFromIncome", label: "Already deducted from gross income", type: "checkbox", required: true },
+    { id: "description", label: "Note", type: "text", maxLength: 1000 },
+  ],
+});
+
+/** Miscellaneous costs have an explicit category and optional vehicle/driver attribution. */
+export const MISC_BUSINESS_EXPENSE_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.misc-business-expense", version: 1, owner: "business-expenses",
+  purpose: "Record a miscellaneous business expense",
+  primaryAction: "save",
+  fields: [
+    { id: "businessDate", label: "Expense date", type: "date", required: true },
+    { id: "category", label: "Category", type: "text", required: true, maxLength: 120 },
+    { id: "amountRupees", label: "Amount (₹)", type: "number", required: true },
+    { id: "vehicleId", label: "Vehicle", type: "text", maxLength: 160 },
+    { id: "driverId", label: "Driver", type: "text", maxLength: 160 },
+    { id: "description", label: "Description", type: "text", maxLength: 2000 },
+    { id: "reference", label: "Receipt / source reference", type: "text", maxLength: 240 },
+  ],
+});
+
+/** Traffic challans remain separately identifiable and excluded from normal operating cost. */
+export const TRAFFIC_CHALLAN_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.traffic-challan", version: 1, owner: "business-expenses",
+  purpose: "Record a vehicle traffic challan and payment state",
+  primaryAction: "save",
+  fields: [
+    { id: "businessDate", label: "Issue date", type: "date", required: true },
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true, maxLength: 160 },
+    { id: "driverId", label: "Driver", type: "text", maxLength: 160 },
+    { id: "amountRupees", label: "Challan amount (₹)", type: "number", required: true },
+    { id: "description", label: "Reason", type: "text", required: true, maxLength: 1000 },
+    { id: "reference", label: "Challan / transaction reference", type: "text", maxLength: 240 },
+    { id: "paymentStatus", label: "Payment status", type: "select", required: true, options: ["unpaid", "paid"] },
+  ],
+});
