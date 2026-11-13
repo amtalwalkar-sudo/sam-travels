@@ -12,7 +12,6 @@ import { WorkDriverSelectionService } from "../../../../packages/application/src
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
-import type { MaintenanceService } from "../../../../packages/application/src/maintenance-service";
 import { useAdminServices } from "./admin-services-context";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
