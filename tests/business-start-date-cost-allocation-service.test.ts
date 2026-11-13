@@ -90,6 +90,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     const records = new Map<string, any>();
     const repository = {
       async get(id: string) { return records.get(id); },
+      async list() { return [...records.values()]; },
       async compareAndSet(id: string, expectedRevision: number | null, next: any) {
         if (expectedRevision === null ? records.has(id) : records.get(id)?.revision !== expectedRevision) return false;
         records.set(id, next);
