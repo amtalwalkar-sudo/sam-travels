@@ -41,6 +41,7 @@ import {
   LOAN_PAYMENT_FORM_V1,
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
+  BusinessStartDateCostAllocationService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
@@ -338,6 +339,11 @@ async function bootstrap(): Promise<void> {
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
+    costAllocation: new BusinessStartDateCostAllocationService(
+      getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
+      getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
+      getApplicationFinanceLoanPaymentService(),
+    ),
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
