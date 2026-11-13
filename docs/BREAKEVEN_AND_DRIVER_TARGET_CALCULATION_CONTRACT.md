@@ -1,9 +1,9 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.5  
-**Status:** Frozen and approved product baseline with Addenda A through E; changes require an explicit, versioned product-owner amendment  
-**Implementation authorization:** Granted by the product owner's prior direction to begin implementation once the documentation baseline is complete  
+**Version:** 1.6  
+**Status:** Frozen and approved product baseline with Addenda A through F; changes require an explicit, versioned product-owner amendment  
+**Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
 **Currency:** INR; persisted money uses integer paise
@@ -156,8 +156,12 @@ Automatic behaviour is not authorized by this version.
 - Implement only the configuration forms already agreed for this workstream and consistent with the existing Admin/UI product decisions.
 - Forms use the shared Form Architecture and Behaviour Contract, including versioned definitions, shared working-copy/lifecycle semantics, validation, durable persistence, recovery, correction, backup/restore, and PWA/Android parity.
 - Form definitions and presentation remain separate from business calculations and persistence.
-- Do not redesign the Breakeven screen, Performance screen, dashboards, navigation, or the wider UI as part of this contract.
-- The remaining presentation and screen design will be discussed and authorized separately.
+- The final Performance screen shell, UX, dashboard composition, navigation presentation, and wider visual redesign remain deferred until the approved calculation and source wiring is complete, reliable, and validated.
+- A narrowly scoped **temporary sanity-check presentation** is authorized in the existing Performance space during calculation validation. It is for both driver and admin use and exposes only the information needed to inspect calculation outcomes, completeness, provenance, and source-level audit detail. It is a validation aid, not approval of the final Performance UX or metric presentation.
+- Keep this temporary presentation isolated behind a replaceable presentation/module boundary. It must consume stable calculation/readout contracts and must not own, duplicate, or alter calculation logic, source records, persistence, calculation provenance, audit data, or regression fixtures.
+- The temporary presentation must be removable or replaceable with one documented command. A single invocation must disable/remove the temporary surface and restore the Performance entry point for the intended redesign without deleting or changing calculation services, wiring, persisted records, provenance, source audit detail, or automated tests.
+- The exact command and its safe execution procedure must be documented with the implementation. It must be deterministic, safe to repeat, and limited to the temporary presentation/registration boundary; it must not be a data reset, migration, or destructive cleanup.
+- After the calculation foundation and wiring pass the agreed validation, remove/replace the temporary presentation through that command. Only then proceed with the intended Performance screen design under separate product direction.
 
 ## 11. Add-on architecture and change control
 
@@ -168,7 +172,7 @@ The frozen baseline must support additive extension without disturbing existing 
 - New metrics or prediction methods are additive extensions owned by the appropriate feature and published through the existing feature-extension architecture.
 - Existing calculation IDs, versions, outputs, source facts, and historical results must not change merely because an add-on is introduced.
 - A change to an approved formula requires explicit owner approval, a versioned contract change, historical recalculation/preservation policy, and regression fixtures.
-- Presentation can be replaced independently without rewriting calculations, persistence, or source integrations.
+- Presentation can be replaced independently without rewriting calculations, persistence, or source integrations. The temporary Performance sanity-check presentation is a disposable presentation add-on; its documented one-command removal/replacement must leave all calculation and audit capabilities intact.
 - Reuse existing registries, form runtime, repositories, backup/restore, recovery, lifecycle, and architecture enforcement. Do not create duplicate frameworks.
 
 ## 12. Delivery and verification requirements
@@ -180,6 +184,7 @@ Implementation must include:
 - Passbook tests for ahead-of-target, behind-target, cumulative recovery, and period boundaries.
 - Business-kilometre summary tests for active-day denominators and exclusion of personal-use distance.
 - Advisory prediction tests proving predictions remain separate from actual calculations and cannot mutate configured targets or source data.
+- A temporary driver/admin sanity-check readout in the existing Performance space, isolated from the calculation layer and removable/replacable through one documented, non-destructive command after validation.
 - Documentation updates and green required web, architecture, Android, and integrated CI gates.
 
 A green CI run is automated evidence only. Physical-device acceptance remains a separate release gate and is intentionally deferred until the agreed end-of-work testing stage.
@@ -204,6 +209,8 @@ Prediction is an optional, advisory add-on, not a prerequisite for the initial a
 No other unresolved product decision blocks implementation of the frozen breakeven and Driver Target baseline. Any change to this baseline requires an explicit, dated, versioned product-owner approval.
 
 ## 14. Approval and amendment history
+
+- **v1.6 / Addendum F — Temporary Performance sanity-check surface:** Authorizes a temporary, isolated driver/admin sanity-check presentation in the existing Performance space while calculations and wiring are validated; requires one documented, repeatable, non-destructive command to remove/replace it and restore the Performance entry point without affecting calculation logic, source data, provenance, audit detail, or tests; defers the intended Performance redesign until validation is complete. This amendment documents the presentation boundary only and does not start implementation.
 
 - **v1.0 — Frozen baseline:** Records the agreed annual-first breakeven architecture, platform fee types, KM-based manually configured maintenance rate, operating/full-cost breakeven distinction, monthly Driver Target, passbook, business-kilometre summary, advisory predictive direction, forms-only scope, and add-on architecture.
 - **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once.
@@ -284,3 +291,17 @@ Existing authoritative contracts govern missing, corrected, or disputed source r
 Predictive breakeven is deferred as an optional advisory add-on. Until its forecast horizon and minimum-history/completeness requirements are separately approved, it must not be registered or presented. This does not block implementation of actual full-cost breakeven, the Driver Target, passbook, business-kilometre summaries, or their approved configuration forms.
 
 The product decisions in this contract are now frozen for implementation. The product owner has previously directed that implementation begin once documentation is complete; that direction applies to this v1.5 baseline. Any change to the frozen rules or scope requires explicit, versioned product-owner approval.
+
+
+## Addendum F — Temporary Performance sanity-check surface
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.6
+
+1. The existing Performance space may be used temporarily as a shared sanity-check area for both the driver and admin while the approved calculation services and source wiring are being completed and validated.
+2. The temporary surface is limited to the information needed to sanity-check actual calculation outcomes, missing/incomplete source data, calculation provenance, and source-level audit detail. It is not the final Performance screen design and must not expand into a general dashboard or speculative metric presentation.
+3. The temporary UI is a replaceable presentation add-on. It consumes the approved calculation/readout contracts and remains decoupled from calculation formulas, source integrations, persistence, provenance generation, audit storage, and regression tests. Driver/admin access may show role-appropriate details, but both use the same temporary sanity-check capability and authoritative outputs.
+4. Once the calculation foundation and wiring are reliable and the agreed validation is complete, the temporary presentation must be removable or replaceable with one documented command. The command must affect only the temporary presentation and its registration/entry-point wiring; it must not delete, reset, migrate, or rewrite business data, calculation services, source integrations, provenance, audit records, or tests. It must be safe to repeat and restore the Performance entry point for the intended redesign.
+5. The exact command is an implementation detail and must be documented before it is used. No destructive command or data-clearing operation is implied by the phrase “one command.”
+6. The intended Performance screen UX, shell, navigation presentation, and final visual composition are designed only after the calculation and wiring foundations have passed validation, under the product owner's separate direction. Removing the temporary surface does not itself authorize or implement that redesign.
+7. This addendum changes no approved calculation formula, earnings recognition rule, cost inclusion rule, Driver Target rule, prediction boundary, source-record policy, or data-retention policy. It does not authorize calculation implementation or UI implementation by itself; it records the temporary presentation sequence and its safety boundary.
