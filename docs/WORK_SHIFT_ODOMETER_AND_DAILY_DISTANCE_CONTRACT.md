@@ -1,6 +1,6 @@
 # Work/Shift Odometer and Daily Business-Kilometre Contract
 
-**Status:** Additive implementation contract; physical-device acceptance remains outstanding.  
+**Status:** Implemented in the PWA and Capacitor/Android persistence paths; physical-device acceptance remains outstanding.  
 **Owner:** Work/Shift.  
 **Compatibility:** Legacy v1 events remain readable and are not backfilled with invented odometer values. New v2 shift transitions require confirmed readings.
 
@@ -33,7 +33,7 @@
 - Multiple shifts for the same vehicle and operational date aggregate without replacing earlier contributions. Duplicate shift contributions are rejected.
 - The daily record is a derived projection. The immutable shift events and odometer readings remain the source of truth; the projection can be rebuilt.
 - A shift that starts and ends in the same 04:00 Asia/Kolkata operational date is allocated to that date.
-- If a shift crosses the 04:00 boundary before the automatic logical-shift/odometer confirmation flow has split it, its distance is retained as `awaiting_operational_boundary` and excluded from the published daily total. It is not assigned wholesale to either day. The outstanding 04:00 boundary workflow must split/resolve that distance before it can be included in daily totals.
+- If a shift has crossed the 04:00 boundary and rotation has not yet been confirmed, its distance remains `awaiting_operational_boundary` and is excluded from the published daily total. It is not assigned wholesale to either day. The implemented 04:00 rotation commits the shared end/start odometer reading and resolves the outgoing contribution to its operational date.
 
 ## Integrity, correction and recovery
 
@@ -50,12 +50,15 @@
 3. End reading equal to start gives zero business km; larger reading gives exact delta; lower reading rejected.
 4. PWA and Capacitor/Room parity for commands, events, state and daily projections.
 5. Retry, duplicate command, process restart, backup/restore and rollback do not duplicate or lose odometer facts.
-6. Multiple same-day shifts aggregate; 04:00-crossing shifts remain withheld until boundary splitting is implemented and accepted.
-7. Physical Android acceptance before this foundation is declared complete.
+6. Multiple same-day shifts aggregate; a confirmed 04:00 rotation resolves the outgoing shift contribution exactly once and starts the new operational date at the same odometer reading.
+7. Duplicate rotation, retry, process death, offline restart and backup/restore preserve one rotation and one daily contribution.
+8. Physical Android acceptance remains a release gate for declaring this foundation fully accepted.
 
-## Explicit remaining dependency
+## Implementation status and remaining acceptance
 
-The approved 04:00 logical-shift rotation and odometer confirmation while Online is still a required follow-on within this foundation. Until that boundary workflow is implemented and accepted, cross-boundary business kilometres remain explicitly unallocated. Maintenance accruals must consume only allocated, confirmed daily business kilometres; they must never accrue against the unallocated bucket.
+The approved 04:00 logical-shift rotation and odometer confirmation flow is implemented. Work exposes the pending boundary action, defers it during an active trip, and commits the outgoing shift end, daily-distance contribution, incoming shift start, driver/vehicle continuity and outbox atomically in the PWA and Android Room paths. Physical-device acceptance is still outstanding; do not treat passing automated Android tests as a substitute for testing on the target phone.
+
+Until a pending boundary is confirmed, cross-boundary business kilometres remain explicitly unallocated. Maintenance must consume only fully allocated, confirmed daily business kilometres; it must never accrue against the unallocated bucket.
 
 ## 04:00 operational-day boundary rotation (approved)
 
@@ -85,6 +88,9 @@ The approved 04:00 logical-shift rotation and odometer confirmation while Online
 - A vehicle/operational-date accrual is eligible only when every daily contribution has `allocationStatus: allocated`, the unallocated total is zero, and the allocated entry sum exactly matches the published daily total.
 - The immutable accrual stores the source daily-record ID and revision, operational date, allocated kilometres, rate effective on that date, rate snapshot and paise amount. Its identity is deterministic per vehicle and operational date.
 - Repeating the same accrual request returns the existing record. A changed source revision or different calculation is an immutable conflict; an existing accrual is never rewritten to follow later rate changes.
+- A committed 04:00 rotation closes the outgoing operational day and its durable Work outbox invokes the Maintenance accrual integration. Ordinary `shift_end` events do not trigger accrual because another shift may still contribute to the same operational date.
+- The integration locates the exact daily projection contribution by outgoing shift ID and rotation event ID, and calls Maintenance only when the projection is fully allocated with zero unallocated kilometres. Missing, ambiguous or inconsistent source records are not accrued.
+- Replayed outbox events return the existing accrual when its daily source ID, revision and business/personal kilometre totals still match. The original effective-rate and paise snapshots remain immutable even if a later rate entry is appended; a changed daily source revision remains an immutable conflict.
 - Backup and restore validate the daily source link, revision, full allocation, reconciled kilometre total and effective-rate snapshot. A snapshot with an incomplete or inconsistent source is rejected.
 
 
