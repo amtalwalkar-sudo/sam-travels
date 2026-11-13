@@ -1,8 +1,8 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.0  
-**Status:** Frozen product baseline; additive amendments require explicit product-owner approval  
+**Version:** 1.1  
+**Status:** Frozen product baseline with approved Addendum A; further additive amendments require explicit product-owner approval  
 **Implementation authorization:** Not granted by this document alone  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -56,7 +56,20 @@ The applicable fee arrangement must be used when calculating net platform procee
 
 Fee configuration is business data and must use the shared form, persistence, correction, backup, and recovery foundations. Changes to fee arrangements must not silently rewrite historical calculations; effective-date and historical-restatement behaviour must be explicitly defined before production registration.
 
-The exact commission base, pass amount and billing period, treatment of partial pass periods, and fee-change effective-date policy remain open until approved in Section 10. Do not infer that a pass is necessarily daily or monthly.
+The exact commission base, pass amount and billing period, treatment of partial pass periods, and fee-change effective-date policy remain open until approved in Section 13. Do not infer that a pass is necessarily daily or monthly.
+
+### 4.1 Canonical earnings basis and single fee recognition
+
+- The calculation system must normalize every eligible earning record to one canonical **net earnings** amount, expressed in INR paise, before it is consumed by breakeven, Driver Target, Driver Target Passbook, period summaries, or predictions.
+- Canonical net earnings means the earning value after transaction-level platform fees actually withheld from that earning have been deducted exactly once.
+- If an authoritative source amount is already net of a platform fee (for example, the platform payout after commission), use that net amount as the canonical earning value. Do not subtract the same fee again as a separate expense.
+- If the authoritative source amount is gross and the platform fee has not yet been deducted, normalize it by deducting the applicable transaction-level fee once. Mark the fee as accounted for in that normalization so downstream expense aggregation cannot deduct it again.
+- Gross earnings and platform-fee details may be retained for audit and reconciliation, but gross earnings must not be added to the calculation alongside the same fee as a separate expense when canonical net earnings are being used.
+- Fixed pass charges are recognized once as operating costs when they are not already reflected in the canonical net proceeds. If a pass charge has already been withheld from the proceeds used as canonical net earnings, it must not also be added as a separate expense.
+- Every fee-bearing source must carry, or be mapped to, an explicit accounting state sufficient to distinguish **not yet deducted**, **already deducted**, and **not applicable**. Unknown fee-accounting state must be treated as incomplete; it must not be guessed or silently deducted.
+- This rule applies identically to actual breakeven, target progress, passbook, historical summaries, and advisory predictions. No downstream feature may apply its own second platform-fee deduction.
+
+The canonical accounting path is net earnings. A gross-plus-fee presentation may be used for audit or a separately approved gross-revenue requirement, but it must reconcile to the same canonical net amount and must never be mixed into the net-earnings calculation.
 
 ## 5. Maintenance cost
 
@@ -76,8 +89,9 @@ Two breakeven outputs are required.
 The earnings required to cover the vehicle's operating costs. It includes:
 - Fuel costs.
 - KM-based maintenance cost.
-- Applicable platform / performance fees.
 - Other operating costs already represented by approved source records and calculation contracts.
+
+Transaction-level platform fees already deducted during canonical earnings normalization are **not** added again as operating expenses. Platform pass charges and other platform costs are included as operating costs only when they have not already reduced the canonical net proceeds. Each platform fee is recognized exactly once.
 
 It excludes:
 - EMI.
@@ -122,7 +136,7 @@ It must allow the driver to understand:
 
 A shortfall on an earlier day may be recovered on later days; progress is cumulative and must not be treated as independent daily pass/fail results.
 
-**Earnings eligibility:** Everything earned above the applicable breakeven counts toward the driver's target. Do not narrow this to a single income source without an approved rule. The passbook must use the same authoritative earning and breakeven definitions as the calculation engine and retain traceability to contributing source records.
+**Earnings eligibility:** Everything earned above the applicable breakeven counts toward the driver's target. Do not narrow this to a single income source without an approved rule. The passbook must use the same canonical net-earnings amount and breakeven definitions as the calculation engine and retain traceability to contributing source records. Platform fees already deducted in canonical earnings must never be deducted again in passbook progress.
 
 The passbook is a derived, auditable projection. It must not create or mutate source income, expense, trip, or payment records.
 
@@ -202,7 +216,7 @@ The following details are intentionally not invented by this contract:
 5. The exact list of additional operating costs included beyond fuel, maintenance, and platform fees.
 6. Whether the Driver Target is measured above operating or full-cost breakeven, and the precise monthly-target/surplus interpretation.
 7. How a monthly target is prorated for a partial month and how the expected cumulative target is paced within a month.
-8. Exact source/eligibility rules for earnings, including the treatment of refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved principle that everything above breakeven counts.
+8. Exact source/eligibility rules for earnings, including the treatment of refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved principle that everything above breakeven counts. The canonical net-earnings basis and single-recognition rule for platform fees are approved in Addendum A and are not open for reinterpretation.
 9. The canonical business-kilometre source and handling of missing, corrected, or disputed distance records.
 10. The initial advisory prediction method, forecast horizon, and minimum history/completeness requirements.
 
@@ -211,4 +225,20 @@ These are discussion items, not permission to make assumptions. The product owne
 ## 14. Approval and amendment history
 
 - **v1.0 — Frozen baseline:** Records the agreed annual-first breakeven architecture, platform fee types, KM-based manually configured maintenance rate, operating/full-cost breakeven distinction, monthly Driver Target, passbook, business-kilometre summary, advisory predictive direction, forms-only scope, and add-on architecture.
+- **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once, including explicit handling of fees already withheld from source payouts.
 - Future changes must be recorded as explicit, dated, owner-approved addenda. Do not silently edit the meaning of this frozen baseline.
+
+
+## Addendum A — Canonical earnings basis and platform-fee single recognition
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.1  
+**Scope:** All actual and derived breakeven, Driver Target, passbook, period-summary, and advisory-prediction calculations.
+
+The canonical earnings input is **net earnings after any transaction-level platform fee already withheld from the earning**. Source gross values and fee details remain available for audit, but downstream calculations consume the normalized canonical net amount.
+
+The same platform fee must never be represented both as a reduction from gross earnings and as a separately deducted expense. If a platform payout is already net, that payout is used without another commission deduction. If a gross earning is supplied, the applicable transaction-level fee is deducted once during normalization and marked as already accounted for. Fixed pass charges are separately included as operating costs only when they have not already reduced the canonical net proceeds.
+
+An explicit fee-accounting state is required for every applicable source. Unknown state means incomplete accounting data, not permission to assume that a fee is either included or absent. This rule is invariant across every downstream calculation and future add-on.
+
+This addendum freezes the accounting basis and duplicate-prevention rule. It does not yet approve the open commission base, pass billing period, refund/adjustment eligibility, or historical fee-change policy listed in Section 13.
