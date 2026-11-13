@@ -130,7 +130,7 @@ export function assertDriverStateContract(value: unknown): asserts value is Driv
       typeof row.operationalDate!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.operationalDate)) throw new Error("invalid_driver_state_trip_context");
  }
  if (state.activeTripId !== undefined && (typeof state.activeTripId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(state.activeTripId))) throw new Error("invalid_driver_state_trip_id");
- for (const key of ["shiftStartOdometerKm","lastConfirmedOdometerKm"] as const) {
+ for (const key of ["shiftStartOdometerKm","shiftStartPersonalKm","lastConfirmedOdometerKm"] as const) {
   if (state[key] !== undefined && (typeof state[key] !== "number" || !Number.isSafeInteger(state[key]) || (state[key] as number) < 0)) throw new Error("invalid_driver_state_odometer");
  }
  if (state.state !== "idle" && typeof state.shiftStartOdometerKm === "number" && typeof state.lastConfirmedOdometerKm === "number" &&
@@ -234,11 +234,11 @@ export function validateDriverCompletion(snapshot:DriverStateProjection,intent:D
  const next:DriverStateProjection={...snapshot,schemaVersion:1,revision:snapshot.revision+1,state:target,lastEventId:c.eventId};
  if(c.eventType==="shift_start"){
   next.shiftStartedAt=c.transitionAt;
-  if(c.workflowVersion===2&&c.odometer){next.shiftStartOdometerKm=c.odometer.readingKm;next.lastConfirmedOdometerKm=c.odometer.readingKm;}
+  if(c.workflowVersion===2&&c.odometer){next.shiftStartOdometerKm=c.odometer.readingKm;next.shiftStartPersonalKm=c.odometer.personalKm??0;next.lastConfirmedOdometerKm=c.odometer.readingKm;}
  } else if(c.eventType==="shift_end"){
-  next.shiftStartedAt=undefined;next.shiftId=undefined;next.shiftContext=undefined;next.shiftStartOdometerKm=undefined;
+  next.shiftStartedAt=undefined;next.shiftId=undefined;next.shiftContext=undefined;next.shiftStartOdometerKm=undefined;next.shiftStartPersonalKm=undefined;
   if(c.workflowVersion===2&&c.odometer)next.lastConfirmedOdometerKm=c.odometer.readingKm;
- } else if(c.eventType==="shift_rotate"&&c.odometer&&c.rotation){next.shiftStartedAt=c.rotation.boundaryAt;next.shiftId=c.eventId;next.shiftStartOdometerKm=c.odometer.readingKm;next.lastConfirmedOdometerKm=c.odometer.readingKm;
+ } else if(c.eventType==="shift_rotate"&&c.odometer&&c.rotation){next.shiftStartedAt=c.rotation.boundaryAt;next.shiftId=c.eventId;next.shiftStartOdometerKm=c.odometer.readingKm;next.shiftStartPersonalKm=0;next.lastConfirmedOdometerKm=c.odometer.readingKm;
  }
  if(c.eventType==="trip_start"||c.eventType==="start_ride")next.tripStartedAt=c.transitionAt;
  else if(c.eventType==="trip_end"||c.eventType==="ride_cancel"||c.eventType==="end_ride"||c.eventType==="cancel_ride"){next.tripStartedAt=undefined;next.activeTripId=undefined;next.tripContext=undefined;}
