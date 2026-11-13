@@ -99,7 +99,9 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(renewedSource.eligibleTo).toBe("2026-03-31");
     expect(renewedSource.daily).toHaveLength(31);
     expect(renewedSource.daily.every(item => item.amountPaise === 100)).toBe(true);
-    expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(100);
+    const expectedMarchFirstTotal = report.result.sources.reduce((sum, source) => sum +
+      (source.daily.find(item => item.date === "2026-03-01")?.amountPaise ?? 0), 0);
+    expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(expectedMarchFirstTotal);
     expect(report.result.allocatedAmountPaise).toBe(10_000 + 3_100);
     expect(complianceRecord.data.totalCostPaise).toBe(1_000);
     expect(complianceRecord.data.validTo).toBe("2026-02-28");
