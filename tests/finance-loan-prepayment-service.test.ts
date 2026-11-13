@@ -95,7 +95,7 @@ describe("FinanceLoanPrepaymentService", () => {
       { async get() { return { id: "feature:business-settings:business", revision: 1,
         data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
       { async getOverview() { return { records: [], overlaps: [] }; } } as never,
-      { async list() { return [await repository.get<FinanceLoanRecordV1>(loanId)!]; } } as never,
+      { async list() { const currentLoan = await repository.get<FinanceLoanRecordV1>(loanId); return currentLoan ? [currentLoan] : []; } } as never,
       service,
       { async list() { return []; } } as never,
       () => "2026-11-13T00:00:00.000Z",
