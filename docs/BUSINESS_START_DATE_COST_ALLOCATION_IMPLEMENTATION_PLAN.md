@@ -84,3 +84,5 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 
 - Settlement ledger `paidThroughInstallment` is a payment fact and must not truncate the selected scheduled EMI rows in the cost-allocation projection. A prepayment-driven reduction in loan duration must be represented by the Finance-owned revised schedule rows. This change is covered by the service regression that verifies later scheduled rows remain present when settlement payment facts exist.
 - Compliance correction projection and durable prior-restatement provenance remain explicit completion gates; they are not marked complete by the current read-time rebuild.
+
+- Compliance append-only correction chains are now projected into Compliance overview and daily-cost reads before overlap analysis; invalid/forked/stale correction chains fail closed. Regression coverage verifies projected data and immutability of the original source.
