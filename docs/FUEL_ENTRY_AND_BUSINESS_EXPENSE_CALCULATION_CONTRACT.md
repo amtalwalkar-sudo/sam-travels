@@ -1,6 +1,6 @@
 # Fuel Entry and Business Expense Calculation Contract
 
-**Status:** Draft for owner review. This PR is documentation-only; no runtime implementation is included yet.
+**Status:** Owner decisions recorded; documentation review gate. This PR is documentation-only; no runtime implementation is included yet.
 **Base:** `main` after merged PR #77 (`6f92fe759e753e93e17f86efc11df94a00e0c1e8`).
 **Scope:** PR 1 expense foundation and fuel entry; PR 2 breakeven and Admin-configured daily driver target.
 **Authorities:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`, `LOCATION_AND_STATE_TIMING_CONTRACT.md`, `NETWORK_ACCESS_CONTRACT.md`, `BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md`, and the existing architecture, persistence, backup, recovery, and feature-extension contracts.
@@ -43,11 +43,9 @@ The intended form data is:
 | Partial refill | Checkbox indicating this is not a full-tank refill | Driver-selected; unchecked by default, meaning full-tank refill |
 | Price per kg | CNG rate in INR/kg | Driver-entered |
 | Total amount paid | Actual amount paid in INR | Driver-entered and stored in integer paise |
-| CNG quantity | Kilograms dispensed | Derived from total amount paid / price per kg; display as a calculated value |
+| CNG quantity | Kilograms dispensed | Calculated by KFE from total amount paid / price per kg; not entered by the driver |
 
-The derived quantity is calculated using decimal-safe/integer arithmetic with an explicit precision policy. It must not silently change the entered amount or rate. The displayed derived quantity is clearly marked as calculated.
-
-**Owner review note:** The request mentioned both entering CNG kg and having the app calculate kg from amount/rate. This draft treats kg as a calculated, read-only value. If the driver must also enter the pump-displayed kg, it should be a separate observed value used for comparison, not a replacement for the derived canonical quantity.
+The driver enters only odometer, price per kg, total amount paid, and whether the refill was partial. There is no CNG quantity input field. KFE derives quantity using decimal-safe/integer arithmetic with an explicit precision policy. The derived quantity is clearly marked as calculated and must not silently change the entered amount or rate.
 
 Validation must follow the shared form contract:
 - Positive, finite odometer, price/kg, and amount values; valid zero/negative handling is defined explicitly by the feature validator.
@@ -180,11 +178,11 @@ Scope:
 2. Calculate **normal operating breakeven**, excluding traffic challans.
 3. Calculate **full-cost breakeven**, including traffic challans and other included obligations according to their approved treatment.
 4. Account for platform fees correctly when deriving the revenue needed to cover costs; distinguish gross revenue from net proceeds and use contribution-margin logic where variable fees apply.
-5. Allow Admin to configure the desired target above breakeven. The daily target is derived from the current applicable breakeven plus the configured additional amount or margin; it is not a hardcoded driver-entered target.
+5. Allow Admin to configure a fixed daily INR amount above breakeven. The daily target is derived from the current applicable breakeven plus this fixed amount; it is not a percentage/margin or a driver-entered target.
 6. Expose daily/weekly/monthly calculation read models and actual-versus-target comparisons for future Performance consumption.
 7. Keep all calculations independent of the Performance UI/UX shell.
 
-The exact target configuration unit (fixed INR addition versus percentage/margin) and allocation policy when multiple drivers/vehicles share costs must be approved before PR 2 implementation. No UI is added to Performance in this PR.
+The target is a fixed daily INR addition above breakeven, configured by Admin. The initial release supports exactly one car and one driver. Multi-car, multi-driver, and shared-cost allocation are deferred; keep the architecture extensible without implementing that future complexity now. No UI is added to Performance in this PR.
 
 ## 7. Repository assessment and implementation blockers to resolve
 
@@ -195,11 +193,16 @@ Inspection of `main` after PR #77 found:
 - Existing Maintenance records include vehicle-scoped visits and general expenses, but there is no dedicated traffic-challan source or general business-expense category model in the inspected source; PR 1 therefore needs dedicated Admin forms and typed record models for these categories.
 - These are approved Admin entry forms, not unapproved UI. They must be implemented using the shared form architecture; no separate Performance presentation is included.
 
-## 8. Remaining owner decisions before calculation implementation
+## 8. Owner decisions resolved
 
-1. **Fuel quantity field:** Confirm whether the driver enters pump-displayed CNG kg, or whether kg is calculated/read-only from total amount / price per kg. If both are captured, preserve the pump quantity as observed source data and the derived quantity as a separately identified calculation.
-2. **Driver target policy for PR 2:** Confirm whether Admin's amount above breakeven is a fixed INR addition or a percentage/margin, and how shared vehicle/business costs are attributed when multiple drivers work.
+- **Fuel quantity:** Driver enters only total amount paid and price per kg. KFE calculates kg as amount / price per kg. There is no pump-quantity input.
+- **Driver target:** Admin configures a fixed daily INR addition above breakeven, not a percentage or margin.
+- **Initial operating scope:** One car and one driver only. Multi-car, multi-driver, and shared-cost allocation are explicitly deferred. Keep the architecture extensible without implementing that future complexity now.
+- **Partial-refill treatment** and the three separate Admin expense forms remain approved as specified above.
+- **Fuel timestamp and location:** At submission, capture a UTC timestamp and Asia/Kolkata business-date context, plus a fresh event-scoped GPS snapshot when available. Preserve accuracy, fix time, provider/source, and capture status. Missing or late GPS must be represented honestly and must never block submission or driver work.
+- **Offline and geocoding:** Fuel entry, draft recovery, submission, and local calculations work offline. Persist coordinates locally; reverse geocoding runs later through a durable, retryable background task when internet and network policy permit. Geocoding never runs in the critical submit path and never blocks the driver.
+- **Work access:** Fuel Entry is accessible from the Work screen even when no shift is active, and from any app screen. Opening it must not start or alter a shift, trip, or workflow state.
+- **Form lifecycle:** Use the shared form architecture and working-copy lifecycle. Drafts survive navigation, app background/close, process restart, and supported recovery; no close/navigation action submits or discards a draft. One Submit action creates an idempotent purchase record.
+- **Scope boundary:** Include the approved partial-refill checkpoint rules, three separate Admin expense forms, timestamp/GPS evidence, durable asynchronous reverse-geocoding, offline operation, and all previously approved source, correction, audit, backup/restore, browser/Android parity, and regression requirements. Do not add Performance presentation changes.
 
-The partial-refill rule and the need for three separate Admin expense forms are approved. Implementation must not reopen those decisions.
-
-No runtime implementation should begin until the owner decisions that affect calculation correctness and source availability are resolved. This document is the review gate for the implementation commits that will follow in this PR.
+The owner decisions recorded in this contract are resolved. No further clarification is currently required to proceed against this scope after the documentation review gate is accepted.
