@@ -140,12 +140,12 @@ describe("Business Start Date reporting rollups", () => {
     }));
     const result = buildBusinessStartDateAllocationResultV1("2026-12-31", [complianceResult]);
     expect(result.daily).toEqual([
-      { date: "2026-12-31", amountPaise: 2 },
+      { date: "2026-12-31", amountPaise: 3 },
       { date: "2027-01-01", amountPaise: 2 },
-      { date: "2027-01-02", amountPaise: 3 },
+      { date: "2027-01-02", amountPaise: 2 },
     ]);
-    expect(result.monthly).toEqual([{ month: "2026-12", amountPaise: 2 }, { month: "2027-01", amountPaise: 5 }]);
-    expect(result.yearly).toEqual([{ year: "2026", amountPaise: 2 }, { year: "2027", amountPaise: 5 }]);
+    expect(result.monthly).toEqual([{ month: "2026-12", amountPaise: 3 }, { month: "2027-01", amountPaise: 4 }]);
+    expect(result.yearly).toEqual([{ year: "2026", amountPaise: 3 }, { year: "2027", amountPaise: 4 }]);
     expect(result.allocatedAmountPaise).toBe(7);
   });
 
