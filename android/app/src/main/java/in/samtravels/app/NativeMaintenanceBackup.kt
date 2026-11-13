@@ -217,7 +217,7 @@ internal object NativeMaintenanceBackup {
                 }
                 require(sourceEnvelope.optLong("revision") == data.optLong("dailyBusinessKmRevision") &&
                     source.optString("kind") == "daily_business_kilometres" &&
-                    source.optString("vehicleId") == vehicleId && source.optString("operationalDate") == operationalDate &&
+                    source.optString("vehicleId") == data.optString("vehicleId") && source.optString("operationalDate") == operationalDate &&
                     source.optLong("totalBusinessKm") == sourceBusinessKm && source.optLong("unallocatedBusinessKm") == 0L &&
                     sourceBusinessKm == data.optLong("businessKm") &&
                     sourcePersonalKm == data.optLong("personalKm", 0L)) {
