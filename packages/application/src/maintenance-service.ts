@@ -24,6 +24,7 @@ export type MaintenanceRateHistoryV1 = Readonly<{
 export type MaintenanceDailyAccrualV1 = Readonly<{
   schemaVersion: 1; kind: "daily_accrual"; vehicleId: string; operationalDate: string;
   dailyBusinessKmRecordId: string; dailyBusinessKmRevision: number; businessKm: number;
+  /** Personal kilometres are separate from business maintenance amount. */ personalKm?: number; personalAmountPaise?: number;
   rateEffectiveFrom: string; ratePaisePerKm: number; amountPaise: number;
 }>;
 export type MaintenanceRecordV1 = MaintenanceVisitV1 | GeneralMaintenanceExpenseV1 | MaintenanceRateHistoryV1 | MaintenanceDailyAccrualV1;
