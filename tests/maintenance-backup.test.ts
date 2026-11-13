@@ -84,7 +84,21 @@ describe("Maintenance browser backup participant", () => {
         dailyBusinessKmRevision: 2, businessKm: 120, rateEffectiveFrom: "2026-11-02", ratePaisePerKm: 300, amountPaise: 36000 } });
   }
 
-  it("exports and restores an immutable accrual linked to fully allocated daily kilometres and the effective rate", async () => {\n    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual();\n    const snapshot = await exportBrowserSnapshot("0.1.0");\n    expect(snapshot.data.records).toHaveLength(4);\n    await browserDatabase.records.clear();\n    await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });\n    expect(await browserDatabase.records.get("feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-11-02")).toBeDefined();\n  });\n\n  it("rejects accrual backup when any source kilometres are still unallocated", async () => {\n    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual(25);\n    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("maintenance_daily_accrual_source_invalid");\n  });\n\n  it("exports and restores visits and atomic per-vehicle rate history", async () => {
+  it("exports and restores an immutable accrual linked to fully allocated daily kilometres and the effective rate", async () => {
+    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual();
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    expect(snapshot.data.records).toHaveLength(4);
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });
+    expect(await browserDatabase.records.get("feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-11-02")).toBeDefined();
+  });
+
+  it("rejects accrual backup when any source kilometres are still unallocated", async () => {
+    await seedVehicle(); await seedMaintenance(); await seedDailyAccrual(25);
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("maintenance_daily_accrual_source_invalid");
+  });
+
+  it("exports and restores visits and atomic per-vehicle rate history", async () => {
     await seedVehicle();
     await seedMaintenance();
     const snapshot = await exportBrowserSnapshot("0.1.0");

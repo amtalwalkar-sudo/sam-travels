@@ -62,7 +62,8 @@ function isValidDate(value: string): boolean {
 
 /** Maintenance owns actual visits/expenses and per-vehicle rate history. */
 export class MaintenanceService {
-  private readonly records: FeatureRecordService<MaintenanceRecordV1>;\n  private readonly repository: AtomicRecordRepository;
+  private readonly records: FeatureRecordService<MaintenanceRecordV1>;
+  private readonly repository: AtomicRecordRepository;
 
   constructor(
     repository: AtomicRecordRepository,
@@ -216,7 +217,8 @@ export class MaintenanceService {
     await this.requireVehicle(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
-    const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];\n    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
+    const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];
+    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
     const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     const rate = await this.getRateHistory(vehicleId);
     return {

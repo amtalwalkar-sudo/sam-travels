@@ -70,7 +70,8 @@ export type MaintenanceRecordV1 =
 export const MAINTENANCE_RECORD_ID_PREFIX = "feature:maintenance:";
 export const MAINTENANCE_VISIT_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "visit:";
 export const MAINTENANCE_EXPENSE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "expense:";
-export const MAINTENANCE_RATE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "rate:";\nexport const MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "daily-accrual:";
+export const MAINTENANCE_RATE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "rate:";
+export const MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "daily-accrual:";
 export const DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM = 250;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -98,7 +99,18 @@ export function assertMaintenanceRecordIdentity(id: string): void {
     }
     return;
   }
-  if (id.startsWith(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX)) {\n    const suffix = id.slice(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX.length);\n    const split = suffix.lastIndexOf(":");\n    if (split < 1) throw new Error("maintenance_record_identity_invalid");\n    try {\n      const vehicleId = decodeURIComponent(suffix.slice(0, split));\n      const date = suffix.slice(split + 1);\n      if (encodeURIComponent(vehicleId) !== suffix.slice(0, split) || !VEHICLE_ID.test(vehicleId) || !isMaintenanceDate(date)) throw new Error();\n      return;\n    } catch { throw new Error("maintenance_record_identity_invalid"); }\n  }\n  if (id.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
+  if (id.startsWith(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX)) {
+    const suffix = id.slice(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX.length);
+    const split = suffix.lastIndexOf(":");
+    if (split < 1) throw new Error("maintenance_record_identity_invalid");
+    try {
+      const vehicleId = decodeURIComponent(suffix.slice(0, split));
+      const date = suffix.slice(split + 1);
+      if (encodeURIComponent(vehicleId) !== suffix.slice(0, split) || !VEHICLE_ID.test(vehicleId) || !isMaintenanceDate(date)) throw new Error();
+      return;
+    } catch { throw new Error("maintenance_record_identity_invalid"); }
+  }
+  if (id.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
     try {
       const vehicleId = decodeURIComponent(id.slice(MAINTENANCE_RATE_ID_PREFIX.length));
       if (encodeURIComponent(vehicleId) !== id.slice(MAINTENANCE_RATE_ID_PREFIX.length) ||
