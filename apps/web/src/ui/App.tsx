@@ -36,7 +36,7 @@ export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShell
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
 export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
-  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, adminServices.maintenance);
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, adminServices.maintenance, adminServices.recordSource);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
   const [shiftEndOdometer, setShiftEndOdometer] = useState("");
   const [boundaryOdometer, setBoundaryOdometer] = useState("");
