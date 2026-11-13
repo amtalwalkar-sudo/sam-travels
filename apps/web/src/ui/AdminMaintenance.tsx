@@ -300,6 +300,8 @@ export function MaintenanceSection() {
         <div><small>Service visits</small><strong>{records?.visits.length ?? 0}</strong></div>
         <div><small>General expenses</small><strong>{records?.expenses.length ?? 0}</strong></div>
         <div><small>Rate history</small><strong>{records?.rateHistory.length ?? 0} entries</strong></div>
+        <div><small>Business Maintenance accrual</small><strong>{money(records?.accruals.reduce((sum, item) => sum + item.data.amountPaise, 0) ?? 0)}</strong></div>
+        <div><small>Personal Maintenance attribution</small><strong>{money(records?.accruals.reduce((sum, item) => sum + (item.data.personalAmountPaise ?? 0), 0) ?? 0)}</strong></div>
       </div>
 
       {vehicleDrafts.length > 0 && <div className="admin-capability-form">
@@ -363,7 +365,7 @@ export function MaintenanceSection() {
         {copy && <small className="admin-hint">Draft status · {copy.status.replaceAll("_", " ")} · revision {copy.revision}</small>}
       </form>}
 
-      {records?.rateHistory.length ? <div className="admin-capability-form">
+      {records?.accruals.length ? <div className="admin-capability-form">\n        <strong>Daily Maintenance accruals</strong>\n        <p className="admin-hint">Business km accrue into business Maintenance expense. Personal km and their rate-based amount remain separately attributed and are excluded from business expense.</p>\n        {records.accruals.map(item => <article className="admin-capability-record" key={item.id}><div>\n          <strong>{item.data.operationalDate} · Business {money(item.data.amountPaise)}</strong>\n          <small>{item.data.businessKm} business km × {money(item.data.ratePaisePerKm)} / km · rate effective {item.data.rateEffectiveFrom}</small>\n          <small>Personal {item.data.personalKm ?? 0} km · {money(item.data.personalAmountPaise ?? 0)} (separate, excluded from business expense)</small>\n        </div></article>)}\n      </div> : null}\n      {records?.rateHistory.length ? <div className="admin-capability-form">
         <strong>Per-kilometre rate history</strong>
         {records.rateHistory.map((entry, index) => <small key={entry.effectiveFrom + "-" + index}>{money(entry.ratePaisePerKm)} / km from {entry.effectiveFrom}{entry.isDefault ? " · Default rate" : " · Admin entered"}</small>)}
       </div> : null}
