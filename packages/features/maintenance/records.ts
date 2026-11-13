@@ -257,14 +257,18 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
   }
 
   if (record.kind === "daily_accrual") {
-    if (!hasExactKeys(record, ["schemaVersion", "kind", "vehicleId", "operationalDate", "dailyBusinessKmRecordId", "dailyBusinessKmRevision", "businessKm", "rateEffectiveFrom", "ratePaisePerKm", "amountPaise"], []) ||
+    if (!hasExactKeys(record, ["schemaVersion", "kind", "vehicleId", "operationalDate", "dailyBusinessKmRecordId", "dailyBusinessKmRevision", "businessKm", "rateEffectiveFrom", "ratePaisePerKm", "amountPaise"], ["personalKm", "personalAmountPaise"]) ||
         !isMaintenanceDate(record.operationalDate) || !isMaintenanceDate(record.rateEffectiveFrom) ||
         typeof record.dailyBusinessKmRecordId !== "string" || !record.dailyBusinessKmRecordId.startsWith("work:daily-business-km:") ||
         !Number.isSafeInteger(record.dailyBusinessKmRevision) || (record.dailyBusinessKmRevision as number) < 1 ||
         !Number.isSafeInteger(record.businessKm) || (record.businessKm as number) < 0 ||
         !validMoney(record.ratePaisePerKm) || !validMoney(record.amountPaise) ||
         !Number.isSafeInteger((record.businessKm as number) * (record.ratePaisePerKm as number)) ||
-        (record.businessKm as number) * (record.ratePaisePerKm as number) !== record.amountPaise) {
+        (record.businessKm as number) * (record.ratePaisePerKm as number) !== record.amountPaise ||
+        ((record.personalKm === undefined) !== (record.personalAmountPaise === undefined)) ||
+        (record.personalKm !== undefined && (!Number.isSafeInteger(record.personalKm) || (record.personalKm as number) < 0 ||
+          !validMoney(record.personalAmountPaise) || !Number.isSafeInteger((record.personalKm as number) * (record.ratePaisePerKm as number)) ||
+          (record.personalKm as number) * (record.ratePaisePerKm as number) !== record.personalAmountPaise))) {
       throw new Error("maintenance_daily_accrual_invalid");
     }
     return;
