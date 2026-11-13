@@ -12,7 +12,7 @@ import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } fro
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
-import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/application/src";
+import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder, getApplicationMaintenanceService, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
@@ -84,6 +84,16 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         setSelectedDriverId(selected?.driverId ?? "");
         setSelectionService(selection);
         const service = new DriverWorkflowService(repository, location, async (event) => {
+          // A 04:00 rotation closes the outgoing operational day. Do not accrue
+          // on ordinary shift_end: another shift can still add kilometres to
+          // that same daily projection. This runs through the durable Work
+          // outbox, so a restart/replay safely retries the same accrual.
+          await accrueMaintenanceForCompletedWorkDay({
+            event,
+            records: platformRecords,
+            maintenance: getApplicationMaintenanceService(),
+            source: getPlatformRecordSource(),
+          });
           await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, async () => {
             rebuildTripHistoryProjection(await repository.listEvents());
           });
