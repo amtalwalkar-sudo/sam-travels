@@ -9,13 +9,14 @@ import type { AdminPresentationServices } from "../../../../packages/application
 import { useAdminServices } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
+import { PlatformFeeSection, MiscBusinessExpenseSection, TrafficChallanSection } from "./BusinessExpenseAdminForms";
 import { useAdminIdentityRecords } from "./admin-services-context";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
 type LoanScheduleHistory = Awaited<ReturnType<AdminPresentationServices["financeLoanPrepayments"]["getScheduleHistory"]>>;
-type AdminSection = "Business setup" | "Vehicle" | "Driver" | "Compliance" | "Loan" | "Maintenance";
-const SECTIONS: AdminSection[] = ["Business setup", "Vehicle", "Driver", "Compliance", "Loan", "Maintenance"];
+type AdminSection = "Business setup" | "Vehicle" | "Driver" | "Compliance" | "Finance" | "Maintenance";
+const SECTIONS: AdminSection[] = ["Business setup", "Vehicle", "Driver", "Compliance", "Finance", "Maintenance"];
 
 function money(paise: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -28,7 +29,7 @@ function rate(basisPoints: number): string {
 export function AdminWorkspace() {
   const identityRecords = useAdminIdentityRecords();
   const services = useAdminServices();
-  const [expanded, setExpanded] = useState<AdminSection | null>("Loan");
+  const [expanded, setExpanded] = useState<AdminSection | null>("Finance");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loanScheduleHistories, setLoanScheduleHistories] = useState<Record<string, LoanScheduleHistory>>({});
@@ -79,7 +80,7 @@ export function AdminWorkspace() {
           <span>{section}</span><span aria-hidden="true">{expanded === section ? "−" : "+"}</span>
         </button>
         {expanded === section && <div className="admin-section-content">
-          {section === "Business setup" ? <><BusinessSetupSection /><BusinessStartDateCostAllocationPanel /></> : section === "Vehicle" ? <VehicleSection /> : section === "Driver" ? <DriverSection /> : section === "Compliance" ? <ComplianceSection /> : section === "Maintenance" ? <MaintenanceSection /> : section === "Loan" ? <>
+          {section === "Business setup" ? <><BusinessSetupSection /><BusinessStartDateCostAllocationPanel /></> : section === "Vehicle" ? <VehicleSection /> : section === "Driver" ? <DriverSection /> : section === "Compliance" ? <><ComplianceSection /><TrafficChallanSection /></> : section === "Maintenance" ? <MaintenanceSection /> : section === "Finance" ? <>
             <div className="admin-vehicle-context">
               <label htmlFor="admin-vehicle">Selected vehicle</label>
               <select id="admin-vehicle" value={selectedVehicleId}
@@ -151,6 +152,8 @@ export function AdminWorkspace() {
                     </article>;
                   })}</div>}
               </>}
+            <PlatformFeeSection />
+            <MiscBusinessExpenseSection />
             {message && <p className="admin-message" role="status">{message}</p>}
           </> : <div className="admin-placeholder">
             <strong>{section}</strong>

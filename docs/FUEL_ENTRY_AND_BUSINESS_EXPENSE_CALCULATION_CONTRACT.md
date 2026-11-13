@@ -59,10 +59,11 @@ Validation must follow the shared form contract:
 ### 2.3 Entry timestamp and GPS evidence
 
 - Capture a stable entry timestamp for the successful submission intent, storing the UTC instant and Asia/Kolkata business-date context under the existing time contract.
-- Initiate a fresh, event-scoped GPS snapshot for the fuel-entry submission. Persist coordinates, accuracy, fix timestamp, provider/source, and capture status when available.
-- GPS acquisition is best-effort and asynchronous. It must never hold the form open, delay submission, require internet, or block the driver from continuing to another screen.
-- Persist the fuel purchase and its entry timestamp locally even if GPS is unavailable, permission is denied, the device is offline, or acquisition times out. Record an explicit location status/reason and retain a recoverable enrichment task where appropriate; never invent coordinates or use an unrelated last-known fix as if it were captured at submission.
-- A late GPS result must retain its actual fix timestamp and be marked as late/recovery evidence; it must not be represented as exact submission-time evidence.
+- Initiate a fresh, event-scoped GPS snapshot from the actual Fuel Entry Submit event; never request it merely because the form was opened. Use a fresh device fix (no cached/last-known position) and preserve coordinates, accuracy, actual fix timestamp, and device provider/source.
+- Commit the fuel purchase and its submission timestamp locally without waiting for GPS. GPS acquisition and persistence of its separate evidence record are best-effort asynchronous work and must never hold the form open, delay submission, require internet, or block navigation/another driver action.
+- Persist an explicit capture outcome under a stable fuel-scoped enrichment identity: captured, permission denied, timed out, or unavailable. A successful fix stores coordinates, accuracy, actual fix timestamp, and provider; unavailable outcomes store a reason but never fabricated coordinates. These records use the existing durable platform record store and participate in its backup/recovery path.
+- If a fix resolves before the fuel source commit completes, mark it as submission-event evidence. If it resolves after the purchase is committed, mark it as late evidence while retaining the actual fix timestamp; never represent a late result as an exact submission-time fix.
+- Reverse geocoding remains a separate retryable task derived from the persisted GPS evidence. It cannot roll back or delay the already-committed purchase.
 - The GPS snapshot is immutable source evidence once attached. A correction must not silently rewrite it.
 
 ### 2.4 Offline and reverse geocoding

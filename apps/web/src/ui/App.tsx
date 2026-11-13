@@ -8,6 +8,7 @@ import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
+import { FuelEntryPanel } from "./FuelEntryPanel";
 import { AdminServicesProvider } from "./admin-services-context";
 import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
@@ -249,6 +250,9 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
           <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
         {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
+      <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
+        <FuelEntryPanel />
+      </AdminServicesProvider>
     </ShellRenderer>
   );
 }

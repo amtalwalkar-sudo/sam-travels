@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "business-expenses",
+  "entryPoint": "packages/features/business-expenses/index.ts",
+  "extensionExport": "BUSINESS_EXPENSES_FEATURE_EXTENSION"
+}
