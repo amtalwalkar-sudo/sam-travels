@@ -26,6 +26,7 @@ export type ComplianceAnalysisFunctions = Readonly<{
     sources: readonly [{ recordId: string; recordRevision: number }, { recordId: string; recordRevision: number }],
     from: string, to: string, reviews: readonly ComplianceReviewEvent[],
   ): "unreviewed" | "confirmed" | "rejected" | "stale";
+  validateProjectedComplianceData?(data: unknown): void;
   calculateDailyCost(
     records: readonly RecordEnvelope<ComplianceRecordV1>[], vehicleId: string, businessDate: string,
     reviews: readonly ComplianceReviewEvent[],

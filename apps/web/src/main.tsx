@@ -123,6 +123,7 @@ async function bootstrap(): Promise<void> {
       analyzeCoverage: analyzeComplianceCoverage,
       resolveOverlap: resolveComplianceOverlapReview,
       calculateDailyCost: calculateDailyComplianceCost,
+      validateProjectedComplianceData: assertComplianceRecordV1,
     },
     historicalCorrections,
   );
