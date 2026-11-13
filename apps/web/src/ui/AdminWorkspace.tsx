@@ -1,6 +1,7 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
+import { BusinessStartDateCostAllocationPanel } from "./BusinessStartDateCostAllocationPanel";
 import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOperations";
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import { LoanDetailsForm } from "./LoanDetailsForm";
@@ -78,7 +79,7 @@ export function AdminWorkspace() {
           <span>{section}</span><span aria-hidden="true">{expanded === section ? "−" : "+"}</span>
         </button>
         {expanded === section && <div className="admin-section-content">
-          {section === "Business setup" ? <BusinessSetupSection /> : section === "Vehicle" ? <VehicleSection /> : section === "Driver" ? <DriverSection /> : section === "Compliance" ? <ComplianceSection /> : section === "Maintenance" ? <MaintenanceSection /> : section === "Loan" ? <>
+          {section === "Business setup" ? <><BusinessSetupSection /><BusinessStartDateCostAllocationPanel /></> : section === "Vehicle" ? <VehicleSection /> : section === "Driver" ? <DriverSection /> : section === "Compliance" ? <ComplianceSection /> : section === "Maintenance" ? <MaintenanceSection /> : section === "Loan" ? <>
             <div className="admin-vehicle-context">
               <label htmlFor="admin-vehicle">Selected vehicle</label>
               <select id="admin-vehicle" value={selectedVehicleId}
