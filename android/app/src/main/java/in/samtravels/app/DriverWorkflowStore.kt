@@ -240,7 +240,7 @@ object DriverWorkflowStore {
                     next.put("shiftStartedAt",command.getString("transitionAt")).put("shiftAuthor", author)
                     if(command.optInt("workflowVersion",1)==2) {
                         val reading=command.getJSONObject("odometer").getLong("readingKm")
-                        next.put("shiftStartOdometerKm",reading).put("lastConfirmedOdometerKm",reading)
+                        next.put("shiftStartOdometerKm",reading).put("shiftStartPersonalKm",command.getJSONObject("odometer").optLong("personalKm",0L)).put("lastConfirmedOdometerKm",reading)
                     }
                     if(command.optInt("workflowVersion",1)==2) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
@@ -259,7 +259,7 @@ object DriverWorkflowStore {
                         WorkDailyBusinessKilometreStore.append(db,current,command,eventId,now)
                         next.put("lastConfirmedOdometerKm",command.getJSONObject("odometer").getLong("readingKm"))
                     }
-                    next.remove("shiftStartedAt");next.remove("shiftStartOdometerKm");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
+                    next.remove("shiftStartedAt");next.remove("shiftStartOdometerKm");next.remove("shiftStartPersonalKm");next.remove("shiftId");next.remove("shiftContext");next.remove("shiftAuthor")
                     if(command.optInt("workflowVersion",1)==2&&current.has("shiftId")) {
                         val selectedRow=db.records().get("work:selected-driver")?:error("work_driver_not_selected")
                         val envelope=JSONObject(selectedRow.json)
