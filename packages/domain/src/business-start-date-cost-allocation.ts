@@ -62,7 +62,7 @@ export type EmiAllocationInputV1 = Readonly<{
 }>;
 
 const DAY_MS = 86_400_000;
-const DATE = /^\\d{4}-\\d{2}-\\d{2}$/;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
 function assertDate(value: unknown): asserts value is string {
   if (typeof value !== "string" || !DATE.test(value)) throw new Error("business_start_date_allocation_date_invalid");
   const timestamp = Date.parse(value + "T00:00:00.000Z");
