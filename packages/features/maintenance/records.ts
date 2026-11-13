@@ -56,6 +56,9 @@ export type MaintenanceDailyAccrualV1 = Readonly<{
   dailyBusinessKmRecordId: string;
   dailyBusinessKmRevision: number;
   businessKm: number;
+  /** Personal kilometres are tracked separately and never included in business amountPaise. */
+  personalKm?: number;
+  personalAmountPaise?: number;
   rateEffectiveFrom: string;
   ratePaisePerKm: number;
   amountPaise: number;
