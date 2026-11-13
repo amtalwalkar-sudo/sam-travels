@@ -32,8 +32,9 @@ const vehicle: RecordEnvelope<{ lifecycleState: string }> = {
 function setup() {
   let now = "2026-11-02T10:00:00.000Z";
   const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+  const repository = new MemoryRepository();
   const service = new MaintenanceService(
-    new MemoryRepository(), assertMaintenanceRecordV1, vehicles,
+    repository, assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => now,
   );
   return { service, repository, setNow(value: string) { now = value; } };
@@ -151,4 +152,37 @@ describe("MaintenanceService", () => {
     expect(afterReading[0].kilometreStatus).toBe("due");
     expect(afterReading[0].latestOdometerKm).toBe(50200);
   });
+  it("creates one immutable daily accrual only from fully allocated kilometres and snapshots the effective rate", async () => {
+    const { service, repository, setNow } = setup();
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await repository.put({
+      id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-02T08:00:00.000Z",
+      source: "integration", revision: 2,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
+        entries: [{ shiftId: "shift-a", businessKm: 120, allocationStatus: "allocated" }],
+        totalBusinessKm: 120, unallocatedBusinessKm: 0 },
+    });
+    await service.setRate({ vehicleId, ratePaisePerKm: 300, commandId: "123e4567-e89b-42d3-a456-426614174099", source: "web" });
+    const first = await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" });
+    expect(first.data).toMatchObject({ businessKm: 120, ratePaisePerKm: 300, amountPaise: 36000, dailyBusinessKmRevision: 2 });
+    expect((await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" })).id).toBe(first.id);
+    setNow("2026-11-03T10:00:00.000Z");
+    await service.setRate({ vehicleId, ratePaisePerKm: 400, commandId: "123e4567-e89b-42d3-a456-426614174098", source: "web" });
+    expect((await service.listVehicleRecords(vehicleId)).accruals[0].data.ratePaisePerKm).toBe(300);
+  });
+
+  it("rejects daily accrual when a contribution awaits the operational boundary", async () => {
+    const { service, repository } = setup();
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-11-02";
+    await repository.put({
+      id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-02T08:00:00.000Z",
+      source: "integration", revision: 1,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
+        entries: [{ shiftId: "shift-a", businessKm: 25, allocationStatus: "awaiting_operational_boundary" }],
+        totalBusinessKm: 0, unallocatedBusinessKm: 25 },
+    });
+    await expect(service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" }))
+      .rejects.toThrow("maintenance_daily_business_km_not_fully_allocated");
+  });
+
 });
