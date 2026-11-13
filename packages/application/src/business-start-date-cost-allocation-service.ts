@@ -1,4 +1,3 @@
-import type { RecordEnvelope } from "../../core/src/types";
 import {
   allocateComplianceCostV1,
   allocateScheduledEmisV1,
@@ -9,13 +8,10 @@ import {
 } from "../../domain/src/business-start-date-cost-allocation";
 import type { BusinessSettingsService } from "./business-settings-service";
 import type { ComplianceAnalysisService } from "./compliance-analysis-service";
-import type { FinanceLoanService, FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { FinanceLoanService } from "./finance-loan-service";
 import type { FinanceLoanPrepaymentService } from "./finance-loan-prepayment-service";
 import type { FinanceLoanPaymentService, FinancePaymentEntryV1 } from "./finance-loan-payment-service";
 
-type LoanEnvelope = RecordEnvelope<FinanceLoanRecordV1>;
-type ScheduleHistory = Awaited<ReturnType<FinanceLoanPrepaymentService["getScheduleHistory"]>>;
-type ComplianceOverview = Awaited<ReturnType<ComplianceAnalysisService["getOverview"]>>;
 
 export type BusinessStartDateCostAllocationReportV1 = Readonly<{
   businessStartDate: string;
