@@ -86,3 +86,12 @@ The approved 04:00 logical-shift rotation and odometer confirmation while Online
 - The immutable accrual stores the source daily-record ID and revision, operational date, allocated kilometres, rate effective on that date, rate snapshot and paise amount. Its identity is deterministic per vehicle and operational date.
 - Repeating the same accrual request returns the existing record. A changed source revision or different calculation is an immutable conflict; an existing accrual is never rewritten to follow later rate changes.
 - Backup and restore validate the daily source link, revision, full allocation, reconciled kilometre total and effective-rate snapshot. A snapshot with an incomplete or inconsistent source is rejected.
+
+
+## Personal-distance and Maintenance cost attribution (approved)
+
+- At each subsequent shift start, the odometer difference from the previous confirmed shift end is wholly personal distance. For example, previous end 500 km and next start 550 km means 50 personal km and 0 business km from that gap.
+- The inter-shift gap is persisted on the authoritative shift-start event and carried as a separate `personalKm` value into the Work daily-distance contribution. It is never included in the business-kilometre total.
+- Maintenance accrual calculates business Maintenance amount as allocated business kilometres multiplied by the rate effective on the operational date. Personal Maintenance amount is calculated separately as personal kilometres multiplied by that same effective rate; it is not included in the business `amountPaise` or business expense totals.
+- Both personal and business distance/amount attribution must be deterministic in integer paise, immutable, parity-tested across browser and Android Room, and backup/restore validated. Unknown or unclassified costs must not be silently apportioned.
+- Maintenance remains the currently implemented per-kilometre cost-rate capability. Fuel has not been implemented and is explicitly out of scope: do not introduce Fuel records, UI, calculations, or accruals in this slice. A later Fuel feature may add its own cost/km rate and reuse this separation.
