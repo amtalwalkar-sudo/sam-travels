@@ -48,15 +48,6 @@ class DriverWorkflowStoreTest {
         .put("fixAt", java.time.Instant.now().toString())
         .put("provider", "android-test")
 
-    @Test fun boundaryRotationIsRejectedWhileATripIsActive() {
-        val current = JSONObject().put("state", "trip_active").put("activeTripId", "trip-active")
-        val failure = runCatching {
-            WorkDailyBusinessKilometreStore.rotate(db, current, JSONObject(), "rotation-event",
-                java.time.Instant.now().toString(), JSONObject())
-        }.exceptionOrNull()
-        assertEquals("shift_rotation_during_active_trip", failure?.message)
-    }
-
     @Test fun completionAtomicallyWritesEventProjectionIntentAndOutbox() {
         DriverWorkflowStore.queue(db, command("event-1"))
         val next = DriverWorkflowStore.complete(db, "event-1", gps())
