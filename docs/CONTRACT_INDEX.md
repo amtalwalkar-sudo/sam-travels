@@ -47,7 +47,7 @@
 | Shared security and compatibility | [Security and Compatibility](SECURITY_AND_COMPATIBILITY_CONTRACT.md) | Cross-cutting privacy, security and data compatibility |
 | WebView-specific security/release compatibility | [WebView Security and Release Compatibility](WEBVIEW_SECURITY_AND_RELEASE_COMPATIBILITY_CONTRACT.md) | WebView/native trust boundary and version compatibility |
 | Backup, restore and reset behaviour | [Dropbox Backup](DROPBOX_BACKUP_CONTRACT.md) | User-facing backup destinations, package and restore/reset safeguards |
-| Finance loan calculation | [Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI and amortization mathematics |
+| Finance loan calculation | [Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI and amortization mathematics |\n| Business Start Date cost allocation | [Business Start Date Cost Allocation](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Cross-feature pre-business carry-forward and daily/monthly/yearly allocation for Compliance and whole-EMI reporting |
 | Finance loan payment policy | [Loan Payment Workflow](FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md) | Proposal only until formally ratified; implementation does not approve this draft |
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
 | Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
