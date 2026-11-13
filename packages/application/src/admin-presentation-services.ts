@@ -11,6 +11,7 @@ import type { getApplicationFinanceLoanPaymentService } from "./finance-loan-pay
 import type { getApplicationFinanceLoanPrepaymentService } from "./finance-loan-prepayment-runtime";
 import type { getApplicationFinanceLoanSettlementService } from "./finance-loan-settlement-runtime";
 import type { getApplicationRecordSource } from "./platform-context";
+import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 
 /**
  * Explicit application-service dependencies supplied by the composition root
@@ -19,6 +20,7 @@ import type { getApplicationRecordSource } from "./platform-context";
 export type AdminPresentationServices = Readonly<{
   formRuntime: SharedFormRuntime;
   businessSettings: ReturnType<typeof getApplicationBusinessSettingsService>;
+  costAllocation: BusinessStartDateCostAllocationService;
   vehicles: ReturnType<typeof getApplicationVehicleService>;
   driverRecords: ReturnType<typeof getApplicationDriverRecordsService>;
   driverAssignments: ReturnType<typeof getApplicationDriverAssignmentService>;
