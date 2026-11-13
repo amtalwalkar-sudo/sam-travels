@@ -9,8 +9,9 @@
 
 The calculation and source-record foundation is the primary deliverable. It must be platform-neutral, versioned, deterministic, replay-safe, auditable, and independent of any Performance-screen presentation.
 
-- **Fuel is the only new driver-facing form/UI change in PR 1.**
-- Platform fees, traffic challans, and miscellaneous business expenses are background source/calculation capabilities. Do not add new user-facing forms or redesign existing screens for them in PR 1.
+- **Fuel Entry is the only new driver-facing form/UI change in PR 1.**
+- Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each require their own Admin-facing entry form under a separate, clearly named Admin section/header. These are the approved user-facing forms for Admin to record the costs; they are not driver forms.
+- All four forms (Fuel Entry and the three Admin expense forms) must use the established shared form rules, working-copy lifecycle, validation, persistence, recovery, and correction contracts. Do not introduce feature-local form behavior.
 - Do not change the Performance screen, its UI/UX shell, navigation, dashboards, or presentation in PR 1 or PR 2. The Performance interface will consume selected calculation outputs in a later, separate presentation task.
 - Do not duplicate existing Compliance or EMI allocation logic. Consume the canonical daily outputs from the merged Business Start Date allocation service.
 - PR 1 establishes expense source records, calculations, daily cost outputs, and the fuel-entry form.
@@ -39,7 +40,7 @@ The intended form data is:
 | Field | Meaning | Treatment |
 |---|---|---|
 | Odometer | Vehicle odometer reading in km at refuelling | Driver-entered; stored as an integer km reading |
-| Refill type | Full tank or partial refill | Driver-selected; full/partial is explicit |
+| Partial refill | Checkbox indicating this is not a full-tank refill | Driver-selected; unchecked by default, meaning full-tank refill |
 | Price per kg | CNG rate in INR/kg | Driver-entered |
 | Total amount paid | Actual amount paid in INR | Driver-entered and stored in integer paise |
 | CNG quantity | Kilograms dispensed | Derived from total amount paid / price per kg; display as a calculated value |
@@ -81,6 +82,8 @@ Validation must follow the shared form contract:
 
 ### 3.1 Full-tank checkpoints
 
+- Full tank is the default refill classification. The driver checks **Partial refill** only when the tank was not filled completely.
+- Every submitted fuel purchase, whether full or partial, is an actual business fuel expense and must be included in business daily-cost and breakeven inputs on its recorded business date.
 - A full-tank refill is a measurement checkpoint. The first accepted full-tank refill establishes the baseline odometer/tank-full state.
 - The next accepted full-tank refill closes a full-to-full measurement interval.
 - The distance for an interval is the later full-refill odometer minus the earlier full-refill odometer.
@@ -97,7 +100,7 @@ For an interval between full-tank checkpoints, the candidate calculation outputs
 
 Use decimal-safe arithmetic, retain calculation version and exact source record IDs/revisions, and define rounding only at the output boundary. Never use GPS endpoint distance as driven distance; use odometer readings.
 
-**Important measurement rule requiring owner confirmation:** If partial refills occur between two full-tank checkpoints, accurate full-to-full consumption requires including the kg and amount of those intervening partial purchases, as well as the final top-up that restores the tank to full. The partial refill is excluded as a checkpoint, but its purchase quantity and cost are included in the interval total. Excluding partial refills entirely would understate both fuel quantity and fuel spend and produce incorrect km/kg and cost/km. This distinction must be confirmed before implementation.
+**Confirmed partial-refill treatment:** Partial refills are excluded as full-tank checkpoints, but every partial refill between two consecutive full-tank checkpoints contributes its derived/recorded kg and actual amount to that full-to-full interval. Include the final full refill that closes the interval. This produces the interval's km/kg, effective cost/kg, and cost/km. Do not exclude partial purchases from the business expense ledger: every fuel purchase counts as a business fuel expense, regardless of refill type. The initial baseline full refill is included in business expense totals on its purchase date, even though it is not treated as fuel consumed within the subsequent measured interval.
 
 The phrase “calculate cost per kg after 2 full tank refills” is interpreted here as calculating interval effective cost/kg after the second full-tank checkpoint; the purchase-level price/kg remains available on every individual record. The same interval also yields mileage and fuel cost/km.
 
@@ -110,9 +113,9 @@ The phrase “calculate cost per kg after 2 full tank refills” is interpreted 
 - If the next full refill never arrives, retain the purchases but report the interval as incomplete; do not extrapolate a final mileage or cost/km value.
 - A missing odometer, invalid odometer delta, missing price/amount, or invalid quantity must not generate a fabricated mileage figure.
 
-## 4. Other business expense sources — background only in PR 1
+## 4. Admin expense entry forms and source records
 
-No new user-facing entry forms are approved for these categories in PR 1. The calculation engine must expose typed, source-specific adapters and must not assume that a source exists merely because a calculation has been designed.
+Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a dedicated Admin entry form under its own separate, clearly named Admin section/header. These forms are explicitly in scope for PR 1 and must follow the established shared form rules. They are not driver-facing forms. The Performance screen remains unchanged. Each form creates authoritative source records consumed by the calculation engine.
 
 ### Platform fees
 - Attribute actual platform fees to the relevant trip, platform settlement, or authoritative fee statement, with source identity, effective date, amount, and reversal/correction linkage.
@@ -128,7 +131,7 @@ No new user-facing entry forms are approved for these categories in PR 1. The ca
 ### Miscellaneous business expenses
 - Use typed category and attribution metadata (business, vehicle, or driver where supported), business date, amount in integer paise, source identity, description/reference, and correction/reversal history.
 - Existing general Maintenance expense records may be adapted only when their meaning and ownership genuinely match; do not relabel unrelated Maintenance records or count the same amount twice.
-- No new Miscellaneous entry screen is part of PR 1.
+- The Miscellaneous Business Expenses Admin form is part of PR 1.
 
 ## 5. Common expense and calculation architecture
 
@@ -149,12 +152,13 @@ No new user-facing entry forms are approved for these categories in PR 1. The ca
 
 Scope:
 1. Add the common expense-source and calculation foundation.
-2. Add the Fuel Entry form as the only new user-facing form, using the shared form runtime and the rules above.
-3. Persist fuel purchase facts, durable in-progress form working copies, timestamp, best-effort GPS evidence, and durable asynchronous locality enrichment.
-4. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and fuel cost/km with deterministic provenance.
-5. Add background source adapters and calculations for platform fees, challans, and miscellaneous expenses only where authoritative source facts already exist or a source ingestion contract is approved. Do not add new forms for them.
-6. Produce reliable daily expense/fuel calculation outputs without changing the Performance presentation.
-7. Add web/Android parity, offline, process-restart, backup/restore, idempotency, correction, and regression coverage.
+2. Add Fuel Entry as the only new driver-facing form, using the shared form runtime and the rules above.
+3. Add separate Admin entry forms under separate Admin headers for Platform Fees, Traffic Challans, and Miscellaneous Business Expenses, all using the established shared form runtime and form rules.
+4. Persist fuel purchase facts, durable in-progress form working copies, timestamp, best-effort GPS evidence, and durable asynchronous locality enrichment.
+5. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and fuel cost/km with deterministic provenance. Every fuel purchase must also enter business expense totals.
+6. Add the three Admin expense forms and their authoritative source records, then implement source adapters and calculations for platform fees, challans, and miscellaneous expenses.
+7. Produce reliable daily expense/fuel calculation outputs without changing the Performance presentation.
+8. Add web/Android parity, offline, process-restart, backup/restore, idempotency, correction, and regression coverage.
 
 Acceptance gates:
 - Fuel entry can be opened from every screen and when no shift is active.
@@ -162,7 +166,9 @@ Acceptance gates:
 - Fuel submission and local calculations work with network disabled; geocoding failure never blocks the driver.
 - GPS evidence is event-scoped and correctly timestamped; absent/late evidence is represented honestly.
 - Full-to-full mileage requires two valid full-tank checkpoints and a positive odometer delta.
-- Partial-refill treatment follows the confirmed measurement rule.
+- Full tank is the default; the Partial refill checkbox is unchecked by default.
+- All fuel purchases count in business fuel expense totals; only full-tank records are checkpoints for km/kg and cost/km intervals, while intervening partial purchases contribute quantity and spend to the interval.
+- Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a separate Admin entry form under its own Admin header, conforming to the shared form rules.
 - All calculated values reconcile to immutable source records and versioned provenance.
 - Browser and Android use the same calculation/application services and their respective durable stores.
 - Full architecture, web, Android, integrated regression, and backup/restore gates pass.
@@ -185,15 +191,15 @@ The exact target configuration unit (fixed INR addition versus percentage/margin
 Inspection of `main` after PR #77 found:
 - The shared form contract/runtime and record-backed working-copy repository already exist. The form contract requires restart recovery, so the Fuel form must conform rather than introduce a weaker draft lifecycle.
 - The shared location contract supports offline event-scoped GPS acquisition, and the existing reverse-geocoder adapter/proxy exists. Timeline enrichment currently uses a session-local cache and Timeline-specific event types, so fuel needs durable enrichment linkage/queue handling rather than relying on that cache as-is.
-- Existing completed-trip financial records store fare, toll, and parking, but no platform-fee field or authoritative platform-settlement record was found.
-- Existing Maintenance records include vehicle-scoped visits and general expenses, but there is no typed traffic-challan source or general business-expense category model in the inspected source.
-- Therefore platform fees, challans, and miscellaneous calculations cannot be claimed as production-ready until authoritative source records/ingestion are identified. PR 1 may define adapters and output contracts, but it must not fabricate inputs or introduce unapproved entry UI.
+- Existing completed-trip financial records store fare, toll, and parking, but no platform-fee field or authoritative platform-settlement record was found; PR 1 therefore needs an Admin Platform Fees source form and record model.
+- Existing Maintenance records include vehicle-scoped visits and general expenses, but there is no dedicated traffic-challan source or general business-expense category model in the inspected source; PR 1 therefore needs dedicated Admin forms and typed record models for these categories.
+- These are approved Admin entry forms, not unapproved UI. They must be implemented using the shared form architecture; no separate Performance presentation is included.
 
-## 8. Owner decisions required before calculation implementation
+## 8. Remaining owner decisions before calculation implementation
 
-1. **Partial refill treatment:** Confirm that partial refills are excluded as full-tank checkpoints but their kg and amount are included in the next full-to-full interval. This is required for physically correct mileage and cost/km.
-2. **Fuel quantity field:** Confirm that CNG kg is app-derived from total amount / price per kg and shown read-only, rather than separately entered by the driver as a second source value.
-3. **Background expense source facts:** Identify the existing authoritative source for platform fees, traffic challans, and miscellaneous expenses, or confirm that PR 1 should only create typed adapters/read models until those source records are separately approved. No extra UI is assumed.
-4. **Driver target policy for PR 2:** Confirm whether Admin's amount above breakeven is a fixed INR addition or a percentage/margin, and how shared vehicle/business costs are attributed when multiple drivers work.
+1. **Fuel quantity field:** Confirm whether the driver enters pump-displayed CNG kg, or whether kg is calculated/read-only from total amount / price per kg. If both are captured, preserve the pump quantity as observed source data and the derived quantity as a separately identified calculation.
+2. **Driver target policy for PR 2:** Confirm whether Admin's amount above breakeven is a fixed INR addition or a percentage/margin, and how shared vehicle/business costs are attributed when multiple drivers work.
+
+The partial-refill rule and the need for three separate Admin expense forms are approved. Implementation must not reopen those decisions.
 
 No runtime implementation should begin until the owner decisions that affect calculation correctness and source availability are resolved. This document is the review gate for the implementation commits that will follow in this PR.
