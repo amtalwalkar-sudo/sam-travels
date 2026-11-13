@@ -90,3 +90,5 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Compliance append-only correction chains are now projected into Compliance overview and daily-cost reads before overlap analysis; invalid/forked/stale correction chains fail closed. Regression coverage verifies projected data and immutability of the original source.
 
 - Allocation provenance is now retained append-only in platform records using a deterministic input fingerprint; identical inputs replay idempotently, and distinct source/Business Start Date/schedule states remain queryable in the Admin audit disclosure. These metadata records ride the existing platform-records backup participant.
+
+- Finance prepayment UI and application preview now enforce the approved fixed-EMI/reduce-tenure rule for new commands. Legacy `reduce_emi` calculation/revision support remains available for historical compatibility, but the new prepayment command path rejects that mode.
