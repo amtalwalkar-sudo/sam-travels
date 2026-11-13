@@ -9,6 +9,7 @@ import {
   FinanceLoanPrepaymentService, FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX,
 } from "../packages/application/src/finance-loan-prepayment-service";
 import type { FinancePaymentLedgerV1 } from "../packages/application/src/finance-loan-payment-service";
+import { BusinessStartDateCostAllocationService } from "../packages/application/src/business-start-date-cost-allocation-service";
 
 const loanId = "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000";
 const details = { loanName: "Vehicle loan", lenderName: "Example lender",
@@ -74,6 +75,45 @@ describe("FinanceLoanPrepaymentService", () => {
     expect(ledger?.data.entries).toHaveLength(0);
     expect(await service.commit({ preview, source: "web" })).toEqual(committed);
   });
+  it("rebuilds daily EMI allocations from the real prepayment schedule and its earlier final due date", async () => {
+    const { repository, service } = setup();
+    const preview = await service.preview({
+      loanId, commandId: "prepay-allocation-integration",
+      businessDate: "2026-01-15", amountPaise: 1_000_000,
+      mode: "reduce_tenure", source: "web",
+    });
+    const originalFinalDueDate = schedule.output.rows[schedule.output.rows.length - 1].dueDate;
+    const committed = await service.commit({ preview, source: "web" });
+    const history = await service.getScheduleHistory(loanId);
+    const revised = history.versions.find(item => item.version === committed.version)!;
+    expect(revised.regularEmiPaise).toBe(schedule.output.regularEmiPaise);
+    expect(revised.rows[0].dueDate).toBe("2026-02-01");
+    expect(revised.rows[revised.rows.length - 1].dueDate).toBe(preview.finalDueDate);
+    expect(preview.finalDueDate < originalFinalDueDate).toBe(true);
+
+    const allocation = new BusinessStartDateCostAllocationService(
+      { async get() { return { id: "feature:business-settings:business", revision: 1,
+        data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
+      { async getOverview() { return { records: [], overlaps: [] }; } } as never,
+      { async list() { return [await repository.get<FinanceLoanRecordV1>(loanId)!]; } } as never,
+      service,
+      { async list() { return []; } } as never,
+      () => "2026-11-13T00:00:00.000Z",
+    );
+    const report = await allocation.getReport();
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" ||
+      item.sourceKind === "emi-pre-business-carry-forward");
+    expect(emiSources.length).toBeGreaterThan(0);
+    expect(emiSources.every(item => item.scheduleVersion === committed.version)).toBe(true);
+    const lastAllocatedDay = report.result.daily[report.result.daily.length - 1].date;
+    const [year, month] = preview.finalDueDate.split("-").map(Number);
+    const expectedAllocationEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    expect(lastAllocatedDay).toBe(expectedAllocationEnd);
+    expect(report.result.allocatedAmountPaise).toBe(
+      emiSources.reduce((sum, item) => sum + item.sourceAmountPaise, 0),
+    );
+  });
+
   it("rejects a second prepayment dated before the prior prepayment", async () => {
     const { service } = setup();
     const firstPreview = await service.preview({ loanId, commandId: "prepay-first",
