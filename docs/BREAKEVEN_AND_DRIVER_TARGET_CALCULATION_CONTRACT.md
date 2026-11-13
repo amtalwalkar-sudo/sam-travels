@@ -184,7 +184,7 @@ Implementation must include:
 - Passbook tests for ahead-of-target, behind-target, cumulative recovery, and period boundaries.
 - Business-kilometre summary tests for active-day denominators and exclusion of personal-use distance.
 - Advisory prediction tests proving predictions remain separate from actual calculations and cannot mutate configured targets or source data.
-- A temporary driver/admin sanity-check readout in the existing Performance space, isolated from the calculation layer and removable/replacable through one documented, non-destructive command after validation.
+- A temporary driver/admin sanity-check readout in the existing Performance space, isolated from the calculation layer and removable/replaceable through one documented, non-destructive command after validation.
 - Documentation updates and green required web, architecture, Android, and integrated CI gates.
 
 A green CI run is automated evidence only. Physical-device acceptance remains a separate release gate and is intentionally deferred until the agreed end-of-work testing stage.
