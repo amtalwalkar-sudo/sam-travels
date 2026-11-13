@@ -243,8 +243,22 @@ export class MaintenanceService {
     if (unallocatedKm !== 0 || source.unallocatedBusinessKm !== 0 || source.totalBusinessKm !== allocatedKm) {
       throw new Error("maintenance_daily_business_km_not_fully_allocated");
     }
-    const rate = await this.getRateForDate(input.vehicleId, input.operationalDate);
     const id = "feature:maintenance:daily-accrual:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
+    const matchesSourceSnapshot = (record: RecordEnvelope<MaintenanceRecordV1> | undefined) => {
+      if (!record || record.data.kind !== "daily_accrual") return false;
+      return record.data.dailyBusinessKmRecordId === dailyBusinessKmRecordId &&
+        record.data.dailyBusinessKmRevision === daily.revision &&
+        record.data.businessKm === allocatedKm &&
+        (record.data.personalKm ?? 0) === allocatedPersonalKm;
+    };
+    // A committed accrual owns its effective-rate snapshot. Replays must return
+    // that snapshot even if an Admin later appends another rate for the same day.
+    const existing = await this.records.get(id);
+    if (existing) {
+      if (!matchesSourceSnapshot(existing)) throw new Error("maintenance_daily_accrual_immutable_conflict");
+      return existing as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    }
+    const rate = await this.getRateForDate(input.vehicleId, input.operationalDate);
     const data: MaintenanceDailyAccrualV1 = {
       schemaVersion: 1, kind: "daily_accrual", vehicleId: input.vehicleId, operationalDate: input.operationalDate,
       dailyBusinessKmRecordId, dailyBusinessKmRevision: daily.revision, businessKm: allocatedKm,
@@ -252,17 +266,14 @@ export class MaintenanceService {
       rateEffectiveFrom: rate.effectiveFrom, ratePaisePerKm: rate.ratePaisePerKm,
       amountPaise: allocatedKm * rate.ratePaisePerKm,
     };
-    if (!Number.isSafeInteger(data.amountPaise)) throw new Error("maintenance_daily_accrual_amount_out_of_range");
-    const existing = await this.records.get(id);
-    if (existing) {
-      if (JSON.stringify(existing.data) !== JSON.stringify(data)) throw new Error("maintenance_daily_accrual_immutable_conflict");
-      return existing as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    if (!Number.isSafeInteger(data.amountPaise) || !Number.isSafeInteger(data.personalAmountPaise)) {
+      throw new Error("maintenance_daily_accrual_amount_out_of_range");
     }
     try {
       return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
     } catch (error) {
       const raced = await this.records.get(id);
-      if (raced && JSON.stringify(raced.data) === JSON.stringify(data)) return raced as RecordEnvelope<MaintenanceDailyAccrualV1>;
+      if (matchesSourceSnapshot(raced)) return raced as RecordEnvelope<MaintenanceDailyAccrualV1>;
       throw error;
     }
   }
