@@ -11,9 +11,15 @@ const NEGATIVE_CACHE_TTL_MS = 60 * 60 * 1000;
 
 export type TimelineEnrichmentRecord = Readonly<{
   eventId: string;
-  latitude: number;
-  longitude: number;
-  status: "pending" | "retry_wait" | "resolved" | "not_found" | "network_disabled";
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  fixAt?: string;
+  gpsProvider?: string;
+  captureStatus?: "captured" | "permission_denied" | "timeout" | "unavailable";
+  captureTiming?: "submission_event" | "late";
+  captureReason?: string;
+  status: "pending" | "retry_wait" | "resolved" | "not_found" | "network_disabled" | "capture_unavailable";
   label?: string;
   provider: "geoapify";
   lookedUpAt?: string;
@@ -53,7 +59,8 @@ export class TimelineEnrichmentQueue {
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX));
     for (const row of existing) {
       const data = row.data;
-      if ((data.status !== "resolved" && data.status !== "not_found") || !data.lookedUpAt) continue;
+      if ((data.status !== "resolved" && data.status !== "not_found") || !data.lookedUpAt ||
+          typeof data.latitude !== "number" || typeof data.longitude !== "number") continue;
       const age = nowMs - Date.parse(data.lookedUpAt);
       const ttl = data.status === "resolved" ? SUCCESS_CACHE_TTL_MS : NEGATIVE_CACHE_TTL_MS;
       if (!Number.isFinite(age) || age < 0 || age > ttl) continue;
@@ -72,6 +79,8 @@ export class TimelineEnrichmentQueue {
           const cached = resolvedCoordinates.get(this.coordinateKey(gps.latitude, gps.longitude));
           return {
             eventId: event.eventId, latitude: gps.latitude, longitude: gps.longitude,
+            accuracyMeters: gps.horizontalAccuracyM, fixAt: gps.fixAt, gpsProvider: gps.provider,
+            captureStatus: "captured" as const,
             status: cached?.status ?? "pending", provider: "geoapify" as const,
             createdAt: now, attempts: 0,
             ...(cached?.label ? { label: cached.label } : {}),
@@ -83,6 +92,54 @@ export class TimelineEnrichmentQueue {
     }
   }
 
+
+  /**
+   * Persist the GPS result for a Fuel Entry submission under its stable fuel-event
+   * identity. The purchase itself is already committed; this evidence/enrichment
+   * record is separate and can never delay or roll back that purchase.
+   */
+  async recordFuelLocationCapture(input: Readonly<{
+    eventId: string;
+    outcome:
+      | Readonly<{ status: "captured"; latitude: number; longitude: number; accuracyMeters: number; fixAt: string; gpsProvider: "device" }>
+      | Readonly<{ status: "permission_denied" | "timeout" | "unavailable"; reason: string }>;
+    captureTiming: "submission_event" | "late";
+  }>): Promise<void> {
+    if (!input.eventId.startsWith("fuel:feature:business-expenses:fuel:")) {
+      throw new Error("fuel_location_event_identity_invalid");
+    }
+    const id = recordId(input.eventId);
+    if (await this.records.get<TimelineEnrichmentRecord>(id)) return;
+    const now = new Date(this.now()).toISOString();
+    const captured = input.outcome.status === "captured";
+    if (captured && (!Number.isFinite(input.outcome.latitude) || input.outcome.latitude < -90 ||
+        input.outcome.latitude > 90 || !Number.isFinite(input.outcome.longitude) ||
+        input.outcome.longitude < -180 || input.outcome.longitude > 180 ||
+        !Number.isFinite(input.outcome.accuracyMeters) || input.outcome.accuracyMeters <= 0 ||
+        !Number.isFinite(Date.parse(input.outcome.fixAt)))) {
+      throw new Error("fuel_location_evidence_invalid");
+    }
+    const data: TimelineEnrichmentRecord = {
+      eventId: input.eventId,
+      status: captured ? "pending" : "capture_unavailable",
+      provider: "geoapify",
+      createdAt: now,
+      attempts: 0,
+      captureStatus: input.outcome.status,
+      captureTiming: input.captureTiming,
+      ...(captured ? {
+        latitude: input.outcome.latitude,
+        longitude: input.outcome.longitude,
+        accuracyMeters: input.outcome.accuracyMeters,
+        fixAt: input.outcome.fixAt,
+        gpsProvider: input.outcome.gpsProvider,
+      } : { captureReason: input.outcome.reason }),
+    };
+    await this.records.put({
+      id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1, data,
+    });
+  }
+
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
     if (this.draining) return Object.freeze({});
     this.draining = true;
@@ -90,6 +147,7 @@ export class TimelineEnrichmentQueue {
     const nowMs = this.now();
     const all = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
+      .filter(row => typeof row.data.latitude === "number" && typeof row.data.longitude === "number")
       .filter(row => (row.data.status === "pending" || row.data.status === "network_disabled") ||
         (row.data.status === "retry_wait" && (!row.data.nextAttemptAt || Date.parse(row.data.nextAttemptAt) <= nowMs)))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -98,8 +156,11 @@ export class TimelineEnrichmentQueue {
     for (const row of all) {
       if (signal?.aborted) break;
       try {
+        const latitude = row.data.latitude;
+        const longitude = row.data.longitude;
+        if (typeof latitude !== "number" || typeof longitude !== "number") continue;
         const label = await this.gateway.run(() =>
-          this.adapter.reverse(row.data.latitude, row.data.longitude, signal));
+          this.adapter.reverse(latitude, longitude, signal));
         const lookedUpAt = new Date(this.now()).toISOString();
         const resolved = !!label;
         const data: TimelineEnrichmentRecord = {
@@ -138,7 +199,7 @@ export class TimelineEnrichmentQueue {
       if (!row) continue;
       const data = row.data;
       result[eventId] = {
-        status: data.status === "retry_wait" ? "unavailable" : data.status,
+        status: data.status === "retry_wait" || data.status === "capture_unavailable" ? "unavailable" : data.status,
         ...(data.label ? { label: data.label } : {}),
         provider: data.provider,
         ...(data.lookedUpAt ? { lookedUpAt: data.lookedUpAt } : {}),
