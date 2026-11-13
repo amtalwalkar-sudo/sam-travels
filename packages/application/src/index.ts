@@ -52,3 +52,6 @@ export * from "./compliance-analysis-runtime";
 export * from "./maintenance-daily-accrual-integration";
 
 export * from "./business-start-date-cost-allocation-service";
+
+export * from "./business-expenses-service";
+export * from "./business-expenses-runtime";
