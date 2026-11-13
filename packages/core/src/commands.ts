@@ -33,6 +33,7 @@ export type DriverStateProjection={
  activeTripId?:string;
  tripContext?:{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string};
  shiftStartOdometerKm?:number;
+ shiftStartPersonalKm?:number;
  lastConfirmedOdometerKm?:number;
 };
 export type NativeBridgeRequest<T>={bridgeVersion:typeof BRIDGE_CONTRACT_VERSION;requestId:string;payload:T};
