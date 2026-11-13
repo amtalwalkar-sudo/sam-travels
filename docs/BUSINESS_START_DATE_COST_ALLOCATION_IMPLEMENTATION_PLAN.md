@@ -87,3 +87,5 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Compliance correction projection and durable prior-restatement provenance remain explicit completion gates; they are not marked complete by the current read-time rebuild.
 
 - Compliance append-only correction chains are now projected into Compliance overview and daily-cost reads before overlap analysis; invalid/forked/stale correction chains fail closed. Regression coverage verifies projected data and immutability of the original source.
+
+- Allocation provenance is now retained append-only in platform records using a deterministic input fingerprint; identical inputs replay idempotently, and distinct source/Business Start Date/schedule states remain queryable in the Admin audit disclosure. These metadata records ride the existing platform-records backup participant.
