@@ -85,7 +85,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     const allocationStatus=command.eventType==="shift_rotate"||operationalDateAt(command.transitionAt)===operationalDate?"allocated":"awaiting_operational_boundary";
     const shiftEndedAt=command.eventType==="shift_rotate"?command.rotation!.boundaryAt:command.transitionAt;
     entries.push({shiftId:current.shiftId,shiftStartEventId:current.shiftId,shiftEndEventId:command.eventId,shiftStartedAt:current.shiftStartedAt,shiftEndedAt,
-      startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm,allocationStatus});
+      startOdometerKm:current.shiftStartOdometerKm,endOdometerKm:command.odometer.readingKm,businessKm:command.odometer.businessKm,personalKm:current.shiftStartPersonalKm??0,allocationStatus});
     const totalBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="allocated"?Number(entry.businessKm):0),0);
     const unallocatedBusinessKm=entries.reduce((sum,entry)=>sum+(entry.allocationStatus==="awaiting_operational_boundary"?Number(entry.businessKm):0),0);
     if(!Number.isSafeInteger(totalBusinessKm)||!Number.isSafeInteger(unallocatedBusinessKm))throw new Error("daily_business_km_total_out_of_range");
