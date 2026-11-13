@@ -159,12 +159,12 @@ describe("MaintenanceService", () => {
       id: dailyId, schemaVersion: 1, createdAt: "2026-11-02T00:00:00.000Z", updatedAt: "2026-11-02T08:00:00.000Z",
       source: "integration", revision: 2,
       data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId, operationalDate: "2026-11-02",
-        entries: [{ shiftId: "shift-a", businessKm: 120, allocationStatus: "allocated" }],
+        entries: [{ shiftId: "shift-a", businessKm: 120, personalKm: 50, allocationStatus: "allocated" }],
         totalBusinessKm: 120, unallocatedBusinessKm: 0 },
     });
     await service.setRate({ vehicleId, ratePaisePerKm: 300, commandId: "123e4567-e89b-42d3-a456-426614174099", source: "web" });
     const first = await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" });
-    expect(first.data).toMatchObject({ businessKm: 120, ratePaisePerKm: 300, amountPaise: 36000, dailyBusinessKmRevision: 2 });
+    expect(first.data).toMatchObject({ businessKm: 120, personalKm: 50, personalAmountPaise: 15000, ratePaisePerKm: 300, amountPaise: 36000, dailyBusinessKmRevision: 2 });
     expect((await service.accrueDailyBusinessKilometres({ vehicleId, operationalDate: "2026-11-02", source: "integration" })).id).toBe(first.id);
     setNow("2026-11-03T10:00:00.000Z");
     await service.setRate({ vehicleId, ratePaisePerKm: 400, commandId: "123e4567-e89b-42d3-a456-426614174098", source: "web" });
