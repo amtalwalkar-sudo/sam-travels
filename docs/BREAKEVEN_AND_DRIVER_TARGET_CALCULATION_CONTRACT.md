@@ -1,8 +1,8 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.1  
-**Status:** Frozen product baseline with approved Addendum A; further additive amendments require explicit product-owner approval  
+**Version:** 1.2  
+**Status:** Approved product baseline with Addenda A and B; further additive amendments require explicit product-owner approval  
 **Implementation authorization:** Not granted by this document alone  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -44,32 +44,23 @@ The exact day-count and month-length convention used when amortizing annual figu
 - A period boundary uses Asia/Kolkata business dates.
 - Missing, incomplete, stale, or unavailable source data must remain explicit; it must not silently become zero or a complete-looking result.
 
-## 4. Platform / performance fee configuration
+## 4. Platform charges and earnings
 
-Admin must be able to configure the fee arrangement for each applicable earning platform. The supported fee types are:
+Platform charges are recorded as actual expense entries by the driver. Whenever the driver buys a platform pass or pays a commission amount, the driver enters the amount paid. That recorded amount is included once in the single full-cost breakeven calculation and reduces the earnings available to cover costs and target progress.
 
-1. **Commission** — percentage-based fee.
-2. **Pass** — pass-based charge.
-3. **No fee** — zero platform fee.
+Do not build a platform commission engine for this scope: do not infer a commission percentage base, calculate a commission from trip fares, reconstruct pass coverage, or require platform fee-type configuration to calculate breakeven. The amount entered by the driver is the authoritative platform-charge expense record.
 
-The applicable fee arrangement must be used when calculating net platform proceeds and breakeven. The model must support platforms with different fee types; it must not assume all platforms charge commission.
+The platform-charge entry must use the existing shared form, persistence, correction, backup, and recovery foundations. Preserve the source entry and its audit history. A recorded platform charge must be recognized exactly once; it must not also be subtracted from earnings through a second normalization path. If an upstream earning source is already net of that same recorded charge, the calculation must identify the overlap and prevent duplicate deduction rather than charge it twice.
 
-Fee configuration is business data and must use the shared form, persistence, correction, backup, and recovery foundations. Changes to fee arrangements must not silently rewrite historical calculations; effective-date and historical-restatement behaviour must be explicitly defined before production registration.
+Historical correction and restatement behaviour follows the repository's existing source-record correction and calculation-version contracts; do not silently rewrite historical source entries.
 
-The exact commission base, pass amount and billing period, treatment of partial pass periods, and fee-change effective-date policy remain open until approved in Section 13. Do not infer that a pass is necessarily daily or monthly.
+### 4.1 Canonical earnings and one-time platform-charge recognition
 
-### 4.1 Canonical earnings basis and single fee recognition
-
-- The calculation system must normalize every eligible earning record to one canonical **net earnings** amount, expressed in INR paise, before it is consumed by breakeven, Driver Target, Driver Target Passbook, period summaries, or predictions.
-- Canonical net earnings means the earning value after transaction-level platform fees actually withheld from that earning have been deducted exactly once.
-- If an authoritative source amount is already net of a platform fee (for example, the platform payout after commission), use that net amount as the canonical earning value. Do not subtract the same fee again as a separate expense.
-- If the authoritative source amount is gross and the platform fee has not yet been deducted, normalize it by deducting the applicable transaction-level fee once. Mark the fee as accounted for in that normalization so downstream expense aggregation cannot deduct it again.
-- Gross earnings and platform-fee details may be retained for audit and reconciliation, but gross earnings must not be added to the calculation alongside the same fee as a separate expense when canonical net earnings are being used.
-- Fixed pass charges are recognized once as operating costs when they are not already reflected in the canonical net proceeds. If a pass charge has already been withheld from the proceeds used as canonical net earnings, it must not also be added as a separate expense.
-- Every fee-bearing source must carry, or be mapped to, an explicit accounting state sufficient to distinguish **not yet deducted**, **already deducted**, and **not applicable**. Unknown fee-accounting state must be treated as incomplete; it must not be guessed or silently deducted.
-- This rule applies identically to actual breakeven, target progress, passbook, historical summaries, and advisory predictions. No downstream feature may apply its own second platform-fee deduction.
-
-The canonical accounting path is net earnings. A gross-plus-fee presentation may be used for audit or a separately approved gross-revenue requirement, but it must reconcile to the same canonical net amount and must never be mixed into the net-earnings calculation.
+- All downstream calculations use one canonical earnings value and one expense ledger representation for each recorded platform charge.
+- The driver's pass/commission entry is deducted exactly once in the full-cost breakeven and target accounting.
+- Where an upstream payout or earning record is already net of a particular charge, do not subtract that same charge again. Preserve enough source detail to detect and prevent duplicate recognition.
+- Do not invent or calculate an unentered platform fee. The driver-entered amount is authoritative for this scope.
+- This rule applies to actual breakeven, target progress, passbook, period summaries, and estimated breakeven inputs.
 
 ## 5. Maintenance cost
 
@@ -82,29 +73,17 @@ The canonical accounting path is net earnings. A gross-plus-fee presentation may
 
 ## 6. Breakeven definitions
 
-Two breakeven outputs are required.
+Exactly one breakeven output is required: **Full-cost breakeven**. There is no operating-breakeven metric or UI concept in this workstream.
 
-### 6.1 Operating breakeven
-
-The earnings required to cover the vehicle's operating costs. It includes:
+Full-cost breakeven is the total eligible cost burden that must be covered by earnings. It includes:
 - Fuel costs.
-- KM-based maintenance cost.
-- Other operating costs already represented by approved source records and calculation contracts.
-
-Transaction-level platform fees already deducted during canonical earnings normalization are **not** added again as operating expenses. Platform pass charges and other platform costs are included as operating costs only when they have not already reduced the canonical net proceeds. Each platform fee is recognized exactly once.
-
-It excludes:
-- EMI.
+- Maintenance accrual: business kilometres multiplied by the Admin-configured maintenance rate.
+- Driver-entered platform pass and commission charges.
 - Traffic challans.
-
-### 6.2 Full-cost breakeven
-
-The earnings required to cover operating costs plus the broader vehicle costs included in this view. It includes:
-- All operating breakeven costs.
+- Miscellaneous expenses.
 - The full scheduled EMI amount; do not split EMI into principal and interest for this calculation.
-- Traffic challans.
 
-Use existing Finance and Business Start Date allocation outputs where applicable. Do not duplicate their source calculations or introduce a second EMI/compliance allocation implementation.
+Use existing Finance and Business Start Date allocation outputs where applicable. Do not duplicate their source calculations or introduce a second EMI/compliance allocation implementation. Each cost must be recognized once. Do not create a separate operating-breakeven result, formula, registration, or presentation.
 
 ### 6.3 Explicit exclusion
 
@@ -113,13 +92,13 @@ This contract does not introduce a separate dated vehicle-expense allocation sys
 ## 7. Daily Driver Target
 
 - Admin configures a **monthly Driver Target**.
-- The target is always above the applicable breakeven.
+- The target is evaluated against the single full-cost breakeven.
 - The amount above breakeven is the progress that counts toward the driver's target.
 - The target is not a percentage of breakeven and is not a hardcoded uplift.
 - Daily, weekly, monthly, annual, and custom-period target comparisons must be derived consistently from the configured monthly target and the same breakeven foundation.
 - The target must not silently change actual breakeven calculations.
 
-The target's precise basis (operating versus full-cost breakeven), its exact interpretation as a monthly surplus requirement, and the approved calendar proration for partial months are open details in Section 10. Until those are approved, implementation must not guess.
+The target basis is approved as the single full-cost breakeven. The exact interpretation of the configured monthly target (total desired net earnings versus desired surplus above full-cost breakeven) and calendar proration/pacing for partial months remain open; implementation must not guess.
 
 ## 8. Driver Target Passbook
 
@@ -159,7 +138,7 @@ Averages must use actual active driving days rather than blindly dividing by all
 
 The predictive capability is initially **advisory**.
 
-It may use historical business kilometres and validated cost inputs to estimate future kilometres, fuel costs, maintenance costs, and future operating/full-cost breakeven. Predicted values must be visibly and semantically separate from actual approved calculations.
+It may use historical business kilometres and validated cost inputs to estimate future kilometres, fuel costs, maintenance costs, and future **full-cost breakeven**. The product may show actual and estimated full-cost breakeven as distinct values. Estimated values must be visibly and semantically separate from actual approved calculations. There is no operating-breakeven forecast.
 
 The advisory engine must not automatically change:
 - Actual breakeven results.
@@ -209,23 +188,21 @@ A green CI run is automated evidence only. Physical-device acceptance remains a 
 
 The following details are intentionally not invented by this contract:
 
-1. Commission percentage base and treatment of taxes, adjustments, refunds, and cancellation fees.
-2. Pass amount, billing period, coverage dates, partial-period handling, and pass changes.
-3. Effective-date and historical-recalculation behaviour for platform fee configuration and maintenance-rate changes.
-4. Annual-to-monthly-to-daily amortization convention, including calendar-day treatment, leap years, and paise residual distribution.
-5. The exact list of additional operating costs included beyond fuel, maintenance, and platform fees.
-6. Whether the Driver Target is measured above operating or full-cost breakeven, and the precise monthly-target/surplus interpretation.
-7. How a monthly target is prorated for a partial month and how the expected cumulative target is paced within a month.
-8. Exact source/eligibility rules for earnings, including the treatment of refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved principle that everything above breakeven counts. The canonical net-earnings basis and single-recognition rule for platform fees are approved in Addendum A and are not open for reinterpretation.
-9. The canonical business-kilometre source and handling of missing, corrected, or disputed distance records.
-10. The initial advisory prediction method, forecast horizon, and minimum history/completeness requirements.
+1. Annual-to-monthly-to-daily amortization convention, including calendar-day treatment, leap years, and paise residual distribution.
+2. The precise monthly Driver Target meaning: total desired net earnings or desired surplus above full-cost breakeven.
+3. How a monthly target is prorated for a partial month and how expected cumulative target progress is paced within a month.
+4. Exact source/eligibility rules for earnings, including refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved canonical earnings and single-recognition principles.
+5. The canonical business-kilometre source and handling of missing, corrected, or disputed distance records.
+6. The initial advisory prediction method, forecast horizon, and minimum history/completeness requirements.
+7. Effective-date and historical-recalculation behaviour for maintenance-rate changes and other source-record corrections.
 
 These are discussion items, not permission to make assumptions. The product owner may approve them individually and record them as dated addenda. Until then, affected calculations remain unregistered or explicitly unavailable rather than returning guessed figures.
 
 ## 14. Approval and amendment history
 
 - **v1.0 — Frozen baseline:** Records the agreed annual-first breakeven architecture, platform fee types, KM-based manually configured maintenance rate, operating/full-cost breakeven distinction, monthly Driver Target, passbook, business-kilometre summary, advisory predictive direction, forms-only scope, and add-on architecture.
-- **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once, including explicit handling of fees already withheld from source payouts.
+- **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once.
+- **v1.2 / Addendum B — Simplified full-cost model:** Replaces two breakeven outputs with one full-cost breakeven; makes driver-entered pass/commission payments the authoritative platform-charge expense entries; confirms the included cost categories; approves full-cost breakeven as the Driver Target basis; and permits separate actual and estimated full-cost breakeven values.
 - Future changes must be recorded as explicit, dated, owner-approved addenda. Do not silently edit the meaning of this frozen baseline.
 
 
@@ -242,3 +219,19 @@ The same platform fee must never be represented both as a reduction from gross e
 An explicit fee-accounting state is required for every applicable source. Unknown state means incomplete accounting data, not permission to assume that a fee is either included or absent. This rule is invariant across every downstream calculation and future add-on.
 
 This addendum freezes the accounting basis and duplicate-prevention rule. It does not yet approve the open commission base, pass billing period, refund/adjustment eligibility, or historical fee-change policy listed in Section 13.
+
+
+## Addendum B — Single full-cost breakeven and simplified expense inputs
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.2  
+**Scope:** Breakeven, Driver Target basis, platform-charge inputs, and predictive breakeven.
+
+1. The product has exactly one breakeven metric: **Full-cost breakeven**. Operating breakeven is removed from the product and must not be implemented, registered, or displayed.
+2. Full-cost breakeven includes fuel, business-kilometre-based maintenance, driver-entered platform pass/commission charges, traffic challans, miscellaneous expenses, and the full scheduled EMI amount.
+3. The driver enters the amount actually paid whenever buying a platform pass or paying commission. That entry is the authoritative platform-charge expense. Do not infer commission bases, calculate unentered fees, or introduce a platform fee configuration engine for this calculation. Recognize each entered charge once and prevent duplicate deduction if an upstream earning/payout value already reflects that same charge.
+4. Existing maintenance rate, traffic challan, commission/platform-charge, and miscellaneous inputs remain the relevant Admin/driver-entered cost sources, alongside fuel and the existing EMI source. No new generic additional-expense category or separate dated vehicle-expense allocation framework is authorized by this addendum.
+5. Driver Target uses full-cost breakeven as its basis. The exact meaning of the monthly target amount and partial-month pacing remain open decisions.
+6. Actual and estimated full-cost breakeven may be shown as separate values when the predictive engine is used. Estimates are advisory, clearly labelled, and must not modify actual calculations or source records.
+
+This addendum supersedes the v1.0 wording that required both operating and full-cost breakeven and any open-decision wording that treated the target basis or additional expense categories as undecided. Addendum A's no-double-recognition principle remains in force, simplified by the driver-entered platform-charge rule above.
