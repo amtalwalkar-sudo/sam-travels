@@ -69,6 +69,7 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Business Start Date changes in both directions, source corrections, duplicate rebuilds, interrupted rebuild/recovery, and source-version changes.
 - Settlement/payment ledger paid-through facts do not truncate future scheduled EMI allocation rows.
 - Prepayment revised schedules preserve contractual EMI amounts and regular due dates while reducing remaining duration/final due date.
+- Finance prepayment entry points reject new “reduce EMI” mode; legacy revision records remain typed/readable for historical compatibility.
 - No mutation of Compliance validity dates, loan dates, EMI due dates, payment history, or original source amounts.
 - PWA/Android parity.
 

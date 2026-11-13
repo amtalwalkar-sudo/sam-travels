@@ -175,7 +175,7 @@ export const LOAN_PREPAYMENT_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "loanId", label: "Loan", type: "text", required: true },
     { id: "businessDate", label: "Prepayment date", type: "date", required: true },
     { id: "amountPaise", label: "Principal amount in paise", type: "number", required: true },
-    { id: "mode", label: "Prepayment mode", type: "select", required: true, options: ["reduce_tenure", "reduce_emi"] },
+    { id: "mode", label: "Prepayment mode", type: "select", required: true, options: ["reduce_tenure"] },
     { id: "previewJson", label: "Service preview", type: "text", required: true, maxLength: 50000 },
   ],
 });
