@@ -32,6 +32,7 @@ export function BusinessStartDateCostAllocationPanel() {
     {loading ? <p className="admin-hint">Calculating from current source records…</p> :
       report ? <>
         <p className="admin-hint">Business Start Date: {report.businessStartDate} · Calculation v{report.result.calculationVersion}. This report is rebuilt from current source records and schedule versions.</p>
+        {report.provenance && <p className="admin-hint">Retained calculation provenance: {report.provenance.id} · fingerprint {report.provenance.fingerprint}</p>}
         <div className="compliance-overview-counts">
           <div><strong>{money(report.result.allocatedAmountPaise)}</strong><small>Allocated to business days</small></div>
           <div><strong>{money(report.result.historicalAmountPaise)}</strong><small>Pre-business historical</small></div>

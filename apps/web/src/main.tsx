@@ -363,6 +363,7 @@ async function bootstrap(): Promise<void> {
       getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
       getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
       getApplicationFinanceLoanPaymentService(),
+      undefined, repository, getApplicationRecordSource(),
     ),
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),

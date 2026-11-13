@@ -23,7 +23,7 @@ const rows = [
   { installmentNumber: 2, dueDate: "2026-02-01", installmentAmountPaise: 2_800 },
   { installmentNumber: 3, dueDate: "2026-03-01", installmentAmountPaise: 3_100 },
 ];
-function createService(options: { settlement?: boolean; overlap?: boolean } = {}) {
+function createService(options: { settlement?: boolean; overlap?: boolean } = {}, provenanceRepository?: unknown) {
   const overview = {
     records: options.overlap ? [complianceRecord, {
       ...complianceRecord, id: "feature:compliance:123e4567-e89b-42d3-a456-426614174002",
@@ -61,6 +61,7 @@ function createService(options: { settlement?: boolean; overlap?: boolean } = {}
       createdAt: "2026-02-01T00:00:00.000Z", source: "web", status: "committed",
     }] : []; } } as never,
     () => "2026-11-13T00:00:00.000Z",
+    provenanceRepository as never,
   );
 }
 
@@ -83,6 +84,25 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(emiSources.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
     expect(report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward")?.sourceAmountPaise).toBe(3_100);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
+  });
+
+  it("retains deterministic provenance once per unique input state across repeat reads", async () => {
+    const records = new Map<string, any>();
+    const repository = {
+      async get(id: string) { return records.get(id); },
+      async compareAndSet(id: string, expectedRevision: number | null, next: any) {
+        if (expectedRevision === null ? records.has(id) : records.get(id)?.revision !== expectedRevision) return false;
+        records.set(id, next);
+        return true;
+      },
+    };
+    const allocation = createService({}, repository);
+    const first = await allocation.getReport();
+    const replay = await allocation.getReport();
+    expect(first.provenance).toBeDefined();
+    expect(first.provenance).toEqual(replay.provenance);
+    expect(records.size).toBe(1);
+    expect([...records.values()][0].data.canonicalInputs).toContain("2026-02-15");
   });
 
   it("withholds each source affected by unresolved Compliance overlaps", async () => {

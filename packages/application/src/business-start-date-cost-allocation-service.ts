@@ -11,12 +11,34 @@ import type { ComplianceAnalysisService } from "./compliance-analysis-service";
 import type { FinanceLoanService } from "./finance-loan-service";
 import type { FinanceLoanPrepaymentService } from "./finance-loan-prepayment-service";
 import type { FinanceLoanPaymentService, FinancePaymentEntryV1 } from "./finance-loan-payment-service";
+import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { RecordEnvelope } from "../../core/src/types";
+
+const PROVENANCE_PREFIX = "reporting:business-start-date-cost-allocation:provenance:";
+type AllocationProvenanceV1 = Readonly<{
+  schemaVersion: 1;
+  fingerprint: string;
+  canonicalInputs: string;
+  calculationId: string;
+  calculationVersion: number;
+  businessStartDate: string;
+  businessSettingsRevision: number;
+}>;
+
+function fingerprint(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index++) {
+    hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
 
 
 export type BusinessStartDateCostAllocationReportV1 = Readonly<{
   businessStartDate: string;
   businessSettingsRevision: number;
   generatedAt: string;
+  provenance?: Readonly<{ id: string; fingerprint: string }>;
   result: BusinessStartDateAllocationResultV1;
 }>;
 
@@ -33,7 +55,56 @@ export class BusinessStartDateCostAllocationService {
     private readonly prepayments: Pick<FinanceLoanPrepaymentService, "getScheduleHistory">,
     private readonly payments: Pick<FinanceLoanPaymentService, "list">,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly provenanceRepository?: AtomicRecordRepository,
+    private readonly recordSource: RecordEnvelope<unknown>["source"] = "web",
   ) {}
+
+  private async retainProvenance(
+    businessStartDate: string,
+    businessSettingsRevision: number,
+    result: BusinessStartDateAllocationResultV1,
+    generatedAt: string,
+  ): Promise<Readonly<{ id: string; fingerprint: string }> | undefined> {
+    if (!this.provenanceRepository) return undefined;
+    const canonicalInputs = JSON.stringify({
+      calculationId: result.calculationId,
+      calculationVersion: result.calculationVersion,
+      businessStartDate,
+      businessSettingsRevision,
+      sources: result.sources.map(source => ({
+        sourceId: source.sourceId, sourceKind: source.sourceKind, sourceVersion: source.sourceVersion,
+        scheduleVersion: source.scheduleVersion, sourceAmountPaise: source.sourceAmountPaise,
+        disposition: source.disposition, eligibleFrom: source.eligibleFrom, eligibleTo: source.eligibleTo,
+      })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
+    });
+    const digest = fingerprint(canonicalInputs);
+    const id = PROVENANCE_PREFIX + digest;
+    const existing = await this.provenanceRepository.get<AllocationProvenanceV1>(id);
+    if (existing) {
+      if (existing.data.schemaVersion !== 1 || existing.data.fingerprint !== digest ||
+          existing.data.canonicalInputs !== canonicalInputs) {
+        throw new Error("business_start_date_allocation_provenance_collision");
+      }
+      return Object.freeze({ id, fingerprint: digest });
+    }
+    const data: AllocationProvenanceV1 = {
+      schemaVersion: 1, fingerprint: digest, canonicalInputs,
+      calculationId: result.calculationId, calculationVersion: result.calculationVersion,
+      businessStartDate, businessSettingsRevision,
+    };
+    const next: RecordEnvelope<AllocationProvenanceV1> = {
+      id, schemaVersion: 1, createdAt: generatedAt, updatedAt: generatedAt,
+      source: this.recordSource, revision: 1, data,
+    };
+    const committed = await this.provenanceRepository.compareAndSet(id, null, next);
+    if (!committed) {
+      const replay = await this.provenanceRepository.get<AllocationProvenanceV1>(id);
+      if (!replay || replay.data.fingerprint !== digest || replay.data.canonicalInputs !== canonicalInputs) {
+        throw new Error("business_start_date_allocation_provenance_write_conflict");
+      }
+    }
+    return Object.freeze({ id, fingerprint: digest });
+  }
 
   async getReport(): Promise<BusinessStartDateCostAllocationReportV1> {
     const [settings, overview, loans] = await Promise.all([
@@ -87,11 +158,15 @@ export class BusinessStartDateCostAllocationService {
       }));
     }
 
+    const generatedAt = this.now();
+    const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
+    const provenance = await this.retainProvenance(businessStartDate, settings.revision, result, generatedAt);
     return Object.freeze({
       businessStartDate,
       businessSettingsRevision: settings.revision,
-      generatedAt: this.now(),
-      result: buildBusinessStartDateAllocationResultV1(businessStartDate, sources),
+      generatedAt,
+      ...(provenance ? { provenance } : {}),
+      result,
     });
   }
 }
