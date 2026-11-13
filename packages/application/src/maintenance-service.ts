@@ -218,7 +218,7 @@ export class MaintenanceService {
     const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
     const daily = await this.repository.get<{
       schemaVersion: number; kind: string; vehicleId: string; operationalDate: string;
-      entries: Array<{ businessKm: number; allocationStatus: string }>;
+      entries: Array<{ businessKm: number; personalKm?: number; allocationStatus: string }>;
       totalBusinessKm: number; unallocatedBusinessKm: number;
     }>(dailyBusinessKmRecordId);
     if (!daily) throw new Error("maintenance_daily_business_km_missing");
@@ -227,8 +227,13 @@ export class MaintenanceService {
         source.vehicleId !== input.vehicleId || source.operationalDate !== input.operationalDate ||
         !Array.isArray(source.entries)) throw new Error("maintenance_daily_business_km_invalid");
     let allocatedKm = 0;
+    let allocatedPersonalKm = 0;
     let unallocatedKm = 0;
     for (const entry of source.entries) {
+      const personalKm = entry.personalKm ?? 0;
+      if (!Number.isSafeInteger(personalKm) || personalKm < 0) throw new Error("maintenance_daily_personal_km_invalid");
+      allocatedPersonalKm += personalKm;
+      if (!Number.isSafeInteger(allocatedPersonalKm)) throw new Error("maintenance_daily_personal_km_total_invalid");
       if (!Number.isSafeInteger(entry.businessKm) || entry.businessKm < 0) throw new Error("maintenance_daily_business_km_invalid");
       if (entry.allocationStatus === "allocated") allocatedKm += entry.businessKm;
       else if (entry.allocationStatus === "awaiting_operational_boundary") unallocatedKm += entry.businessKm;
@@ -243,6 +248,7 @@ export class MaintenanceService {
     const data: MaintenanceDailyAccrualV1 = {
       schemaVersion: 1, kind: "daily_accrual", vehicleId: input.vehicleId, operationalDate: input.operationalDate,
       dailyBusinessKmRecordId, dailyBusinessKmRevision: daily.revision, businessKm: allocatedKm,
+      personalKm: allocatedPersonalKm, personalAmountPaise: allocatedPersonalKm * rate.ratePaisePerKm,
       rateEffectiveFrom: rate.effectiveFrom, ratePaisePerKm: rate.ratePaisePerKm,
       amountPaise: allocatedKm * rate.ratePaisePerKm,
     };
