@@ -80,7 +80,7 @@ internal object WorkDailyBusinessKilometreStore {
     }
     /** Atomically closes the outgoing operational day and begins its successor shift. */
     fun rotate(db: LocalDatabase, current: JSONObject, command: JSONObject, eventId: String, now: String, next: JSONObject) {
-        val rotation = command.getJSONObject("rotation")
+        require(!current.has("activeTripId") || current.isNull("activeTripId")) { "shift_rotation_during_active_trip" }\n        val rotation = command.getJSONObject("rotation")
         val odometer = command.getJSONObject("odometer")
         require(current.optString("state") == "shift_active" && current.optString("shiftId") == rotation.optString("outgoingShiftId") && current.optString("shiftStartedAt") == rotation.optString("outgoingShiftStartedAt") && current.optLong("shiftStartOdometerKm", -1L) == rotation.optLong("outgoingStartOdometerKm", -2L) && Instant.parse(command.getString("transitionAt")) >= Instant.parse(rotation.getString("boundaryAt"))) { "shift_rotation_snapshot_mismatch" }
         append(db, current, command, eventId, now)

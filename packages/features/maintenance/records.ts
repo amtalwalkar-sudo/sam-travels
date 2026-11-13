@@ -48,15 +48,29 @@ export type MaintenanceRateHistoryV1 = Readonly<{
   entries: readonly MaintenanceRateEntryV1[];
 }>;
 
+export type MaintenanceDailyAccrualV1 = Readonly<{
+  schemaVersion: 1;
+  kind: "daily_accrual";
+  vehicleId: string;
+  operationalDate: string;
+  dailyBusinessKmRecordId: string;
+  dailyBusinessKmRevision: number;
+  businessKm: number;
+  rateEffectiveFrom: string;
+  ratePaisePerKm: number;
+  amountPaise: number;
+}>;
+
 export type MaintenanceRecordV1 =
   | MaintenanceVisitV1
   | GeneralMaintenanceExpenseV1
-  | MaintenanceRateHistoryV1;
+  | MaintenanceRateHistoryV1
+  | MaintenanceDailyAccrualV1;
 
 export const MAINTENANCE_RECORD_ID_PREFIX = "feature:maintenance:";
 export const MAINTENANCE_VISIT_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "visit:";
 export const MAINTENANCE_EXPENSE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "expense:";
-export const MAINTENANCE_RATE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "rate:";
+export const MAINTENANCE_RATE_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "rate:";\nexport const MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX = MAINTENANCE_RECORD_ID_PREFIX + "daily-accrual:";
 export const DEFAULT_MAINTENANCE_RATE_PAISE_PER_KM = 250;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -84,7 +98,7 @@ export function assertMaintenanceRecordIdentity(id: string): void {
     }
     return;
   }
-  if (id.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
+  if (id.startsWith(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX)) {\n    const suffix = id.slice(MAINTENANCE_DAILY_ACCRUAL_ID_PREFIX.length);\n    const split = suffix.lastIndexOf(":");\n    if (split < 1) throw new Error("maintenance_record_identity_invalid");\n    try {\n      const vehicleId = decodeURIComponent(suffix.slice(0, split));\n      const date = suffix.slice(split + 1);\n      if (encodeURIComponent(vehicleId) !== suffix.slice(0, split) || !VEHICLE_ID.test(vehicleId) || !isMaintenanceDate(date)) throw new Error();\n      return;\n    } catch { throw new Error("maintenance_record_identity_invalid"); }\n  }\n  if (id.startsWith(MAINTENANCE_RATE_ID_PREFIX)) {
     try {
       const vehicleId = decodeURIComponent(id.slice(MAINTENANCE_RATE_ID_PREFIX.length));
       if (encodeURIComponent(vehicleId) !== id.slice(MAINTENANCE_RATE_ID_PREFIX.length) ||
@@ -224,6 +238,20 @@ export function assertMaintenanceRecordV1(value: unknown): asserts value is Main
       previousDate = effectiveFrom;
       previousSavedAt = savedAt;
     });
+    return;
+  }
+
+  if (record.kind === "daily_accrual") {
+    if (!hasExactKeys(record, ["schemaVersion", "kind", "vehicleId", "operationalDate", "dailyBusinessKmRecordId", "dailyBusinessKmRevision", "businessKm", "rateEffectiveFrom", "ratePaisePerKm", "amountPaise"], []) ||
+        !isMaintenanceDate(record.operationalDate) || !isMaintenanceDate(record.rateEffectiveFrom) ||
+        typeof record.dailyBusinessKmRecordId !== "string" || !record.dailyBusinessKmRecordId.startsWith("work:daily-business-km:") ||
+        !Number.isSafeInteger(record.dailyBusinessKmRevision) || (record.dailyBusinessKmRevision as number) < 1 ||
+        !Number.isSafeInteger(record.businessKm) || (record.businessKm as number) < 0 ||
+        !validMoney(record.ratePaisePerKm) || !validMoney(record.amountPaise) ||
+        !Number.isSafeInteger((record.businessKm as number) * (record.ratePaisePerKm as number)) ||
+        (record.businessKm as number) * (record.ratePaisePerKm as number) !== record.amountPaise) {
+      throw new Error("maintenance_daily_accrual_invalid");
+    }
     return;
   }
 

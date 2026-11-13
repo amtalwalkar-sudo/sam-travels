@@ -36,7 +36,7 @@ function setup() {
     new MemoryRepository(), assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => now,
   );
-  return { service, setNow(value: string) { now = value; } };
+  return { service, repository, setNow(value: string) { now = value; } };
 }
 
 const visitInput = {

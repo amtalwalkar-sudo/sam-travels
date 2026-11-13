@@ -77,3 +77,12 @@ The approved 04:00 logical-shift rotation and odometer confirmation while Online
 5. A boundary reached while idle/shift-active (no trip) requests confirmation immediately.
 6. Rotation survives duplicate taps, GPS retry, process death, offline restart and backup/restore without duplicate events or daily distance.
 7. Driver/vehicle identity and selection lock remain continuous across the rotation.
+
+
+## Maintenance daily accrual records
+
+- Maintenance accrual is downstream of the authoritative `work:daily-business-km` projection; it never derives kilometres from GPS, fares, trips or elapsed time.
+- A vehicle/operational-date accrual is eligible only when every daily contribution has `allocationStatus: allocated`, the unallocated total is zero, and the allocated entry sum exactly matches the published daily total.
+- The immutable accrual stores the source daily-record ID and revision, operational date, allocated kilometres, rate effective on that date, rate snapshot and paise amount. Its identity is deterministic per vehicle and operational date.
+- Repeating the same accrual request returns the existing record. A changed source revision or different calculation is an immutable conflict; an existing accrual is never rewritten to follow later rate changes.
+- Backup and restore validate the daily source link, revision, full allocation, reconciled kilometre total and effective-rate snapshot. A snapshot with an incomplete or inconsistent source is rejected.

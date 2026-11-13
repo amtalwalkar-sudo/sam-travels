@@ -21,7 +21,12 @@ export type MaintenanceRateEntryV1 = Readonly<{
 export type MaintenanceRateHistoryV1 = Readonly<{
   schemaVersion: 1; kind: "rate_history"; vehicleId: string; entries: readonly MaintenanceRateEntryV1[];
 }>;
-export type MaintenanceRecordV1 = MaintenanceVisitV1 | GeneralMaintenanceExpenseV1 | MaintenanceRateHistoryV1;
+export type MaintenanceDailyAccrualV1 = Readonly<{
+  schemaVersion: 1; kind: "daily_accrual"; vehicleId: string; operationalDate: string;
+  dailyBusinessKmRecordId: string; dailyBusinessKmRevision: number; businessKm: number;
+  rateEffectiveFrom: string; ratePaisePerKm: number; amountPaise: number;
+}>;
+export type MaintenanceRecordV1 = MaintenanceVisitV1 | GeneralMaintenanceExpenseV1 | MaintenanceRateHistoryV1 | MaintenanceDailyAccrualV1;
 export type MaintenanceRecordValidator = (value: unknown) => asserts value is MaintenanceRecordV1;
 export type MaintenanceVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
@@ -57,7 +62,7 @@ function isValidDate(value: string): boolean {
 
 /** Maintenance owns actual visits/expenses and per-vehicle rate history. */
 export class MaintenanceService {
-  private readonly records: FeatureRecordService<MaintenanceRecordV1>;
+  private readonly records: FeatureRecordService<MaintenanceRecordV1>;\n  private readonly repository: AtomicRecordRepository;
 
   constructor(
     repository: AtomicRecordRepository,
@@ -211,7 +216,7 @@ export class MaintenanceService {
     await this.requireVehicle(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
-    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
+    const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];\n    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
     const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     const rate = await this.getRateHistory(vehicleId);
     return {
