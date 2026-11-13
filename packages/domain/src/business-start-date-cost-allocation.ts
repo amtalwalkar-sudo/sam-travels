@@ -178,7 +178,7 @@ export function allocateScheduledEmisV1(
     const sourceId = schedule.loanId + ":emi:" + period.row.installmentNumber;
     const daily = distribute({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion,
       amountPaise: period.row.installmentAmountPaise, from, to: period.to });
-    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.scheduleVersion,
+    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion,
       sourceAmountPaise: period.row.installmentAmountPaise, disposition: "allocated",
       eligibleFrom: from, eligibleTo: period.to, daily: Object.freeze(daily) }));
   }
