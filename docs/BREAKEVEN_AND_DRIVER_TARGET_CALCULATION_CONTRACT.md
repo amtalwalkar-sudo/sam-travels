@@ -1,7 +1,7 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.2  
+**Version:** 1.3  
 **Status:** Approved product baseline with Addenda A and B; further additive amendments require explicit product-owner approval  
 **Implementation authorization:** Not granted by this document alone  
 **Delivery:** Documentation-first foundation for PR 2  
@@ -34,7 +34,7 @@ The contract is deliberately extensible. New capabilities may be proposed as add
 - Do not implement separate, competing formulas for daily, weekly, monthly, annual, or custom-range views.
 - Use deterministic decimal-safe arithmetic and the shared INR/paise precision rules. Rounding and residual handling must not create or lose money.
 
-The exact day-count and month-length convention used when amortizing annual figures is an open calculation detail until approved in Section 10. Do not assume a 365-day, 360-day, fixed-30-day, or calendar-day divisor without approval and regression examples.
+Fixed annual costs are allocated to months using each calendar month's actual number of days, with leap years handled by the calendar. Daily allocation uses the actual calendar-day count for the applicable year/month basis. Variable/activity-based costs remain tied to their actual source activity or records. Weekly and custom ranges sum their included daily allocations. Use deterministic paise rounding and distribute residual paise deterministically so period totals reconcile exactly.
 
 ### 3.2 Timeline consistency
 
@@ -46,7 +46,7 @@ The exact day-count and month-length convention used when amortizing annual figu
 
 ## 4. Platform charges and earnings
 
-Platform charges are recorded as actual expense entries by the driver. Whenever the driver buys a platform pass or pays a commission amount, the driver enters the amount paid. That recorded amount is included once in the single full-cost breakeven calculation and reduces the earnings available to cover costs and target progress.
+Platform charges are recorded as actual expense entries by the driver. Whenever the driver buys a platform pass or pays a commission amount, the driver enters the amount actually paid. A commission/pass charge is recognized on its actual payment/entry date, not accrued before the driver pays and records it. That recorded amount is included once in the single full-cost breakeven calculation and reduces the earnings available to cover costs and target progress.
 
 Do not build a platform commission engine for this scope: do not infer a commission percentage base, calculate a commission from trip fares, reconstruct pass coverage, or require platform fee-type configuration to calculate breakeven. The amount entered by the driver is the authoritative platform-charge expense record.
 
@@ -69,7 +69,7 @@ Historical correction and restatement behaviour follows the repository's existin
 - Maintenance cost is the configured rate multiplied by the applicable business kilometres.
 - Do not introduce a separate complex maintenance allocation, prediction, or asset-life framework as part of this scope.
 - Business kilometres exclude personal-use kilometres.
-- The maintenance rate configuration must use the existing shared form architecture and must preserve the rate that was applicable to the calculation period once effective-date behaviour is approved.
+- The maintenance rate configuration must use the existing shared form architecture and preserve the rate that was applicable to each historical calculation period. A rate change affects calculations from its effective date forward; it must not retroactively overwrite prior periods.
 
 ## 6. Breakeven definitions
 
@@ -98,7 +98,7 @@ This contract does not introduce a separate dated vehicle-expense allocation sys
 - Daily, weekly, monthly, annual, and custom-period target comparisons must be derived consistently from the configured monthly target and the same breakeven foundation.
 - The target must not silently change actual breakeven calculations.
 
-The target basis is approved as the single full-cost breakeven. The exact interpretation of the configured monthly target (total desired net earnings versus desired surplus above full-cost breakeven) and calendar proration/pacing for partial months remain open; implementation must not guess.
+The target basis is approved as the single full-cost breakeven. The Admin-entered monthly Driver Target is the **additional surplus desired above full-cost breakeven**, not total net earnings. For a partial month, prorate the monthly surplus target by the number of calendar days in the applicable partial period divided by the total calendar days in that month. Expected cumulative progress is paced by the same calendar-day proportion. Shortfalls remain cumulative and may be recovered later.
 
 ## 8. Driver Target Passbook
 
@@ -115,7 +115,7 @@ It must allow the driver to understand:
 
 A shortfall on an earlier day may be recovered on later days; progress is cumulative and must not be treated as independent daily pass/fail results.
 
-**Earnings eligibility:** Everything earned above the applicable breakeven counts toward the driver's target. Do not narrow this to a single income source without an approved rule. The passbook must use the same canonical net-earnings amount and breakeven definitions as the calculation engine and retain traceability to contributing source records. Platform fees already deducted in canonical earnings must never be deducted again in passbook progress.
+**Earnings eligibility:** Everything earned above full-cost breakeven counts toward the driver's target. Cancellation fees received count as earnings. Do not narrow this to a single income source without an approved rule. The passbook must use the same canonical net-earnings amount and breakeven definitions as the calculation engine and retain traceability to contributing source records. Platform fees already deducted in canonical earnings must never be deducted again in passbook progress.
 
 The passbook is a derived, auditable projection. It must not create or mutate source income, expense, trip, or payment records.
 
@@ -192,8 +192,8 @@ The following details are intentionally not invented by this contract:
 2. The precise monthly Driver Target meaning: total desired net earnings or desired surplus above full-cost breakeven.
 3. How a monthly target is prorated for a partial month and how expected cumulative target progress is paced within a month.
 4. Exact source/eligibility rules for earnings, including refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved canonical earnings and single-recognition principles.
-5. The canonical business-kilometre source and handling of missing, corrected, or disputed distance records.
-6. The initial advisory prediction method, forecast horizon, and minimum history/completeness requirements.
+5. Handling of missing, corrected, or disputed odometer-derived business-kilometre records. Business kilometres are confirmed as odometer-derived only; personal kilometres are excluded and GPS displacement is not a substitute.
+6. The detailed advisory prediction horizon and minimum history/completeness requirements. The approved estimate inputs include historical business kilometres and fuel-efficiency history; estimated results remain separate from actual results and never change actuals.
 7. Effective-date and historical-recalculation behaviour for maintenance-rate changes and other source-record corrections.
 
 These are discussion items, not permission to make assumptions. The product owner may approve them individually and record them as dated addenda. Until then, affected calculations remain unregistered or explicitly unavailable rather than returning guessed figures.
@@ -203,6 +203,7 @@ These are discussion items, not permission to make assumptions. The product owne
 - **v1.0 — Frozen baseline:** Records the agreed annual-first breakeven architecture, platform fee types, KM-based manually configured maintenance rate, operating/full-cost breakeven distinction, monthly Driver Target, passbook, business-kilometre summary, advisory predictive direction, forms-only scope, and add-on architecture.
 - **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once.
 - **v1.2 / Addendum B — Simplified full-cost model:** Replaces two breakeven outputs with one full-cost breakeven; makes driver-entered pass/commission payments the authoritative platform-charge expense entries; confirms the included cost categories; approves full-cost breakeven as the Driver Target basis; and permits separate actual and estimated full-cost breakeven values.
+- **v1.3 / Addendum C — Target, period, earnings and historical rules:** Approves the monthly target as additional surplus above full-cost breakeven, calendar-day partial-month proration, received cancellation fees as earnings, calendar-day annual fixed-cost allocation, historical maintenance-rate preservation, odometer-only business kilometres, and advisory estimates based on historical kilometres/fuel efficiency. Platform commission/pass charges are recorded when actually paid.
 - Future changes must be recorded as explicit, dated, owner-approved addenda. Do not silently edit the meaning of this frozen baseline.
 
 
@@ -235,3 +236,20 @@ This addendum freezes the accounting basis and duplicate-prevention rule. It doe
 6. Actual and estimated full-cost breakeven may be shown as separate values when the predictive engine is used. Estimates are advisory, clearly labelled, and must not modify actual calculations or source records.
 
 This addendum supersedes the v1.0 wording that required both operating and full-cost breakeven and any open-decision wording that treated the target basis or additional expense categories as undecided. Addendum A's no-double-recognition principle remains in force, simplified by the driver-entered platform-charge rule above.
+
+
+## Addendum C — Target, period, earnings and historical rules
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.3
+
+1. **Monthly Driver Target:** The Admin-entered monthly amount is the additional surplus desired above full-cost breakeven. It is not total earnings and is not an uplift automatically added to the breakeven formula. Target progress is eligible net earnings above full-cost breakeven, accumulated over the period.
+2. **Partial months:** Prorate the monthly surplus target by calendar days. Pace expected cumulative progress proportionally by elapsed calendar days. A shortfall remains cumulative and may be recovered on later days.
+3. **Cancellation fees:** Cancellation fees actually received count as earnings, subject to the canonical no-double-recognition rule.
+4. **Platform charges:** The driver records a pass/commission amount when it is actually paid. Do not accrue an unpaid commission/pass expense before payment and entry. Recognize the entered payment once.
+5. **Annual fixed-cost periods:** Allocate fixed annual costs across actual calendar months/days, respecting leap years. Variable costs remain activity/record based. Weekly and arbitrary ranges sum their daily allocations; deterministic paise residual handling must reconcile exactly.
+6. **Maintenance history:** A maintenance-rate change applies from its effective date forward. Past periods retain the rate that applied at that time unless an explicit historical correction is made under the repository's correction contract.
+7. **Distance:** Business kilometres are odometer-derived. Exclude personal kilometres; GPS displacement is not an alternative distance source for this calculation.
+8. **Predictions:** Estimates may use historical business kilometres and fuel-efficiency history. Show estimated full-cost breakeven separately from actual full-cost breakeven. Estimates are advisory and cannot mutate actuals, source records, or the configured target.
+
+The question of whether validated platform earnings that have not yet been paid out count as earnings before settlement remains open; the approval that commission/pass expenses are entered only when paid does not by itself decide payout recognition timing. Refunds, reversals, and other earning adjustments also remain governed by explicit source-record rules and must not be guessed.
