@@ -246,7 +246,9 @@ export class MaintenanceService {
     const id = "feature:maintenance:daily-accrual:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
     const matchesSourceSnapshot = (record: RecordEnvelope<MaintenanceRecordV1> | undefined) => {
       if (!record || record.data.kind !== "daily_accrual") return false;
-      return record.data.dailyBusinessKmRecordId === dailyBusinessKmRecordId &&
+      return record.data.vehicleId === input.vehicleId &&
+        record.data.operationalDate === input.operationalDate &&
+        record.data.dailyBusinessKmRecordId === dailyBusinessKmRecordId &&
         record.data.dailyBusinessKmRevision === daily.revision &&
         record.data.businessKm === allocatedKm &&
         (record.data.personalKm ?? 0) === allocatedPersonalKm;
