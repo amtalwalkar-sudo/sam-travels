@@ -75,14 +75,14 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(report.result.monthly.reduce((sum,item)=>sum+item.amountPaise,0)).toBe(10_000);
   });
 
-  it("uses the Finance settlement's schedule and paid-through boundary without counting later instalments", async () => {
+  it("does not truncate scheduled EMI allocation from settlement paid-through payment facts", async () => {
     const report = await createService({ settlement: true }).getReport();
     const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
-    expect(emiSources).toHaveLength(1);
-    expect(emiSources[0].sourceId.endsWith(":2")).toBe(true);
-    expect(emiSources[0].sourceAmountPaise).toBe(2_800);
+    expect(emiSources).toHaveLength(2);
+    expect(emiSources.map(item => item.sourceId)).toEqual([loanId + ":emi:2", loanId + ":emi:3"]);
+    expect(emiSources.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
     expect(report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward")?.sourceAmountPaise).toBe(3_100);
-    expect(report.result.allocatedAmountPaise).toBe(6_900);
+    expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
 
   it("withholds each source affected by unresolved Compliance overlaps", async () => {

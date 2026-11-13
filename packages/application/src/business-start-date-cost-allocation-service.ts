@@ -68,10 +68,11 @@ export class BusinessStartDateCostAllocationService {
       const scheduleVersion = settlement?.scheduleVersion ?? history.currentScheduleVersion;
       const selected = history.versions.find(item => item.version === scheduleVersion);
       if (!selected) throw new Error("business_start_date_emi_schedule_version_missing");
-      let rows = selected.rows;
-      // A committed Finance settlement closes the loan and identifies the last
-      // EMI included in that schedule. Future instalments are not projected.
-      if (settlement) rows = rows.filter(row => row.installmentNumber <= settlement.paidThroughInstallment);
+      // Settlement payment facts (including paid-through boundaries) do not
+      // independently truncate scheduled EMI cost allocation. Only the Finance
+      // schedule version itself defines the allocation horizon. A genuine
+      // duration reduction from prepayment is represented by its revised rows.
+      const rows = selected.rows;
       if (!rows.length) continue;
       const emiRows: EmiAllocationRowV1[] = rows.map(row => ({
         installmentNumber: row.installmentNumber,

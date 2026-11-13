@@ -16,7 +16,7 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Business Start Date: Business Settings singleton, `feature:business-settings:business`, read through `BusinessSettingsService`.
 - Compliance: immutable Compliance records with actual inclusive `validFrom`, `validTo`, and `totalCostPaise`; overlap review remains authoritative.
 - Finance: loan record and its versioned amortization schedule; each schedule row supplies `dueDate` and the complete `installmentAmountPaise`.
-- Finance prepayment/settlement schedule revisions remain owned by their existing Finance contracts. The allocation input must identify the exact schedule version used and must never infer schedule changes from payment status.
+- Finance prepayment schedule revisions remain owned by Finance and represent genuine duration changes (preserving the contractual EMI amount and regular due date; the final due date may move earlier). Settlement/payment ledger facts do not independently truncate the schedule used for allocation. The allocation input identifies the selected Finance schedule version and never infers schedule changes from payment status or paid-through boundaries.
 
 ## 3. Calculation contract to implement
 
@@ -37,7 +37,7 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 4. Sum complete scheduled EMI amounts for periods fully elapsed before Business Start Date into a single pre-business EMI carry-forward balance. Allocate that balance evenly over the remaining schedule days from Business Start Date through the final instalment allocation-period end.
 5. Continue allocating each subsequent instalment over its own allocation period. Keep the carry-forward allocation separate in provenance so it can be audited and reconciled without double counting.
 6. If no eligible schedule days remain after Business Start Date, return a pre-business historical item requiring explicit policy; do not extend the schedule.
-7. Actual payment dates, amounts, statuses, reversals and settlements do not silently replace scheduled EMI allocation inputs. Any changed schedule must be represented by the Finance-owned schedule version and an explicit restatement.
+7. Actual payment dates, amounts, statuses, reversals, settlement paid-through boundaries and closure facts do not silently replace scheduled EMI allocation inputs. A prepayment-driven duration change must be represented by the Finance-owned revised schedule rows; preserve contractual EMI amount and regular due dates, with only the final instalment date moving earlier. Schedule selection and restatement provenance must identify the exact Finance schedule version.
 
 ## 4. Determinism, money and provenance
 
@@ -66,6 +66,8 @@ The calculation must be owned by a platform-neutral application/domain capabilit
 - Irregular first EMI date, final adjusted EMI, schedule revisions, prepayment/settlement schedule effects, and final period end.
 - Paise division with zero, one, and many remainder paise; exact daily/monthly/yearly reconciliation.
 - Business Start Date changes in both directions, source corrections, duplicate rebuilds, interrupted rebuild/recovery, and source-version changes.
+- Settlement/payment ledger paid-through facts do not truncate future scheduled EMI allocation rows.
+- Prepayment revised schedules preserve contractual EMI amounts and regular due dates while reducing remaining duration/final due date.
 - No mutation of Compliance validity dates, loan dates, EMI due dates, payment history, or original source amounts.
 - PWA/Android parity.
 
