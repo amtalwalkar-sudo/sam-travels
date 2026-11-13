@@ -38,7 +38,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
   const [allocations, setAllocations] = useState<Allocation[]>([]);
   const [prepaymentDate, setPrepaymentDate] = useState(indiaDate());
   const [prepaymentAmount, setPrepaymentAmount] = useState("");
-  const [prepaymentMode, setPrepaymentMode] = useState<FinanceLoanPrepaymentModeV1>("reduce_tenure");
+  const [, setPrepaymentMode] = useState<FinanceLoanPrepaymentModeV1>("reduce_tenure");
   const [prepaymentPreview, setPrepaymentPreview] = useState<FinanceLoanPrepaymentPreviewV1 | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -151,11 +151,12 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     setBusy(true); setMessage(""); setPrepaymentPreview(null);
     try {
       await waitFor("prepayment");
+      await updateDraftField("prepayment", "mode", "reduce_tenure");
       const current = getCopy("prepayment");
       if (!current) throw new Error("finance_loan_prepayment_form_not_ready");
       const preview = await services.financeLoanPrepayments.preview({
         loanId: loan.id, commandId: current.operationId, businessDate: prepaymentDate,
-        amountPaise, mode: prepaymentMode, source: services.recordSource,
+        amountPaise, mode: "reduce_tenure", source: services.recordSource,
       });
       setPrepaymentPreview(preview);
       await updateDraftField("prepayment", "previewJson", JSON.stringify(preview));
@@ -223,10 +224,7 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
       <div className="loan-form-grid">
         <label>Prepayment date<input required type="date" value={prepaymentDate} onChange={event => { setPrepaymentDate(event.target.value); setPrepaymentPreview(null); void updateDraftField("prepayment", "businessDate", event.target.value); void updateDraftField("prepayment", "previewJson", ""); }} /></label>
         <label>Principal amount (₹)<input required type="number" min="0.01" step="0.01" value={prepaymentAmount} onChange={event => { setPrepaymentAmount(event.target.value); setPrepaymentPreview(null); const value = event.target.value === "" ? undefined : Math.round(Number(event.target.value) * 100); void updateDraftField("prepayment", "amountPaise", value); void updateDraftField("prepayment", "previewJson", ""); }} /></label>
-        <label>How should the loan change?<select value={prepaymentMode} onChange={event => { const value = event.target.value as FinanceLoanPrepaymentModeV1; setPrepaymentMode(value); setPrepaymentPreview(null); void updateDraftField("prepayment", "mode", value); void updateDraftField("prepayment", "previewJson", ""); }}>
-          <option value="reduce_tenure">Reduce tenure · keep EMI unchanged</option>
-          <option value="reduce_emi">Reduce EMI · keep remaining dates</option>
-        </select></label>
+        <label>Prepayment rule<input readOnly value="Keep EMI unchanged · reduce loan duration" /></label>
       </div>
       <button className="admin-secondary" type="submit" disabled={busy}>{busy ? "Calculating…" : "Preview prepayment"}</button>
       {prepaymentPreview && <div className="loan-payment-allocation">

@@ -106,7 +106,7 @@ export class FinanceLoanPrepaymentService {
     if (snapshot.loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
     if (!input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 ||
-        !input.source.trim() || (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
+        !input.source.trim() || input.mode !== "reduce_tenure") {
       throw new Error("finance_loan_prepayment_input_invalid");
     }
     if (input.businessDate < snapshot.loan.data.details.loanStartDate) {
