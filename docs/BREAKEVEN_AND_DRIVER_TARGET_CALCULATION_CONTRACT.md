@@ -1,9 +1,9 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.4  
-**Status:** Approved product baseline with Addenda A through D; further additive amendments require explicit product-owner approval  
-**Implementation authorization:** Not granted by this document alone  
+**Version:** 1.5  
+**Status:** Frozen and approved product baseline with Addenda A through E; changes require an explicit, versioned product-owner amendment  
+**Implementation authorization:** Granted by the product owner's prior direction to begin implementation once the documentation baseline is complete  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
 **Currency:** INR; persisted money uses integer paise
@@ -12,7 +12,7 @@
 
 This contract freezes the product decisions agreed for the Breakeven and Daily Driver Target workstream. It is the product-level owner for the rules stated here. It supplements, and does not replace, the repository's existing data, feature-extension, form, persistence, transaction/recovery, calculation-approval, business-start-date allocation, and presentation contracts.
 
-This document records approved scope, not proof of implementation. Runtime work must follow the existing technical contracts and pass the required regression and CI gates. An unresolved item in Section 10 must not be silently guessed or promoted into production behaviour.
+This document records approved scope, not proof of implementation. Runtime work must follow the existing technical contracts and pass the required regression and CI gates. Explicit exclusions and deferred add-ons in Section 13 must not be silently guessed or promoted into production behaviour.
 
 The contract is deliberately extensible. New capabilities may be proposed as add-ons and incorporated through an explicitly approved, versioned addendum. An add-on must not silently alter the frozen baseline or change the result of an existing calculation.
 
@@ -85,7 +85,7 @@ Full-cost breakeven is the total eligible cost burden that must be covered by ea
 
 Use existing Finance and Business Start Date allocation outputs where applicable. Do not duplicate their source calculations or introduce a second EMI/compliance allocation implementation. Each cost must be recognized once. Do not create a separate operating-breakeven result, formula, registration, or presentation.
 
-### 6.3 Explicit exclusion
+### 6.1 Explicit exclusion
 
 This contract does not introduce a separate dated vehicle-expense allocation system or a new dated-expense calculation framework. Do not add a battery-specific, date-prorated expense subsystem under this workstream. Only costs explicitly included by the approved definitions and existing authoritative contracts may contribute.
 
@@ -184,19 +184,24 @@ Implementation must include:
 
 A green CI run is automated evidence only. Physical-device acceptance remains a separate release gate and is intentionally deferred until the agreed end-of-work testing stage.
 
-## 13. Open decisions — approval required before affected production calculations
+## 13. Frozen boundaries and deferred add-ons
 
-The following details are intentionally not invented by this contract:
+The product owner has confirmed that the current business workflow has no refund, reversal, or other earning-adjustment process to support. These are not part of this implementation. Do not add speculative refund/adjustment UI, records, calculations, or workflows. If the business later introduces such a process, its treatment must be proposed and approved through a dated contract addendum before implementation.
 
-1. Annual-to-monthly-to-daily amortization convention, including calendar-day treatment, leap years, and paise residual distribution.
-2. The precise monthly Driver Target meaning: total desired net earnings or desired surplus above full-cost breakeven.
-3. How a monthly target is prorated for a partial month and how expected cumulative target progress is paced within a month.
-4. Exact source/eligibility rules for earnings, including refunds, reversals, adjustments, cancellation fees, and unsettled amounts, consistent with the approved canonical earnings and single-recognition principles.
-5. Handling of missing, corrected, or disputed odometer-derived business-kilometre records. Business kilometres are confirmed as odometer-derived only; personal kilometres are excluded and GPS displacement is not a substitute.
-6. The detailed advisory prediction horizon and minimum history/completeness requirements. The approved estimate inputs include historical business kilometres and fuel-efficiency history; estimated results remain separate from actual results and never change actuals.
-7. Effective-date and historical-recalculation behaviour for maintenance-rate changes and other source-record corrections.
+The following rules are resolved by this contract and its approved addenda or are delegated to existing authoritative contracts:
 
-These are discussion items, not permission to make assumptions. The product owner may approve them individually and record them as dated addenda. Until then, affected calculations remain unregistered or explicitly unavailable rather than returning guessed figures.
+1. Annual fixed-cost allocation uses actual calendar days/months, including leap years, with deterministic paise residual allocation.
+2. Monthly Driver Target means additional surplus above full-cost breakeven; partial months and cumulative pacing use calendar-day proration.
+3. Earnings eligibility follows the canonical no-double-recognition rule. Cancellation fees count when received. Platform earnings count only when payout is actually received; unsettled payouts do not count. Platform pass/commission costs count only when actually paid and entered.
+4. Business kilometres are odometer-derived only; personal kilometres are excluded and GPS displacement is not a substitute. Missing, corrected, or disputed source records follow the existing Driver Workflow, data-quality, and Forgiving Data Entry and Historical Correction contracts. Incomplete or disputed distance must not be silently treated as zero or complete.
+5. Maintenance-rate changes apply prospectively from their effective date; historical periods retain the applicable rate unless an explicit correction is made under the existing historical-correction contract.
+6. Other source-record corrections, restatements, and audit history follow the existing authoritative source and historical-correction contracts. This product contract does not create a parallel correction framework.
+
+### 13.1 Prediction boundary
+
+Prediction is an optional, advisory add-on, not a prerequisite for the initial approved breakeven and Driver Target implementation. The initial implementation must establish reliable historical business-kilometre and validated cost inputs, but must not invent a forecast horizon, minimum-history threshold, confidence level, or fallback rule. Until those prediction parameters are separately approved, do not register or present a predictive result. Any future prediction proposal must be additive, separately labelled, and must not alter actual calculations, source records, or configured targets.
+
+No other unresolved product decision blocks implementation of the frozen breakeven and Driver Target baseline. Any change to this baseline requires an explicit, dated, versioned product-owner approval.
 
 ## 14. Approval and amendment history
 
@@ -205,6 +210,7 @@ These are discussion items, not permission to make assumptions. The product owne
 - **v1.2 / Addendum B — Simplified full-cost model:** Replaces two breakeven outputs with one full-cost breakeven; makes driver-entered pass/commission payments the authoritative platform-charge expense entries; confirms the included cost categories; approves full-cost breakeven as the Driver Target basis; and permits separate actual and estimated full-cost breakeven values.
 - **v1.3 / Addendum C — Target, period, earnings and historical rules:** Approves the monthly target as additional surplus above full-cost breakeven, calendar-day partial-month proration, received cancellation fees as earnings, calendar-day annual fixed-cost allocation, historical maintenance-rate preservation, odometer-only business kilometres, and advisory estimates based on historical kilometres/fuel efficiency. Platform commission/pass charges are recorded when actually paid.
 - **v1.4 / Addendum D — Platform payout recognition timing:** Platform earnings count only when payout is actually received by the driver, matching the paid-entry timing for commission/pass expenses.
+- **v1.5 / Addendum E — Final freeze and scope closure:** Confirms there is no current refund/reversal/earning-adjustment workflow and excludes speculative support; delegates source corrections to existing contracts; defers prediction registration/display until its horizon and minimum-history rules are explicitly approved; confirms no remaining product decision blocks implementation.
 - Future changes must be recorded as explicit, dated, owner-approved addenda. Do not silently edit the meaning of this frozen baseline.
 
 
@@ -264,3 +270,17 @@ Platform earnings are recognized on a received-cash basis: count them when the p
 Platform earnings are recognized only when the payout is actually received by the driver. A validated platform earning that remains unsettled is not yet included in actual earnings, full-cost breakeven coverage, or Driver Target progress. This uses the same cash-received timing principle as platform pass/commission expenses, which are entered when actually paid by the driver.
 
 This timing rule does not change the treatment of direct cash fares or cancellation fees already received. It also does not authorize speculative estimates of unsettled payouts in actual calculations; any forecast must remain separately labelled as an estimate.
+
+
+## Addendum E — Final product freeze and scope closure
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.5
+
+The product owner confirms that the current business workflow has no refund, reversal, or other earning-adjustment process. No such feature or calculation is to be introduced in this workstream. If the business process changes, the new requirement must be proposed and approved through a separate dated addendum.
+
+Existing authoritative contracts govern missing, corrected, or disputed source records and historical corrections. This workstream must reuse those safeguards and must not create duplicate correction or recovery mechanisms.
+
+Predictive breakeven is deferred as an optional advisory add-on. Until its forecast horizon and minimum-history/completeness requirements are separately approved, it must not be registered or presented. This does not block implementation of actual full-cost breakeven, the Driver Target, passbook, business-kilometre summaries, or their approved configuration forms.
+
+The product decisions in this contract are now frozen for implementation. The product owner has previously directed that implementation begin once documentation is complete; that direction applies to this v1.5 baseline. Any change to the frozen rules or scope requires explicit, versioned product-owner approval.
