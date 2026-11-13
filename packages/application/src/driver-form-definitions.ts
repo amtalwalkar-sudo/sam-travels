@@ -57,3 +57,20 @@ export function validateCompletedTripFinancialSubmission(values: Readonly<Record
   }
   return issues;
 }
+
+/** Driver-facing fuel purchase form; shared form runtime owns the durable draft lifecycle. */
+export const FUEL_ENTRY_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "work.fuel-entry",
+  version: 1,
+  owner: "business-expenses",
+  purpose: "Record a fuel purchase independently of shift or trip state",
+  primaryAction: "submit",
+  fields: [
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true, maxLength: 160 },
+    { id: "odometerKm", label: "Odometer (km)", type: "number", required: true },
+    { id: "priceRupeesPerKg", label: "Price per kg (₹)", type: "number", required: true },
+    { id: "amountRupees", label: "Amount paid (₹)", type: "number", required: true },
+    { id: "partialRefill", label: "Partial refill", type: "checkbox", required: true },
+    { id: "locationEvidenceJson", label: "Location evidence", type: "text", maxLength: 1000 },
+  ],
+});
