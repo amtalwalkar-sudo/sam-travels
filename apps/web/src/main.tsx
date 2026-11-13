@@ -63,6 +63,7 @@ import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { App } from "./ui/App";
+import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
@@ -351,7 +352,9 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+      <AdminServicesProvider services={adminServices} identityRecords={repository}>
+        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+      </AdminServicesProvider>
     </React.StrictMode>,
   );
 }
