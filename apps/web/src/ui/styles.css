@@ -170,3 +170,16 @@ button{font:inherit}
 .driver-presentation-success{background:var(--driver-state-success-surface,#eff8f1);border-color:var(--driver-state-success-border,#cde6d2);color:var(--driver-state-success-text,#28613a)}
 .driver-presentation-error{background:var(--driver-state-error-surface,#fff6f4);border-color:var(--driver-state-error-border,#efd8d5);color:var(--driver-state-error-text,#a34840)}
 @media(prefers-reduced-motion:reduce){.swipe-action-bar,.swipe-action-range,.driver-form-list .pending-row{transition:none!important}}
+
+.fuel-entry-launcher{position:fixed;z-index:80;right:max(16px,env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom));width:min(420px,calc(100vw - 32px));display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.fuel-entry-toggle{border:0;border-radius:999px;padding:13px 18px;background:var(--accent,#176b55);color:white;font:inherit;font-weight:700;box-shadow:0 8px 28px #0003}
+.fuel-entry-panel{width:100%;max-height:min(78vh,720px);overflow:auto;padding:18px;border:1px solid var(--line,#d5dadd);border-radius:18px;background:var(--surface,#fff);color:var(--text,#17212b);box-shadow:0 12px 36px #0003}
+.fuel-entry-panel h2{margin:0 0 6px;font-size:1.25rem}
+.fuel-entry-panel p,.fuel-entry-panel small{color:var(--muted,#66717a)}
+.fuel-entry-panel form{display:grid;gap:12px}
+.fuel-entry-panel label{display:grid;gap:5px;font-size:.92rem;font-weight:600}
+.fuel-entry-panel input:not([type=checkbox]),.fuel-entry-panel select{width:100%;min-height:44px;padding:9px 11px;border:1px solid var(--line,#cbd2d8);border-radius:9px;background:var(--surface,#fff);color:inherit;font:inherit}
+.fuel-entry-panel .fuel-partial-choice{display:flex;align-items:center;gap:10px}
+.fuel-entry-panel .fuel-partial-choice input{width:20px;height:20px}
+.fuel-entry-panel .fuel-derived-preview{margin:0;padding:10px 12px;border-radius:10px;background:var(--surface-raised,#f1f4f6);font-size:.94rem}
+.fuel-entry-panel .fuel-odometer-warning{margin:0;padding:10px 12px;border-radius:10px;border:1px solid #c88b31;background:#fff7e8;color:#68420c;font-size:.88rem}
