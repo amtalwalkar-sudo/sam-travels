@@ -73,6 +73,7 @@ export class MaintenanceService {
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {
+    this.repository = repository;
     this.records = new FeatureRecordService(repository, {
       featureId: "maintenance",
       recordIdPrefix: PREFIX,
