@@ -209,7 +209,58 @@ export class MaintenanceService {
     return eligible[eligible.length - 1];
   }
 
+
+  async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
+    await this.requireVehicle(input.vehicleId);
+    if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
+    const dailyBusinessKmRecordId = "work:daily-business-km:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
+    const daily = await this.repository.get<{
+      schemaVersion: number; kind: string; vehicleId: string; operationalDate: string;
+      entries: Array<{ businessKm: number; allocationStatus: string }>;
+      totalBusinessKm: number; unallocatedBusinessKm: number;
+    }>(dailyBusinessKmRecordId);
+    if (!daily) throw new Error("maintenance_daily_business_km_missing");
+    const source = daily.data;
+    if (source.schemaVersion !== 1 || source.kind !== "daily_business_kilometres" ||
+        source.vehicleId !== input.vehicleId || source.operationalDate !== input.operationalDate ||
+        !Array.isArray(source.entries)) throw new Error("maintenance_daily_business_km_invalid");
+    let allocatedKm = 0;
+    let unallocatedKm = 0;
+    for (const entry of source.entries) {
+      if (!Number.isSafeInteger(entry.businessKm) || entry.businessKm < 0) throw new Error("maintenance_daily_business_km_invalid");
+      if (entry.allocationStatus === "allocated") allocatedKm += entry.businessKm;
+      else if (entry.allocationStatus === "awaiting_operational_boundary") unallocatedKm += entry.businessKm;
+      else throw new Error("maintenance_daily_business_km_allocation_invalid");
+      if (!Number.isSafeInteger(allocatedKm) || !Number.isSafeInteger(unallocatedKm)) throw new Error("maintenance_daily_business_km_total_invalid");
+    }
+    if (unallocatedKm !== 0 || source.unallocatedBusinessKm !== 0 || source.totalBusinessKm !== allocatedKm) {
+      throw new Error("maintenance_daily_business_km_not_fully_allocated");
+    }
+    const rate = await this.getRateForDate(input.vehicleId, input.operationalDate);
+    const id = "feature:maintenance:daily-accrual:" + encodeURIComponent(input.vehicleId) + ":" + input.operationalDate;
+    const data: MaintenanceDailyAccrualV1 = {
+      schemaVersion: 1, kind: "daily_accrual", vehicleId: input.vehicleId, operationalDate: input.operationalDate,
+      dailyBusinessKmRecordId, dailyBusinessKmRevision: daily.revision, businessKm: allocatedKm,
+      rateEffectiveFrom: rate.effectiveFrom, ratePaisePerKm: rate.ratePaisePerKm,
+      amountPaise: allocatedKm * rate.ratePaisePerKm,
+    };
+    if (!Number.isSafeInteger(data.amountPaise)) throw new Error("maintenance_daily_accrual_amount_out_of_range");
+    const existing = await this.records.get(id);
+    if (existing) {
+      if (JSON.stringify(existing.data) !== JSON.stringify(data)) throw new Error("maintenance_daily_accrual_immutable_conflict");
+      return existing as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    }
+    try {
+      return await this.records.create({ id, data, source: input.source, businessDate: input.operationalDate }) as RecordEnvelope<MaintenanceDailyAccrualV1>;
+    } catch (error) {
+      const raced = await this.records.get(id);
+      if (raced && JSON.stringify(raced.data) === JSON.stringify(data)) return raced as RecordEnvelope<MaintenanceDailyAccrualV1>;
+      throw error;
+    }
+  }
+
   async listVehicleRecords(vehicleId: string): Promise<{
+    accruals: readonly RecordEnvelope<MaintenanceDailyAccrualV1>[];
     visits: readonly RecordEnvelope<MaintenanceVisitV1>[];
     expenses: readonly RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     rateHistory: readonly MaintenanceRateHistoryEntry[];
@@ -222,6 +273,7 @@ export class MaintenanceService {
     const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     const rate = await this.getRateHistory(vehicleId);
     return {
+      accruals: Object.freeze(accruals.sort((a, b) => b.data.operationalDate.localeCompare(a.data.operationalDate))),
       visits: Object.freeze(visits.sort((a, b) => b.data.maintenanceDate.localeCompare(a.data.maintenanceDate))),
       expenses: Object.freeze(expenses.sort((a, b) => b.data.expenseDate.localeCompare(a.data.expenseDate))),
       rateHistory: rate.entries,
