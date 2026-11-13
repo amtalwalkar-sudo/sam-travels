@@ -1,8 +1,8 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.3  
-**Status:** Approved product baseline with Addenda A and B; further additive amendments require explicit product-owner approval  
+**Version:** 1.4  
+**Status:** Approved product baseline with Addenda A through D; further additive amendments require explicit product-owner approval  
 **Implementation authorization:** Not granted by this document alone  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -204,6 +204,7 @@ These are discussion items, not permission to make assumptions. The product owne
 - **v1.1 / Addendum A — Approved canonical earnings rule:** Establishes canonical net earnings for every downstream calculation and requires each platform fee to be recognized exactly once.
 - **v1.2 / Addendum B — Simplified full-cost model:** Replaces two breakeven outputs with one full-cost breakeven; makes driver-entered pass/commission payments the authoritative platform-charge expense entries; confirms the included cost categories; approves full-cost breakeven as the Driver Target basis; and permits separate actual and estimated full-cost breakeven values.
 - **v1.3 / Addendum C — Target, period, earnings and historical rules:** Approves the monthly target as additional surplus above full-cost breakeven, calendar-day partial-month proration, received cancellation fees as earnings, calendar-day annual fixed-cost allocation, historical maintenance-rate preservation, odometer-only business kilometres, and advisory estimates based on historical kilometres/fuel efficiency. Platform commission/pass charges are recorded when actually paid.
+- **v1.4 / Addendum D — Platform payout recognition timing:** Platform earnings count only when payout is actually received by the driver, matching the paid-entry timing for commission/pass expenses.
 - Future changes must be recorded as explicit, dated, owner-approved addenda. Do not silently edit the meaning of this frozen baseline.
 
 
@@ -252,4 +253,14 @@ This addendum supersedes the v1.0 wording that required both operating and full-
 7. **Distance:** Business kilometres are odometer-derived. Exclude personal kilometres; GPS displacement is not an alternative distance source for this calculation.
 8. **Predictions:** Estimates may use historical business kilometres and fuel-efficiency history. Show estimated full-cost breakeven separately from actual full-cost breakeven. Estimates are advisory and cannot mutate actuals, source records, or the configured target.
 
-The question of whether validated platform earnings that have not yet been paid out count as earnings before settlement remains open; the approval that commission/pass expenses are entered only when paid does not by itself decide payout recognition timing. Refunds, reversals, and other earning adjustments also remain governed by explicit source-record rules and must not be guessed.
+Platform earnings are recognized on a received-cash basis: count them when the payout is actually received by the driver, not while still unsettled. This mirrors the approved paid-entry timing for commission/pass expenses. Refunds, reversals, and other earning adjustments remain governed by explicit source-record rules and must not be guessed.
+
+
+## Addendum D — Platform payout recognition timing
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.4
+
+Platform earnings are recognized only when the payout is actually received by the driver. A validated platform earning that remains unsettled is not yet included in actual earnings, full-cost breakeven coverage, or Driver Target progress. This uses the same cash-received timing principle as platform pass/commission expenses, which are entered when actually paid by the driver.
+
+This timing rule does not change the treatment of direct cash fares or cancellation fees already received. It also does not authorize speculative estimates of unsettled payouts in actual calculations; any forecast must remain separately labelled as an estimate.
