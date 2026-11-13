@@ -13,7 +13,7 @@ import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
 import type { MaintenanceService } from "../../../../packages/application/src/maintenance-service";
-import type { FeatureRecordSource } from "../../../../packages/application/src/feature-record-service";
+import { useAdminServices } from "./admin-services-context";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
@@ -21,7 +21,8 @@ import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../.
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, maintenance: MaintenanceService, recordSource: FeatureRecordSource) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+  const { maintenance, recordSource } = useAdminServices();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
