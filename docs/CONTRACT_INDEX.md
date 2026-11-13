@@ -52,6 +52,7 @@
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
 | Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
 | Performance calculation approval | [Finance and Performance Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approval boundary; no unapproved metric/accounting policy |
+| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Frozen product baseline for annual-first breakeven, monthly driver target, passbook, business kilometres, and advisory prediction; addenda require explicit approval |
 | Admin product behaviour | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved six-section Admin product behaviour |
 | Admin capability technical design | [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Historical Slice 1 design; product and shared technical owners prevail |
 | Presentation architecture and shell | [UI/UX Shell Foundation](UI_UX_SHELL_FOUNDATION_CONTRACT.md) | Replaceable presentation and interaction architecture |
