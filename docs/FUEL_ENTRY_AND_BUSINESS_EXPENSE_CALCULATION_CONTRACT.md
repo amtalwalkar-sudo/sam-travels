@@ -151,8 +151,8 @@ Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a
 
 Scope:
 1. Add the common expense-source and calculation foundation.
-2. Add Fuel Entry as the only new driver-facing form, using the shared form runtime and the rules above.
-3. Add separate Admin entry forms under separate Admin headers for Platform Fees, Traffic Challans, and Miscellaneous Business Expenses, all using the established shared form runtime and form rules.
+2. Add Fuel Entry as the only new driver-facing form, using the existing shared PWA form runtime and the rules above.
+3. Add separate Admin entry forms in the approved hierarchy: Platform Fees and Miscellaneous Business Expenses under Finance; Traffic Challans under Compliance. Each has its own dedicated section and form, using the established shared form runtime and form rules.
 4. Persist fuel purchase facts, durable in-progress form working copies, timestamp, best-effort GPS evidence, and durable asynchronous locality enrichment.
 5. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and fuel cost/km with deterministic provenance. Every fuel purchase must also enter business expense totals.
 6. Add the three Admin expense forms and their authoritative source records, then implement source adapters and calculations for platform fees, challans, and miscellaneous expenses.
@@ -167,7 +167,7 @@ Acceptance gates:
 - Full-to-full mileage requires two valid full-tank checkpoints and a positive odometer delta.
 - Full tank is the default; the Partial refill checkbox is unchecked by default.
 - All fuel purchases count in business fuel expense totals; only full-tank records are checkpoints for km/kg and cost/km intervals, while intervening partial purchases contribute quantity and spend to the interval.
-- Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a separate Admin entry form under its own Admin header, conforming to the shared form rules.
+- Platform Fees and Miscellaneous Business Expenses each have a separate Admin entry form under Finance; Traffic Challans has a separate Admin entry form under Compliance. All three conform to the shared PWA form architecture and form rules.
 - All calculated values reconcile to immutable source records and versioned provenance.
 - Browser and Android use the same calculation/application services and their respective durable stores.
 - Full architecture, web, Android, integrated regression, and backup/restore gates pass.
