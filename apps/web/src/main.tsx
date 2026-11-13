@@ -26,6 +26,8 @@ import {
   initializeApplicationFinanceLoanPaymentService,
   initializeApplicationFinanceLoanPrepaymentService,
   initializeApplicationFinanceLoanSettlementService,
+  getApplicationBusinessExpensesService,
+  initializeApplicationBusinessExpensesService,
   initializeApplicationRecordSource,
   RecordFormWorkingCopyRepository,
   FeatureRecordService,
@@ -42,9 +44,9 @@ import {
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
   BusinessStartDateCostAllocationService,
-  HistoricalCorrectionService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
+import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals } from "../../../packages/features/business-expenses";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
@@ -56,29 +58,22 @@ import {
 import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged,
   assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1 } from "../../../packages/features/finance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
-import { registerBusinessSettingsBrowserBackupParticipant } from "./business-settings-backup";
-import { registerVehicleBrowserBackupParticipant } from "./vehicle-backup";
-import { registerDriverRecordsBrowserBackupParticipant } from "./driver-records-backup";
-import { registerComplianceBrowserBackupParticipant } from "./compliance-backup";
-import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
-import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
+import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
+import { handleBusinessExpenseFormSubmission } from "./business-expense-form-submission";
+import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
+import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
-
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
 async function bootstrap(): Promise<void> {
   const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
-  registerBusinessSettingsBrowserBackupParticipant();
-  registerVehicleBrowserBackupParticipant();
-  registerDriverRecordsBrowserBackupParticipant();
-  registerComplianceBrowserBackupParticipant();
-  registerMaintenanceBrowserBackupParticipant();
-  registerFinanceBrowserBackupParticipant();
+  registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
+  const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
     const actor = await getPersonIdentityService().currentActor();
@@ -87,6 +82,16 @@ async function bootstrap(): Promise<void> {
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  const historicalCorrections = createBusinessExpenseHistoricalCorrections(
+    repository, getApplicationRecordSource(), getPersonIdentityService(),
+  );
+  initializeApplicationBusinessExpensesService(repository, {
+    validateRecord: assertBusinessExpenseRecordV1,
+    validateFuelPurchase: assertFuelPurchaseV1,
+    validateExpenseEntry: assertBusinessExpenseEntryV1,
+    calculateDailyExpenses: calculateDailyBusinessExpenses,
+    calculateFuelIntervals,
+  }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
@@ -101,23 +106,7 @@ async function bootstrap(): Promise<void> {
       return { actorId: actor.actorId, role: actor.role };
     },
   }, getApplicationRecordSource());
-  const historicalCorrections = new HistoricalCorrectionService(
-    repository,
-    { currentActor: () => getPersonIdentityService().currentActor() },
-    {
-      async resolve(record) {
-        if (!record.id.startsWith("feature:compliance:")) {
-          throw new Error("historical_correction_target_feature_unsupported");
-        }
-        return {
-          featureId: "compliance",
-          allowedFieldPaths: ["complianceName", "validFrom", "validTo", "totalCostPaise"],
-          validateProjectedData: assertComplianceRecordV1,
-        };
-      },
-    },
-    getApplicationRecordSource(),
-  );
+
   initializeApplicationComplianceAnalysisService(
     getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
       analyzeCoverage: analyzeComplianceCoverage,
@@ -136,6 +125,8 @@ async function bootstrap(): Promise<void> {
     new RecordFormWorkingCopyRepository(repository, getApplicationRecordSource()),
     {
       submit: async (command) => {
+        const expenseResult = await handleBusinessExpenseFormSubmission(command, businessExpenseEnrichmentQueue);
+        if (expenseResult !== undefined) return expenseResult;
         if (command.action !== "save") throw new Error("unsupported_admin_form_operation");
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
@@ -375,6 +366,7 @@ async function bootstrap(): Promise<void> {
     financeLoanPayments: getApplicationFinanceLoanPaymentService(),
     financeLoanPrepayments: getApplicationFinanceLoanPrepaymentService(),
     financeLoanSettlements: getApplicationFinanceLoanSettlementService(),
+    businessExpenses: getApplicationBusinessExpensesService(),
     recordSource: getApplicationRecordSource(),
   });
   createRoot(document.getElementById("root")!).render(
@@ -385,13 +377,10 @@ async function bootstrap(): Promise<void> {
     </React.StrictMode>,
   );
 }
-
 void bootstrap();
-
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js")
       .catch(error => console.warn("PWA shell caching is unavailable", error));
   }, { once: true });
 }
-
