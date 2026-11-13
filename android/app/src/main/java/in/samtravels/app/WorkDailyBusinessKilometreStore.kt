@@ -59,7 +59,7 @@ internal object WorkDailyBusinessKilometreStore {
             JSONObject().put("shiftId", shiftId).put("shiftStartEventId", shiftId).put("shiftEndEventId", eventId)
                 .put("shiftStartedAt", startedAt).put("shiftEndedAt", shiftEndedAt)
                  .put("startOdometerKm", startKm).put("endOdometerKm", endKm).put("businessKm", businessKm)
-                .put("allocationStatus", allocationStatus),
+                .put("personalKm", current.optLong("shiftStartPersonalKm", 0L)).put("allocationStatus", allocationStatus),
         )
         var total = 0L
         var unallocated = 0L
@@ -86,7 +86,7 @@ internal object WorkDailyBusinessKilometreStore {
         require(current.optString("state") == "shift_active" && current.optString("shiftId") == rotation.optString("outgoingShiftId") && current.optString("shiftStartedAt") == rotation.optString("outgoingShiftStartedAt") && current.optLong("shiftStartOdometerKm", -1L) == rotation.optLong("outgoingStartOdometerKm", -2L) && Instant.parse(command.getString("transitionAt")) >= Instant.parse(rotation.getString("boundaryAt"))) { "shift_rotation_snapshot_mismatch" }
         append(db, current, command, eventId, now)
         next.put("shiftStartedAt", rotation.getString("boundaryAt")).put("shiftId", eventId).put("shiftContext", current.getJSONObject("shiftContext"))
-        next.put("shiftStartOdometerKm", odometer.getLong("readingKm")).put("lastConfirmedOdometerKm", odometer.getLong("readingKm"))
+        next.put("shiftStartOdometerKm", odometer.getLong("readingKm")).put("shiftStartPersonalKm", 0L).put("lastConfirmedOdometerKm", odometer.getLong("readingKm"))
         val selectedRow = db.records().get("work:selected-driver") ?: error("work_driver_not_selected")
         val envelope = JSONObject(selectedRow.json)
         val selected = envelope.optJSONObject("data") ?: error("work_selected_driver_invalid")
