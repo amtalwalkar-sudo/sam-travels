@@ -500,6 +500,11 @@ The product owner has clarified that the immediate implementation is a replaceme
 - The Work screen adapter maps authoritative workspace projections and existing owner-provided actions into presentation props. It does not create a new workflow engine or duplicate domain validation.
 - Existing forms and feature contributions remain owned by their existing modules and continue to function through their current application contracts. This slice does not migrate or rewrite each form's business logic.
 - The shell and each region can be replaced independently through typed props/slots. Shell styling is scoped to Work and must not alter Admin, Performance, Timeline, native overlay, or global business behaviour.
+- The Work heading and local workspace status are independent presentational components with explicit display props.
+- The stateful driver workflow panel is a separate feature-aware presentation component; it receives the existing workspace contract and does not own domain services or persistence.
+- The `DriveScreen` adapter only composes the heading, status, workflow panel, and feature extension slots.
+- Work-only CSS is loaded with the Work screen and kept out of the shared global stylesheet.
+- Component-boundary tests verify the adapter remains composition-only and the generic shell remains free of feature/infrastructure dependencies.
 - The new presentation must remove the prominent continuously running shift/trip timers from the Work screen, as required by the Driver Workflow contract. Duration calculations and historical reporting remain untouched.
 - Keep the fixed four-destination application navigation and the separate Settings control unchanged.
 - The native Android overlay remains a separate presentation surface governed by `DRIVER_OVERLAY_CONTRACT.md`; this Work shell change must not alter its implementation.
