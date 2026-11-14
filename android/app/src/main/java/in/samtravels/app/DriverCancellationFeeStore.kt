@@ -18,7 +18,7 @@ object DriverCancellationFeeStore {
                 }==true
         }?.let { JSONObject(it.json) }
 
-    fun createPendingObligation(db:LocalDatabase,tripId:String,eventId:String,now:String) {
+    fun createPendingObligation(db:LocalDatabase,tripId:String,eventId:String,now:String,tripContext:JSONObject?) {
         require(tripId.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "cancelled_trip_identity_missing" }
         val id="work:trip-financial-obligation:$tripId"
         require(db.records().get(id)==null) { "trip_financial_obligation_already_exists" }
