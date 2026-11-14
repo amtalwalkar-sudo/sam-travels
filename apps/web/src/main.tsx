@@ -44,6 +44,8 @@ import {
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
   BusinessStartDateCostAllocationService,
+  FullCostBreakevenService,
+  TripFinancialService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -68,6 +70,8 @@ import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
+const ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK = true;
+
 async function bootstrap(): Promise<void> {
   const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
@@ -348,15 +352,20 @@ async function bootstrap(): Promise<void> {
       },
     },
   );
+  const costAllocation = new BusinessStartDateCostAllocationService(
+    getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
+    getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
+    getApplicationFinanceLoanPaymentService(), undefined, repository, getApplicationRecordSource(),
+  );
+  const tripFinancials = new TripFinancialService(repository, getApplicationRecordSource());
+  const fullCostBreakeven = new FullCostBreakevenService(
+    getApplicationVehicleService(), getApplicationMaintenanceService(),
+    getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
+  );
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
-    costAllocation: new BusinessStartDateCostAllocationService(
-      getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
-      getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
-      getApplicationFinanceLoanPaymentService(),
-      undefined, repository, getApplicationRecordSource(),
-    ),
+    costAllocation,
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
@@ -373,7 +382,7 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <AdminServicesProvider services={adminServices} identityRecords={repository}>
-        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );

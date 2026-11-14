@@ -9,33 +9,18 @@ import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
+import { FullCostBreakevenPanel } from "./FullCostBreakevenPanel";
+import type { FullCostBreakevenService } from "../../../../packages/application/src";
 import { AdminServicesProvider } from "./admin-services-context";
-import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
+import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
 const shellDefinition = primaryShellDefinition;
-const navigation = shellDefinition.navigation;
 
-function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
-  const descriptions: Record<Exclude<Screen, "Drive">, string> = {
-    Timeline: "Your trip and work activity will appear here.",
-    Performance: "Your driving and business performance will appear here.",
-    Admin: "Workspace administration will appear here.",
-  };
-
-  return (
-    <section className="empty-screen" aria-labelledby="screen-title">
-      <div className="empty-screen-icon"><NavigationIcon name={navigation.find((item) => item.screen === screen)!.icon} /></div>
-      <p>{descriptions[screen]}</p>
-      <span>This section will be developed in a later phase.</span>
-    </section>
-  );
-}
-
-export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository }>;
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository; fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">; showBreakevenSanityCheck: boolean }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
-export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository }: AppProps) {
+export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository, fullCostBreakeven, showBreakevenSanityCheck }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
@@ -247,7 +232,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
           <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1>{showBreakevenSanityCheck && <FullCostBreakevenPanel service={fullCostBreakeven} />}<FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
         {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
       <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
