@@ -129,7 +129,7 @@ Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a
 ### Traffic challans
 - Preserve the challan issue date/reference separately for identification, and preserve its vehicle identity and payment status.
 - A challan is recognized in full-cost breakeven only after it has actually been paid and entered. Its authoritative recognition date is the actual paid business date stored as `businessDate`; issue date and unpaid status do not create an expense.
-- An unpaid challan remains visible as a source obligation but contributes zero to recognized breakeven cost until paid. There is one full-cost breakeven; no operating-breakeven exclusion/inclusion split exists.
+- An unpaid challan may remain visible as a source obligation but contributes zero to recognized breakeven cost. When it is paid, `businessDate` must represent the actual paid date before the entry contributes; preserve the original issue date/reference separately as descriptive source metadata. If the paid date is corrected, use the append-only historical-correction path. There is one full-cost breakeven; no operating-breakeven exclusion/inclusion split exists.
 
 ### Miscellaneous business expenses
 - Use the explicit Asia/Kolkata `businessDate` entered for the actual business expense. `createdAt` and `submittedAt` are audit timestamps and must not replace that date.
