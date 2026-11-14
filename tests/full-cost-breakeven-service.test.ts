@@ -23,6 +23,8 @@ describe("FullCostBreakevenService source integration", () => {
           data: { sourceKind: "traffic_challan", businessDate: "2026-11-01", amountPaise: 9000,
             effect: "charge", paymentStatus: "unpaid" },
         }],
+        listDailyExpenseOutputs: async () => [{ businessDate: "2026-11-01", platformFeesPaise: 100,
+          trafficChallansPaise: 0, miscellaneousPaise: 0, sourceIds: ["platform-fee-1"], sourceRevisions: [1] }],
         listFuelPurchases: async () => [fuelPurchase],
         listFuelCostRateHistory: async () => [{
           calculationVersion: "business-expenses.fuel-cost-rate-history.v1",
