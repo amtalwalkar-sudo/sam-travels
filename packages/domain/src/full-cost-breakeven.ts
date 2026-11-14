@@ -56,6 +56,7 @@ export type BreakevenPeriodResultV1 = Readonly<{
   to: string;
   totalCostPaise: number;
   daily: readonly BreakevenDailyResultV1[];
+  weekly: readonly Readonly<{ week: string; from: string; to: string; totalCostPaise: number }>[];
   monthly: readonly Readonly<{ month: string; totalCostPaise: number }>[];
   yearly: readonly Readonly<{ year: string; totalCostPaise: number }>[];
   calculationId: typeof FULL_COST_BREAKEVEN_ID;
@@ -147,8 +148,21 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     const complete = input.completeness.every(item => item.status === "complete");
     return Object.freeze({ date, totalCostPaise, costs: Object.freeze(totals), businessKm, complete });
   });
+  const weekly = new Map<string, { from: string; to: string; totalCostPaise: number }>();
   const monthly = new Map<string, number>(), yearly = new Map<string, number>();
   for (const row of daily) {
+    const day = new Date(row.date + "T00:00:00Z");
+    const weekday = day.getUTCDay() || 7;
+    day.setUTCDate(day.getUTCDate() + 4 - weekday);
+    const weekYear = day.getUTCFullYear();
+    const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+    const weekNumber = Math.ceil((((day.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
+    const week = `${weekYear}-W${String(weekNumber).padStart(2, "0")}`;
+    const weeklyBucket = weekly.get(week) ?? { from: row.date, to: row.date, totalCostPaise: 0 };
+    weeklyBucket.from = weeklyBucket.from < row.date ? weeklyBucket.from : row.date;
+    weeklyBucket.to = weeklyBucket.to > row.date ? weeklyBucket.to : row.date;
+    weeklyBucket.totalCostPaise = safeAdd(weeklyBucket.totalCostPaise, row.totalCostPaise);
+    weekly.set(week, weeklyBucket);
     const month = row.date.slice(0,7), year = row.date.slice(0,4);
     monthly.set(month, safeAdd(monthly.get(month) ?? 0, row.totalCostPaise));
     yearly.set(year, safeAdd(yearly.get(year) ?? 0, row.totalCostPaise));
