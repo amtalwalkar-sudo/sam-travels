@@ -212,7 +212,7 @@ The following rules are resolved by this contract and its approved addenda or ar
 
 Prediction is an optional, advisory add-on, not a prerequisite for the initial approved breakeven and Driver Target implementation. The initial implementation must establish reliable historical business-kilometre and validated cost inputs, but must not invent a forecast horizon, minimum-history threshold, confidence level, or fallback rule. Until those prediction parameters are separately approved, do not register or present a predictive result. Any future prediction proposal must be additive, separately labelled, and must not alter actual calculations, source records, or configured targets.
 
-No other unresolved product decision blocks implementation of the frozen breakeven and Driver Target baseline. Any change to this baseline requires an explicit, dated, versioned product-owner approval.
+Product formula decisions for the approved baseline are recorded in Addenda A through H. Before implementation, complete the source-contract/runtime verification gates in Addendum H.8. If an existing authoritative contract fully resolves a gate, no new product decision is required; if it does not, pause only the affected behaviour for product-owner clarification. Any change to the approved baseline requires an explicit, dated, versioned product-owner approval.
 
 ## 14. Approval and amendment history
 
