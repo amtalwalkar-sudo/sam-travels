@@ -118,7 +118,11 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
   for (const item of input.dailyActivity) {
     assertDate(item.date);
     if (activityByDate.has(item.date) || !Number.isSafeInteger(item.businessKm) || item.businessKm < 0 ||
-        !item.distanceSourceId.trim() || !Number.isSafeInteger(item.distanceSourceRevision) || item.distanceSourceRevision < 1) {
+        !item.distanceSourceId.trim() || !Number.isSafeInteger(item.distanceSourceRevision) || item.distanceSourceRevision < 1 ||
+        (item.fuelCostPaise !== undefined && (!Number.isSafeInteger(item.fuelCostPaise) || item.fuelCostPaise < 0)) ||
+        (item.maintenanceCostPaise !== undefined && (!Number.isSafeInteger(item.maintenanceCostPaise) || item.maintenanceCostPaise < 0)) ||
+        (item.sourceRefs !== undefined && (!Array.isArray(item.sourceRefs) || item.sourceRefs.some(ref =>
+          !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1)))) {
       throw new Error("breakeven_activity_source_invalid");
     }
     activityByDate.set(item.date, item);
