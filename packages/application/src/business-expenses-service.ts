@@ -197,6 +197,14 @@ export class BusinessExpensesService {
     return this.domain.calculateFuelIntervals(fuel.map(item => item.data));
   }
 
+  /** Historical rates are rebuilt from completed intervals; each rate starts the day after completion. */
+  async listFuelCostRateHistory(): Promise<readonly FuelCostRateHistoryEntryV1[]> {
+    const fuel = await this.listFuelPurchases();
+    const purchases = fuel.map(item => item.data);
+    const intervals = this.domain.calculateFuelIntervals(purchases);
+    return this.domain.calculateFuelCostRateHistory(purchases, intervals);
+  }
+
   async correctSource(input: Readonly<{
     correctionId: string;
     targetRecordId: string;
