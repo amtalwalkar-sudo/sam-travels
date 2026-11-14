@@ -55,4 +55,63 @@ describe("Full-cost breakeven calculation v1", () => {
         distanceSourceId: "d", distanceSourceRevision: 1 }],
     }))).toThrow("breakeven_fuel_rate_unavailable");
   });
+  it("accepts explicit daily source amounts and preserves every source revision", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      dailyActivity: [{
+        date: "2026-11-01", businessKm: 10, fuelCostPaise: 1250, maintenanceCostPaise: 300,
+        distanceSourceId: "aggregate-distance", distanceSourceRevision: 1,
+        sourceRefs: [{ sourceId: "accrual-a", revision: 2 }, { sourceId: "fuel-purchase-a", revision: 3 }],
+      }],
+      datedCosts: [],
+      completeness: [{ source: "annual-allocation", status: "complete" }],
+    }));
+    expect(result.daily[0].costs.fuel).toBe(1250);
+    expect(result.daily[0].costs.maintenance).toBe(300);
+    expect(result.provenance.sourceIds).toContain("accrual-a");
+    expect(result.provenance.sourceIds).toContain("fuel-purchase-a");
+    expect(result.totalCostPaise).toBe(1550);
+  });
+
+  it("reconciles cross-year weeks, months, years and a custom sub-range from daily rows", () => {
+    const base = fixture({
+      from: "2026-12-31", to: "2027-01-02",
+      dailyActivity: ["2026-12-31", "2027-01-01", "2027-01-02"].map(date => ({
+        date, businessKm: 1, fuelCostPaise: 100, maintenanceCostPaise: 0,
+        distanceSourceId: "distance-" + date, distanceSourceRevision: 1,
+      })),
+      datedCosts: ["2026-12-31", "2027-01-01", "2027-01-02"].map(date => ({
+        date, amountPaise: 50, kind: "miscellaneous" as const, sourceId: "expense-" + date, sourceRevision: 1,
+      })),
+    });
+    const full = calculateFullCostBreakevenV1(base);
+    expect(full.totalCostPaise).toBe(450);
+    expect(full.weekly).toEqual([{ week: "2026-W53", from: "2026-12-31", to: "2027-01-02", totalCostPaise: 450 }]);
+    expect(full.monthly).toEqual([
+      { month: "2026-12", totalCostPaise: 150 }, { month: "2027-01", totalCostPaise: 300 },
+    ]);
+    expect(full.yearly).toEqual([
+      { year: "2026", totalCostPaise: 150 }, { year: "2027", totalCostPaise: 300 },
+    ]);
+    const custom = calculateFullCostBreakevenV1({ ...base, from: "2027-01-01", to: "2027-01-02" });
+    expect(custom.totalCostPaise).toBe(300);
+    expect(custom.provenance.sourceIds).not.toContain("distance-2026-12-31");
+    expect(custom.provenance.sourceIds).not.toContain("expense-2026-12-31");
+  });
+
+  it("uses leap-year calendar dates for daily and monthly reconciliation", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      from: "2024-02-28", to: "2024-03-01",
+      dailyActivity: ["2024-02-28", "2024-02-29", "2024-03-01"].map(date => ({
+        date, businessKm: 1, fuelCostPaise: 100, maintenanceCostPaise: 0,
+        distanceSourceId: "distance-" + date, distanceSourceRevision: 1,
+      })),
+      datedCosts: [],
+    }));
+    expect(result.daily.map(row => row.date)).toEqual(["2024-02-28", "2024-02-29", "2024-03-01"]);
+    expect(result.monthly).toEqual([
+      { month: "2024-02", totalCostPaise: 200 }, { month: "2024-03", totalCostPaise: 100 },
+    ]);
+    expect(result.yearly).toEqual([{ year: "2024", totalCostPaise: 300 }]);
+  });
+
 });
