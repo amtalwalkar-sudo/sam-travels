@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RuntimeRegistry } from "../../../../../packages/core/src";
-import { getDriverSwipeAction } from "../../../../../packages/features/work-shift";
+import { getDriverSwipeAction } from "../../../../../packages/features/work-shift/index";
 import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
 import { FeatureScreenHost } from "../FeatureScreenHost";
