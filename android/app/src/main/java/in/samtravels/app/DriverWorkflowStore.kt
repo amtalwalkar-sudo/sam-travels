@@ -281,7 +281,7 @@ object DriverWorkflowStore {
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
                 "cancel_ride" -> {
-                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now)
+                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now,current.optJSONObject("tripContext"))
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
             }
