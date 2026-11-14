@@ -175,15 +175,15 @@ Acceptance gates:
 - Browser and Android use the same calculation/application services and their respective durable stores.
 - Full architecture, web, Android, integrated regression, and backup/restore gates pass.
 
-### PR 2 — Breakeven and Admin-configured daily driver target
+### PR 2 — Full-cost breakeven source integration
 
 Scope:
 1. Build daily business cost from the canonical Compliance/EMI outputs and PR 1 expense outputs.
 2. Calculate exactly one **full-cost breakeven** from the authoritative gross-fare, paid-expense, fuel-consumption, maintenance, Compliance and whole-EMI inputs.
 3. Treat paid platform charges as separate costs against gross fare; do not use payout-received gating, net-payout normalization, or a variable commission/contribution-margin engine.
 4. Driver Target is not part of this source-foundation delivery. Its approved monthly surplus-above-breakeven design remains last in sequence and must not delay or alter the reliable breakeven foundation.
-6. Expose daily/weekly/monthly calculation read models and actual-versus-target comparisons for future Performance consumption.
-7. Keep all calculations independent of the Performance UI/UX shell.
+5. Expose daily/weekly/monthly full-cost breakeven read models for future Performance consumption. Driver Target comparisons remain a later phase.
+6. Keep all calculations independent of the Performance UI/UX shell.
 
 The target is a fixed daily INR addition above breakeven, configured by Admin. The initial release supports exactly one car and one driver. Multi-car, multi-driver, and shared-cost allocation are deferred; keep the architecture extensible without implementing that future complexity now. No UI is added to Performance in this PR.
 
@@ -224,7 +224,7 @@ The owner decisions recorded in this contract are resolved. No further clarifica
 4. A partial refill contributes its actual quantity and spend to the interval between full-tank checkpoints. The full refill that closes the interval is included; the baseline full refill that opens the interval is not counted as consumption within that interval.
 5. If no valid completed interval exists, the rate is pending—not zero and not an invented estimate. Do not present a complete actual breakeven result that silently treats the missing rate as zero.
 6. A newly completed interval updates the weighted-average rate prospectively from the calendar day after interval completion. The prior rate remains effective on the completion date and all earlier dates. No retroactive rate application is permitted.
-7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven Contract v1.8 is authoritative for the final aggregation semantics.
+7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven Contract v1.9 is authoritative for the final aggregation semantics.
 
 
 ## Source-date and attribution reconciliation amendment
