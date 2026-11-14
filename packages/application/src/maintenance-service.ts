@@ -285,6 +285,7 @@ export class MaintenanceService {
     visits: readonly RecordEnvelope<MaintenanceVisitV1>[];
     expenses: readonly RecordEnvelope<GeneralMaintenanceExpenseV1>[];
     rateHistory: readonly MaintenanceRateHistoryEntry[];
+    rateHistoryRecord?: RecordEnvelope<MaintenanceRateHistoryV1>;
   }> {
     await this.requireVehicle(vehicleId);
     const records = await this.records.list();
@@ -298,6 +299,7 @@ export class MaintenanceService {
       visits: Object.freeze(visits.sort((a, b) => b.data.maintenanceDate.localeCompare(a.data.maintenanceDate))),
       expenses: Object.freeze(expenses.sort((a, b) => b.data.expenseDate.localeCompare(a.data.expenseDate))),
       rateHistory: rate.entries,
+      ...(rate.record ? { rateHistoryRecord: rate.record } : {}),
     };
   }
 
