@@ -81,7 +81,7 @@ Approved date/attribution rules:
 - Cancellation fee is linked to its cancellation event/trip and inherits that same immutable trip context. No separate cash/platform or payout-received workflow exists.
 - Parking/toll inherits the trip's immutable context and date. The existing form's inclusion/payer control decides whether it is already part of the fare/customer charge or is a separate driver expense. No double recognition.
 - Platform pass/commission is a separate expense only after actual payment and driver entry, on its paid business date. No commission engine, settlement matching or payout reconciliation.
-- Challans are recognized only when paid and entered, on the actual paid business date. Issue date is retained as reference, not used to accrue an unpaid charge.
+- Challans are recognized only when paid and entered, on the actual paid business date. If an unpaid challan source is retained, its businessDate must be corrected to the actual paid date before recognition; issue date/reference remains descriptive metadata and never accrues an unpaid charge.
 - Miscellaneous business expenses use the explicit business date on the source entry. Creation/submission timestamps are audit metadata.
 - Initial operating scope is one car and one driver.
 
