@@ -24,7 +24,7 @@ export function PrimaryScreenComposition({
   fullCostBreakeven, showBreakevenSanityCheck, children,
 }: PrimaryScreenCompositionProps) {
   return <>
-    {activeScreen === "Drive" && children}
+    <div hidden={activeScreen !== "Drive"}>{children}</div>
     {activeScreen === "Timeline" && (
       <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline"
         contextContract={{ id: "timeline.main", version: 1 }}
