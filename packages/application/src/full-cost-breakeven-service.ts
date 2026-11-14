@@ -51,14 +51,14 @@ export class FullCostBreakevenService {
     ];
 
     const histories = await Promise.all(vehicles.map(async vehicle => ({
-      vehicleId: vehicle.id,
+      vehicle,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
       rates: fuelRates.filter(rate => rate.sourcePurchaseIds.some(id => {
         const purchase = fuelPurchases.find(item => item.id === id);
         return purchase?.data.kind === "fuel_purchase" && purchase.data.vehicleId === vehicle.id;
       })),
     })));
-    for (const { vehicleId, records, rates } of histories) {
+    for (const { vehicle, records, rates } of histories) {
       for (const accrual of records.accruals) {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
@@ -69,7 +69,7 @@ export class FullCostBreakevenService {
         const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
         if (km > 0 && !rate) {
           completeness[2] = { source: "fuel-rate-history", status: "incomplete",
-            detail: "No effective fuel cost rate for " + vehicleId + " on " + date };
+            detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
         } else if (km > 0 && rate) {
           bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
           rate.sourcePurchaseIds.forEach((sourceId, index) => bucket.refs.push({
@@ -79,6 +79,11 @@ export class FullCostBreakevenService {
         bucket.businessKm += km;
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
         bucket.refs.push({ sourceId: accrual.id, revision: accrual.revision });
+        if (records.rateHistoryRecord) {
+          bucket.refs.push({ sourceId: records.rateHistoryRecord.id, revision: records.rateHistoryRecord.revision });
+        } else {
+          bucket.refs.push({ sourceId: vehicle.id, revision: vehicle.revision });
+        }
         bucket.refs.push({ sourceId: accrual.data.dailyBusinessKmRecordId,
           revision: accrual.data.dailyBusinessKmRevision });
         if (![bucket.businessKm, bucket.fuelCostPaise, bucket.maintenanceCostPaise].every(Number.isSafeInteger)) {
