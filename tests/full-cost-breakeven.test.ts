@@ -24,6 +24,8 @@ describe("Full-cost breakeven calculation v1", () => {
     const result = calculateFullCostBreakevenV1(fixture());
     expect(result.daily.map(row => row.totalCostPaise)).toEqual([17_500, 100]);
     expect(result.totalCostPaise).toBe(17_600);
+    expect(result.weekly.map(row => row.totalCostPaise)).toEqual([17_500, 100]);
+    expect(result.weekly.map(row => row.week)).toEqual(["2026-W44", "2026-W45"]);
     expect(result.monthly).toEqual([{ month: "2026-11", totalCostPaise: 17_600 }]);
     expect(result.yearly).toEqual([{ year: "2026", totalCostPaise: 17_600 }]);
   });
@@ -31,6 +33,7 @@ describe("Full-cost breakeven calculation v1", () => {
   it("reconciles arbitrary ranges by summing canonical daily rows", () => {
     const result = calculateFullCostBreakevenV1(fixture());
     expect(result.totalCostPaise).toBe(result.daily.reduce((sum, row) => sum + row.totalCostPaise, 0));
+    expect(result.weekly.reduce((sum, row) => sum + row.totalCostPaise, 0)).toBe(result.totalCostPaise);
     expect(result.monthly.reduce((sum, row) => sum + row.totalCostPaise, 0)).toBe(result.totalCostPaise);
     expect(result.yearly.reduce((sum, row) => sum + row.totalCostPaise, 0)).toBe(result.totalCostPaise);
   });
