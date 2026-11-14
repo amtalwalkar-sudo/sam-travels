@@ -84,7 +84,7 @@ describe("BusinessExpensesService", () => {
     const history = await service.listFuelCostRateHistory();
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ effectiveFrom:"2026-11-11",
-      costPaisePerKm:{numerator:"2500",denominator:"1"}, cumulativeSpendPaise:50_000,
+      costPaisePerKm:{numerator:"50000",denominator:"20"}, cumulativeSpendPaise:50_000,
       cumulativeDistanceKm:20 });
   });
 
