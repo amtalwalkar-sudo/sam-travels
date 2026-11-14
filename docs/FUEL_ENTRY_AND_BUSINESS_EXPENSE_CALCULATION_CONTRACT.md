@@ -208,3 +208,19 @@ Inspection of `main` after PR #77 found:
 - **Scope boundary:** Include the approved partial-refill checkpoint rules, three separate Admin expense forms, timestamp/GPS evidence, durable asynchronous reverse-geocoding, offline operation, and all previously approved source, correction, audit, backup/restore, browser/Android parity, and regression requirements. Do not add Performance presentation changes.
 
 The owner decisions recorded in this contract are resolved. No further clarification is currently required to proceed against this scope after the documentation review gate is accepted.
+
+
+## Breakeven integration amendment — fuel source versus consumed fuel cost
+
+**Approval:** Approved product-owner clarification recorded alongside Breakeven Contract v1.8 / Addendum H.  
+**Authority:** For breakeven fuel-cost treatment, this amendment supplements and supersedes conflicting wording in this document.  
+**Implementation effect:** Documentation only; no runtime implementation is claimed.
+
+1. Every fuel purchase remains an immutable source record and contributes quantity/spend to the appropriate full-tank measurement interval under Section 3.
+2. Fuel purchase spend is used to derive the weighted-average fuel cost per kilometre from all valid completed full-tank intervals:
+   `weighted fuel cost/km = total included fuel expenditure across completed intervals ÷ total confirmed kilometres across those intervals`.
+3. Daily breakeven fuel cost is confirmed business kilometres multiplied by the effective weighted-average fuel cost/km. Fuel purchases are **not** added again as separate daily breakeven expenses; doing so would double-count fuel against the kilometre-based consumption cost.
+4. A partial refill contributes its actual quantity and spend to the interval between full-tank checkpoints. The full refill that closes the interval is included; the baseline full refill that opens the interval is not counted as consumption within that interval.
+5. If no valid completed interval exists, the rate is pending—not zero and not an invented estimate. Do not present a complete actual breakeven result that silently treats the missing rate as zero.
+6. A newly completed interval updates the weighted-average rate prospectively from the calendar day after interval completion. The prior rate remains effective on the completion date and all earlier dates. No retroactive rate application is permitted.
+7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven Contract v1.8 is authoritative for the final aggregation semantics.
