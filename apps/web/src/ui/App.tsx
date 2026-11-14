@@ -33,10 +33,10 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository; fullCostBreakeven: Pick<FullCostBreakevenService, "calculate"> }>;
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository; fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">; showBreakevenSanityCheck: boolean }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
-export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository, fullCostBreakeven }: AppProps) {
+export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository, fullCostBreakeven, showBreakevenSanityCheck }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
@@ -248,7 +248,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
           <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><FullCostBreakevenPanel service={fullCostBreakeven} /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1>{showBreakevenSanityCheck && <FullCostBreakevenPanel service={fullCostBreakeven} />}<FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
         {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
       <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
