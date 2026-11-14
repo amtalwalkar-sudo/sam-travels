@@ -38,6 +38,7 @@ export class FullCostBreakevenService {
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(),
     ]);
+    if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     const activityByDate = new Map<string, {
       businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number;
       refs: { sourceId: string; revision: number }[];
