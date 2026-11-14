@@ -200,7 +200,7 @@ Inspection of `main` after PR #77 found:
 ## 8. Owner decisions resolved
 
 - **Fuel quantity:** Driver enters only total amount paid and price per kg. KFE calculates kg as amount / price per kg. There is no pump-quantity input.
-- **Driver target:** Admin configures a fixed daily INR addition above breakeven, not a percentage or margin.
+- **Driver Target:** The approved rule is a monthly Admin-configured additional surplus above full-cost breakeven, per Breakeven Contract v1.9. Target design and implementation remain deferred until reliable breakeven is complete; Driver Target is last in sequence.
 - **Initial operating scope:** One car and one driver only. Multi-car, multi-driver, and shared-cost allocation are explicitly deferred. Keep the architecture extensible without implementing that future complexity now.
 - **Partial-refill treatment** and the three separate Admin expense forms remain approved as specified above.
 - **Fuel timestamp and location:** At submission, capture a UTC timestamp and Asia/Kolkata business-date context, plus a fresh event-scoped GPS snapshot when available. Preserve accuracy, fix time, provider/source, and capture status. Missing or late GPS must be represented honestly and must never block submission or driver work.
