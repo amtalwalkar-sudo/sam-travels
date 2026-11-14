@@ -18,6 +18,7 @@ export type BreakevenDailyCostV1 = Readonly<{
   sourceId: string;
   sourceRevision: number;
   scheduleVersion?: number;
+  sourceRefs?: readonly Readonly<{ sourceId: string; revision: number }>[];
 }>;
 
 export type BreakevenDailyActivityV1 = Readonly<{
@@ -131,7 +132,9 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
   for (const item of input.datedCosts) {
     assertDate(item.date); paise(item.amountPaise);
     if (!item.sourceId.trim() || !Number.isSafeInteger(item.sourceRevision) || item.sourceRevision < 1 ||
-        (item.scheduleVersion !== undefined && (!Number.isSafeInteger(item.scheduleVersion) || item.scheduleVersion < 1))) {
+        (item.scheduleVersion !== undefined && (!Number.isSafeInteger(item.scheduleVersion) || item.scheduleVersion < 1)) ||
+        (item.sourceRefs !== undefined && (!Array.isArray(item.sourceRefs) || item.sourceRefs.some(ref =>
+          !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1)))) {
       throw new Error("breakeven_cost_source_invalid");
     }
     const bucket = costsByDate.get(item.date) ?? [];
@@ -185,8 +188,10 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     ...input.dailyActivity.filter(item => item.date >= input.from && item.date <= input.to).flatMap(item => item.sourceRefs?.length
       ? item.sourceRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision }))
       : [{ sourceId: item.distanceSourceId, revision: item.distanceSourceRevision }]),
-    ...input.datedCosts.filter(item => item.date >= input.from && item.date <= input.to).map(item => ({ sourceId: item.sourceId, revision: item.sourceRevision,
-      ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) })),
+    ...input.datedCosts.filter(item => item.date >= input.from && item.date <= input.to).flatMap(item => item.sourceRefs?.length
+      ? item.sourceRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision }))
+      : [{ sourceId: item.sourceId, revision: item.sourceRevision,
+          ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) }]),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
   return Object.freeze({
     from: input.from, to: input.to,
