@@ -176,6 +176,7 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     from: input.from, to: input.to,
     totalCostPaise: daily.reduce((sum, row) => safeAdd(sum, row.totalCostPaise), 0),
     daily: Object.freeze(daily),
+    weekly: Object.freeze([...weekly].sort(([a],[b]) => a.localeCompare(b)).map(([week,value]) => Object.freeze({week,...value}))),
     monthly: Object.freeze([...monthly].sort(([a],[b]) => a.localeCompare(b)).map(([month,totalCostPaise]) => Object.freeze({month,totalCostPaise}))),
     yearly: Object.freeze([...yearly].sort(([a],[b]) => a.localeCompare(b)).map(([year,totalCostPaise]) => Object.freeze({year,totalCostPaise}))),
     calculationId: FULL_COST_BREAKEVEN_ID,
