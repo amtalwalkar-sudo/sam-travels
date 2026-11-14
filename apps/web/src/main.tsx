@@ -44,6 +44,7 @@ import {
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
   BusinessStartDateCostAllocationService,
+  FullCostBreakevenService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -348,15 +349,19 @@ async function bootstrap(): Promise<void> {
       },
     },
   );
+  const costAllocation = new BusinessStartDateCostAllocationService(
+    getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
+    getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
+    getApplicationFinanceLoanPaymentService(), undefined, repository, getApplicationRecordSource(),
+  );
+  const fullCostBreakeven = new FullCostBreakevenService(
+    getApplicationVehicleService(), getApplicationMaintenanceService(),
+    getApplicationBusinessExpensesService(), costAllocation,
+  );
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
-    costAllocation: new BusinessStartDateCostAllocationService(
-      getApplicationBusinessSettingsService(), getApplicationComplianceAnalysisService(),
-      getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
-      getApplicationFinanceLoanPaymentService(),
-      undefined, repository, getApplicationRecordSource(),
-    ),
+    costAllocation,
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
@@ -373,7 +378,7 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <AdminServicesProvider services={adminServices} identityRecords={repository}>
-        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} />
+        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );
