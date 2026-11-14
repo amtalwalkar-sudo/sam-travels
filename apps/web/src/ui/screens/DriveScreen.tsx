@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { RuntimeRegistry } from "../../../../packages/core/src";
-import { getDriverSwipeAction } from "../../../../packages/features/work-shift";
+import type { RuntimeRegistry } from "../../../../../packages/core/src";
+import { getDriverSwipeAction } from "../../../../../packages/features/work-shift";
 import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
 import { FeatureScreenHost } from "../FeatureScreenHost";
@@ -208,7 +208,7 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
         <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
       </section>
 
-      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen }} />
+      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
     </div>
   );
 }
