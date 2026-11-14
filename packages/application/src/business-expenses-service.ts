@@ -31,6 +31,11 @@ export type FuelIntervalV1 = Readonly<{
   effectiveCostPaisePerKg?: ExactRatioV1; costPaisePerKm?: ExactRatioV1;
   issue?: "awaiting_full_checkpoint" | "odometer_not_increasing" | "ambiguous_timestamp" | "invalid_interval_sources";
 }>;
+export type FuelCostRateHistoryEntryV1 = Readonly<{
+  calculationVersion: "business-expenses.fuel-cost-rate-history.v1"; effectiveFrom: string; completionBusinessDate: string;
+  costPaisePerKm: ExactRatioV1; cumulativeSpendPaise: number; cumulativeDistanceKm: number;
+  intervalEndCheckpointIds: readonly string[]; sourcePurchaseIds: readonly string[]; sourceRevisions: readonly number[];
+}>;
 export type DailyBusinessExpenseV1 = Readonly<{
   businessDate: string; currencyCode: "INR"; fuelPaise: number; platformFeesPaise: number;
   trafficChallansPaise: number; miscellaneousPaise: number; reportedSourceExpensePaise: number;
