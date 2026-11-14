@@ -1,8 +1,8 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.7  
-**Status:** Frozen and approved product baseline with Addenda A through G; changes require an explicit, versioned product-owner amendment  
+**Version:** 1.8  
+**Status:** Frozen and approved product baseline with Addenda A through H; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -329,3 +329,89 @@ This addendum records the business-day rule as a normative input to breakeven ca
 5. The exact command is an implementation detail and must be documented before it is used. No destructive command or data-clearing operation is implied by the phrase “one command.”
 6. The intended Performance screen UX, shell, navigation presentation, and final visual composition are designed only after the calculation and wiring foundations have passed validation, under the product owner's separate direction. Removing the temporary surface does not itself authorize or implement that redesign.
 7. This addendum changes no approved calculation formula, earnings recognition rule, cost inclusion rule, Driver Target rule, prediction boundary, source-record policy, or data-retention policy. It does not authorize calculation implementation or UI implementation by itself; it records the temporary presentation sequence and its safety boundary.
+
+
+## Addendum H — Consolidated breakeven source, cost and earnings decisions
+
+**Approval:** Approved product-owner decisions recorded in the discussion preceding this amendment.  
+**Effective contract version:** 1.8  
+**Scope:** Actual full-cost breakeven inputs and their upstream source semantics.  
+**Implementation effect:** Documentation only. This amendment does not itself authorize or claim runtime implementation.
+
+### H.1 Canonical trip earnings and paid platform charges
+
+1. A driver's entered fare after a completed ride is the authoritative **gross fare** for that ride. Do not replace it with a reconstructed payout amount or require a separate received-earnings record.
+2. A cancellation fee entered by the driver after cancellation is authoritative and is included as earnings under the approved earnings treatment.
+3. Do not add a cash-versus-platform split, payout-received workflow, trip-to-payout matching, or separate received-earnings record to this scope.
+4. A platform commission/pass amount is a separate cost only when it has actually been paid and the driver has entered the amount. Do not accrue unpaid charges, infer a percentage, or build a commission engine.
+5. Recognize the driver-entered paid platform charge once as a cost. Do not also normalize gross fare by subtracting that same charge through a payout/net-earnings path. The older payout-received-only and net-payout normalization wording in Addenda A, C and D and Section 13 is superseded for this workflow by this Addendum H.1.
+6. Traffic challans are included only when paid and entered by the driver. No unpaid-challan accrual is introduced.
+7. These rules do not create speculative refund, reversal, payout matching, or earning-adjustment workflows.
+
+### H.2 Fuel cost and fuel-purchase treatment
+
+1. Fuel cost in daily breakeven is consumption-based: confirmed business kilometres multiplied by the effective weighted-average fuel cost per kilometre.
+2. The fuel cost-per-kilometre rate is derived from actual fuel purchase records and completed full-tank measurement intervals; it is not a manually configured fixed rate.
+3. Use the weighted average across completed valid full-tank intervals:
+   `fuel cost/km = total included fuel expenditure across completed intervals ÷ total confirmed kilometres across those intervals`.
+4. Partial refills contribute their actual quantity and spend to the interval between consecutive full-tank checkpoints. The closing full-tank refill is included in that interval; the initial baseline full-tank purchase is not treated as consumption in the interval it opens.
+5. When no valid completed interval exists, fuel cost/km is pending. Do not invent a rate, silently use zero, or present an actual complete breakeven value that depends on that missing rate.
+6. When a newly completed interval changes the weighted-average rate, the new rate becomes effective on the **calendar day after** the interval-completion date. The prior rate remains applicable on the completion date and to all earlier dates. Never retroactively apply the new rate.
+7. Fuel purchase spend is upstream measurement/source data for deriving the consumption rate. Do not add those same purchases again as a separate daily breakeven expense on top of kilometre-based fuel consumption cost. This supersedes any wording in the Fuel Entry/Business Expense contract that would count fuel purchase spend directly in the same breakeven total.
+
+### H.3 Maintenance and activity-based costs
+
+1. Maintenance accrual is confirmed business kilometres multiplied by the maintenance rate effective on the applicable operational date.
+2. Preserve historical effective rates; a rate change applies prospectively. Do not infer or hardcode a default rate in this contract.
+3. Do not add actual maintenance visit/repair expense entries on top of the per-kilometre maintenance accrual for this breakeven model.
+4. Fuel and maintenance accrue only against confirmed business kilometres. A day with no business kilometres has zero fuel and maintenance accrual; this does not make the day's total breakeven cost zero.
+
+### H.4 Time-based costs and non-business days
+
+1. The full scheduled monthly EMI is included, without splitting principal and interest, and is allocated across the applicable calendar days/month using the existing Finance / Business Start Date allocation service. Do not create a second EMI allocation engine.
+2. Prepayment uses the revised repayment schedule from its effective date. Loan closure stops future EMI allocations from the applicable closure date. Do not count the old and revised schedules for the same obligation.
+3. Compliance costs are included in full-cost breakeven through amortisation over each compliance item's applicable validity period. Use the item's actual amount, validity dates and applicable calendar days; do not count the same paid amount again as a lump-sum expense on its payment date when it is already represented by amortisation.
+4. EMI and compliance are time-based costs and continue to allocate on calendar days, including days with no Online shift, no ride, or no business kilometres.
+5. The existing Business Start Date allocation service is the authoritative shared allocation foundation. Reuse its outputs and rules; do not duplicate the allocation system.
+
+### H.5 Business-day and distance rules reaffirmed
+
+1. A business day is an Asia/Kolkata operational date with an Online shift and at least one ride assigned to that shift. Both conditions are mandatory.
+2. The existing 04:00 operational-day boundary and trip-to-creation-shift assignment remain authoritative. A trip crossing 04:00 stays assigned wholly to its creation shift and operational date.
+3. Use the existing confirmed business-distance allocation mechanism. Do not manufacture an unallocated distance state when the authoritative mechanism resolves the cross-boundary distance. Only genuinely unresolved or legacy distance remains incomplete; never invent kilometres.
+4. Business kilometres exclude personal kilometres and come from authoritative odometer/Work distance records, never GPS endpoint displacement.
+5. Fuel and maintenance use confirmed business kilometres, not the business-day count. The business-day definition controls active-day reporting and averages; it does not gate calendar-based EMI or compliance allocations.
+
+### H.6 Parking, toll and other costs
+
+1. Use the existing trip-form checkbox to determine whether parking/toll is included in the fare. If included, do not add it separately. If excluded, include the separately entered amount once.
+2. Miscellaneous business expenses are included when the driver/admin records them as business expenses, using their authoritative source entry and existing correction/audit behaviour.
+3. Use only the existing approved cost categories and source forms. Do not introduce duplicate expense categories or parallel ledgers.
+
+### H.7 No-operation day treatment
+
+For a date with no business kilometres:
+- Fuel accrual is zero.
+- Maintenance accrual is zero.
+- EMI allocation continues.
+- Compliance amortisation continues.
+- Any paid platform charges, paid challans or recorded miscellaneous business expenses remain recognized according to their actual source/payment dates.
+
+A non-business day is therefore not a zero-total-cost day.
+
+### H.8 Explicitly open implementation-readiness checks
+
+The following details are not newly decided by this amendment and must be verified against the existing authoritative allocation/source contracts before coding. If those contracts do not resolve them, return for product-owner clarification rather than inventing behaviour:
+
+1. **Compliance boundaries:** exact inclusive/exclusive treatment of validity start and expiry dates, partial first/last days, mid-period renewals, overlapping validity periods, renewal gaps, and any compliance item whose validity dates are missing or corrected.
+2. **EMI schedule edges:** exact daily treatment for a loan/EMI schedule beginning or ending mid-month, a prepayment taking effect mid-cycle, and closure timing where the effective date is not a normal EMI due date.
+3. **Fare/expense timing and attribution:** confirm the existing source contracts provide the authoritative operational date and vehicle/shift/trip attribution for gross fares, cancellation fees, paid platform charges, challans, parking/toll and miscellaneous expenses.
+4. **Fuel-rate eligibility:** verify the source contract/runtime identifies valid completed intervals, their included purchase records and confirmed distance, and applies the day-after effective date without retroactive restatement.
+5. **Distance hand-off:** verify the daily business-kilometre projection exposes a fully allocated, confirmed total for each operational date and retains incomplete legacy/unresolved distance explicitly.
+
+These are verification gates, not permission to invent new workflows. The existing contracts and runtime must be audited before implementation. If they fully define the behaviour, no additional product decision is required. Otherwise, only the unresolved items should be brought back for approval.
+
+### H.9 Scope order
+
+Reliable actual full-cost breakeven is the priority. Driver Target, Target Passbook, predictive breakeven and final Performance presentation must not expand this clarification into new formula or UI work. Driver Target design remains last, as directed by the product owner. This amendment does not authorize those deferred tasks or any runtime implementation.
+
