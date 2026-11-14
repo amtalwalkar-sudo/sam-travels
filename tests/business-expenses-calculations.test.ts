@@ -110,12 +110,12 @@ describe("Full-to-full fuel intervals", () => {
     expect(history).toHaveLength(2);
     expect(history[0]).toMatchObject({
       completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
-      costPaisePerKm: { numerator: "2500", denominator: "1" },
+      costPaisePerKm: { numerator: "50000", denominator: "20" },
       cumulativeSpendPaise: 50_000, cumulativeDistanceKm: 20,
     });
     expect(history[1]).toMatchObject({
       completionBusinessDate: "2026-11-20", effectiveFrom: "2026-11-21",
-      costPaisePerKm: { numerator: "3000", denominator: "1" },
+      costPaisePerKm: { numerator: "120000", denominator: "40" },
       cumulativeSpendPaise: 120_000, cumulativeDistanceKm: 40,
     });
     expect(calculateFuelCostRateHistory(purchases.slice(0,2))).toEqual([]);
