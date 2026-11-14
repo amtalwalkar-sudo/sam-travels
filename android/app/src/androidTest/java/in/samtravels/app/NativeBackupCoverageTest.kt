@@ -20,7 +20,7 @@ class NativeBackupCoverageTest {
         NativeMaintenanceBackup.ensureRegistered(); NativeFinanceBackup.ensureRegistered()
         NativeBusinessExpensesBackup.ensureRegistered()
     }
-    @Test fun sharedSnapshotBuilderIncludesSeparateLogBookTableAndParticipantManifest() {
+    @Test fun sharedSnapshotManifestIncludesLogBook() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -91,7 +91,7 @@ class NativeBackupCoverageTest {
         return StoredRecord(id, envelope.toString(), 1, timestamp)
     }
 
-    @Test fun discoversTwoFeatureOwnedRoomEntitiesAndCoversEveryPhysicalTable() {
+    @Test fun discoversFeatureTables() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -109,7 +109,7 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
-    @Test fun executableAdaptersExportValidateAndRestoreBothFeatureTables() {
+    @Test fun featureTableBackupRoundTrip() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
