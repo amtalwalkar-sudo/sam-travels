@@ -4,8 +4,38 @@ import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
 import type { useDriverWorkspace } from "../use-driver-workspace";
 
+type DriverWorkflowWorkspace = Pick<ReturnType<typeof useDriverWorkspace>,
+  | "driver"
+  | "pending"
+  | "pendingBlocksWorkflow"
+  | "pendingBoundary"
+  | "boundaryAt"
+  | "driverBusy"
+  | "driverMessage"
+  | "shiftOn"
+  | "driverChoices"
+  | "selectedDriverId"
+  | "pendingCancellationFees"
+  | "cancellationFeeDrafts"
+  | "cancellationFeeBusy"
+  | "pendingCompletedTripFinancials"
+  | "completedTripFinancialDrafts"
+  | "completedTripFinancialBusy"
+  | "completedTripFinancialSummaries"
+> & {
+  actions: Pick<ReturnType<typeof useDriverWorkspace>["actions"],
+    | "retry"
+    | "dispatch"
+    | "selectDriver"
+    | "updateCancellationFeeDraft"
+    | "submitCancellationFee"
+    | "updateCompletedTripFinancialDraft"
+    | "submitCompletedTripFinancials"
+  >;
+};
+
 export type DriverWorkflowPanelProps = Readonly<{
-  workspace: ReturnType<typeof useDriverWorkspace>;
+  workspace: DriverWorkflowWorkspace;
 }>;
 
 export function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
