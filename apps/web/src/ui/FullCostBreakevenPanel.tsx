@@ -3,9 +3,11 @@ import type { FullCostBreakevenService } from "../../../../packages/application/
 import type { BreakevenPeriodResultV1 } from "../../../../packages/domain/src/full-cost-breakeven";
 
 function dateOffset(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
+  const local = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const [year, month, dayOfMonth] = local.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, dayOfMonth - days)).toISOString().slice(0, 10);
 }
 function rupees(paise: number): string {
   return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -14,7 +16,7 @@ function rupees(paise: number): string {
 /** Temporary isolated sanity-check surface; it does not alter the Performance shell or metrics UI. */
 export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBreakevenService, "calculate"> }) {
   const [from, setFrom] = useState(dateOffset(29));
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(dateOffset(0));
   const [result, setResult] = useState<BreakevenPeriodResultV1>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
