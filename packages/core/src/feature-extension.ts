@@ -20,7 +20,7 @@ export type FeatureExtensionDefinition = Readonly<{
   integrations?: readonly FeatureIntegrationContract[];
   calculations?: readonly CalculationContract<any, any>[];
   dataQueries?: readonly FeatureDataQueryContract<any>[];
-  presentationScreens?: readonly FeaturePresentationScreen[];
+  presentationScreens?: readonly FeaturePresentationScreen<any>[];
 }>;
 
 /** Safe, immutable extension metadata; executable contributions live in their own registries. */
