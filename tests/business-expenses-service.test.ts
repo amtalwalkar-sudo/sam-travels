@@ -3,7 +3,7 @@ import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
-  calculateDailyBusinessExpenses, calculateFuelIntervals,
+  calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
 } from "../packages/features/business-expenses";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
@@ -33,6 +33,7 @@ const domain = {
   validateExpenseEntry: assertBusinessExpenseEntryV1,
   calculateDailyExpenses: calculateDailyBusinessExpenses,
   calculateFuelIntervals,
+  calculateFuelCostRateHistory,
 };
 function setup() {
   const repository = new MemoryRepository();
@@ -66,6 +67,25 @@ describe("BusinessExpensesService", () => {
         partialRefill: true,
       },
     })).rejects.toThrow("feature_record_already_exists");
+  });
+
+  it("exposes a derived historical rate timeline from completed intervals", async () => {
+    const { service } = setup();
+    for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of [
+      ["123e4567-e89b-42d3-a456-426614174040","2026-11-01T09:00:00.000Z",100,false,50_000],
+      ["123e4567-e89b-42d3-a456-426614174041","2026-11-05T09:00:00.000Z",110,true,20_000],
+      ["123e4567-e89b-42d3-a456-426614174042","2026-11-10T09:00:00.000Z",120,false,30_000],
+    ] as const) {
+      await service.createFuelPurchase({ uuid, source:"web", data: {
+        businessDate: new Date(Date.parse(occurredAt)+330*60_000).toISOString().slice(0,10),
+        occurredAt, vehicleId, odometerKm, pricePaisePerKg:10_000, amountPaise, partialRefill,
+      }});
+    }
+    const history = await service.listFuelCostRateHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ effectiveFrom:"2026-11-11",
+      costPaisePerKm:{numerator:"2500",denominator:"1"}, cumulativeSpendPaise:50_000,
+      cumulativeDistanceKm:20 });
   });
 
   it("projects append-only audited fuel corrections into daily expense outputs", async () => {
