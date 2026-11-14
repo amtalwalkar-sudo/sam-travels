@@ -150,12 +150,15 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect([...records.values()][0].data.canonicalInputs).toContain("2026-02-15");
   });
 
-  it("withholds each source affected by unresolved Compliance overlaps", async () => {
+  it("withholds only unresolved Compliance overlap dates while retaining non-overlap days", async () => {
     const report = await createService({ overlap: true }).getReport();
     const compliance = report.result.sources.filter(item => item.sourceKind === "compliance");
-    expect(compliance).toHaveLength(2);
-    expect(compliance.every(item => item.disposition === "overlap_review_required")).toBe(true);
-    expect(report.result.withheldAmountPaise).toBe(2_000);
+    expect(compliance.some(item => item.disposition === "allocated" && item.daily.length > 0)).toBe(true);
+    expect(compliance.some(item => item.disposition === "overlap_review_required" && item.daily.length === 0)).toBe(true);
+    expect(report.result.withheldAmountPaise).toBeGreaterThan(0);
+    expect(report.result.withheldAmountPaise).toBeLessThan(2_000);
+    expect(compliance.filter(item => item.disposition === "allocated")
+      .every(item => item.daily.every(row => row.date > "2026-02-28"))).toBe(true);
   });
 
   it("fails closed if Business Start Date has not been configured", async () => {
