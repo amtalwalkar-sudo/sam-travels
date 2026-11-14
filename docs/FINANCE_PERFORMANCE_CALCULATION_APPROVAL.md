@@ -25,4 +25,4 @@ Before registering any additional production Performance calculation beyond the 
 5. Missing-data behavior, estimates versus actuals, rounding, and historical recalculation policy.
 6. Expected results for representative normal, cancelled, incomplete, midnight-crossing, and corrected records.
 
-The existing versioned calculation registry and regression-fixture enforcement are ready to host these definitions. Until they are approved, Finance and Performance remain unregistered rather than exposing plausible-looking but unaudited numbers.
+The existing versioned calculation registry and regression-fixture enforcement are ready to host approved definitions. No additional metric may be registered without its own owner-approved source, period, missing-data, rounding and regression rules. The full-cost breakeven engine remains blocked by the upstream implementation mismatches recorded in the Breakeven Source Reconciliation Audit; this document does not reopen the already-approved breakeven source decisions.
