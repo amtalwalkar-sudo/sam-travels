@@ -56,6 +56,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
    if(command.eventType==="cancel_ride"){
     const tripId=current.activeTripId;
     if(!tripId)throw new Error("cancelled_trip_identity_missing");
+    if(!current.tripContext)throw new Error("cancelled_trip_context_missing");
     const obligationId="work:trip-financial-obligation:"+tripId;
     const existingObligation=await browserDatabase.records.get(obligationId);
     if(existingObligation)throw new Error("trip_financial_obligation_already_exists");
