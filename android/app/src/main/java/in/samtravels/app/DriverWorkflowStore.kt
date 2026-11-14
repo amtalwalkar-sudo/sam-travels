@@ -390,11 +390,8 @@ object DriverWorkflowStore {
         listIntents(db).firstOrNull { it.optString("status") == "pending_location" }
 
     /** Find a recoverable intent without reviving an expired GPS evidence window. */
-    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? =
-        listIntents(db).firstOrNull {
-            it.optString("status") == "pending_location" ||
-                (it.optString("status") == "needs_attention" &&
-                    it.optString("reason") != "gps_recovery_window_expired")
-        }
-
+    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? = listIntents(db).firstOrNull {
+        it.optString("status") == "pending_location" ||
+            (it.optString("status") == "needs_attention" && it.optString("reason") != "gps_recovery_window_expired")
+    }
 }
