@@ -28,14 +28,15 @@ export class FullCostBreakevenService {
   constructor(
     private readonly vehicles: Pick<VehicleService, "list">,
     private readonly maintenance: Pick<MaintenanceService, "listVehicleRecords">,
-    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listFuelPurchases" | "listFuelCostRateHistory">,
+    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory">,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
   ) {}
 
   async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
-    const [vehicles, expenses, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
-      this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
+      this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
+      this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
     ]);
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
@@ -106,35 +107,35 @@ export class FullCostBreakevenService {
       sourceRefs: value.refs,
     }));
 
-    const expenseByDate = new Map<string, Map<string, {
-      amountPaise: number; refs: { sourceId: string; revision: number }[]; revision: number;
-    }>>();
-    const expenseRecords = expenses;
-    const expenseById = new Map(expenseRecords.map(record => [record.id, record]));
-    for (const envelope of expenseRecords) {
-      const entry = envelope.data;
-      if (entry.sourceKind === "traffic_challan" && entry.paymentStatus !== "paid") continue;
-      const original = entry.effect === "reversal" ? expenseById.get(entry.reversesSourceId ?? "") : undefined;
-      const effectiveDate = original?.data.businessDate ?? entry.businessDate;
-      const kind = entry.sourceKind === "platform_fee" ? "platform-fee"
-        : entry.sourceKind === "traffic_challan" ? "traffic-challan" : "miscellaneous";
-      const dateMap = expenseByDate.get(effectiveDate) ?? new Map();
-      const bucket = dateMap.get(kind) ?? { amountPaise: 0, refs: [], revision: 1 };
-      bucket.amountPaise += entry.effect === "reversal" ? -entry.amountPaise : entry.amountPaise;
-      bucket.refs.push({ sourceId: envelope.id, revision: envelope.revision });
-      bucket.revision = Math.max(bucket.revision, envelope.revision);
-      dateMap.set(kind, bucket); expenseByDate.set(effectiveDate, dateMap);
-    }
     const datedCosts: BreakevenDailyCostV1[] = [];
-    for (const [date, kinds] of expenseByDate) for (const [kind, bucket] of kinds) {
-      if (bucket.amountPaise < 0 || !Number.isSafeInteger(bucket.amountPaise)) {
-        throw new Error("breakeven_expense_reversal_reconciliation_failed");
+    const expenseById = new Map(expenses.map(record => [record.id, record]));
+    const expenseKinds = [
+      { field: "platformFeesPaise", sourceKind: "platform_fee", kind: "platform-fee" },
+      { field: "trafficChallansPaise", sourceKind: "traffic_challan", kind: "traffic-challan" },
+      { field: "miscellaneousPaise", sourceKind: "miscellaneous", kind: "miscellaneous" },
+    ] as const;
+    for (const daily of dailyExpenseOutputs) {
+      for (const category of expenseKinds) {
+        const amountPaise = daily[category.field];
+        const refs = daily.sourceIds.flatMap((sourceId, index) => {
+          const source = expenseById.get(sourceId);
+          return source?.data.sourceKind === category.sourceKind
+            ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
+            : [];
+        });
+        if (!Number.isSafeInteger(amountPaise)) throw new Error("breakeven_expense_amount_invalid");
+        if (amountPaise !== 0 && !refs.length) {
+          completeness.push({ source: "business-expenses", status: "incomplete",
+            detail: "Daily expense output has no matching source records for " + daily.businessDate + " (" + category.sourceKind + ")." });
+          continue;
+        }
+        if (amountPaise !== 0 || refs.length) datedCosts.push({
+          date: daily.businessDate, amountPaise, kind: category.kind,
+          sourceId: refs.map(ref => ref.sourceId).sort().join("|") || "expense-output:" + daily.businessDate,
+          sourceRevision: Math.max(1, ...refs.map(ref => ref.revision)),
+          sourceRefs: refs,
+        });
       }
-      if (bucket.amountPaise >= 0) datedCosts.push({
-        date, amountPaise: bucket.amountPaise, kind: kind as BreakevenDailyCostV1["kind"],
-        sourceId: bucket.refs.map(ref => ref.sourceId).sort().join("|"), sourceRevision: bucket.revision,
-        sourceRefs: bucket.refs,
-      });
     }
 
     for (const record of tripFinancialRecords) {
