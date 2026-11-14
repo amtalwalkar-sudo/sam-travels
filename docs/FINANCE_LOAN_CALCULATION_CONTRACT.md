@@ -83,11 +83,10 @@ Every execution is identified by calculation ID finance.loan-monthly-reducing-ba
 
 This calculation does not infer or fabricate:
 - actual EMI payments, payment dates, missed/partial payments, reversals, or lender adjustments;
-- prepayment dates, allocation timing, or whether a lender applies a prepayment immediately or at the next instalment boundary;
-- a revised tenure/EMI after prepayment;
-- early-settlement quotes or lender-specific foreclosure charges.
+- early-settlement quotes or lender-specific foreclosure charges;
+- lender-specific broken-period interest, fees, penalties, or adjustments.
 
-Those are separate Finance-owned workflows/calculations and require their own explicit timing, allocation, transition, and regression contracts before implementation. The Admin Loan specification's prepayment and closure features must call those Finance contracts when approved; Admin must not implement substitute formulas.
+Prepayment timing and the approved fixed-EMI/shorter-tenure re-amortization are owned by the [Finance Loan Prepayment Contract](FINANCE_LOAN_PREPAYMENT_CONTRACT.md). Settlement and closure timing are owned by the [Finance Loan Settlement and Closure Contract](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md). Daily business-cost allocation of the resulting schedule is owned by the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md). These contracts extend the loan workflow without changing the original v1 EMI formula; Admin must call Finance capabilities and must not implement substitute formulas.
 
 ## 7. Required regression coverage
 

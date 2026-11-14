@@ -32,6 +32,9 @@
 - Each contribution links the shift ID, start/end event IDs, timestamps, both odometer readings and exact business-kilometre delta.
 - Multiple shifts for the same vehicle and operational date aggregate without replacing earlier contributions. Duplicate shift contributions are rejected.
 - The daily record is a derived projection. The immutable shift events and odometer readings remain the source of truth; the projection can be rebuilt.
+- The public daily projection exposes `totalBusinessKm` as the sum of entries whose `allocationStatus` is `allocated`, and `unallocatedBusinessKm` as the separate sum of entries awaiting operational-boundary confirmation. Pending distance is never included in `totalBusinessKm`.
+- A downstream consumer may treat a vehicle/operational-date total as fully allocated only when every contribution is allocated, `unallocatedBusinessKm` is zero, and the sum of allocated entry deltas reconciles exactly to `totalBusinessKm`. Missing, malformed, legacy-unresolved or contradictory source facts are an explicit incomplete/needs-attention state, not a zero-distance day.
+- Legacy v1 shifts without confirmed odometer facts remain visible as unresolved history. They contribute neither fabricated business kilometres nor a fabricated zero-valued confirmed contribution.
 - A shift that starts and ends in the same 04:00 Asia/Kolkata operational date is allocated to that date.
 - If a shift has crossed the 04:00 boundary and rotation has not yet been confirmed, its distance remains `awaiting_operational_boundary` and is excluded from the published daily total. It is not assigned wholesale to either day. The implemented 04:00 rotation commits the shared end/start odometer reading and resolves the outgoing contribution to its operational date.
 
@@ -51,6 +54,7 @@
 4. PWA and Capacitor/Room parity for commands, events, state and daily projections.
 5. Retry, duplicate command, process restart, backup/restore and rollback do not duplicate or lose odometer facts.
 6. Multiple same-day shifts aggregate; a confirmed 04:00 rotation resolves the outgoing shift contribution exactly once and starts the new operational date at the same odometer reading.
+7. Before rotation, an awaiting-boundary contribution is visible in `unallocatedBusinessKm` and excluded from `totalBusinessKm`; after confirmed rotation it moves to allocated totals exactly once. A malformed/missing legacy contribution remains unresolved and cannot be represented as a complete zero-distance day.
 7. Duplicate rotation, retry, process death, offline restart and backup/restore preserve one rotation and one daily contribution.
 8. Physical Android acceptance remains a release gate for declaring this foundation fully accepted.
 

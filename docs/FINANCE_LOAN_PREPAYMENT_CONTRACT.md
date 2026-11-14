@@ -1,19 +1,16 @@
 # Finance Loan Prepayment Contract v1
 
-**Status:** Implemented in the Finance-owned prepayment calculation, record validator, service/runtime and migrated Loan UI; automated calculation, service, stale-preview and CI coverage are present. This contract remains the behaviour authority.  
+**Status:** Approved Reduce Tenure behaviour; the Finance-owned calculation, record validator and service implement this mode. The Reduce EMI alternative is not part of the owner's approved workflow. Runtime conformance remains subject to the exact-SHA audit.  
 **Owner:** Finance.  
 **Calculation dependency:** `finance.loan-monthly-reducing-balance.v1` (unchanged).
 
 ## 1. Purpose and scope
 
-Define Finance-owned principal prepayments against an existing loan, including the two approved re-amortization choices:
-
-- **Reduce Tenure:** retain the current regular EMI and shorten the remaining repayment period.
-- **Reduce EMI:** retain the remaining repayment period and reduce the regular EMI.
+Define the single approved Finance-owned principal-prepayment behaviour: **Reduce Tenure**. Retain the current regular EMI and scheduled due dates, reduce principal by the accepted prepayment amount, and shorten the remaining repayment period. A Reduce EMI option is not approved for this workflow and must not be exposed or accepted.
 
 A prepayment is a principal reduction, not an EMI payment, a payment allocation, a settlement, or a loan closure. The existing payment ledger remains the source of actual EMI payment facts. This contract does not authorize settlement or closure.
 
-The implementation adds no new interest convention. It reuses the registered monthly reducing-balance convention, annual-to-monthly conversion, integer-paise arithmetic, and monthly-interest rounding unchanged. It does **not** alter or overload `finance.loan-monthly-reducing-balance.v1`: that calculation derives EMI from a fixed tenure, so it cannot by itself implement Reduce Tenure with a fixed EMI. The Finance runtime uses the separately registered calculation `finance.loan-prepayment-reamortization.v1`, which explicitly supports both modes and reproduces the approved monthly-interest and rounding rules. Reduce Tenure solves the payoff horizon from the unchanged EMI; Reduce EMI solves the EMI over the unchanged remaining installment count.
+The implementation adds no new interest convention. It reuses the registered monthly reducing-balance convention, annual-to-monthly conversion, integer-paise arithmetic, and monthly-interest rounding unchanged. It does **not** alter or overload `finance.loan-monthly-reducing-balance.v1`: that calculation derives EMI from a fixed tenure, so it cannot by itself implement Reduce Tenure with a fixed EMI. The Finance runtime uses the separately registered calculation `finance.loan-prepayment-reamortization.v1`, which retains the existing regular EMI and solves the shortened payoff horizon.
 
 ## 2. Approved user-visible behaviour
 
@@ -23,7 +20,7 @@ A prepayment command records:
 - unique command/idempotency identity;
 - business date;
 - positive amount in INR paise;
-- selected mode (`reduce_tenure` or `reduce_emi`);
+- selected mode (`reduce_tenure` only);
 - creation timestamp and source/provenance;
 - the schedule version and payment-ledger revision against which it was accepted;
 - resulting schedule version and calculation provenance.
@@ -58,12 +55,9 @@ The original schedule and every prior re-amortized schedule are immutable. The p
 - End as soon as the remaining principal and accrued scheduled interest are fully repaid; the final installment may be smaller than the regular EMI.
 - The resulting number of installments / final due date may be shorter; it must not be longer than the no-prepayment baseline from the same effective point.
 
-### 4.2 Reduce EMI
+### 4.2 Explicitly unsupported alternative
 
-- Keep the number of remaining installments and their due dates unchanged from the current schedule after the effective date.
-- Use the separately registered prepayment re-amortization calculation to recalculate a regular EMI that amortizes the reduced opening principal over exactly those remaining installments, using the existing registered monthly-interest and rounding rules.
-- The final installment is adjusted under the same existing schedule rules.
-- The resulting regular EMI must not exceed the prior regular EMI, except that a documented rounding edge case must fail closed rather than silently increase it.
+Reduce EMI is not an approved mode for this workflow. The regular EMI amount and regular due dates remain unchanged after prepayment; only the principal and remaining tenure change. Do not expose a Reduce EMI selector or accept a reduce_emi command.
 
 If no installments remain, the loan is not eligible for prepayment; use the separately gated settlement/closure process.
 
@@ -95,15 +89,15 @@ Both schedules must start from the same verified principal and next installment 
 - Every schedule is reproducible from its immutable inputs and the registered calculation version.
 - Prior payment entries, allocations, schedule versions, and prepayment entries remain immutable.
 - The schedule's remaining principal must equal the previous verified principal less the accepted prepayment amount.
-- Reduce Tenure preserves regular EMI; Reduce EMI preserves remaining installment count and due dates.
+- Reduce Tenure preserves regular EMI and due dates; the final due date moves earlier. Reduce EMI is unsupported.
 - No prepayment can be committed if any EMI due through its business date is unpaid/partially paid.
 - Backup, restore, migration, and record validation must include all committed prepayment history and schedule provenance. Restore must reject malformed, non-reproducible, cross-linked, or internally inconsistent records.
 - No automatic lender fee, penalty, tax, rebate, or interest adjustment is inferred. If such lender-specific charges are later required, they need an explicit separately approved field and calculation contract.
 
 ## 8. Required regression coverage before enabling the feature
 
-1. Both modes with positive interest and zero interest.
-2. Principal reductions that produce a shorter tenure, a lower EMI, and a final adjusted installment.
+1. Reduce Tenure with positive interest and zero interest.
+2. Principal reductions that preserve the regular EMI, shorten the remaining tenure, and produce a final adjusted installment.
 3. One-paise boundaries, rounding ties, large safe-integer amounts, and invalid/over-principal amounts.
 4. Fully paid due installments; unpaid and partially paid due installments; unallocated credit without installment allocation.
 5. Prepayment before the first EMI, on an EMI due date after payment, and between EMI due dates.

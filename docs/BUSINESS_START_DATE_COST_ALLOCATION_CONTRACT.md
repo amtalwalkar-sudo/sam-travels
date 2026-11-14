@@ -69,9 +69,17 @@ Option A is approved: each scheduled EMI is associated with its own monthly allo
 
 For a monthly EMI period that straddles the Business Start Date, the portion accrued before the Business Start Date is carried forward and the **whole EMI amount for that period** is allocated evenly over the remaining days of that EMI period from the Business Start Date.
 
+### Prepayment and closure schedule boundaries
+
+The Finance Loan Prepayment Contract is authoritative for the prepayment event and resulting schedule. The approved mode is Reduce Tenure only: the regular EMI amount and due dates remain unchanged, the revised schedule retains the same next unpaid due date, and the final instalment/final due date moves earlier.
+
+A prepayment may occur between scheduled EMI dates only after every instalment due on or before the prepayment business date is fully paid and allocated. It becomes effective on that business date, after the paid-through instalments and before the next unpaid instalment. For daily cost allocation, preserve the already-open EMI allocation period from the prior schedule through the day before the next unpaid due date, using the prior schedule's applicable scheduled EMI amount. Begin the revised schedule's future allocation rows on the next unpaid due date. Do not leave the open period unallocated, restart it at the prepayment date, or count both schedule versions for the same period.
+
+The Finance Loan Settlement and Closure Contract is authoritative for closure. V1 settlement occurs only on a scheduled EMI due date, after all instalments due through that date are fully paid and allocated. The settlement amount is the closing principal after that date's EMI; the settlement entry and Loan closed state commit atomically. The closure date is the settlement business date. The closure-date EMI is the final scheduled instalment; its allocation period is truncated to the closure date (inclusive), and no EMI allocation may be emitted on a later date. Do not continue allocating later rows from the historical schedule merely because those rows remain in an immutable schedule snapshot.
+
 Scheduled EMI periods that have fully elapsed before the Business Start Date create a pre-business EMI carry-forward balance. That balance is allocated evenly over the remaining loan schedule days beginning on the Business Start Date and ending on the final scheduled EMI allocation-period end. Each later scheduled EMI continues to be allocated over its own monthly allocation period. This ensures that historic EMI costs are neither discarded nor shown as pre-business operating costs.
 
-The scheduled EMI amount is the allocation source. Actual payment amount/date/status remain separate facts and must not be fabricated or silently substituted for the scheduled allocation. A missed, partial, late, reversed, or adjusted payment does not by itself rewrite the scheduled EMI cost allocation; any different treatment requires an explicit Finance policy.
+The scheduled EMI amount is the allocation source. Actual payment amount/date/status remain separate facts and must not be fabricated or silently substituted for the scheduled allocation. A missed, partial, late, reversed, or adjusted payment does not by itself rewrite the scheduled EMI cost allocation. Prepayment and settlement are the explicit schedule-transition exceptions defined above and in their Finance owner contracts.
 
 No principal/interest split is used in the reporting allocation or its daily/monthly/yearly presentation. Finance may retain the component details required by its separate loan schedule contract for loan-balance calculations; those details must not leak into or change this whole-EMI cost-allocation rule.
 

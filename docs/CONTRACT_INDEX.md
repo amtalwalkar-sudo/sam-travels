@@ -48,10 +48,13 @@
 | WebView-specific security/release compatibility | [WebView Security and Release Compatibility](WEBVIEW_SECURITY_AND_RELEASE_COMPATIBILITY_CONTRACT.md) | WebView/native trust boundary and version compatibility |
 | Backup, restore and reset behaviour | [Dropbox Backup](DROPBOX_BACKUP_CONTRACT.md) | User-facing backup destinations, package and restore/reset safeguards |
 | Finance loan calculation | [Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI and amortization mathematics |\n| Business Start Date cost allocation | [Business Start Date Cost Allocation](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Cross-feature pre-business carry-forward and daily/monthly/yearly allocation for Compliance and whole-EMI reporting |
+| Fuel Entry and business expense sources | [Fuel Entry and Business Expense Calculation](FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md) | Fuel purchase checkpoints/intervals, paid platform fees and challans, miscellaneous expense source dates, and no-double-counting boundaries |
+| Work/Shift odometer and daily business kilometres | [Work/Shift Odometer and Daily Business-Kilometre](WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md) | Confirmed shift odometer facts, 04:00 rotation, fully allocated daily business distance, and explicit legacy/pending states |
 | Finance loan payment policy | [Loan Payment Workflow](FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md) | Proposal only until formally ratified; implementation does not approve this draft |
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
 | Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
 | Performance calculation approval | [Finance and Performance Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approval boundary; no unapproved metric/accounting policy |
+| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Frozen v1.9 full-cost breakeven source, cost and earnings baseline; upstream date/attribution rules defer to Work/Trip, Compliance, Finance, Fuel/Business Expense and Business Start Date owner contracts; Driver Target remains last; runtime breakeven implementation is blocked pending source-conformance fixes |
 | Admin product behaviour | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved six-section Admin product behaviour |
 | Admin capability technical design | [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Historical Slice 1 design; product and shared technical owners prevail |
 | Presentation architecture and shell | [UI/UX Shell Foundation](UI_UX_SHELL_FOUNDATION_CONTRACT.md) | Replaceable presentation and interaction architecture |
@@ -85,6 +88,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
+- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.

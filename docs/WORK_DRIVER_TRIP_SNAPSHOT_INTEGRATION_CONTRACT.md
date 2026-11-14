@@ -63,6 +63,19 @@ operationalDate is calculated in Asia/Kolkata using the 04:00 boundary: local ti
 
 start_ride, end_ride, and cancel_ride retain the trip's original context by referencing the created trip projection; they do not look up current Admin records or replace the snapshot.
 
+## 4.1 Trip financial facts inherit immutable trip context
+
+Completed-ride financial closeout and cancellation-fee records are linked to the stable trip identity and the corresponding committed end-ride or cancellation event. The financial amount may be entered after the event; the entry/submission timestamp is audit evidence and does not replace the trip's business date.
+
+For every trip-linked financial fact:
+- Resolve vehicle, driver, assignment, shift and Asia/Kolkata operational date from the immutable tripContext captured at trip creation in Section 4. Do not resolve current Admin selection, current assignment, or current vehicle to reconstruct historical attribution.
+- Completed-ride gross fare uses the trip's captured operationalDate. A cancellation fee uses the same trip operationalDate and remains linked to the cancellation event. Neither is re-dated merely because the driver submits the amount later.
+- Parking and toll inherit the same trip context and operationalDate. The existing trip-form payer/inclusion control is authoritative: customer-paid amounts contribute to the customer charge as represented by the trip form; driver-paid amounts are separate driver expenses. An amount already included in the fare/customer charge must not also be added as a separate driver expense.
+- Keep tripId and the authoritative endRideEventId/cancellationEventId as source links. Do not create a separate trip-to-payout, cash/platform, or received-earnings workflow.
+- A trip crossing the 04:00 boundary remains assigned to its creation shift and operationalDate; the financial closeout follows that same immutable assignment.
+
+The Work/Trip snapshot is the authority for historical trip/vehicle/driver/date attribution. Finance/breakeven consumers must join through the public trip context rather than copy mutable Admin data or invent a second attribution engine.
+
 ## 5. Atomicity and recovery
 
 - Browser commit includes the records, state, intent, immutable event and outbox in one Dexie transaction.
