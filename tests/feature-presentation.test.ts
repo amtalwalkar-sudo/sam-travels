@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertFeaturePresentationContext,
   createFeaturePresentationContext,
   initializeRuntimeRegistry,
   type FeatureExtensionDefinition,
@@ -68,13 +69,15 @@ describe("feature-owned custom presentation contributions", () => {
     expect((runtime.presentationScreens as unknown as { set?: unknown }).set).toBeUndefined();
   });
 
-  it("rejects a context version mismatch before feature rendering", () => {
+  it("rejects a context identity or version mismatch before feature rendering", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [extension] });
     const screen = runtime.presentationScreens.get(denseScreen.id)!;
-    expect(() => screen.render(createFeaturePresentationContext(
+    expect(() => assertFeaturePresentationContext(screen, createFeaturePresentationContext(
       { id: "fixture.dense", version: 2 }, { rows: 4 },
-    ))).not.toThrow();
-    expect(screen.context.version).toBe(1);
+    ))).toThrow("Incompatible presentation context");
+    expect(() => assertFeaturePresentationContext(screen, createFeaturePresentationContext(
+      { id: "fixture.other", version: 1 }, { rows: 4 },
+    ))).toThrow("Incompatible presentation context");
   });
 
   it("withholds the complete owner contribution when presentation ownership is invalid", () => {
