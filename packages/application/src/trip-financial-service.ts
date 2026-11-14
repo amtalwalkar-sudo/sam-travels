@@ -91,7 +91,9 @@ export class TripFinancialService {
 
 export type CompletedTripFinancialObligation = Readonly<{
   schemaVersion: 1; tripId: string; kind: "completed_ride_financials"; status: "pending" | "submitted";
-  endRideEventId: string; createdAt: string; farePaise?: number; tollPaise?: number;
+  endRideEventId: string; createdAt: string;
+  tripContext?: Readonly<{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string}>;
+  farePaise?: number; tollPaise?: number;
   tollPayer?: "driver" | "customer"; parkingPaise?: number; parkingPayer?: "driver" | "customer";
   operationId?: string; submittedAt?: string;
 }>;
