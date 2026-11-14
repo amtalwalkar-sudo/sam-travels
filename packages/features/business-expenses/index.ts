@@ -9,15 +9,16 @@ export {
   assertBusinessExpenseRecordV1,
   deriveFuelQuantityMilliKg,
   calculateFuelIntervals,
-  calculateFuelCostRateHistory,
   calculateDailyBusinessExpenses,
 } from "./calculations";
 export type {
   FuelPurchaseV1,
   FuelIntervalV1,
-  FuelCostRateHistoryEntryV1,
   BusinessExpenseEntryV1,
   DailyBusinessExpenseV1,
   ExpenseSourceKindV1,
   BusinessExpenseRecordV1,
 } from "./calculations";
+
+export { calculateFuelCostRateHistory } from "./fuel-cost-rate-history";
+export type { FuelCostRateHistoryEntryV1 } from "./fuel-cost-rate-history";
