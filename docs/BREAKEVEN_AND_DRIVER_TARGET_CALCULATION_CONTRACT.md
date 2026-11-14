@@ -2,7 +2,7 @@
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
 **Version:** 1.9  
-**Status:** Frozen and approved product baseline with Addenda A through H; changes require an explicit, versioned product-owner amendment  
+**Status:** Frozen and approved product baseline with Addenda A through I; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
