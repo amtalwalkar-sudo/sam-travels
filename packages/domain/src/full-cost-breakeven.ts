@@ -182,10 +182,10 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     yearly.set(year, safeAdd(yearly.get(year) ?? 0, row.totalCostPaise));
   }
   const sourceRevisions = [
-    ...input.dailyActivity.flatMap(item => item.sourceRefs?.length
+    ...input.dailyActivity.filter(item => item.date >= input.from && item.date <= input.to).flatMap(item => item.sourceRefs?.length
       ? item.sourceRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision }))
       : [{ sourceId: item.distanceSourceId, revision: item.distanceSourceRevision }]),
-    ...input.datedCosts.map(item => ({ sourceId: item.sourceId, revision: item.sourceRevision,
+    ...input.datedCosts.filter(item => item.date >= input.from && item.date <= input.to).map(item => ({ sourceId: item.sourceId, revision: item.sourceRevision,
       ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) })),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
   return Object.freeze({
