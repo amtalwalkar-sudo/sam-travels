@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-11-14  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
-**Audited implementation baseline:** `4854863fcc632bd3953b169324ae1831b0aa4cbd` on `feat/breakeven-driver-target`  
+**Audited implementation baseline:** `61101b60f2f436393f281b42397fd5643add1fc5` on `feat/breakeven-driver-target` (the audit commit is documentation-only; inspected runtime sources are unchanged)  
 **Purpose:** Compare the five previously discussed and approved upstream source areas against their normative contracts and actual implementation.  
 **Result:** Product decisions recovered and documented. Several upstream implementation mismatches remain. **Breakeven runtime implementation must not start until the blocking findings below are corrected and re-audited.**
 
@@ -74,7 +74,7 @@ Evidence:
 
 ## 4. Earnings and expenses — authoritative date and attribution
 
-**Decision status: recovered and documented. The current source models and daily aggregator contain blocking mismatches, including incomplete vehicle attribution for paid platform charges.**
+**Decision status: recovered and documented. The current source models and daily aggregator contain blocking mismatches in challan recognition, platform-charge handling, and trip attribution.**
 
 Approved date/attribution rules:
 - Completed-ride fare is gross and entered by the driver after the ride. It inherits the immutable trip context captured at trip creation: trip ID, vehicle, driver/assignment, shift and Asia/Kolkata operational date. Submission time is audit metadata, not a replacement business date.
@@ -95,11 +95,11 @@ Evidence:
 
 **Blocking mismatch B — platform fee can be suppressed as already netted:** the legacy `alreadyNettedFromIncome` field suppresses platform fees from daily normal/full expense totals. That is incompatible with the approved gross-fare input and separately paid platform charge. The approved breakeven path must consume gross fare and include each paid platform charge exactly once; it must not net the same charge out of fare or suppress the cost through this legacy flag. Contradictory legacy states must fail closed or be excluded with explicit needs-attention status.
 
-**Paid platform fee event semantics:** the source model intentionally has no unpaid platform-fee state. A platform-fee row represents an already-paid transaction and its `businessDate` is the actual payment date; no separate pending/unpaid accrual state should be introduced. The source-entry command/form must preserve this event-only meaning and must not substitute `createdAt`/`submittedAt` for the paid business date.
+**Paid platform fee event semantics:** the source model intentionally has no unpaid platform-fee state. A platform-fee row represents an already-paid transaction and its `businessDate` is the actual payment date; no separate pending/unpaid accrual state should be introduced. The source-entry command/form must preserve this event-only meaning and must not substitute `createdAt`/`submittedAt` for the paid business date. The absence of a `paymentStatus` field is therefore not a defect by itself.
 
-**Blocking mismatch D — platform-fee vehicle attribution is optional:** `BusinessExpenseEntryV1.vehicleId` is optional and `BusinessExpensesService.createExpenseEntry()` does not require it for `platform_fee`, although the approved one-car scope requires vehicle-related platform charges to retain the business vehicle identity. Enforce the vehicle link for platform pass/commission entries and validate it against the Vehicle owner.
+**Blocking mismatch D — platform-fee vehicle attribution is optional:** `BusinessExpenseEntryV1.vehicleId` is optional and `BusinessExpensesService.createExpenseEntry()` does not require it for `platform_fee`, although the reconciled one-car source contract requires the business vehicle identity on each vehicle-related platform pass/commission entry. Enforce the vehicle link for platform pass/commission entries and validate it against the Vehicle owner.
 
-**Blocking mismatch C — trip context is not embedded in financial source rows:** the trip financial service stores tripId and event IDs, but not vehicle/date snapshots. The downstream read model must resolve the immutable tripContext and reject missing/ambiguous legacy attribution rather than use the currently selected vehicle/driver.
+**Blocking mismatch C — trip context is not exposed in a public financial read model:** the trip financial service stores tripId and event IDs, but not vehicle/date snapshots, and currently exposes submission operations without a stable query joining financial entries to immutable tripContext. Add that owner-approved read model and reject missing/ambiguous legacy attribution rather than use the currently selected vehicle/driver.
 
 **Additional boundary:** `calculateDailyBusinessExpenses()` still exposes `normalOperatingExpensePaise` and `fullCostExpensePaise`. These are legacy source-summary outputs, not two breakeven metrics. The breakeven product contract permits exactly one full-cost breakeven. No consumer may register, label, or present the legacy normal/operating subtotal as an operating-breakeven calculation.
 
@@ -175,4 +175,4 @@ This audit does not authorize:
 **Documentation reconciliation:** completed by the v1.9 source-contract references and amendments.  
 **Upstream implementation conformance:** not complete; blockers listed in Section 7.  
 **Breakeven runtime implementation:** **blocked** until those blockers are fixed, tested and this audit is updated against the exact new implementation baseline.  
-**Runtime code changed in this audit:** none.
+**Runtime code changed in this audit:** none. The documentation PR head `61101b60f2f436393f281b42397fd5643add1fc5` passed Sam Travels CI run `43544779983`: architecture, web, Android and Integrated regression succeeded; the production-geocoder job was correctly skipped for this PR.
