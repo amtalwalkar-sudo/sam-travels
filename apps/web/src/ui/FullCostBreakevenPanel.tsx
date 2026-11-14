@@ -54,6 +54,14 @@ export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBrea
       <h3>Period reconciliation</h3>
       <p>Daily {result.daily.length} days · Weekly {result.weekly.length} weeks · Monthly {result.monthly.length} months · Yearly {result.yearly.length} years</p>
       <div className="pending-list">
+        <strong>Weekly totals</strong>
+        {result.weekly.map(row => <div className="pending-row" key={row.week}><span>{row.week}</span><strong>{rupees(row.totalCostPaise)}</strong></div>)}
+        <strong>Monthly totals</strong>
+        {result.monthly.map(row => <div className="pending-row" key={row.month}><span>{row.month}</span><strong>{rupees(row.totalCostPaise)}</strong></div>)}
+        <strong>Yearly totals</strong>
+        {result.yearly.map(row => <div className="pending-row" key={row.year}><span>{row.year}</span><strong>{rupees(row.totalCostPaise)}</strong></div>)}
+      </div>
+      <div className="pending-list">
         {result.daily.slice(-14).map(row => <div className="pending-row" key={row.date}>
           <span>{row.date} · {row.businessKm} business km</span>
           <strong>{rupees(row.totalCostPaise)}</strong>
