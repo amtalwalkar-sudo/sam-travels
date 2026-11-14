@@ -226,15 +226,15 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
               <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
             </section>
 
-            <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" context={{ activeScreen }} />
+            <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen }} />
         </div>
         {activeScreen === "Timeline" && (
-          <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
+          <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" contextContract={{ id: "timeline.main", version: 1 }} context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1>{showBreakevenSanityCheck && <FullCostBreakevenPanel service={fullCostBreakeven} />}<FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1>{showBreakevenSanityCheck && <FullCostBreakevenPanel service={fullCostBreakeven} />}<FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" contextContract={{ id: "performance.host", version: 1 }} context={{ activeScreen }} /></section>
         )}
-        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
+        {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" contextContract={{ id: "admin.workspace", version: 1 }} context={<AdminWorkspace />} /></AdminServicesProvider>}
       <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
         <FuelEntryPanel />
       </AdminServicesProvider>
