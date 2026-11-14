@@ -153,25 +153,38 @@ export class BusinessStartDateCostAllocationService {
     for (const { loan, history, payments } of loanHistories) {
       const settlement = payments.find((entry): entry is Extract<FinancePaymentEntryV1, { kind: "settlement" }> =>
         entry.kind === "settlement");
-      const scheduleVersion = settlement?.scheduleVersion ?? history.currentScheduleVersion;
-      const selected = history.versions.find(item => item.version === scheduleVersion);
+      const settlementVersion = settlement?.scheduleVersion;
+      const orderedVersions = [...history.versions]
+        .filter(item => settlementVersion === undefined || item.version <= settlementVersion)
+        .sort((left, right) => left.version - right.version);
+      const selected = orderedVersions.find(item => item.version === (settlementVersion ?? history.currentScheduleVersion));
       if (!selected) throw new Error("business_start_date_emi_schedule_version_missing");
-      // Settlement payment facts (including paid-through boundaries) do not
-      // independently truncate scheduled EMI cost allocation. Only the Finance
-      // schedule version itself defines the allocation horizon. A genuine
-      // duration reduction from prepayment is represented by its revised rows.
-      const rows = selected.rows;
-      if (!rows.length) continue;
-      const emiRows: EmiAllocationRowV1[] = rows.map(row => ({
-        installmentNumber: row.installmentNumber,
-        dueDate: row.dueDate,
-        installmentAmountPaise: row.installmentAmountPaise,
-      }));
+
+      // Compose immutable schedule history. Each old version contributes only
+      // through the day before the first due date in its replacement schedule;
+      // this retains the open EMI period instead of dropping it on prepayment.
+      const compositeRows: EmiAllocationRowV1[] = [];
+      for (let index = 0; index < orderedVersions.length; index++) {
+        const version = orderedVersions[index];
+        const nextVersionFirstDue = orderedVersions[index + 1]?.rows
+          .map(row => row.dueDate).sort()[0];
+        const versionRows = version.rows
+          .filter(row => !nextVersionFirstDue || row.dueDate < nextVersionFirstDue)
+          .map(row => ({
+            installmentNumber: row.installmentNumber,
+            dueDate: row.dueDate,
+            installmentAmountPaise: row.installmentAmountPaise,
+            scheduleVersion: version.version,
+          }));
+        compositeRows.push(...versionRows);
+      }
+      if (!compositeRows.length) continue;
       sources.push(...allocateScheduledEmisV1(businessStartDate, {
         loanId: loan.id,
         loanRevision: loan.revision,
-        scheduleVersion,
-        rows: emiRows,
+        scheduleVersion: selected.version,
+        rows: compositeRows,
+        ...(settlement ? { allocationEndDate: settlement.businessDate } : {}),
       }));
     }
 
