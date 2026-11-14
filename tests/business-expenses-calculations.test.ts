@@ -146,9 +146,9 @@ describe("Daily expense aggregation", () => {
   });
 
   it("applies a linked reversal on its own business date", () => {
-    const charge = expense("fee", "platform_fee", 500);
+    const charge = expense("fee", "platform_fee", 500, { vehicleId });
     const reversal = expense("fee-reversal", "platform_fee", 500, {
-      businessDate: "2026-11-15", effect: "reversal", reversesSourceId: "fee",
+      businessDate: "2026-11-15", effect: "reversal", reversesSourceId: "fee", vehicleId,
     });
     const result = calculateDailyBusinessExpenses([], [charge, reversal]);
     expect(result.find(row => row.businessDate === "2026-11-14")?.platformFeesPaise).toBe(500);
