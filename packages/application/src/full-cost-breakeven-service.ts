@@ -2,6 +2,7 @@ import type { VehicleService } from "./vehicle-service";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
+import type { TripFinancialService } from "./trip-financial-service";
 import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
@@ -29,10 +30,11 @@ export class FullCostBreakevenService {
     private readonly maintenance: Pick<MaintenanceService, "listVehicleRecords">,
     private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listFuelPurchases" | "listFuelCostRateHistory">,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
+    private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
   ) {}
 
   async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
-    const [vehicles, expenses, fuelPurchases, fuelRates, allocationReport] = await Promise.all([
+    const [vehicles, expenses, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(),
     ]);
@@ -122,6 +124,22 @@ export class FullCostBreakevenService {
       if (bucket.amountPaise >= 0) datedCosts.push({
         date, amountPaise: bucket.amountPaise, kind: kind as BreakevenDailyCostV1["kind"],
         sourceId: bucket.ids.sort().join("|"), sourceRevision: bucket.revision,
+      });
+    }
+
+    for (const record of tripFinancialRecords) {
+      if (record.data.kind !== "completed_ride_financials") continue;
+      const context = record.data.tripContext;
+      const driverExpenses = (record.data.tollPayer === "driver" ? record.data.tollPaise ?? 0 : 0) +
+        (record.data.parkingPayer === "driver" ? record.data.parkingPaise ?? 0 : 0);
+      if (!context) {
+        if (driverExpenses > 0) completeness.push({ source: "trip-financials", status: "incomplete",
+          detail: "Driver-paid parking/toll has no recoverable immutable trip context: " + record.id });
+        continue;
+      }
+      if (driverExpenses > 0) datedCosts.push({
+        date: context.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
+        sourceId: record.id, sourceRevision: record.revision,
       });
     }
 
