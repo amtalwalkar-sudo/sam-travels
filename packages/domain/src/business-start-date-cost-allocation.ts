@@ -53,12 +53,14 @@ export type EmiAllocationRowV1 = Readonly<{
   installmentNumber: number;
   dueDate: string;
   installmentAmountPaise: number;
+  scheduleVersion?: number;
 }>;
 export type EmiAllocationInputV1 = Readonly<{
   loanId: string;
   loanRevision: number;
   scheduleVersion: number;
   rows: readonly EmiAllocationRowV1[];
+  allocationEndDate?: string;
 }>;
 
 const DAY_MS = 86_400_000;
@@ -137,21 +139,29 @@ export function allocateScheduledEmisV1(
       !Array.isArray(schedule.rows) || !schedule.rows.length) {
     throw new Error("business_start_date_emi_source_invalid");
   }
-  const rows = [...schedule.rows].sort((a,b) => a.dueDate.localeCompare(b.dueDate));
-  const seen = new Set<number>();
+  if (schedule.allocationEndDate !== undefined) assertDate(schedule.allocationEndDate);
+  const rows = [...schedule.rows].filter(row => schedule.allocationEndDate === undefined || row.dueDate <= schedule.allocationEndDate)
+    .sort((a,b) => a.dueDate.localeCompare(b.dueDate));
+  if (!rows.length) return Object.freeze([]);
+  const seen = new Set<string>();
   rows.forEach((row,index) => {
     assertDate(row.dueDate); assertPaise(row.installmentAmountPaise, "business_start_date_emi_amount_invalid", false);
-    if (!Number.isSafeInteger(row.installmentNumber) || row.installmentNumber < 1 || seen.has(row.installmentNumber) ||
+    const rowVersion = row.scheduleVersion ?? schedule.scheduleVersion;
+    if (!Number.isSafeInteger(row.installmentNumber) || row.installmentNumber < 1 ||
+        !Number.isSafeInteger(rowVersion) || rowVersion < 1 || seen.has(rowVersion + ":" + row.installmentNumber) ||
         (index > 0 && rows[index - 1].dueDate >= row.dueDate)) {
       throw new Error("business_start_date_emi_schedule_invalid");
     }
-    seen.add(row.installmentNumber);
+    seen.add(rowVersion + ":" + row.installmentNumber);
   });
   const periods = rows.map((row,index) => ({
     row,
     from: row.dueDate,
     to: index + 1 < rows.length ? addDays(rows[index + 1].dueDate, -1) : monthEnd(row.dueDate),
   }));
+  if (schedule.allocationEndDate !== undefined) {
+    for (const period of periods) if (period.to > schedule.allocationEndDate) (period as {to:string}).to = schedule.allocationEndDate;
+  }
   const finalEnd = periods[periods.length - 1].to;
   const carryRows = periods.filter(period => period.to < businessStartDate);
   const carryAmount = carryRows.reduce((sum,period) => sum + period.row.installmentAmountPaise, 0);
@@ -175,10 +185,11 @@ export function allocateScheduledEmisV1(
   }
   for (const period of periods.filter(item => item.to >= businessStartDate)) {
     const from = period.from < businessStartDate ? businessStartDate : period.from;
-    const sourceId = schedule.loanId + ":emi:" + period.row.installmentNumber;
-    const daily = distribute({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion,
+    const rowScheduleVersion = period.row.scheduleVersion ?? schedule.scheduleVersion;
+    const sourceId = schedule.loanId + ":emi:" + period.row.installmentNumber + (period.row.scheduleVersion !== undefined ? ":v" + rowScheduleVersion : "");
+    const daily = distribute({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
       amountPaise: period.row.installmentAmountPaise, from, to: period.to });
-    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: schedule.scheduleVersion,
+    results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
       sourceAmountPaise: period.row.installmentAmountPaise, disposition: "allocated",
       eligibleFrom: from, eligibleTo: period.to, daily: Object.freeze(daily) }));
   }
