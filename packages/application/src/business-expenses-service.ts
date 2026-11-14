@@ -120,6 +120,12 @@ export class BusinessExpensesService {
     if (data.sourceKind !== "traffic_challan" && data.paymentStatus !== undefined) {
       throw new Error("traffic_challan_payment_status_not_applicable");
     }
+    if (data.sourceKind === "platform_fee" && !data.vehicleId) {
+      throw new Error("platform_fee_vehicle_required");
+    }
+    if (data.sourceKind === "platform_fee" && data.alreadyNettedFromIncome === true) {
+      throw new Error("business_expense_platform_fee_netting_not_supported");
+    }
     if (data.sourceKind === "platform_fee" && !data.reference?.trim()) {
       throw new Error("platform_fee_source_reference_required");
     }
