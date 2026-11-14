@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { FeatureScreenHost } from "../apps/web/src/ui/FeatureScreenHost";
+import { FeatureScreenHost, ScreenFailureBoundary } from "../apps/web/src/ui/FeatureScreenHost";
 import { initializeRuntimeRegistry, type FeatureExtensionDefinition, type FeaturePresentationContext, type FeaturePresentationScreen } from "../packages/core/src";
 
 type ScreenContext = FeaturePresentationContext<"fixture.render", 1, Readonly<{ message: string }>>;
@@ -56,5 +56,22 @@ describe("runtime feature screen mounting", () => {
       context: { message: "must not appear" },
     }));
     expect(markup).toBe("");
+  });
+});
+
+describe("feature screen failure containment", () => {
+  it("converts a renderer exception into a retryable, isolated fallback", () => {
+    const failures: string[] = [];
+    const boundary = new ScreenFailureBoundary({
+      screenId: "fixture.broken.v1",
+      children: null,
+      onFailure: screenId => failures.push(screenId),
+    });
+    boundary.state = ScreenFailureBoundary.getDerivedStateFromError();
+    const fallback = renderToStaticMarkup(boundary.render() as React.ReactElement);
+    boundary.componentDidCatch();
+    expect(fallback).toContain('role="alert"');
+    expect(fallback).toContain("Retry section");
+    expect(failures).toEqual(["fixture.broken.v1"]);
   });
 });
