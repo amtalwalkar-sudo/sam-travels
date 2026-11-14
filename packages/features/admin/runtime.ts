@@ -1,14 +1,17 @@
-import type { FeatureExtensionDefinition, FeaturePresentationScreen } from "../../core/src/index";
+import type { FeatureExtensionDefinition, FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/index";
+
+export type AdminPresentationContext = FeaturePresentationContext<"admin.workspace", 1, unknown>;
 
 /** Admin is a presentation/access surface; its business data remains owned by capabilities. */
-export const ADMIN_PRESENTATION_SCREEN: FeaturePresentationScreen = Object.freeze({
+export const ADMIN_PRESENTATION_SCREEN: FeaturePresentationScreen<AdminPresentationContext> = Object.freeze({
   id: "admin.workspace.v1",
   ownerFeatureId: "admin",
   version: 1,
   mountPoint: "Admin",
   label: "Admin workspace",
-  render(context: unknown) {
-    return context;
+  context: Object.freeze({ id: "admin.workspace", version: 1 }),
+  render(context) {
+    return context.value;
   },
 });
 

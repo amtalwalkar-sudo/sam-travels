@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import type { FeatureExtensionDefinition, FeaturePresentationScreen } from "../../core/src/index";
+import type { FeatureExtensionDefinition, FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/index";
 import type { TimelineReadModel } from "../../application/src/timeline-projection-service";
 import type { TimelineLocationMap } from "../../application/src/timeline-reverse-geocoding";
 import { TimelineScreen } from "./presentation/TimelineScreen";
@@ -10,15 +10,17 @@ export type TimelineScreenContext = Readonly<{
     locations: Promise<TimelineLocationMap>;
   }>>;
 }>;
+export type TimelinePresentationContext = FeaturePresentationContext<"timeline.main", 1, TimelineScreenContext>;
 
-export const TIMELINE_PRESENTATION_SCREEN: FeaturePresentationScreen = Object.freeze({
+export const TIMELINE_PRESENTATION_SCREEN: FeaturePresentationScreen<TimelinePresentationContext> = Object.freeze({
   id: "timeline.main.v1",
   ownerFeatureId: "timeline",
   version: 1,
   mountPoint: "Timeline",
   label: "Timeline",
-  render(context: unknown) {
-    return createElement(TimelineScreen, { context: context as TimelineScreenContext });
+  context: Object.freeze({ id: "timeline.main", version: 1 }),
+  render(context) {
+    return createElement(TimelineScreen, { context: context.value });
   },
 });
 
