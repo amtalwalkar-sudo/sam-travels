@@ -58,14 +58,16 @@ describe("TripFinancialService cancellation fee closeout", () => {
   it("exposes submitted trip financial sources with immutable vehicle and shift attribution", async () => {
     const records = new MemoryRecords();
     await records.put(obligation("trip_source_read"));
+    await records.put(completedObligation("trip_source_read_completed"));
     const service = new TripFinancialService(records, "web", () => "2026-11-10T01:00:00.000Z");
     await service.submitCancellationFee("trip_source_read", 2500, "operation_source_read");
+    await submitCompletedTripFinancials(records, "web", "trip_source_read_completed",
+      { farePaise: 12345, tollPaise: 500, tollPayer: "customer" }, "operation_source_read_completed");
     const rows = await service.submittedTripFinancialRecords();
-    expect(rows).toHaveLength(1);
-    expect(rows[0].data.tripContext).toMatchObject({
-      shiftId: "shift-1", driverId: "driver-1", assignmentId: "assignment-1",
-      vehicleId: "feature:vehicle:MH01AB1234", operationalDate: "2026-11-10",
-    });
+    expect(rows).toHaveLength(2);
+    expect(rows.map(row => row.data.kind).sort()).toEqual(["cancellation_fee", "completed_ride_financials"]);
+    expect(rows.every(row => row.data.tripContext?.vehicleId === "feature:vehicle:MH01AB1234")).toBe(true);
+    expect(rows.every(row => row.data.tripContext?.operationalDate === "2026-11-10")).toBe(true);
   });
 
   it("persists the active person as author on submitted cancellation fees", async () => {
