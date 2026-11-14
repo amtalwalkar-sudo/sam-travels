@@ -1,0 +1,46 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { readFile } from "node:fs/promises";
+import { describe, expect, it } from "vitest";
+import { WorkScreenShell } from "../apps/web/src/ui/WorkScreenShell";
+
+describe("replaceable Work screen shell", () => {
+  it("composes independently supplied regions without interpreting their contents", () => {
+    const markup = renderToStaticMarkup(createElement(WorkScreenShell, {
+      heading: createElement("h1", null, "Work"),
+      status: createElement("p", { "data-slot": "status" }, "Ready"),
+      workflow: createElement("button", { type: "button" }, "Start shift"),
+      extensions: createElement("aside", null, "Feature contribution"),
+    }));
+    expect(markup).toContain('data-presentation-contract="work-shell-v1"');
+    expect(markup).toContain("<h1>Work</h1>");
+    expect(markup).toContain('data-slot="status"');
+    expect(markup).toContain("<button type=\"button\">Start shift</button>");
+    expect(markup).toContain("<aside>Feature contribution</aside>");
+    expect(markup).toContain('aria-label="Current work"');
+  });
+
+  it("allows optional regions to be independently omitted", () => {
+    const markup = renderToStaticMarkup(createElement(WorkScreenShell, {
+      heading: createElement("h1", null, "Work"),
+      workflow: createElement("p", null, "Workflow"),
+    }));
+    expect(markup).not.toContain("work-screen-status");
+    expect(markup).not.toContain("work-screen-extensions");
+    expect(markup).toContain("Workflow");
+  });
+
+  it("keeps the shell free of feature and infrastructure dependencies", async () => {
+    const source = await readFile("apps/web/src/ui/WorkScreenShell.tsx", "utf8");
+    expect(source).not.toMatch(/packages\/(domain|application|storage|features)/);
+    expect(source).not.toMatch(/(IndexedDB|Room|repository|workflow service)/i);
+  });
+
+  it("scopes responsive and touch-friendly styling to the Work shell", async () => {
+    const css = await readFile("apps/web/src/ui/styles.css", "utf8");
+    expect(css).toContain(".work-screen-shell");
+    expect(css).toContain(".work-driver-card .primary-action");
+    expect(css).toContain("min-height:56px");
+    expect(css).toMatch(/@media\(max-width:380px\).*work-screen-header/s);
+  });
+});

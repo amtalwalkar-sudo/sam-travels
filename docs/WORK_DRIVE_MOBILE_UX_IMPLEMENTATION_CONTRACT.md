@@ -1,6 +1,6 @@
 # Work/Drive Mobile Experience and Uncoupled Forms — Implementation Contract
 
-**Status:** Approved scope and architectural constraints for implementation planning. This document is the implementation contract for the driver-facing Work/Drive mobile UX redesign. It does not itself authorize code changes.
+**Status:** Approved implementation contract. The product owner has explicitly authorized implementation of the Work/Drive shell replacement; the current PR is limited to the replaceable presentation shell and its component boundaries.
 **Scope:** Driver-facing Work/Drive experience and its forms, for the current single-car/single-driver operating model.
 **Platforms:** Browser PWA and the existing Android presentation surfaces, preserving their established shared workflow semantics and platform-specific contracts.
 **Authority:** This contract owns the Work/Drive presentation composition, mobile interaction requirements, and the boundaries between presentation and independently owned feature modules. Existing feature/domain/architecture contracts remain authoritative for business meaning, persistence, transactions, recovery, GPS, time, and platform behaviour.
@@ -488,4 +488,20 @@ Any proposed change to a business rule, feature ownership boundary, persistence 
 
 A UI simplification is not permission to remove a required field, bypass a validation rule, combine business records, alter calculations, weaken recovery, or introduce a dependency between features.
 
-**Current task status:** documentation only. No implementation, tests, CI run, PR merge or release is claimed by this contract.
+**Current task status:** implementation authorized. This contract change and the Work shell replacement are being delivered as an unmerged draft PR; tests and CI results must be reported from actual runs.
+
+
+## 17. Simplified shell-replacement implementation slice
+
+The product owner has clarified that the immediate implementation is a replacement of the Work/Drive presentation shell, not a form-by-form business workflow rewrite.
+
+- Replace the Work screen's presentation frame and layout through a dedicated, replaceable shell component.
+- The shell accepts independently supplied, opaque regions (heading, status, current workflow, and feature extensions). It must not inspect their internal state or import feature/domain/application modules.
+- The Work screen adapter maps authoritative workspace projections and existing owner-provided actions into presentation props. It does not create a new workflow engine or duplicate domain validation.
+- Existing forms and feature contributions remain owned by their existing modules and continue to function through their current application contracts. This slice does not migrate or rewrite each form's business logic.
+- The shell and each region can be replaced independently through typed props/slots. Shell styling is scoped to Work and must not alter Admin, Performance, Timeline, native overlay, or global business behaviour.
+- The new presentation must remove the prominent continuously running shift/trip timers from the Work screen, as required by the Driver Workflow contract. Duration calculations and historical reporting remain untouched.
+- Keep the fixed four-destination application navigation and the separate Settings control unchanged.
+- The native Android overlay remains a separate presentation surface governed by `DRIVER_OVERLAY_CONTRACT.md`; this Work shell change must not alter its implementation.
+
+This clarification narrows the first implementation slice and supersedes the form-by-form migration sequence in Section 13 for this PR only. Later form presentation changes require their own feature-isolated work and must preserve the form owner contracts.

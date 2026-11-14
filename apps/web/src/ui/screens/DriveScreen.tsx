@@ -4,6 +4,7 @@ import { getDriverSwipeAction } from "../../../../../packages/features/work-shif
 import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
 import { FeatureScreenHost } from "../FeatureScreenHost";
+import { WorkScreenShell } from "../WorkScreenShell";
 import type { useDriverWorkspace } from "../use-driver-workspace";
 
 export type DriveScreenProps = Readonly<{
@@ -22,8 +23,8 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
     setBoundaryOdometer("");
   }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
-    repo, error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
-    driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
+    error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
+    driverMessage, shiftOn, driverChoices, selectedDriverId,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
     pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
   } = workspace;
@@ -32,33 +33,24 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
   const swipeAction = getDriverSwipeAction(driver?.state);
 
   return (
-    <div>
-      <section className="screen-heading">
-        <small>YOUR WORKSPACE</small>
-        <h1>Drive</h1>
-        <p>Manage your shift and trips.</p>
-      </section>
-
-      <section className="status-card">
-        <div className="status-heading">
-          <div><small>FOUNDATION STATUS</small><h2>{ready ? "Local workspace ready" : "Opening local workspace…"}</h2></div>
-          <span className={ready && !error ? "pill good" : "pill"}>{ready && !error ? "LOCAL" : "STARTING"}</span>
+    <WorkScreenShell
+      heading={
+        <div className="work-screen-title">
+          <span className="work-screen-eyebrow">SAM TRAVELS</span>
+          <h1>Work</h1>
+          <p>For your safety, use controls only when the vehicle is safely stopped.</p>
         </div>
-        <p>{error || "Your records stay on this device. Internet access is optional and starts disabled."}</p>
-        <div className="status-foot">
-          <span>● Offline-first storage</span><span>{repo ? "Persistence connected" : "Connecting storage"}</span>
-        </div>
-      </section>
-
-      <section className="driver-card" style={driverPresentationCssVars}>
+      }
+      status={
+        <section className={ready && !error ? "work-local-status is-ready" : "work-local-status"} role={error ? "alert" : "status"}>
+          <span className="work-local-status-indicator" aria-hidden="true" />
+          <span>{error || (ready ? "Ready to work · your records stay on this device" : "Preparing your workspace…")}</span>
+        </section>
+      }
+      workflow={
+      <section className="driver-card work-driver-card" style={driverPresentationCssVars}>
         <div className="driver-head">
-          <div><small>LIVE DRIVER WORKFLOW</small><h2>{!driver ? "Restoring state" : driver.state.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2></div>
-          <span className={driver ? "pill good" : "pill"}>{driver ? "REV " + driver.revision : "LOADING"}</span>
-        </div>
-        <div className="driver-timers">
-          <div><small>INDIA TIME</small><strong>{localClock}</strong></div>
-          <div><small>SHIFT ELAPSED</small><strong>{elapsed(driver?.shiftStartedAt)}</strong></div>
-          <div><small>TRIP ELAPSED</small><strong>{elapsed(driver?.tripStartedAt)}</strong></div>
+          <div><small>YOUR CURRENT STATUS</small><h2>{!driver ? "Restoring your work" : driver.state.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</h2></div>
         </div>
         <p className="driver-message" aria-live="polite">{driverMessage}</p>
         <div className="driver-odometer-summary">
@@ -204,11 +196,11 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
                 : <button disabled={driverBusy} onClick={() => retry(item.command.eventId)}>Retry GPS</button>}
           </div>)}
         </div>}
-        <small className="driver-note">Each action is saved locally first. GPS is sampled asynchronously until reliable evidence arrives; the state changes only after the event is committed.</small>
-        <small className="driver-note">Background limits: keep the browser PWA open and visible during GPS capture; screen-off browser capture is not guaranteed. On Android, the floating controls run as a location foreground service; without them, a Capacitor GPS request is short-lived and screen-off delivery is not guaranteed.</small>
       </section>
-
-      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
-    </div>
+      }
+      extensions={
+        <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive" contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
+      }
+    />
   );
 }
