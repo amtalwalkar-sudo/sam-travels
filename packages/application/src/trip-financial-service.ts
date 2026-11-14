@@ -9,6 +9,7 @@ export type CancellationFeeObligation = Readonly<{
   status: "pending" | "submitted";
   cancellationEventId: string;
   createdAt: string;
+  tripContext?: Readonly<{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string}>;
   feePaise?: number;
   operationId?: string;
   submittedAt?: string;
