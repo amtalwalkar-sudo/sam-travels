@@ -100,13 +100,13 @@ describe("feature extension compatibility preflight", () => {
         query: async () => ({ status: "unavailable", reason: "offline" } as const),
         validateRecord: (value: unknown): value is { id: string } => !!value && typeof value === "object",
       }],
-      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 1, mountPoint: "main", label: "Timeline", render: () => null }],
+      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 1, mountPoint: "main", label: "Timeline", context: { id: "logbook.timeline", version: 1 }, render: () => null }],
     }});
     const proposed = snapshot({ extension: {
       ...extension, version: 2, integrations: [],
       calculations: [{ ...extension.calculations![0], version: 2, outputSchemaVersion: 2 }],
       dataQueries: [],
-      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 2, mountPoint: "secondary", label: "Timeline", render: () => null }],
+      presentationScreens: [{ id: "logbook.timeline", ownerFeatureId: "logbook", version: 2, mountPoint: "secondary", label: "Timeline", context: { id: "logbook.timeline", version: 1 }, render: () => null }],
     }});
     const report = analyzeFeatureExtensionUpgradeImpact(previous, proposed);
     const changes = report.findings.map(item => item.surface + ":" + item.change);
