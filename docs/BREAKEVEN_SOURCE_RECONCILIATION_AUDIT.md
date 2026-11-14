@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-11-14  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
-**Audited implementation baseline:** `18b63e88c7fc9b0988a2a0938994c1a7d4485cc4` on `fix/breakeven-upstream-source-conformance` (implementation changes are present in draft PR #82; CI verification is still pending)  
+**Audited implementation baseline:** `90f68258d6be581a644512751090a87fd90b5f67` on `fix/breakeven-upstream-source-conformance` (draft PR #82; full CI run `43554173161` passed: Architecture, Web, Android and Integrated regression; Production geocoder verification skipped as configured)  
 **Purpose:** Compare the five previously discussed and approved upstream source areas against their normative contracts and actual implementation.  
 **Result:** Product decisions recovered and documented. Several upstream implementation mismatches remain. **Breakeven runtime implementation must not start until the blocking findings below are corrected and re-audited.**
 
@@ -28,7 +28,7 @@ The source-owner contracts take precedence over legacy summary fields, old calcu
 
 ## 2. Compliance — decision recovery and implementation result
 
-**Decision status: recovered, documented and implementation-adjusted. Date-range overlap withholding is implemented; final CI verification remains pending.**
+**Decision status: recovered, documented and implementation-adjusted. Date-range overlap withholding is implemented; full CI verification passed on audit baseline `90f68258d6be581a644512751090a87fd90b5f67` (run `43554173161`).**
 
 Approved rules:
 - `validFrom` and `validTo` are actual inclusive Asia/Kolkata calendar dates. The total record cost is fixed across that record's validity period.
@@ -159,7 +159,7 @@ The following work belongs to the upstream owners and must be completed before b
 5. **Fuel:** prospective weighted rate history is implemented in the fuel-owning feature and exposed by the application service, with interval and service tests.
 6. **Distance:** the pending/unallocated boundary state now has a focused Android regression; PWA/Android daily projections retain the same allocated/pending model.
 
-**Remaining gate:** run and pass the full architecture, web, Android, integrated regression and required CI checks on the exact final commit; review any failures and update this audit with verified run evidence before authorizing breakeven implementation.
+**Remaining gate:** re-audit the source read models and confirm this commit remains the PR head after the review. Full Architecture, Web, Android and Integrated regression CI passed on this exact commit in run `43554173161`; Production geocoder verification was skipped by workflow configuration. The source owners are implemented, but breakeven implementation remains blocked pending that source read-model re-audit.
 
 ## 8. Explicitly out of scope
 
@@ -173,6 +173,6 @@ This audit does not authorize:
 
 **Product decisions:** recovered and documented in normative source contracts.  
 **Documentation reconciliation:** completed by the v1.9 source-contract references and amendments.  
-**Upstream implementation corrections:** present in draft PR #82; awaiting final architecture, web, Android and integrated regression CI on the final head.  
-**Breakeven runtime implementation:** **blocked** until final CI is green and the source read models are re-audited.  
+**Upstream implementation corrections:** present in draft PR #82; Architecture, Web, Android and Integrated regression CI passed on exact head `90f68258d6be581a644512751090a87fd90b5f67` (run `43554173161`).  
+**Breakeven runtime implementation:** **blocked** until the source read models are re-audited, notwithstanding the green CI.  
 **Runtime code changed:** yes, only in upstream source owners and their regression tests. No breakeven engine, target calculation or presentation has been implemented.
