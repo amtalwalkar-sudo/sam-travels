@@ -167,6 +167,8 @@ The exact Driver Records ↔ Work public integration contract is an implementati
 - Historical corrections use the shared append-only correction service and a Compliance-owned target policy. Original records and correction events remain available; corrected projections trigger targeted re-analysis and stale any review whose source revision no longer matches.
 - Backup/export and restore validate compliance renewals, review-event relationships, and correction provenance on both browser and Android adapters.
 
+**Cost-period authority:** Each Compliance record's total cost is fixed for that record's actual inclusive validity period. The amount may change only by creating a new linked renewal record with its own actual validity dates and total cost; the predecessor's amount, dates and document history remain unchanged. Cost per validity day is the record's total cost divided by its inclusive validity-day count. Partial first/last calendar periods use the actual inclusive dates; no partial day is invented. The shared Business Start Date allocation contract owns pre-business carry-forward and daily/monthly/yearly reporting allocation, not a second Compliance calculation in Admin.
+
 **Expiry and presentation policy:** The product specification sets the Admin-only Expiring soon threshold to 15 calendar days and prohibits notification delivery. The feature must not invent a second threshold or claim reminders are delivered. Admin's default view is fleet-wide with a vehicle filter, distinct gap and overlap lists, source-level daily-cost breakdown, and explicit review state. These are presentation requirements; Admin does not own the underlying data or calculations.
 ### 3.5 Finance Loan — `finance`
 
