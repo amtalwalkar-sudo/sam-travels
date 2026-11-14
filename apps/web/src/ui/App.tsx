@@ -17,22 +17,6 @@ import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, t
 type Screen = PrimaryScreen;
 const shellDefinition = primaryShellDefinition;
 
-function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
-  const descriptions: Record<Exclude<Screen, "Drive">, string> = {
-    Timeline: "Your trip and work activity will appear here.",
-    Performance: "Your driving and business performance will appear here.",
-    Admin: "Workspace administration will appear here.",
-  };
-
-  return (
-    <section className="empty-screen" aria-labelledby="screen-title">
-      <div className="empty-screen-icon"><NavigationIcon name={navigation.find((item) => item.screen === screen)!.icon} /></div>
-      <p>{descriptions[screen]}</p>
-      <span>This section will be developed in a later phase.</span>
-    </section>
-  );
-}
-
 export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository; fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">; showBreakevenSanityCheck: boolean }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
