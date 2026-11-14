@@ -1,6 +1,6 @@
 # Permanent Application Architecture — Stage 6 End-to-End Verification Audit
 
-**Status:** In progress. This audit records the approved Stage 6 acceptance work; it does not mark the stage complete.
+**Status:** Complete. PR #85 merged as 4fab565f7b4b635397465dd580006cc23300f62e; merged-main workflow run 43571628140 passed all required jobs on that exact commit. Physical-device acceptance remains separate and pending.
 **Baseline:** main at 65a6596c03bf4f49dfbc74822ababbcbbcd86fb9 after PR #84 was merged.
 **Scope:** Complete production adoption of the Stage 4 presentation boundary, typed/versioned screen context contracts, actual screen mounting and shell replacement evidence, failure isolation, accessibility/responsive regression, and full cross-platform CI enforcement.
 **Non-scope:** Visual redesign, changes to the four approved primary destinations, new business workflows, domain/calculation/persistence changes, new registries, replacement lifecycle/backup/recovery mechanisms, or physical-device acceptance before the final acceptance step.
@@ -65,18 +65,18 @@ The Stage 6 branch feat/stage6-presentation-architecture currently contains:
 - Focused fallback and shell accessibility/responsive contract tests.
 - Architecture checker additions for typed contexts, composition boundaries, replacement tests and accessibility/responsive fixtures.
 
-These are implementation claims pending CI validation. The test suite and TypeScript build must pass before this evidence is accepted.
+These implementation items are merged. PR workflow run 43571069906 passed all four PR gates; merged-main workflow run 43571628140 passed Architecture, Web, Android, Production geocoder verification and Integrated regression on the exact merge commit.
 
 ## 4. Remaining verification gates
 
 - Verify all new and changed TypeScript compiles under the repository's strict compiler settings.
 - Verify the full web suite and production build.
 - Verify the architecture checker and feature-catalogue freshness.
-- Verify Android and integrated regression on the exact PR head.
-- Review the PR diff for any unintended changes to workflow semantics, persistence, backup/restore, recovery or platform ownership.
-- After merge, verify all required jobs on the exact merge commit.
+- Android and integrated regression passed on the exact PR head and merged-main commit.
+- The PR diff was limited to presentation contracts, screen composition, diagnostics, tests, architecture enforcement and Stage 6 documentation; existing workflow semantics, persistence, backup/restore, recovery and platform ownership were preserved.
+- Merged-main verification passed on exact commit 4fab565f7b4b635397465dd580006cc23300f62e.
 - Physical-device acceptance remains pending and is deliberately deferred to the final user acceptance stage.
 
 ## 5. Completion rule
 
-Stage 6 is complete only when all 6A–6E requirements have implementation evidence, all required PR CI jobs pass, the PR is merged, and all required merged-main CI jobs pass on the exact merge commit. A green PR alone is insufficient. Physical-device acceptance must be recorded separately and must not be inferred from CI.
+Stage 6 completion was verified: 6A–6E implementation evidence is merged in PR #85; PR workflow run 43571069906 passed Architecture, Web, Android and Integrated regression; merged-main workflow run 43571628140 passed Architecture, Web, Android, Production geocoder verification and Integrated regression on exact merge commit 4fab565f7b4b635397465dd580006cc23300f62e. Physical-device acceptance remains a separate, pending user acceptance step and is not inferred from CI.
