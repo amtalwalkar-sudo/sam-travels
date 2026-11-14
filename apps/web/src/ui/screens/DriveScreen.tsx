@@ -22,7 +22,7 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
     setBoundaryOdometer("");
   }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
-    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
+    repo, error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
     driverMessage, shiftOn, localClock, elapsed, driverChoices, selectedDriverId,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
     pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
