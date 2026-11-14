@@ -18,6 +18,10 @@ describe("FullCostBreakevenService source integration", () => {
           id: "platform-fee-1", revision: 1,
           data: { sourceKind: "platform_fee", businessDate: "2026-11-01", amountPaise: 100,
             effect: "charge", alreadyNettedFromIncome: false },
+        }, {
+          id: "unpaid-challan-1", revision: 1,
+          data: { sourceKind: "traffic_challan", businessDate: "2026-11-01", amountPaise: 9000,
+            effect: "charge", paymentStatus: "unpaid" },
         }],
         listFuelPurchases: async () => [fuelPurchase],
         listFuelCostRateHistory: async () => [{
@@ -44,6 +48,9 @@ describe("FullCostBreakevenService source integration", () => {
         data: { kind: "completed_ride_financials", status: "submitted",
           tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
           parkingPaise: 40, parkingPayer: "customer" },
+      }, {
+        id: "legacy-trip-financial-2", revision: 1,
+        data: { kind: "completed_ride_financials", status: "submitted", tollPaise: 25, tollPayer: "driver" },
       }] } as never,
     );
     const result = await service.calculate("2026-11-01", "2026-11-01");
@@ -55,5 +62,7 @@ describe("FullCostBreakevenService source integration", () => {
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
     expect(result.provenance.sourceIds).toContain("trip-financial-1");
+    expect(result.daily[0].complete).toBe(false);
+    expect(result.provenance.completeness).toContainEqual(expect.objectContaining({ source: "trip-financials", status: "incomplete" }));
   });
 });
