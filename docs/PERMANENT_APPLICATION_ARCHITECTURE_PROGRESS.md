@@ -15,7 +15,7 @@
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | **Complete** | PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main CI run #881 passed Architecture, Web, Android and Integrated regression. Clean-slate shell, four fixed bottom destinations, expandable Settings and unrestricted owner-scoped custom screens are in main. |
 | Stage 5 — Diagnostics and change impact | **Complete** | PR #26 merged as `efe1abea10eb86491a644fa8b926746b6b344028`. PR run #907 and merged-main run #908 / `42320003718` passed Architecture, Stage 5 privacy/impact gate, full Web regression/build, Android Gradle/unit/emulator reliability and Integrated regression. The merged-main run also published the release APK. |
-| Stage 6 — End-to-end verification and enforcement | **In progress** | Stage 6 audit and implementation branch feat/stage6-presentation-architecture; typed contexts, screen composition isolation, host replacement/failure fixtures and accessibility/responsive checks are being implemented. CI and merged-main proof pending. |
+| Stage 6 — End-to-end verification and enforcement | **Complete** | PR #85 merged as 4fab565f7b4b635397465dd580006cc23300f62e; merged-main CI run 43571628140 passed Architecture, Web, Android, Production geocoder verification and Integrated regression on that exact commit. Physical-device acceptance remains separate and pending. |
 
 ## Stage 1 — Scope
 
@@ -191,3 +191,14 @@ Stage 4 is complete and merged to main. PR #24 merged as `9493b4d8ec039de7b9f469
 - The feature screen host now provides a retryable per-screen failure fallback and an optional safe failure callback.
 - Focused runtime mount/replacement, failure fallback, shell accessibility and responsive contract tests have been added. Architecture CI checks have been extended to enforce the new boundaries.
 - **Stage 6 remains in progress** until strict TypeScript build, complete Web tests, Architecture, Android and Integrated regression pass on the PR head, the PR is merged, and all required jobs pass again on the exact merged-main commit. Physical-device acceptance remains separate.
+
+
+### Stage 6 — verified completion evidence
+
+- Implementation PR [#85 — complete Stage 6 presentation architecture verification](https://github.com/amtalwalkar-sudo/sam-travels/pull/85) passed all required PR checks: Architecture, Web, Android and Integrated regression. PR workflow run [43571069906](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/43571069906) completed successfully.
+- PR #85 was squash-merged to main as 4fab565f7b4b635397465dd580006cc23300f62e.
+- Merged-main workflow run [43571628140](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/43571628140) completed successfully on that exact commit. Architecture, Web, Android, Production geocoder verification and Integrated regression all passed.
+- The merged-main Android workflow completed Gradle debug/debug-test/release assembly, unit tests, focused GPS lifecycle threading verification, the Room process-restart and workflow/backup reliability instrumentation gate, and published the unsigned release APK.
+- The merged Web workflow passed all 541 tests across 98 files, strict TypeScript compilation, production build, and rendered-PWA acceptance checks.
+- Stage 6 is complete. The typed presentation context contract, isolated Drive screen and primary screen composition, host context validation, retryable screen failure handling and safe local diagnostics, runtime mounting/replacement/failure tests, accessibility/responsive tests, and architecture enforcement are merged and verified.
+- Physical-device acceptance remains deliberately separate and has not been claimed. No visual redesign or changes to business/domain/persistence/backup/restore/recovery/Android ownership were included.
