@@ -29,7 +29,7 @@ function obligation(tripId: string): RecordEnvelope<CancellationFeeObligation> {
     createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-10T00:00:00.000Z",
     source: "integration", revision: 1,
     data: { schemaVersion: 1, tripId, kind: "cancellation_fee", status: "pending",
-      cancellationEventId: "cancel_123", createdAt: "2026-11-10T00:00:00.000Z" },
+      cancellationEventId: "cancel_123", createdAt: "2026-11-10T00:00:00.000Z", tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1", assignmentId: "assignment-1", vehicleId: "feature:vehicle:MH01AB1234", operationalDate: "2026-11-10" }, },
   };
 }
 
@@ -39,7 +39,7 @@ function completedObligation(tripId: string): RecordEnvelope<CompletedTripFinanc
     createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-10T00:00:00.000Z",
     source: "integration", revision: 1,
     data: { schemaVersion: 1, tripId, kind: "completed_ride_financials", status: "pending",
-      endRideEventId: "end_ride_123", createdAt: "2026-11-10T00:00:00.000Z" },
+      endRideEventId: "end_ride_123", createdAt: "2026-11-10T00:00:00.000Z", tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1", assignmentId: "assignment-1", vehicleId: "feature:vehicle:MH01AB1234", operationalDate: "2026-11-10" }, },
   };
 }
 
@@ -53,6 +53,19 @@ describe("TripFinancialService cancellation fee closeout", () => {
     expect(first.data).toMatchObject({ status: "submitted", feePaise: 0, operationId: "operation_123" });
     expect(replay.revision).toBe(first.revision);
     expect(await service.pendingCancellationFees()).toHaveLength(0);
+  });
+
+  it("exposes submitted trip financial sources with immutable vehicle and shift attribution", async () => {
+    const records = new MemoryRecords();
+    await records.put(obligation("trip_source_read"));
+    const service = new TripFinancialService(records, "web", () => "2026-11-10T01:00:00.000Z");
+    await service.submitCancellationFee("trip_source_read", 2500, "operation_source_read");
+    const rows = await service.submittedTripFinancialRecords();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].data.tripContext).toMatchObject({
+      shiftId: "shift-1", driverId: "driver-1", assignmentId: "assignment-1",
+      vehicleId: "feature:vehicle:MH01AB1234", operationalDate: "2026-11-10",
+    });
   });
 
   it("persists the active person as author on submitted cancellation fees", async () => {
