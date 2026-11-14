@@ -70,6 +70,8 @@ import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
+const ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK = true;
+
 async function bootstrap(): Promise<void> {
   const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
@@ -380,7 +382,7 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <AdminServicesProvider services={adminServices} identityRecords={repository}>
-        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} />
+        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );
