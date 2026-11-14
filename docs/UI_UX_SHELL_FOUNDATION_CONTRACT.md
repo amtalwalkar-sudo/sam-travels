@@ -69,6 +69,7 @@ If a UI requirement appears to conflict with one of these authorities, preserve 
 - New screens, navigation destinations, components, layouts, and form types must be addable through documented extension points.
 - Extending one feature must not require editing unrelated feature internals or duplicating shared infrastructure.
 - Shared contracts evolve through explicit versioning and compatibility policy.
+- Every feature-owned screen contribution declares an explicit context-contract identity and version. The application composition supplies a matching typed context value; the presentation host validates identity and version before invoking the renderer. A mismatch must fail closed at that screen boundary, not silently coerce or reinterpret the context. Feature-specific state, actions and rendered output remain unconstrained by a shared screen template.
 - Extension points must be justified by real reuse or independent evolution needs; avoid speculative frameworks and unnecessary indirection.
 
 ## 7. Verification and enforcement
