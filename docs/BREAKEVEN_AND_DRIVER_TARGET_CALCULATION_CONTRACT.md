@@ -1,7 +1,7 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.8  
+**Version:** 1.9  
 **Status:** Frozen and approved product baseline with Addenda A through H; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
@@ -44,23 +44,15 @@ Fixed annual costs are allocated to months using each calendar month's actual nu
 - A period boundary uses Asia/Kolkata business dates.
 - Missing, incomplete, stale, or unavailable source data must remain explicit; it must not silently become zero or a complete-looking result.
 
-## 4. Platform charges and earnings
+## 4. Gross trip earnings and separately paid platform costs
 
-Platform charges are recorded as actual expense entries by the driver. Whenever the driver buys a platform pass or pays a commission amount, the driver enters the amount actually paid. A commission/pass charge is recognized on its actual payment/entry date, not accrued before the driver pays and records it. That recorded amount is included once in the single full-cost breakeven calculation and reduces the earnings available to cover costs and target progress.
-
-Do not build a platform commission engine for this scope: do not infer a commission percentage base, calculate a commission from trip fares, reconstruct pass coverage, or require platform fee-type configuration to calculate breakeven. The amount entered by the driver is the authoritative platform-charge expense record.
-
-The platform-charge entry must use the existing shared form, persistence, correction, backup, and recovery foundations. Preserve the source entry and its audit history. A recorded platform charge must be recognized exactly once; it must not also be subtracted from earnings through a second normalization path. If an upstream earning source is already net of that same recorded charge, the calculation must identify the overlap and prevent duplicate deduction rather than charge it twice.
-
-Historical correction and restatement behaviour follows the repository's existing source-record correction and calculation-version contracts; do not silently rewrite historical source entries.
-
-### 4.1 Canonical earnings and one-time platform-charge recognition
-
-- All downstream calculations use one canonical earnings value and one expense ledger representation for each recorded platform charge.
-- The driver's pass/commission entry is deducted exactly once in the full-cost breakeven and target accounting.
-- Where an upstream payout or earning record is already net of a particular charge, do not subtract that same charge again. Preserve enough source detail to detect and prevent duplicate recognition.
-- Do not invent or calculate an unentered platform fee. The driver-entered amount is authoritative for this scope.
-- This rule applies to actual breakeven, target progress, passbook, period summaries, and estimated breakeven inputs.
+- The fare entered by the driver after a completed ride is the authoritative **gross fare** for that trip. Do not replace it with a reconstructed payout, a net payout, or an inferred amount.
+- A cancellation fee entered by the driver after cancellation is the authoritative cancellation-fee source and is linked to the cancellation event/trip.
+- Do not add a cash-versus-platform split, payout-received workflow, trip-to-payout matching, separate received-earnings record, or settlement reconciliation to this scope.
+- A platform pass/commission is a separate cost only after it has actually been paid and the driver has entered the amount. The paid amount is recognized once on its actual paid business date.
+- Keep gross fare as gross. Do not net a paid platform charge out of fare and then deduct the same amount again as an expense. Do not calculate an unentered fee or build a commission engine.
+- Source entry timestamps, immutable trip context, paid business dates, and correction history remain traceable. The source feature owns those facts; breakeven consumes its public read model and does not create another earnings or expense ledger.
+- These rules apply to actual full-cost breakeven. Target/passbook work remains deferred until the breakeven calculation foundation is reliable and separately sequenced.
 
 ## 5. Maintenance cost
 
@@ -115,7 +107,7 @@ It must allow the driver to understand:
 
 A shortfall on an earlier day may be recovered on later days; progress is cumulative and must not be treated as independent daily pass/fail results.
 
-**Earnings eligibility:** Everything earned above full-cost breakeven counts toward the driver's target. Cancellation fees received count as earnings. Do not narrow this to a single income source without an approved rule. The passbook must use the same canonical net-earnings amount and breakeven definitions as the calculation engine and retain traceability to contributing source records. Platform fees already deducted in canonical earnings must never be deducted again in passbook progress.
+**Earnings eligibility:** Gross fares entered for completed rides and cancellation fees entered after cancellation are the approved trip-earnings sources. Paid platform pass/commission amounts are separate full-cost expenses and are recognized once. Do not introduce payout-received gating, cash/platform splits, or trip-to-payout matching. Any later target/passbook calculation must consume the same gross-fare and separately-paid-cost source semantics as full-cost breakeven; it must not net or deduct the same platform charge twice.
 
 The passbook is a derived, auditable projection. It must not create or mutate source income, expense, trip, or payment records.
 
@@ -203,7 +195,7 @@ The following rules are resolved by this contract and its approved addenda or ar
 
 1. Annual fixed-cost allocation uses actual calendar days/months, including leap years, with deterministic paise residual allocation.
 2. Monthly Driver Target means additional surplus above full-cost breakeven; partial months and cumulative pacing use calendar-day proration.
-3. Earnings eligibility follows the canonical no-double-recognition rule. Cancellation fees count when received. Platform earnings count only when payout is actually received; unsettled payouts do not count. Platform pass/commission costs count only when actually paid and entered.
+3. Gross fares entered after completed rides and cancellation fees entered after cancellation are the authoritative trip-earnings sources. No payout-received gate, cash/platform split, separate received-earnings record, or trip-to-payout matching is used. Paid platform pass/commission amounts are separate costs recognized once on their actual paid business date. Addendum H.1 supersedes the older net-payout and payout-received wording in Addenda A, C and D.
 4. Business kilometres are odometer-derived only; personal kilometres are excluded and GPS displacement is not a substitute. Missing, corrected, or disputed source records follow the existing Driver Workflow, data-quality, and Forgiving Data Entry and Historical Correction contracts. Incomplete or disputed distance must not be silently treated as zero or complete.
 5. Maintenance-rate changes apply prospectively from their effective date; historical periods retain the applicable rate unless an explicit correction is made under the existing historical-correction contract.
 6. Other source-record corrections, restatements, and audit history follow the existing authoritative source and historical-correction contracts. This product contract does not create a parallel correction framework.
@@ -216,6 +208,7 @@ Product formula decisions for the approved baseline are recorded in Addenda A th
 
 ## 14. Approval and amendment history
 
+- **v1.9 / Addendum I — Upstream source-contract reconciliation:** Recovers the five previously discussed owner decisions into their normative source contracts, replaces the unresolved-check framing in Addendum H.8 with authoritative contract references, and records implementation conformance findings. Documentation only; breakeven runtime implementation remains blocked until upstream mismatches are fixed.
 - **v1.7 / Addendum G — Business-day definition:** Defines a business day for breakeven as an Asia/Kolkata operational date with an Online shift and at least one ride assigned to that shift; preserves the existing 04:00 trip assignment rules and keeps time-based compliance/EMI allocations on calendar dates. This amendment documents the business-day classification only and does not start implementation.
 
 - **v1.6 / Addendum F — Temporary Performance sanity-check surface:** Authorizes a temporary, isolated driver/admin sanity-check presentation in the existing Performance space while calculations and wiring are validated; requires one documented, repeatable, non-destructive command to remove/replace it and restore the Performance entry point without affecting calculation logic, source data, provenance, audit detail, or tests; defers the intended Performance redesign until validation is complete. This amendment documents the presentation boundary only and does not start implementation.
@@ -399,19 +392,30 @@ For a date with no business kilometres:
 
 A non-business day is therefore not a zero-total-cost day.
 
-### H.8 Explicitly open implementation-readiness checks
+### H.8 Recovered decisions and authoritative upstream contracts
 
-The following details are not newly decided by this amendment and must be verified against the existing authoritative allocation/source contracts before coding. If those contracts do not resolve them, return for product-owner clarification rather than inventing behaviour:
+The five topics below are **previously discussed and approved owner decisions**. They are not open product questions. Their normative rules are recorded in the owning contracts listed here; this document consumes those contracts and must not duplicate or redefine their detailed source behaviour.
 
-1. **Compliance boundaries:** exact inclusive/exclusive treatment of validity start and expiry dates, partial first/last days, mid-period renewals, overlapping validity periods, renewal gaps, and any compliance item whose validity dates are missing or corrected.
-2. **EMI schedule edges:** exact daily treatment for a loan/EMI schedule beginning or ending mid-month, a prepayment taking effect mid-cycle, and closure timing where the effective date is not a normal EMI due date.
-3. **Fare/expense timing and attribution:** confirm the existing source contracts provide the authoritative operational date and vehicle/shift/trip attribution for gross fares, cancellation fees, paid platform charges, challans, parking/toll and miscellaneous expenses.
-4. **Fuel-rate eligibility:** verify the source contract/runtime identifies valid completed intervals, their included purchase records and confirmed distance, and applies the day-after effective date without retroactive restatement.
-5. **Distance hand-off:** verify the daily business-kilometre projection exposes a fully allocated, confirmed total for each operational date and retains incomplete legacy/unresolved distance explicitly.
+1. **Compliance validity, partial periods, renewal, overlap and expiry gaps** — [Admin Capability Contracts, Compliance section](ADMIN_CAPABILITY_CONTRACTS.md#34-compliance-compliance). Validity dates are actual inclusive calendar dates. A compliance record's amount is fixed for that record's validity period; a renewal is a new linked record with its own amount and actual dates, while the prior record remains unchanged. Early renewals may overlap and late renewals may leave a real uncovered gap. Gaps are reported, never filled. Overlaps are reported as exact source intersections and withheld from combined allocation until an explicit review decision is recorded against the exact source IDs/revisions. The [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) allocates the record's complete amount over its inclusive validity days, carrying pre-business accrual forward only across the remaining eligible days; it never changes validity dates or extends expiry.
+2. **EMI schedule start/end, mid-cycle prepayment and closure** — [Finance Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md), [Finance Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md), [Finance Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md), and [Business Start Date Cost Allocation](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md). The original schedule is anchored to the first EMI date; each due date is the first of its calendar month. Each allocation period starts on its due date and ends the day before the next due date; the final scheduled period ends at that calendar month's end. The approved prepayment mode is Reduce Tenure: regular EMI and due dates remain unchanged, principal and remaining schedule are recalculated, and the final instalment/final due date moves earlier. Prepayment is effective after all EMIs due through its business date have been fully paid and before the next unpaid instalment. The already-open EMI allocation period remains attributed to the schedule in force before prepayment; the revised schedule supplies future instalments from the next unpaid due date. Settlement/closure is allowed only on an EMI due date after every EMI due through that date is fully paid and allocated; the settlement pays the closing principal after that date's EMI and closes the existing Loan atomically. No EMI allocations may extend beyond the closure date.
+3. **Fare, cancellation fee, platform charge, challan, parking/toll and miscellaneous expense dates and attribution** — [Work Driver Trip Snapshot Integration](WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md), [Fuel Entry and Business Expense Calculation](FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md), and [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md). Completed-ride fare, cancellation fee and trip-linked parking/toll inherit the immutable trip context captured at trip creation, including its vehicle, driver/assignment and Asia/Kolkata operational date; later entry timestamps are audit/submission facts, not a replacement trip date. The existing trip form's parking/toll inclusion/payer control determines whether an amount is already included in the fare/customer charge or is a separate driver expense; never count it twice. Platform pass/commission and challans are recognized only when actually paid and entered, on their actual paid business date; an issue date or an unpaid status does not create a cost. Miscellaneous business expenses use the explicit business date on the source entry. Creation/submission timestamps are audit timestamps, not substitutes for the authoritative business date. The initial scope remains one car and one driver.
+4. **Fuel interval eligibility, included purchases, confirmed distance and prospective rate** — [Fuel Entry and Business Expense Calculation](FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md). A valid rate requires two consecutive accepted full-tank checkpoints with a positive confirmed odometer delta and an unambiguous, valid sequence. The opening baseline full refill is excluded from the interval's consumption; every purchase after it through and including the closing full refill contributes its actual quantity and spend, including partial refills. An incomplete or invalid interval yields no rate. The weighted rate is total spend divided by total confirmed kilometres across all valid completed intervals. A new rate applies from the Asia/Kolkata calendar day after the interval completion date; it never restates earlier dates. Daily fuel cost is business kilometres multiplied by that effective rate; purchase spend is not a second breakeven expense.
+5. **Daily business-kilometre projection and legacy distance** — [Work/Shift Odometer and Daily Business-Kilometre Contract](WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md) and [Work Driver Trip Snapshot Integration](WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md). The authoritative projection is built from confirmed odometer shift contributions and immutable shift/trip context. A confirmed 04:00 rotation closes the outgoing logical shift and allocates its entire confirmed distance once to its original operational date; it does not split the kilometres at 04:00. Until the required boundary reading is confirmed, the contribution remains explicitly awaiting operational-boundary confirmation and is not included in a published complete total. Legacy v1 shifts without confirmed odometer facts remain unresolved; no missing kilometres are invented. Fuel and maintenance consume only fully allocated confirmed business kilometres, excluding personal kilometres.
 
-These are verification gates, not permission to invent new workflows. The existing contracts and runtime must be audited before implementation. If they fully define the behaviour, no additional product decision is required. Otherwise, only the unresolved items should be brought back for approval.
+These owner decisions are documented. The remaining work is an **implementation conformance audit**, not product clarification. The audit is recorded in [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md). Known mismatches must be corrected in the owning upstream implementation before breakeven consumes those outputs. Breakeven implementation remains blocked until the audit's blocking findings are closed and verified by regression tests.
 
 ### H.9 Scope order
 
 Reliable actual full-cost breakeven is the priority. Driver Target, Target Passbook, predictive breakeven and final Performance presentation must not expand this clarification into new formula or UI work. Driver Target design remains last, as directed by the product owner. This amendment does not authorize those deferred tasks or any runtime implementation.
 
+
+
+## Addendum I — Upstream source-contract reconciliation
+
+**Approval:** Documentation reconciliation of previously discussed owner decisions.  
+**Effective contract version:** 1.9  
+**Implementation effect:** Documentation and audit record only. No breakeven runtime implementation is authorized or claimed by this addendum.
+
+Addendum H.8 now identifies the authoritative contracts for all five upstream areas and records the conformance audit. Where an older statement in this contract conflicts with the later approved source rules, Addendum H and the linked owner contracts prevail. In particular, Addenda A, C and D's net-payout and payout-received recognition rules are superseded for this workflow by H.1; the v1.0 operating-breakeven output is superseded by Addendum B; and old direct-fuel-purchase daily expense language is superseded by H.2.
+
+The source-contract reconciliation is a prerequisite to breakeven implementation. A green documentation commit does not close the runtime gaps identified in the audit. Do not start the breakeven calculation implementation until each blocking upstream mismatch has a fix in its owning feature, exact-SHA regression evidence, and updated audit status.
