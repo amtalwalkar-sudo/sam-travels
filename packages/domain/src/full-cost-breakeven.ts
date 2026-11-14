@@ -25,6 +25,9 @@ export type BreakevenDailyActivityV1 = Readonly<{
   businessKm: number;
   fuelCostPaisePerKm?: Readonly<{ numerator: string; denominator: string }>;
   maintenanceRatePaisePerKm?: number;
+  fuelCostPaise?: number;
+  maintenanceCostPaise?: number;
+  sourceRefs?: readonly Readonly<{ sourceId: string; revision: number }>[];
   distanceSourceId: string;
   distanceSourceRevision: number;
 }>;
@@ -136,11 +139,18 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     let businessKm = activity?.businessKm ?? 0;
     if (activity) {
       if (businessKm > 0) {
-        totals.fuel = ratioCost(businessKm, activity.fuelCostPaisePerKm);
-        if (activity.maintenanceRatePaisePerKm === undefined) throw new Error("breakeven_maintenance_rate_unavailable");
-        paise(activity.maintenanceRatePaisePerKm);
-        totals.maintenance = safeAdd(0, businessKm * activity.maintenanceRatePaisePerKm);
-        if (!Number.isSafeInteger(totals.maintenance)) throw new Error("breakeven_amount_overflow");
+        totals.fuel = activity.fuelCostPaise === undefined
+          ? ratioCost(businessKm, activity.fuelCostPaisePerKm) : activity.fuelCostPaise;
+        if (activity.maintenanceCostPaise !== undefined) {
+          paise(activity.maintenanceCostPaise);
+          totals.maintenance = activity.maintenanceCostPaise;
+        } else {
+          if (activity.maintenanceRatePaisePerKm === undefined) throw new Error("breakeven_maintenance_rate_unavailable");
+          paise(activity.maintenanceRatePaisePerKm);
+          totals.maintenance = safeAdd(0, businessKm * activity.maintenanceRatePaisePerKm);
+          if (!Number.isSafeInteger(totals.maintenance)) throw new Error("breakeven_amount_overflow");
+        }
+        paise(totals.fuel);
       }
     }
     for (const cost of costsByDate.get(date) ?? []) totals[cost.kind] = safeAdd(totals[cost.kind], cost.amountPaise);
@@ -168,7 +178,9 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     yearly.set(year, safeAdd(yearly.get(year) ?? 0, row.totalCostPaise));
   }
   const sourceRevisions = [
-    ...input.dailyActivity.map(item => ({ sourceId: item.distanceSourceId, revision: item.distanceSourceRevision })),
+    ...input.dailyActivity.flatMap(item => item.sourceRefs?.length
+      ? item.sourceRefs.map(ref => ({ sourceId: ref.sourceId, revision: ref.revision }))
+      : [{ sourceId: item.distanceSourceId, revision: item.distanceSourceRevision }]),
     ...input.datedCosts.map(item => ({ sourceId: item.sourceId, revision: item.sourceRevision,
       ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) })),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
