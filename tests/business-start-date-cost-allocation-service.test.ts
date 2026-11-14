@@ -49,9 +49,10 @@ function createService(options: { settlement?: boolean; overlap?: boolean; recor
         { version: 1, effectiveDate: "2026-01-01", createdAt: "2026-01-01T00:00:00.000Z",
           label: "Original schedule", rows, regularEmiPaise: 3_100,
           principalPaise: 100_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 9_000 },
-        { version: 2, effectiveDate: "2026-02-01", createdAt: "2026-02-01T00:00:00.000Z",
-          label: "Prepayment", rows, regularEmiPaise: 2_800,
-          principalPaise: 90_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 9_000 },
+        { version: 2, effectiveDate: "2026-01-15", createdAt: "2026-01-15T00:00:00.000Z",
+          label: "Prepayment", rows: rows.filter(row => row.dueDate > "2026-01-15"),
+          regularEmiPaise: 2_800,
+          principalPaise: 90_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 5_900 },
       ], prepayments: [],
     }; } } as never,
     { async list() { return options.settlement ? [{
