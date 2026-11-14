@@ -13,6 +13,12 @@ function rupees(paise: number): string {
   return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const costCategories = [
+  ["fuel", "Fuel"], ["maintenance", "Maintenance"], ["emi", "Finance / EMI"],
+  ["compliance", "Compliance"], ["platform-fee", "Platform fees"],
+  ["traffic-challan", "Traffic challans"], ["miscellaneous", "Other expenses / driver-paid tolls & parking"],
+] as const;
+
 /** Temporary isolated sanity-check surface; it does not alter the Performance shell or metrics UI. */
 export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBreakevenService, "calculate"> }) {
   const [from, setFrom] = useState(dateOffset(29));
@@ -20,6 +26,10 @@ export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBrea
   const [result, setResult] = useState<BreakevenPeriodResultV1>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const categoryTotals = result ? costCategories.map(([key, label]) => ({
+    key, label, amountPaise: result.daily.reduce((sum, row) => sum + row.costs[key], 0),
+  })) : [];
 
   async function calculate() {
     setLoading(true); setError("");
@@ -53,6 +63,13 @@ export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBrea
       {result.provenance.completeness.map(item => <p key={item.source}>
         <strong>{item.source}:</strong> {item.status}{item.detail ? " — " + item.detail : ""}
       </p>)}
+      <h3>Cost breakdown</h3>
+      <div className="pending-list">
+        {categoryTotals.map(category => <div className="pending-row" key={category.key}>
+          <span>{category.label}</span><strong>{rupees(category.amountPaise)}</strong>
+        </div>)}
+        <div className="pending-row"><strong>All categories</strong><strong>{rupees(categoryTotals.reduce((sum, item) => sum + item.amountPaise, 0))}</strong></div>
+      </div>
       <h3>Period reconciliation</h3>
       <p>Daily {result.daily.length} days · Weekly {result.weekly.length} weeks · Monthly {result.monthly.length} months · Yearly {result.yearly.length} years</p>
       <div className="pending-list">
@@ -63,12 +80,15 @@ export function FullCostBreakevenPanel({ service }: { service: Pick<FullCostBrea
         <strong>Yearly totals</strong>
         {result.yearly.map(row => <div className="pending-row" key={row.year}><span>{row.year}</span><strong>{rupees(row.totalCostPaise)}</strong></div>)}
       </div>
-      <div className="pending-list">
-        {result.daily.slice(-14).map(row => <div className="pending-row" key={row.date}>
-          <span>{row.date} · {row.businessKm} business km</span>
-          <strong>{rupees(row.totalCostPaise)}</strong>
-        </div>)}
-      </div>
+      <details><summary>Daily totals and category detail (last 14 days)</summary>
+        <div className="pending-list">
+          {result.daily.slice(-14).map(row => <div key={row.date}>
+            <div className="pending-row"><span>{row.date} · {row.businessKm} business km</span>
+              <strong>{rupees(row.totalCostPaise)}</strong></div>
+            <small>{costCategories.map(([key, label]) => `${label}: ${rupees(row.costs[key])}`).join(" · ")}</small>
+          </div>)}
+        </div>
+      </details>
       <details><summary>Calculation provenance ({result.provenance.sourceIds.length} source records)</summary>
         <ul>{result.provenance.sourceRevisions.map((source, index) =>
           <li key={source.sourceId + ":" + index}>{source.sourceId} · revision {source.revision}
