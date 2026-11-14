@@ -501,7 +501,7 @@ The product owner has clarified that the immediate implementation is a replaceme
 - Existing forms and feature contributions remain owned by their existing modules and continue to function through their current application contracts. This slice does not migrate or rewrite each form's business logic.
 - The shell and each region can be replaced independently through typed props/slots. Shell styling is scoped to Work and must not alter Admin, Performance, Timeline, native overlay, or global business behaviour.
 - The Work heading and local workspace status are independent presentational components with explicit display props.
-- The stateful driver workflow panel is a separate feature-aware presentation component; it receives the existing workspace contract and does not own domain services or persistence.
+- The stateful driver workflow panel is a separate feature-aware presentation component; it receives a narrowed, explicit view-model contract containing only the workflow projection and the actions it renders, and does not own domain services or persistence.
 - The `DriveScreen` adapter only composes the heading, status, workflow panel, and feature extension slots.
 - Work-only CSS is loaded with the Work screen and kept out of the shared global stylesheet.
 - Component-boundary tests verify the adapter remains composition-only and the generic shell remains free of feature/infrastructure dependencies.
