@@ -133,17 +133,46 @@ export class BusinessStartDateCostAllocationService {
 
     for (const record of overview.records) {
       const related = overview.overlaps.filter(item =>
-        item.firstRecordId === record.id || item.secondRecordId === record.id);
-      const overlapReviewStatus = related.length === 0 ? "not_overlapping" as const :
-        related.every(item => item.reviewStatus === "confirmed") ? "confirmed" as const :
-          (related.find(item => item.reviewStatus !== "confirmed")?.reviewStatus ?? "unreviewed");
+        (item.firstRecordId === record.id || item.secondRecordId === record.id) &&
+        item.reviewStatus !== "confirmed");
       const input: ComplianceAllocationInputV1 = {
         id: record.id, revision: record.revision,
         complianceName: record.data.complianceName,
         validFrom: record.data.validFrom, validTo: record.data.validTo,
-        totalCostPaise: record.data.totalCostPaise, overlapReviewStatus,
+        totalCostPaise: record.data.totalCostPaise, overlapReviewStatus: "confirmed",
       };
-      sources.push(allocateComplianceCostV1(businessStartDate, input));
+      const base = allocateComplianceCostV1(businessStartDate, input);
+      if (!related.length || base.disposition !== "allocated") {
+        sources.push(base);
+        continue;
+      }
+      // Withhold only the unresolved/rejected/stale overlap dates. Valid
+      // non-overlap dates remain usable instead of losing the entire record.
+      const blocked = new Set<string>();
+      for (const overlap of related) {
+        const from = overlap.from < businessStartDate ? businessStartDate : overlap.from;
+        if (overlap.to < from) continue;
+        for (let time = Date.parse(from + "T00:00:00.000Z");
+             time <= Date.parse(overlap.to + "T00:00:00.000Z"); time += 86_400_000) {
+          blocked.add(new Date(time).toISOString().slice(0, 10));
+        }
+      }
+      const allocatedRows = base.daily.filter(row => !blocked.has(row.date));
+      const withheldRows = base.daily.filter(row => blocked.has(row.date));
+      const allocatedAmount = allocatedRows.reduce((sum, row) => sum + row.amountPaise, 0);
+      const withheldAmount = withheldRows.reduce((sum, row) => sum + row.amountPaise, 0);
+      if (allocatedAmount > 0) sources.push(Object.freeze({
+        ...base, sourceId: record.id + ":allocated", sourceAmountPaise: allocatedAmount,
+        eligibleFrom: allocatedRows[0].date, eligibleTo: allocatedRows[allocatedRows.length - 1].date,
+        daily: Object.freeze(allocatedRows.map(row => Object.freeze({ ...row, sourceId: record.id + ":allocated" }))),
+      }));
+      if (withheldAmount > 0) sources.push(Object.freeze({
+        sourceId: record.id + ":overlap-withheld", sourceKind: "compliance" as const,
+        sourceVersion: record.revision, sourceAmountPaise: withheldAmount,
+        disposition: "overlap_review_required" as const,
+        eligibleFrom: withheldRows[0].date, eligibleTo: withheldRows[withheldRows.length - 1].date,
+        daily: Object.freeze([]),
+      }));
     }
 
     const loanHistories = await Promise.all(loans.map(async loan => ({
