@@ -61,7 +61,7 @@ export class DexieDriverWorkflowRepository implements DriverWorkflowRepository{
     if(existingObligation)throw new Error("trip_financial_obligation_already_exists");
     await browserDatabase.records.put({
      id:obligationId,schemaVersion:1,createdAt:now,updatedAt:now,source:"integration",revision:1,
-     data:{schemaVersion:1,tripId,kind:"cancellation_fee",status:"pending",cancellationEventId:id,createdAt:now},
+     data:{schemaVersion:1,tripId,kind:"cancellation_fee",status:"pending",cancellationEventId:id,createdAt:now,tripContext:current.tripContext},
     });
    }
    if(command.eventType==="end_ride"){
