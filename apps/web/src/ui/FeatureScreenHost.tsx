@@ -6,9 +6,10 @@ type FeatureScreenHostProps = Readonly<{
   contextContract: FeaturePresentationContextContract;
   context: unknown;
   registry: RuntimeRegistry;
+  onScreenFailure?: (screenId: string) => void;
 }>;
 
-class ScreenFailureBoundary extends Component<
+export class ScreenFailureBoundary extends Component<
   Readonly<{ screenId: string; children: ReactNode; onFailure?: (screenId: string) => void }>,
   Readonly<{ failed: boolean }>
 > {
@@ -50,13 +51,13 @@ function FeatureScreenMount({ screen, contextContract, context }: {
 }
 
 /** Mount opaque feature-owned renderers; one renderer failure cannot remove other screens. */
-export function FeatureScreenHost({ mountPoint, contextContract, context, registry }: FeatureScreenHostProps) {
+export function FeatureScreenHost({ mountPoint, contextContract, context, registry, onScreenFailure }: FeatureScreenHostProps) {
   const screens = [...registry.presentationScreens.values()]
     .filter(screen => screen.mountPoint === mountPoint)
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
   return <>
-    {screens.map(screen => <ScreenFailureBoundary key={screen.id} screenId={screen.id}>
+    {screens.map(screen => <ScreenFailureBoundary key={screen.id} screenId={screen.id} onFailure={onScreenFailure}>
       <FeatureScreenMount screen={screen} contextContract={contextContract} context={context} />
     </ScreenFailureBoundary>)}
   </>;
