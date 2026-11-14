@@ -104,19 +104,35 @@ describe("BusinessExpensesService", () => {
     const { service } = setup();
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174001", source: "web",
       data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
-        currencyCode: "INR", effect: "charge", reference: "trip-123", alreadyNettedFromIncome: true } });
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid-pass-123" } });
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174002", source: "web",
       data: { sourceKind: "traffic_challan", businessDate: "2026-11-15", amountPaise: 2000,
         currencyCode: "INR", effect: "charge", vehicleId, description: "Signal violation", paymentStatus: "unpaid" } });
+    await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174004", source: "web",
+      data: { sourceKind: "traffic_challan", businessDate: "2026-11-15", amountPaise: 1000,
+        currencyCode: "INR", effect: "charge", vehicleId, description: "Paid parking challan", paymentStatus: "paid" } });
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174003", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 3000,
         currencyCode: "INR", effect: "charge", category: "Cleaning" } });
     const [daily] = await service.listDailyExpenseOutputs();
     expect(daily).toMatchObject({
-      platformFeesPaise: 5000, trafficChallansPaise: 2000, miscellaneousPaise: 3000,
-      reportedSourceExpensePaise: 10000, normalOperatingExpensePaise: 3000,
-      fullCostExpensePaise: 5000,
+      platformFeesPaise: 5000, trafficChallansPaise: 1000, miscellaneousPaise: 3000,
+      reportedSourceExpensePaise: 9000, normalOperatingExpensePaise: 8000,
+      fullCostExpensePaise: 9000,
     });
+  });
+
+  it("requires vehicle attribution and rejects legacy netted treatment for paid platform charges", async () => {
+    const { service } = setup();
+    await expect(service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174020", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", reference: "paid-pass-456" } }))
+      .rejects.toThrow("platform_fee_vehicle_required");
+    await expect(service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174021", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid-pass-456",
+        alreadyNettedFromIncome: true } }))
+      .rejects.toThrow("business_expense_platform_fee_netting_not_supported");
   });
 
   it("records a linked reversal as a separate source event on its own date", async () => {
