@@ -42,7 +42,7 @@ export function DriveScreen({ workspace, runtimeRegistry }: DriveScreenProps) {
         </div>
       }
       status={
-        <section className={ready && !error ? "work-local-status is-ready" : "work-local-status"} role={error ? "alert" : "status"}>
+        <section className={ready && !error ? "work-local-status is-ready" : "work-local-status"} aria-live={error ? "assertive" : "polite"}>
           <span className="work-local-status-indicator" aria-hidden="true" />
           <span>{error || (ready ? "Local workspace ready" : "Preparing your workspace…")}</span>
         </section>
