@@ -58,7 +58,7 @@ export type RuntimeRegistry = {
   backupParticipants: ReadonlyMap<string, BackupParticipantDefinition>;
   calculations: ReadonlyMap<string, CalculationContract<any, any>>;
   dataQueries: ReadonlyMap<string, FeatureDataQueryContract<any>>;
-  presentationScreens: ReadonlyMap<string, FeaturePresentationScreen>;
+  presentationScreens: ReadonlyMap<string, FeaturePresentationScreen<any>>;
   contributionFailures: readonly RuntimeContributionFailure[];
 };
 
@@ -86,7 +86,7 @@ export function initializeRuntimeRegistry(
   const integrationsByOwner = new Map<FeatureId, FeatureIntegrationContract[]>();
   const calculationsByOwner = new Map<FeatureId, CalculationContract<any, any>[]>();
   const dataQueriesByOwner = new Map<FeatureId, FeatureDataQueryContract<any>[]>();
-  const presentationByOwner = new Map<FeatureId, FeaturePresentationScreen[]>();
+  const presentationByOwner = new Map<FeatureId, FeaturePresentationScreen<any>[]>();
   const failures: RuntimeContributionFailure[] = [];
   const add = <T>(map: Map<FeatureId, T[]>, owner: FeatureId, value: T) => {
     const values = map.get(owner) ?? [];
@@ -148,7 +148,7 @@ export function initializeRuntimeRegistry(
   const integrations = new Map<string, FeatureIntegrationContract>();
   const calculations = new Map<string, CalculationContract<any, any>>();
   const dataQueries = new Map<string, FeatureDataQueryContract<any>>();
-  const presentationScreens = new Map<string, FeaturePresentationScreen>();
+  const presentationScreens = new Map<string, FeaturePresentationScreen<any>>();
 
   const owners = new Set<FeatureId>([
     ...extensionsByOwner.keys(),
