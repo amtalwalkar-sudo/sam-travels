@@ -36,6 +36,12 @@ describe("replaceable Work screen shell", () => {
     expect(source).not.toMatch(/(IndexedDB|Room|repository|workflow service)/i);
   });
 
+  it("does not shadow feature-owned status announcements", async () => {
+    const source = await readFile("apps/web/src/ui/screens/DriveScreen.tsx", "utf8");
+    expect(source).toContain('aria-live={error ? "assertive" : "polite"}');
+    expect(source).not.toContain('role={error ? "alert" : "status"}');
+  });
+
   it("scopes responsive and touch-friendly styling to the Work shell", async () => {
     const css = await readFile("apps/web/src/ui/styles.css", "utf8");
     expect(css).toContain(".work-screen-shell");
