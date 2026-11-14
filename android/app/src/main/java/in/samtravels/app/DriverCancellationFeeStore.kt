@@ -26,7 +26,7 @@ object DriverCancellationFeeStore {
             .put("source","android").put("revision",1)
             .put("data",JSONObject().put("schemaVersion",1).put("tripId",tripId)
                 .put("kind","cancellation_fee").put("status","pending")
-                .put("cancellationEventId",eventId).put("createdAt",now))
+                .put("cancellationEventId",eventId).put("createdAt",now).apply { tripContext?.let { put("tripContext",JSONObject(it.toString())) } })
         db.records().put(StoredRecord(id,envelope.toString(),1,now))
     }
 
