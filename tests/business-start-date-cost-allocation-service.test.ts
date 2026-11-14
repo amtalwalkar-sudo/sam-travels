@@ -114,7 +114,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
     expect(carry?.sourceAmountPaise).toBe(5_900);
     expect(carry?.disposition).toBe("pre_business_historical");
-    expect(report.result.daily.every(item => item.date <= "2026-02-01")).toBe(false);
+    expect(report.result.daily.find(item => item.date === "2026-02-15")?.amountPaise).toBeGreaterThan(0);
     expect(report.result.allocatedAmountPaise).toBe(1_000);
     expect(report.result.historicalAmountPaise).toBe(5_900);
   });
