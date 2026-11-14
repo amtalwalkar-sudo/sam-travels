@@ -114,7 +114,7 @@ class DriverOverlayServiceRecoveryPresentationTest : DriverOverlayServicePresent
     @Test fun cancellationFeeDraftSurvivesOverlayServiceRecreation() {
         val tripId = "overlay-service-restart-cancel"
         withAttachedOverlay(tripId, { db, now ->
-            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-service-restart-cancel-event", now)
+            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-service-restart-cancel-event", now, org.json.JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14"))
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "18.60")

@@ -9,6 +9,7 @@ export type CancellationFeeObligation = Readonly<{
   status: "pending" | "submitted";
   cancellationEventId: string;
   createdAt: string;
+  tripContext?: Readonly<{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string}>;
   feePaise?: number;
   operationId?: string;
   submittedAt?: string;
@@ -37,6 +38,25 @@ export class TripFinancialService {
       row.data.schemaVersion === 1 &&
       row.data.kind === "cancellation_fee" &&
       row.data.status === "pending"
+    );
+  }
+
+  /** Stable source read model for breakeven and reporting consumers.
+   * Returns only submitted source events; callers must treat missing tripContext
+   * as unresolved legacy attribution rather than infer the currently selected vehicle.
+   */
+  async submittedTripFinancialRecords(): Promise<readonly RecordEnvelope<
+    CancellationFeeObligation | CompletedTripFinancialObligation
+  >[]> {
+    const rows = await this.records.list<CancellationFeeObligation | CompletedTripFinancialObligation>();
+    return rows.filter(row =>
+      row.id.startsWith(TRIP_FINANCIAL_OBLIGATION_PREFIX) &&
+      !row.deletedAt &&
+      row.data.schemaVersion === 1 &&
+      row.data.status === "submitted" &&
+      (row.data.kind === "cancellation_fee" || row.data.kind === "completed_ride_financials")
+    ).sort((left, right) =>
+      left.data.createdAt.localeCompare(right.data.createdAt) || left.id.localeCompare(right.id)
     );
   }
 
@@ -90,7 +110,9 @@ export class TripFinancialService {
 
 export type CompletedTripFinancialObligation = Readonly<{
   schemaVersion: 1; tripId: string; kind: "completed_ride_financials"; status: "pending" | "submitted";
-  endRideEventId: string; createdAt: string; farePaise?: number; tollPaise?: number;
+  endRideEventId: string; createdAt: string;
+  tripContext?: Readonly<{schemaVersion:1;shiftId:string;driverId:string;assignmentId:string;vehicleId:string;operationalDate:string}>;
+  farePaise?: number; tollPaise?: number;
   tollPayer?: "driver" | "customer"; parkingPaise?: number; parkingPayer?: "driver" | "customer";
   operationId?: string; submittedAt?: string;
 }>;

@@ -4,6 +4,7 @@ import {
   assertFuelPurchaseV1,
   calculateDailyBusinessExpenses,
   calculateFuelIntervals,
+  calculateFuelCostRateHistory,
   deriveFuelQuantityMilliKg,
   type BusinessExpenseEntryV1,
   type FuelPurchaseV1,
@@ -97,6 +98,29 @@ describe("Full-to-full fuel intervals", () => {
     }]);
   });
 
+  it("creates a prospective weighted rate history only after completed intervals", () => {
+    const purchases = [
+      fuel("baseline", "2026-11-01T09:00:00.000Z", 100, false, 50_000),
+      fuel("partial-1", "2026-11-05T09:00:00.000Z", 110, true, 20_000),
+      fuel("closing-1", "2026-11-10T09:00:00.000Z", 120, false, 30_000),
+      fuel("partial-2", "2026-11-15T09:00:00.000Z", 130, true, 10_000),
+      fuel("closing-2", "2026-11-20T09:00:00.000Z", 140, false, 60_000),
+    ];
+    const history = calculateFuelCostRateHistory(purchases);
+    expect(history).toHaveLength(2);
+    expect(history[0]).toMatchObject({
+      completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
+      costPaisePerKm: { numerator: "50000", denominator: "20" },
+      cumulativeSpendPaise: 50_000, cumulativeDistanceKm: 20,
+    });
+    expect(history[1]).toMatchObject({
+      completionBusinessDate: "2026-11-20", effectiveFrom: "2026-11-21",
+      costPaisePerKm: { numerator: "120000", denominator: "40" },
+      cumulativeSpendPaise: 120_000, cumulativeDistanceKm: 40,
+    });
+    expect(calculateFuelCostRateHistory(purchases.slice(0,2))).toEqual([]);
+  });
+
   it("withholds mileage when the odometer does not increase", () => {
     const result = calculateFuelIntervals([
       fuel("a", "2026-11-01T09:00:00.000Z", 120, false, 50_000),
@@ -121,27 +145,34 @@ describe("Full-to-full fuel intervals", () => {
 });
 
 describe("Daily expense aggregation", () => {
-  it("counts every fuel purchase, excludes challans from normal cost, and avoids netted fee double counting", () => {
+  it("recognizes only paid challans and treats paid platform charges separately from gross fare", () => {
     const result = calculateDailyBusinessExpenses([
       fuel("full", "2026-11-14T09:00:00.000Z", 100, false, 10_000),
       fuel("partial", "2026-11-14T10:00:00.000Z", 101, true, 2_000),
     ], [
-      expense("fee", "platform_fee", 5_000, { alreadyNettedFromIncome: true }),
-      expense("challan", "traffic_challan", 2_000),
+      expense("fee", "platform_fee", 5_000, { vehicleId, alreadyNettedFromIncome: false }),
+      expense("unpaid-challan", "traffic_challan", 2_000, { paymentStatus: "unpaid" }),
+      expense("paid-challan", "traffic_challan", 1_000, { paymentStatus: "paid" }),
       expense("misc", "miscellaneous", 3_000),
     ]);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
-      fuelPaise: 12_000, platformFeesPaise: 5_000, trafficChallansPaise: 2_000,
-      miscellaneousPaise: 3_000, reportedSourceExpensePaise: 22_000,
-      normalOperatingExpensePaise: 15_000, fullCostExpensePaise: 17_000,
+      fuelPaise: 12_000, platformFeesPaise: 5_000, trafficChallansPaise: 1_000,
+      miscellaneousPaise: 3_000, reportedSourceExpensePaise: 21_000,
+      normalOperatingExpensePaise: 20_000, fullCostExpensePaise: 21_000,
     });
   });
 
+  it("fails closed for a platform charge marked as already netted from gross fare", () => {
+    expect(() => calculateDailyBusinessExpenses([], [
+      expense("fee-netted", "platform_fee", 5_000, { vehicleId, alreadyNettedFromIncome: true }),
+    ])).toThrow("business_expense_entry_invalid");
+  });
+
   it("applies a linked reversal on its own business date", () => {
-    const charge = expense("fee", "platform_fee", 500);
+    const charge = expense("fee", "platform_fee", 500, { vehicleId });
     const reversal = expense("fee-reversal", "platform_fee", 500, {
-      businessDate: "2026-11-15", effect: "reversal", reversesSourceId: "fee",
+      businessDate: "2026-11-15", effect: "reversal", reversesSourceId: "fee", vehicleId,
     });
     const result = calculateDailyBusinessExpenses([], [charge, reversal]);
     expect(result.find(row => row.businessDate === "2026-11-14")?.platformFeesPaise).toBe(500);

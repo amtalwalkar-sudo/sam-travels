@@ -46,7 +46,7 @@ import {
   BusinessStartDateCostAllocationService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
-import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals } from "../../../packages/features/business-expenses";
+import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
@@ -91,6 +91,7 @@ async function bootstrap(): Promise<void> {
     validateExpenseEntry: assertBusinessExpenseEntryV1,
     calculateDailyExpenses: calculateDailyBusinessExpenses,
     calculateFuelIntervals,
+    calculateFuelCostRateHistory,
   }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);

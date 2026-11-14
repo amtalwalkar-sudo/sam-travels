@@ -49,9 +49,10 @@ function createService(options: { settlement?: boolean; overlap?: boolean; recor
         { version: 1, effectiveDate: "2026-01-01", createdAt: "2026-01-01T00:00:00.000Z",
           label: "Original schedule", rows, regularEmiPaise: 3_100,
           principalPaise: 100_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 9_000 },
-        { version: 2, effectiveDate: "2026-02-01", createdAt: "2026-02-01T00:00:00.000Z",
-          label: "Prepayment", rows, regularEmiPaise: 2_800,
-          principalPaise: 90_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 9_000 },
+        { version: 2, effectiveDate: "2026-01-15", createdAt: "2026-01-15T00:00:00.000Z",
+          label: "Prepayment", rows: rows.filter(row => row.dueDate > "2026-01-15"),
+          regularEmiPaise: 2_800,
+          principalPaise: 90_000, totalInterestPaise: 0, totalScheduledPaymentsPaise: 5_900 },
       ], prepayments: [],
     }; } } as never,
     { async list() { return options.settlement ? [{
@@ -107,13 +108,26 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(complianceRecord.data.validTo).toBe("2026-02-28");
   });
 
-  it("does not truncate scheduled EMI allocation from settlement paid-through payment facts", async () => {
+  it("stops EMI allocation at the settlement date and retains only historical paid-through cost", async () => {
     const report = await createService({ settlement: true }).getReport();
     const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
-    expect(emiSources).toHaveLength(2);
-    expect(emiSources.map(item => item.sourceId)).toEqual([loanId + ":emi:2", loanId + ":emi:3"]);
-    expect(emiSources.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
-    expect(report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward")?.sourceAmountPaise).toBe(3_100);
+    expect(emiSources).toHaveLength(0);
+    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
+    expect(carry?.sourceAmountPaise).toBe(5_900);
+    expect(carry?.disposition).toBe("pre_business_historical");
+    expect(report.result.daily.find(item => item.date === "2026-02-15")?.amountPaise).toBeGreaterThan(0);
+    expect(report.result.allocatedAmountPaise).toBe(1_000);
+    expect(report.result.historicalAmountPaise).toBe(5_900);
+  });
+
+  it("preserves the outgoing schedule's open period exactly once after prepayment", async () => {
+    const report = await createService().getReport();
+    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
+    const current = report.result.sources.filter(item => item.sourceKind === "emi");
+    expect(carry?.sourceAmountPaise).toBe(3_100);
+    expect(carry?.scheduleVersion).toBe(2);
+    expect(current.map(item => item.scheduleVersion)).toEqual([2, 2]);
+    expect(current.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
 
@@ -137,12 +151,15 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect([...records.values()][0].data.canonicalInputs).toContain("2026-02-15");
   });
 
-  it("withholds each source affected by unresolved Compliance overlaps", async () => {
+  it("withholds only unresolved Compliance overlap dates while retaining non-overlap days", async () => {
     const report = await createService({ overlap: true }).getReport();
     const compliance = report.result.sources.filter(item => item.sourceKind === "compliance");
-    expect(compliance).toHaveLength(2);
-    expect(compliance.every(item => item.disposition === "overlap_review_required")).toBe(true);
-    expect(report.result.withheldAmountPaise).toBe(2_000);
+    expect(compliance.some(item => item.disposition === "allocated" && item.daily.length > 0)).toBe(true);
+    expect(compliance.some(item => item.disposition === "overlap_review_required" && item.daily.length === 0)).toBe(true);
+    expect(report.result.withheldAmountPaise).toBeGreaterThan(0);
+    expect(report.result.withheldAmountPaise).toBeLessThan(2_000);
+    expect(compliance.filter(item => item.disposition === "allocated")
+      .every(item => item.daily.every(row => row.date > "2026-02-28"))).toBe(true);
   });
 
   it("fails closed if Business Start Date has not been configured", async () => {

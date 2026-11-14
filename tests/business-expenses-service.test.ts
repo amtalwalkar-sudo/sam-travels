@@ -3,7 +3,7 @@ import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
-  calculateDailyBusinessExpenses, calculateFuelIntervals,
+  calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
 } from "../packages/features/business-expenses";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
@@ -33,6 +33,7 @@ const domain = {
   validateExpenseEntry: assertBusinessExpenseEntryV1,
   calculateDailyExpenses: calculateDailyBusinessExpenses,
   calculateFuelIntervals,
+  calculateFuelCostRateHistory,
 };
 function setup() {
   const repository = new MemoryRepository();
@@ -66,6 +67,25 @@ describe("BusinessExpensesService", () => {
         partialRefill: true,
       },
     })).rejects.toThrow("feature_record_already_exists");
+  });
+
+  it("exposes a derived historical rate timeline from completed intervals", async () => {
+    const { service } = setup();
+    for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of [
+      ["123e4567-e89b-42d3-a456-426614174040","2026-11-01T09:00:00.000Z",100,false,50_000],
+      ["123e4567-e89b-42d3-a456-426614174041","2026-11-05T09:00:00.000Z",110,true,20_000],
+      ["123e4567-e89b-42d3-a456-426614174042","2026-11-10T09:00:00.000Z",120,false,30_000],
+    ] as const) {
+      await service.createFuelPurchase({ uuid, source:"web", data: {
+        businessDate: new Date(Date.parse(occurredAt)+330*60_000).toISOString().slice(0,10),
+        occurredAt, vehicleId, odometerKm, pricePaisePerKg:10_000, amountPaise, partialRefill,
+      }});
+    }
+    const history = await service.listFuelCostRateHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({ effectiveFrom:"2026-11-11",
+      costPaisePerKm:{numerator:"50000",denominator:"20"}, cumulativeSpendPaise:50_000,
+      cumulativeDistanceKm:20 });
   });
 
   it("projects append-only audited fuel corrections into daily expense outputs", async () => {
@@ -104,19 +124,35 @@ describe("BusinessExpensesService", () => {
     const { service } = setup();
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174001", source: "web",
       data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
-        currencyCode: "INR", effect: "charge", reference: "trip-123", alreadyNettedFromIncome: true } });
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid-pass-123" } });
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174002", source: "web",
       data: { sourceKind: "traffic_challan", businessDate: "2026-11-15", amountPaise: 2000,
         currencyCode: "INR", effect: "charge", vehicleId, description: "Signal violation", paymentStatus: "unpaid" } });
+    await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174004", source: "web",
+      data: { sourceKind: "traffic_challan", businessDate: "2026-11-15", amountPaise: 1000,
+        currencyCode: "INR", effect: "charge", vehicleId, description: "Paid parking challan", paymentStatus: "paid" } });
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174003", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 3000,
         currencyCode: "INR", effect: "charge", category: "Cleaning" } });
     const [daily] = await service.listDailyExpenseOutputs();
     expect(daily).toMatchObject({
-      platformFeesPaise: 5000, trafficChallansPaise: 2000, miscellaneousPaise: 3000,
-      reportedSourceExpensePaise: 10000, normalOperatingExpensePaise: 3000,
-      fullCostExpensePaise: 5000,
+      platformFeesPaise: 5000, trafficChallansPaise: 1000, miscellaneousPaise: 3000,
+      reportedSourceExpensePaise: 9000, normalOperatingExpensePaise: 8000,
+      fullCostExpensePaise: 9000,
     });
+  });
+
+  it("requires vehicle attribution and rejects legacy netted treatment for paid platform charges", async () => {
+    const { service } = setup();
+    await expect(service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174020", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", reference: "paid-pass-456" } }))
+      .rejects.toThrow("platform_fee_vehicle_required");
+    await expect(service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174021", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid-pass-456",
+        alreadyNettedFromIncome: true } }))
+      .rejects.toThrow("business_expense_platform_fee_netting_not_supported");
   });
 
   it("records a linked reversal as a separate source event on its own date", async () => {

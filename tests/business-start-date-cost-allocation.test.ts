@@ -102,6 +102,16 @@ describe("Business Start Date scheduled EMI allocation", () => {
     expect(carry.daily[0].date).toBe("2024-03-01");
   });
 
+  it("caps the final EMI allocation period at the loan settlement date", () => {
+    const results = allocateScheduledEmisV1("2026-03-15", loanSchedule({
+      rows: [{ installmentNumber: 9, dueDate: "2026-03-15", installmentAmountPaise: 5_000 }],
+      allocationEndDate: "2026-03-20",
+    }));
+    expect(results[0].eligibleTo).toBe("2026-03-20");
+    expect(results[0].daily).toHaveLength(6);
+    expect(results[0].daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(5_000);
+  });
+
   it("marks a schedule fully elapsed before Business Start Date as historical", () => {
     const results = allocateScheduledEmisV1("2026-04-01", loanSchedule({
       rows: [{ installmentNumber: 1, dueDate: "2026-01-01", installmentAmountPaise: 1_000 }],

@@ -31,6 +31,11 @@ export type FuelIntervalV1 = Readonly<{
   effectiveCostPaisePerKg?: ExactRatioV1; costPaisePerKm?: ExactRatioV1;
   issue?: "awaiting_full_checkpoint" | "odometer_not_increasing" | "ambiguous_timestamp" | "invalid_interval_sources";
 }>;
+export type FuelCostRateHistoryEntryV1 = Readonly<{
+  calculationVersion: "business-expenses.fuel-cost-rate-history.v1"; effectiveFrom: string; completionBusinessDate: string;
+  costPaisePerKm: ExactRatioV1; cumulativeSpendPaise: number; cumulativeDistanceKm: number;
+  intervalEndCheckpointIds: readonly string[]; sourcePurchaseIds: readonly string[]; sourceRevisions: readonly number[];
+}>;
 export type DailyBusinessExpenseV1 = Readonly<{
   businessDate: string; currencyCode: "INR"; fuelPaise: number; platformFeesPaise: number;
   trafficChallansPaise: number; miscellaneousPaise: number; reportedSourceExpensePaise: number;
@@ -44,6 +49,7 @@ export type BusinessExpensesDomain = Readonly<{
   validateExpenseEntry(value: unknown): asserts value is BusinessExpenseEntryV1;
   calculateDailyExpenses(fuel: readonly FuelPurchaseV1[], entries: readonly BusinessExpenseEntryV1[]): readonly DailyBusinessExpenseV1[];
   calculateFuelIntervals(fuel: readonly FuelPurchaseV1[]): readonly FuelIntervalV1[];
+  calculateFuelCostRateHistory(fuel: readonly FuelPurchaseV1[], intervals?: readonly FuelIntervalV1[]): readonly FuelCostRateHistoryEntryV1[];
 }>;
 export type BusinessExpenseVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
@@ -106,6 +112,12 @@ export class BusinessExpensesService {
     const data: BusinessExpenseEntryV1 = {
       ...input.data, schemaVersion: 1, kind: "business_expense", id, revision: 1,
     };
+    if (data.sourceKind === "platform_fee" && !data.vehicleId) {
+      throw new Error("platform_fee_vehicle_required");
+    }
+    if (data.sourceKind === "platform_fee" && data.alreadyNettedFromIncome === true) {
+      throw new Error("business_expense_platform_fee_netting_not_supported");
+    }
     this.domain.validateExpenseEntry(data);
     if (data.vehicleId) await this.requireVehicle(data.vehicleId);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
@@ -183,6 +195,14 @@ export class BusinessExpensesService {
   async listFuelIntervalOutputs(): Promise<readonly FuelIntervalV1[]> {
     const fuel = await this.listFuelPurchases();
     return this.domain.calculateFuelIntervals(fuel.map(item => item.data));
+  }
+
+  /** Historical rates are rebuilt from completed intervals; each rate starts the day after completion. */
+  async listFuelCostRateHistory(): Promise<readonly FuelCostRateHistoryEntryV1[]> {
+    const fuel = await this.listFuelPurchases();
+    const purchases = fuel.map(item => item.data);
+    const intervals = this.domain.calculateFuelIntervals(purchases);
+    return this.domain.calculateFuelCostRateHistory(purchases, intervals);
   }
 
   async correctSource(input: Readonly<{

@@ -20,7 +20,7 @@ class NativeBackupCoverageTest {
         NativeMaintenanceBackup.ensureRegistered(); NativeFinanceBackup.ensureRegistered()
         NativeBusinessExpensesBackup.ensureRegistered()
     }
-    @Test fun sharedSnapshotBuilderIncludesSeparateLogBookTableAndParticipantManifest() {
+    @Test fun sharedSnapshotManifestIncludesLogBook() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -47,13 +47,13 @@ class NativeBackupCoverageTest {
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
     }
-    @Test fun cancellationFeeObligationAndWorkingCopySurviveNativeSnapshotRestore() {
+    @Test fun cancellationFeeBackupRoundTrip() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
             val now = "2026-11-10T04:00:00.000Z"
-            DriverCancellationFeeStore.createPendingObligation(database, "cancelled-trip-1", "cancel-event-1", now)
+            DriverCancellationFeeStore.createPendingObligation(database, "cancelled-trip-1", "cancel-event-1", now, JSONObject("""{"schemaVersion":1,"shiftId":"test-shift","driverId":"test-driver","assignmentId":"test-assignment","vehicleId":"feature:vehicle:test","operationalDate":"2026-11-14"}"""))
             DriverCancellationFeeStore.ensureCancellationFeeDraft(database, "cancelled-trip-1")
             DriverCancellationFeeStore.updateCancellationFeeDraft(database, "cancelled-trip-1", 0L)
 
@@ -91,7 +91,7 @@ class NativeBackupCoverageTest {
         return StoredRecord(id, envelope.toString(), 1, timestamp)
     }
 
-    @Test fun discoversTwoFeatureOwnedRoomEntitiesAndCoversEveryPhysicalTable() {
+    @Test fun discoversFeatureTables() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
@@ -109,7 +109,7 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
-    @Test fun executableAdaptersExportValidateAndRestoreBothFeatureTables() {
+    @Test fun featureTableBackupRoundTrip() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()

@@ -173,6 +173,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.paymentStatus !== undefined && !["unpaid", "paid"].includes(String(row.paymentStatus))) ||
       (row.sourceKind === "traffic_challan" && row.paymentStatus === undefined) ||
       (row.sourceKind !== "traffic_challan" && row.paymentStatus !== undefined) ||
+      (row.sourceKind === "platform_fee" && (row.vehicleId === undefined || row.alreadyNettedFromIncome === true)) ||
       (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:"))) ||
       (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver:")))) {
     throw new Error("business_expense_entry_invalid");
@@ -300,16 +301,19 @@ export function calculateDailyBusinessExpenses(
   if (byId.size !== entries.length || entries.some(entry => seen.has(entry.id))) throw new Error("business_expense_duplicate_source_identity");
   for (const entry of entries) assertBusinessExpenseEntryV1(entry);
   for (const entry of entries) {
+    // Unpaid challans remain visible as source obligations, but are not recognized expenses.
+    // Their businessDate must be the actual payment date before they enter this daily projection.
+    if (entry.sourceKind === "traffic_challan" && entry.paymentStatus !== "paid") continue;
     const row = ensure(entry.businessDate);
     const sign = entry.effect === "reversal" ? -1 : 1;
     const amount = sign * entry.amountPaise;
     row.reported = safeAdd(row.reported, amount);
     if (entry.sourceKind === "platform_fee") {
+      // Gross fares are authoritative; a platform fee is always a separate paid cost.
+      if (entry.alreadyNettedFromIncome === true) throw new Error("business_expense_platform_fee_netting_not_supported");
       row.fees = safeAdd(row.fees, amount);
-      if (!entry.alreadyNettedFromIncome) {
-        row.normal = safeAdd(row.normal, amount);
-        row.full = safeAdd(row.full, amount);
-      }
+      row.normal = safeAdd(row.normal, amount);
+      row.full = safeAdd(row.full, amount);
     } else if (entry.sourceKind === "traffic_challan") {
       row.challans = safeAdd(row.challans, amount);
       row.full = safeAdd(row.full, amount);

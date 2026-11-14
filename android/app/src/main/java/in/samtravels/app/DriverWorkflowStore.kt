@@ -281,7 +281,8 @@ object DriverWorkflowStore {
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
                 "cancel_ride" -> {
-                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now)
+                    val tripContext=current.optJSONObject("tripContext") ?: error("cancelled_trip_context_missing")
+                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now,tripContext)
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
             }
@@ -389,11 +390,8 @@ object DriverWorkflowStore {
         listIntents(db).firstOrNull { it.optString("status") == "pending_location" }
 
     /** Find a recoverable intent without reviving an expired GPS evidence window. */
-    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? =
-        listIntents(db).firstOrNull {
-            it.optString("status") == "pending_location" ||
-                (it.optString("status") == "needs_attention" &&
-                    it.optString("reason") != "gps_recovery_window_expired")
-        }
-
+    fun firstRecoverableIntent(db: LocalDatabase): JSONObject? = listIntents(db).firstOrNull {
+        it.optString("status") == "pending_location" ||
+            (it.optString("status") == "needs_attention" && it.optString("reason") != "gps_recovery_window_expired")
+    }
 }
