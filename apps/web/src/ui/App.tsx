@@ -9,6 +9,8 @@ import { useDriverWorkspace } from "./use-driver-workspace";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
+import { FullCostBreakevenPanel } from "./FullCostBreakevenPanel";
+import type { FullCostBreakevenService } from "../../../../packages/application/src";
 import { AdminServicesProvider } from "./admin-services-context";
 import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
@@ -32,10 +34,10 @@ function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   );
 }
 
-export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository }>;
+export type AppProps = Readonly<{ ShellRenderer?: ComponentType<ApplicationShellProps>; adminServices: AdminPresentationServices; runtimeRegistry: RuntimeRegistry; platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository; fullCostBreakeven: Pick<FullCostBreakevenService, "calculate"> }>;
 
 /** The shell renderer is replaceable without changing feature screens or application workflows. */
-export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository }: AppProps) {
+export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRegistry, platformRepository, fullCostBreakeven }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<Screen>(shellDefinition.initialScreen);
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
@@ -247,7 +249,7 @@ export function App({ ShellRenderer = ApplicationShell, adminServices, runtimeRe
           <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline" context={{ loadTimeline: workspace.loadTimeline }} />
         )}
         {activeScreen === "Performance" && (
-          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><ComingSoon screen="Performance" /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
+          <section className="screen-heading"><small>YOUR WORKSPACE</small><h1>Performance</h1><FullCostBreakevenPanel service={fullCostBreakeven} /><FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance" context={{ activeScreen }} /></section>
         )}
         {activeScreen === "Admin" && <AdminServicesProvider services={adminServices} identityRecords={platformRepository}><FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin" context={<AdminWorkspace />} /></AdminServicesProvider>}
       <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
