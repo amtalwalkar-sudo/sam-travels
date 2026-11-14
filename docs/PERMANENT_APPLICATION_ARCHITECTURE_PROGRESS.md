@@ -15,7 +15,7 @@
 | Stage 3 — Cross-feature data orchestration and calculation framework | **Complete** | PR #22 merged as `952a11c08d48a5a34e1aae5d80e7b10d50dbe0cd`; merged-main CI run #868 passed Architecture, Web, Android and Integrated regression. |
 | Stage 4 — Independent UI/UX architecture and feature UI registration | **Complete** | PR #24 merged as `9493b4d8ec039de7b9f469063cd92a254207346b`. Merged-main CI run #881 passed Architecture, Web, Android and Integrated regression. Clean-slate shell, four fixed bottom destinations, expandable Settings and unrestricted owner-scoped custom screens are in main. |
 | Stage 5 — Diagnostics and change impact | **Complete** | PR #26 merged as `efe1abea10eb86491a644fa8b926746b6b344028`. PR run #907 and merged-main run #908 / `42320003718` passed Architecture, Stage 5 privacy/impact gate, full Web regression/build, Android Gradle/unit/emulator reliability and Integrated regression. The merged-main run also published the release APK. |
-| Stage 6 — End-to-end verification and enforcement | Not started | Full cross-platform regression and architectural proof. |
+| Stage 6 — End-to-end verification and enforcement | **In progress** | Stage 6 audit and implementation branch feat/stage6-presentation-architecture; typed contexts, screen composition isolation, host replacement/failure fixtures and accessibility/responsive checks are being implemented. CI and merged-main proof pending. |
 
 ## Stage 1 — Scope
 
@@ -180,3 +180,14 @@ Stage 4 is complete and merged to main. PR #24 merged as `9493b4d8ec039de7b9f469
 - PR CI run [#907](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42319479369) passed Architecture, Web, Android and Integrated regression.
 - Merged-main CI run [#908](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/42320003718) passed all four jobs on the exact merge commit. This includes the Stage 5 privacy/trace/platform/impact gate, full web suite and production build, Android Gradle assembly/unit tests, emulator reliability gate, and integrated regression.
 - The merged-main run published `sam-travels-release-apk` and the generated Room schema export. Stage 5 is complete; Stage 6 remains the next separately tracked verification stage.
+
+
+## Stage 6 — End-to-end verification and enforcement
+
+- Stage 6 acceptance is defined in [PERMANENT_APPLICATION_ARCHITECTURE_STAGE_6_AUDIT.md](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_6_AUDIT.md). Existing Stage 4/5 contracts remain authoritative; Stage 6 does not authorize visual redesign or changes to business/data/platform ownership.
+- Implementation branch: feat/stage6-presentation-architecture.
+- Typed presentation context identity/version has been added to the existing feature screen contract; Timeline and Admin declare their context contracts, and the host validates compatibility before render.
+- Drive's screen UI/transient state has been moved from App.tsx to apps/web/src/ui/screens/DriveScreen.tsx. Primary screen mounting has been moved to PrimaryScreenComposition.tsx; App.tsx now owns the shell and application-level composition.
+- The feature screen host now provides a retryable per-screen failure fallback and an optional safe failure callback.
+- Focused runtime mount/replacement, failure fallback, shell accessibility and responsive contract tests have been added. Architecture CI checks have been extended to enforce the new boundaries.
+- **Stage 6 remains in progress** until strict TypeScript build, complete Web tests, Architecture, Android and Integrated regression pass on the PR head, the PR is merged, and all required jobs pass again on the exact merged-main commit. Physical-device acceptance remains separate.
