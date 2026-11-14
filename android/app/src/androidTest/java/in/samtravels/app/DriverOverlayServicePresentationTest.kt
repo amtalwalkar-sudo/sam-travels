@@ -218,7 +218,16 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
     @Test fun attachedCancellationFeeFormPreservesEditAndSubmitsZero() {
         val tripId = "overlay-live-cancel"
         withAttachedOverlay(tripId, { db, now ->
-            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-live-cancel-event", now, JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14"))
+            val tripContext = JSONObject()
+                .put("schemaVersion", 1)
+                .put("shiftId", "test-shift")
+                .put("driverId", "test-driver")
+                .put("assignmentId", "test-assignment")
+                .put("vehicleId", "feature:vehicle:test")
+                .put("operationalDate", "2026-11-14")
+            DriverCancellationFeeStore.createPendingObligation(
+                db, tripId, "overlay-live-cancel-event", now, tripContext,
+            )
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, db ->
             setText(ui, "Required cancellation fee in rupees", "0")
