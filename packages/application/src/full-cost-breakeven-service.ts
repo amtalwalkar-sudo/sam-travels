@@ -82,6 +82,11 @@ export class FullCostBreakevenService {
       }
     }
 
+    if (![...activityByDate.keys()].some(date => date >= from && date <= to)) {
+      completeness[3] = { source: "maintenance-accruals", status: "unavailable",
+        detail: "No committed daily business-kilometre maintenance accruals exist in the selected period." };
+    }
+
     const dailyActivity: BreakevenDailyActivityV1[] = [...activityByDate].map(([date, value]) => ({
       date, businessKm: value.businessKm, fuelCostPaise: value.fuelCostPaise,
       maintenanceCostPaise: value.maintenanceCostPaise,
@@ -112,7 +117,7 @@ export class FullCostBreakevenService {
       if (bucket.amountPaise < 0 || !Number.isSafeInteger(bucket.amountPaise)) {
         throw new Error("breakeven_expense_reversal_reconciliation_failed");
       }
-      if (bucket.amountPaise > 0) datedCosts.push({
+      if (bucket.amountPaise >= 0) datedCosts.push({
         date, amountPaise: bucket.amountPaise, kind: kind as BreakevenDailyCostV1["kind"],
         sourceId: bucket.ids.sort().join("|"), sourceRevision: bucket.revision,
       });
