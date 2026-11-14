@@ -50,7 +50,10 @@ export class FullCostBreakevenService {
     const histories = await Promise.all(vehicles.map(async vehicle => ({
       vehicleId: vehicle.id,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
-      rates: fuelRates,
+      rates: fuelRates.filter(rate => rate.sourcePurchaseIds.some(id => {
+        const purchase = expenses.find(item => item.id === id);
+        return purchase?.data.kind === "fuel_purchase" && purchase.data.vehicleId === vehicle.id;
+      })),
     })));
     for (const { vehicleId, records } of histories) {
       for (const accrual of records.accruals) {
@@ -59,7 +62,7 @@ export class FullCostBreakevenService {
           businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, refs: [],
         };
         const km = accrual.data.businessKm;
-        const rate = fuelRates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
+        const rate = records.rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
         if (km > 0 && !rate) {
           completeness[2] = { source: "fuel-rate-history", status: "incomplete",
             detail: "No effective fuel cost rate for " + vehicleId + " on " + date };
