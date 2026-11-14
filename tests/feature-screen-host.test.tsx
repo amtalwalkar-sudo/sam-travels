@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FeatureScreenHost, ScreenFailureBoundary } from "../apps/web/src/ui/FeatureScreenHost";
@@ -68,7 +68,7 @@ describe("feature screen failure containment", () => {
       onFailure: screenId => failures.push(screenId),
     });
     boundary.state = ScreenFailureBoundary.getDerivedStateFromError();
-    const fallback = renderToStaticMarkup(boundary.render() as React.ReactElement);
+    const fallback = renderToStaticMarkup(boundary.render() as ReactElement);
     boundary.componentDidCatch();
     expect(fallback).toContain('role="alert"');
     expect(fallback).toContain("Retry section");
