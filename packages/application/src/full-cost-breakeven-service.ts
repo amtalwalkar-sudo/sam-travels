@@ -102,7 +102,7 @@ export class FullCostBreakevenService {
     }));
 
     const expenseByDate = new Map<string, Map<string, {
-      amountPaise: number; ids: string[]; revision: number;
+      amountPaise: number; refs: { sourceId: string; revision: number }[]; revision: number;
     }>>();
     const expenseRecords = expenses;
     const expenseById = new Map(expenseRecords.map(record => [record.id, record]));
@@ -114,9 +114,10 @@ export class FullCostBreakevenService {
       const kind = entry.sourceKind === "platform_fee" ? "platform-fee"
         : entry.sourceKind === "traffic_challan" ? "traffic-challan" : "miscellaneous";
       const dateMap = expenseByDate.get(effectiveDate) ?? new Map();
-      const bucket = dateMap.get(kind) ?? { amountPaise: 0, ids: [], revision: 1 };
+      const bucket = dateMap.get(kind) ?? { amountPaise: 0, refs: [], revision: 1 };
       bucket.amountPaise += entry.effect === "reversal" ? -entry.amountPaise : entry.amountPaise;
-      bucket.ids.push(envelope.id); bucket.revision = Math.max(bucket.revision, envelope.revision);
+      bucket.refs.push({ sourceId: envelope.id, revision: envelope.revision });
+      bucket.revision = Math.max(bucket.revision, envelope.revision);
       dateMap.set(kind, bucket); expenseByDate.set(effectiveDate, dateMap);
     }
     const datedCosts: BreakevenDailyCostV1[] = [];
@@ -126,7 +127,8 @@ export class FullCostBreakevenService {
       }
       if (bucket.amountPaise >= 0) datedCosts.push({
         date, amountPaise: bucket.amountPaise, kind: kind as BreakevenDailyCostV1["kind"],
-        sourceId: bucket.ids.sort().join("|"), sourceRevision: bucket.revision,
+        sourceId: bucket.refs.map(ref => ref.sourceId).sort().join("|"), sourceRevision: bucket.revision,
+        sourceRefs: bucket.refs,
       });
     }
 
