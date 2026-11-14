@@ -9,6 +9,7 @@ export {
   assertBusinessExpenseRecordV1,
   deriveFuelQuantityMilliKg,
   calculateFuelIntervals,
+  calculateFuelCostRateHistory,
   calculateDailyBusinessExpenses,
 } from "./calculations";
 export type {
