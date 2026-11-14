@@ -58,7 +58,7 @@ Approved rules:
 - Use the complete scheduled EMI amount; do not split principal and interest for business-cost allocation.
 - The only approved prepayment mode is **Reduce Tenure**. The regular EMI amount and due dates remain unchanged. Prepayment reduces principal, the final adjusted instalment may be smaller, and the final due date moves earlier.
 - A prepayment between EMI dates is effective after all instalments due through the prepayment business date have been fully paid and allocated, and before the next unpaid instalment. The already-open allocation period remains attributed to the prior schedule through the day before that next due date; the revised schedule supplies future instalments from the next unpaid due date.
-- Settlement/closure is permitted only on a scheduled EMI due date after all instalments due through that date are fully paid and allocated. Settlement is the closing principal after that date's EMI. The settlement entry and Loan closed state commit atomically. No future EMI allocation is emitted after the closure date.
+- Settlement/closure is permitted only on a scheduled EMI due date after all instalments due through that date are fully paid and allocated. Settlement is the closing principal after that date's EMI. The settlement entry and Loan closed state commit atomically. The closure-date EMI allocation period is truncated to that date inclusive; no later-date EMI allocation is emitted.
 
 Evidence:
 - `packages/application/src/finance-loan-prepayment-service.ts`: rejects any mode other than `reduce_tenure`; checks all EMIs due through the prepayment business date are fully allocated; computes principal after those instalments; records the effective date and remaining due dates; creates a new schedule revision.
