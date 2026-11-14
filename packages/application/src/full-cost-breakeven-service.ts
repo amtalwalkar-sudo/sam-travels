@@ -61,6 +61,7 @@ export class FullCostBreakevenService {
     for (const { vehicleId, records, rates } of histories) {
       for (const accrual of records.accruals) {
         const date = accrual.data.operationalDate;
+        if (date < from || date > to) continue;
         const bucket = activityByDate.get(date) ?? {
           businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, refs: [],
         };
@@ -146,7 +147,9 @@ export class FullCostBreakevenService {
     }
 
     for (const source of allocationReport.result.sources) {
-      if (source.disposition === "overlap_review_required") {
+      if (source.disposition === "overlap_review_required" &&
+          (source.eligibleFrom === undefined || source.eligibleFrom <= to) &&
+          (source.eligibleTo === undefined || source.eligibleTo >= from)) {
         completeness[0] = { source: "finance-and-compliance-allocation", status: "review-required",
           detail: "Compliance overlap requires review: " + source.sourceId };
       }
