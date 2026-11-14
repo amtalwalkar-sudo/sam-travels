@@ -68,7 +68,9 @@ export class FullCostBreakevenService {
             detail: "No effective fuel cost rate for " + vehicleId + " on " + date };
         } else if (km > 0 && rate) {
           bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
-          for (const source of rate.sourceRevisions) bucket.refs.push({ sourceId: source.sourceId, revision: source.revision });
+          rate.sourcePurchaseIds.forEach((sourceId, index) => bucket.refs.push({
+            sourceId, revision: rate.sourceRevisions[index] ?? 1,
+          }));
         }
         bucket.businessKm += km;
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
