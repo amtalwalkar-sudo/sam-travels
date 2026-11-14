@@ -27,13 +27,13 @@ export class FullCostBreakevenService {
   constructor(
     private readonly vehicles: Pick<VehicleService, "list">,
     private readonly maintenance: Pick<MaintenanceService, "listVehicleRecords">,
-    private readonly expenses: Pick<BusinessExpensesService, "listAll" | "listFuelCostRateHistory">,
+    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listFuelPurchases" | "listFuelCostRateHistory">,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
   ) {}
 
   async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
-    const [vehicles, expenses, fuelRates, allocationReport] = await Promise.all([
-      this.vehicles.list(), this.expenses.listAll(), this.expenses.listFuelCostRateHistory(),
+    const [vehicles, expenses, fuelPurchases, fuelRates, allocationReport] = await Promise.all([
+      this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(),
     ]);
     const activityByDate = new Map<string, {
@@ -51,7 +51,7 @@ export class FullCostBreakevenService {
       vehicleId: vehicle.id,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
       rates: fuelRates.filter(rate => rate.sourcePurchaseIds.some(id => {
-        const purchase = expenses.find(item => item.id === id);
+        const purchase = fuelPurchases.find(item => item.id === id);
         return purchase?.data.kind === "fuel_purchase" && purchase.data.vehicleId === vehicle.id;
       })),
     })));
@@ -68,6 +68,7 @@ export class FullCostBreakevenService {
             detail: "No effective fuel cost rate for " + vehicleId + " on " + date };
         } else if (km > 0 && rate) {
           bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
+          for (const source of rate.sourceRevisions) bucket.refs.push({ sourceId: source.sourceId, revision: source.revision });
         }
         bucket.businessKm += km;
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
@@ -92,16 +93,19 @@ export class FullCostBreakevenService {
     const expenseByDate = new Map<string, Map<string, {
       amountPaise: number; ids: string[]; revision: number;
     }>>();
-    for (const envelope of expenses) {
-      if (envelope.data.kind !== "business_expense") continue;
+    const expenseRecords = expenses;
+    const expenseById = new Map(expenseRecords.map(record => [record.id, record]));
+    for (const envelope of expenseRecords) {
       const entry = envelope.data;
+      const original = entry.effect === "reversal" ? expenseById.get(entry.reversesSourceId ?? "") : undefined;
+      const effectiveDate = original?.data.businessDate ?? entry.businessDate;
       const kind = entry.sourceKind === "platform_fee" ? "platform-fee"
         : entry.sourceKind === "traffic_challan" ? "traffic-challan" : "miscellaneous";
-      const dateMap = expenseByDate.get(entry.businessDate) ?? new Map();
+      const dateMap = expenseByDate.get(effectiveDate) ?? new Map();
       const bucket = dateMap.get(kind) ?? { amountPaise: 0, ids: [], revision: 1 };
       bucket.amountPaise += entry.effect === "reversal" ? -entry.amountPaise : entry.amountPaise;
       bucket.ids.push(envelope.id); bucket.revision = Math.max(bucket.revision, envelope.revision);
-      dateMap.set(kind, bucket); expenseByDate.set(entry.businessDate, dateMap);
+      dateMap.set(kind, bucket); expenseByDate.set(effectiveDate, dateMap);
     }
     const datedCosts: BreakevenDailyCostV1[] = [];
     for (const [date, kinds] of expenseByDate) for (const [kind, bucket] of kinds) {
