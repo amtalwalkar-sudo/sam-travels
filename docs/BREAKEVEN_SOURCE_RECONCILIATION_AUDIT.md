@@ -74,7 +74,7 @@ Evidence:
 
 ## 4. Earnings and expenses — authoritative date and attribution
 
-**Decision status: recovered and documented. The current source models and daily aggregator contain blocking mismatches.**
+**Decision status: recovered and documented. The current source models and daily aggregator contain blocking mismatches, including incomplete vehicle attribution for paid platform charges.**
 
 Approved date/attribution rules:
 - Completed-ride fare is gross and entered by the driver after the ride. It inherits the immutable trip context captured at trip creation: trip ID, vehicle, driver/assignment, shift and Asia/Kolkata operational date. Submission time is audit metadata, not a replacement business date.
@@ -96,6 +96,8 @@ Evidence:
 **Blocking mismatch B — platform fee can be suppressed as already netted:** the legacy `alreadyNettedFromIncome` field suppresses platform fees from daily normal/full expense totals. That is incompatible with the approved gross-fare input and separately paid platform charge. The approved breakeven path must consume gross fare and include each paid platform charge exactly once; it must not net the same charge out of fare or suppress the cost through this legacy flag. Contradictory legacy states must fail closed or be excluded with explicit needs-attention status.
 
 **Blocking mismatch C — paid platform fee semantics are not enforced:** platform fee records have no paymentStatus/paid-date validation in the current model; they are only required to have a reference. The source contract requires actual paid amount and paid business date. The write boundary/read model must make the paid-only rule enforceable, not infer payment from record creation.
+
+**Blocking mismatch E — platform-fee vehicle attribution is optional:** `BusinessExpenseEntryV1.vehicleId` is optional and `BusinessExpensesService.createExpenseEntry()` does not require it for `platform_fee`, although the approved one-car scope requires vehicle-related platform charges to retain the business vehicle identity. Enforce the vehicle link for platform pass/commission entries and validate it against the Vehicle owner.
 
 **Blocking mismatch D — trip context is not embedded in financial source rows:** the trip financial service stores tripId and event IDs, but not vehicle/date snapshots. The downstream read model must resolve the immutable tripContext and reject missing/ambiguous legacy attribution rather than use the currently selected vehicle/driver.
 
@@ -151,7 +153,7 @@ The following work belongs to the upstream owners and must be completed before b
 1. **Compliance:** change overlap withholding to date-range granularity so non-overlapping eligible days remain allocated while unresolved overlapping dates are withheld.
 2. **Finance allocation:** preserve the prior schedule's already-open EMI allocation period across mid-cycle prepayment; use the revised schedule from the next unpaid due date; stop all daily EMI allocation after settlement/closure date. Replace the current settlement test that expects post-closure rows to remain allocated.
 3. **Trip financial attribution:** expose a stable public trip-financial read model that joins fare/cancellation/parking/toll entries to immutable tripContext, including operational date and vehicle/driver/assignment identity; fail closed for unresolvable legacy links.
-4. **Business expenses:** enforce paid-only recognition for challans; enforce paid-only platform fees and their paid business date; remove or neutralize the legacy netted-fee suppression for the gross-fare workflow; verify parking/toll inclusion control maps to the approved payer semantics.
+4. **Business expenses:** enforce paid-only recognition for challans; enforce paid-only platform fees, their paid business date and vehicle ID; remove or neutralize the legacy netted-fee suppression for the gross-fare workflow; verify parking/toll inclusion control maps to the approved payer semantics.
 5. **Fuel:** add a weighted aggregate over valid completed intervals and an immutable prospective effective-date history; expose a read model that breakeven can consume without direct-purchase double counting.
 6. **Distance:** preserve the current Work/Shift authority and confirm the public daily projection query exposes allocated totals plus explicit pending/unresolved state to downstream consumers.
 
