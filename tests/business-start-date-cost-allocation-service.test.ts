@@ -107,13 +107,26 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(complianceRecord.data.validTo).toBe("2026-02-28");
   });
 
-  it("does not truncate scheduled EMI allocation from settlement paid-through payment facts", async () => {
+  it("stops EMI allocation at the settlement date and retains only historical paid-through cost", async () => {
     const report = await createService({ settlement: true }).getReport();
     const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
-    expect(emiSources).toHaveLength(2);
-    expect(emiSources.map(item => item.sourceId)).toEqual([loanId + ":emi:2", loanId + ":emi:3"]);
-    expect(emiSources.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
-    expect(report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward")?.sourceAmountPaise).toBe(3_100);
+    expect(emiSources).toHaveLength(0);
+    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
+    expect(carry?.sourceAmountPaise).toBe(5_900);
+    expect(carry?.disposition).toBe("pre_business_historical");
+    expect(report.result.daily.every(item => item.date <= "2026-02-01")).toBe(false);
+    expect(report.result.allocatedAmountPaise).toBe(1_000);
+    expect(report.result.historicalAmountPaise).toBe(5_900);
+  });
+
+  it("preserves the outgoing schedule's open period exactly once after prepayment", async () => {
+    const report = await createService().getReport();
+    const carry = report.result.sources.find(item => item.sourceKind === "emi-pre-business-carry-forward");
+    const current = report.result.sources.filter(item => item.sourceKind === "emi");
+    expect(carry?.sourceAmountPaise).toBe(3_100);
+    expect(carry?.scheduleVersion).toBe(2);
+    expect(current.map(item => item.scheduleVersion)).toEqual([2, 2]);
+    expect(current.map(item => item.sourceAmountPaise)).toEqual([2_800, 3_100]);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
 
