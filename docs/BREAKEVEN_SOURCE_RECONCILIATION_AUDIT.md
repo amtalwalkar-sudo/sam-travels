@@ -138,11 +138,13 @@ Evidence:
 
 Evidence and rules:
 - `docs/WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md` makes Work/Shift the sole authority for confirmed shift odometer readings and business kilometres.
+- `packages/storage-browser/src/driver-workflow.ts` and `android/app/src/main/java/in/samtravels/app/WorkDailyBusinessKilometreStore.kt` both append one immutable shift contribution to the vehicle/operational-date projection. They derive the operational date from the outgoing shift start, calculate the odometer delta, retain personal kilometres separately, and expose `totalBusinessKm` plus `unallocatedBusinessKm`.
+- Both implementations mark a shift contribution `awaiting_operational_boundary` when a normal shift end crosses 04:00 without rotation. A confirmed `shift_rotate` resolves the outgoing contribution to `allocated`; rotation is rejected during an active trip and uses the same confirmed odometer reading as outgoing end and incoming start.
+- `packages/application/src/maintenance-daily-accrual-integration.ts` consumes the authoritative daily projection and fails closed unless the exact rotation contribution is allocated and the day's unallocated total is zero. This demonstrates the existing downstream completeness guard.
 - New v2 shift starts/ends require confirmed odometer readings. Business kilometres are end reading minus start reading; personal kilometres between shifts are separately recorded and excluded.
-- A shift-end/04:00 rotation contributes to the vehicle/day projection with immutable shift/event IDs and exact odometer facts. Multiple shifts for a date aggregate without replacing prior contributions.
 - A 04:00 boundary does not interrupt an active trip. Once the trip reaches a terminal state, the driver confirms one odometer reading; the outgoing shift's complete confirmed distance is assigned to its original operational date and the new shift begins at the same reading.
-- Until the boundary confirmation commits, the contribution is explicitly awaiting operational-boundary confirmation and is not included in a complete published total.
-- Legacy v1 shifts remain readable but are not backfilled with invented odometer readings or kilometres. Maintenance consumes only fully allocated daily totals; fuel must use the same confirmed Work daily-distance authority.
+- Legacy v1 shifts remain readable but are not backfilled with invented odometer readings or kilometres. Fuel must use the same confirmed Work daily-distance authority.
+- Regression evidence exists in `tests/driver-workflow-v2.test.ts`, `android/app/src/androidTest/java/in/samtravels/app/DriverWorkflowV2Test.kt`, and `android/app/src/androidTest/java/in/samtravels/app/WorkDailyBusinessKilometreStoreTest.kt` for v2 odometer projection, boundary rotation, personal/business separation and active-trip rotation rejection. Add a focused assertion for the pre-rotation `awaiting_operational_boundary`/unallocated bucket and its exclusion from `totalBusinessKm` so the pending state is directly protected by regression tests.
 
 No additional product decision is required. The breakeven consumer must use the complete authoritative daily projection and must not substitute GPS endpoint displacement, fare/trip distance, elapsed time, or a manually estimated total.
 
@@ -155,7 +157,7 @@ The following work belongs to the upstream owners and must be completed before b
 3. **Trip financial attribution:** expose a stable public trip-financial read model that joins fare/cancellation/parking/toll entries to immutable tripContext, including operational date and vehicle/driver/assignment identity; fail closed for unresolvable legacy links.
 4. **Business expenses:** enforce paid-only recognition for challans; preserve event-only paid platform-fee semantics and the paid business date; require vehicle ID for vehicle-related platform charges; remove or neutralize the legacy netted-fee suppression for the gross-fare workflow; verify parking/toll inclusion control maps to the approved payer semantics.
 5. **Fuel:** add a weighted aggregate over valid completed intervals and an immutable prospective effective-date history; expose a read model that breakeven can consume without direct-purchase double counting.
-6. **Distance:** preserve the current Work/Shift authority and confirm the public daily projection query exposes allocated totals plus explicit pending/unresolved state to downstream consumers.
+6. **Distance:** preserve the current Work/Shift authority, add a focused regression assertion for the pending/unallocated boundary state, and ensure downstream consumers use the public daily projection's allocated total plus explicit pending/unresolved state.
 
 For each fix, add regression tests at the owning feature boundary and PWA/Android shared domain/application boundary where relevant. Re-run the full architecture, web, Android, integrated regression and required CI gates on the exact commit. Update this audit with the exact tested commit and evidence before authorizing breakeven implementation.
 
