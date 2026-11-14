@@ -39,14 +39,21 @@ describe("FullCostBreakevenService source integration", () => {
           }] },
         }),
       } as never,
+      { submittedTripFinancialRecords: async () => [{
+        id: "trip-financial-1", revision: 2,
+        data: { kind: "completed_ride_financials", status: "submitted",
+          tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
+          parkingPaise: 40, parkingPayer: "customer" },
+      }] },
     );
     const result = await service.calculate("2026-11-01", "2026-11-01");
-    expect(result.totalCostPaise).toBe(17_600);
+    expect(result.totalCostPaise).toBe(17_650);
     expect(result.daily[0].costs).toMatchObject({
-      fuel: 15_000, maintenance: 2_000, "platform-fee": 100, emi: 500,
+      fuel: 15_000, maintenance: 2_000, "platform-fee": 100, emi: 500, miscellaneous: 50,
     });
     expect(result.provenance.sourceIds).toContain("fuel-purchase-1");
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
+    expect(result.provenance.sourceIds).toContain("trip-financial-1");
   });
 });
