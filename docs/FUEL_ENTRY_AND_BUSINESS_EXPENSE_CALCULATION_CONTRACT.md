@@ -1,8 +1,9 @@
 # Fuel Entry and Business Expense Calculation Contract
 
-**Status:** Owner decisions recorded; documentation review gate. This PR is documentation-only; no runtime implementation is included yet.
+**Version:** 1.1  
+**Status:** Owner decisions reconciled with the approved breakeven and upstream source contracts; this amendment is documentation-only and makes no runtime implementation claim.
 **Base:** `main` after merged PR #77 (`6f92fe759e753e93e17f86efc11df94a00e0c1e8`).
-**Scope:** PR 1 expense foundation and fuel entry; PR 2 breakeven and Admin-configured daily driver target.
+**Scope:** PR 1 expense-source foundation and Fuel Entry; PR 2 full-cost breakeven. Driver Target remains a later, separately sequenced phase after reliable breakeven.
 **Authorities:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`, `LOCATION_AND_STATE_TIMING_CONTRACT.md`, `NETWORK_ACCESS_CONTRACT.md`, `BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md`, and the existing architecture, persistence, backup, recovery, and feature-extension contracts.
 
 ## 1. Product boundary
@@ -83,7 +84,7 @@ Validation must follow the shared form contract:
 ### 3.1 Full-tank checkpoints
 
 - Full tank is the default refill classification. The driver checks **Partial refill** only when the tank was not filled completely.
-- Every submitted fuel purchase, whether full or partial, is an actual business fuel expense and must be included in business daily-cost and breakeven inputs on its recorded business date.
+- Every submitted fuel purchase, whether full or partial, is an immutable measurement/source record. Its spend is included in a valid completed full-tank interval as defined below. It is not itself a daily breakeven expense; daily breakeven fuel cost is calculated from confirmed business kilometres multiplied by the effective weighted-average fuel cost/km.
 - A full-tank refill is a measurement checkpoint. The first accepted full-tank refill establishes the baseline odometer/tank-full state.
 - The next accepted full-tank refill closes a full-to-full measurement interval.
 - The distance for an interval is the later full-refill odometer minus the earlier full-refill odometer.
@@ -100,7 +101,7 @@ For an interval between full-tank checkpoints, the candidate calculation outputs
 
 Use decimal-safe arithmetic, retain calculation version and exact source record IDs/revisions, and define rounding only at the output boundary. Never use GPS endpoint distance as driven distance; use odometer readings.
 
-**Confirmed partial-refill treatment:** Partial refills are excluded as full-tank checkpoints, but every partial refill between two consecutive full-tank checkpoints contributes its derived/recorded kg and actual amount to that full-to-full interval. Include the final full refill that closes the interval. This produces the interval's km/kg, effective cost/kg, and cost/km. Do not exclude partial purchases from the business expense ledger: every fuel purchase counts as a business fuel expense, regardless of refill type. The initial baseline full refill is included in business expense totals on its purchase date, even though it is not treated as fuel consumed within the subsequent measured interval.
+**Confirmed partial-refill treatment:** Partial refills are excluded as full-tank checkpoints, but every partial refill between two consecutive full-tank checkpoints contributes its derived/recorded kg and actual amount to that full-to-full interval. Include the final full refill that closes the interval. This produces the interval's km/kg, effective cost/kg, and cost/km. Every fuel purchase remains in the immutable fuel source history. For fuel-consumption measurement, purchases after the opening baseline full refill through and including the closing full refill contribute quantity and spend to that interval. The opening baseline refill is not included in the interval it opens. Fuel purchase spend is not added as a second daily breakeven expense; this supersedes the older direct-purchase daily-cost wording in this document.
 
 The phrase “calculate cost per kg after 2 full tank refills” is interpreted here as calculating interval effective cost/kg after the second full-tank checkpoint; the purchase-level price/kg remains available on every individual record. The same interval also yields mileage and fuel cost/km.
 
@@ -117,20 +118,21 @@ The phrase “calculate cost per kg after 2 full tank refills” is interpreted 
 
 Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a dedicated Admin entry form under its own separate, clearly named Admin section/header. These forms are explicitly in scope for PR 1 and must follow the established shared form rules. They are not driver-facing forms. The Performance screen remains unchanged. Each form creates authoritative source records consumed by the calculation engine.
 
-### Platform fees
-- Attribute actual platform fees to the relevant trip, platform settlement, or authoritative fee statement, with source identity, effective date, amount, and reversal/correction linkage.
-- Do not infer platform fees from a generic percentage unless a versioned, owner-approved platform fee rule and its effective dates are explicitly supplied.
-- Do not double-count a fee already deducted from a net-income source.
-- Preserve gross fare, platform fee, and net proceeds as distinct facts wherever source data provides them.
+### Platform fees and passes
+- Record the amount actually paid by the driver. The authoritative recognition date is the explicit Asia/Kolkata paid business date stored on the expense source entry; the entry's creation/submission timestamp is audit metadata only.
+- The entry may retain a source reference for traceability, but no platform payout, settlement, fee-statement matching, trip-to-payout matching, or separate net-earnings workflow is required.
+- Keep completed-trip fare gross. A paid platform fee is a separate cost recognized once; do not net it out of fare and deduct it again.
+- Do not infer a percentage, accrue an unpaid fee, or build a commission engine. The legacy `alreadyNettedFromIncome` flag must not be used to suppress a paid platform cost in the approved gross-fare workflow; a record carrying that contradictory state is not a valid breakeven input.
 
 ### Traffic challans
-- Preserve challan amount, issue/transaction date, vehicle, optional driver, reason/reference, and payment/reversal status as distinct facts.
-- Challans are excluded from normal operating breakeven and included in full-cost breakeven.
-- They must remain separately identifiable and must not be silently blended into ordinary fuel/maintenance operating cost.
+- Preserve the challan issue date/reference separately for identification, and preserve its vehicle identity and payment status.
+- A challan is recognized in full-cost breakeven only after it has actually been paid and entered. Its authoritative recognition date is the actual paid business date stored as `businessDate`; issue date and unpaid status do not create an expense.
+- An unpaid challan remains visible as a source obligation but contributes zero to recognized breakeven cost until paid. There is one full-cost breakeven; no operating-breakeven exclusion/inclusion split exists.
 
 ### Miscellaneous business expenses
-- Use typed category and attribution metadata (business, vehicle, or driver where supported), business date, amount in integer paise, source identity, description/reference, and correction/reversal history.
-- Existing general Maintenance expense records may be adapted only when their meaning and ownership genuinely match; do not relabel unrelated Maintenance records or count the same amount twice.
+- Use the explicit Asia/Kolkata `businessDate` entered for the actual business expense. `createdAt` and `submittedAt` are audit timestamps and must not replace that date.
+- Preserve amount in integer paise, source identity, description/reference, and append-only correction history. Apply vehicle/driver attribution only where the source expense is genuinely vehicle/driver-specific; do not invent an allocation.
+- Existing Maintenance visit/repair records must not be added on top of the per-kilometre Maintenance accrual for breakeven.
 - The Miscellaneous Business Expenses Admin form is part of PR 1.
 
 ## 5. Common expense and calculation architecture
@@ -155,9 +157,9 @@ Scope:
 2. Add Fuel Entry as the only new driver-facing form, using the existing shared PWA form runtime and the rules above.
 3. Add separate Admin entry forms in the approved hierarchy: Platform Fees and Miscellaneous Business Expenses under Finance; Traffic Challans under Compliance. Each has its own dedicated section and form, using the established shared form runtime and form rules.
 4. Persist fuel purchase facts, durable in-progress form working copies, timestamp, best-effort GPS evidence, and durable asynchronous locality enrichment.
-5. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and fuel cost/km with deterministic provenance. Every fuel purchase must also enter business expense totals.
+5. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and per-interval fuel cost/km with deterministic provenance. Preserve all purchases as source records; do not treat purchase spend as a second daily breakeven cost.
 6. Add the three Admin expense forms and their authoritative source records, then implement source adapters and calculations for platform fees, challans, and miscellaneous expenses.
-7. Produce reliable daily expense/fuel calculation outputs without changing the Performance presentation.
+7. Produce reliable daily source-entry summaries and completed fuel-interval outputs without changing the Performance presentation. These source summaries are not themselves a breakeven result; breakeven fuel cost must use confirmed business kilometres multiplied by the weighted interval rate.
 8. Add web/Android parity, offline, process-restart, backup/restore, idempotency, correction, and regression coverage.
 
 Acceptance gates:
@@ -167,7 +169,7 @@ Acceptance gates:
 - GPS evidence is event-scoped and correctly timestamped; absent/late evidence is represented honestly.
 - Full-to-full mileage requires two valid full-tank checkpoints and a positive odometer delta.
 - Full tank is the default; the Partial refill checkbox is unchecked by default.
-- All fuel purchases count in business fuel expense totals; only full-tank records are checkpoints for km/kg and cost/km intervals, while intervening partial purchases contribute quantity and spend to the interval.
+- All fuel purchases remain immutable source records; only full-tank records are checkpoints for km/kg and cost/km intervals, while intervening partial purchases contribute quantity and spend to the interval. Fuel purchases are not separately added to daily breakeven costs.
 - Platform Fees and Miscellaneous Business Expenses each have a separate Admin entry form under Finance; Traffic Challans has a separate Admin entry form under Compliance. All three conform to the shared PWA form architecture and form rules.
 - All calculated values reconcile to immutable source records and versioned provenance.
 - Browser and Android use the same calculation/application services and their respective durable stores.
@@ -177,10 +179,9 @@ Acceptance gates:
 
 Scope:
 1. Build daily business cost from the canonical Compliance/EMI outputs and PR 1 expense outputs.
-2. Calculate **normal operating breakeven**, excluding traffic challans.
-3. Calculate **full-cost breakeven**, including traffic challans and other included obligations according to their approved treatment.
-4. Account for platform fees correctly when deriving the revenue needed to cover costs; distinguish gross revenue from net proceeds and use contribution-margin logic where variable fees apply.
-5. Allow Admin to configure a fixed daily INR amount above breakeven. The daily target is derived from the current applicable breakeven plus this fixed amount; it is not a percentage/margin or a driver-entered target.
+2. Calculate exactly one **full-cost breakeven** from the authoritative gross-fare, paid-expense, fuel-consumption, maintenance, Compliance and whole-EMI inputs.
+3. Treat paid platform charges as separate costs against gross fare; do not use payout-received gating, net-payout normalization, or a variable commission/contribution-margin engine.
+4. Driver Target is not part of this source-foundation delivery. Its approved monthly surplus-above-breakeven design remains last in sequence and must not delay or alter the reliable breakeven foundation.
 6. Expose daily/weekly/monthly calculation read models and actual-versus-target comparisons for future Performance consumption.
 7. Keep all calculations independent of the Performance UI/UX shell.
 
@@ -224,3 +225,20 @@ The owner decisions recorded in this contract are resolved. No further clarifica
 5. If no valid completed interval exists, the rate is pending—not zero and not an invented estimate. Do not present a complete actual breakeven result that silently treats the missing rate as zero.
 6. A newly completed interval updates the weighted-average rate prospectively from the calendar day after interval completion. The prior rate remains effective on the completion date and all earlier dates. No retroactive rate application is permitted.
 7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven Contract v1.8 is authoritative for the final aggregation semantics.
+
+
+## Source-date and attribution reconciliation amendment
+
+**Authority:** This section records the previously discussed source-date decisions and defers to the source-owning contracts for immutable identity and event snapshots.
+
+1. **Completed ride fare:** use the trip's immutable trip context operational date and captured vehicle/driver/assignment identity. The driver may submit the fare after the ride; submission time is audit metadata, not a replacement operational date.
+2. **Cancellation fee:** link the fee to its cancellation event and trip. Use the same immutable trip context and operational date; fee submission time is retained separately as audit metadata. Do not create a separate cash/platform or payout record.
+3. **Parking and toll:** inherit the completed trip's immutable context and operational date. The existing trip-form inclusion/payer control is authoritative: an amount already included in the fare/customer charge is not added again as a driver expense; an amount recorded as driver-paid is included once as a separate driver expense.
+4. **Platform pass/commission:** recognize only when paid and entered, on the explicit paid business date; no payout or trip matching is required. Keep the amount separate from gross fare.
+5. **Traffic challan:** retain the issue date/reference for identification, but recognize cost only after payment, on the explicit paid business date. Unpaid challans remain unrecognized.
+6. **Miscellaneous business expense:** use the explicit business date on the source record. Creation/submission timestamps are audit metadata only.
+7. **Fuel purchase:** business date is the Asia/Kolkata calendar date derived from the actual purchase timestamp; it is source/measurement history, not the daily breakeven recognition date for fuel consumption.
+8. Vehicle and driver attribution must come from the source record or immutable Work/Trip context. Do not infer historical attribution from the currently selected Admin vehicle/driver.
+
+The older PR 1/PR 2 language in this document that describes fuel purchases as direct daily breakeven expenses, challans as an operating/full-cost split, or net-payout/contribution-margin treatment is superseded by this amendment and Breakeven Contract v1.9 Addendum H.
+
