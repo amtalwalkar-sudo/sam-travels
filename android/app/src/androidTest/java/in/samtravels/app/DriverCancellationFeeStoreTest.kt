@@ -20,7 +20,7 @@ class DriverCancellationFeeStoreTest {
     @After fun closeDatabase()=db.close()
 
     private fun gps()=JSONObject().put("latitude",19.076).put("longitude",72.8777)
-        .put("horizontalAccuracyM",8.0).put("fixAt",java.time.Instant.now().toString(), org.json.JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14")).put("provider","android-test")
+        .put("horizontalAccuracyM",8.0).put("fixAt",java.time.Instant.now().toString()).put("provider","android-test")
 
     private fun v2Command(id:String,event:String,prior:String,revision:Int,at:String)=JSONObject()
         .put("schemaVersion",1).put("workflowVersion",2).put("commandId",id).put("eventId",id)
