@@ -2,7 +2,7 @@
 
 **Audit date:** 2026-11-14  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
-**Audited implementation baseline:** `61101b60f2f436393f281b42397fd5643add1fc5` on `feat/breakeven-driver-target` (the audit commit is documentation-only; inspected runtime sources are unchanged)  
+**Audited implementation baseline:** `18b63e88c7fc9b0988a2a0938994c1a7d4485cc4` on `fix/breakeven-upstream-source-conformance` (implementation changes are present in draft PR #82; CI verification is still pending)  
 **Purpose:** Compare the five previously discussed and approved upstream source areas against their normative contracts and actual implementation.  
 **Result:** Product decisions recovered and documented. Several upstream implementation mismatches remain. **Breakeven runtime implementation must not start until the blocking findings below are corrected and re-audited.**
 
@@ -28,7 +28,7 @@ The source-owner contracts take precedence over legacy summary fields, old calcu
 
 ## 2. Compliance — decision recovery and implementation result
 
-**Decision status: recovered and documented. Core source rules conform; one allocation-granularity mismatch remains.**
+**Decision status: recovered, documented and implementation-adjusted. Date-range overlap withholding is implemented; final CI verification remains pending.**
 
 Approved rules:
 - `validFrom` and `validTo` are actual inclusive Asia/Kolkata calendar dates. The total record cost is fixed across that record's validity period.
@@ -44,13 +44,13 @@ Evidence:
 - `packages/domain/src/business-start-date-cost-allocation.ts`: inclusive-day allocation, Business Start Date carry-forward, deterministic paise distribution, and withholding for unresolved overlap state.
 - `tests/business-start-date-cost-allocation-service.test.ts`: renewal period/cost preservation and unresolved-overlap coverage.
 
-**Mismatch to correct:** `BusinessStartDateCostAllocationService.getReport()` in `packages/application/src/business-start-date-cost-allocation-service.ts` reduces all overlaps touching a Compliance record to one record-level status. If any overlap is unresolved, `allocateComplianceCostV1` withholds that entire record's allocation, including non-overlapping dates. The Compliance owner contract describes withholding the combined amount for the overlapping item/date range, not discarding valid daily allocations outside that overlap. Allocation must become date/range-aware: preserve eligible non-overlap days, withhold only the affected overlap dates until review, and then include each distinct source record once after confirmation.
+**Implementation correction:** `BusinessStartDateCostAllocationService.getReport()` now creates the full per-record daily allocation, then partitions it by exact unresolved/rejected/stale overlap dates. Only those date portions are withheld; eligible non-overlap dates remain allocated. A confirmed review allows every distinct source record's actual daily contribution. Regression coverage checks that non-overlap dates survive an unresolved partial overlap.
 
-**Disposition:** Compliance product decisions are closed. The range-specific withholding mismatch is a blocking upstream implementation fix.
+**Disposition:** Compliance product decisions are closed. The date-range correction is implemented in PR #82; final CI verification remains pending.
 
 ## 3. EMI — schedule, prepayment and closure
 
-**Decision status: recovered and documented. The Finance-owned prepayment and settlement commands implement the approved transition rules, but the reporting allocation projection does not yet conform.**
+**Decision status: recovered, documented and implementation-adjusted. The reporting projection now composes schedule history and applies the settlement cutoff; final CI verification remains pending.**
 
 Approved rules:
 - Original EMI schedule is anchored to the loan's actual first EMI date. Due dates are monthly, on the first of each calendar month.
@@ -66,15 +66,15 @@ Evidence:
 - `packages/application/src/finance-loan-settlement-service.ts`: restricts settlement to a scheduled EMI due date, verifies all due EMIs are fully paid, takes closing principal after the settlement-date EMI, and atomically writes the settlement ledger entry plus Loan closed state.
 - `packages/domain/src/business-start-date-cost-allocation.ts`: implements due-date-to-next-due-date-minus-one periods and final-month-end period semantics.
 
-**Blocking mismatch A — historical and mid-cycle EMI periods disappear after prepayment:** `BusinessStartDateCostAllocationService.getReport()` selects only the current revised schedule version after prepayment. The revised schedule begins at the next unpaid due date, so all earlier EMI periods from prior immutable schedule versions disappear from the rebuilt report, including elapsed periods and the already-open period from the previous paid EMI due date through the day before the next unpaid due date. This loses historical EMI cost and can also discard pre-Business-Start carry-forward. The allocation projection must compose one effective schedule timeline: retain each prior version's EMI periods up to (but not including) the next revision's first due date, then use the revised version from that due date onward. Preserve the open period from the prior schedule exactly once; do not restart it on the prepayment date or count both versions for the same period. Pre-business carry-forward must still reconcile over the remaining composite schedule horizon.
+**Implementation correction A — schedule history:** `BusinessStartDateCostAllocationService.getReport()` now composes immutable schedule versions into one timeline. Each outgoing version contributes only rows before the next version's first unpaid due date; the revised schedule contributes from that due date onward. `allocateScheduledEmisV1` accepts row-level schedule-version provenance, preserving the outgoing open period and one complete pre-business carry-forward across the composite horizon.
 
-**Blocking mismatch B — closure does not stop later allocations:** `packages/application/src/business-start-date-cost-allocation-service.ts` currently selects the settlement's schedule version and passes every row in that immutable schedule to `allocateScheduledEmisV1`. It does not cap the allocation horizon at the settlement/closure date. The existing test `tests/business-start-date-cost-allocation-service.test.ts` explicitly expects later EMI rows to remain allocated after settlement (test title: “does not truncate scheduled EMI allocation from settlement paid-through payment facts”). This expectation conflicts with the approved closure rule and must be replaced. Keep the closure-date instalment as the final scheduled obligation and emit no daily EMI allocation after closure.
+**Implementation correction B — settlement cutoff:** the allocation input now accepts an inclusive `allocationEndDate`. The service excludes later scheduled rows and caps the final period at the settlement business date. The former test that expected post-closure allocations has been replaced with a regression asserting no future EMI source allocation and retention of the pre-business historical EMI amount.
 
-**Disposition:** Finance schedule and transaction rules are closed. The two reporting-allocation mismatches are blocking upstream fixes. Update tests to cover mid-cycle prepayment, schedule transition, closure date, and absence of post-closure allocations.
+**Disposition:** Finance schedule and transaction rules are closed. Both reporting-allocation corrections are implemented in PR #82; final CI verification remains pending.
 
 ## 4. Earnings and expenses — authoritative date and attribution
 
-**Decision status: recovered and documented. The current source models and daily aggregator contain blocking mismatches in challan recognition, platform-charge handling, and trip attribution.**
+**Decision status: recovered, documented and implementation-adjusted. Paid-only expense recognition, vehicle attribution and cancellation trip snapshots are implemented; final CI verification remains pending.**
 
 Approved date/attribution rules:
 - Completed-ride fare is gross and entered by the driver after the ride. It inherits the immutable trip context captured at trip creation: trip ID, vehicle, driver/assignment, shift and Asia/Kolkata operational date. Submission time is audit metadata, not a replacement business date.
@@ -93,15 +93,15 @@ Evidence:
 - `packages/features/business-expenses/calculations.ts` and `packages/application/src/business-expenses-service.ts`: expense entries have an explicit `businessDate`; challans require a vehicle and paymentStatus, while platform-fee entries are defined as already-paid events with businessDate as the actual paid date. The source model does not need a separate `paidAt` field for platform fees.
 - The current trip form/domain uses `tollPayer` and `parkingPayer` values. The domain summary adds customer-paid amounts to customer charge and driver-paid amounts to driver expenses; retain the existing payer semantics and ensure the breakeven adapter consumes only the separate driver expense once.
 
-**Blocking mismatch A — unpaid challans are included:** `calculateDailyBusinessExpenses()` adds every challan to `fullCostExpensePaise` without checking `paymentStatus`. `tests/business-expenses-service.test.ts` creates a challan with `paymentStatus: "unpaid"` and expects it to contribute to the full-cost total. This directly contradicts the approved paid-only rule. Unpaid challans must remain visible as source obligations but must not enter recognized expense or breakeven cost until paid.
+**Implementation correction A — paid-only challans:** `calculateDailyBusinessExpenses()` now leaves unpaid challans visible in source records but skips them in recognized daily totals. Paid challans are recognized on their paid business date. Regression tests cover unpaid and paid entries separately.
 
-**Blocking mismatch B — platform fee can be suppressed as already netted:** the legacy `alreadyNettedFromIncome` field suppresses platform fees from daily normal/full expense totals. That is incompatible with the approved gross-fare input and separately paid platform charge. The approved breakeven path must consume gross fare and include each paid platform charge exactly once; it must not net the same charge out of fare or suppress the cost through this legacy flag. Contradictory legacy states must fail closed or be excluded with explicit needs-attention status.
+**Implementation correction B — gross fare and separate platform charges:** the source validator rejects `alreadyNettedFromIncome: true`; `BusinessExpensesService` requires vehicle attribution and rejects legacy netted treatment; the daily aggregator always recognizes the paid platform fee separately. Tests cover the paid source and fail-closed legacy state.
 
 **Paid platform fee event semantics:** the source model intentionally has no unpaid platform-fee state. A platform-fee row represents an already-paid transaction and its `businessDate` is the actual payment date; no separate pending/unpaid accrual state should be introduced. The source-entry command/form must preserve this event-only meaning and must not substitute `createdAt`/`submittedAt` for the paid business date. The absence of a `paymentStatus` field is therefore not a defect by itself.
 
-**Blocking mismatch D — platform-fee vehicle attribution is optional:** `BusinessExpenseEntryV1.vehicleId` is optional and `BusinessExpensesService.createExpenseEntry()` does not require it for `platform_fee`, although the reconciled one-car source contract requires the business vehicle identity on each vehicle-related platform pass/commission entry. Enforce the vehicle link for platform pass/commission entries and validate it against the Vehicle owner.
+**Implementation correction C — platform vehicle attribution:** paid platform charges now require a vehicle ID and validate it against the Vehicle owner.
 
-**Blocking mismatch C — cancellation fee attribution and public query are incomplete:** completed-ride financial obligations already carry the immutable tripContext snapshot, but cancellation-fee obligations do not. Add the same snapshot to cancellation obligations in browser and Android, declare/validate the snapshot in the shared typed source model, and expose a stable public read model for both submitted financial record types. Missing legacy context must remain unresolved unless an authoritative immutable trip-create event can supply it; never use current Admin/Work selection.
+**Implementation correction D — cancellation attribution and public query:** browser and Android cancellation closeout now copy the immutable tripContext captured at trip creation into the cancellation-fee obligation. The Android store requires the context rather than silently omitting it. `TripFinancialService.submittedTripFinancialRecords()` exposes both submitted cancellation-fee and completed-ride financial records; legacy records without context remain explicitly unresolved rather than being attributed from current selection. Browser, Android and service tests cover snapshot preservation and the shared read model.
 
 **Additional boundary:** `calculateDailyBusinessExpenses()` still exposes `normalOperatingExpensePaise` and `fullCostExpensePaise`. These are legacy source-summary outputs, not two breakeven metrics. The breakeven product contract permits exactly one full-cost breakeven. No consumer may register, label, or present the legacy normal/operating subtotal as an operating-breakeven calculation.
 
@@ -109,7 +109,7 @@ Evidence:
 
 ## 5. Fuel — completed intervals and prospective rates
 
-**Decision status: recovered and documented. Checkpoint pairing conforms at interval level; the weighted aggregate and separation from daily purchase totals remain to be enforced.**
+**Decision status: recovered, documented and implementation-adjusted. Weighted prospective rate history is now derived by the fuel owner and exposed to application consumers; final CI verification remains pending.**
 
 Approved rules:
 - Fuel purchase date is the actual Asia/Kolkata calendar date derived from the purchase timestamp.
@@ -125,14 +125,12 @@ Evidence:
 - `packages/features/business-expenses/calculations.ts` pairs consecutive full-tank checkpoints per vehicle, orders by purchase timestamp, requires positive odometer distance, flags ambiguous timestamps and invalid sequences, and includes all purchases after the opening checkpoint through and including the closing checkpoint.
 - `FuelIntervalV1` exposes per-interval spend, confirmed distance and cost-per-km ratio with source IDs/revisions.
 - `FuelPurchaseV1` validates `businessDate` against `occurredAt` in Asia/Kolkata (UTC+05:30).
-- The current module exposes per-interval cost/km, but the audited source does not yet provide the required weighted aggregation across all valid completed intervals or a date-effective rate history for breakeven consumption.
+- `packages/features/business-expenses/fuel-cost-rate-history.ts` now derives a cumulative weighted rate after each completion date, retains exact source IDs/revisions, and sets `effectiveFrom` to the day after interval completion. `BusinessExpensesService.listFuelCostRateHistory()` exposes that deterministic read model.
 - `calculateDailyBusinessExpenses()` adds each fuel purchase's spend to the purchase-date `fuelPaise`, `normalOperatingExpensePaise` and `fullCostExpensePaise`. This is valid as a purchase-source summary only; those direct purchase totals must not be consumed as the breakeven fuel consumption cost.
 
-**Blocking mismatch A — weighted rate output absent:** the audited business-expense module returns individual interval rates but no authoritative weighted rate across all completed intervals with an effective-from date and immutable historical rate history. Implement this in the fuel-owning calculation layer before breakeven consumes fuel cost/km.
+**Implementation correction:** The weighted history is available as a source-owned read model. Legacy daily purchase summaries still represent actual purchase spend for source/accounting views; breakeven must consume confirmed business kilometres multiplied by the effective rate and must never add purchase spend again.
 
-**Blocking mismatch B — direct purchase totals remain in legacy daily summary:** the current daily source summary counts purchase spend on purchase dates. Keep that source view if needed, but make the breakeven read contract explicitly consume only confirmed business kilometres multiplied by the weighted rate; never add both purchase spend and consumption cost.
-
-**Disposition:** Full-tank interval eligibility is substantially aligned; weighted-rate history and consumer separation are blocking.
+**Disposition:** Full-tank interval eligibility and prospective weighted-rate history are implemented in PR #82. Final CI verification and downstream consumer contract checks remain pending.
 
 ## 6. Daily business-kilometre projection and unresolved legacy distance
 
@@ -146,7 +144,7 @@ Evidence and rules:
 - New v2 shift starts/ends require confirmed odometer readings. Business kilometres are end reading minus start reading; personal kilometres between shifts are separately recorded and excluded.
 - A 04:00 boundary does not interrupt an active trip. Once the trip reaches a terminal state, the driver confirms one odometer reading; the outgoing shift's complete confirmed distance is assigned to its original operational date and the new shift begins at the same reading.
 - Legacy v1 shifts remain readable but are not backfilled with invented odometer readings or kilometres. Fuel must use the same confirmed Work daily-distance authority.
-- Regression evidence exists in `tests/driver-workflow-v2.test.ts`, `android/app/src/androidTest/java/in/samtravels/app/DriverWorkflowV2Test.kt`, and `android/app/src/androidTest/java/in/samtravels/app/WorkDailyBusinessKilometreStoreTest.kt` for v2 odometer projection, boundary rotation, personal/business separation and active-trip rotation rejection. Add a focused assertion for the pre-rotation `awaiting_operational_boundary`/unallocated bucket and its exclusion from `totalBusinessKm` so the pending state is directly protected by regression tests.
+- Regression evidence exists in `tests/driver-workflow-v2.test.ts`, `android/app/src/androidTest/java/in/samtravels/app/DriverWorkflowV2Test.kt`, and `android/app/src/androidTest/java/in/samtravels/app/WorkDailyBusinessKilometreStoreTest.kt` for v2 odometer projection, boundary rotation, personal/business separation and active-trip rotation rejection. A focused Android regression now asserts that a pre-rotation `awaiting_operational_boundary` contribution appears in `unallocatedBusinessKm` and is excluded from `totalBusinessKm`.
 
 No additional product decision is required. The breakeven consumer must use the complete authoritative daily projection and must not substitute GPS endpoint displacement, fare/trip distance, elapsed time, or a manually estimated total.
 
@@ -154,14 +152,14 @@ No additional product decision is required. The breakeven consumer must use the 
 
 The following work belongs to the upstream owners and must be completed before breakeven code starts:
 
-1. **Compliance:** change overlap withholding to date-range granularity so non-overlapping eligible days remain allocated while unresolved overlapping dates are withheld.
-2. **Finance allocation:** preserve the prior schedule's already-open EMI allocation period across mid-cycle prepayment; use the revised schedule from the next unpaid due date; stop all daily EMI allocation after settlement/closure date. Replace the current settlement test that expects post-closure rows to remain allocated.
-3. **Trip financial attribution:** expose a stable public trip-financial read model that joins fare/cancellation/parking/toll entries to immutable tripContext, including operational date and vehicle/driver/assignment identity; fail closed for unresolvable legacy links.
-4. **Business expenses:** enforce paid-only recognition for challans; preserve event-only paid platform-fee semantics and the paid business date; require vehicle ID for vehicle-related platform charges; remove or neutralize the legacy netted-fee suppression for the gross-fare workflow; verify parking/toll inclusion control maps to the approved payer semantics.
-5. **Fuel:** add a weighted aggregate over valid completed intervals and an immutable prospective effective-date history; expose a read model that breakeven can consume without direct-purchase double counting.
-6. **Distance:** preserve the current Work/Shift authority, add a focused regression assertion for the pending/unallocated boundary state, and ensure downstream consumers use the public daily projection's allocated total plus explicit pending/unresolved state.
+1. **Compliance:** date-range overlap withholding is implemented and has service-level regression coverage.
+2. **Finance allocation:** composite schedule history and inclusive settlement-date cutoff are implemented with service/domain regression coverage.
+3. **Trip financial attribution:** browser and Android cancellation snapshots and a shared submitted-source read model are implemented with PWA, Android and service regression coverage.
+4. **Business expenses:** paid-only challan recognition, gross-fare/separate platform-charge handling and mandatory vehicle attribution are implemented with expense-service/calculation tests. Existing trip-financial tests cover independent toll/parking payer selection and customer-charge versus driver-expense semantics.
+5. **Fuel:** prospective weighted rate history is implemented in the fuel-owning feature and exposed by the application service, with interval and service tests.
+6. **Distance:** the pending/unallocated boundary state now has a focused Android regression; PWA/Android daily projections retain the same allocated/pending model.
 
-For each fix, add regression tests at the owning feature boundary and PWA/Android shared domain/application boundary where relevant. Re-run the full architecture, web, Android, integrated regression and required CI gates on the exact commit. Update this audit with the exact tested commit and evidence before authorizing breakeven implementation.
+**Remaining gate:** run and pass the full architecture, web, Android, integrated regression and required CI checks on the exact final commit; review any failures and update this audit with verified run evidence before authorizing breakeven implementation.
 
 ## 8. Explicitly out of scope
 
@@ -175,6 +173,6 @@ This audit does not authorize:
 
 **Product decisions:** recovered and documented in normative source contracts.  
 **Documentation reconciliation:** completed by the v1.9 source-contract references and amendments.  
-**Upstream implementation conformance:** not complete; blockers listed in Section 7.  
-**Breakeven runtime implementation:** **blocked** until those blockers are fixed, tested and this audit is updated against the exact new implementation baseline.  
-**Runtime code changed in this audit:** none. The documentation PR head `61101b60f2f436393f281b42397fd5643add1fc5` passed Sam Travels CI run `43544779983`: architecture, web, Android and Integrated regression succeeded; the production-geocoder job was correctly skipped for this PR.
+**Upstream implementation corrections:** present in draft PR #82; awaiting final architecture, web, Android and integrated regression CI on the final head.  
+**Breakeven runtime implementation:** **blocked** until final CI is green and the source read models are re-audited.  
+**Runtime code changed:** yes, only in upstream source owners and their regression tests. No breakeven engine, target calculation or presentation has been implemented.
