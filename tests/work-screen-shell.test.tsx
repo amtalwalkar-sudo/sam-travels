@@ -37,13 +37,30 @@ describe("replaceable Work screen shell", () => {
   });
 
   it("does not shadow feature-owned status announcements", async () => {
-    const source = await readFile("apps/web/src/ui/screens/DriveScreen.tsx", "utf8");
+    const source = await readFile("apps/web/src/ui/work/WorkScreenStatus.tsx", "utf8");
     expect(source).toContain('aria-live={error ? "assertive" : "polite"}');
     expect(source).not.toContain('role={error ? "alert" : "status"}');
   });
 
+  it("keeps the Work composition adapter limited to independently replaceable regions", async () => {
+    const source = await readFile("apps/web/src/ui/screens/DriveScreen.tsx", "utf8");
+    expect(source).toContain("<WorkScreenHeading />");
+    expect(source).toContain("<WorkScreenStatus");
+    expect(source).toContain("<DriverWorkflowPanel workspace={workspace} />");
+    expect(source).toContain("<WorkScreenShell");
+    expect(source).not.toContain("useState(");
+    expect(source).not.toContain("dispatch(");
+  });
+
+  it("keeps the workflow panel separate from shell and persistence infrastructure", async () => {
+    const source = await readFile("apps/web/src/ui/work/DriverWorkflowPanel.tsx", "utf8");
+    expect(source).toContain("export function DriverWorkflowPanel");
+    expect(source).not.toMatch(/packages\/(domain|application|storage)/);
+    expect(source).not.toMatch(/IndexedDB|Room|createPlatformRepository/);
+  });
+
   it("scopes responsive and touch-friendly styling to the Work shell", async () => {
-    const css = await readFile("apps/web/src/ui/styles.css", "utf8");
+    const css = await readFile("apps/web/src/ui/work/work-screen.css", "utf8");
     expect(css).toContain(".work-screen-shell");
     expect(css).toContain(".work-driver-card .primary-action");
     expect(css).toContain("min-height:56px");
