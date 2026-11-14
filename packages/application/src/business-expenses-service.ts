@@ -49,6 +49,7 @@ export type BusinessExpensesDomain = Readonly<{
   validateExpenseEntry(value: unknown): asserts value is BusinessExpenseEntryV1;
   calculateDailyExpenses(fuel: readonly FuelPurchaseV1[], entries: readonly BusinessExpenseEntryV1[]): readonly DailyBusinessExpenseV1[];
   calculateFuelIntervals(fuel: readonly FuelPurchaseV1[]): readonly FuelIntervalV1[];
+  calculateFuelCostRateHistory(fuel: readonly FuelPurchaseV1[], intervals?: readonly FuelIntervalV1[]): readonly FuelCostRateHistoryEntryV1[];
 }>;
 export type BusinessExpenseVehicleDirectory = {
   getById(id: string): Promise<RecordEnvelope<{ lifecycleState: string }> | undefined>;
