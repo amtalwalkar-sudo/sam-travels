@@ -68,14 +68,17 @@ Fixed annual costs are allocated to months using each calendar month's actual nu
 Exactly one breakeven output is required: **Full-cost breakeven**. There is no operating-breakeven metric or UI concept in this workstream.
 
 Full-cost breakeven is the total eligible cost burden that must be covered by earnings. It includes:
-- Fuel costs.
-- Maintenance accrual: business kilometres multiplied by the Admin-configured maintenance rate.
-- Driver-entered platform pass and commission charges.
-- Traffic challans.
-- Miscellaneous expenses.
-- The full scheduled EMI amount; do not split EMI into principal and interest for this calculation.
+- Fuel consumption cost: confirmed business kilometres multiplied by the effective weighted-average fuel cost/km.
+- Maintenance accrual: confirmed business kilometres multiplied by the Admin-configured maintenance rate effective on that date.
+- Driver-entered platform pass and commission charges, recognized only after actual payment.
+- Traffic challans, recognized only after actual payment.
+- Miscellaneous business expenses when recorded.
+- Compliance cost amortised over each applicable record's actual inclusive validity period, using the shared Business Start Date allocation rules.
+- The full scheduled EMI amount, allocated across its applicable monthly period; do not split EMI into principal and interest for this calculation.
 
-Use existing Finance and Business Start Date allocation outputs where applicable. Do not duplicate their source calculations or introduce a second EMI/compliance allocation implementation. Each cost must be recognized once. Do not create a separate operating-breakeven result, formula, registration, or presentation.
+Compliance and EMI are time-based costs and continue to allocate on calendar days even when there is no business operation. Fuel and maintenance accrue only on confirmed business kilometres. Fuel purchase spend is used to derive the consumption rate and is not added again as a separate daily cost.
+
+Use existing Finance and Business Start Date allocation outputs where applicable. Do not duplicate their source calculations or introduce a second EMI/Compliance allocation implementation. Each cost must be recognized once. Do not create a separate operating-breakeven result, formula, registration, or presentation.
 
 ### 6.1 Explicit exclusion
 
