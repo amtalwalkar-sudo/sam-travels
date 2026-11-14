@@ -12,11 +12,10 @@ import { FuelEntryPanel } from "./FuelEntryPanel";
 import { FullCostBreakevenPanel } from "./FullCostBreakevenPanel";
 import type { FullCostBreakevenService } from "../../../../packages/application/src";
 import { AdminServicesProvider } from "./admin-services-context";
-import { ApplicationShell, NavigationIcon, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
+import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 
 type Screen = PrimaryScreen;
 const shellDefinition = primaryShellDefinition;
-const navigation = shellDefinition.navigation;
 
 function ComingSoon({ screen }: { screen: Exclude<Screen, "Drive"> }) {
   const descriptions: Record<Exclude<Screen, "Drive">, string> = {
