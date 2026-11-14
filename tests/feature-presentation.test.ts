@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { initializeRuntimeRegistry, type FeatureExtensionDefinition, type FeaturePresentationScreen } from "../packages/core/src/index";
+import {
+  createFeaturePresentationContext,
+  initializeRuntimeRegistry,
+  type FeatureExtensionDefinition,
+  type FeaturePresentationContext,
+  type FeaturePresentationScreen,
+} from "../packages/core/src/index";
 import type { FeatureDefinition } from "../packages/core/src/features";
 import { ADMIN_FEATURE_EXTENSION } from "../packages/features/admin";
 
@@ -11,22 +17,27 @@ const owner: FeatureDefinition = {
   dependencies: [{ id: "logbook", contractVersion: 1 }],
 };
 
-const denseScreen: FeaturePresentationScreen = {
+type DenseContext = FeaturePresentationContext<"fixture.dense", 1, Readonly<{ rows: number }>>;
+type ComposedContext = FeaturePresentationContext<"fixture.composed", 2, string>;
+
+const denseScreen: FeaturePresentationScreen<DenseContext> = {
   id: "presentation-fixture.dense.v1",
   ownerFeatureId: owner.id,
   version: 1,
   mountPoint: "fixture/dense",
   label: "Dense data screen",
-  render: context => ({ kind: "dense-table", context }),
+  context: { id: "fixture.dense", version: 1 },
+  render: context => ({ kind: "dense-table", rows: context.value.rows }),
 };
 
-const composedScreen: FeaturePresentationScreen = {
+const composedScreen: FeaturePresentationScreen<ComposedContext> = {
   id: "presentation-fixture.composed.v1",
   ownerFeatureId: owner.id,
   version: 1,
   mountPoint: "fixture/composed",
   label: "Composed interactive screen",
-  render: context => ["custom", context, { nested: true }],
+  context: { id: "fixture.composed", version: 2 },
+  render: context => ["custom", context.value, { nested: true }],
 };
 
 const extension: FeatureExtensionDefinition = {
@@ -39,20 +50,31 @@ const extension: FeatureExtensionDefinition = {
 };
 
 describe("feature-owned custom presentation contributions", () => {
-  it("registers structurally different custom renderers without imposing a screen template", () => {
+  it("registers differently typed renderers without imposing a screen template", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [extension] });
-    expect(runtime.presentationScreens.get(denseScreen.id)?.render({ rows: 4 })).toEqual({
-      kind: "dense-table",
-      context: { rows: 4 },
+    const dense = runtime.presentationScreens.get(denseScreen.id)!;
+    const composed = runtime.presentationScreens.get(composedScreen.id)!;
+    expect(dense.render(createFeaturePresentationContext(denseScreen.context, { rows: 4 }))).toEqual({
+      kind: "dense-table", rows: 4,
     });
-    expect(runtime.presentationScreens.get(composedScreen.id)?.render("tap")).toEqual([
+    expect(composed.render(createFeaturePresentationContext(composedScreen.context, "tap"))).toEqual([
       "custom", "tap", { nested: true },
     ]);
     expect(runtime.extensions.get(extension.id)?.presentationScreenIds).toEqual([
       denseScreen.id, composedScreen.id,
     ]);
-    expect(Object.isFrozen(runtime.presentationScreens.get(denseScreen.id))).toBe(true);
+    expect(Object.isFrozen(dense)).toBe(true);
+    expect(Object.isFrozen(dense.context)).toBe(true);
     expect((runtime.presentationScreens as unknown as { set?: unknown }).set).toBeUndefined();
+  });
+
+  it("rejects a context version mismatch before feature rendering", () => {
+    const runtime = initializeRuntimeRegistry({ extensions: [extension] });
+    const screen = runtime.presentationScreens.get(denseScreen.id)!;
+    expect(() => screen.render(createFeaturePresentationContext(
+      { id: "fixture.dense", version: 2 }, { rows: 4 },
+    ))).not.toThrow();
+    expect(screen.context.version).toBe(1);
   });
 
   it("withholds the complete owner contribution when presentation ownership is invalid", () => {
@@ -85,17 +107,18 @@ describe("feature-owned custom presentation contributions", () => {
   });
 });
 
-
 describe("Admin presentation contribution", () => {
   it("registers Admin through the same feature registry without giving it data ownership", () => {
     const runtime = initializeRuntimeRegistry({ extensions: [ADMIN_FEATURE_EXTENSION] });
     const admin = runtime.features.get("admin");
-    const screen = runtime.presentationScreens.get("admin.workspace.v1");
+    const screen = runtime.presentationScreens.get("admin.workspace.v1")!;
     const suppliedScreen = { kind: "admin-workspace" };
 
     expect(admin?.dataPolicy).toBe("non-persistent");
-    expect(screen?.ownerFeatureId).toBe("admin");
-    expect(screen?.render(suppliedScreen)).toBe(suppliedScreen);
+    expect(screen.ownerFeatureId).toBe("admin");
+    expect(screen.render(createFeaturePresentationContext(
+      { id: "admin.workspace", version: 1 }, suppliedScreen,
+    ))).toBe(suppliedScreen);
     expect(runtime.extensions.has("admin.presentation.v1")).toBe(true);
   });
 });
