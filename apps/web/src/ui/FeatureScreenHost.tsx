@@ -58,7 +58,13 @@ export function FeatureScreenHost({ mountPoint, contextContract, context, regist
     .sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
   return <>
-    {screens.map(screen => <ScreenFailureBoundary key={screen.id} screenId={screen.id} onFailure={onScreenFailure}>
+    {screens.map(screen => <ScreenFailureBoundary key={screen.id} screenId={screen.id} onFailure={onScreenFailure ?? (() => {
+        void recordBrowserDiagnosticEvent(createSafeDiagnosticEvent({
+          stage: "presentation", code: "presentation_unavailable", outcome: "failure",
+          ownerFeatureId: screen.ownerFeatureId, contributionId: screen.id,
+          contractVersion: screen.version, occurredAt: new Date().toISOString(),
+        }));
+      })}>
       <FeatureScreenMount screen={screen} contextContract={contextContract} context={context} />
     </ScreenFailureBoundary>)}
   </>;
