@@ -45,6 +45,7 @@ import {
   LOAN_SETTLEMENT_FORM_V1,
   BusinessStartDateCostAllocationService,
   FullCostBreakevenService,
+  TripFinancialService,
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -354,9 +355,10 @@ async function bootstrap(): Promise<void> {
     getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
     getApplicationFinanceLoanPaymentService(), undefined, repository, getApplicationRecordSource(),
   );
+  const tripFinancials = new TripFinancialService(repository, getApplicationRecordSource());
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
-    getApplicationBusinessExpensesService(), costAllocation,
+    getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
   const adminServices = Object.freeze({
     formRuntime,
