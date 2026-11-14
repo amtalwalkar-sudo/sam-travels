@@ -193,7 +193,7 @@ class DriverOverlayServicePresentationTest : DriverOverlayServicePresentationTes
     @Test fun attachedCancellationFeeFormRetainsValueAfterMinimizeAndRestore() {
         val tripId = "overlay-minimize-restore-cancel"
         withAttachedOverlay(tripId, { db, now ->
-            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-cancel-minimize-event", now)
+            DriverCancellationFeeStore.createPendingObligation(db, tripId, "overlay-cancel-minimize-event", now, org.json.JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14"))
             DriverCancellationFeeStore.ensureCancellationFeeDraft(db, tripId)
         }) { ui, _ ->
             setText(ui, "Required cancellation fee in rupees", "12.34")
