@@ -120,6 +120,7 @@ Platform Fees, Traffic Challans, and Miscellaneous Business Expenses each have a
 
 ### Platform fees and passes
 - Record the amount actually paid by the driver. The authoritative recognition date is the explicit Asia/Kolkata paid business date stored on the expense source entry; the entry's creation/submission timestamp is audit metadata only.
+- A platform-fee source entry represents an already-paid transaction; do not create pending/unpaid platform-fee rows or introduce a separate unpaid-fee accrual state. Its `businessDate` is the actual payment date.
 - In the initial one-car/one-driver scope, retain the authoritative business vehicle ID on each vehicle-related platform pass/commission entry. This is a vehicle/business expense on the paid date, not a trip-level allocation; no multi-vehicle apportionment is introduced.
 - The entry may retain a source reference for traceability, but no platform payout, settlement, fee-statement matching, trip-to-payout matching, or separate net-earnings workflow is required.
 - Keep completed-trip fare gross. A paid platform fee is a separate cost recognized once; do not net it out of fare and deduct it again.
