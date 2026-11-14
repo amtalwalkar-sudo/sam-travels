@@ -21,13 +21,13 @@ export type FeaturePresentationContext<
   value: Value;
 }>;
 
-export type FeaturePresentationScreen<Context = any> = Readonly<{
+export type FeaturePresentationScreen<Context extends FeaturePresentationContext = FeaturePresentationContext> = Readonly<{
   id: string;
   ownerFeatureId: FeatureId;
   version: number;
   mountPoint: string;
   label: string;
-  context: FeaturePresentationContextContract;
+  context: FeaturePresentationContextContract<Context["contractId"], Context["contractVersion"]>;
   render: (context: Context) => unknown;
 }>;
 
