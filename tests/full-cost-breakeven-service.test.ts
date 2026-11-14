@@ -12,7 +12,7 @@ describe("FullCostBreakevenService source integration", () => {
     const fuelPurchase = { id: "fuel-purchase-1", data: { kind: "fuel_purchase", vehicleId } };
     const service = new FullCostBreakevenService(
       { list: async () => [{ id: vehicleId }] } as never,
-      { listVehicleRecords: async () => ({ accruals: [accrual], visits: [], expenses: [], rateHistory: [] }) } as never,
+      { listVehicleRecords: async () => ({ accruals: [accrual], visits: [], expenses: [], rateHistory: [], rateHistoryRecord: { id: "maintenance-rate-history-1", revision: 3 } }) } as never,
       {
         listExpenseEntries: async () => [{
           id: "platform-fee-1", revision: 1,
@@ -60,6 +60,7 @@ describe("FullCostBreakevenService source integration", () => {
     });
     expect(result.provenance.sourceIds).toContain("fuel-purchase-1");
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
+    expect(result.provenance.sourceIds).toContain("maintenance-rate-history-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
     expect(result.provenance.sourceIds).toContain("trip-financial-1");
     expect(result.daily[0].complete).toBe(false);
