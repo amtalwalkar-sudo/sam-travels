@@ -1,8 +1,8 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.6  
-**Status:** Frozen and approved product baseline with Addenda A through F; changes require an explicit, versioned product-owner amendment  
+**Version:** 1.7  
+**Status:** Frozen and approved product baseline with Addenda A through G; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -121,7 +121,13 @@ The passbook is a derived, auditable projection. It must not create or mutate so
 
 ## 9. Business-kilometre summary and predictive breakeven
 
-### 9.1 Kilometre summary
+### 9.1 Business-day definition and kilometre summary
+
+**Business day definition:** For this breakeven workstream, a business day is an Asia/Kolkata operational date on which the driver has an Online shift and completes/records at least one ride assigned to that shift. Both conditions are required. An Online shift with no ride is not a business day; a ride without an Online shift is not a business day.
+
+Use the authoritative Work/Shift and Trip records to determine Online-shift state, ride existence, and the ride's assigned operational date. The existing 04:00 Asia/Kolkata boundary and trip-to-creation-shift assignment rules remain authoritative: a ride crossing 04:00 remains assigned to the shift and operational date in which it was created. Do not infer a business day from odometer movement, fuel purchase, elapsed Online time alone, GPS displacement, or a manually entered expense.
+
+This classification identifies active business days for breakeven reporting and active-driving-day averages. It does **not** redefine the operational date or change time-based cost allocation: compliance amortisation and scheduled EMI allocations continue on their applicable calendar dates, including dates that are not business days. Activity-based fuel and maintenance costs continue to depend on confirmed business kilometres; a non-business day with no business kilometres has zero fuel and maintenance accrual, not zero total breakeven cost.
 
 Count **business kilometres only**; exclude personal-use kilometres.
 
@@ -210,6 +216,8 @@ No other unresolved product decision blocks implementation of the frozen breakev
 
 ## 14. Approval and amendment history
 
+- **v1.7 / Addendum G — Business-day definition:** Defines a business day for breakeven as an Asia/Kolkata operational date with an Online shift and at least one ride assigned to that shift; preserves the existing 04:00 trip assignment rules and keeps time-based compliance/EMI allocations on calendar dates. This amendment documents the business-day classification only and does not start implementation.
+
 - **v1.6 / Addendum F — Temporary Performance sanity-check surface:** Authorizes a temporary, isolated driver/admin sanity-check presentation in the existing Performance space while calculations and wiring are validated; requires one documented, repeatable, non-destructive command to remove/replace it and restore the Performance entry point without affecting calculation logic, source data, provenance, audit detail, or tests; defers the intended Performance redesign until validation is complete. This amendment documents the presentation boundary only and does not start implementation.
 
 - **v1.0 — Frozen baseline:** Records the agreed annual-first breakeven architecture, platform fee types, KM-based manually configured maintenance rate, operating/full-cost breakeven distinction, monthly Driver Target, passbook, business-kilometre summary, advisory predictive direction, forms-only scope, and add-on architecture.
@@ -291,6 +299,22 @@ Existing authoritative contracts govern missing, corrected, or disputed source r
 Predictive breakeven is deferred as an optional advisory add-on. Until its forecast horizon and minimum-history/completeness requirements are separately approved, it must not be registered or presented. This does not block implementation of actual full-cost breakeven, the Driver Target, passbook, business-kilometre summaries, or their approved configuration forms.
 
 The product decisions in this contract are now frozen for implementation. The product owner has previously directed that implementation begin once documentation is complete; that direction applies to this v1.5 baseline. Any change to the frozen rules or scope requires explicit, versioned product-owner approval.
+
+
+## Addendum G — Business-day definition for breakeven
+
+**Approval:** Approved by the product owner in the discussion preceding this amendment.  
+**Effective contract version:** 1.7
+
+1. For breakeven calculations and reporting, a **business day** is an Asia/Kolkata operational date on which the driver has an Online shift and at least one ride assigned to that shift. Both conditions are mandatory.
+2. An Online shift without a ride is not a business day. A ride without an Online shift is not a business day.
+3. Determine both conditions from authoritative Work/Shift and Trip records. The existing 04:00 operational-day boundary and trip assignment rules remain in force. A ride crossing 04:00 remains assigned wholly to the logical shift and operational date in which it was created.
+4. Do not infer a business day from odometer movement, fuel purchases, Online duration alone, GPS displacement, or expense entries.
+5. This definition governs business-day classification and active-driving-day denominators in breakeven reporting. It does not change calendar-based allocation of time-based costs: compliance amortisation and scheduled EMI allocations continue on applicable calendar dates, including non-business days. Activity-based fuel and maintenance costs continue to be calculated from confirmed business kilometres.
+6. This amendment defines a breakeven reporting concept; it does not change Work/Shift state transitions, trip lifecycle, odometer allocation, or the authoritative source contracts.
+
+This addendum records the business-day rule as a normative input to breakeven calculation. It does not authorize calculation implementation or change any other approved cost formula.
+
 
 
 ## Addendum F — Temporary Performance sanity-check surface
