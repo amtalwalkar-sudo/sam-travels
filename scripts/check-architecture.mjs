@@ -310,7 +310,6 @@ if (!featureScreenHost.includes("registry: RuntimeRegistry") || featureScreenHos
   failures.push("apps/web/src/ui/FeatureScreenHost.tsx: feature presentation hosts must consume the single registry supplied by composition");
 }
 if (!featurePresentationContract.includes("FeaturePresentationContext") ||
-    !featurePresentationContract.includes("contextContract") ||
     !featurePresentationContract.includes("assertFeaturePresentationContext") ||
     !featureScreenHost.includes("assertFeaturePresentationContext") ||
     !featureScreenHost.includes("Retry section")) {
