@@ -35,7 +35,7 @@ class DriverCancellationFeeStoreTest {
             val first=Room.databaseBuilder(context,LocalDatabase::class.java,name)
                 .allowMainThreadQueries().build()
             DriverCancellationFeeStore.createPendingObligation(first,"reopen-trip","reopen-cancel-event",
-                java.time.Instant.now().toString())
+                java.time.Instant.now().toString(), JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14"))
             DriverCancellationFeeStore.ensureCancellationFeeDraft(first,"reopen-trip")
             DriverCancellationFeeStore.updateCancellationFeeDraft(first,"reopen-trip",0L)
             first.close()
