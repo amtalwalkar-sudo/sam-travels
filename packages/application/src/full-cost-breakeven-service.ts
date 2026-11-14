@@ -36,7 +36,7 @@ export class FullCostBreakevenService {
   async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
     const [vehicles, expenses, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
-      this.allocation.getReport(),
+      this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
     ]);
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     const activityByDate = new Map<string, {
@@ -107,6 +107,7 @@ export class FullCostBreakevenService {
     const expenseById = new Map(expenseRecords.map(record => [record.id, record]));
     for (const envelope of expenseRecords) {
       const entry = envelope.data;
+      if (entry.sourceKind === "traffic_challan" && entry.paymentStatus !== "paid") continue;
       const original = entry.effect === "reversal" ? expenseById.get(entry.reversesSourceId ?? "") : undefined;
       const effectiveDate = original?.data.businessDate ?? entry.businessDate;
       const kind = entry.sourceKind === "platform_fee" ? "platform-fee"
