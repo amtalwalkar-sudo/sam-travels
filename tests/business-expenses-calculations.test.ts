@@ -121,21 +121,28 @@ describe("Full-to-full fuel intervals", () => {
 });
 
 describe("Daily expense aggregation", () => {
-  it("counts every fuel purchase, excludes challans from normal cost, and avoids netted fee double counting", () => {
+  it("recognizes only paid challans and treats paid platform charges separately from gross fare", () => {
     const result = calculateDailyBusinessExpenses([
       fuel("full", "2026-11-14T09:00:00.000Z", 100, false, 10_000),
       fuel("partial", "2026-11-14T10:00:00.000Z", 101, true, 2_000),
     ], [
-      expense("fee", "platform_fee", 5_000, { alreadyNettedFromIncome: true }),
-      expense("challan", "traffic_challan", 2_000),
+      expense("fee", "platform_fee", 5_000, { vehicleId, alreadyNettedFromIncome: false }),
+      expense("unpaid-challan", "traffic_challan", 2_000, { paymentStatus: "unpaid" }),
+      expense("paid-challan", "traffic_challan", 1_000, { paymentStatus: "paid" }),
       expense("misc", "miscellaneous", 3_000),
     ]);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
-      fuelPaise: 12_000, platformFeesPaise: 5_000, trafficChallansPaise: 2_000,
-      miscellaneousPaise: 3_000, reportedSourceExpensePaise: 22_000,
-      normalOperatingExpensePaise: 15_000, fullCostExpensePaise: 17_000,
+      fuelPaise: 12_000, platformFeesPaise: 5_000, trafficChallansPaise: 1_000,
+      miscellaneousPaise: 3_000, reportedSourceExpensePaise: 21_000,
+      normalOperatingExpensePaise: 20_000, fullCostExpensePaise: 21_000,
     });
+  });
+
+  it("fails closed for a platform charge marked as already netted from gross fare", () => {
+    expect(() => calculateDailyBusinessExpenses([], [
+      expense("fee-netted", "platform_fee", 5_000, { vehicleId, alreadyNettedFromIncome: true }),
+    ])).toThrow("business_expense_entry_invalid");
   });
 
   it("applies a linked reversal on its own business date", () => {
