@@ -53,7 +53,7 @@ class NativeBackupCoverageTest {
             .allowMainThreadQueries().build()
         try {
             val now = "2026-11-10T04:00:00.000Z"
-            DriverCancellationFeeStore.createPendingObligation(database, "cancelled-trip-1", "cancel-event-1", now)
+            DriverCancellationFeeStore.createPendingObligation(database, "cancelled-trip-1", "cancel-event-1", now, org.json.JSONObject().put("schemaVersion",1).put("shiftId","test-shift").put("driverId","test-driver").put("assignmentId","test-assignment").put("vehicleId","feature:vehicle:test").put("operationalDate","2026-11-14"))
             DriverCancellationFeeStore.ensureCancellationFeeDraft(database, "cancelled-trip-1")
             DriverCancellationFeeStore.updateCancellationFeeDraft(database, "cancelled-trip-1", 0L)
 
