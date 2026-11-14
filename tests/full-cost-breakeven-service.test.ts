@@ -26,7 +26,7 @@ describe("FullCostBreakevenService source integration", () => {
           costPaisePerKm: { numerator: "150", denominator: "1" },
           cumulativeSpendPaise: 15000, cumulativeDistanceKm: 100,
           intervalEndCheckpointIds: ["fuel-checkpoint"], sourcePurchaseIds: ["fuel-purchase-1"],
-          sourceRevisions: [{ sourceId: "fuel-purchase-1", revision: 1 }],
+          sourceRevisions: [1],
         }],
       } as never,
       {
@@ -44,7 +44,7 @@ describe("FullCostBreakevenService source integration", () => {
         data: { kind: "completed_ride_financials", status: "submitted",
           tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
           parkingPaise: 40, parkingPayer: "customer" },
-      }] },
+      }] } as never,
     );
     const result = await service.calculate("2026-11-01", "2026-11-01");
     expect(result.totalCostPaise).toBe(17_650);
