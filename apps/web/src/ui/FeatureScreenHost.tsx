@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
-import { assertFeaturePresentationContext, createFeaturePresentationContext, type FeaturePresentationContextContract, type RuntimeRegistry } from "../../../../packages/core/src";
+import { assertFeaturePresentationContext, createFeaturePresentationContext, createSafeDiagnosticEvent, type FeaturePresentationContextContract, type RuntimeRegistry } from "../../../../packages/core/src";
+import { recordBrowserDiagnosticEvent } from "../diagnostics";
 
 type FeatureScreenHostProps = Readonly<{
   mountPoint: string;
