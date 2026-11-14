@@ -8,7 +8,7 @@ export type DriverWorkflowPanelProps = Readonly<{
   workspace: ReturnType<typeof useDriverWorkspace>;
 }>;
 
-function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
+export function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
   const [shiftStartOdometer, setShiftStartOdometer] = useState("");
   const [shiftEndOdometer, setShiftEndOdometer] = useState("");
   const [boundaryOdometer, setBoundaryOdometer] = useState("");
@@ -18,7 +18,7 @@ function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
     setBoundaryOdometer("");
   }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
-    error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
+    driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
     driverMessage, shiftOn, driverChoices, selectedDriverId,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
     pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
@@ -27,7 +27,6 @@ function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
     updateCompletedTripFinancialDraft, submitCompletedTripFinancials } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
-  return (
   return (
 <section className="driver-card work-driver-card" style={driverPresentationCssVars}>
         <div className="driver-head">
