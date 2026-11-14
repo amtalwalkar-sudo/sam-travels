@@ -1,1 +1,1 @@
-export { recordBrowserDiagnostic } from "../../../packages/storage-browser/src/local-diagnostics";
+export { recordBrowserDiagnostic, recordBrowserDiagnosticEvent } from "../../../packages/storage-browser/src/local-diagnostics";
