@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { FeatureScreenHost } from "../apps/web/src/ui/FeatureScreenHost";
@@ -30,7 +30,7 @@ const extension: FeatureExtensionDefinition = {
 };
 const runtime = initializeRuntimeRegistry({ extensions: [extension] });
 
-function ReplacementShell({ children }: { children: React.ReactNode }) {
+function ReplacementShell({ children }: { children: ReactNode }) {
   return createElement("main", { "data-shell": "replacement" }, children);
 }
 
