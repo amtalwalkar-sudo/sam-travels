@@ -52,7 +52,7 @@
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
 | Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
 | Performance calculation approval | [Finance and Performance Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approval boundary; no unapproved metric/accounting policy |
-| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Frozen v1.6 product baseline for full-cost breakeven, monthly surplus target, passbook, business kilometres, configuration, and the temporary removable driver/admin sanity-check surface in Performance; final Performance redesign deferred until calculation wiring is validated; predictive add-on remains deferred pending separate approval |
+| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Frozen v1.9 full-cost breakeven source, cost and earnings baseline; upstream date/attribution rules defer to Work/Trip, Compliance, Finance, Fuel/Business Expense and Business Start Date owner contracts; Driver Target remains last; runtime breakeven implementation is blocked pending source-conformance fixes |
 | Admin product behaviour | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved six-section Admin product behaviour |
 | Admin capability technical design | [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Historical Slice 1 design; product and shared technical owners prevail |
 | Presentation architecture and shell | [UI/UX Shell Foundation](UI_UX_SHELL_FOUNDATION_CONTRACT.md) | Replaceable presentation and interaction architecture |
@@ -86,6 +86,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
+- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.
