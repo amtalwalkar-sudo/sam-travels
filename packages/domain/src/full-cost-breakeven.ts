@@ -130,7 +130,8 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
   }
   const costsByDate = new Map<string, BreakevenDailyCostV1[]>();
   for (const item of input.datedCosts) {
-    assertDate(item.date); paise(item.amountPaise);
+    assertDate(item.date);
+    if (!Number.isSafeInteger(item.amountPaise)) throw new Error("breakeven_amount_invalid");
     if (!item.sourceId.trim() || !Number.isSafeInteger(item.sourceRevision) || item.sourceRevision < 1 ||
         (item.scheduleVersion !== undefined && (!Number.isSafeInteger(item.scheduleVersion) || item.scheduleVersion < 1)) ||
         (item.sourceRefs !== undefined && (!Array.isArray(item.sourceRefs) || item.sourceRefs.some(ref =>
