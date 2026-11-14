@@ -281,7 +281,8 @@ object DriverWorkflowStore {
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
                 "cancel_ride" -> {
-                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now,current.optJSONObject("tripContext"))
+                    val tripContext=current.optJSONObject("tripContext") ?: error("cancelled_trip_context_missing")
+                    DriverCancellationFeeStore.createPendingObligation(db,current.optString("activeTripId"),eventId,now,tripContext)
                     next.remove("tripStartedAt");next.remove("activeTripId");next.remove("tripContext")
                 }
             }
