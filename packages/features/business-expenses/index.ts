@@ -15,6 +15,7 @@ export {
 export type {
   FuelPurchaseV1,
   FuelIntervalV1,
+  FuelCostRateHistoryEntryV1,
   BusinessExpenseEntryV1,
   DailyBusinessExpenseV1,
   ExpenseSourceKindV1,
