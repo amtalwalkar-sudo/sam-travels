@@ -186,7 +186,7 @@ Scope:
 5. Expose daily/weekly/monthly full-cost breakeven read models for future Performance consumption. Driver Target comparisons remain a later phase.
 6. Keep all calculations independent of the Performance UI/UX shell.
 
-The target is a fixed daily INR addition above breakeven, configured by Admin. The initial release supports exactly one car and one driver. Multi-car, multi-driver, and shared-cost allocation are deferred; keep the architecture extensible without implementing that future complexity now. No UI is added to Performance in this PR.
+Driver Target is a later phase and remains last in sequence. Its approved product rule is a monthly Admin-configured additional surplus above full-cost breakeven, as defined by the Breakeven and Driver Target Calculation Contract; this source-foundation PR does not design or implement it. The initial calculation scope supports exactly one car and one driver. Multi-car, multi-driver, and shared-cost allocation are deferred; keep the architecture extensible without implementing that future complexity now. No UI is added to Performance in this PR.
 
 ## 7. Repository assessment and implementation blockers to resolve
 
