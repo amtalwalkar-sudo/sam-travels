@@ -65,6 +65,22 @@ describe("PerformanceCalculationServiceV1", () => {
       .rejects.toThrow("performance_emi_read_model_kind_invalid");
   });
 
+  it("prepares and releases a shared source snapshot once for the full calculation", async () => {
+    const readModels = sources();
+    const fixed = {
+      ...readModels.emi,
+      ...readModels.compliance,
+      prepareSnapshot: vi.fn(async (_from: string, _to: string) => {}),
+      releaseSnapshot: vi.fn(),
+    };
+    readModels.emi = fixed;
+    readModels.compliance = fixed;
+    await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
+    expect(fixed.prepareSnapshot).toHaveBeenCalledTimes(1);
+    expect(fixed.prepareSnapshot).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
+    expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the monthly target configuration read-only and unprorated for date filters", async () => {
     const readModels = sources();
     const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
