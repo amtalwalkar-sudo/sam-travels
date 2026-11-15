@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { FUEL_ENTRY_FORM_V1, type AdminPresentationServices } from "../../../../packages/application/src";
 import { deriveFuelQuantityMilliKg } from "../../../../packages/features/business-expenses";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminFuelEntryServices } from "./admin-services-context";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 
@@ -15,7 +15,7 @@ function rupeesToPaise(value: unknown): number | undefined {
 }
 
 export function FuelEntryPanel() {
-  const services = useAdminServices();
+  const services = useAdminFuelEntryServices();
   const [open, setOpen] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [latestOdometerByVehicle, setLatestOdometerByVehicle] = useState<Record<string, number>>({});
