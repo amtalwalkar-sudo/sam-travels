@@ -306,3 +306,17 @@ The final implementation report must state:
 10. Physical-phone testing status, clearly separate from automated CI.
 
 Do not use "complete", "green", "parity", "isolated" or "approved" unless the corresponding evidence exists for the exact delivered commit.
+
+## 10. Current execution status — 15 November 2026
+
+- [x] Contract approved and expanded with enforceable decoupling guarantees.
+- [x] Phased execution plan, test matrix and evidence ledger documented.
+- [x] v2 visual proposal created: `docs/reference/timeline-mockup/sam-travels-timeline-proposed-direction-v2.svg`.
+- [x] v2 proposal manifest and README entry added; v1 retained as the approved historical baseline.
+- [ ] Explicit user approval of v2 — **pending**.
+- [ ] Visual-fidelity contract updated to designate v2 as current approved reference — intentionally blocked until approval.
+- [ ] Runtime implementation — intentionally not started pending approval.
+
+**Review links:** [v2 SVG proposal](reference/timeline-mockup/sam-travels-timeline-proposed-direction-v2.svg) · [v2 proposal manifest](reference/timeline-mockup/manifest-v2-proposal.md)
+
+The proposal is an approval artifact, not an implementation screenshot. Its three 390 × 844 mobile states show the day sequence, Monday–Sunday week navigation, and read-only event detail. The sample's unrepresented dates are explicitly labelled as not represented, not as days with no activity.
