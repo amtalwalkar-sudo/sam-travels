@@ -5,7 +5,7 @@ const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
 const registration = "MH00AA0090";
 const today = new Date().toISOString().slice(0, 10);
-function monthDateOffset(offset) {
+function futureDateOffsetDays(offset) {\n  const date = new Date();\n  date.setDate(date.getDate() + offset);\n  return date.toISOString().slice(0, 10);\n}\nfunction monthDateOffset(offset) {
   const date = new Date();
   date.setDate(1);
   date.setMonth(date.getMonth() + offset);
