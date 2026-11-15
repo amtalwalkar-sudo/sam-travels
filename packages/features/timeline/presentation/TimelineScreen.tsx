@@ -6,22 +6,11 @@ import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../a
 import type { TimelinePeriodMode } from "./PeriodNavigation";
 import type { TimelineEventDetailModel } from "./TimelineEventDetail";
 import type { TimelineShiftDetailModel } from "./TimelineShiftDetail";
+import { timelineShiftDisplayStatus } from "./timeline-shift-status";
 import { TimelineScreenShell, type TimelineDaySectionModel } from "./TimelineScreenShell";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
 import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime } from "./timeline-date";
 import "./timeline.css";
-function activeShiftAt(events: readonly DriverEvent[], instant: number): DriverEvent | undefined {
-  const ordered = [...events].sort((a, b) =>
-    Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
-    a.revision - b.revision || a.eventId.localeCompare(b.eventId));
-  let active: DriverEvent | undefined;
-  for (const event of ordered) {
-    if (Date.parse(event.command.transitionAt) > instant) break;
-    if (event.command.eventType === "shift_start") active = event;
-    if (event.command.eventType === "shift_end") active = undefined;
-  }
-  return active;
-}
 function eventTitle(event: DriverEvent): string {
   const names: Record<string, string> = {
     shift_start: "Shift started", shift_end: "Shift ended",
@@ -266,19 +255,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
         a.revision - b.revision || a.eventId.localeCompare(b.eventId));
       const shift = shiftByEvent.get(ordered[0]?.eventId ?? "");
-      const segmentStart = shift ? Date.parse(shift.anchorDate + "T04:00:00+05:30") : Number.NaN;
-      const segmentEnd = shift
-        ? Date.parse(moveTimelineDate(shift.anchorDate, 1) + "T04:00:00+05:30")
-        : Number.NaN;
-      const activeAtStart = Number.isFinite(segmentStart) ? activeShiftAt(allEvents, segmentStart) : undefined;
-      const activeAtEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd) : undefined;
-      const continued = !!activeAtStart && Date.parse(activeAtStart.command.transitionAt) < segmentStart;
-      const endedInsideSegment = ordered.some(event => event.command.eventType === "shift_end");
-      const closedAtBoundary = !!shift && allEvents.some(event =>
-        event.command.eventType === "shift_end" &&
-        Date.parse(event.command.transitionAt) === segmentEnd);
-      const rotated = !!shift && clockNow >= segmentEnd && !endedInsideSegment && !closedAtBoundary &&
-        !!activeAtEnd && (shift.eventIds.includes(activeAtEnd.eventId) || continued);
+      const { continued, status } = timelineShiftDisplayStatus(shift, ordered, allEvents, clockNow);
       const cards: TimelineEventCardModel[] = ordered.map(event => {
         const location = locationLabel(event, model?.locations[event.eventId]);
         const kind = eventKind(event);
@@ -310,7 +287,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         events: cards,
         shift,
         firstAt: Math.min(...ordered.map(event => Date.parse(event.command.transitionAt))),
-        status: !shift ? "ACTIVITY" : endedInsideSegment || closedAtBoundary ? "ENDED" : rotated ? "ROTATED · 04:00" : continued ? "CONTINUED · ACTIVE" : "IN PROGRESS",
+        status,
       };
     }).sort((a, b) => a.firstAt - b.firstAt || a.id.localeCompare(b.id));
   }, [day, eventById, shiftByEvent, allEvents, model, selectedDate, clockNow]);
