@@ -190,7 +190,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           })()
       """)
       assertTrue("Saved", awaitJavascript(activity,
-          "document.body.textContent.includes('Appended')", 15_000))
+          "document.body.textContent.includes('appended')", 15_000))
       val original = JSONObject(database.records().get(expenseId)!!.json)
       val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
