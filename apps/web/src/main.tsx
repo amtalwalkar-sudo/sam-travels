@@ -67,6 +67,7 @@ import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichm
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminIdentityPresentationAdapter } from "./admin-identity-presentation-adapter";
+import { createMaintenanceExpenseCorrectionAdapter } from "./maintenance-expense-correction-runtime";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -364,6 +365,7 @@ async function bootstrap(): Promise<void> {
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
   const adminIdentityAdapter = createAdminIdentityPresentationAdapter({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
+  const maintenanceCorrections = createMaintenanceExpenseCorrectionAdapter(repository, getPlatformRecordSource(), identityService);
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
@@ -383,7 +385,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityAdapter={adminIdentityAdapter}>
+      <AdminServicesProvider services={adminServices} identityAdapter={adminIdentityAdapter} maintenanceCorrections={maintenanceCorrections}>
         <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
       </AdminServicesProvider>
     </React.StrictMode>,
