@@ -11,7 +11,7 @@
 
 Replace the complete Admin presentation experience: its workspace shell, internal navigation, all six sections, every Admin-owned form, record lists/details, status and feedback surfaces, and empty/loading/error/blocked states.
 
-This is a complete presentation replacement, not a CSS reskin. The new experience may change the visual design, navigation within Admin, layout, interaction patterns and component hierarchy. It must not change the authoritative application capabilities, business outcomes, records, workflows, persistence, recovery, permissions or platform behaviour underneath it.
+This is a complete presentation replacement, not a CSS reskin. The new experience may change the visual design, layout, interaction patterns and component hierarchy. It must preserve the approved six-section Admin hierarchy and the expandable-list interaction with only one section expanded at a time. The visible Finance group contains the Finance-owned Loan workflows and the distinct Platform Fees and Miscellaneous Business Expenses forms; Traffic Challans remain under Compliance. This presentation grouping does not change capability ownership. The older product/implementation documents still label the Loan group separately; the Stage 0 inventory records that wording reconciliation before runtime replacement. It must not change the authoritative application capabilities, business outcomes, records, workflows, persistence, recovery, permissions or platform behaviour underneath it.
 
 The Admin presentation must be independently replaceable at every level:
 - Admin workspace shell;
