@@ -15,9 +15,9 @@ The reference demonstrates two supplied shifts. Shift 1 fare is ₹1,120, includ
 
 See [Timeline Mockup Visual Fidelity Contract](../../TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md) for preservation, responsive adaptation, visual regression and change-control requirements.
 
-## Proposed v2 review artifact — not approved
+## v2 proposal artifact — selected starting direction under delegated design authority
 
 - [Sam Travels Timeline proposed layered direction — v2](sam-travels-timeline-proposed-direction-v2.svg)
 - [Proposal manifest — v2](manifest-v2-proposal.md)
 
-The v2 proposal presents three mobile states: day overview, Monday–Sunday week overview, and read-only event detail. It was prepared to address the new layered review requirement. **It is a proposal only**: v1 remains the sole approved visual source of truth until the user explicitly approves v2. Do not implement the v2 visual direction before that approval. If the proposal is rejected or revised, retain these v2 proposal bytes and create a separately versioned revision.
+The v2 artifact presents three mobile states: day overview, Monday–Sunday week overview, and read-only event detail. It remains labelled and recorded as a proposal because it was not personally approved by the user. The user has explicitly delegated visual decisions to the assistant, so v2 is the initial implementation direction. The assistant may refine it within the product and architecture contracts; preserve both v1 and these original v2 bytes unchanged.
