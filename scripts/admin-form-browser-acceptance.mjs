@@ -288,6 +288,17 @@ try {
   await page.getByRole("button", { name: "Save rate", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Per-kilometre rate saved with effective-date history." }).waitFor({ state: "visible" });
   console.log("Maintenance visit, general expense and effective-date rate workflows submitted.");
+
+  await page.getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByLabel("Monthly Driver Target (₹)").fill("45000");
+  await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
+  await page.getByLabel("Amount (₹)").fill("12500");
+  await page.getByLabel("What was this cost for?").fill("Pre-launch vehicle registration");
+  await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor({ state: "visible" });
+  await page.getByText("Pre-launch vehicle registration", { exact: true }).waitFor({ state: "visible" });
+  console.log("Performance monthly Driver Target and multiple-entry pre-business cost Admin forms passed.");
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}
