@@ -21,6 +21,17 @@ try {
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+  await page.getByLabel("Person name").fill("Admin Form Browser Admin");
+  await page.getByLabel("Admin role").check();
+  await page.getByLabel("Set initial Admin PIN").fill("4831");
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor({ state: "visible" });
+  await page.getByLabel("Person").selectOption({ label: "Admin Form Browser Admin" });
+  await page.getByLabel("Active role").selectOption("admin");
+  await page.getByLabel("Admin PIN").fill("4831");
+  await page.getByRole("button", { name: "Activate role", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  console.log("Admin identity enrolled and PIN-verified actor activated.");
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
