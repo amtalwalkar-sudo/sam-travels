@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 
 export type TimelineEventDetailModel = Readonly<{
   title: string;
@@ -14,16 +14,24 @@ export type TimelineEventDetailModel = Readonly<{
 export type TimelineEventDetailProps = Readonly<{
   event: TimelineEventDetailModel | null;
   onClose: () => void;
-  children?: ReactNode;
 }>;
 
 /** Read-only detail layer. It receives display values only, never source records or services. */
 export function TimelineEventDetail({ event, onClose }: TimelineEventDetailProps) {
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => { if (event) panel.current?.focus(); }, [event]);
   if (!event) return null;
+  const handleKeyDown = (keyEvent: KeyboardEvent<HTMLElement>) => {
+    if (keyEvent.key === "Escape") {
+      keyEvent.preventDefault();
+      onClose();
+    }
+  };
   return <div className="timeline-detail-backdrop" role="presentation" onMouseDown={e => {
     if (e.target === e.currentTarget) onClose();
   }}>
-    <section className="timeline-detail-panel" role="dialog" aria-modal="true" aria-labelledby="timeline-detail-title">
+    <section ref={panel} className="timeline-detail-panel" role="dialog" aria-modal="true"
+      aria-labelledby="timeline-detail-title" tabIndex={-1} onKeyDown={handleKeyDown}>
       <header className="timeline-detail-header">
         <div><small>{event.category}</small><h3 id="timeline-detail-title">{event.title}</h3></div>
         <button type="button" onClick={onClose} aria-label="Close event details">×</button>
