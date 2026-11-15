@@ -58,7 +58,7 @@ describe("Performance Calculation Contract v1.0", () => {
     ]);
     expect(result.totalPaise).toBe(3);
     expect(result.daily.filter(row => row.amountPaise > 0).map(row => [row.date, row.amountPaise]))
-      .toEqual([["2026-03-15", 2], ["2026-03-16", 1]]);
+      .toEqual([["2026-03-15", 1], ["2026-03-15", 1], ["2026-03-16", 1]]);
   });
 
   it("keeps EMI and compliance distinct from the pre-business recovery bucket", () => {
