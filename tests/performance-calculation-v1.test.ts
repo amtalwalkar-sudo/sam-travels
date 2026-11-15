@@ -66,7 +66,9 @@ describe("Performance Calculation Contract v1.0", () => {
     const aprilFirst = result.daily[0];
     expect(aprilFirst.costs.emi).toBe(0);
     expect(aprilFirst.costs.compliance).toBe(0);
-    expect(aprilFirst.costs["pre-business-recovery"]).toBeGreaterThan(0);
+    expect(aprilFirst.costs["pre-business-manual-recovery"]).toBeGreaterThan(0);
+    expect(aprilFirst.costs["pre-business-emi-recovery"]).toBeGreaterThan(0);
+    expect(aprilFirst.costs["pre-business-compliance-recovery"]).toBeGreaterThan(0);
     expect(result.daily.some(row => row.costs.emi > 0)).toBe(false);
     expect(result.daily.some(row => row.costs.compliance > 0)).toBe(true);
   });
