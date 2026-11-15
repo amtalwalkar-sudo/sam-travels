@@ -80,7 +80,10 @@ export class PerformanceCalculationServiceV1 {
 
     if (emiCosts.some(row => row.kind !== "emi")) throw new Error("performance_emi_read_model_kind_invalid");
     if (complianceCosts.some(row => row.kind !== "compliance")) throw new Error("performance_compliance_read_model_kind_invalid");
-    if (operatingCosts.some(row => row.kind === "emi" || row.kind === "compliance")) {
+    const allowedOperatingKinds = new Set<string>([
+      "fuel", "maintenance", "platform-fee", "traffic-challan", "toll-parking", "miscellaneous",
+    ]);
+    if (operatingCosts.some(row => !allowedOperatingKinds.has(row.kind))) {
       throw new Error("performance_operating_cost_contains_time_cost");
     }
     if (manualRecovery.some(row => row.origin !== "manual") ||
