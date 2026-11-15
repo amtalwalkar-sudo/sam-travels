@@ -16,7 +16,8 @@ export type BusinessExpenseEntryV1 = Readonly<{
   businessDate: string; amountPaise: number; currencyCode: "INR";
   effect: "charge" | "reversal"; reversesSourceId?: string; vehicleId?: string;
   driverId?: string; category?: string; description?: string; reference?: string;
-  alreadyNettedFromIncome?: boolean; paymentStatus?: "unpaid" | "paid"; tripFinancialSourceId?: string;
+  alreadyNettedFromIncome?: boolean; paymentStatus?: "unpaid" | "paid";
+  tripExpenseTreatment?: "standalone" | "already-in-trip-closeout"; tripFinancialSourceId?: string;
   tripFinancialComponent?: "toll" | "parking" | "combined";
 }>;
 export type BusinessExpenseRecordV1 = FuelPurchaseV1 | BusinessExpenseEntryV1;
@@ -180,6 +181,7 @@ export class BusinessExpensesService {
           original.data.businessDate > data.businessDate ||
           (original.data.alreadyNettedFromIncome ?? false) !== (data.alreadyNettedFromIncome ?? false) ||
           original.data.paymentStatus !== data.paymentStatus ||
+          original.data.tripExpenseTreatment !== data.tripExpenseTreatment ||
           original.data.tripFinancialSourceId !== data.tripFinancialSourceId ||
           original.data.tripFinancialComponent !== data.tripFinancialComponent) {
         throw new Error("business_expense_reversal_link_invalid");
