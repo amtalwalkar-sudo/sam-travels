@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./timeline.css";
 import { PeriodNavigation, type TimelinePeriodMode } from "./PeriodNavigation";
 import { TimelineEventDetail, type TimelineEventDetailModel } from "./TimelineEventDetail";
 import { TimelineShiftDetail, type TimelineShiftDetailModel } from "./TimelineShiftDetail";
