@@ -102,7 +102,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Person name', 'Correction Admin') && set('Set initial Admin PIN', '4831');
           })()
       """))
-      evaluate(activity, "Array.from(document.querySelectorAll('form button[type=submit], form button:not([type])')).find(node => node.textContent.includes('Enroll person'))?.click()")
+      evaluate(activity, "document.querySelector('form button[type=submit], form button:not([type])')?.click()")
       assertTrue("Person enrollment should complete", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
       assertTrue("Admin activation ready", awaitJavascript(activity, """
