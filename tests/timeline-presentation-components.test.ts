@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { PeriodNavigation, TimelineEventCard, TimelineEventDetail, TimelineShiftSection, TimelineScreenShell } from "../packages/features/timeline";
+import { PeriodNavigation, TimelineEventCard, TimelineEventDetail, TimelineShiftSection, TimelineScreenShell, TimelineShiftDetail } from "../packages/features/timeline";
 
 describe("Timeline presentation component contracts", () => {
   it("renders the week as seven independently selectable calendar days", () => {
@@ -91,6 +91,27 @@ describe("Timeline presentation component contracts", () => {
     expect(html).toContain("12 Nov 2026");
     expect(html).toContain("No activity recorded for this day.");
     expect(html).toContain("Timeline is read-only");
+  });
+
+  it("renders shift metric detail without changing or normalizing source value states", () => {
+    const html = renderToStaticMarkup(createElement(TimelineShiftDetail, {
+      shift: {
+        title: "Shift · 2026-11-12",
+        status: "Read-only summary",
+        rows: [
+          { label: "Shift duration", value: "04:12:00", status: "available" },
+          { label: "Business distance", value: "In progress", status: "pending" },
+          { label: "Fare", value: "Not available", status: "unavailable" },
+          { label: "Pickup time", value: "Needs review", status: "invalid" },
+        ],
+      },
+      onClose: vi.fn(),
+    }));
+    expect(html).toContain("Business distance");
+    expect(html).toContain("pending");
+    expect(html).toContain("Not available");
+    expect(html).toContain("invalid");
+    expect(html).toContain('role="dialog"');
   });
 
 });
