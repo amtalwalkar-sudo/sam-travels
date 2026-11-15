@@ -169,7 +169,7 @@ export function createBusinessExpenseFormSubmissionHandler(
               tripFinancialComponent: requiredString(values.tripFinancialComponent,
                 "business_expense_trip_financial_component_required") as "toll" | "parking" | "combined",
             }
-          : values.tripFinancialComponent !== undefined
+          : optionalString(values.tripFinancialComponent)
             ? (() => { throw new Error("business_expense_trip_financial_source_required"); })()
             : {}),
       },
