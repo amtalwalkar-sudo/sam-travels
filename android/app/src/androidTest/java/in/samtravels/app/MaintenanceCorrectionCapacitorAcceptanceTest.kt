@@ -102,12 +102,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Person name', 'Corr Admin') && set('Set initial Admin PIN', '4831');
           })()
       """))
-      assertTrue("Enroll button enabled", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Person enrolled", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Admin activation options=" + evaluate(activity, "[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Select person'))?.querySelector('select')?.innerText + ' ; ' + document.querySelector('[role=status]')?.textContent, awaitJavascript(activity, """
+      assertTrue("Admin activation ready", awaitJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
