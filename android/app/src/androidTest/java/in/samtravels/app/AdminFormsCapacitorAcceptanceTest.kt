@@ -115,6 +115,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Fee amount (₹)", "120")
             set(activity, "Trip / settlement reference", "FEE-" + marker)
             set(activity, "Note", marker + " platform fee")
+            assertTrue("Platform fee inputs valid: " + javascriptValue(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const f=s?.querySelector('form');return [...(f?.querySelectorAll(':invalid')??[])].map(e=>e.closest('label')?.textContent||e.name||e.type).join(',')})()"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('form')?.checkValidity()", 10000))
             click(activity, "Save expense")
             assertTrue("Platform fee saved; form status=" + javascriptValue(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('[role=status]')?.textContent"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('[role=status]')?.textContent.includes('Saved.')", 30000))
 
