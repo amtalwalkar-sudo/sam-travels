@@ -14,10 +14,18 @@ export type TimelineShiftDetailProps = Readonly<{
 /** Read-only shift detail. Its only input is a presentation snapshot of metric values/statuses. */
 export function TimelineShiftDetail({ shift, onClose }: TimelineShiftDetailProps) {
   const panel = useRef<HTMLElement>(null);
-  useEffect(() => { if (shift) panel.current?.focus(); }, [shift]);
+  useEffect(() => { if (shift) panel.current?.querySelector<HTMLButtonElement>("button")?.focus(); }, [shift]);
   if (!shift) return null;
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape") { event.preventDefault(); onClose(); }
+    if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+    if (event.key === "Tab") {
+      const focusable = panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
   };
   return <div className="timeline-detail-backdrop" role="presentation" onMouseDown={event => {
     if (event.target === event.currentTarget) onClose();
