@@ -69,6 +69,8 @@ class NativeBusinessExpensesBackupTest {
                 JSONObject().put("reference", "platform-settlement-1").put("alreadyNettedFromIncome", false)))
             .put(expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174002",
                 JSONObject().put("category", "Parking").put("tripExpenseTreatment", "standalone")))
+            .put(expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174023",
+                JSONObject().put("category", "Parking")))
             .put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174003",
                 JSONObject().put("paymentStatus", "unpaid")))
         NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
