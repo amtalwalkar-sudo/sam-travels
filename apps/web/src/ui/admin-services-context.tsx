@@ -23,7 +23,7 @@ type AdminSectionAdapters = Readonly<{
   forms: FormRuntimeServices;
 }>;
 
-const AdminSectionAdaptersContext = createContext<AdminSectionAdapters | null>(null);
+const AdminServicesContext = createContext<AdminSectionAdapters | null>(null);
 const AdminIdentityContext = createContext<AdminIdentityPresentationAdapter | null>(null);
 const AdminMaintenanceCorrectionContext = createContext<MaintenanceExpenseCorrectionAdapter | null>(null);
 
@@ -49,15 +49,15 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
     forms: { formRuntime: services.formRuntime },
   }), [services]);
 
-  return <AdminSectionAdaptersContext.Provider value={adapters}>
+  return <AdminServicesContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
       <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>{children}</AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
-  </AdminSectionAdaptersContext.Provider>;
+  </AdminServicesContext.Provider>;
 }
 
 function useSectionAdapters(): AdminSectionAdapters {
-  const adapters = useContext(AdminSectionAdaptersContext);
+  const adapters = useContext(AdminServicesContext);
   if (!adapters) throw new Error("Admin application adapters were not supplied by the composition root.");
   return adapters;
 }
