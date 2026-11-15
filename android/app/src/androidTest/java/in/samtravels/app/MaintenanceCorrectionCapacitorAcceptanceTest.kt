@@ -145,7 +145,22 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Admin activates", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
-      evaluate(activity, "Array.from(document.querySelectorAll('.admin-replacement-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
+      val adminSections = listOf(
+        "business-setup" to "Business start date",
+        "vehicle" to "Add vehicle",
+        "driver" to "Add driver",
+        "compliance" to "Add compliance / renewal",
+        "finance" to "Add loan",
+        "maintenance" to "Maintenance",
+      )
+      adminSections.forEach { (sectionId, expectedContent) ->
+        evaluate(activity, "document.getElementById('admin-section-trigger-$sectionId')?.click()")
+        assertTrue("Room-backed Admin section $sectionId renders its workflow contribution",
+          awaitJavascript(activity,
+            "(() => { const panel = document.getElementById('admin-section-panel-$sectionId'); return !!panel && !panel.hidden && panel.textContent.includes('$expectedContent'); })()",
+            10_000))
+      }
+      evaluate(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
       assertTrue("Maintenance loads", awaitJavascript(activity,
           "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
       evaluate(activity, """
