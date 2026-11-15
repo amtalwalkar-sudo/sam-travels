@@ -1,5 +1,4 @@
 import type { RuntimeRegistry } from "../../../../../packages/core/src";
-import "../work/work-screen.css";
 import { FeatureScreenHost } from "../FeatureScreenHost";
 import { WorkScreenShell } from "../WorkScreenShell";
 import { DriverWorkflowPanel } from "../work/DriverWorkflowPanel";
