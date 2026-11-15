@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, DriverRecordV1 } from "../../../../packages/application/src";
 import { DRIVER_FORM_V1 } from "../../../../packages/application/src";
 import { useAdminDriverServices } from "./admin-services-context";
@@ -16,11 +16,6 @@ function daysUntil(date: string): number {
   const [ty,tm,td]=today().split("-").map(Number);
   return Math.floor((Date.UTC(y,m-1,d)-Date.UTC(ty,tm-1,td))/86400000);
 }
-function complianceStatus(date: string): "Valid"|"Expiring soon"|"Expired" {
-  const days=daysUntil(date);
-  return days<0 ? "Expired" : days<=15 ? "Expiring soon" : "Valid";
-}
-
 export function DriverSection() {
   const services = useAdminDriverServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
