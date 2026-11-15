@@ -248,7 +248,7 @@ try {
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Expense date").fill(today);
   await page.getByLabel("Category").fill("Parking");
-  await page.getByLabel("Amount (₹)").fill("50");
+  await page.getByLabel("Amount (₹)").last().fill("50");
   await page.getByLabel("Vehicle", { exact: true }).last().fill(vehicleId);
   await page.getByLabel("Description").fill("Acceptance parking");
   await page.getByLabel("Receipt / source reference").fill("PARKING-ACCEPTANCE-1");
