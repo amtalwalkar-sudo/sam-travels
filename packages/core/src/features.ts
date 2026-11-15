@@ -67,12 +67,9 @@ const initial: FeatureDefinition[] = [
     dataPolicy: "persistent",
     contractVersion: 1,
     dependencies: [
-      { id: "platform", contractVersion: 1 },
-      { id: "business-settings", contractVersion: 1 },
-      { id: "business-expenses", contractVersion: 1 },
-      { id: "maintenance", contractVersion: 1 },
+      { id: "work", contractVersion: 1 },
+      { id: "logbook", contractVersion: 1 },
       { id: "finance", contractVersion: 2 },
-      { id: "compliance", contractVersion: 1 },
     ],
     persistence: {
       schemaVersion: 1,
