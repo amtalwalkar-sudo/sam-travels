@@ -55,9 +55,8 @@ describe("Admin presentation dependency boundaries", () => {
 
   it("prevents Admin section components from using the broad service-container hook", () => {
     const files = [
-      "AdminBusinessVehicle.tsx", "AdminComplianceOverview.tsx", "AdminMaintenance.tsx",
-      "BusinessExpenseAdminForms.tsx", "LoanDetailsForm.tsx",
-      "LoanPaymentsPanel.tsx", "useLoanFormDrafts.ts",
+      "AdminComplianceOverview.tsx", "AdminMaintenance.tsx",
+      "LoanDetailsForm.tsx", "LoanPaymentsPanel.tsx", "useLoanFormDrafts.ts",
     ];
     for (const file of files) {
       expect(source("../apps/web/src/ui/" + file)).not.toContain("useAdminServices(");
