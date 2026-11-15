@@ -38,3 +38,8 @@
 .compliance-correction-history summary{font-weight:750;cursor:pointer}
 .compliance-correction-history article{display:grid;gap:3px;padding:8px 0;border-bottom:1px solid #edf1f3;overflow-wrap:anywhere}
 .compliance-correction-history article strong{color:#294b5e}
+
+@media(max-width:420px){
+  .compliance-fleet-overview{padding:10px}
+  .compliance-overlap-heading{flex-direction:column}
+}
