@@ -66,8 +66,7 @@ import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-f
 import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
-import { createAdminIdentityPresentationAdapter } from "./admin-identity-presentation-adapter";
-import { createMaintenanceExpenseCorrectionAdapter } from "./maintenance-expense-correction-runtime";
+import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -108,6 +107,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
+  const complianceCorrections = createComplianceHistoricalCorrectionService(repository, getPersonIdentityService(), getApplicationRecordSource());
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
       const actor = await getPersonIdentityService().currentActor();
@@ -121,7 +121,7 @@ async function bootstrap(): Promise<void> {
       calculateDailyCost: calculateDailyComplianceCost,
       validateProjectedComplianceData: assertComplianceRecordV1,
     },
-    historicalCorrections,
+    complianceCorrections,
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
@@ -364,8 +364,7 @@ async function bootstrap(): Promise<void> {
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
-  const adminIdentityAdapter = createAdminIdentityPresentationAdapter({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
-  const maintenanceCorrections = createMaintenanceExpenseCorrectionAdapter(repository, getPlatformRecordSource(), identityService);
+  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
@@ -385,7 +384,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityAdapter={adminIdentityAdapter} maintenanceCorrections={maintenanceCorrections}>
+      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance}>
         <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={true} />
       </AdminServicesProvider>
     </React.StrictMode>,
