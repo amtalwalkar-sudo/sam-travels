@@ -1,7 +1,6 @@
 package `in`.samtravels.app
 import android.content.Intent
 import android.os.SystemClock
-import android.webkit.WebView
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
