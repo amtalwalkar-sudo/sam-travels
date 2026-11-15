@@ -3,7 +3,8 @@ import type { AdminPresentationServices, DriverRecordV1, ComplianceRecordV1 } fr
 import { DRIVER_FORM_V1, COMPLIANCE_FORM_V1 } from "../../../../packages/application/src";
 import { useAdminDriverServices, useAdminComplianceServices } from "./admin-services-context";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
-import "./AdminWorkspace.css";
+import "./AdminFormControls.css";
+import "./AdminCompliance.css";
 import { AdminComplianceOverview } from "./AdminComplianceOverview";
 export { MaintenanceSection } from "./AdminMaintenance";
 
