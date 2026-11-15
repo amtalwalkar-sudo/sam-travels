@@ -178,7 +178,13 @@ try {
     throw new Error("admin_prepayment_preview_failed:" + (error instanceof Error ? error.message : String(error)));
   }
   await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
-  await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible" });
+  try {
+    await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible", timeout: 15000 });
+  } catch (error) {
+    console.log("Prepayment commit status:", await paymentPanel.locator("[role=status]").allTextContents());
+    console.log("Prepayment history rows:", await paymentPanel.locator(".loan-payment-list").allInnerTexts());
+    throw new Error("admin_prepayment_commit_failed:" + (error instanceof Error ? error.message : String(error)));
+  }
 
   await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
   await paymentPanel.getByLabel("Settlement date").fill(today);
