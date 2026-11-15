@@ -64,7 +64,7 @@ describe("FullCostBreakevenService source integration", () => {
         }),
       } as never,
       { submittedTripFinancialRecords: async () => [{
-        id: "trip-financial-1", revision: 2,
+        id: "work:trip-financial-obligation:trip-1", revision: 2,
         data: { kind: "completed_ride_financials", status: "submitted",
           tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
           parkingPaise: 40, parkingPayer: "customer" },
@@ -82,7 +82,7 @@ describe("FullCostBreakevenService source integration", () => {
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
     expect(result.provenance.sourceIds).toContain("maintenance-rate-history-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
-    expect(result.provenance.sourceIds).toContain("trip-financial-1");
+    expect(result.provenance.sourceIds).toContain("work:trip-financial-obligation:trip-1");
     expect(result.daily[0].complete).toBe(false);
     expect(result.provenance.completeness).toContainEqual(expect.objectContaining({ source: "trip-financials", status: "incomplete" }));
   });
