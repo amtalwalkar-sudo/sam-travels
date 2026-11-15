@@ -85,7 +85,7 @@ describe("Finance browser backup participant", () => {
     expect(snapshot.manifest.participants).toContainEqual({
       id: "finance-records", featureId: "finance", snapshotVersion: 1, restoreValidatorId: "finance-records-v1",
     });
-    expect(snapshot.data.records.map(record => record.id).sort()).toEqual([
+    expect(snapshot.data.records.map(record => (record as RecordEnvelope<unknown>).id).sort()).toEqual([
       loanId, paymentId, prepaymentId, vehicleId,
     ].sort());
 
