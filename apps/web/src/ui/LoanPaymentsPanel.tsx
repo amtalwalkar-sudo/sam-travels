@@ -190,13 +190,13 @@ export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onC
     <div className="loan-payment-head">
       <strong>Payment history ({paidEntries.length} active)</strong>
       <div className="loan-form-actions">
-        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (settlementOpen) { clearDraftView("settlement"); setSettlementOpen(false); setSettlementPreview(null); } else void openSettlementDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open settlement draft.")); setMessage(""); }}>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (settlementOpen) { clearDraftView("settlement"); setSettlementOpen(false); setSettlementPreview(null); setMessage(""); } else { void (async () => { setBusy(true); try { await openSettlementDraft(); setSettlementOpen(true); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not open settlement draft."); } finally { setBusy(false); } })(); } }}>
           {settlementOpen ? "Close settlement draft" : draftAvailability.settlement ? "Resume settlement draft" : "Settle & close"}
         </button>
-        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (prepaymentOpen) { clearDraftView("prepayment"); setPrepaymentOpen(false); setPrepaymentPreview(null); } else void openPrepaymentDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open prepayment draft.")); setMessage(""); }}>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (prepaymentOpen) { clearDraftView("prepayment"); setPrepaymentOpen(false); setPrepaymentPreview(null); setMessage(""); } else { void (async () => { setBusy(true); try { await openPrepaymentDraft(); setPrepaymentOpen(true); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not open prepayment draft."); } finally { setBusy(false); } })(); } }}>
           {prepaymentOpen ? "Close prepayment draft" : draftAvailability.prepayment ? "Resume prepayment draft" : "Prepay principal"}
         </button>
-        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (open) { clearDraftView("payment"); setOpen(false); } else void openPaymentDraft().catch(error => setMessage(error instanceof Error ? error.message : "Could not open payment draft.")); setMessage(""); }}>
+        <button className="admin-secondary" type="button" disabled={busy || loan.data.lifecycleState === "closed"} onClick={() => { if (open) { clearDraftView("payment"); setOpen(false); setMessage(""); } else { void (async () => { setBusy(true); try { await openPaymentDraft(); setOpen(true); setMessage(""); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not open payment draft."); } finally { setBusy(false); } })(); } }}>
           {open ? "Close payment draft" : draftAvailability.payment ? "Resume payment draft" : "Record payment"}
         </button>
       </div>
