@@ -35,6 +35,7 @@
 | Record/schema/backup format versioning | [Persistence Schema](PERSISTENCE_SCHEMA_CONTRACT.md) | Envelopes, schema versions, migrations and serialized formats |
 | Atomic commands, idempotency, outbox and recovery | [Transaction and Recovery](TRANSACTION_AND_RECOVERY_CONTRACT.md) | Durable intent, completion, replay and restore ordering |
 | Shared form mechanics and behaviour | [Form Architecture and Behaviour](FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md) | Form definition, lifecycle, validation boundary and presentation mechanics |
+| Admin presentation replacement | [Admin Presentation Replacement](ADMIN_PRESENTATION_REPLACEMENT_CONTRACT.md) | Replaceable Admin shell, six sections, every Admin form and component-level isolation; business rules remain with capability owners |
 | Work/Shift and Trip business rules | [Driver Workflow](DRIVER_WORKFLOW_CONTRACT.md) | Authoritative driver state machine and business workflow |
 | Work/Trip cross-feature snapshots | [Work Driver Trip Snapshot Integration](WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md) | Immutable operational context and integration transaction |
 | Native overlay behaviour | [Driver Overlay](DRIVER_OVERLAY_CONTRACT.md) | Overlay lifecycle, supported actions, minimize/restore and surface acceptance |
