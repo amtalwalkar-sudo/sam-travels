@@ -170,7 +170,8 @@ internal object NativeBusinessExpensesBackup {
                 require(trip.optString("kind") == "completed_ride_financials" &&
                     trip.optString("status") == "submitted" && expectedAmount > 0L &&
                     integer(expense, "amountPaise") == expectedAmount &&
-                    linkedOriginal?.optString("tripFinancialSourceId") == tripId &&
+                    linkedOriginal != null &&
+                    linkedOriginal.optString("tripFinancialSourceId") == tripId &&
                     linkedOriginal.optString("tripFinancialComponent") == component &&
                     linkedOriginal.optString("businessDate") == tripDate &&
                     (expense.optString("effect") == "reversal" ||
