@@ -241,7 +241,6 @@ try {
   await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
   await page.getByLabel("Fee amount (₹)").fill("120");
   await page.getByLabel("Trip / settlement reference").fill("SETTLEMENT-ACCEPTANCE-1");
-  await page.getByLabel("Already deducted from gross income").check();
   await page.getByLabel("Note").fill("Acceptance platform fee");
   await page.getByRole("button", { name: "Save expense", exact: true }).first().click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
