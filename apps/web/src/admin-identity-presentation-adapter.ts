@@ -30,8 +30,7 @@ export function createAdminIdentityPresentationAdapter(input: {
 }): AdminIdentityPresentationAdapter {
   const { identity, records, source, driverRecords } = input;
 
-  return Object.freeze({
-    async load(): Promise<AdminIdentitySnapshot> {
+  const loadSnapshot = async (): Promise<AdminIdentitySnapshot> => {
       const [people, driverRows, pinConfigured] = await Promise.all([
         identity.listPeople(), driverRecords.list(), identity.isAdminPinConfigured(),
       ]);
@@ -43,8 +42,10 @@ export function createAdminIdentityPresentationAdapter(input: {
         links: Object.freeze(Object.fromEntries(pairs)),
         pinConfigured,
       });
-    },
+  };
 
+  return Object.freeze({
+    load: loadSnapshot,
     async enroll(enrollment) {
       const personId = crypto.randomUUID().replaceAll("-", "");
       await identity.registerPerson({
@@ -73,7 +74,7 @@ export function createAdminIdentityPresentationAdapter(input: {
 
     async activate({ personId, role, pin }) {
       if (role === "driver") {
-        const snapshot = await this.load();
+        const snapshot = await loadSnapshot();
         if (!Object.values(snapshot.links).includes(personId)) {
           throw new Error("Link this person to a Driver profile before activating Driver role.");
         }
