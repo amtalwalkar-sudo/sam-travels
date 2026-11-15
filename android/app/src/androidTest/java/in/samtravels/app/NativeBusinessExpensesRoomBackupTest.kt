@@ -7,9 +7,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class NativeBusinessExpensesRoomBackupTest {
+    @Before fun registerOwners() {
+        NativeBusinessSettingsBackup.ensureRegistered(); NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered(); NativeComplianceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered(); NativeFinanceBackup.ensureRegistered()
+        NativeBusinessExpensesBackup.ensureRegistered()
+    }
     private fun record(id: String, data: JSONObject, at: String) = StoredRecord(id, JSONObject()
         .put("id", id).put("schemaVersion", 1).put("createdAt", at).put("updatedAt", at)
         .put("source", "web").put("revision", 1).put("data", data).toString(), 1, at)
@@ -17,8 +24,6 @@ class NativeBusinessExpensesRoomBackupTest {
     @Test fun fuelAndExpenseOwnersRoundTripThroughRoomBackup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
-        val vehicleLease = NativeVehicleBackup.register()
-        NativeBusinessExpensesBackup.ensureRegistered()
         val at = "2026-11-15T05:00:00.000Z"
         val vehicleId = "feature:vehicle:MH01AB1234"
         try {
@@ -40,6 +45,6 @@ class NativeBusinessExpensesRoomBackupTest {
             assertNotNull(db.records().get(fuelId)); assertNotNull(db.records().get(platform))
             assertNotNull(db.records().get(misc)); assertNotNull(db.records().get(challan))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(db) { false }, requireExplicitOwnerTags = true)
-        } finally { db.close(); vehicleLease.close() }
+        } finally { db.close() }
     }
 }
