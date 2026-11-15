@@ -10,7 +10,6 @@ import { timelineShiftDisplayStatus } from "./timeline-shift-status";
 import { TimelineScreenShell, type TimelineDaySectionModel } from "./TimelineScreenShell";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
 import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime } from "./timeline-date";
-import "./timeline.css";
 function eventTitle(event: DriverEvent): string {
   const names: Record<string, string> = {
     shift_start: "Shift started", shift_end: "Shift ended",
