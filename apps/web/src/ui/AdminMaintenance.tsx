@@ -6,7 +6,7 @@ import {
 import { useAdminMaintenanceServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
 import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
 import { projectMaintenanceExpenseRecords } from "../maintenance-expense-correction-runtime";
-import "./AdminWorkspace.css";
+import "./AdminFormControls.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Maintenance = Awaited<ReturnType<AdminPresentationServices["maintenance"]["listVehicleRecords"]>>;
