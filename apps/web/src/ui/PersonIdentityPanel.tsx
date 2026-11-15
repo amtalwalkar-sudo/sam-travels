@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { AdminIdentityPresentationAdapter, AdminIdentitySnapshot } from "../admin-identity-presentation-adapter";
 import type { BusinessRoleV1 } from "../../../../packages/domain/src/person-identity";
-import "./AdminWorkspace.css";
+import "./AdminFormControls.css";
 
 export function PersonIdentityPanel({ adapter }: { adapter: AdminIdentityPresentationAdapter }) {
   const [snapshot, setSnapshot] = useState<AdminIdentitySnapshot>({
