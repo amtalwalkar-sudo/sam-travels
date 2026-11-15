@@ -386,7 +386,7 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <AdminServicesProvider services={adminServices} identityAdapter={adminIdentityAdapter} maintenanceCorrections={maintenanceCorrections}>
-        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
+        <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );
