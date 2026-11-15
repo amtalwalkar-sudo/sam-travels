@@ -66,13 +66,13 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           payload.getJSONObject("data").put("displayName", name)
           database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
       }
-      assertTrue("Capacitor WebView should finish loading the Drive workspace",
+      assertTrue("WebView loads Drive",
           awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-      assertTrue("Admin nav", awaitJavascript(activity,
+      assertTrue("Admin navigation", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
           10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
-      assertTrue("Admin renders", awaitJavascript(activity,
+      assertTrue("Admin render", awaitJavascript(activity,
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
       assertTrue("Name field appears", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
@@ -106,14 +106,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertTrue("Enroll button enabled", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
-      assertTrue("Person enrolled", awaitJavascript(activity,
+      assertTrue("Enrolled", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
       assertTrue("Admin ready", awaitJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
       """, 15_000))
-      assertTrue("PIN activation", evaluate(activity, """
+      assertTrue("Activate PIN", evaluate(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
@@ -146,7 +146,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Admin on", awaitJavascript(activity,
+      assertTrue("Admin active", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
@@ -177,7 +177,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               input.dispatchEvent(new Event('input', { bubbles: true }));
               return true;
             };
-            return set('Corrected amount', '150.00') && set('Reason for correction', 'Verified against original receipt');
+            return set('Corrected amount', '150.00') && set('Reason for correction', 'Receipt verified');
           })()
       """))
       evaluate(activity, """
@@ -190,7 +190,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           })()
       """)
       assertTrue("Correction save", awaitJavascript(activity,
-          "document.body.textContent.includes('Correction appended')", 15_000))
+          "document.body.textContent.includes('Appended')", 15_000))
       val original = JSONObject(database.records().get(expenseId)!!.json)
       val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
