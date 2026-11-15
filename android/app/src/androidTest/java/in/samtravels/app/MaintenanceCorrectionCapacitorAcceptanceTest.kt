@@ -43,11 +43,11 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val expense = envelope(expenseId, now, JSONObject()
       .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
       .put("expenseDate", "2026-10-10").put("expenseName", "Accept tyre repair")
-      .put("description", "Acceptance receipt").put("amountPaise", 10000L),
+      .put("description", "Accept receipt").put("amountPaise", 10000L),
       JSONObject().put("personId", "person-driver-one").put("role", "driver"))
     val otherExpense = envelope(otherExpenseId, now, JSONObject()
       .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
-      .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre repair")
+      .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
       .put("description", "Other Driver receipt").put("amountPaise", 20000L),
       JSONObject().put("personId", "person-driver-two").put("role", "driver"))
     val activity = instrumentation.startActivitySync(
