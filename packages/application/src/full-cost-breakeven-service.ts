@@ -136,6 +136,7 @@ export class FullCostBreakevenService {
     const expenseById = new Map(expenses.map(record => [record.id, record]));
     const tripFinancialById = new Map(tripFinancialRecords.map(record => [record.id, record]));
     const shadowedTripDuplicateExpenseIds = new Set<string>();
+    const withheldTripLinkedExpenseIds = new Set<string>();
     const withheldLegacyTollParkingExpenseIds = new Set<string>();
     for (const expense of expenses) {
       if (expense.data.sourceKind === "miscellaneous" &&
@@ -182,11 +183,14 @@ export class FullCostBreakevenService {
         expense.data.amountPaise === expectedLinkedAmount && originalMatches &&
         (expense.data.effect === "reversal" || expense.data.businessDate === linkedDate);
       if (validLink) shadowedTripDuplicateExpenseIds.add(expense.id);
-      else completeness.push({
+      else {
+        withheldTripLinkedExpenseIds.add(expense.id);
+        completeness.push({
         source: "business-expenses", status: "review-required",
         detail: "Miscellaneous expense " + expense.id +
           " has an invalid trip-financial duplicate link and was withheld.",
-      });
+        });
+      }
     }
     const expenseKinds = [
       { field: "platformFeesPaise", sourceKind: "platform_fee", kind: "platform-fee" },
@@ -200,6 +204,7 @@ export class FullCostBreakevenService {
           const source = expenseById.get(sourceId);
           return source?.data.sourceKind === category.sourceKind &&
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
+            !withheldTripLinkedExpenseIds.has(sourceId) &&
             !withheldLegacyTollParkingExpenseIds.has(sourceId)
             ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
             : [];
