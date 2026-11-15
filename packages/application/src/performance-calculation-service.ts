@@ -12,7 +12,7 @@ type DailyCostKind = PerformanceDailyCostInputV1["kind"];
 type OperatingCostKind = Exclude<DailyCostKind, "emi" | "compliance">;
 
 export interface PerformanceSnapshotReadModel {
-  prepareSnapshot?(): Promise<void>;
+  prepareSnapshot?(from: string, to: string): Promise<void>;
   releaseSnapshot?(): void;
 }
 
@@ -73,10 +73,10 @@ export class PerformanceCalculationServiceV1 {
     const preparedSources = snapshotSources.filter(source =>
       typeof source.prepareSnapshot === "function");
     try {
-      await Promise.all(preparedSources.map(source =>
-        (source as PerformanceSnapshotReadModel).prepareSnapshot!()));
       const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
-    if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
+      if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
+      await Promise.all(preparedSources.map(source =>
+        (source as PerformanceSnapshotReadModel).prepareSnapshot!(businessStartDate, periodTo)));
     const [
       monthlyDriverTargetPaise, revenue, operatingCosts, emiCosts, complianceCosts,
       manualRecovery, emiRecovery, complianceRecovery, completeness,
