@@ -43,6 +43,10 @@ import {
   LOAN_PAYMENT_FORM_V1,
   LOAN_PREPAYMENT_FORM_V1,
   LOAN_SETTLEMENT_FORM_V1,
+  PERFORMANCE_DRIVER_TARGET_FORM_V1,
+  PRE_BUSINESS_COST_FORM_V1,
+  PerformanceAdminSettingsServiceV1,
+  createPerformanceCalculationServiceV1,
   BusinessStartDateCostAllocationService,
   FullCostBreakevenService,
   TripFinancialService,
@@ -76,6 +80,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
+  const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
@@ -135,6 +140,28 @@ async function bootstrap(): Promise<void> {
         const expenseResult = await handleBusinessExpenseSubmission(command);
         if (expenseResult !== undefined) return expenseResult;
         if (command.action !== "save" && command.action !== "submit") throw new Error("unsupported_admin_form_operation");
+        if (command.formId === PERFORMANCE_DRIVER_TARGET_FORM_V1.id) {
+          const rupees = Number(command.values.monthlyTargetRupees);
+          if (!Number.isFinite(rupees) || rupees < 0 || !Number.isSafeInteger(Math.round(rupees * 100))) {
+            throw new Error("performance_driver_target_invalid");
+          }
+          return performanceAdminSettings.setMonthlyDriverTargetPaise(
+            Math.round(rupees * 100), getApplicationRecordSource(),
+          );
+        }
+        if (command.formId === PRE_BUSINESS_COST_FORM_V1.id) {
+          const rupees = Number(command.values.amountRupees);
+          const note = String(command.values.note ?? "").trim();
+          if (!Number.isFinite(rupees) || rupees <= 0 || !Number.isSafeInteger(Math.round(rupees * 100)) || !note) {
+            throw new Error("performance_pre_business_cost_invalid");
+          }
+          return performanceAdminSettings.createPreBusinessCost({
+            commandId: command.instanceId,
+            amountPaise: Math.round(rupees * 100),
+            note,
+            source: getApplicationRecordSource(),
+          });
+        }
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
@@ -364,6 +391,13 @@ async function bootstrap(): Promise<void> {
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
+  const performanceCalculation = createPerformanceCalculationServiceV1({
+    businessSettings: getApplicationBusinessSettingsService(),
+    adminSettings: performanceAdminSettings,
+    fullCost: fullCostBreakeven,
+    allocation: costAllocation,
+    tripFinancials,
+  });
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
@@ -379,6 +413,8 @@ async function bootstrap(): Promise<void> {
     financeLoanPrepayments: getApplicationFinanceLoanPrepaymentService(),
     financeLoanSettlements: getApplicationFinanceLoanSettlementService(),
     businessExpenses: getApplicationBusinessExpensesService(),
+    performanceSettings: performanceAdminSettings,
+    performanceCalculation,
     recordSource: getApplicationRecordSource(),
   });
   createRoot(document.getElementById("root")!).render(
