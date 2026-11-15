@@ -61,7 +61,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       getReport: async () => { reads++; return report; },
     });
 
-    await adapter.prepareSnapshot("2026-03-01", "2026-12-31");
+    await adapter.prepareSnapshot();
     const emi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-31");
     const compliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31");
     const firstDayEmi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-01");
