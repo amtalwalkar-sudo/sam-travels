@@ -1,55 +1,19 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import {
-  initializeApplicationRuntimeRegistry,
-  getApplicationBusinessSettingsService,
-  getApplicationVehicleService,
-  getApplicationDriverRecordsService,
-  getApplicationDriverAssignmentService,
-  getApplicationComplianceService,
-  getApplicationComplianceAnalysisService,
-  initializeApplicationComplianceAnalysisService,
-  getApplicationMaintenanceService,
-  getApplicationFinanceLoanService,
-  getApplicationFinanceLoanPaymentService,
-  getApplicationFinanceLoanPrepaymentService,
-  getApplicationFinanceLoanSettlementService,
-  getApplicationRecordSource,
-  initializeApplicationFeatureLifecycle,
-  initializeApplicationBusinessSettingsService,
-  initializeApplicationVehicleService,
-  initializeApplicationDriverRecordsService,
-  initializeApplicationDriverAssignmentService,
-  initializeApplicationComplianceService,
-  initializeApplicationMaintenanceService,
-  initializeApplicationFinanceLoanService,
-  initializeApplicationFinanceLoanPaymentService,
-  initializeApplicationFinanceLoanPrepaymentService,
-  initializeApplicationFinanceLoanSettlementService,
-  getApplicationBusinessExpensesService,
-  initializeApplicationBusinessExpensesService,
-  initializeApplicationRecordSource,
-  RecordFormWorkingCopyRepository,
-  FeatureRecordService,
-  SharedFormRuntime,
-  BUSINESS_SETUP_FORM_V1,
-  VEHICLE_FORM_V1,
-  DRIVER_FORM_V1,
-  COMPLIANCE_FORM_V1,
-  MAINTENANCE_VISIT_FORM_V1,
-  MAINTENANCE_EXPENSE_FORM_V1,
-  MAINTENANCE_RATE_FORM_V1,
-  LOAN_DETAILS_FORM_V1,
-  LOAN_PAYMENT_FORM_V1,
-  LOAN_PREPAYMENT_FORM_V1,
-  LOAN_SETTLEMENT_FORM_V1,
-  PERFORMANCE_DRIVER_TARGET_FORM_V1,
-  PRE_BUSINESS_COST_FORM_V1,
-  PerformanceAdminSettingsServiceV1,
-  createPerformanceCalculationServiceV1,
-  BusinessStartDateCostAllocationService,
-  FullCostBreakevenService,
-  TripFinancialService,
+  initializeApplicationRuntimeRegistry, getApplicationBusinessSettingsService, getApplicationVehicleService, getApplicationDriverRecordsService,
+  getApplicationDriverAssignmentService, getApplicationComplianceService, getApplicationComplianceAnalysisService, initializeApplicationComplianceAnalysisService,
+  getApplicationMaintenanceService, getApplicationFinanceLoanService, getApplicationFinanceLoanPaymentService, getApplicationFinanceLoanPrepaymentService,
+  getApplicationFinanceLoanSettlementService, getApplicationRecordSource, initializeApplicationFeatureLifecycle, initializeApplicationBusinessSettingsService,
+  initializeApplicationVehicleService, initializeApplicationDriverRecordsService, initializeApplicationDriverAssignmentService, initializeApplicationComplianceService,
+  initializeApplicationMaintenanceService, initializeApplicationFinanceLoanService, initializeApplicationFinanceLoanPaymentService, initializeApplicationFinanceLoanPrepaymentService,
+  initializeApplicationFinanceLoanSettlementService, getApplicationBusinessExpensesService, initializeApplicationBusinessExpensesService, initializeApplicationRecordSource,
+  RecordFormWorkingCopyRepository, FeatureRecordService, SharedFormRuntime, BUSINESS_SETUP_FORM_V1,
+  VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1,
+  MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1, LOAN_PAYMENT_FORM_V1,
+  LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1, PERFORMANCE_DRIVER_TARGET_FORM_V1, PRE_BUSINESS_COST_FORM_V1,
+  PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
+  TripFinancialService
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -57,12 +21,12 @@ import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
 import {
-  assertMaintenanceRecordV1,
-  calculateMaintenanceVisitTotal,
-  maintenanceBusinessDateFromInstant,
+  assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant
 } from "../../../packages/features/maintenance";
-import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged,
-  assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1 } from "../../../packages/features/finance";
+import {
+  assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, assertFinanceLoanPrepaymentStateV1,
+  createLoanPrepaymentRevisionV1
+} from "../../../packages/features/finance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
