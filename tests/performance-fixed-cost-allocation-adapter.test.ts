@@ -64,6 +64,8 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     await adapter.prepareSnapshot("2026-03-01", "2026-12-31");
     const emi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-31");
     const compliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31");
+    const firstDayEmi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-01");
+    const firstDayCompliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-03-01");
     const emiRecovery = await adapter.listPreBusinessEmiPortions();
     const complianceRecovery = await adapter.listPreBusinessCompliancePortions();
     const completeness = await adapter.getCompleteness("2026-03-01", "2026-12-31");
@@ -72,6 +74,10 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     expect(reads).toBe(1);
     expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(10_678);
     expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(30_600);
+    // Narrow report windows must take their original daily share, not re-spread
+    // the whole installment or validity-period amount across the selected dates.
+    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(345);
+    expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(100);
     expect(emiRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(32_322);
     expect(complianceRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(15_900);
     expect([...emiRecovery, ...complianceRecovery].map(row => row.origin).sort())
