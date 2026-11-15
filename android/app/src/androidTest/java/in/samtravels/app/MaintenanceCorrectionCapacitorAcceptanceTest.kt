@@ -105,7 +105,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       evaluate(activity, "Array.from(document.querySelectorAll('form button[type=submit], form button:not([type])')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Person enrollment should complete", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Admin activation fields and enrolled person appear", awaitJavascript(activity, """
+      assertTrue("Admin activation ready", awaitJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Correction Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
@@ -148,7 +148,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
         evaluate(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
-        assertTrue("Room-backed Admin section $id renders", awaitJavascript(activity,
+        assertTrue("Section $id", awaitJavascript(activity,
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
       evaluate(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
@@ -204,7 +204,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
       assertEquals(1, head.getInt("chainRevision"))
       assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
-      assertNotNull("Correction record must be stored through the Room-backed repository",
+      assertNotNull("Room correction stored",
           database.records().get(correctionRows.single().getString("id")))
       assertTrue("Driver selected", evaluate(activity, """
           (() => {
