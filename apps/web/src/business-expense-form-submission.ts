@@ -83,14 +83,14 @@ export function beginFuelLocationCapture(geolocation: Geolocation | undefined =
   return Object.freeze({ promise, completedAt: () => completedAt });
 }
 
-/** Shared-form submission adapter; persistence and domain validation remain in application services. */
-export async function handleBusinessExpenseFormSubmission(
-  command: FormSubmissionCommand,
+/** Creates a feature-owned form adapter with explicit application dependencies. */
+export function createBusinessExpenseFormSubmissionHandler(
+  service: ReturnType<typeof getApplicationBusinessExpensesService>,
+  source: ReturnType<typeof getApplicationRecordSource>,
   locationEnrichment?: TimelineEnrichmentQueue,
-): Promise<unknown | undefined> {
-  const values = command.values;
-  const service = getApplicationBusinessExpensesService();
-  const source = getApplicationRecordSource();
+): (command: FormSubmissionCommand) => Promise<unknown | undefined> {
+  return async (command: FormSubmissionCommand): Promise<unknown | undefined> => {
+    const values = command.values;
 
   if (command.formId === FUEL_ENTRY_FORM_V1.id) {
     if (command.action !== "submit") throw new Error("fuel_entry_requires_submit");
@@ -180,4 +180,17 @@ export async function handleBusinessExpenseFormSubmission(
       ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
     },
   });
+  };
+}
+
+/** Composition-root compatibility adapter; the form itself receives no service locator. */
+export async function handleBusinessExpenseFormSubmission(
+  command: FormSubmissionCommand,
+  locationEnrichment?: TimelineEnrichmentQueue,
+): Promise<unknown | undefined> {
+  return createBusinessExpenseFormSubmissionHandler(
+    getApplicationBusinessExpensesService(),
+    getApplicationRecordSource(),
+    locationEnrichment,
+  )(command);
 }
