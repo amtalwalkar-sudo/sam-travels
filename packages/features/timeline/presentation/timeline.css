@@ -55,7 +55,7 @@
 .timeline-period-range>button{width:38px;height:38px;border:1px solid #405363;border-radius:9px;background:#1b2a36;color:#e6edf2;font-size:22px}
 .timeline-period-range label{display:grid;justify-items:center;gap:3px;min-width:0}
 .timeline-period-range label span{font-size:8px;letter-spacing:.1em;color:#8295a3}
-.timeline-period-range input{max-width:155px;border:0;background:transparent;color:#fff;font:600 13px inherit;text-align:center}
+.timeline-period-range input{max-width:155px;border:0;background:transparent;color:#fff;font-family:inherit;font-size:13px;font-weight:600;text-align:center}
 .timeline-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 .timeline-week-day{display:grid;justify-items:center;gap:5px;min-width:0;padding:8px 2px;border:1px solid #344452;border-radius:9px;background:#1b2a36;color:#aab8c4}
 .timeline-week-day span{font-size:9px;text-transform:uppercase}
