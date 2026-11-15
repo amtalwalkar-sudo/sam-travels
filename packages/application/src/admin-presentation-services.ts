@@ -13,6 +13,8 @@ import type { getApplicationFinanceLoanSettlementService } from "./finance-loan-
 import type { getApplicationRecordSource } from "./platform-context";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { getApplicationBusinessExpensesService } from "./business-expenses-runtime";
+import type { PerformanceAdminSettingsServiceV1 } from "./performance-admin-settings-service";
+import type { PerformanceCalculationServiceV1 } from "./performance-calculation-service";
 
 /**
  * Explicit application-service dependencies supplied by the composition root
@@ -34,4 +36,6 @@ export type AdminPresentationServices = Readonly<{
   financeLoanSettlements: ReturnType<typeof getApplicationFinanceLoanSettlementService>;
   recordSource: ReturnType<typeof getApplicationRecordSource>;
   businessExpenses: ReturnType<typeof getApplicationBusinessExpensesService>;
+  performanceSettings: PerformanceAdminSettingsServiceV1;
+  performanceCalculation: PerformanceCalculationServiceV1;
 }>;
