@@ -97,7 +97,8 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
             set(activity, "Payment status", "unpaid")
             click(activity, "Save expense")
-            assertTrue("Traffic challan saved", await(activity, "document.body.innerText.includes('Saved.')", 15000))
+            assertTrue("Traffic challan saved: " + (javascriptValue(activity, "document.body.innerText") ?: "no WebView text"),
+                await(activity, "document.body.innerText.includes('Saved.')", 15000))
 
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
