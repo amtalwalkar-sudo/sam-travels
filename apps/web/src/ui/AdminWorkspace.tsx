@@ -7,7 +7,7 @@ import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOpe
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import { LoanDetailsForm } from "./LoanDetailsForm";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import { useAdminServices, useAdminIdentityAdapter } from "./admin-services-context";
+import { useAdminWorkspaceServices, useAdminIdentityAdapter } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
 import { PlatformFeeSection, MiscBusinessExpenseSection, TrafficChallanSection } from "./BusinessExpenseAdminForms";
@@ -26,7 +26,7 @@ function rate(basisPoints: number): string {
 }
 export function AdminWorkspace() {
   const identityAdapter = useAdminIdentityAdapter();
-  const services = useAdminServices();
+  const services = useAdminWorkspaceServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loanScheduleHistories, setLoanScheduleHistories] = useState<Record<string, LoanScheduleHistory>>({});
