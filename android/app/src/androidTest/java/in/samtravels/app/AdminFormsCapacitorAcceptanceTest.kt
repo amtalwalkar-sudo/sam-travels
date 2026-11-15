@@ -41,7 +41,7 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
-                "driver" to "Add driver", "compliance" to "Add compliance / renewal",
+                "driver" to "Add driver", "compliance" to "Add a vehicle before recording compliance.",
                 "finance" to "Platform Fees", "maintenance" to "Start service visit")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
