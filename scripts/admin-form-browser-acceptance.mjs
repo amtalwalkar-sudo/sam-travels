@@ -238,6 +238,7 @@ try {
 
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Fee date").fill(today);
+  await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
   await page.getByLabel("Fee amount (₹)").fill("120");
   await page.getByLabel("Trip / settlement reference").fill("SETTLEMENT-ACCEPTANCE-1");
   await page.getByLabel("Already deducted from gross income").check();
