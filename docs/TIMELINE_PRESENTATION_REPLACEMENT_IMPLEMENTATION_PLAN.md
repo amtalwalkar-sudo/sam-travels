@@ -1,6 +1,6 @@
 # Timeline Presentation Replacement — Methodical Implementation Plan
 
-**Status:** Execution plan; no runtime implementation is authorized until the v2 visual reference is explicitly approved.  
+**Status:** Active execution plan; visual design decisions are delegated to the assistant within the approved product and architecture contracts.  
 **Normative authority:** `TIMELINE_PRESENTATION_REPLACEMENT_IMPLEMENTATION_CONTRACT.md` and the owner contracts listed there.  
 **Delivery rule:** Work phase by phase. Do not start a later phase while an earlier phase's exit gate is open. Do not silently widen scope.
 
@@ -38,13 +38,13 @@ These decisions are fixed for this workstream unless the user explicitly changes
 | Projection | Existing disposable Timeline projection; do not duplicate it |
 | Persistence | No Timeline-owned persistent cache, event store, table or migration |
 | Network | Core history works offline; existing optional reverse-geocoding consent/policy remains unchanged |
-| Visual approval | v1 is frozen; create v2 and obtain explicit approval before visual replacement |
+| Visual direction | v1 remains immutable history; v2 is the initial selected direction, refined under delegated design authority |
 | Device acceptance | Physical phone testing is deferred to the user's final acceptance stage |
 | PR policy | Keep draft/open/unmerged until explicitly instructed otherwise |
 
 ### Explicitly unresolved / must not be guessed
 
-- Exact v2 visual measurements, colours, typography, spacing and component geometry: extract from and present in v2 reference; do not invent before design approval.
+- Visual refinements beyond the v2 starting direction are owned by the assistant and must be documented with accessibility, responsive and source-truthfulness rationale; do not claim personal user approval.
 - Any missing source values (complete trip finance, legacy pickup interval evidence, odometer/business distance): remain pending/unavailable according to the source contract.
 - Source-level period query/pagination: known performance gap; do not fix inside this presentation replacement.
 - Any new source capability, feature context change, or public query change: stop and propose a separate owner-contract change before implementation.
@@ -309,14 +309,14 @@ Do not use "complete", "green", "parity", "isolated" or "approved" unless the co
 
 ## 10. Current execution status — 15 November 2026
 
-- [x] Contract approved and expanded with enforceable decoupling guarantees.
-- [x] Phased execution plan, test matrix and evidence ledger documented.
-- [x] v2 visual proposal created: `docs/reference/timeline-mockup/sam-travels-timeline-proposed-direction-v2.svg`.
-- [x] v2 proposal manifest and README entry added; v1 retained as the approved historical baseline.
-- [ ] Explicit user approval of v2 — **pending**.
-- [ ] Visual-fidelity contract updated to designate v2 as current approved reference — intentionally blocked until approval.
-- [ ] Runtime implementation — intentionally not started pending approval.
+- [x] Product and architecture contract approved.
+- [x] Delegated visual design ownership recorded; no further visual approval checkpoint is required.
+- [x] v1 frozen and retained unchanged; v2 proposal preserved with truthful provenance as the starting implementation direction.
+- [x] Baseline repository and Timeline source/projection contracts inspected.
+- [x] Initial presentation implementation started on `feat/driver-first-timeline-presentation`.
+- [x] Independent period navigation, week-day selection, event card, shift section, event detail and India calendar helper modules introduced.
+- [x] Initial day/week screen composition and focused calendar/component tests added.
+- [ ] Architecture enforcement, full regression, cross-platform parity, visual/accessibility verification and full CI — in progress.
+- [ ] Physical phone acceptance — deferred to the user's final testing stage.
 
-**Review links:** [v2 SVG proposal](reference/timeline-mockup/sam-travels-timeline-proposed-direction-v2.svg) · [v2 proposal manifest](reference/timeline-mockup/manifest-v2-proposal.md)
-
-The proposal is an approval artifact, not an implementation screenshot. Its three 390 × 844 mobile states show the day sequence, Monday–Sunday week navigation, and read-only event detail. The sample's unrepresented dates are explicitly labelled as not represented, not as days with no activity.
+The implementation branch is intentionally separate from this documentation PR. Both PRs remain draft/open/unmerged. The implementation report must cite actual automated evidence and the exact final commit; this status is not a completion claim.
