@@ -72,11 +72,11 @@ export type DailyBusinessExpenseV1 = Readonly<{
   platformFeesPaise: number;
   trafficChallansPaise: number;
   miscellaneousPaise: number;
-  /** Includes all source charges, including platform fees already netted from income. */
+  /** Includes all recognized source charges. */
   reportedSourceExpensePaise: number;
-  /** Excludes challans and fees already deducted from net income. */
+  /** Excludes traffic challans. */
   normalOperatingExpensePaise: number;
-  /** Includes challans, but does not double-count fees already deducted from net income. */
+  /** Includes traffic challans and all paid platform fees. */
   fullCostExpensePaise: number;
   sourceIds: readonly string[];
   sourceRevisions: readonly number[];
