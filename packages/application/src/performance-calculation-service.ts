@@ -69,10 +69,11 @@ export class PerformanceCalculationServiceV1 {
     const snapshotSources = [...new Set([
       this.sources.operatingCosts, this.sources.emi, this.sources.compliance,
       this.sources.revenue, this.sources.completeness,
-    ])].filter((source): source is typeof source & Required<Pick<PerformanceSnapshotReadModel, "prepareSnapshot">> =>
-      typeof (source as PerformanceSnapshotReadModel).prepareSnapshot === "function");
+    ])] as unknown as PerformanceSnapshotReadModel[];
+    const preparedSources = snapshotSources.filter(source =>
+      typeof source.prepareSnapshot === "function");
     try {
-      await Promise.all(snapshotSources.map(source =>
+      await Promise.all(preparedSources.map(source =>
         (source as PerformanceSnapshotReadModel).prepareSnapshot!()));
       const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
     if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
@@ -114,7 +115,7 @@ export class PerformanceCalculationServiceV1 {
     };
       return calculatePerformanceV1(input);
     } finally {
-      snapshotSources.forEach(source =>
+      preparedSources.forEach(source =>
         (source as PerformanceSnapshotReadModel).releaseSnapshot?.());
     }
   }
