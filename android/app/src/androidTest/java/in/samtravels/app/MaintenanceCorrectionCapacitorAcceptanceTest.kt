@@ -1,5 +1,6 @@
 package `in`.samtravels.app
 import android.content.Intent
+import android.webkit.WebView
 import android.os.SystemClock
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -111,7 +112,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Correction Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
       """, 15_000))
-      assertTrue("Admin PIN activation", evaluate(activity, """
+      assertTrue("PIN activation", evaluate(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
@@ -129,10 +130,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Admin PIN appears", awaitJavascript(activity,
+      assertTrue("PIN appears", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
           5_000))
-      assertTrue("Admin PIN accepted", evaluate(activity, """
+      assertTrue("PIN accepted", evaluate(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
             const pin = label?.querySelector('input');
@@ -144,7 +145,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Admin activates", awaitJavascript(activity,
+      assertTrue("Admin on", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
