@@ -91,7 +91,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Compliance saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
 
             set(activity, "Issue date", "2026-11-15")
-            set(activity, "Vehicle", registration, 1)
+            set(activity, "Vehicle", vehicleRecordId, 1)
             set(activity, "Challan amount (₹)", "500")
             set(activity, "Reason", marker + " challan")
             set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
@@ -135,7 +135,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Settlement committed", await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
 
             set(activity, "Fee date", "2026-11-15")
-            set(activity, "Vehicle", registration)
+            set(activity, "Vehicle", vehicleRecordId)
             set(activity, "Fee amount (₹)", "120")
             set(activity, "Trip / settlement reference", "FEE-" + marker)
             set(activity, "Note", marker + " platform fee")
