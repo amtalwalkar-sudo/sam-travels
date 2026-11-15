@@ -227,7 +227,9 @@ The existing correction UI directly constructs and consumes a persistence-backed
 
 ### 9.5 Compliance correction editor is not surfaced in current Admin composition
 
-Compliance correction services/projection tests exist and corrected source values feed the overview, but no Admin correction form/action was found in inspected AdminOperations.tsx / AdminComplianceOverview.tsx presentation. Treat this as an existing capability/UI gap to reconcile against the Compliance product/correction owner contract before claiming full Compliance workflow parity. Do not invent a new correction policy in the UI.
+**Disposition confirmed from the owner implementation:** `apps/web/src/compliance-historical-correction.ts` explicitly permits append-only corrections to `validFrom`, `validTo`, `totalCostPaise`, and `supportingDocumentRef`. Vehicle identity, schema identity and renewal linkage remain immutable. The shared historical-correction service enforces the approved driver-self/admin-any actor authority, reason, target revision and correction-chain checks.
+
+The replacement now exposes an Admin correction editor and audit history for those four fields, uses the Compliance-owned correction service, and reads corrected projections consistently in both the fleet overview and vehicle record list. This is not a generic edit/delete path and does not change the owner-approved field allowlist.
 
 ### 9.6 Finance/Loan section label needs document reconciliation
 
@@ -256,7 +258,7 @@ Stage 0 source inventory is complete at the recorded SHA. The following reconcil
 1. Reconcile Finance/Loan visible section wording in the normative Admin product and implementation documents.
 2. Close the three missing shared-form definition tests and add direct Business Expense form-mapping tests.
 3. Move Maintenance correction and Person Identity service/repository access behind explicit owner adapters; retain existing behaviour and permissions.
-4. Decide Compliance correction UI parity against the owning Compliance correction contract; do not silently omit an approved workflow.
+4. Verify the Compliance correction editor against the existing four-field owner allowlist and shared actor-authority contract; do not expand its permissions or editable fields.
 5. Diagnose and green the exact failing Android acceptance test from CI #2394.
 6. Add the section/form acceptance matrix to the runtime implementation plan before retiring any existing Admin UI.
 
