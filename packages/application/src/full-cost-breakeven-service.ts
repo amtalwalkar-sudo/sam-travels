@@ -158,6 +158,7 @@ export class FullCostBreakevenService {
       const originalMatches = expense.data.effect === "charge" ||
         (original?.data.kind === "business_expense" && original.data.effect === "charge" &&
           original.data.tripFinancialSourceId === linkedTripId &&
+          original.data.tripFinancialComponent === expense.data.tripFinancialComponent &&
           original.data.amountPaise === expense.data.amountPaise &&
           original.data.businessDate === linkedDate);
       const validLink = expense.data.sourceKind === "miscellaneous" &&
