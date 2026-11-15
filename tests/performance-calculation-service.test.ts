@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { PerformanceCalculationServiceV1, type PerformanceCalculationReadModelsV1 } from "../packages/application/src/performance-calculation-service";
+import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
+import type { CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
+import type { RecordEnvelope } from "../packages/core/src/types";
 
 function sources(): PerformanceCalculationReadModelsV1 {
   return {
@@ -80,6 +83,70 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(fixed.prepareSnapshot).toHaveBeenCalledTimes(1);
     expect(fixed.prepareSnapshot).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
     expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {
+    let record: RecordEnvelope<CompletedTripFinancialObligation> = {
+      id: "work:trip-financial-obligation:corrected-trip", schemaVersion: 1,
+      createdAt: "2026-04-05T10:00:00.000Z", updatedAt: "2026-04-05T10:00:00.000Z",
+      source: "web", revision: 1,
+      data: {
+        schemaVersion: 1, tripId: "corrected-trip", kind: "completed_ride_financials",
+        status: "submitted", endRideEventId: "end-corrected", createdAt: "2026-04-05T10:00:00.000Z",
+        tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1",
+          assignmentId: "assignment-1", vehicleId: "vehicle-1", operationalDate: "2026-04-05" },
+        farePaise: 10_000,
+      },
+    };
+    const revenue = new PerformanceTripRevenueAdapterV1({
+      submittedTripFinancialRecords: async () => [record],
+    });
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      revenue,
+      operatingCosts: { listDailyCosts: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      manualPreBusinessCosts: { listEntries: async () => [] },
+    };
+    const service = new PerformanceCalculationServiceV1(readModels);
+    const first = await service.calculate("2026-04-05", "2026-04-05");
+    record = {
+      ...record, revision: 2, updatedAt: "2026-04-06T08:00:00.000Z",
+      data: { ...record.data, farePaise: 12_500 },
+    };
+    const corrected = await service.calculate("2026-04-05", "2026-04-05");
+    expect(first.period.revenuePaise).toBe(10_000);
+    expect(corrected.period.revenuePaise).toBe(12_500);
+    expect(corrected.provenance.sourceRefs).toContainEqual({
+      sourceId: record.id, revision: 2,
+    });
+  });
+
+  it("completes recovery through the exact 18-month anniversary under application orchestration", async () => {
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      revenue: { listVerifiedDailyRevenue: async () => [] },
+      operatingCosts: { listDailyCosts: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      manualPreBusinessCosts: { listEntries: async () => [
+        { sourceId: "pre-business-18m", revision: 3, amountPaise: 18_000,
+          note: "Launch preparation", origin: "manual" as const },
+      ] },
+    };
+    const result = await new PerformanceCalculationServiceV1(readModels)
+      .calculate("2027-09-15", "2027-09-15");
+    expect(result.recovery.from).toBe("2026-03-15");
+    expect(result.recovery.toExclusive).toBe("2027-09-15");
+    expect(result.recovery.totalPaise).toBe(18_000);
+    expect(result.recovery.daily[result.recovery.daily.length - 1].date).toBe("2027-09-14");
+    expect(result.daily).toHaveLength(1);
+    expect(result.daily[0].date).toBe("2027-09-15");
+    expect(result.daily[0].costs["pre-business-manual-recovery"]).toBe(0);
+    expect(result.lifetime.costPaise).toBe(18_000);
   });
 
   it("keeps the monthly target configuration read-only and unprorated for date filters", async () => {
