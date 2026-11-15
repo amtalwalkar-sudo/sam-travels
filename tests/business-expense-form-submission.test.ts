@@ -78,15 +78,15 @@ describe("Admin business expense form submission mapping", () => {
   it("maps Platform Fee fields to the distinct fee record contract", async () => {
     const { createExpenseEntry, submit, command, source } = setup();
     await submit(command(PLATFORM_FEE_FORM_V1.id, {
-      businessDate: "2026-11-14", amountRupees: 12.34, reference: "trip-42",
-      alreadyNettedFromIncome: true, description: "platform settlement",
+      businessDate: "2026-11-14", vehicleId: "vehicle-1", amountRupees: 12.34, reference: "trip-42",
+      description: "platform settlement",
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
       data: {
         sourceKind: "platform_fee", businessDate: "2026-11-14", amountPaise: 1234,
-        currencyCode: "INR", effect: "charge", reference: "trip-42",
-        alreadyNettedFromIncome: true, description: "platform settlement",
+        currencyCode: "INR", effect: "charge", vehicleId: "vehicle-1", reference: "trip-42",
+        description: "platform settlement",
       },
     });
   });
@@ -130,8 +130,7 @@ describe("Admin business expense form submission mapping", () => {
   it("rejects invalid currency amounts and missing owner-required fields", async () => {
     const { submit, command } = setup();
     await expect(submit(command(PLATFORM_FEE_FORM_V1.id, {
-      businessDate: "2026-11-14", amountRupees: 12.345, reference: "trip-1",
-      alreadyNettedFromIncome: false,
+      businessDate: "2026-11-14", vehicleId: "vehicle-1", amountRupees: 12.345, reference: "trip-1",
     }))).rejects.toThrow("business_expense_amount_invalid");
     await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
       businessDate: "2026-11-14", amountRupees: 10,
