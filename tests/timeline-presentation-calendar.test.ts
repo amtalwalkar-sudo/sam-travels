@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  indiaCalendarDate, moveTimelineDate, timelineWeekStart, timelineWeekDates,
-  formatTimelineDate, formatTimelineEventTime,
-} from "../packages/features/timeline/presentation/timeline-date";
+import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, timelineWeekDates, formatTimelineDate, formatTimelineEventTime } from "../packages/features/timeline";
 
 describe("Timeline presentation calendar helpers", () => {
   it("uses the Asia/Kolkata calendar date rather than the UTC date", () => {
