@@ -9,6 +9,7 @@ import { AdminFinanceSection } from "./AdminFinanceSection";
 import { useAdminIdentityAdapter } from "./admin-services-context";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
 import { TrafficChallanSection } from "./AdminTrafficChallanSection";
+import { AdminPerformanceSettingsSection } from "./AdminPerformanceSettingsSection";
 
 export function AdminWorkspace() {
   const identityAdapter = useAdminIdentityAdapter();
@@ -19,6 +20,7 @@ export function AdminWorkspace() {
     { id: "compliance", label: "Compliance", content: <><ComplianceSection /><TrafficChallanSection /></> },
     { id: "finance", label: "Finance", content: <AdminFinanceSection /> },
     { id: "maintenance", label: "Maintenance", content: <MaintenanceSection /> },
+    { id: "performance", label: "Performance", content: <AdminPerformanceSettingsSection /> },
   ];
   return <AdminWorkspaceShell identityPanel={<PersonIdentityPanel adapter={identityAdapter} />}
     sections={sections} initialExpandedSection="finance" />;
