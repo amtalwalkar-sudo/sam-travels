@@ -90,7 +90,7 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Compliance saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
 
             set(activity, "Issue date", "2026-11-15")
-            set(activity, "Vehicle", registration)
+            set(activity, "Vehicle", registration, 1)
             set(activity, "Challan amount (₹)", "500")
             set(activity, "Reason", marker + " challan")
             set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
