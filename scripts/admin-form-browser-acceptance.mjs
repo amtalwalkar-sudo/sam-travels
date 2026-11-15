@@ -189,6 +189,9 @@ try {
   await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
   await paymentPanel.getByLabel("Settlement date").fill(today);
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
+  await paymentPanel.getByRole("button", { name: "Checking…", exact: true }).waitFor({ state: "visible", timeout: 5000 });
+  await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).waitFor({ state: "visible", timeout: 10000 });
+  console.log("Settlement preview status:", await paymentPanel.locator("[role=status]").allTextContents());
   await paymentPanel.getByText("Settlement amount:", { exact: false }).waitFor({ state: "visible", timeout: 15000 });
   await paymentPanel.getByRole("button", { name: "Confirm settlement and close Loan", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Final settlement recorded and Loan closed." }).waitFor({ state: "visible" });
