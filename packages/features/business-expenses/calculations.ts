@@ -174,7 +174,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.effect === "charge" && row.reversesSourceId !== undefined) ||
       (row.alreadyNettedFromIncome !== undefined && typeof row.alreadyNettedFromIncome !== "boolean") ||
       (row.paymentStatus !== undefined && !["unpaid", "paid"].includes(String(row.paymentStatus))) ||
-      (typeof row.category === "string" && /\\b(toll|parking)\\b/i.test(row.category) &&
+      (typeof row.category === "string" && /\b(toll|parking)\b/i.test(row.category) &&
         !["standalone", "already-in-trip-closeout"].includes(String(row.tripExpenseTreatment))) ||
       (row.tripExpenseTreatment !== undefined &&
         !["standalone", "already-in-trip-closeout"].includes(String(row.tripExpenseTreatment))) ||
