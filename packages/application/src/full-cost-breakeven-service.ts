@@ -134,6 +134,38 @@ export class FullCostBreakevenService {
 
     const datedCosts: BreakevenDailyCostV1[] = [];
     const expenseById = new Map(expenses.map(record => [record.id, record]));
+    const tripFinancialById = new Map(tripFinancialRecords.map(record => [record.id, record]));
+    const shadowedTripDuplicateExpenseIds = new Set<string>();
+    for (const expense of expenses) {
+      const linkedTripId = expense.data.tripFinancialSourceId;
+      if (!linkedTripId) continue;
+      const linkedTrip = tripFinancialById.get(linkedTripId);
+      const tripData = linkedTrip?.data;
+      const driverPaidAmount = tripData?.kind === "completed_ride_financials"
+        ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0) +
+          (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+        : 0;
+      const original = expense.data.effect === "reversal"
+        ? expenseById.get(expense.data.reversesSourceId ?? "") : undefined;
+      const linkedDate = tripData?.kind === "completed_ride_financials"
+        ? tripData.tripContext?.operationalDate : undefined;
+      const originalMatches = expense.data.effect === "charge" ||
+        (original?.data.kind === "business_expense" && original.data.effect === "charge" &&
+          original.data.tripFinancialSourceId === linkedTripId &&
+          original.data.amountPaise === expense.data.amountPaise &&
+          original.data.businessDate === linkedDate);
+      const validLink = expense.data.sourceKind === "miscellaneous" &&
+        tripData?.kind === "completed_ride_financials" && tripData.status === "submitted" &&
+        Number.isSafeInteger(driverPaidAmount) && driverPaidAmount > 0 &&
+        expense.data.amountPaise === driverPaidAmount && originalMatches &&
+        (expense.data.effect === "reversal" || expense.data.businessDate === linkedDate);
+      if (validLink) shadowedTripDuplicateExpenseIds.add(expense.id);
+      else completeness.push({
+        source: "business-expenses", status: "review-required",
+        detail: "Miscellaneous expense " + expense.id +
+          " has an invalid trip-financial duplicate link and was withheld.",
+      });
+    }
     const expenseKinds = [
       { field: "platformFeesPaise", sourceKind: "platform_fee", kind: "platform-fee" },
       { field: "trafficChallansPaise", sourceKind: "traffic_challan", kind: "traffic-challan" },
@@ -141,13 +173,21 @@ export class FullCostBreakevenService {
     ] as const;
     for (const daily of dailyExpenseOutputs) {
       for (const category of expenseKinds) {
-        const amountPaise = daily[category.field];
+        let amountPaise = daily[category.field];
         const refs = daily.sourceIds.flatMap((sourceId, index) => {
           const source = expenseById.get(sourceId);
-          return source?.data.sourceKind === category.sourceKind
+          return source?.data.sourceKind === category.sourceKind &&
+            !shadowedTripDuplicateExpenseIds.has(sourceId)
             ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
             : [];
         });
+        if (category.sourceKind === "miscellaneous") {
+          amountPaise = refs.reduce((sum, ref) => {
+            const source = expenseById.get(ref.sourceId)!;
+            const sign = source.data.effect === "reversal" ? -1 : 1;
+            return sum + sign * source.data.amountPaise;
+          }, 0);
+        }
         if (!Number.isSafeInteger(amountPaise)) throw new Error("breakeven_expense_amount_invalid");
         if (amountPaise !== 0 && !refs.length) {
           completeness.push({ source: "business-expenses", status: "incomplete",
