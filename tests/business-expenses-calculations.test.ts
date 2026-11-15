@@ -53,6 +53,11 @@ describe("Business expense source contracts", () => {
     expect(() => deriveFuelQuantityMilliKg(0, 10_000)).toThrow("fuel_amount_and_price_must_be_positive_integer_paise");
   });
 
+  it("keeps legacy toll and parking records readable for migration review", () => {
+    const legacy = expense("legacy-parking", "miscellaneous", 500, { category: "Parking" });
+    expect(() => assertBusinessExpenseEntryV1(legacy)).not.toThrow();
+  });
+
   it("rejects invalid fuel facts, mismatched India business dates, and malformed expense entries", () => {
     expect(() => assertFuelPurchaseV1({ ...fuel("f1", "2026-11-14T09:00:00.000Z", 10, false, 1000), amountPaise: 0 }))
       .toThrow("fuel_purchase_invalid");
