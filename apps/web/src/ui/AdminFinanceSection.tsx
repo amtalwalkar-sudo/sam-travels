@@ -4,7 +4,8 @@ import type { LoanAmortizationSchedule } from "../../../../packages/features/fin
 import { useAdminWorkspaceServices } from "./admin-services-context";
 import { LoanDetailsForm } from "./LoanDetailsForm";
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
-import { PlatformFeeSection, MiscBusinessExpenseSection } from "./BusinessExpenseAdminForms";
+import { PlatformFeeSection } from "./AdminPlatformFeeSection";
+import { MiscBusinessExpenseSection } from "./AdminMiscBusinessExpenseSection";
 import "./AdminFinance.css";
 import "./AdminFormControls.css";
 
