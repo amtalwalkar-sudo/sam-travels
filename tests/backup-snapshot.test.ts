@@ -40,6 +40,12 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
         schemaVersion: 1,
         tableNames: ["records"],
       },
+      {
+        id: "performance-records",
+        featureId: "performance",
+        schemaVersion: 1,
+        tableNames: ["records"],
+      },
     ]);
     expect(() => assertBrowserBackupTableCoverage()).not.toThrow();
   });
