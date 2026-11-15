@@ -44,7 +44,7 @@ export function createAdminIdentityPresentationAdapter(input: {
       });
   };
 
-  return Object.freeze({
+  return Object.freeze<AdminIdentityPresentationAdapter>({
     load: loadSnapshot,
     async enroll(enrollment) {
       const personId = crypto.randomUUID().replaceAll("-", "");
