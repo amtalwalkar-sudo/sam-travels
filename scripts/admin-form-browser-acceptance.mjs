@@ -4,6 +4,17 @@ import { spawn } from "node:child_process";
 const baseUrl = "http://127.0.0.1:4173";
 const vehicleId = "feature:vehicle:MH00AA0090";
 const registration = "MH00AA0090";
+const today = new Date().toISOString().slice(0, 10);
+function monthDateOffset(offset) {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + offset);
+  return date.toISOString().slice(0, 10);
+}
+const loanStartDate = monthDateOffset(-10);
+const firstEmiDate = monthDateOffset(-9);
+const complianceValidTo = monthDateOffset(12);
+const nextServiceDate = monthDateOffset(6);
 const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
   detached: true, stdio: "ignore",
 });
@@ -51,46 +62,145 @@ try {
   }
   console.log("Vehicle create workflow saved a canonical vehicle record.");
 
+  const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
-  await page.getByLabel("Driver name").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  console.log("Driver profile form opened and safely dismissed.");
+  await page.getByLabel("Driver name").fill(driverName);
+  await page.getByLabel("Driving licence number").fill("ACCEPTANCE-LIC-1");
+  await page.getByLabel("Mobile number").fill("9990001111");
+  await page.getByRole("button", { name: "Save driver", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
+  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
+  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
+  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
+  await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
+  await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
+  console.log("Driver create, Work selection, vehicle assignment and unassignment commands passed.");
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
   await complianceVehicle.selectOption(vehicleId);
   await page.getByRole("button", { name: "Add compliance / renewal", exact: true }).click();
-  await page.getByLabel("Compliance type / name").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByLabel("Compliance type / name").fill("Acceptance Insurance");
+  await page.getByLabel("Valid from").fill(today);
+  await page.getByLabel("Valid until").fill(complianceValidTo);
+  await page.getByLabel("Total cost (₹)").fill("12000");
+  await page.getByLabel("Document reference (optional)").fill("INS-ACCEPTANCE-1");
+  await page.getByRole("button", { name: "Save record", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
-  await page.getByLabel("Payment status").waitFor({ state: "visible" });
-  console.log("Compliance renewal and Traffic Challan forms rendered.");
+  await page.getByLabel("Issue date").fill(today);
+  await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
+  await page.getByLabel("Challan amount (₹)").fill("500");
+  await page.getByLabel("Reason").fill("Signal violation");
+  await page.getByLabel("Challan / transaction reference").fill("CHALLAN-ACCEPTANCE-1");
+  await page.getByLabel("Payment status").selectOption("unpaid");
+  await page.getByRole("button", { name: "Save expense", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
+  console.log("Compliance coverage and Traffic Challan records submitted.");
 
   await page.getByRole("button", { name: "Finance", exact: true }).click();
   await page.locator("#admin-vehicle").selectOption(vehicleId);
   await page.getByRole("button", { name: "Add loan", exact: true }).click();
-  await page.getByLabel("Loan name").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
+  await page.getByLabel("Loan name").fill("Admin Browser Loan");
+  await page.getByLabel("Lender name").fill("Acceptance Bank");
+  await page.getByLabel("Original principal (₹)").fill("100000");
+  await page.getByLabel("Annual interest rate (%)").fill("12");
+  await page.getByLabel("Tenure (months)").fill("12");
+  await page.getByLabel("Loan start date").fill(loanStartDate);
+  await page.getByLabel("First EMI date (first day of month)").fill(firstEmiDate);
+  await page.getByRole("button", { name: "Save loan details", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Loan details saved as an immutable historical record." }).waitFor({ state: "visible" });
+  const loanCard = page.locator(".loan-record").filter({ hasText: "Admin Browser Loan" });
+  const paymentPanel = loanCard.locator(".loan-payment-panel");
+
+  await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
+  await paymentPanel.getByLabel("Payment date").fill(today);
+  await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
+  await paymentPanel.getByRole("button", { name: "Suggest oldest-due-first allocation", exact: true }).click();
+  await paymentPanel.getByText("Review allocation", { exact: false }).waitFor({ state: "visible" });
+  await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
+  await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
+
+  page.on("dialog", async dialog => {
+    if (dialog.type() === "prompt") await dialog.accept("Acceptance full reversal reason");
+    else await dialog.accept();
+  });
+  await paymentPanel.getByRole("button", { name: "Reverse", exact: true }).click();
+  await paymentPanel.getByRole("status").filter({ hasText: "Full payment reversal recorded." }).waitFor({ state: "visible" });
+
+  await paymentPanel.getByRole("button", { name: "Prepay principal", exact: true }).click();
+  await paymentPanel.getByLabel("Prepayment date").fill(today);
+  await paymentPanel.getByLabel("Principal amount (₹)").fill("5000");
+  await paymentPanel.getByRole("button", { name: "Preview prepayment", exact: true }).click();
+  await paymentPanel.getByText("Review before confirmation", { exact: true }).waitFor({ state: "visible" });
+  await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
+  await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible" });
+
+  await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
+  await paymentPanel.getByLabel("Settlement date").fill(today);
+  await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
+  await paymentPanel.getByText("Settlement amount:", { exact: false }).waitFor({ state: "visible" });
+  await paymentPanel.getByRole("button", { name: "Confirm settlement and close Loan", exact: true }).click();
+  await paymentPanel.getByRole("status").filter({ hasText: "Final settlement recorded and Loan closed." }).waitFor({ state: "visible" });
+
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
+  await page.getByLabel("Fee date").fill(today);
+  await page.getByLabel("Fee amount (₹)").fill("120");
+  await page.getByLabel("Trip / settlement reference").fill("SETTLEMENT-ACCEPTANCE-1");
+  await page.getByLabel("Already deducted from gross income").check();
+  await page.getByLabel("Note").fill("Acceptance platform fee");
+  await page.getByRole("button", { name: "Save expense", exact: true }).first().click();
+  await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
+
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
-  await page.getByLabel("Already deducted from gross income").waitFor({ state: "visible" });
-  console.log("Loan details, Platform Fee and Miscellaneous Expense forms rendered.");
+  await page.getByLabel("Expense date").fill(today);
+  await page.getByLabel("Category").fill("Parking");
+  await page.getByLabel("Amount (₹)").fill("50");
+  await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
+  await page.getByLabel("Description").fill("Acceptance parking");
+  await page.getByLabel("Receipt / source reference").fill("PARKING-ACCEPTANCE-1");
+  await page.getByRole("button", { name: "Save expense", exact: true }).last().click();
+  await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
+  console.log("Loan, payment, reversal, prepayment, settlement, Platform Fee and Miscellaneous Expense workflows submitted.");
 
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
-  const maintenanceVehicle = page.locator("#admin-section-panel-maintenance select").first();
+  const maintenanceVehicle = page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first();
   await maintenanceVehicle.selectOption(vehicleId);
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
-  await page.getByLabel("Maintenance type").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
+  await page.getByLabel("Maintenance type").fill("Scheduled service");
+  await page.getByLabel("Date", { exact: true }).fill(today);
+  await page.getByLabel("Provider / garage (optional)").fill("Acceptance Garage");
+  await page.getByLabel("Odometer km (optional)").fill("55000");
+  await page.getByLabel("Next service date (optional)").fill(nextServiceDate);
+  await page.getByLabel("Next service at km (optional)").fill("60000");
+  await page.getByLabel("Description").fill("Scheduled maintenance check");
+  await page.getByLabel("Item 1").fill("Oil and filter");
+  await page.getByLabel("Amount (₹)").fill("1200");
+  await page.getByRole("button", { name: "Save maintenance record", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Service visit saved." }).waitFor({ state: "visible" });
+
   await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").nth(1).selectOption("expense");
   await page.getByRole("button", { name: "Start general expense", exact: true }).click();
-  await page.getByLabel("Expense name").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
+  await page.getByLabel("Expense name").fill("Acceptance tyre repair");
+  await page.getByLabel("Date", { exact: true }).fill(today);
+  await page.getByLabel("Provider / garage (optional)").fill("Acceptance Garage");
+  await page.getByLabel("Odometer km (optional)").fill("55100");
+  await page.getByLabel("Amount (₹)").fill("4000");
+  await page.getByLabel("Description").fill("Tyre repair receipt");
+  await page.getByRole("button", { name: "Save maintenance record", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Maintenance expense saved." }).waitFor({ state: "visible" });
+
   await page.getByRole("button", { name: "Change per-kilometre rate", exact: true }).click();
-  await page.getByLabel("New rate (₹ per km)").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
-  console.log("Maintenance visit, expense and rate forms rendered.");
+  await page.getByLabel("New rate (₹ per km)").fill("2.50");
+  await page.getByRole("button", { name: "Save rate", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Per-kilometre rate saved with effective-date history." }).waitFor({ state: "visible" });
+  console.log("Maintenance visit, general expense and effective-date rate workflows submitted.");
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}
