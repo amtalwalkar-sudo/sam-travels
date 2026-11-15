@@ -268,13 +268,16 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     if (date >= input.periodFrom && date <= input.periodTo) {
       periodRevenuePaise = add(periodRevenuePaise, revenuePaise);
       periodCostPaise = add(periodCostPaise, totalCostPaise);
-      const dateScopedIssue = completeness.some(item => {
-        const match = /^(?:revenue|cost):(\\d{4}-\\d{2}-\\d{2})(?::.*)?$/.exec(item.source);
-        return match?.[1] === date && item.status !== "complete";
-      });
-      const globalIssue = completeness.some(item =>
-        !/^(?:revenue|cost):\\d{4}-\\d{2}-\\d{2}(?::.*)?$/.test(item.source) &&
+      const isDateScopedSource = (source: string): boolean => {
+        const [kind, sourceDate] = source.split(":");
+        return (kind === "revenue" || kind === "cost") &&
+          sourceDate?.length === 10 && sourceDate[4] === "-" && sourceDate[7] === "-";
+      };
+      const dateScopedIssue = completeness.some(item =>
+        isDateScopedSource(item.source) && item.source.split(":")[1] === date &&
         item.status !== "complete");
+      const globalIssue = completeness.some(item =>
+        !isDateScopedSource(item.source) && item.status !== "complete");
       daily.push(Object.freeze({
         date, grossRevenuePaise: revenuePaise, costs: Object.freeze({ ...costs }),
         totalCostPaise, profitPaise,
