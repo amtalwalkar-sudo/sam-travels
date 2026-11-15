@@ -198,21 +198,24 @@ try {
   }
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
-  await paymentPanel.getByLabel("Payment date").fill(monthDateOffset(1));
+  await paymentPanel.getByLabel("Payment date").fill(futureDateOffsetDays(1));
+  // The prior prepayment creates schedule v2 effective today. Select that effective
+  // schedule explicitly; the restored payment draft may still carry v1.
+  await paymentPanel.getByLabel("Schedule version").selectOption("2");
   await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
   await paymentPanel.getByLabel("Transaction reference (optional)").fill("EMI-FUTURE-ACCEPTANCE-1");
   await paymentPanel.getByRole("button", { name: "Suggest oldest-due-first allocation", exact: true }).click();
   const allocationStatus = paymentPanel.getByRole("status");
   await allocationStatus.waitFor({ state: "visible" });
   const allocationMessage = (await allocationStatus.allTextContents()).join(" ");
-  if (!allocationMessage.includes("Suggested oldest-due-first allocation.") && !allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
+  if (!allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
     throw new Error("Unexpected future-dated payment allocation result: " + allocationMessage);
   }
   console.log("Future-dated payment allocation respects EMI due-date eligibility: " + allocationMessage);
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   await paymentPanel.getByText("EMI-FUTURE-ACCEPTANCE-1", { exact: false }).waitFor({ state: "visible" });
-  console.log("Future-dated payment correctly remains unallocated until the EMI due-date cutoff.");
+  console.log("Future-dated payment correctly remains unallocated before the next EMI due-date cutoff.");
 
     await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
   await paymentPanel.getByLabel("Settlement date").fill(monthDateOffset(1));
