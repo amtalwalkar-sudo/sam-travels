@@ -109,6 +109,28 @@ describe("Admin business expense form submission mapping", () => {
     });
   });
 
+  it("maps an explicit trip-closeout toll or parking identity for duplicate protection", async () => {
+    const { createExpenseEntry, submit, command, source } = setup();
+    await submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-13", category: "Toll", amountRupees: 12,
+      tripFinancialSourceId: "work:trip-financial-obligation:trip-42",
+      tripFinancialComponent: "toll",
+    }));
+    expect(createExpenseEntry).toHaveBeenCalledWith({
+      uuid: "admin-entry-1", source,
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 1200,
+        currencyCode: "INR", effect: "charge", category: "Toll",
+        tripFinancialSourceId: "work:trip-financial-obligation:trip-42",
+        tripFinancialComponent: "toll",
+      },
+    });
+    await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-13", category: "Toll", amountRupees: 12,
+      tripFinancialComponent: "toll",
+    }))).rejects.toThrow("business_expense_trip_financial_source_required");
+  });
+
   it("maps Traffic Challan to its separate vehicle and payment-state record", async () => {
     const { createExpenseEntry, submit, command, source } = setup();
     await submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
