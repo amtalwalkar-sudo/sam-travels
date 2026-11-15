@@ -209,6 +209,8 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
 
     private fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
+        assertTrue("Admin action loads: " + label, await(activity,
+            "[...document.querySelectorAll('button')].some(n=>n.textContent.trim()==='$name')", 15000))
         val js = """(()=>{const a=[...document.querySelectorAll('button')].filter(n=>n.textContent.trim()==='$name');if(!a[$index])return false;a[$index].click();return true})()"""
         check(javascriptValue(activity, js) == "true") { "Missing Admin action: " + label }
     }
