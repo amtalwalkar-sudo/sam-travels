@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 export type TimelinePeriodMode = "day" | "week";
 export type TimelinePeriodNavigationProps = Readonly<{
   mode: TimelinePeriodMode;
@@ -11,7 +9,6 @@ export type TimelinePeriodNavigationProps = Readonly<{
   onDateChange: (date: string) => void;
   onMove: (direction: -1 | 1) => void;
   onToday: () => void;
-  children?: ReactNode;
 }>;
 
 /** Period controls are a controlled presentation component; date policy lives in the adapter. */
