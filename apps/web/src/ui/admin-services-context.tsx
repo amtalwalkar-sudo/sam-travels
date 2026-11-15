@@ -1,9 +1,29 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { AdminIdentityPresentationAdapter } from "../admin-identity-presentation-adapter";
 import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
 
-const AdminServicesContext = createContext<AdminPresentationServices | null>(null);
+type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "businessSettings">;
+type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
+type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "vehicles" | "recordSource">;
+type ComplianceServices = Pick<AdminPresentationServices, "formRuntime" | "compliance" | "complianceAnalysis" | "vehicles">;
+type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles">;
+type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles">;
+type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments">;
+type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime">;
+
+type AdminSectionAdapters = Readonly<{
+  businessSetup: BusinessSetupServices;
+  vehicle: VehicleServices;
+  driver: DriverServices;
+  compliance: ComplianceServices;
+  maintenance: MaintenanceServices;
+  finance: FinanceServices;
+  workspace: WorkspaceServices;
+  forms: FormRuntimeServices;
+}>;
+
+const AdminSectionAdaptersContext = createContext<AdminSectionAdapters | null>(null);
 const AdminIdentityContext = createContext<AdminIdentityPresentationAdapter | null>(null);
 const AdminMaintenanceCorrectionContext = createContext<MaintenanceExpenseCorrectionAdapter | null>(null);
 
@@ -13,19 +33,43 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
   maintenanceCorrections: MaintenanceExpenseCorrectionAdapter;
   children: ReactNode;
 }) {
-  return <AdminServicesContext.Provider value={services}>
+  const adapters = useMemo<AdminSectionAdapters>(() => ({
+    businessSetup: { formRuntime: services.formRuntime, businessSettings: services.businessSettings },
+    vehicle: { formRuntime: services.formRuntime, vehicles: services.vehicles },
+    driver: { formRuntime: services.formRuntime, driverRecords: services.driverRecords,
+      driverAssignments: services.driverAssignments, vehicles: services.vehicles, recordSource: services.recordSource },
+    compliance: { formRuntime: services.formRuntime, compliance: services.compliance,
+      complianceAnalysis: services.complianceAnalysis, vehicles: services.vehicles },
+    maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles },
+    finance: { formRuntime: services.formRuntime, financeLoans: services.financeLoans,
+      financeLoanPayments: services.financeLoanPayments, financeLoanPrepayments: services.financeLoanPrepayments,
+      financeLoanSettlements: services.financeLoanSettlements, recordSource: services.recordSource, vehicles: services.vehicles },
+    workspace: { vehicles: services.vehicles, financeLoans: services.financeLoans,
+      financeLoanPrepayments: services.financeLoanPrepayments },
+    forms: { formRuntime: services.formRuntime },
+  }), [services]);
+
+  return <AdminSectionAdaptersContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
       <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>{children}</AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
-  </AdminServicesContext.Provider>;
+  </AdminSectionAdaptersContext.Provider>;
 }
 
-/** Transitional compatibility hook; sections are migrated to narrower owner hooks incrementally. */
-export function useAdminServices(): AdminPresentationServices {
-  const services = useContext(AdminServicesContext);
-  if (!services) throw new Error("Admin application services were not supplied by the composition root.");
-  return services;
+function useSectionAdapters(): AdminSectionAdapters {
+  const adapters = useContext(AdminSectionAdaptersContext);
+  if (!adapters) throw new Error("Admin application adapters were not supplied by the composition root.");
+  return adapters;
 }
+
+export function useAdminBusinessSetupServices(): BusinessSetupServices { return useSectionAdapters().businessSetup; }
+export function useAdminVehicleServices(): VehicleServices { return useSectionAdapters().vehicle; }
+export function useAdminDriverServices(): DriverServices { return useSectionAdapters().driver; }
+export function useAdminComplianceServices(): ComplianceServices { return useSectionAdapters().compliance; }
+export function useAdminMaintenanceServices(): MaintenanceServices { return useSectionAdapters().maintenance; }
+export function useAdminFinanceServices(): FinanceServices { return useSectionAdapters().finance; }
+export function useAdminWorkspaceServices(): WorkspaceServices { return useSectionAdapters().workspace; }
+export function useAdminFormRuntime(): FormRuntimeServices { return useSectionAdapters().forms; }
 
 export function useAdminIdentityAdapter(): AdminIdentityPresentationAdapter {
   const adapter = useContext(AdminIdentityContext);
