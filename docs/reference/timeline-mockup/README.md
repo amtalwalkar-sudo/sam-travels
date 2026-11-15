@@ -14,3 +14,10 @@ The visual direction uses compact, individually bounded ride cards; pickup journ
 The reference demonstrates two supplied shifts. Shift 1 fare is ₹1,120, including the ₹50 cancellation fee. Its pickup and idle summary values remain marked for review because the supplied interval details do not yet reconcile unambiguously. Shift 2's supplied time values reconcile. Unprovided toll, parking and odometer values are not invented.
 
 See [Timeline Mockup Visual Fidelity Contract](../../TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md) for preservation, responsive adaptation, visual regression and change-control requirements.
+
+## Proposed v2 review artifact — not approved
+
+- [Sam Travels Timeline proposed layered direction — v2](sam-travels-timeline-proposed-direction-v2.svg)
+- [Proposal manifest — v2](manifest-v2-proposal.md)
+
+The v2 proposal presents three mobile states: day overview, Monday–Sunday week overview, and read-only event detail. It was prepared to address the new layered review requirement. **It is a proposal only**: v1 remains the sole approved visual source of truth until the user explicitly approves v2. Do not implement the v2 visual direction before that approval. If the proposal is rejected or revised, retain these v2 proposal bytes and create a separately versioned revision.
