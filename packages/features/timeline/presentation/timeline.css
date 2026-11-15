@@ -42,3 +42,74 @@
 .timeline-attribution{font-size:9px;color:#8295a3;text-align:center;margin:12px 0 0}.timeline-attribution a{color:#aab8c4;text-decoration:underline}
 
 .timeline-location-consent{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:10px 12px;margin:8px 0;border:1px solid #263b4a;border-radius:10px;background:#101d27}.timeline-location-consent p{font-size:10px;line-height:1.45;color:#aab8c4;margin:0;flex:1}.timeline-location-consent button{flex:none;border:1px solid #4a7088;border-radius:7px;background:#183246;color:#e4f1f8;padding:7px 9px;font-size:10px}
+
+
+/* Driver-first Timeline composition. All selectors are feature-scoped. */
+.timeline-period{display:grid;gap:12px;margin:8px 0 14px;padding:12px;background:#172630;border:1px solid #344452;border-radius:13px}
+.timeline-period-top,.timeline-period-range{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.timeline-period-switch{display:flex;gap:4px;padding:3px;background:#101d27;border:1px solid #344452;border-radius:9px}
+.timeline-period-switch button,.timeline-today{border:0;border-radius:7px;padding:9px 17px;background:transparent;color:#aab8c4;font-size:12px;font-weight:700}
+.timeline-period-switch button.selected{background:#30485a;color:#fff}
+.timeline-today{border:1px solid #4a7088;color:#8ed0f2}
+.timeline-today:disabled{opacity:.45}
+.timeline-period-range>button{width:38px;height:38px;border:1px solid #405363;border-radius:9px;background:#1b2a36;color:#e6edf2;font-size:22px}
+.timeline-period-range label{display:grid;justify-items:center;gap:3px;min-width:0}
+.timeline-period-range label span{font-size:8px;letter-spacing:.1em;color:#8295a3}
+.timeline-period-range input{max-width:155px;border:0;background:transparent;color:#fff;font-family:inherit;font-size:13px;font-weight:600;text-align:center}
+.timeline-week-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.timeline-week-day{display:grid;justify-items:center;gap:5px;min-width:0;padding:8px 2px;border:1px solid #344452;border-radius:9px;background:#1b2a36;color:#aab8c4}
+.timeline-week-day span{font-size:9px;text-transform:uppercase}
+.timeline-week-day strong{font-size:15px;color:#fff}
+.timeline-week-day small{font-size:8px;line-height:1.2;text-align:center;overflow-wrap:anywhere}
+.timeline-week-day.selected{border-color:#65b9e8;background:#21394a;box-shadow:inset 0 0 0 1px #65b9e8}
+.timeline-selected-period{margin:12px 2px 16px;color:#e6edf2;font-size:13px;font-weight:700}
+.timeline-refreshing{padding:9px 12px;border-radius:8px;background:#1b2a36;color:#aab8c4;font-size:10px}
+.timeline-shift-section{margin:0 0 16px;padding:13px 10px 14px;background:#17232d;border:1px solid #344452;border-radius:13px}
+.timeline-shift-section>header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 12px}
+.timeline-shift-section>header h3{margin:0;color:#fff;font-size:12px;font-weight:750}
+.timeline-shift-section>header span{padding:5px 8px;border-radius:20px;background:#263746;color:#aab8c4;font-size:9px}
+.timeline-shift-sequence{display:grid;gap:7px}
+.timeline-event-card{display:grid;grid-template-columns:68px minmax(0,1fr) 12px;align-items:start;gap:8px;width:100%;padding:11px 9px;border:0;border-left:3px solid #52758b;border-radius:8px;background:#1b2a36;color:inherit;text-align:left;cursor:pointer}
+.timeline-event-card:hover,.timeline-event-card:focus-visible{outline:2px solid #65b9e8;outline-offset:1px}
+.timeline-event-card.shift{background:#263746;border-left-color:#65b9e8}
+.timeline-event-card.pickup{background:#17232d;border-left:2px dashed #52758b}
+.timeline-event-card.ride{border-left-color:#91e0bd}
+.timeline-event-card.cancelled{background:#302a25;border-left-color:#c69b70}
+.timeline-event-card.system{background:#263746;border-left:2px dashed #65b9e8}
+.timeline-card-time{padding-top:2px;color:#65b9e8;font-size:10px;font-weight:750}
+.timeline-card-body{display:grid;gap:4px;min-width:0}
+.timeline-card-body strong{color:#fff;font-size:12px}
+.timeline-card-body small{color:#aab8c4;font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.timeline-event-card.cancelled .timeline-card-body small{color:#d6b99a}
+.timeline-card-open{color:#65b9e8;font-size:18px;line-height:1}
+.timeline-detail-backdrop{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center;padding:12px;background:#050b10cc}
+.timeline-detail-panel{width:min(100%,560px);max-height:min(82vh,760px);overflow:auto;padding:20px;border:1px solid #52758b;border-radius:18px 18px 12px 12px;background:#172630;color:#fff;box-shadow:0 16px 50px #0009}
+.timeline-detail-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.timeline-detail-header small{color:#65b9e8;font-size:9px;letter-spacing:.1em}
+.timeline-detail-header h3{margin:6px 0 0;font-size:21px}
+.timeline-detail-header button{width:36px;height:36px;border:1px solid #405363;border-radius:9px;background:#263746;color:#fff;font-size:22px}
+.timeline-detail-status{display:inline-block;margin:14px 0;padding:5px 9px;border-radius:20px;background:#263746;color:#91e0bd;font-size:10px;font-weight:700}
+.timeline-detail-panel dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0 18px}
+.timeline-detail-panel dl div{min-width:0;padding:10px;border:1px solid #344452;border-radius:9px;background:#1b2a36}
+.timeline-detail-panel dt{color:#8295a3;font-size:9px;text-transform:uppercase}
+.timeline-detail-panel dd{margin:6px 0 0;color:#fff;font-size:12px;overflow-wrap:anywhere}
+.timeline-detail-panel p{color:#aab8c4;font-size:10px;line-height:1.5}
+.timeline-detail-close{width:100%;padding:12px;border:1px solid #4a7088;border-radius:9px;background:#183246;color:#e4f1f8;font-weight:700}
+.timeline-week-summary{padding:16px;border:1px solid #344452;border-radius:12px;background:#17232d}
+.timeline-week-summary h3{margin:0 0 8px;color:#fff;font-size:14px}
+.timeline-week-summary p{margin:5px 0;color:#aab8c4;font-size:11px;line-height:1.5}
+.timeline-integrity{margin:12px 0;padding:12px;border:1px solid #75604a;border-radius:10px;background:#302a25;color:#f0c79a;font-size:10px}
+.timeline-integrity ul{margin:8px 0 0;padding-left:18px}
+@media(min-width:620px){.timeline-detail-backdrop{align-items:center}.timeline-detail-panel{border-radius:16px}.timeline-shift-section{padding:16px}.timeline-event-card{grid-template-columns:84px minmax(0,1fr) 12px}}
+@media(max-width:360px){.timeline-week-grid{gap:2px}.timeline-week-day{padding:7px 1px}.timeline-week-day span{font-size:8px}.timeline-week-day small{font-size:7px}.timeline-event-card{grid-template-columns:58px minmax(0,1fr) 10px;gap:6px;padding:9px 6px}}
+
+.timeline-summary header button{border:0;background:transparent;color:#65b9e8;font-size:9px;font-weight:750;letter-spacing:.04em;cursor:pointer}
+.timeline-summary header button:focus-visible{outline:2px solid #65b9e8;outline-offset:3px;border-radius:3px}
+.timeline-shift-detail-metrics div small{display:block;margin-top:5px;color:#8295a3;font-size:8px;text-transform:uppercase}
+
+/* Pickup attempts stay visually outside completed ride cards as a connector event. */
+.timeline-event-card.pickup{grid-template-columns:68px minmax(0,1fr) 12px;padding:5px 9px;background:transparent;border:0}
+.timeline-event-card.pickup .timeline-card-body{display:flex;align-items:center;gap:9px}
+.timeline-event-card.pickup .timeline-card-body:before{content:"↓";flex:none;color:#65b9e8;font-size:19px;font-weight:400}
+.timeline-event-card.pickup .timeline-card-body strong{color:#a9c9db;font-size:11px}
+.timeline-event-card.pickup .timeline-card-body small{font-size:9px}
