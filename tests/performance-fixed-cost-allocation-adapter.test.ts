@@ -92,10 +92,18 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       result: {
         calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
         businessStartDate: "2026-03-01",
-        sources: [source({
-          sourceId: "compliance:blocked", sourceKind: "compliance", sourceVersion: 1,
-          sourceAmountPaise: 9_000, disposition: "overlap_review_required",
-        })],
+        sources: [
+          source({
+            sourceId: "compliance:blocked", sourceKind: "compliance", sourceVersion: 1,
+            sourceAmountPaise: 9_000, disposition: "overlap_review_required",
+          }),
+          source({
+            sourceId: "compliance:missing-daily", sourceKind: "compliance", sourceVersion: 2,
+            sourceAmountPaise: 12_000, disposition: "allocated",
+            sourcePeriod: { from: "2026-03-01", to: "2026-03-31", label: "March permit" },
+            eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31", daily: [],
+          }),
+        ],
         daily: [], monthly: [], yearly: [],
         allocatedAmountPaise: 0, historicalAmountPaise: 0, withheldAmountPaise: 9_000,
       },
@@ -103,5 +111,10 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     const adapter = new PerformanceFixedCostAllocationAdapterV1({ getReport: async () => report });
     expect(await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31")).toEqual([]);
     expect(await adapter.listPreBusinessCompliancePortions()).toEqual([]);
+    await expect(adapter.getCompleteness("2026-03-01", "2026-03-31"))
+      .resolves.toEqual([expect.objectContaining({
+        status: "review-required",
+        detail: expect.stringContaining("compliance:missing-daily has incomplete daily allocation rows"),
+      })]);
   });
 });
