@@ -3,13 +3,16 @@ import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
 import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
+import { PeriodNavigation, type TimelinePeriodMode } from "./PeriodNavigation";
+import { TimelineEventDetail, type TimelineEventDetailModel } from "./TimelineEventDetail";
+import { TimelineShiftSection } from "./TimelineShiftSection";
+import type { TimelineEventCardModel } from "./TimelineEventCard";
 import "./timeline.css";
 
-type Mode = "today" | "week" | "date";
-
 const dateFormatter = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata", day: "numeric", month: "long", year: "numeric",
+  timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric",
 });
+const weekdayFormatter = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
 const eventTimeFormatter = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true,
 });
@@ -30,11 +33,13 @@ function weekStart(value: string): string {
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   return moveDate(value, -(weekday === 0 ? 6 : weekday - 1));
 }
-function activeShiftAt(events: DriverEvent[], instant: number): DriverEvent | undefined {
+function dateLabel(value: string): string {
+  return dateFormatter.format(new Date(value + "T12:00:00+05:30"));
+}
+function activeShiftAt(events: readonly DriverEvent[], instant: number): DriverEvent | undefined {
   const ordered = [...events].sort((a, b) =>
     Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
-    a.revision - b.revision ||
-    a.eventId.localeCompare(b.eventId));
+    a.revision - b.revision || a.eventId.localeCompare(b.eventId));
   let active: DriverEvent | undefined;
   for (const event of ordered) {
     if (Date.parse(event.command.transitionAt) > instant) break;
@@ -46,7 +51,7 @@ function activeShiftAt(events: DriverEvent[], instant: number): DriverEvent | un
 function eventTitle(event: DriverEvent): string {
   const names: Record<string, string> = {
     shift_start: "Shift started", shift_end: "Shift ended",
-    trip_create: "Going to pickup", start_ride: "Ride started",
+    trip_create: "Pickup started", start_ride: "Ride started",
     end_ride: "Ride completed", cancel_ride: "Pickup cancelled",
     trip_start: "Ride started", trip_end: "Ride completed", ride_cancel: "Ride cancelled",
   };
@@ -76,10 +81,9 @@ function metricLabel(metric: TimelineMetric): string {
   if (metric.unit === "minutes") return durationLabel(metric.value);
   if (metric.unit === "km") return metric.value.toFixed(1) + " km";
   if (metric.unit === "minor_currency_units") {
-    if (metric.currency) {
-      return new Intl.NumberFormat("en-IN", { style: "currency", currency: metric.currency, maximumFractionDigits: 2 })
-        .format(metric.value / 100);
-    }
+    if (metric.currency) return new Intl.NumberFormat("en-IN", {
+      style: "currency", currency: metric.currency, maximumFractionDigits: 2,
+    }).format(metric.value / 100);
     return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       .format(metric.value / 100) + " · currency not supplied";
   }
@@ -110,186 +114,102 @@ function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
   </section>;
 }
 
-function ShiftEvents({ events, shift, allEvents, locations, now, calendarDate }: {
-  events: DriverEvent[];
-  shift?: TimelineShiftProjection;
-  allEvents: DriverEvent[];
-  locations: Readonly<Record<string, TimelineLocationEnrichment>>;
-  now: number;
-  calendarDate: string;
-}) {
-  const ordered = [...events].sort((a, b) =>
-    Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
-    a.revision - b.revision ||
-    a.eventId.localeCompare(b.eventId));
-  const tripStarts = allEvents.filter(event => event.command.eventType === "trip_create" || event.command.eventType === "trip_start");
-  const rideStarts = allEvents.filter(event => event.command.eventType === "start_ride" || event.command.eventType === "trip_start");
-  const blocks = ordered.map(event => {
-    const kind = event.command.eventType;
-    const at = event.command.transitionAt;
-    let detail = "GPS evidence recorded";
-    let extra = "";
-    if (kind === "start_ride") {
-      const start = [...tripStarts].reverse().find(item => Date.parse(item.command.transitionAt) <= Date.parse(at));
-      const minutes = start ? elapsed(start.command.transitionAt, at) : undefined;
-      detail = minutes === undefined ? "Pickup duration unavailable" : durationLabel(minutes) + " to pickup";
-    } else if (kind === "cancel_ride" || kind === "ride_cancel") {
-      const start = [...tripStarts].reverse().find(item => Date.parse(item.command.transitionAt) <= Date.parse(at));
-      const minutes = start ? elapsed(start.command.transitionAt, at) : undefined;
-      detail = minutes === undefined ? "Pickup duration unavailable" : durationLabel(minutes) + " until cancellation";
-    } else if (kind === "end_ride" || kind === "trip_end") {
-      const start = [...rideStarts].reverse().find(item => Date.parse(item.command.transitionAt) <= Date.parse(at));
-      const minutes = start ? elapsed(start.command.transitionAt, at) : undefined;
-      detail = minutes === undefined ? "Ride duration unavailable" : "Ride duration · " + durationLabel(minutes);
-    } else if (kind === "trip_create") {
-      detail = "Pickup journey";
-    }
-    if (kind === "start_ride" || kind === "trip_start") extra = "Ride fare · Not available";
-    if (kind === "cancel_ride" || kind === "ride_cancel") extra = "Cancellation fee · Not available";
-    return { event, detail, extra };
-  });
-  const shiftEvents = shift ? allEvents.filter(event => shift.eventIds.includes(event.eventId)) : ordered;
-  const endsOnThisCalendarDay = events.some(event => event.command.eventType === "shift_end");
-  const segmentStart = shift ? Date.parse(shift.anchorDate + "T04:00:00+05:30") : Number.NaN;
-  const segmentEnd = shift ? Date.parse(moveDate(shift.anchorDate, 1) + "T04:00:00+05:30") : Number.NaN;
-  const activeAtSegmentStart = Number.isFinite(segmentStart) ? activeShiftAt(allEvents, segmentStart) : undefined;
-  const activeBeforeSegmentEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd - 1) : undefined;
-  const activeAtSegmentEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd) : undefined;
-  const continuedFromPrevious = !!activeAtSegmentStart &&
-    Date.parse(activeAtSegmentStart.command.transitionAt) < segmentStart;
-  const closedAtBoundary = Number.isFinite(segmentEnd) && allEvents.some(event =>
-    event.command.eventType === "shift_end" && Date.parse(event.command.transitionAt) === segmentEnd);
-  const ended = shiftEvents.some(event => event.command.eventType === "shift_end") || closedAtBoundary;
-  const rotated = !ended && !!activeBeforeSegmentEnd && !!activeAtSegmentEnd && now >= segmentEnd;
-  const rotationDivider = continuedFromPrevious && calendarDate === shift?.anchorDate;
-  const shiftStarted = shiftEvents.find(event => event.command.eventType === "shift_start");
-  const timerStart = continuedFromPrevious ? segmentStart : shiftStarted ? Date.parse(shiftStarted.command.transitionAt) : undefined;
-  const liveEnd = Number.isFinite(segmentEnd) ? Math.min(now, segmentEnd) : now;
-  const liveDuration = !ended && !rotated && timerStart !== undefined
-    ? elapsed(new Date(timerStart).toISOString(), new Date(liveEnd).toISOString())
-    : rotated && Number.isFinite(segmentEnd) && timerStart !== undefined
-      ? elapsed(new Date(timerStart).toISOString(), new Date(segmentEnd).toISOString())
-      : undefined;
-  const statusLabel = ended ? "ENDED" : rotated ? "ROTATED · 04:00"
-    : continuedFromPrevious ? "CONTINUED · ACTIVE"
-      : liveDuration === undefined ? "IN PROGRESS" : "ACTIVE · " + durationLabel(liveDuration);
-  return <section className="timeline-shift">
-    <header className="timeline-shift-heading">
-      <strong>{shift ? "SHIFT " + shift.anchorDate : "SHIFT ACTIVITY"}</strong>
-      <span>{statusLabel}</span>
-    </header>
-    <div className="timeline-events">
-      {rotationDivider && <article className="timeline-event boundary system">
-        <div className="timeline-event-time">04:00 AM</div>
-        <div className="timeline-event-content">
-          <strong>SHIFT ROTATED · 04:00</strong>
-          <small>Online session continued</small>
-          {shift?.metrics.business_km.status === "pending" && <small>Odometer pending</small>}
-        </div>
-      </article>}
-      {blocks.map(({ event, detail, extra }) => {
-        const kind = event.command.eventType;
-        const cancelled = kind === "cancel_ride" || kind === "ride_cancel";
-        const boundary = kind === "shift_start" || kind === "shift_end";
-        const ride = kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end";
-        const pickup = kind === "trip_create";
-        const location = locations[event.eventId];
-        return <article className={"timeline-event" + (cancelled ? " cancelled" : "") + (boundary ? " boundary" : "") + (ride ? " ride" : "") + (pickup ? " pickup" : "")} key={event.eventId}>
-          <div className="timeline-event-time">{eventTimeFormatter.format(new Date(event.command.transitionAt))}</div>
-          <div className="timeline-event-content">
-            <strong>{eventTitle(event)}</strong>
-            <small>{detail}</small>
-            {extra && <small>{extra}</small>}
-            <small>{location?.status === "resolved" ? location.label
-              : location?.status === "network_disabled" ? "Location captured · Internet access disabled"
-              : location?.status === "pending" ? "Location captured · place name pending"
-              : location?.status === "unavailable" ? "Location captured · place name will retry"
-              : event.gps ? "Location captured · name not available" : "Location not available"}</small>
-          </div>
-        </article>;
-      })}
-    </div>
-    {endsOnThisCalendarDay && shift && <ShiftSummary shift={shift} />}
-  </section>;
+function locationLabel(event: DriverEvent, location?: TimelineLocationEnrichment): string {
+  if (location?.status === "resolved") return location.label;
+  if (location?.status === "network_disabled") return "Location captured · Internet access disabled";
+  if (location?.status === "pending") return "Location captured · place name pending";
+  if (location?.status === "unavailable") return "Location captured · place name will retry";
+  return event.gps ? "Location captured · name not available" : "Location not available";
 }
-function dateLabel(value: string): string {
-  return dateFormatter.format(new Date(value + "T12:00:00+05:30"));
+function eventDescription(event: DriverEvent, allEvents: readonly DriverEvent[]): string {
+  const kind = event.command.eventType;
+  const at = event.command.transitionAt;
+  const starts = allEvents.filter(item => item.command.eventType === "trip_create" || item.command.eventType === "trip_start");
+  const rideStarts = allEvents.filter(item => item.command.eventType === "start_ride" || item.command.eventType === "trip_start");
+  if (kind === "start_ride" || kind === "cancel_ride" || kind === "ride_cancel") {
+    const start = [...starts].reverse().find(item => Date.parse(item.command.transitionAt) <= Date.parse(at));
+    const minutes = start ? elapsed(start.command.transitionAt, at) : undefined;
+    return minutes === undefined ? "Pickup duration unavailable" :
+      durationLabel(minutes) + (kind === "start_ride" ? " to pickup" : " until cancellation");
+  }
+  if (kind === "end_ride" || kind === "trip_end") {
+    const start = [...rideStarts].reverse().find(item => Date.parse(item.command.transitionAt) <= Date.parse(at));
+    const minutes = start ? elapsed(start.command.transitionAt, at) : undefined;
+    return minutes === undefined ? "Ride duration unavailable" : "Ride duration · " + durationLabel(minutes);
+  }
+  if (kind === "trip_create") return "Pickup journey started";
+  if (kind === "shift_start" || kind === "shift_end") return "Recorded driver action";
+  return "Recorded system activity";
 }
+function eventKind(event: DriverEvent): TimelineEventCardModel["kind"] {
+  const kind = event.command.eventType;
+  if (kind === "shift_start" || kind === "shift_end") return "shift";
+  if (kind === "trip_create") return "pickup";
+  if (kind === "start_ride" || kind === "end_ride" || kind === "trip_start" || kind === "trip_end") return "ride";
+  if (kind === "cancel_ride" || kind === "ride_cancel") return "cancelled";
+  return "other";
+}
+
+type LoadedTimeline = Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>>;
+type TimelineModel = LoadedTimeline["model"] & { locations: TimelineLocationMap };
 
 export function TimelineScreen({ context }: { context: TimelineScreenContext }) {
-  const [mode, setMode] = useState<Mode>("today");
-  const [anchorDate, setAnchorDate] = useState(indiaDate(new Date()));
-  type LoadedTimeline = Awaited<ReturnType<TimelineScreenContext["loadTimeline"]>>;
-  const [model, setModel] = useState<(LoadedTimeline["model"] & { locations: TimelineLocationMap }) | null>(null);
+  const [mode, setMode] = useState<TimelinePeriodMode>("day");
+  const [selectedDate, setSelectedDate] = useState(indiaDate(new Date()));
+  const [model, setModel] = useState<TimelineModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [clock, setClock] = useState(Date.now());
   const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
-  const refreshSequence = useRef(0);
-  const activeRefresh = useRef<AbortController | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEventDetailModel | null>(null);
+  const requestSequence = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
+  const today = indiaDate(new Date());
+  const fromDate = mode === "week" ? weekStart(selectedDate) : selectedDate;
+  const toDate = mode === "week" ? moveDate(fromDate, 6) : selectedDate;
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  async function refresh(fromDate: string, toDate: string, allowLocationLookup = locationLookupEnabled) {
-    activeRefresh.current?.abort();
+  const refresh = async (allowLocationLookup = locationLookupEnabled) => {
+    activeRequest.current?.abort();
     const controller = new AbortController();
-    activeRefresh.current = controller;
-    const requestId = ++refreshSequence.current;
+    activeRequest.current = controller;
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError("");
-    let locationTaskStarted = false;
     try {
       const result = await context.loadTimeline(fromDate, toDate, allowLocationLookup, controller.signal);
-      if (requestId === refreshSequence.current) {
-        locationTaskStarted = true;
-        setModel({ ...result.model, locations: {} });
-        void result.locations.then((locations) => {
-          if (requestId === refreshSequence.current) {
-            setModel((current) => current ? { ...current, locations } : current);
-          }
-        }).catch(() => {
-          // Location enrichment is optional; the core Timeline remains usable.
-        }).finally(() => {
-          if (requestId === refreshSequence.current && activeRefresh.current === controller) {
-            activeRefresh.current = null;
-          }
-        });
-      }
+      if (requestId !== requestSequence.current) return;
+      setModel({ ...result.model, locations: {} });
+      void result.locations.then(locations => {
+        if (requestId === requestSequence.current) setModel(current => current ? { ...current, locations } : current);
+      }).catch(() => {
+        // Optional locality enrichment never blocks or invalidates core history.
+      }).finally(() => {
+        if (requestId === requestSequence.current && activeRequest.current === controller) activeRequest.current = null;
+      });
     } catch (cause) {
-      if (requestId === refreshSequence.current) {
+      if (requestId === requestSequence.current) {
         setError(cause instanceof Error ? cause.message : "Timeline is temporarily unavailable");
       }
     } finally {
-      if (requestId === refreshSequence.current) {
+      if (requestId === requestSequence.current) {
         setLoading(false);
-        if (!locationTaskStarted && activeRefresh.current === controller) activeRefresh.current = null;
+        if (activeRequest.current === controller) activeRequest.current = null;
       }
     }
-  }
+  };
 
-  useEffect(() => () => {
-    refreshSequence.current += 1;
-    activeRefresh.current?.abort();
-    activeRefresh.current = null;
-  }, []);
-  const range = useMemo(() => {
-    if (mode === "today") return { from: indiaDate(new Date()), to: indiaDate(new Date()) };
-    if (mode === "date") return { from: anchorDate, to: anchorDate };
-    const from = weekStart(anchorDate);
-    return { from, to: moveDate(from, 6) };
-  }, [mode, anchorDate, clock]);
+  useEffect(() => {
+    void refresh(locationLookupEnabled);
+    return () => {
+      requestSequence.current += 1;
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
+  }, [context.loadTimeline, fromDate, toDate, locationLookupEnabled]);
 
-  useEffect(() => { void refresh(range.from, range.to, locationLookupEnabled); }, [context.loadTimeline, range.from, range.to, locationLookupEnabled]);
-
-  // Refresh the derived locality projection when the PWA regains connectivity
-  // or the app returns to the foreground. This is event-driven, never polling.
   useEffect(() => {
     if (!locationLookupEnabled) return;
     const resume = () => {
-      if (document.visibilityState === "visible") void refresh(range.from, range.to, true);
+      if (document.visibilityState === "visible") void refresh(true);
     };
     window.addEventListener("online", resume);
     window.addEventListener("focus", resume);
@@ -301,87 +221,148 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       window.removeEventListener("timeline-enrichment-updated", resume);
       document.removeEventListener("visibilitychange", resume);
     };
-  }, [locationLookupEnabled, range.from, range.to, context.loadTimeline]);
+  }, [locationLookupEnabled, fromDate, toDate, context.loadTimeline]);
 
-  const dayGroups = useMemo(() => (model?.projection.calendarDays ?? [])
-    .filter(day => day.date >= range.from && day.date <= range.to)
-    .sort((a, b) => b.date.localeCompare(a.date)), [model, range]);
-  const eventById = useMemo(() => new Map((model?.events ?? []).map(event => [event.eventId, event])), [model]);
+  const allEvents = model?.events ?? [];
+  const eventById = useMemo(() => new Map(allEvents.map(event => [event.eventId, event])), [model]);
   const shiftByEvent = useMemo(() => {
     const map = new Map<string, TimelineShiftProjection>();
-    for (const shift of model?.projection.logicalShifts ?? []) for (const id of shift.eventIds) map.set(id, shift);
+    for (const shift of model?.projection.logicalShifts ?? []) {
+      for (const id of shift.eventIds) map.set(id, shift);
+    }
     return map;
   }, [model]);
-  const allEvents = model?.events ?? [];
-  const locations = model?.locations ?? {};
-  const groupedDays = dayGroups.map(day => {
-    const shifts = new Map<string, DriverEvent[]>();
+  const daysByDate = useMemo(() => new Map((model?.projection.calendarDays ?? []).map(day => [day.date, day])), [model]);
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
+    const date = moveDate(fromDate, index);
+    const day = daysByDate.get(date);
+    return {
+      date,
+      label: weekdayFormatter.format(new Date(date + "T12:00:00+05:30")),
+      activityCount: day?.eventIds.length ?? 0,
+      selected: date === selectedDate,
+    };
+  }), [fromDate, daysByDate, selectedDate]);
+
+  const day = daysByDate.get(selectedDate);
+  const groupedShifts = useMemo(() => {
+    if (!day) return [];
+    const grouped = new Map<string, DriverEvent[]>();
     for (const id of day.eventIds) {
       const event = eventById.get(id);
       if (!event) continue;
       const shift = shiftByEvent.get(id);
       const key = shift?.id ?? "unassigned:" + id;
-      const list = shifts.get(key) ?? [];
-      list.push(event);
-      shifts.set(key, list);
+      const events = grouped.get(key) ?? [];
+      events.push(event);
+      grouped.set(key, events);
     }
-    const groups = [...shifts.entries()].map(([id, events]) => ({
-      id,
-      events,
-      shift: shiftByEvent.get(events[0]?.eventId ?? ""),
-      firstAt: Math.min(...events.map(event => Date.parse(event.command.transitionAt))),
-    }));
-    groups.sort((a, b) => a.firstAt - b.firstAt || a.id.localeCompare(b.id));
-    return { day, shifts: groups };
-  });
+    return [...grouped.entries()].map(([id, events]) => {
+      const ordered = [...events].sort((a, b) =>
+        Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
+        a.revision - b.revision || a.eventId.localeCompare(b.eventId));
+      const shift = shiftByEvent.get(ordered[0]?.eventId ?? "");
+      const segmentStart = shift ? Date.parse(shift.anchorDate + "T04:00:00+05:30") : Number.NaN;
+      const continued = Number.isFinite(segmentStart) && !!activeShiftAt(allEvents, segmentStart) &&
+        Date.parse(activeShiftAt(allEvents, segmentStart)!.command.transitionAt) < segmentStart;
+      const cards: TimelineEventCardModel[] = ordered.map(event => {
+        const location = locationLabel(event, model?.locations[event.eventId]);
+        const kind = eventKind(event);
+        return {
+          id: event.eventId,
+          time: eventTimeFormatter.format(new Date(event.command.transitionAt)),
+          title: eventTitle(event),
+          description: eventDescription(event, allEvents),
+          secondary: event.command.eventType === "start_ride" || event.command.eventType === "trip_start"
+            ? "Fare · Not available"
+            : event.command.eventType === "cancel_ride" || event.command.eventType === "ride_cancel"
+              ? "Cancellation fee · Not available" : undefined,
+          location,
+          kind,
+        };
+      });
+      if (continued && shift && selectedDate === shift.anchorDate) {
+        cards.unshift({
+          id: "system-rotation:" + shift.id,
+          time: "04:00 AM",
+          title: "Logical shift boundary",
+          description: "Online session continued · system-generated",
+          location: shift.metrics.business_km.status === "pending" ? "Odometer confirmation pending" : "No new driver action",
+          kind: "system",
+        });
+      }
+      return {
+        id,
+        events: cards,
+        shift,
+        firstAt: Math.min(...ordered.map(event => Date.parse(event.command.transitionAt))),
+        status: ordered.some(event => event.command.eventType === "shift_end") ? "ENDED" : "ACTIVITY",
+      };
+    }).sort((a, b) => a.firstAt - b.firstAt || a.id.localeCompare(b.id));
+  }, [day, eventById, shiftByEvent, allEvents, model, selectedDate]);
 
-  const previous = () => setAnchorDate(value => moveDate(value, mode === "week" ? -7 : -1));
-  const next = () => setAnchorDate(value => moveDate(value, mode === "week" ? 7 : 1));
+  const openEvent = (eventId: string) => {
+    const event = eventById.get(eventId);
+    if (!event) return;
+    const location = locationLabel(event, model?.locations[eventId]);
+    setSelectedEvent({
+      title: eventTitle(event),
+      category: eventKind(event).toUpperCase(),
+      status: event.command.eventType === "cancel_ride" || event.command.eventType === "ride_cancel"
+        ? "Cancelled attempt" : event.command.eventType === "end_ride" || event.command.eventType === "trip_end"
+          ? "Completed" : "Recorded",
+      time: eventTimeFormatter.format(new Date(event.command.transitionAt)) + " · " + dateLabel(selectedDate),
+      duration: eventDescription(event, allEvents),
+      location,
+      evidence: event.gps ? "GPS evidence is attached to this event" : "GPS evidence not available",
+      fare: "Not available from the current public Timeline detail contract",
+    });
+  };
+
+  const onMove = (direction: -1 | 1) => setSelectedDate(value => moveDate(value, direction * (mode === "week" ? 7 : 1)));
+  const onModeChange = (nextMode: TimelinePeriodMode) => setMode(nextMode);
+  const onToday = () => { setSelectedDate(today); setMode("day"); };
 
   return <section className="timeline-screen" aria-label="Timeline history">
-    <div className="timeline-toolbar">
-      <div className="timeline-heading">
-        <small>YOUR WORKSPACE</small>
-        <h2>Timeline</h2>
-      </div>
-      <button type="button" className="timeline-refresh" onClick={() => void refresh(range.from, range.to, locationLookupEnabled)} disabled={loading}>Refresh</button>
-    </div>
+    <header className="timeline-toolbar">
+      <div className="timeline-heading"><small>YOUR WORK</small><h2>Timeline</h2></div>
+      <button type="button" className="timeline-refresh" onClick={() => void refresh()} disabled={loading}>Refresh</button>
+    </header>
     <div className="timeline-location-consent">
-      <p>Optional location names send only GPS coordinates from events in this selected date range to Geoapify through the Sam Travels secure proxy when Internet Access is on. The API key stays on the server; your saved GPS records are not changed.</p>
+      <p>Optional location names send only GPS coordinates from events in this selected period to Geoapify through the secure proxy when Internet Access is on. Saved GPS records are never changed.</p>
       <button type="button" aria-pressed={locationLookupEnabled}
         onClick={() => setLocationLookupEnabled(enabled => !enabled)}>
         {locationLookupEnabled ? "Turn off location names" : "Allow location names"}
       </button>
     </div>
-    <div className="timeline-filter" role="group" aria-label="Timeline date filter">
-      <button type="button" className={mode === "today" ? "selected" : ""} onClick={() => setMode("today")}>Today</button>
-      <button type="button" className={mode === "week" ? "selected" : ""} onClick={() => setMode("week")}>Week</button>
-      <button type="button" className={mode === "date" ? "selected" : ""} onClick={() => setMode("date")}>By date</button>
-    </div>
-    {mode !== "today" && <div className="timeline-date-nav">
-      <button type="button" onClick={previous} aria-label="Previous period">‹</button>
-      {mode === "date"
-        ? <label><span>Select date</span><input type="date" value={anchorDate} onChange={event => setAnchorDate(event.target.value)} /></label>
-        : <strong>{dateLabel(range.from)} – {dateLabel(range.to)}</strong>}
-      <button type="button" onClick={next} aria-label="Next period">›</button>
-    </div>}
-    {mode === "today" && <p className="timeline-date-label">{dateLabel(range.from)}</p>}
+    <PeriodNavigation mode={mode} selectedDate={selectedDate} today={today} weekStart={fromDate}
+      weekDays={weekDays} onModeChange={onModeChange} onDateChange={setSelectedDate}
+      onMove={onMove} onToday={onToday} />
+    <p className="timeline-selected-period">{mode === "day" ? dateLabel(selectedDate) : dateLabel(fromDate) + " – " + dateLabel(toDate)}</p>
     {error && <p className="timeline-error" role="alert">{error}</p>}
+    {loading && model && <p className="timeline-refreshing" role="status">Refreshing activity · showing the last loaded records</p>}
     {!!model?.projection.integrityIssues.length && <aside className="timeline-integrity" role="alert">
       <strong>Some recorded activity needs review.</strong>
       <ul>{model.projection.integrityIssues.map((issue, index) => (
-        <li key={issue.code + ":" + (issue.eventId ?? "record") + ":" + index}>
-          {issue.code.replaceAll("_", " ")}
-        </li>
+        <li key={issue.code + ":" + (issue.eventId ?? "record") + ":" + index}>{issue.code.replaceAll("_", " ")}</li>
       ))}</ul>
     </aside>}
-    {loading && !model && <p className="timeline-empty">Loading your activity…</p>}
-    {!loading && !error && groupedDays.length === 0 && <p className="timeline-empty">No activity recorded for this period.</p>}
-    {groupedDays.map(({ day, shifts }) => <section className="timeline-day" key={day.date}>
-      <h3>{dateLabel(day.date)}</h3>
-      {shifts.map(group => <ShiftEvents key={group.id} events={group.events} shift={group.shift} allEvents={allEvents} locations={locations} now={clock} calendarDate={day.date} />)}
-    </section>)}
+    {loading && !model && <p className="timeline-empty" role="status">Loading your activity…</p>}
+    {!loading && !error && mode === "day" && groupedShifts.length === 0 &&
+      <p className="timeline-empty">No activity recorded for this day.</p>}
+    {mode === "day" && groupedShifts.map(group => <TimelineShiftSection key={group.id} id={group.id}
+      title={group.shift ? "Shift · " + group.shift.anchorDate : "Activity"}
+      status={group.status} events={group.events} onOpenEvent={openEvent}
+      summary={group.shift && group.events.some(event => event.kind === "shift") &&
+        allEvents.some(event => group.shift!.eventIds.includes(event.eventId) && event.command.eventType === "shift_end")
+        ? <ShiftSummary shift={group.shift} /> : undefined} />)}
+    {mode === "week" && <section className="timeline-week-summary" aria-label="Week activity summary">
+      <h3>Week at a glance</h3>
+      <p>{weekDays.reduce((count, item) => count + item.activityCount, 0)} recorded events across the selected week.</p>
+      <p>Select any day above to open its chronological shift sequence.</p>
+    </section>}
     <p className="timeline-attribution">Location names powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
+    <TimelineEventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />
   </section>;
 }
