@@ -179,7 +179,8 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.tripExpenseTreatment === "standalone" &&
         (row.tripFinancialSourceId !== undefined || row.tripFinancialComponent !== undefined)) ||
       (row.tripExpenseTreatment === "already-in-trip-closeout" &&
-        (row.sourceKind !== "miscellaneous" || typeof row.tripFinancialSourceId !== "string" ||
+        (row.sourceKind !== "miscellaneous" || typeof row.category !== "string" ||
+          !/\b(toll|parking)\b/i.test(row.category) || typeof row.tripFinancialSourceId !== "string" ||
           !row.tripFinancialSourceId.startsWith("work:trip-financial-obligation:") ||
           row.tripFinancialSourceId.length <= "work:trip-financial-obligation:".length ||
           !["toll", "parking", "combined"].includes(String(row.tripFinancialComponent)))) ||
