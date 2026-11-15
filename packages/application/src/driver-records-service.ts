@@ -42,6 +42,7 @@ export class DriverRecordsService {
   }
 
   async get(driverId: string): Promise<RecordEnvelope<DriverRecordV1> | undefined> {
+    console.info("DriverRecordsService.get diagnostic", driverId, driverRecordId(driverId));
     const record = await this.records.get(driverRecordId(driverId));
     if (record) this.assertIdentity(record);
     return record;
