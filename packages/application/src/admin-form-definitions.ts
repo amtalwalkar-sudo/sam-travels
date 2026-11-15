@@ -224,6 +224,7 @@ export const MISC_BUSINESS_EXPENSE_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "description", label: "Description", type: "text", maxLength: 2000 },
     { id: "reference", label: "Receipt / source reference", type: "text", maxLength: 240 },
     { id: "tripFinancialSourceId", label: "Trip closeout source ID (only if this toll/parking is already recorded in a trip)", type: "text", maxLength: 240 },
+    { id: "tripFinancialComponent", label: "Linked trip cost", type: "select", options: ["toll", "parking", "combined"] },
   ],
 });
 
