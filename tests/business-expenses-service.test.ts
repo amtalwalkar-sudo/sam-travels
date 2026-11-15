@@ -173,6 +173,25 @@ describe("BusinessExpensesService", () => {
     expect(daily.find(item => item.businessDate === "2026-11-16")?.miscellaneousPaise).toBe(-1200);
   });
 
+  it("requires an explicit treatment for new standalone toll and parking expenses", async () => {
+    const { service } = setup();
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174074", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 500,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+      },
+    })).rejects.toThrow("business_expense_toll_parking_treatment_required");
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174075", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 500,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+        tripExpenseTreatment: "standalone",
+      },
+    })).resolves.toMatchObject({ data: { tripExpenseTreatment: "standalone" } });
+  });
+
   it("rejects a linked manual toll duplicate and allows its legacy reversal without erasing trip cost", async () => {
     const { service, repository } = setup();
     const tripId = "work:trip-financial-obligation:trip-dup";
