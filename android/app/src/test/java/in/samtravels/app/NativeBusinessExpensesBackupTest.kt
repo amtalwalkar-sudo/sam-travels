@@ -68,7 +68,7 @@ class NativeBusinessExpensesBackupTest {
             .put(expenseRow("platform_fee", "123e4567-e89b-42d3-a456-426614174001",
                 JSONObject().put("reference", "platform-settlement-1").put("alreadyNettedFromIncome", false)))
             .put(expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174002",
-                JSONObject().put("category", "Parking")))
+                JSONObject().put("category", "Parking").put("tripExpenseTreatment", "standalone")))
             .put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174003",
                 JSONObject().put("paymentStatus", "unpaid")))
         NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
@@ -101,10 +101,12 @@ class NativeBusinessExpensesBackupTest {
         val originalId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174020"
         val reversalId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174021"
         val original = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174020",
-            JSONObject().put("category", "Toll").put("tripFinancialSourceId", tripId)
+            JSONObject().put("category", "Toll").put("tripExpenseTreatment", "already-in-trip-closeout")
+                .put("tripFinancialSourceId", tripId)
                 .put("tripFinancialComponent", "toll"))
         val reversal = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174021",
             JSONObject().put("category", "Toll").put("effect", "reversal")
+                .put("tripExpenseTreatment", "already-in-trip-closeout")
                 .put("businessDate", "2026-11-16").put("reversesSourceId", originalId)
                 .put("tripFinancialSourceId", tripId).put("tripFinancialComponent", "toll"))
         NativeBackupCoverage.validateBusinessRecords(
@@ -118,6 +120,7 @@ class NativeBusinessExpensesBackupTest {
         val tripId = "work:trip-financial-obligation:trip-dup"
         val invalid = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174022",
             JSONObject().put("category", "Toll").put("amountPaise", 1300)
+                .put("tripExpenseTreatment", "already-in-trip-closeout")
                 .put("tripFinancialSourceId", tripId).put("tripFinancialComponent", "toll"))
         val error = assertThrows(IllegalArgumentException::class.java) {
             NativeBackupCoverage.validateBusinessRecords(
