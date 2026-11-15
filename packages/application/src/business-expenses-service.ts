@@ -120,6 +120,11 @@ export class BusinessExpensesService {
     if (data.sourceKind === "platform_fee" && data.alreadyNettedFromIncome === true) {
       throw new Error("business_expense_platform_fee_netting_not_supported");
     }
+    if (data.sourceKind === "miscellaneous" && /\b(toll|parking)\b/i.test(data.category ?? "") &&
+        data.tripExpenseTreatment !== "standalone" &&
+        data.tripExpenseTreatment !== "already-in-trip-closeout") {
+      throw new Error("business_expense_toll_parking_treatment_required");
+    }
     this.domain.validateExpenseEntry(data);
     if (data.vehicleId) await this.requireVehicle(data.vehicleId);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
