@@ -62,6 +62,8 @@ jobs:
         run: node scripts/compliance-overview-browser-acceptance.mjs
       - name: Verify all six replacement Admin sections through the rendered PWA
         run: node scripts/admin-workspace-browser-acceptance.mjs
+      - name: Verify Admin form workflows through the rendered PWA
+        run: node scripts/admin-form-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
     runs-on: ubuntu-24.04
