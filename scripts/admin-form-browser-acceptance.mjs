@@ -31,7 +31,12 @@ try {
   await page.getByLabel("Fuel type").selectOption("CNG");
   await page.getByLabel("Year of manufacture").fill("2024");
   await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  await page.getByText("Vehicle record created.", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+  const vehiclePanel = page.locator("#admin-section-panel-vehicle");
+  const vehicleStatus = vehiclePanel.getByRole("status").last();
+  await vehicleStatus.waitFor({ state: "visible", timeout: 15000 });
+  const vehicleSaveMessage = await vehicleStatus.innerText();
+  console.log("Vehicle form submission status:", vehicleSaveMessage);
+  if (vehicleSaveMessage !== "Vehicle record created.") throw new Error("vehicle_form_save_failed:" + vehicleSaveMessage);
   await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   console.log("Vehicle create workflow saved a canonical vehicle record.");
 
