@@ -136,6 +136,19 @@ export class FullCostBreakevenService {
     const expenseById = new Map(expenses.map(record => [record.id, record]));
     const tripFinancialById = new Map(tripFinancialRecords.map(record => [record.id, record]));
     const shadowedTripDuplicateExpenseIds = new Set<string>();
+    const withheldLegacyTollParkingExpenseIds = new Set<string>();
+    for (const expense of expenses) {
+      if (expense.data.sourceKind === "miscellaneous" &&
+          /\\b(toll|parking)\\b/i.test(expense.data.category ?? "") &&
+          !expense.data.tripExpenseTreatment) {
+        withheldLegacyTollParkingExpenseIds.add(expense.id);
+        completeness.push({
+          source: "business-expenses", status: "review-required",
+          detail: "Legacy toll/parking expense " + expense.id +
+            " has no explicit standalone or trip-closeout treatment and was withheld.",
+        });
+      }
+    }
     for (const expense of expenses) {
       const linkedTripId = expense.data.tripFinancialSourceId;
       if (!linkedTripId) continue;
@@ -186,7 +199,8 @@ export class FullCostBreakevenService {
         const refs = daily.sourceIds.flatMap((sourceId, index) => {
           const source = expenseById.get(sourceId);
           return source?.data.sourceKind === category.sourceKind &&
-            !shadowedTripDuplicateExpenseIds.has(sourceId)
+            !shadowedTripDuplicateExpenseIds.has(sourceId) &&
+            !withheldLegacyTollParkingExpenseIds.has(sourceId)
             ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
             : [];
         });
