@@ -17,3 +17,5 @@ export {
   indiaCalendarDate, moveTimelineDate, timelineWeekStart, timelineWeekDates,
   formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime,
 } from "./presentation/timeline-date";
+export { timelineShiftDisplayStatus } from "./presentation/timeline-shift-status";
+export type { TimelineShiftDisplayStatus, TimelineShiftStatusResult } from "./presentation/timeline-shift-status";
