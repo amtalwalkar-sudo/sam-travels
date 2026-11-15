@@ -57,7 +57,12 @@ class NativePerformanceBackupTest {
                 runCatching {
                     NativeBackupCoverage.validateBusinessRecords(JSONArray().put(invalid), true)
                 }.exceptionOrNull()?.message)
-            val mismatched = costRow().apply { put("id", "feature:performance:pre-business-cost:other") }
+            val mismatched = costRow().apply {
+                val envelope = JSONObject(getString("json"))
+                    .put("id", "feature:performance:pre-business-cost:other")
+                put("id", "feature:performance:pre-business-cost:other")
+                put("json", envelope.toString())
+            }
             assertEquals("performance_pre_business_cost_backup_identity_invalid",
                 runCatching {
                     NativeBackupCoverage.validateBusinessRecords(JSONArray().put(mismatched), true)
