@@ -62,7 +62,7 @@ import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationIn
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
-import { handleBusinessExpenseFormSubmission } from "./business-expense-form-submission";
+import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-form-submission";
 import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
@@ -100,6 +100,9 @@ async function bootstrap(): Promise<void> {
     calculateFuelCostRateHistory,
   }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
+  const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
+    getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
+  );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
     repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
@@ -132,7 +135,7 @@ async function bootstrap(): Promise<void> {
     new RecordFormWorkingCopyRepository(repository, getApplicationRecordSource()),
     {
       submit: async (command) => {
-        const expenseResult = await handleBusinessExpenseFormSubmission(command, businessExpenseEnrichmentQueue);
+        const expenseResult = await handleBusinessExpenseSubmission(command);
         if (expenseResult !== undefined) return expenseResult;
         if (command.action !== "save") throw new Error("unsupported_admin_form_operation");
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
