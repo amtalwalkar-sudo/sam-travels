@@ -3,6 +3,22 @@ import { PerformanceCalculationServiceV1, type PerformanceCalculationReadModelsV
 import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
 import type { CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
 import type { RecordEnvelope } from "../packages/core/src/types";
+import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import { PerformanceAdminSettingsServiceV1 } from "../packages/application/src/performance-admin-settings-service";
+
+class MemoryRepository implements AtomicRecordRepository {
+  private rows = new Map<string, RecordEnvelope<unknown>>();
+  async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
+  async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
+  async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
+  async remove(id: string) { this.rows.delete(id); }
+  async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
+    const current = this.rows.get(id);
+    if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
+    this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+}
 
 function sources(): PerformanceCalculationReadModelsV1 {
   return {
@@ -124,7 +140,19 @@ describe("PerformanceCalculationServiceV1", () => {
     });
   });
 
-  it("completes recovery through the exact 18-month anniversary under application orchestration", async () => {
+  it("recovers one idempotently persisted Admin entry through the exact 18-month anniversary", async () => {
+    const repository = new MemoryRepository();
+    const admin = new PerformanceAdminSettingsServiceV1(repository);
+    const command = {
+      commandId: "55555555-5555-4555-8555-555555555555",
+      amountPaise: 18_000, note: "Launch preparation", source: "web" as const,
+    };
+    const [created, retried] = await Promise.all([
+      admin.createPreBusinessCost(command), admin.createPreBusinessCost(command),
+    ]);
+    expect(created.id).toBe(retried.id);
+    expect(await admin.listEntries()).toHaveLength(1);
+
     const base = sources();
     const readModels: PerformanceCalculationReadModelsV1 = {
       ...base,
@@ -132,10 +160,7 @@ describe("PerformanceCalculationServiceV1", () => {
       operatingCosts: { listDailyCosts: async () => [] },
       emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
       compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
-      manualPreBusinessCosts: { listEntries: async () => [
-        { sourceId: "pre-business-18m", revision: 3, amountPaise: 18_000,
-          note: "Launch preparation", origin: "manual" as const },
-      ] },
+      manualPreBusinessCosts: admin,
     };
     const result = await new PerformanceCalculationServiceV1(readModels)
       .calculate("2027-09-15", "2027-09-15");
