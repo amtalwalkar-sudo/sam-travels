@@ -6,6 +6,7 @@ import android.webkit.WebView
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -179,7 +180,16 @@ class AdminFormsCapacitorAcceptanceTest {
             listOf(registration, marker + " Driver", marker + " Insurance", "CHALLAN-" + marker,
                 marker + " Loan", "FEE-" + marker, "PARK-" + marker, marker + " service visit")
                 .forEach { assertTrue("Room persists " + it, records.contains(it)) }
-            NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(db) { false })
+            val backup = NativeBackupCoverage.exportBusinessRecords(db) { false }
+            NativeBackupCoverage.validateBusinessRecords(backup)
+            val submittedIds = db.records().list().filter { it.json.contains(marker) || it.json.contains(registration) }.map { it.id }
+            NativeBackupCoverage.replaceBusinessRecords(db, JSONArray())
+            submittedIds.forEach { id -> assertTrue("Backup replacement clears " + id, db.records().get(id) == null) }
+            NativeBackupCoverage.replaceBusinessRecords(db, backup)
+            val restoredJson = db.records().list().joinToString("\\n") { it.json }
+            listOf(marker + " Driver", marker + " Insurance", marker + " Loan", "CHALLAN-" + marker,
+                "FEE-" + marker, "PARK-" + marker, marker + " service visit")
+                .forEach { assertTrue("Room backup restores " + it, restoredJson.contains(it)) }
         } finally {
             instrumentation.runOnMainSync { activity.finish() }
             db.close()
