@@ -4,7 +4,6 @@ import "./AdminCompliance.css";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { ComplianceRecordV1 } from "../../../../packages/application/src/compliance-service";
 import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-historical-correction";
-import "./AdminWorkspace.css";
 
 type ComplianceField = "validFrom" | "validTo" | "totalCostPaise" | "supportingDocumentRef";
 type CorrectionInput = Parameters<ComplianceHistoricalCorrectionAdapter["submit"]>[0];
