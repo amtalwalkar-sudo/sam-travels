@@ -11,6 +11,11 @@ import {
 type DailyCostKind = PerformanceDailyCostInputV1["kind"];
 type OperatingCostKind = Exclude<DailyCostKind, "emi" | "compliance">;
 
+export interface PerformanceSnapshotReadModel {
+  prepareSnapshot?(): Promise<void>;
+  releaseSnapshot?(): void;
+}
+
 export interface PerformanceBusinessSettingsReadModel {
   getBusinessStartDate(): Promise<string>;
 }
@@ -61,7 +66,15 @@ export class PerformanceCalculationServiceV1 {
   constructor(private readonly sources: PerformanceCalculationReadModelsV1) {}
 
   async calculate(periodFrom: string, periodTo: string): Promise<PerformanceCalculationResultV1> {
-    const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
+    const snapshotSources = [...new Set([
+      this.sources.operatingCosts, this.sources.emi, this.sources.compliance,
+      this.sources.revenue, this.sources.completeness,
+    ])].filter((source): source is typeof source & Required<Pick<PerformanceSnapshotReadModel, "prepareSnapshot">> =>
+      typeof (source as PerformanceSnapshotReadModel).prepareSnapshot === "function");
+    try {
+      await Promise.all(snapshotSources.map(source =>
+        (source as PerformanceSnapshotReadModel).prepareSnapshot!()));
+      const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
     if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
     const [
       monthlyDriverTargetPaise, revenue, operatingCosts, emiCosts, complianceCosts,
@@ -99,6 +112,10 @@ export class PerformanceCalculationServiceV1 {
       preBusinessRecovery: [...manualRecovery, ...emiRecovery, ...complianceRecovery],
       completeness,
     };
-    return calculatePerformanceV1(input);
+      return calculatePerformanceV1(input);
+    } finally {
+      snapshotSources.forEach(source =>
+        (source as PerformanceSnapshotReadModel).releaseSnapshot?.());
+    }
   }
 }
