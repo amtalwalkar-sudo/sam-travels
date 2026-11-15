@@ -57,3 +57,5 @@ export * from "./business-expenses-service";
 export * from "./business-expenses-runtime";
 
 export * from "./full-cost-breakeven-service";
+
+export * from "./performance-calculation-service";
