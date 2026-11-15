@@ -46,7 +46,9 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(readModels.compliance.listDailyComplianceAllocations).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
     expect(result.daily[0].costs.emi).toBe(2_000);
     expect(result.daily[0].costs.compliance).toBe(500);
-    expect(result.daily[0].costs["pre-business-recovery"]).toBeGreaterThan(0);
+    expect(result.daily[0].costs["pre-business-manual-recovery"]).toBeGreaterThan(0);
+    expect(result.daily[0].costs["pre-business-emi-recovery"]).toBeGreaterThan(0);
+    expect(result.daily[0].costs["pre-business-compliance-recovery"]).toBeGreaterThan(0);
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("emi");
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("compliance");
   });
