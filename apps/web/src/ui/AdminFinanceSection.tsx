@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 import { useAdminWorkspaceServices } from "./admin-services-context";
@@ -31,9 +31,10 @@ export function AdminFinanceSection() {
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const hasLoaded = useRef(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     try {
       const [vehicleRecords, loanRecords] = await Promise.all([
         services.vehicles.list(), services.financeLoans.list(),
@@ -48,6 +49,7 @@ export function AdminFinanceSection() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Finance records.");
     } finally {
+      hasLoaded.current = true;
       setLoading(false);
     }
   }, [services]);
