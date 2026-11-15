@@ -3,17 +3,22 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 
 describe("Performance backup participant", () => {
-  let unregister: (() => void) | undefined;
+  let unregisterPerformance: (() => void) | undefined;
+  let unregisterVehicle: (() => void) | undefined;
   beforeEach(async () => {
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregisterPerformance = registerPerformanceBrowserBackupParticipant();
     await browserDatabase.delete();
     await browserDatabase.open();
-    unregister = registerPerformanceBrowserBackupParticipant();
   });
   afterEach(() => {
-    unregister?.();
-    unregister = undefined;
+    unregisterPerformance?.();
+    unregisterPerformance = undefined;
+    unregisterVehicle?.();
+    unregisterVehicle = undefined;
   });
 
   it("exports and restores the target plus multiple independent pre-business cost entries", async () => {
