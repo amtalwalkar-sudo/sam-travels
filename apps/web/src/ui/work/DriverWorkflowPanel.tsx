@@ -2,37 +2,49 @@ import { useEffect, useState } from "react";
 import { getDriverSwipeAction } from "../../../../../packages/features/work-shift/index";
 import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
-import type { useDriverWorkspace } from "../use-driver-workspace";
+import type { DriverStateProjection, DriverTransitionCommand } from "../../../../../packages/features/work-shift";
+import type { CancellationFeeObligation, CompletedTripFinancialObligation } from "../../../../../packages/application/src/trip-financial-service";
 
-type DriverWorkflowWorkspace = Pick<ReturnType<typeof useDriverWorkspace>,
-  | "driver"
-  | "pending"
-  | "pendingBlocksWorkflow"
-  | "pendingBoundary"
-  | "boundaryAt"
-  | "driverBusy"
-  | "driverMessage"
-  | "shiftOn"
-  | "driverChoices"
-  | "selectedDriverId"
-  | "pendingCancellationFees"
-  | "cancellationFeeDrafts"
-  | "cancellationFeeBusy"
-  | "pendingCompletedTripFinancials"
-  | "completedTripFinancialDrafts"
-  | "completedTripFinancialBusy"
-  | "completedTripFinancialSummaries"
-> & {
-  actions: Pick<ReturnType<typeof useDriverWorkspace>["actions"],
-    | "retry"
-    | "dispatch"
-    | "selectDriver"
-    | "updateCancellationFeeDraft"
-    | "submitCancellationFee"
-    | "updateCompletedTripFinancialDraft"
-    | "submitCompletedTripFinancials"
-  >;
+type CompletedTripFinancialDraft = {
+  fare: string;
+  toll: string;
+  tollPayer: string;
+  parking: string;
+  parkingPayer: string;
 };
+
+type DriverWorkflowWorkspace = Readonly<{
+  driver: DriverStateProjection | null;
+  pending: ReadonlyArray<{ command: DriverTransitionCommand; status: string; reason?: string }>;
+  pendingBlocksWorkflow: boolean;
+  pendingBoundary: boolean;
+  boundaryAt?: string;
+  driverBusy: boolean;
+  driverMessage: string;
+  shiftOn: boolean;
+  driverChoices: ReadonlyArray<{ driverId: string; name: string }>;
+  selectedDriverId: string;
+  pendingCancellationFees: ReadonlyArray<{ id: string; data: CancellationFeeObligation }>;
+  cancellationFeeDrafts: Readonly<Record<string, string>>;
+  cancellationFeeBusy: boolean;
+  pendingCompletedTripFinancials: ReadonlyArray<{ id: string; data: CompletedTripFinancialObligation }>;
+  completedTripFinancialDrafts: Readonly<Record<string, CompletedTripFinancialDraft>>;
+  completedTripFinancialBusy: boolean;
+  completedTripFinancialSummaries: Readonly<Record<string, {
+    customerChargePaise: number;
+    driverExpensesPaise: number;
+    netTripEarningsBeforeFuelPaise: number;
+  }>>;
+  actions: Readonly<{
+    retry: (eventId: string) => Promise<void>;
+    dispatch: (eventType: DriverTransitionCommand["eventType"], odometerKm?: number) => Promise<void>;
+    selectDriver: (driverId: string) => Promise<void>;
+    updateCancellationFeeDraft: (tripId: string, value: string) => Promise<void>;
+    submitCancellationFee: (tripId: string) => Promise<void>;
+    updateCompletedTripFinancialDraft: (tripId: string, field: "fare" | "toll" | "tollPayer" | "parking" | "parkingPayer", raw: string) => Promise<void>;
+    submitCompletedTripFinancials: (tripId: string) => Promise<void>;
+  }>;
+}>;
 
 export type DriverWorkflowPanelProps = Readonly<{
   workspace: DriverWorkflowWorkspace;
