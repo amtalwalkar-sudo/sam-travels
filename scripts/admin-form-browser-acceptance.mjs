@@ -28,6 +28,7 @@ try {
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  page.on("console", message => { if (message.text().includes("DriverRecordsService.get diagnostic")) console.log("Browser diagnostic:", message.text()); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
