@@ -73,7 +73,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
       assertTrue("Admin renders", awaitJavascript(activity,
-          "document.querySelector('.admin-workspace') !== null", 15_000))
+          "document.querySelector('.admin-replacement-shell') !== null", 15_000))
       assertTrue("Name field appears", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
       assertTrue("Admin role selectable", evaluate(activity, """
@@ -145,7 +145,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Admin activates", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
-      evaluate(activity, "Array.from(document.querySelectorAll('.admin-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
+      evaluate(activity, "Array.from(document.querySelectorAll('.admin-replacement-section-trigger')).find(node => node.textContent.includes('Maintenance'))?.click()")
       assertTrue("Maintenance loads", awaitJavascript(activity,
           "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
       evaluate(activity, """
