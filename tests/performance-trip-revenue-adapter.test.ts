@@ -69,6 +69,23 @@ describe("Performance trip revenue adapter v1", () => {
     ]);
   });
 
+  it("rejects malformed immutable operational dates instead of silently accepting them", async () => {
+    const records = [envelope("work:trip-financial-obligation:invalid-date", {
+      schemaVersion: 1, tripId: "invalid-date", kind: "completed_ride_financials",
+      status: "submitted", endRideEventId: "end-invalid", createdAt: "2026-04-05T08:00:00.000Z",
+      tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1",
+        assignmentId: "assignment-1", vehicleId: "vehicle-1", operationalDate: "2026-99-42" },
+      farePaise: 9_000,
+    } satisfies CompletedTripFinancialObligation)];
+    const adapter = new PerformanceTripRevenueAdapterV1({
+      submittedTripFinancialRecords: async () => records,
+    });
+    await expect(adapter.listVerifiedDailyRevenue("2026-04-01", "2026-04-30")).resolves.toEqual([]);
+    await expect(adapter.getCompleteness("2026-04-01", "2026-04-30")).resolves.toEqual([
+      expect.objectContaining({ source: "trip-financials", status: "incomplete" }),
+    ]);
+  });
+
   it("does not guess revenue attribution when legacy records lack trip context", async () => {
     const records = [envelope("work:trip-financial-obligation:legacy", {
       schemaVersion: 1, tripId: "legacy", kind: "completed_ride_financials",
