@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
-class AdminFormsCapacitorAcceptanceTest {
+class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
