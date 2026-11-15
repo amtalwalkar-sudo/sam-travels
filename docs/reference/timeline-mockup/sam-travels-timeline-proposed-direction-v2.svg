@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1230" height="970" viewBox="0 0 1230 970" role="img" aria-labelledby="title desc">
+<title id="title">Sam Travels Timeline — proposed layered driver-first direction v2</title>
+<desc id="desc">Three mobile screen states show day overview, week overview, and progressive ride details. This is a proposal for user review, not an approved implementation reference.</desc>
+<defs>
+ <style>
+ text{font-family:Inter,Arial,sans-serif}.bg{fill:#101820}.surface{fill:#1B2A36;stroke:#496174;stroke-width:1}.surface2{fill:#263746}.muted{fill:#AAB8C4}.white{fill:#FFFFFF}.blue{fill:#65B9E8}.line{stroke:#52758B;stroke-width:2.5;stroke-linecap:round}.green{fill:#91E0BD}.amber{fill:#F0C79A}.phone{fill:#101820;stroke:#526575;stroke-width:2}
+ </style>
+</defs>
+<rect width="1230" height="970" fill="#0B1218"/>
+<text x="24" y="30" fill="#FFFFFF" font-size="18" font-weight="750">SAM TRAVELS · TIMELINE V2</text>
+<text x="24" y="52" fill="#AAB8C4" font-size="11">PROPOSED VISUAL REFERENCE · FOR USER APPROVAL · NOT YET AUTHORITATIVE</text>
+
+<!-- Frame 1: Day -->
+<text x="20" y="82" fill="#FFFFFF" font-size="13" font-weight="700">01 · DAY OVERVIEW</text>
+<rect x="20" y="94" width="390" height="844" rx="24" class="phone"/>
+<g transform="translate(20 94)">
+ <rect width="390" height="844" rx="24" class="bg"/>
+ <text x="20" y="28" class="white" font-size="12" font-weight="750">◉ SAM TRAVELS</text><text x="370" y="28" class="green" font-size="9" font-weight="700" text-anchor="end">ONLINE</text>
+ <text x="20" y="70" class="white" font-size="26" font-weight="750">Timeline</text>
+ <text x="20" y="96" class="white" font-size="13" font-weight="650">Thursday, 5 November</text>
+ <rect x="288" y="78" width="82" height="25" rx="12" fill="#193E36"/><text x="329" y="95" class="green" font-size="9" font-weight="700" text-anchor="middle">SELECTED DAY</text>
+ <rect x="16" y="116" width="358" height="38" rx="10" fill="#182630"/>
+ <rect x="18" y="118" width="112" height="34" rx="8" fill="#30485A"/><text x="74" y="140" class="white" font-size="11" font-weight="700" text-anchor="middle">Day</text>
+ <text x="195" y="140" class="muted" font-size="11" text-anchor="middle">Week</text><text x="318" y="140" class="muted" font-size="11" text-anchor="middle">Choose date</text>
+ <text x="20" y="180" class="muted" font-size="10">‹ PREVIOUS DAY</text><text x="370" y="180" class="blue" font-size="10" font-weight="700" text-anchor="end">NEXT DAY ›</text>
+ <path d="M16 193H374" stroke="#344452"/>
+ <text x="20" y="220" class="white" font-size="13" font-weight="750">SHIFT 1</text><text x="370" y="220" class="muted" font-size="9" text-anchor="end">ENDED · 06:30–10:42</text>
+ <circle cx="28" cy="250" r="4" class="blue"/><rect x="42" y="235" width="332" height="49" rx="9" class="surface2"/>
+ <text x="54" y="255" class="white" font-size="11" font-weight="700">06:30 · Shift started</text><text x="54" y="272" class="muted" font-size="10">Andheri East</text>
+ <path d="M28 286V308M24 303L28 308L32 303" class="line" fill="none"/><text x="45" y="301" class="muted" font-size="9" font-weight="700">14m 20s · PICKUP</text>
+ <rect x="42" y="316" width="332" height="87" rx="11" class="surface"/>
+ <text x="55" y="337" class="muted" font-size="9" font-weight="700">COMPLETED RIDE</text><text x="360" y="337" class="green" font-size="9" font-weight="700" text-anchor="end">₹450</text>
+ <text x="55" y="359" class="white" font-size="11" font-weight="700">06:44 · Andheri East → Bandra West</text><text x="55" y="381" class="muted" font-size="10">Ride duration · 32m 15s</text>
+ <path d="M28 405V427M24 422L28 427L32 422" class="line" fill="none"/><text x="45" y="420" class="muted" font-size="9" font-weight="700">9m 40s · PICKUP</text>
+ <rect x="42" y="435" width="332" height="64" rx="10" fill="#302A25" stroke="#75604A"/>
+ <text x="55" y="456" class="amber" font-size="9" font-weight="700">CANCELLED ATTEMPT</text><text x="360" y="456" class="amber" font-size="9" font-weight="700" text-anchor="end">₹50 FEE</text>
+ <text x="55" y="480" class="white" font-size="11" font-weight="650">07:26 · Bandra West</text>
+ <path d="M28 502V524M24 519L28 524L32 519" class="line" fill="none"/><text x="45" y="517" class="muted" font-size="9" font-weight="700">11m 05s · PICKUP</text>
+ <rect x="42" y="532" width="332" height="87" rx="11" class="surface"/>
+ <text x="55" y="553" class="muted" font-size="9" font-weight="700">COMPLETED RIDE</text><text x="360" y="553" class="green" font-size="9" font-weight="700" text-anchor="end">₹620</text>
+ <text x="55" y="575" class="white" font-size="11" font-weight="700">07:50 · Bandra West → Powai</text><text x="55" y="597" class="muted" font-size="10">Ride duration · 46m 10s</text>
+ <circle cx="28" cy="642" r="4" class="blue"/><rect x="42" y="627" width="332" height="48" rx="9" class="surface2"/>
+ <text x="54" y="647" class="white" font-size="11" font-weight="700">10:42 · Shift ended</text><text x="54" y="663" class="muted" font-size="10">Powai</text>
+ <rect x="16" y="690" width="358" height="76" rx="11" fill="#1A2934" stroke="#405363"/>
+ <text x="30" y="712" class="white" font-size="11" font-weight="700">SHIFT SUMMARY</text><text x="360" y="712" class="blue" font-size="9" text-anchor="end">VIEW DETAILS  ›</text>
+ <text x="30" y="739" class="muted" font-size="9">Fare</text><text x="30" y="756" class="white" font-size="15" font-weight="700">₹1,120</text>
+ <text x="142" y="739" class="muted" font-size="9">Shift duration</text><text x="142" y="756" class="white" font-size="15" font-weight="700">04:12:35</text>
+ <text x="270" y="739" class="muted" font-size="9">Pickup / idle</text><text x="270" y="756" class="amber" font-size="10" font-weight="700">Review</text>
+ <rect y="790" width="390" height="54" fill="#17232D"/><path d="M0 790H390" stroke="#344452"/>
+ <g font-size="9" text-anchor="middle"><text x="48" y="814" class="muted">⌂</text><text x="146" y="814" class="blue">▤</text><text x="244" y="814" class="muted">▥</text><text x="342" y="814" class="muted">⚙</text><text x="48" y="832" class="muted">Drive</text><text x="146" y="832" class="blue" font-weight="700">Timeline</text><text x="244" y="832" class="muted">Performance</text><text x="342" y="832" class="muted">Admin</text></g>
+</g>
+
+<!-- Frame 2: Week -->
+<text x="420" y="82" fill="#FFFFFF" font-size="13" font-weight="700">02 · WEEK OVERVIEW</text>
+<rect x="420" y="94" width="390" height="844" rx="24" class="phone"/>
+<g transform="translate(420 94)">
+ <rect width="390" height="844" rx="24" class="bg"/>
+ <text x="20" y="28" class="white" font-size="12" font-weight="750">◉ SAM TRAVELS</text><text x="370" y="28" class="green" font-size="9" font-weight="700" text-anchor="end">ONLINE</text>
+ <text x="20" y="70" class="white" font-size="26" font-weight="750">Timeline</text>
+ <text x="20" y="96" class="white" font-size="13" font-weight="650">Week overview</text>
+ <rect x="16" y="116" width="358" height="38" rx="10" fill="#182630"/><text x="74" y="140" class="muted" font-size="11" text-anchor="middle">Day</text><rect x="136" y="118" width="116" height="34" rx="8" fill="#30485A"/><text x="194" y="140" class="white" font-size="11" font-weight="700" text-anchor="middle">Week</text><text x="318" y="140" class="muted" font-size="11" text-anchor="middle">Choose date</text>
+ <rect x="16" y="170" width="358" height="56" rx="10" class="surface"/>
+ <text x="30" y="192" class="muted" font-size="9" font-weight="700">SELECTED WEEK</text><text x="30" y="212" class="white" font-size="14" font-weight="700">2–8 November 2026</text>
+ <text x="30" y="252" class="muted" font-size="10">‹ PREVIOUS WEEK</text><text x="360" y="252" class="blue" font-size="10" font-weight="700" text-anchor="end">NEXT WEEK ›</text>
+ <text x="20" y="287" class="white" font-size="12" font-weight="750">MONDAY – SUNDAY</text>
+ <g>
+  <rect x="16" y="304" width="358" height="57" rx="10" class="surface"/><text x="30" y="326" class="white" font-size="11" font-weight="700">MON · 2 NOV</text><text x="30" y="345" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="332" r="4" fill="#526575"/>
+  <rect x="16" y="370" width="358" height="57" rx="10" class="surface"/><text x="30" y="392" class="white" font-size="11" font-weight="700">TUE · 3 NOV</text><text x="30" y="411" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="398" r="4" fill="#526575"/>
+  <rect x="16" y="436" width="358" height="57" rx="10" class="surface"/><text x="30" y="458" class="white" font-size="11" font-weight="700">WED · 4 NOV</text><text x="30" y="477" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="464" r="4" fill="#526575"/>
+  <rect x="16" y="502" width="358" height="67" rx="10" fill="#21394A" stroke="#65B9E8" stroke-width="1.5"/><text x="30" y="525" class="white" font-size="11" font-weight="750">THU · 5 NOV</text><text x="30" y="546" class="muted" font-size="9">2 shifts · 4 completed rides · 1 cancelled</text><rect x="310" y="516" width="50" height="22" rx="11" fill="#30485A"/><text x="335" y="531" class="blue" font-size="9" font-weight="700" text-anchor="middle">VIEW</text>
+  <rect x="16" y="578" width="358" height="57" rx="10" class="surface"/><text x="30" y="600" class="white" font-size="11" font-weight="700">FRI · 6 NOV</text><text x="30" y="619" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="606" r="4" fill="#526575"/>
+  <rect x="16" y="644" width="358" height="57" rx="10" class="surface"/><text x="30" y="666" class="white" font-size="11" font-weight="700">SAT · 7 NOV</text><text x="30" y="685" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="672" r="4" fill="#526575"/>
+  <rect x="16" y="710" width="358" height="57" rx="10" class="surface"/><text x="30" y="732" class="white" font-size="11" font-weight="700">SUN · 8 NOV</text><text x="30" y="751" class="muted" font-size="9">No activity recorded</text><circle cx="352" cy="738" r="4" fill="#526575"/>
+ </g>
+ <text x="20" y="783" class="muted" font-size="9">Choose any date to open its day sequence.</text>
+ <rect y="790" width="390" height="54" fill="#17232D"/><path d="M0 790H390" stroke="#344452"/>
+ <g font-size="9" text-anchor="middle"><text x="48" y="814" class="muted">⌂</text><text x="146" y="814" class="blue">▤</text><text x="244" y="814" class="muted">▥</text><text x="342" y="814" class="muted">⚙</text><text x="48" y="832" class="muted">Drive</text><text x="146" y="832" class="blue" font-weight="700">Timeline</text><text x="244" y="832" class="muted">Performance</text><text x="342" y="832" class="muted">Admin</text></g>
+</g>
+
+<!-- Frame 3: Detail -->
+<text x="820" y="82" fill="#FFFFFF" font-size="13" font-weight="700">03 · EVENT DETAIL</text>
+<rect x="820" y="94" width="390" height="844" rx="24" class="phone"/>
+<g transform="translate(820 94)">
+ <rect width="390" height="844" rx="24" class="bg"/>
+ <text x="20" y="28" class="white" font-size="12" font-weight="750">◉ SAM TRAVELS</text><text x="370" y="28" class="green" font-size="9" font-weight="700" text-anchor="end">ONLINE</text>
+ <text x="20" y="70" class="white" font-size="26" font-weight="750">Timeline</text><text x="20" y="96" class="white" font-size="13" font-weight="650">Thursday, 5 November</text>
+ <rect x="16" y="116" width="358" height="38" rx="10" fill="#182630"/><rect x="18" y="118" width="112" height="34" rx="8" fill="#30485A"/><text x="74" y="140" class="white" font-size="11" font-weight="700" text-anchor="middle">Day</text><text x="195" y="140" class="muted" font-size="11" text-anchor="middle">Week</text><text x="318" y="140" class="muted" font-size="11" text-anchor="middle">Choose date</text>
+ <text x="20" y="180" class="muted" font-size="10">‹ BACK TO DAY</text><path d="M16 194H374" stroke="#344452"/>
+ <rect x="16" y="211" width="358" height="600" rx="14" fill="#172630" stroke="#52758B"/>
+ <text x="32" y="240" class="blue" font-size="9" font-weight="750">EVENT DETAILS</text><text x="32" y="274" class="white" font-size="22" font-weight="750">Completed ride</text>
+ <rect x="284" y="250" width="72" height="23" rx="11" fill="#193E36"/><text x="320" y="266" class="green" font-size="9" font-weight="700" text-anchor="middle">COMPLETED</text>
+ <text x="32" y="318" class="muted" font-size="10">FARE</text><text x="32" y="356" class="white" font-size="32" font-weight="750">₹450</text>
+ <path d="M32 377H358" stroke="#405363"/>
+ <text x="32" y="407" class="muted" font-size="10">STARTED</text><text x="32" y="430" class="white" font-size="14" font-weight="700">06:44 AM</text>
+ <text x="205" y="407" class="muted" font-size="10">DURATION</text><text x="205" y="430" class="white" font-size="14" font-weight="700">32m 15s</text>
+ <path d="M32 451H358" stroke="#405363"/>
+ <text x="32" y="481" class="muted" font-size="10">PICKUP LOCATION</text><text x="32" y="504" class="white" font-size="13" font-weight="650">Andheri East</text>
+ <circle cx="38" cy="532" r="3" class="blue"/><path d="M38 535V566" class="line"/>
+ <text x="32" y="590" class="muted" font-size="10">DROP LOCATION</text><text x="32" y="613" class="white" font-size="13" font-weight="650">Bandra West</text>
+ <path d="M32 636H358" stroke="#405363"/>
+ <text x="32" y="666" class="muted" font-size="10">SOURCE / EVIDENCE</text>
+ <text x="32" y="691" class="white" font-size="11">Trip event details</text><text x="32" y="713" class="muted" font-size="10">Only recorded source fields are shown.</text>
+ <rect x="32" y="742" width="326" height="44" rx="9" fill="#263746"/><text x="195" y="769" class="blue" font-size="11" font-weight="700" text-anchor="middle">CLOSE DETAILS</text>
+ <rect y="790" width="390" height="54" fill="#17232D"/><path d="M0 790H390" stroke="#344452"/>
+ <g font-size="9" text-anchor="middle"><text x="48" y="814" class="muted">⌂</text><text x="146" y="814" class="blue">▤</text><text x="244" y="814" class="muted">▥</text><text x="342" y="814" class="muted">⚙</text><text x="48" y="832" class="muted">Drive</text><text x="146" y="832" class="blue" font-weight="700">Timeline</text><text x="244" y="832" class="muted">Performance</text><text x="342" y="832" class="muted">Admin</text></g>
+</g>
+<text x="24" y="960" fill="#AAB8C4" font-size="10">Proposal states use the existing v1 example's known event values; blank/unavailable source fields are intentionally not invented. Navigation and controls are illustrative interaction affordances, not runtime behavior.</text>
+</svg>
