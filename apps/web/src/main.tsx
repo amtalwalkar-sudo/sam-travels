@@ -73,7 +73,6 @@ import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
 const ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK = true;
-
 async function bootstrap(): Promise<void> {
   const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
@@ -116,7 +115,6 @@ async function bootstrap(): Promise<void> {
       return { actorId: actor.actorId, role: actor.role };
     },
   }, getApplicationRecordSource());
-
   initializeApplicationComplianceAnalysisService(
     getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
       analyzeCoverage: analyzeComplianceCoverage,
