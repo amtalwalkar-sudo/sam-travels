@@ -147,14 +147,18 @@ export class BusinessExpensesService {
         kind?: string; status?: string; tripContext?: { operationalDate?: string };
         tollPaise?: number; tollPayer?: string; parkingPaise?: number; parkingPayer?: string;
       } | undefined;
+      const linkedExpenseOriginal = data.effect === "reversal"
+        ? await this.records.get(data.reversesSourceId!) : undefined;
+      const originalBusinessDate = linkedExpenseOriginal?.data.kind === "business_expense"
+        ? linkedExpenseOriginal.data.businessDate : undefined;
       const driverPaidAmount = (linkedData?.tollPayer === "driver" ? linkedData.tollPaise ?? 0 : 0) +
         (linkedData?.parkingPayer === "driver" ? linkedData.parkingPaise ?? 0 : 0);
+      const sourceDateMatches = data.effect === "charge"
+        ? linkedData?.tripContext?.operationalDate === data.businessDate
+        : linkedData?.tripContext?.operationalDate === originalBusinessDate;
       if (linkedData?.kind !== "completed_ride_financials" || linkedData.status !== "submitted" ||
           !Number.isSafeInteger(driverPaidAmount) || driverPaidAmount <= 0 ||
-          linkedData.tripContext?.operationalDate !== (data.effect === "charge"
-            ? data.businessDate
-            : (await this.records.get(data.reversesSourceId!))?.data.businessDate) ||
-          driverPaidAmount !== data.amountPaise) {
+          !sourceDateMatches || driverPaidAmount !== data.amountPaise) {
         throw new Error("business_expense_trip_financial_link_invalid");
       }
       if (data.effect === "charge") {
