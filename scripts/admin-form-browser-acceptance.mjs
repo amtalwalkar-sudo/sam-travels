@@ -97,6 +97,13 @@ try {
     await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible", timeout: 15000 });
   } catch (error) {
     console.log("Driver assignment status:", await page.locator("#admin-section-panel-driver [role=status]").allTextContents());
+    console.log("Persisted Driver record payloads:", await page.evaluate(async () => {
+      const request = indexedDB.open("sam-travels-browser");
+      const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+      const rows = await new Promise((resolve, reject) => { const tx = db.transaction("records", "readonly"); const get = tx.objectStore("records").getAll(); get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error); });
+      db.close();
+      return rows.filter(row => row.id.startsWith("feature:driver-records:driver:")).map(row => ({ id: row.id, data: row.data, revision: row.revision }));
+    }));
     console.log("Driver assignment panel:", await driverCard.innerHTML());
     throw new Error("driver_vehicle_assignment_failed:" + (error instanceof Error ? error.message : String(error)));
   }
