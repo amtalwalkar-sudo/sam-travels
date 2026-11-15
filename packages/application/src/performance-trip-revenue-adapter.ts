@@ -17,6 +17,12 @@ type SubmittedTripFinancialRecord = RecordEnvelope<
   CancellationFeeObligation | CompletedTripFinancialObligation
 >;
 
+function validOperationalDate(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const parsed = Date.parse(value + "T00:00:00.000Z");
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value;
+}
+
 /**
  * Adapts the authoritative submitted trip-closeout ledger into gross revenue.
  * Operational dates come only from the immutable trip context captured when
@@ -50,7 +56,8 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
     for (const record of records) {
       const data = record.data;
       const context = data.tripContext;
-      if (!context || context.operationalDate < from || context.operationalDate > to) continue;
+      if (!context || !validOperationalDate(context.operationalDate) ||
+          context.operationalDate < from || context.operationalDate > to) continue;
       if (data.kind === "completed_ride_financials") {
         if (!Number.isSafeInteger(data.farePaise) || (data.farePaise ?? -1) < 0) continue;
         result.push(Object.freeze({
@@ -82,9 +89,8 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
       const amountPresent = data.kind === "completed_ride_financials"
         ? Number.isSafeInteger(data.farePaise) && (data.farePaise ?? -1) >= 0
         : Number.isSafeInteger(data.feePaise) && (data.feePaise ?? -1) >= 0;
-      return !context || !amountPresent ||
-        (context.operationalDate >= from && context.operationalDate <= to &&
-          !Number.isFinite(Date.parse(context.operationalDate + "T00:00:00.000Z")));
+      return !context || !validOperationalDate(context.operationalDate) || !amountPresent ||
+        (context.operationalDate >= from && context.operationalDate <= to && false);
     });
     if (!unresolved.length) return Object.freeze([
       Object.freeze({ source: "trip-financials", status: "complete" as const }),
