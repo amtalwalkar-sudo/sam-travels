@@ -130,6 +130,8 @@ type TimelineModel = LoadedTimeline["model"] & { locations: TimelineLocationMap 
 export function TimelineScreen({ context }: { context: TimelineScreenContext }) {
   const [mode, setMode] = useState<TimelinePeriodMode>("day");
   const [selectedDate, setSelectedDate] = useState(indiaCalendarDate(new Date()));
+  const [followsToday, setFollowsToday] = useState(true);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [model, setModel] = useState<TimelineModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -140,9 +142,25 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const detailWasOpen = useRef(false);
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
-  const today = indiaCalendarDate(new Date());
+  const today = indiaCalendarDate(new Date(clockNow));
   const fromDate = mode === "week" ? timelineWeekStart(selectedDate) : selectedDate;
   const toDate = mode === "week" ? moveTimelineDate(fromDate, 6) : selectedDate;
+
+  useEffect(() => {
+    const updateClock = () => setClockNow(Date.now());
+    window.addEventListener("focus", updateClock);
+    window.addEventListener("pageshow", updateClock);
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      window.removeEventListener("focus", updateClock);
+      window.removeEventListener("pageshow", updateClock);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (followsToday) setSelectedDate(today);
+  }, [today, followsToday]);
 
   const refresh = async (allowLocationLookup = locationLookupEnabled) => {
     activeRequest.current?.abort();
@@ -249,8 +267,18 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         a.revision - b.revision || a.eventId.localeCompare(b.eventId));
       const shift = shiftByEvent.get(ordered[0]?.eventId ?? "");
       const segmentStart = shift ? Date.parse(shift.anchorDate + "T04:00:00+05:30") : Number.NaN;
-      const continued = Number.isFinite(segmentStart) && !!activeShiftAt(allEvents, segmentStart) &&
-        Date.parse(activeShiftAt(allEvents, segmentStart)!.command.transitionAt) < segmentStart;
+      const segmentEnd = shift
+        ? Date.parse(moveTimelineDate(shift.anchorDate, 1) + "T04:00:00+05:30")
+        : Number.NaN;
+      const activeAtStart = Number.isFinite(segmentStart) ? activeShiftAt(allEvents, segmentStart) : undefined;
+      const activeAtEnd = Number.isFinite(segmentEnd) ? activeShiftAt(allEvents, segmentEnd) : undefined;
+      const continued = !!activeAtStart && Date.parse(activeAtStart.command.transitionAt) < segmentStart;
+      const endedInsideSegment = ordered.some(event => event.command.eventType === "shift_end");
+      const closedAtBoundary = !!shift && allEvents.some(event =>
+        event.command.eventType === "shift_end" &&
+        Date.parse(event.command.transitionAt) === segmentEnd);
+      const rotated = !!shift && clockNow >= segmentEnd && !endedInsideSegment && !closedAtBoundary &&
+        !!activeAtEnd && (shift.eventIds.includes(activeAtEnd.eventId) || continued);
       const cards: TimelineEventCardModel[] = ordered.map(event => {
         const location = locationLabel(event, model?.locations[event.eventId]);
         const kind = eventKind(event);
@@ -282,10 +310,10 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         events: cards,
         shift,
         firstAt: Math.min(...ordered.map(event => Date.parse(event.command.transitionAt))),
-        status: ordered.some(event => event.command.eventType === "shift_end") ? "ENDED" : "ACTIVITY",
+        status: !shift ? "ACTIVITY" : endedInsideSegment || closedAtBoundary ? "ENDED" : rotated ? "ROTATED · 04:00" : continued ? "CONTINUED · ACTIVE" : "IN PROGRESS",
       };
     }).sort((a, b) => a.firstAt - b.firstAt || a.id.localeCompare(b.id));
-  }, [day, eventById, shiftByEvent, allEvents, model, selectedDate]);
+  }, [day, eventById, shiftByEvent, allEvents, model, selectedDate, clockNow]);
 
   const openEvent = (eventId: string) => {
     if (!selectedEvent && document.activeElement instanceof HTMLElement) detailReturnFocus.current = document.activeElement;
@@ -322,9 +350,12 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     });
   };
 
-  const onMove = (direction: -1 | 1) => setSelectedDate(value => moveTimelineDate(value, direction * (mode === "week" ? 7 : 1)));
+  const onMove = (direction: -1 | 1) => {
+    setFollowsToday(false);
+    setSelectedDate(value => moveTimelineDate(value, direction * (mode === "week" ? 7 : 1)));
+  };
   const onModeChange = (nextMode: TimelinePeriodMode) => setMode(nextMode);
-  const onToday = () => { setSelectedDate(today); setMode("day"); };
+  const onToday = () => { setFollowsToday(true); setSelectedDate(today); setMode("day"); };
 
   const daySections: TimelineDaySectionModel[] = groupedShifts.map(group => ({
     id: group.id,
@@ -359,7 +390,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     selectedEvent={selectedEvent}
     selectedShift={selectedShift}
     onModeChange={onModeChange}
-    onDateChange={setSelectedDate}
+    onDateChange={date => { setFollowsToday(false); setSelectedDate(date); }}
     onMove={onMove}
     onToday={onToday}
     onRefresh={() => { void refresh(); }}
