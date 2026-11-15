@@ -5,6 +5,7 @@ import { registerComplianceBrowserBackupParticipant } from "./compliance-backup"
 import { registerMaintenanceBrowserBackupParticipant } from "./maintenance-backup";
 import { registerFinanceBrowserBackupParticipant } from "./finance-backup";
 import { registerBusinessExpensesBrowserBackupParticipant } from "./business-expenses-backup";
+import { registerPerformanceBrowserBackupParticipant } from "./performance-backup";
 
 /** Register every browser backup adapter before opening the persistent repository. */
 export function registerBrowserBackupParticipants(): void {
@@ -15,4 +16,5 @@ export function registerBrowserBackupParticipants(): void {
   registerMaintenanceBrowserBackupParticipant();
   registerFinanceBrowserBackupParticipant();
   registerBusinessExpensesBrowserBackupParticipant();
+  registerPerformanceBrowserBackupParticipant();
 }
