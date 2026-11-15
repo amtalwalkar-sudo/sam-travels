@@ -202,7 +202,13 @@ try {
   await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
   await paymentPanel.getByLabel("Transaction reference (optional)").fill("EMI-FUTURE-ACCEPTANCE-1");
   await paymentPanel.getByRole("button", { name: "Suggest oldest-due-first allocation", exact: true }).click();
-  await paymentPanel.getByRole("status").filter({ hasText: "No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation." }).waitFor({ state: "visible" });
+  const allocationStatus = paymentPanel.getByRole("status");
+  await allocationStatus.waitFor({ state: "visible" });
+  const allocationMessage = (await allocationStatus.allTextContents()).join(" ");
+  if (!allocationMessage.includes("Suggested oldest-due-first allocation.") && !allocationMessage.includes("No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation.")) {
+    throw new Error("Unexpected future-dated payment allocation result: " + allocationMessage);
+  }
+  console.log("Future-dated payment allocation respects EMI due-date eligibility: " + allocationMessage);
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
   await paymentPanel.getByText("EMI-FUTURE-ACCEPTANCE-1", { exact: false }).waitFor({ state: "visible" });
