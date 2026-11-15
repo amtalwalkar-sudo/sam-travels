@@ -31,16 +31,14 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Drive loads", await(activity, "!!document.querySelector('.driver-card')", 30000))
             eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
             assertTrue("Admin shell loads", await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
-            set(activity, "Person name", marker + " Admin")
-            eval(activity, "(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'));const i=l?.querySelector('input');if(!i)return false;if(!i.checked)i.click();return true})()")
-            set(activity, "Set initial Admin PIN", "4831")
-            click(activity, "Enroll person")
-            assertTrue("Admin enrollment", await(activity, "document.body.innerText.includes('Person enrolled')", 15000))
-            eval(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Select person'));const s=l?.querySelector('select');const o=[...(s?.options||[])].find(x=>x.textContent.includes('$marker Admin'));if(!s||!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
-            set(activity, "Active role", "admin")
-            set(activity, "Admin PIN", "4831")
-            click(activity, "Activate role")
-            assertTrue("Admin activation", await(activity, "document.body.innerText.includes('Role activated')", 15000))
+            check(javascriptValue(activity, """(()=>{const set=(labelText,value)=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes(labelText));const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,value);i.dispatchEvent(new Event('input',{bubbles:true}));return true};const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'));const i=l?.querySelector('input[type=checkbox]');if(!i)return false;i.click();return set('Person name','$marker Admin')&&set('Set initial Admin PIN','4831')})()""")=="true") { "Admin enrollment fields unavailable" }
+            eval(activity, "document.querySelector('form button')?.click()")
+            assertTrue("Admin enrollment", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
+            assertTrue("Admin activation controls", await(activity, "(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Select person'));return !!l?.querySelector('select')&&[...l.querySelectorAll('option')].some(o=>o.textContent.trim()==='$marker Admin')})()", 15000))
+            check(javascriptValue(activity, """(()=>{const find=t=>[...document.querySelectorAll('label')].find(n=>n.textContent.includes(t));const p=find('Select person')?.querySelector('select');const r=find('Active role')?.querySelector('select');if(!p||!r)return false;const set=(s,v)=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,v);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))};const o=[...p.options].find(o=>o.textContent.trim()==='$marker Admin');if(!o)return false;set(p,o.value);set(r,'admin');return true})()""")=="true") { "Admin activation selectors unavailable" }
+            assertTrue("Admin PIN appears", await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
+            check(javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""")=="true") { "Admin PIN input unavailable" }
+            assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
                 "driver" to "Add driver", "compliance" to "Add compliance / renewal",
