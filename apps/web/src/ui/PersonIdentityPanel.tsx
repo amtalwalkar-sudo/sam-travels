@@ -75,7 +75,7 @@ export function PersonIdentityPanel({ adapter }: { adapter: AdminIdentityPresent
         <label><input type="checkbox" checked={roles.includes("admin")} onChange={event =>
           setRoles(current => event.target.checked ? [...current.filter(role => role !== "admin"), "admin"] : current.filter(role => role !== "admin"))} /> Admin role</label>
       </div>
-      {roles.includes("admin") && !snapshot.pinConfigured && <label>Initial Admin PIN<input required minLength={4} maxLength={12} inputMode="numeric" type="password" value={pin} onChange={event => setPin(event.target.value)} /></label>}
+      {roles.includes("admin") && !snapshot.pinConfigured && <label>Set initial Admin PIN<input required minLength={4} maxLength={12} inputMode="numeric" type="password" value={pin} onChange={event => setPin(event.target.value)} /></label>}
       <button className="admin-primary" disabled={busy || !name.trim() || !roles.length ||
         (!snapshot.pinConfigured && (!roles.includes("admin") || !/^\d{4,12}$/.test(pin)))}>Enroll person</button>
     </form>
@@ -87,7 +87,7 @@ export function PersonIdentityPanel({ adapter }: { adapter: AdminIdentityPresent
       </select>
     </label>)}
     <form className="admin-capability-form" onSubmit={activate}>
-      <label>Person<select required value={selectedPerson} onChange={event => setSelectedPerson(event.target.value)}>
+      <label>Select person<select required value={selectedPerson} onChange={event => setSelectedPerson(event.target.value)}>
         <option value="">Select person</option>
         {snapshot.people.filter(person => person.status === "active")
           .map(person => <option key={person.personId} value={person.personId}>{person.displayName}</option>)}
