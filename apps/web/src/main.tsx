@@ -66,6 +66,7 @@ import { handleBusinessExpenseFormSubmission } from "./business-expense-form-sub
 import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
+import { createAdminIdentityPresentationAdapter } from "./admin-identity-presentation-adapter";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -78,7 +79,7 @@ async function bootstrap(): Promise<void> {
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
-  await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
+  const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
     const actor = await getPersonIdentityService().currentActor();
     return { personId: actor.actorId, role: actor.role };
@@ -362,6 +363,7 @@ async function bootstrap(): Promise<void> {
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
+  const adminIdentityAdapter = createAdminIdentityPresentationAdapter({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
@@ -381,7 +383,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityRecords={repository}>
+      <AdminServicesProvider services={adminServices} identityAdapter={adminIdentityAdapter}>
         <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
       </AdminServicesProvider>
     </React.StrictMode>,
