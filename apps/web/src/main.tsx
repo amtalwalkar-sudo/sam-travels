@@ -85,6 +85,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),
   );
@@ -107,7 +108,6 @@ async function bootstrap(): Promise<void> {
   initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
   initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
-  const complianceCorrections = createComplianceHistoricalCorrectionService(repository, getPersonIdentityService(), getApplicationRecordSource());
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
       const actor = await getPersonIdentityService().currentActor();
@@ -121,7 +121,7 @@ async function bootstrap(): Promise<void> {
       calculateDailyCost: calculateDailyComplianceCost,
       validateProjectedComplianceData: assertComplianceRecordV1,
     },
-    complianceCorrections,
+    adminAdapters.compliance,
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
@@ -364,7 +364,6 @@ async function bootstrap(): Promise<void> {
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
-  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
