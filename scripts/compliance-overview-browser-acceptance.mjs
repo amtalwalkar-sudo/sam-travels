@@ -104,8 +104,8 @@ try {
   await page.getByRole("button", { name: "Activate role" }).click();
   await page.getByRole("status").filter({ hasText: "Role activated" }).waitFor();
 
-  const complianceSection = page.locator(".admin-section").filter({ hasText: "Compliance" });
-  await complianceSection.locator(".admin-section-trigger").click();
+  const complianceSection = page.locator(".admin-replacement-section").filter({ hasText: "Compliance" });
+  await complianceSection.locator(".admin-replacement-section-trigger").click();
   const overview = complianceSection.locator(".compliance-fleet-overview");
   await overview.waitFor();
   await overview.getByRole("heading", { name: "Coverage gaps", exact: true }).waitFor();
