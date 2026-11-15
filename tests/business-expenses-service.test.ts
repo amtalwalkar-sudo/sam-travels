@@ -183,7 +183,7 @@ describe("BusinessExpensesService", () => {
         endRideEventId: "end-trip-dup", createdAt: "2026-11-15T00:00:00.000Z",
         tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1",
           assignmentId: "assignment-1", vehicleId, operationalDate: "2026-11-15" },
-        farePaise: 5000, tollPaise: 1200, tollPayer: "driver",
+        farePaise: 5000, tollPaise: 1200, tollPayer: "driver", parkingPaise: 700, parkingPayer: "driver",
       },
     });
     const linked = {
@@ -193,6 +193,14 @@ describe("BusinessExpensesService", () => {
     };
     await expect(service.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174070", source: "web", data: linked,
+    })).rejects.toThrow("business_expense_trip_financial_duplicate");
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174073", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 700,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+        tripFinancialSourceId: tripId, tripFinancialComponent: "parking",
+      },
     })).rejects.toThrow("business_expense_trip_financial_duplicate");
 
     const legacyId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174071";
