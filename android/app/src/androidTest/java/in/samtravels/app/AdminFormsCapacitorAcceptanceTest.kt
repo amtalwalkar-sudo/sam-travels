@@ -127,7 +127,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Vehicle", vehicleRecordId, 1)
             set(activity, "Description", marker + " parking")
             set(activity, "Receipt / source reference", "PARK-" + marker)
-            click(activity, "Save expense", 1)
+            click(activity, "Save expense")
             assertTrue("Misc expense saved", await(activity, "document.body.innerText.includes('Saved.')", 15000))
 
             eval(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
