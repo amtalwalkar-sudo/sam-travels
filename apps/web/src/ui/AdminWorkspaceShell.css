@@ -1,0 +1,18 @@
+.admin-replacement-shell{padding:20px 0 32px;color:#20313b;min-width:0}
+.admin-replacement-header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin:0 0 18px}
+.admin-replacement-header h2{font-size:27px;letter-spacing:-.7px;line-height:1.15;margin:5px 0 7px;color:#193b4c}
+.admin-replacement-eyebrow{margin:0;color:#71818a;font-size:9px;font-weight:800;letter-spacing:.12em}
+.admin-replacement-description{margin:0;max-width:340px;color:#71808a;font-size:12px;line-height:1.55}
+.admin-replacement-local{flex:0 0 auto;border:1px solid #dce7e4;border-radius:999px;padding:6px 9px;color:#55756a;background:#f4f8f6;font-size:9px;font-weight:750;letter-spacing:.04em}
+.admin-replacement-identity{margin:0 0 16px;min-width:0}
+.admin-replacement-sections{display:grid;gap:8px}
+.admin-replacement-section{min-width:0;overflow:hidden;border:1px solid #dfe7ea;border-radius:13px;background:#fff}
+.admin-replacement-section.is-expanded{border-color:#b9cbd2;box-shadow:0 3px 12px rgba(28,59,73,.045)}
+.admin-replacement-section-heading{margin:0}
+.admin-replacement-section-trigger{width:100%;min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 15px;border:0;background:#fff;color:#294454;text-align:left;font:inherit;font-size:13px;font-weight:750;cursor:pointer}
+.admin-replacement-section.is-expanded .admin-replacement-section-trigger{background:#f5f8f9;color:#183d52}
+.admin-replacement-chevron{display:grid;place-items:center;width:25px;height:25px;border:1px solid #e1e9ec;border-radius:50%;color:#718793;font-size:17px;font-weight:400;line-height:1}
+.admin-replacement-section-trigger:focus-visible{outline:3px solid #7ca9bd;outline-offset:-3px}
+.admin-replacement-section-content{min-width:0;padding:14px;border-top:1px solid #e9eff1}
+@media(min-width:720px){.admin-replacement-shell{padding-top:24px}.admin-replacement-header{margin-bottom:22px}.admin-replacement-section-content{padding:18px}}
+@media(prefers-reduced-motion:no-preference){.admin-replacement-section{transition:border-color .15s ease,box-shadow .15s ease}}
