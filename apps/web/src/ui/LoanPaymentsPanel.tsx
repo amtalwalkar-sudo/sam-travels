@@ -6,7 +6,7 @@ import type {
   FinanceLoanPrepaymentRevisionV1,
   FinanceLoanPrepaymentModeV1,
 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminFinanceServices } from "./admin-services-context";
 import type { FinanceLoanRecordV1 } from "../../../../packages/application/src/finance-loan-service";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import { useLoanFormDrafts, money, indiaDate, activePayments } from "./useLoanFormDrafts";
@@ -18,7 +18,7 @@ type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmou
 type ScheduleView = { version: number; effectiveDate: string; label: string; rows: readonly ScheduleRow[]; regularEmiPaise: number };
 const METHODS: FinancePaymentMethodV1[] = ["cash", "bank_transfer", "cheque", "upi", "other"];
 export function LoanPaymentsPanel({ loan, onChanged }: { loan: LoanEnvelope; onChanged?: () => void }) {
-  const services = useAdminServices();
+  const services = useAdminFinanceServices();
   const [entries, setEntries] = useState<readonly FinancePaymentEntryV1[]>([]);
   const [schedules, setSchedules] = useState<readonly ScheduleView[]>([]);
   const [prepayments, setPrepayments] = useState<readonly FinanceLoanPrepaymentRevisionV1[]>([]);
