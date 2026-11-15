@@ -45,10 +45,10 @@ export function AdminWorkspaceShell({
               <span className="admin-replacement-chevron" aria-hidden="true">{expanded ? "−" : "+"}</span>
             </button>
           </h3>
-          {expanded && <div id={panelId} className="admin-replacement-section-content"
+          <div id={panelId} className="admin-replacement-section-content" hidden={!expanded}
             role="region" aria-labelledby={triggerId}>
-            {section.content}
-          </div>}
+            {expanded ? section.content : null}
+          </div>
         </section>;
       })}
     </nav>
