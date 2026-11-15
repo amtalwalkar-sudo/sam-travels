@@ -61,6 +61,7 @@
 | Timeline product behaviour | [Timeline Design](TIMELINE_DESIGN_PROPOSAL.md) | Approved Timeline product design; technical safeguards remain with owner contracts |
 | Timeline visual artifact fidelity | [Timeline Mockup Fidelity](TIMELINE_MOCKUP_VISUAL_FIDELITY_CONTRACT.md) | Versioned visual reference governance |
 | Timeline presentation replacement | [Timeline Presentation Replacement Implementation](TIMELINE_PRESENTATION_REPLACEMENT_IMPLEMENTATION_CONTRACT.md) | Proposed driver-first layered day/week review and decoupled presentation replacement; implementation is gated on contract and v2 visual approval |
+| Timeline replacement execution plan | [Timeline Presentation Replacement Implementation Plan](TIMELINE_PRESENTATION_REPLACEMENT_IMPLEMENTATION_PLAN.md) | Phased delivery, component-isolation checklist, dependency map, test matrix, scope-change protocol and evidence ledger; follows the normative replacement contract |
 | Architecture CI checks and limits | [Architecture Enforcement](ARCHITECTURE_ENFORCEMENT.md) | Automated architecture checks and their limits |
 | Cross-platform/device acceptance | [Platform Acceptance](PLATFORM_ACCEPTANCE_CONTRACT.md) | Verification layers, release gate and physical-device distinction |
 | Android device readiness | [Android Device Readiness](ANDROID_DEVICE_READINESS_CONTRACT.md) | Launch/resume readiness prerequisites |
