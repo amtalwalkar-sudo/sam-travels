@@ -3,7 +3,6 @@ import { getDriverSwipeAction } from "../../../../../packages/features/work-shif
 import { SwipeActionBar } from "../SwipeActionBar";
 import { driverPresentationCssVars } from "../driver-presentation";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../../packages/features/work-shift";
-import type { CancellationFeeObligation, CompletedTripFinancialObligation } from "../../../../../packages/application/src/trip-financial-service";
 
 type CompletedTripFinancialDraft = {
   fare: string;
@@ -24,10 +23,10 @@ type DriverWorkflowWorkspace = Readonly<{
   shiftOn: boolean;
   driverChoices: ReadonlyArray<{ driverId: string; name: string }>;
   selectedDriverId: string;
-  pendingCancellationFees: ReadonlyArray<{ id: string; data: CancellationFeeObligation }>;
+  pendingCancellationFees: ReadonlyArray<{ id: string; data: { tripId: string } }>;
   cancellationFeeDrafts: Readonly<Record<string, string>>;
   cancellationFeeBusy: boolean;
-  pendingCompletedTripFinancials: ReadonlyArray<{ id: string; data: CompletedTripFinancialObligation }>;
+  pendingCompletedTripFinancials: ReadonlyArray<{ id: string; data: { tripId: string } }>;
   completedTripFinancialDrafts: Readonly<Record<string, CompletedTripFinancialDraft>>;
   completedTripFinancialBusy: boolean;
   completedTripFinancialSummaries: Readonly<Record<string, {
