@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import "./AdminFormControls.css";
+import "./AdminCompliance.css";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { ComplianceRecordV1 } from "../../../../packages/application/src/compliance-service";
 import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-historical-correction";
