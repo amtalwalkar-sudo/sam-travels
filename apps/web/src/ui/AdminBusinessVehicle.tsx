@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, type AdminPresentationServices, type VehicleRecordV1 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminBusinessSetupServices, useAdminVehicleServices } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
 type BusinessSettings = Awaited<ReturnType<AdminPresentationServices["businessSettings"]["get"]>>;
@@ -15,7 +15,7 @@ const EMPTY_VEHICLE: VehicleForm = {
 };
 
 export function BusinessSetupSection() {
-  const services = useAdminServices();
+  const services = useAdminBusinessSetupServices();
   const [record, setRecord] = useState<BusinessSettings | undefined>();
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const [date, setDate] = useState("");
@@ -76,7 +76,7 @@ export function BusinessSetupSection() {
 }
 
 export function VehicleSection() {
-  const services = useAdminServices();
+  const services = useAdminVehicleServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState<VehicleForm>(EMPTY_VEHICLE);
   const [editing, setEditing] = useState<Vehicle | null>(null);
