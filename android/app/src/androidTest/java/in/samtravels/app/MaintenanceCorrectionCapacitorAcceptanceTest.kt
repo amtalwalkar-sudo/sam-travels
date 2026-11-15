@@ -159,7 +159,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       evaluate(activity, """
           (() => {
             document.querySelector('details.loan-schedule')?.setAttribute('open','');
-            const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+            const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
             record?.querySelector('button')?.click();
             return Boolean(record);
           })()
@@ -230,22 +230,22 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertTrue("Driver activates", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
       assertTrue("Own record appears", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Acceptance tyre repair'))", 10_000))
+          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept tyre repair'))", 10_000))
       assertTrue("Driver button", evaluate(activity, """
           (() => {
             document.querySelector('details.loan-schedule')?.setAttribute('open','');
-            const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+            const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
             const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
             button?.click();
             return Boolean(button);
           })()
       """))
       assertTrue("Driver form", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.querySelector('label input') !== null",
+          "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('label input') !== null",
           5_000))
       assertTrue("Driver submits", evaluate(activity, """
           (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'));
+            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
             const set = (labelText, value) => {
               const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
               const input = label?.querySelector('input');
@@ -261,23 +261,23 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           })()
       """))
       assertTrue("Driver saved", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Append correction')", 15_000))
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Append correction')", 15_000))
       assertTrue("Other record", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
+          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
       assertTrue("Other form button", evaluate(activity, """
           (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
+            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
             const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
             button?.click();
             return Boolean(button);
           })()
       """))
       assertTrue("Other form opens", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'))?.querySelector('label input') !== null",
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.querySelector('label input') !== null",
           5_000))
       assertTrue("Other input", evaluate(activity, """
           (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'));
+            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
             const set = (labelText, value) => {
               const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
               const input = label?.querySelector('input');
@@ -293,7 +293,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           })()
       """))
       assertTrue("Other rejected", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre repair'))?.textContent.includes('historical_correction_forbidden')", 15_000))
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
       val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json).getJSONObject("data") }
           .filter { it.optString("targetRecordId") == expenseId }
