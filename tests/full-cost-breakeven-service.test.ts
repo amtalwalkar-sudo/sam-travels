@@ -25,12 +25,13 @@ describe("FullCostBreakevenService source integration", () => {
         }, {
           id: "manual-trip-toll-duplicate", revision: 1,
           data: { sourceKind: "miscellaneous", businessDate: "2026-11-01", amountPaise: 50,
-            effect: "charge", tripFinancialSourceId: "work:trip-financial-obligation:trip-1",
-            tripFinancialComponent: "toll" },
+            effect: "charge", tripExpenseTreatment: "already-in-trip-closeout",
+            tripFinancialSourceId: "work:trip-financial-obligation:trip-1", tripFinancialComponent: "toll" },
         }, {
           id: "manual-trip-toll-reversal", revision: 1,
           data: { sourceKind: "miscellaneous", businessDate: "2026-11-02", amountPaise: 50,
             effect: "reversal", reversesSourceId: "manual-trip-toll-duplicate",
+            tripExpenseTreatment: "already-in-trip-closeout",
             tripFinancialSourceId: "work:trip-financial-obligation:trip-1",
             tripFinancialComponent: "toll" },
         }],
