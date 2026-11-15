@@ -116,7 +116,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Trip / settlement reference", "FEE-" + marker)
             set(activity, "Note", marker + " platform fee")
             click(activity, "Save expense")
-            assertTrue("Platform fee saved", await(activity, "document.body.innerText.includes('Saved.')", 30000))
+            assertTrue("Platform fee saved; form status=" + javascriptValue(activity, "document.querySelector('[role=status]')?.textContent"), await(activity, "document.body.innerText.includes('Saved.')", 30000))
 
             set(activity, "Expense date", "2026-11-15")
             set(activity, "Category", "Parking " + marker)
