@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { FormWorkingCopy } from "../../../../packages/application/src";
 import { LOAN_DETAILS_FORM_V1 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminFormRuntime } from "./admin-services-context";
 
 type Props = {
   vehicleId: string;
@@ -29,7 +29,7 @@ const fromCopy = (copy: FormWorkingCopy): Values => ({
 });
 
 export function LoanDetailsForm({ vehicleId, vehicleActive, onChanged }: Props) {
-  const services = useAdminServices();
+  const services = useAdminFormRuntime();
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
   const [copy, setCopy] = useState<FormWorkingCopy | null>(null);
   const copyRef = useRef<FormWorkingCopy | null>(null);
