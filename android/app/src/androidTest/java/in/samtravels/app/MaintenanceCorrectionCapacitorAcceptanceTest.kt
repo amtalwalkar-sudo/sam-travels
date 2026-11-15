@@ -338,6 +338,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") in setOf("Correction Admin", "Driver One", "Driver Two") }.getOrDefault(false) }
           .forEach { database.records().remove(it.id) }
       runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
+      NativeStartupRecovery.invalidate()
       instrumentation.runOnMainSync { activity.finish() }
       database.close()
     }
