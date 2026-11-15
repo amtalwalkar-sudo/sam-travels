@@ -93,7 +93,13 @@ try {
   await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
   await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
   await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
+  try {
+    await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible", timeout: 15000 });
+  } catch (error) {
+    console.log("Driver assignment status:", await page.locator("#admin-section-panel-driver [role=status]").allTextContents());
+    console.log("Driver assignment panel:", await driverCard.innerHTML());
+    throw new Error("driver_vehicle_assignment_failed:" + (error instanceof Error ? error.message : String(error)));
+  }
   await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
   await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
