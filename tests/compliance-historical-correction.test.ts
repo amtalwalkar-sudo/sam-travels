@@ -30,7 +30,7 @@ const timestamp = "2026-11-07T00:00:00.000Z";
 const originalData = {
   schemaVersion: 1 as const, vehicleId: "feature:vehicle:MH01AB1234",
   complianceName: "Insurance", validFrom: "2026-01-01", validTo: "2026-12-31",
-  totalCostPaise: 365000,
+  totalCostPaise: 365000, supportingDocumentRef: "insurance-receipt-1",
 };
 
 function setup() {
