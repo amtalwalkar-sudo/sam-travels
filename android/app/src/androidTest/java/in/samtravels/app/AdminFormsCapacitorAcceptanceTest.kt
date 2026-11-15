@@ -69,6 +69,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Vehicle saved", await(activity, "document.body.innerText.includes('$registration')", 15000))
             val vehicleRecordId = db.records().list().firstOrNull { it.json.contains(registration) }?.id
                 ?: error("Vehicle record missing from Room")
+            db.close()
 
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
