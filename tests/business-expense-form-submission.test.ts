@@ -137,7 +137,7 @@ describe("Admin business expense form submission mapping", () => {
       businessDate: "2026-11-14", amountRupees: 10,
     }))).rejects.toThrow("miscellaneous_expense_category_required");
     await expect(submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
-      businessDate: "2026-11-14", amountRupees: 10, description: "Violation",
+      businessDate: "2026-11-14", amountRupees: 10, description: "Violation", paymentStatus: "unpaid",
     }))).rejects.toThrow("traffic_challan_vehicle_required");
   });
 });
