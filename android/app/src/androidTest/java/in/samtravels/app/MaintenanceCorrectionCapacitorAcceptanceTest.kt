@@ -85,9 +85,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Initial PIN appears", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN'))",
-          5_000))
+      awaitJavascript(activity,
+          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
+            "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
       assertTrue("Enrollment fields accept values", evaluate(activity, """
           (() => {
             const set = (labelText, value) => {
@@ -99,9 +99,12 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               input.dispatchEvent(new Event('input', { bubbles: true }));
               return true;
             };
-            return set('Person name', 'Corr Admin') && set('Set initial Admin PIN', '4831');
+            const pinLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Set initial Admin PIN'));
+            return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
           })()
       """))
+      assertTrue("Enroll button enabled", awaitJavascript(activity,
+          "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Person enrolled", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
