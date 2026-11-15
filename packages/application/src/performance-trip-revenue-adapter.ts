@@ -89,8 +89,8 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
       const amountPresent = data.kind === "completed_ride_financials"
         ? Number.isSafeInteger(data.farePaise) && (data.farePaise ?? -1) >= 0
         : Number.isSafeInteger(data.feePaise) && (data.feePaise ?? -1) >= 0;
-      return !context || !validOperationalDate(context.operationalDate) || !amountPresent ||
-        (context.operationalDate >= from && context.operationalDate <= to && false);
+      return !context || !validOperationalDate(context.operationalDate) ||
+        (!amountPresent && context.operationalDate >= from && context.operationalDate <= to);
     });
     if (!unresolved.length) return Object.freeze([
       Object.freeze({ source: "trip-financials", status: "complete" as const }),
