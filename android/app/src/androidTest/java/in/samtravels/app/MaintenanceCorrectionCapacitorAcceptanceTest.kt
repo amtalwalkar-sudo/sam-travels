@@ -151,7 +151,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
         evaluate(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
-        assertTrue("Section $id", awaitJavascript(activity,
+        assertTrue("$id", awaitJavascript(activity,
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
       assertTrue("Maintenance load", awaitJavascript(activity,
