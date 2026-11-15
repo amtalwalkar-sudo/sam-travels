@@ -123,7 +123,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               select.dispatchEvent(new Event('input', { bubbles: true }));
               select.dispatchEvent(new Event('change', { bubbles: true }));
             };
-            setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Correction Admin')?.value ?? '');
+            setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Corr Admin')?.value ?? '');
             setSelect(role, 'admin');
             return true;
           })()
