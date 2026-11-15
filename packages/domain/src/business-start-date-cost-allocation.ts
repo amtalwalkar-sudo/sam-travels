@@ -196,6 +196,8 @@ export function allocateScheduledEmisV1(
       amountPaise: period.row.installmentAmountPaise, from, to: period.to });
     results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
       sourceAmountPaise: period.row.installmentAmountPaise, disposition: "allocated",
+      sourcePeriod: Object.freeze({ from: period.row.dueDate, to: period.to,
+        label: "EMI installment " + period.row.installmentNumber }),
       eligibleFrom: from, eligibleTo: period.to, daily: Object.freeze(daily) }));
   }
   return Object.freeze(results);
