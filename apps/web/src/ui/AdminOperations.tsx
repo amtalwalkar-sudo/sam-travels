@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, DriverRecordV1, ComplianceRecordV1 } from "../../../../packages/application/src";
 import { DRIVER_FORM_V1, COMPLIANCE_FORM_V1 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminDriverServices, useAdminComplianceServices } from "./admin-services-context";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import "./AdminWorkspace.css";
 import { AdminComplianceOverview } from "./AdminComplianceOverview";
@@ -18,7 +18,7 @@ const today = () => {
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 
 export function DriverSection() {
-  const services = useAdminServices();
+  const services = useAdminDriverServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<AdminPresentationServices["driverAssignments"]["getHistory"]>>>>({});
@@ -186,7 +186,7 @@ function complianceStatus(date: string): "Valid"|"Expiring soon"|"Expired" {
   return days<0 ? "Expired" : days<=15 ? "Expiring soon" : "Valid";
 }
 export function ComplianceSection() {
-  const services = useAdminServices();
+  const services = useAdminComplianceServices();
   const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [records,setRecords]=useState<Compliance[]>([]);
   const [vehicleId,setVehicleId]=useState("");
