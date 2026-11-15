@@ -157,11 +157,13 @@ export class FullCostBreakevenService {
         ? tripData.tripContext?.operationalDate : undefined;
       const originalMatches = expense.data.effect === "charge" ||
         (original?.data.kind === "business_expense" && original.data.effect === "charge" &&
+          original.data.tripExpenseTreatment === "already-in-trip-closeout" &&
           original.data.tripFinancialSourceId === linkedTripId &&
           original.data.tripFinancialComponent === expense.data.tripFinancialComponent &&
           original.data.amountPaise === expense.data.amountPaise &&
           original.data.businessDate === linkedDate);
       const validLink = expense.data.sourceKind === "miscellaneous" &&
+        expense.data.tripExpenseTreatment === "already-in-trip-closeout" &&
         tripData?.kind === "completed_ride_financials" && tripData.status === "submitted" &&
         Number.isSafeInteger(expectedLinkedAmount) && expectedLinkedAmount > 0 &&
         expense.data.amountPaise === expectedLinkedAmount && originalMatches &&
