@@ -1,14 +1,14 @@
 # Timeline Mockup Visual Fidelity Contract
 
-**Status: Visual direction approved; versioned SVG reference v1 committed; implementation authorized on 8 November 2026. Future revisions remain explicitly versioned and approval-controlled.**  
+**Status: v1 is the immutable historical approved reference; the layered v2 direction is selected for implementation under the user's delegated design authority.**  
 **Target: Sam Travels PWA main application.**  
-**Scope: Visual-reference governance and faithful implementation of the approved Timeline screen. The v1 SVG remains immutable and is the visual source of truth.**
+**Scope: Visual-reference governance and faithful implementation of the delegated driver-first Timeline direction. The assistant owns visual decisions within the product and architecture contracts; the user retains final acceptance and merge authority.**
 
 ## 1. Purpose and authority
 
-The user-approved, versioned Timeline reference artifact is the **single visual source of truth** for the Timeline screen in the Sam Travels PWA main application. Reference v1 is an authored SVG mockup derived from the user's approved 5 November 2026 chat specification and approved visual direction; it is not represented as an uploaded historical image or screenshot.
+The v1 artifact is the historical user-approved visual baseline, authored from the 5 November 2026 specification. It remains byte-for-byte immutable and preserves the original visual language. The layered v2 artifact was created as a proposal; following the user's explicit delegation of design decisions, it is the selected starting direction for implementation, not a claim of personal user approval.
 
-The implementation must reproduce that mockup faithfully. It must not reinterpret the design, introduce a fresh visual language, modernize it, simplify it, or substitute a developer-preferred layout. The written Timeline product design defines behavior and content; the approved mockup governs the visual presentation wherever it provides a visual answer.
+The assistant owns the visual refinements needed to deliver the delegated driver-first day/week and progressive-detail experience. Refinements must remain within the written product intent, accessibility, responsive, privacy and architecture constraints. The assistant must document material design choices and compare implementation against the selected direction; it must not silently rewrite the historical v1 or original v2 proposal.
 
 This contract applies to the PWA main app. Any other host or presentation surface must preserve the same Timeline visual identity and information hierarchy, subject only to platform constraints explicitly approved through change control.
 
@@ -34,16 +34,21 @@ Alongside the original, maintain a small reference manifest recording:
 
 The committed, approved versioned reference artifact is the comparison baseline. A later export, recreation, screenshot of an implementation, or edited copy must never silently replace it. A changed visual baseline requires explicit user approval, a new versioned reference artifact, an updated manifest, and a documented reason; retain the prior approved baseline for history.
 
-### Current approved reference
+### Historical approved baseline and selected implementation direction
 
-The approved mobile visual direction is preserved as:
+The historical approved baseline is preserved as:
 
 - `docs/reference/timeline-mockup/sam-travels-timeline-approved-direction-v1.svg`
 - `docs/reference/timeline-mockup/manifest-v1.md`
 
-The SVG is an authored, scalable reference created from the detailed chat specification and the review mockup the user approved on 5 November 2026. The earlier conversation supplied a textual mockup rather than a pre-existing source image. This provenance is recorded honestly: v1 is the approved repository reference artifact, not a claim that an original uploaded raster or prior image file was recovered.
+The v1 manifest records its checksum, 390 × 2260 artboard and approval provenance. Preserve both files unchanged.
 
-The manifest records the exact SHA-256 checksum, 390 × 2260 SVG artboard, mobile-only target, represented states, approval provenance and limitations. Preserve v1 unchanged. Any later approved visual change must create a new versioned reference (v2, etc.), retain earlier baselines and update the manifest with the reason and explicit approval. Never overwrite v1 silently.
+The initial layered implementation direction is recorded separately as:
+
+- `docs/reference/timeline-mockup/sam-travels-timeline-proposed-direction-v2.svg`
+- `docs/reference/timeline-mockup/manifest-v2-proposal.md`
+
+The v2 file remains honestly labelled as a proposal artifact in its provenance. It is selected as the implementation starting direction under the user's delegated design authority; it is not represented as explicitly user-approved. If implementation materially refines the direction, record the decision and evidence in the implementation PR rather than overwriting either historical artifact.
 
 The mockup contains two shift sections and their summaries. Shift 1 total fare is correctly represented as ₹1,120 (₹450 + ₹620 + ₹50 cancellation fee). Pickup and idle totals are marked for review because the supplied Shift 1 pickup/cancellation intervals do not establish a fully reconciled interval set. Shift 2 values reconcile to its supplied shift duration. Missing toll, parking and odometer data are not fabricated.
 
@@ -85,7 +90,7 @@ The reference viewport is the exact viewport metadata recorded in the manifest w
 
 ## 5. Source of visual values
 
-The currently approved reference artifact takes precedence for visual values it makes observable. During future implementation planning, extract and document a traceable visual specification from the reference, including measured dimensions, spacing, typography, colours, borders, radii, icon sizes and alignment anchors where they can be reliably measured.
+The selected implementation direction and preserved v1 visual language guide visual values they make observable. Extract and document a traceable visual specification, including dimensions, spacing, typography, colours, borders, radii, icon sizes and alignment anchors where they can be reliably measured.
 
 Do not invent exact pixel values, colour codes, font names or breakpoints before the source artifact is available. If a value cannot be reliably determined from the mockup, record it as an explicit unresolved measurement for review rather than silently guessing.
 
@@ -136,13 +141,13 @@ The v1 reference is now committed. Visual fidelity of any future implementation 
 
 ## 9. Implementation authorization and limits
 
-This visual contract is binding for the authorized Timeline implementation in the PWA main application. The implementation authorization recorded at the top of this document permits implementation of the approved Timeline design within the scope and constraints of the governing Timeline Product Design, Feature Module and Extension Contract, Feature Extension Architecture, and Authority and Responsibility Allotment Map.
+This visual contract is binding for the authorized Timeline implementation in the PWA main application. The delegated design authorization recorded at the top of this document permits implementation and refinement of the selected layered Timeline direction within the scope and constraints of the governing Timeline Product Design, Feature Module and Extension Contract, Feature Extension Architecture, and Authority and Responsibility Allotment Map.
 
 It does not authorize:
 - A new or parallel feature-extension, registry, navigation, persistence, recovery, or platform architecture.
 - Timeline ownership of Work/Shift lifecycle, Driver Workflow transitions, Log Book/Trips lifecycle or financial records, odometer records, or GPS evidence.
 - Private-table or persistence-adapter access across feature boundaries, duplicate authoritative records, or a second event store.
 - Automatic GPS collection, map tiles, reverse-geocoding activation, hosted-provider credentials, or recurring provider spend.
-- Unapproved replacement of the current reference or visual redesign. Approved future reference revisions must be versioned and retain prior baselines.
+- Silent replacement of v1 or the original v2 proposal. Any materially new reference must be separately versioned and retain prior baselines.
 
-The PWA main app is the named visual target; the approved versioned reference is binding. Any deviation from the approved visual baseline or any expansion of product/architecture scope requires explicit user approval and the corresponding versioned contract change. Passing CI or committing a mockup does not by itself establish visual fidelity; the evidence in this contract remains mandatory.
+The PWA main app is the named visual target. The assistant makes visual decisions under the user's delegation, while any change to product behavior, ownership, data semantics, privacy or platform scope remains subject to the owning contract and explicit user approval. Passing CI or committing a mockup does not by itself establish visual fidelity; comparison evidence tied to the selected direction and exact commit remains mandatory.
