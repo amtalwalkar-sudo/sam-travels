@@ -22,9 +22,27 @@ describe("FullCostBreakevenService source integration", () => {
           id: "unpaid-challan-1", revision: 1,
           data: { sourceKind: "traffic_challan", businessDate: "2026-11-01", amountPaise: 9000,
             effect: "charge", paymentStatus: "unpaid" },
+        }, {
+          id: "manual-trip-toll-duplicate", revision: 1,
+          data: { sourceKind: "miscellaneous", businessDate: "2026-11-01", amountPaise: 50,
+            effect: "charge", tripFinancialSourceId: "work:trip-financial-obligation:trip-1",
+            tripFinancialComponent: "toll" },
+        }, {
+          id: "manual-trip-toll-reversal", revision: 1,
+          data: { sourceKind: "miscellaneous", businessDate: "2026-11-02", amountPaise: 50,
+            effect: "reversal", reversesSourceId: "manual-trip-toll-duplicate",
+            tripFinancialSourceId: "work:trip-financial-obligation:trip-1",
+            tripFinancialComponent: "toll" },
         }],
         listDailyExpenseOutputs: async () => [{ businessDate: "2026-11-01", platformFeesPaise: 100,
-          trafficChallansPaise: 0, miscellaneousPaise: 0, sourceIds: ["platform-fee-1"], sourceRevisions: [1] }],
+          trafficChallansPaise: 0, miscellaneousPaise: 50, sourceIds: [
+            "platform-fee-1", "manual-trip-toll-duplicate",
+          ], sourceRevisions: [1, 1] }, {
+          businessDate: "2026-11-02", platformFeesPaise: 0,
+          trafficChallansPaise: 0, miscellaneousPaise: -50, sourceIds: [
+            "manual-trip-toll-reversal",
+          ], sourceRevisions: [1],
+        }],
         listFuelPurchases: async () => [fuelPurchase],
         listFuelCostRateHistory: async () => [{
           calculationVersion: "business-expenses.fuel-cost-rate-history.v1",
