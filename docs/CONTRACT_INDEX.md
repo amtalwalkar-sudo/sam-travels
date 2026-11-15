@@ -92,6 +92,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
+- [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.
 - [Permanent Architecture Progress](PERMANENT_APPLICATION_ARCHITECTURE_PROGRESS.md) — staged implementation history.
 - [Stage 2 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md), [Stage 4 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md), [Stage 5 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md) — stage-specific evidence.
