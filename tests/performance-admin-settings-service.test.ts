@@ -80,6 +80,22 @@ describe("Performance Admin source records v1", () => {
     expect(await service.listEntries()).toHaveLength(1);
   });
 
+  it("rejects invalid target and pre-business entries without persisting them", async () => {
+    const repository = new MemoryRepository();
+    const service = new PerformanceAdminSettingsServiceV1(repository);
+    await expect(service.setMonthlyDriverTargetPaise(-1, "web"))
+      .rejects.toThrow("performance_driver_target_invalid");
+    await expect(service.createPreBusinessCost({
+      commandId: "33333333-3333-4333-8333-333333333333",
+      amountPaise: 0, note: "Invalid amount", source: "web",
+    })).rejects.toThrow("performance_pre_business_cost_invalid");
+    await expect(service.createPreBusinessCost({
+      commandId: "44444444-4444-4444-8444-444444444444",
+      amountPaise: 100, note: "   ", source: "web",
+    })).rejects.toThrow("performance_pre_business_cost_invalid");
+    expect(await repository.list()).toHaveLength(0);
+  });
+
   it("adapts the authoritative Business Settings record without guessing a start date", async () => {
     const adapter = new PerformanceBusinessSettingsAdapterV1({
       get: async () => undefined,
