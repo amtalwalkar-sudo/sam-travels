@@ -6,11 +6,6 @@ import "./AdminFormControls.css";
 
 type Driver = Awaited<ReturnType<AdminPresentationServices["driverRecords"]["list"]>>[number];
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
-const today = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-};
 export function DriverSection() {
   const services = useAdminDriverServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
