@@ -88,7 +88,8 @@ try {
     db.close();
     return { today: date(0), overlapFrom: date(-10), overlapTo: date(10),
       insuranceIds: [ "feature:compliance:" + uuids.insuranceA, "feature:compliance:" + uuids.insuranceB ],
-      fitnessIds: [ "feature:compliance:" + uuids.fitnessA, "feature:compliance:" + uuids.fitnessB ],\n      pucIds: [ "feature:compliance:" + uuids.pucA, "feature:compliance:" + uuids.pucB ] };
+      fitnessIds: [ "feature:compliance:" + uuids.fitnessA, "feature:compliance:" + uuids.fitnessB ],
+      pucIds: [ "feature:compliance:" + uuids.pucA, "feature:compliance:" + uuids.pucB ] };
   }, { primaryVehicleId, secondaryVehicleId, uuids });
 
   await page.getByRole("button", { name: "Admin", exact: true }).click();
