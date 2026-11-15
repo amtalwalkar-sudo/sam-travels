@@ -67,7 +67,7 @@ class NativeBusinessExpensesBackupTest {
     fun rejectsExpenseRecordsWhoseVehicleIsMissingFromTheSameSnapshot() = withParticipants {
         val records = JSONArray().put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174004",
             JSONObject().put("paymentStatus", "unpaid")))
-        val error = assertThrows(IllegalStateException::class.java) {
+        val error = assertThrows(IllegalArgumentException::class.java) {
             NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
         }
         assertEquals("business_expense_vehicle_not_found", error.message)
