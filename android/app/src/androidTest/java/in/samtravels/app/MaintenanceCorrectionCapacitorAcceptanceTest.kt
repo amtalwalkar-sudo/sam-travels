@@ -200,7 +200,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val correction = correctionRows.single().getJSONObject("data")
       assertEquals(10000L, correction.getLong("beforeValue"))
       assertEquals(15000L, correction.getLong("afterValue"))
-      assertEquals("Verified against original receipt", correction.getString("reason"))
+      assertEquals("Receipt verified", correction.getString("reason"))
       assertEquals("admin", correction.getJSONObject("actor").getString("role"))
       assertEquals(1, correction.getInt("chainRevision"))
       val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
