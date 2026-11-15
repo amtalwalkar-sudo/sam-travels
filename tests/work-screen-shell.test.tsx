@@ -46,7 +46,13 @@ describe("replaceable Work screen shell", () => {
     const source = await readFile("apps/web/src/ui/screens/DriveScreen.tsx", "utf8");
     expect(source).toContain("<WorkScreenHeading />");
     expect(source).toContain("<WorkScreenStatus");
-    expect(source).toContain("<DriverWorkflowPanel workspace={workspace} />");
+    expect(source).toContain("const workflowWorkspace = {");
+    expect(source).toContain("<DriverWorkflowPanel workspace={workflowWorkspace} />");
+    expect(source).toContain("retry: workspace.actions.retry");
+    expect(source).toContain("dispatch: workspace.actions.dispatch");
+    expect(source).not.toContain("workspace={workspace}");
+    expect(source).not.toContain("repo: workspace.repo");
+    expect(source).not.toContain("loadTimeline:");
     expect(source).toContain("<WorkScreenShell");
     expect(source).not.toContain("useState(");
     expect(source).not.toContain("dispatch(");
@@ -57,6 +63,9 @@ describe("replaceable Work screen shell", () => {
     expect(source).toContain("export function DriverWorkflowPanel");
     expect(source).not.toMatch(/packages\/(domain|application|storage)/);
     expect(source).not.toMatch(/IndexedDB|Room|createPlatformRepository/);
+    expect(source).not.toContain("from \"../use-driver-workspace\"");
+    expect(source).not.toContain("RuntimeRegistry");
+    expect(source).not.toContain("FeatureScreenHost");
   });
 
   it("scopes responsive and touch-friendly styling to the Work shell", async () => {
