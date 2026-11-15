@@ -35,6 +35,7 @@
 | Record/schema/backup format versioning | [Persistence Schema](PERSISTENCE_SCHEMA_CONTRACT.md) | Envelopes, schema versions, migrations and serialized formats |
 | Atomic commands, idempotency, outbox and recovery | [Transaction and Recovery](TRANSACTION_AND_RECOVERY_CONTRACT.md) | Durable intent, completion, replay and restore ordering |
 | Shared form mechanics and behaviour | [Form Architecture and Behaviour](FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md) | Form definition, lifecycle, validation boundary and presentation mechanics |
+| Admin presentation replacement | [Admin Presentation Replacement](ADMIN_PRESENTATION_REPLACEMENT_CONTRACT.md) | Replaceable Admin shell, six sections, every Admin form and component-level isolation; business rules remain with capability owners |
 | Work/Shift and Trip business rules | [Driver Workflow](DRIVER_WORKFLOW_CONTRACT.md) | Authoritative driver state machine and business workflow |
 | Work/Trip cross-feature snapshots | [Work Driver Trip Snapshot Integration](WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md) | Immutable operational context and integration transaction |
 | Native overlay behaviour | [Driver Overlay](DRIVER_OVERLAY_CONTRACT.md) | Overlay lifecycle, supported actions, minimize/restore and surface acceptance |
@@ -93,6 +94,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
+- [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
 - [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) — original Stage 0 baseline.
 - [Permanent Architecture Progress](PERMANENT_APPLICATION_ARCHITECTURE_PROGRESS.md) — staged implementation history.
 - [Stage 2 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md), [Stage 4 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_4_AUDIT.md), [Stage 5 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_5_AUDIT.md) — stage-specific evidence.
