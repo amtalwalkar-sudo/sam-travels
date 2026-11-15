@@ -58,4 +58,4 @@ export * from "./business-expenses-runtime";
 
 export * from "./full-cost-breakeven-service";
 
-export * from "./performance-calculation-service";
+export * from "./performance-calculation-service";\nexport * from "./performance-trip-revenue-adapter";
