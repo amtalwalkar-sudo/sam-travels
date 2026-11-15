@@ -7,7 +7,7 @@ import {
   type FormFieldDefinition,
 } from "../../../../packages/application/src";
 import { useAdminFormRuntime } from "./admin-services-context";
-import "./AdminWorkspace.css";
+import "./AdminFormControls.css";
 
 type ExpenseDefinition = typeof PLATFORM_FEE_FORM_V1 | typeof MISC_BUSINESS_EXPENSE_FORM_V1 | typeof TRAFFIC_CHALLAN_FORM_V1;
 
