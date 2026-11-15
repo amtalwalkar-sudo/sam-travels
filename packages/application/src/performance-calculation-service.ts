@@ -68,7 +68,8 @@ export class PerformanceCalculationServiceV1 {
   async calculate(periodFrom: string, periodTo: string): Promise<PerformanceCalculationResultV1> {
     const snapshotSources = [...new Set([
       this.sources.operatingCosts, this.sources.emi, this.sources.compliance,
-      this.sources.revenue, this.sources.completeness,
+      this.sources.revenue, this.sources.driverTarget, this.sources.manualPreBusinessCosts,
+      this.sources.completeness,
     ])] as unknown as PerformanceSnapshotReadModel[];
     const preparedSources = snapshotSources.filter(source =>
       typeof source.prepareSnapshot === "function");
