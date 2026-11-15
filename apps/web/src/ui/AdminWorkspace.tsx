@@ -8,7 +8,7 @@ import { MaintenanceSection } from "./AdminMaintenance";
 import { AdminFinanceSection } from "./AdminFinanceSection";
 import { useAdminIdentityAdapter } from "./admin-services-context";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
-import { TrafficChallanSection } from "./BusinessExpenseAdminForms";
+import { TrafficChallanSection } from "./AdminTrafficChallanSection";
 
 export function AdminWorkspace() {
   const identityAdapter = useAdminIdentityAdapter();
