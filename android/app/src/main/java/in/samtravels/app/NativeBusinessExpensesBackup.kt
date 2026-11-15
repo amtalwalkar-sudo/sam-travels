@@ -88,9 +88,6 @@ internal object NativeBusinessExpensesBackup {
         val hasTripComponent = data.has("tripFinancialComponent")
         val treatment = data.optString("tripExpenseTreatment")
         val tollOrParking = Regex("(?i)\\\\b(toll|parking)\\\\b").containsMatchIn(data.optString("category"))
-        require(!tollOrParking || treatment in setOf("standalone", "already-in-trip-closeout")) {
-            "business_expense_toll_parking_treatment_required"
-        }
         if (data.has("tripExpenseTreatment")) require(treatment in setOf("standalone", "already-in-trip-closeout")) {
             "business_expense_toll_parking_treatment_invalid"
         }
