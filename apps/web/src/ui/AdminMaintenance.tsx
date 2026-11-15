@@ -3,7 +3,7 @@ import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItem
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
-import { useAdminServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
+import { useAdminMaintenanceServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
 import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
 import { projectMaintenanceExpenseRecords } from "../maintenance-expense-correction-runtime";
 import "./AdminWorkspace.css";
@@ -23,7 +23,7 @@ type RecordMode = "visit" | "expense";
 type ActiveForm = RecordMode | "rate" | null;
 
 export function MaintenanceSection() {
-  const services = useAdminServices();
+  const services = useAdminMaintenanceServices();
   const correctionService = useAdminMaintenanceCorrectionAdapter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
