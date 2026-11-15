@@ -155,7 +155,14 @@ export function allocatePreBusinessRecoveryV1(
   from: string;
   toExclusive: string;
   totalPaise: number;
-  daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number }>[];
+  daily: readonly Readonly<{
+    date: string;
+    amountPaise: number;
+    sourceId: string;
+    revision: number;
+    origin: "manual" | "emi" | "compliance";
+    note: string;
+  }>[];
 }> {
   const startDay = assertDate(businessStartDate);
   const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
