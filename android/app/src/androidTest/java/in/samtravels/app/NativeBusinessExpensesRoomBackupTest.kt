@@ -34,7 +34,7 @@ class NativeBusinessExpensesRoomBackupTest {
             val platform = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174001"
             val misc = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174002"
             val challan = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174003"
-            db.records().put(expense(platform, "platform_fee", JSONObject().put("reference", "settlement-1").put("alreadyNettedFromIncome", true)))
+            db.records().put(expense(platform, "platform_fee", JSONObject().put("reference", "settlement-1").put("alreadyNettedFromIncome", false)))
             db.records().put(expense(misc, "miscellaneous", JSONObject().put("category", "Parking")))
             db.records().put(expense(challan, "traffic_challan", JSONObject().put("paymentStatus", "unpaid")))
             val snapshot = NativeBackupCoverage.exportBusinessRecords(db) { false }
