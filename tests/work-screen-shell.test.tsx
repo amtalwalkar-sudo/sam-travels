@@ -34,6 +34,7 @@ describe("replaceable Work screen shell", () => {
     const source = await readFile("apps/web/src/ui/WorkScreenShell.tsx", "utf8");
     expect(source).not.toMatch(/packages\/(domain|application|storage|features)/);
     expect(source).not.toMatch(/(IndexedDB|Room|repository|workflow service)/i);
+    expect(source).toContain("./work/work-screen.css");
   });
 
   it("does not shadow feature-owned status announcements", async () => {
@@ -54,6 +55,7 @@ describe("replaceable Work screen shell", () => {
     expect(source).not.toContain("repo: workspace.repo");
     expect(source).not.toContain("loadTimeline:");
     expect(source).toContain("<WorkScreenShell");
+    expect(source).not.toContain("work-screen.css");
     expect(source).not.toContain("useState(");
     expect(source).not.toContain("dispatch(");
   });
