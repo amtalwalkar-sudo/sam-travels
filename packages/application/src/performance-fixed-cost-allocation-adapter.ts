@@ -21,6 +21,33 @@ function proportionalPaise(amountPaise: number, numerator: number, denominator: 
   if (result > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("performance_compliance_source_amount_overflow");
   return Number(result);
 }
+function postBusinessDailyRows(
+  source: CostAllocationSourceResultV1,
+  businessStartDate: string,
+  from: string,
+  to: string,
+  amountPaise: number,
+): readonly Readonly<{ date: string; amountPaise: number; sourceId: string; sourceVersion: number }>[] {
+  const period = source.sourcePeriod;
+  if (!period) return Object.freeze([]);
+  const eligibleFrom = period.from < businessStartDate ? businessStartDate : period.from;
+  const start = dayNumber(eligibleFrom), end = dayNumber(period.to);
+  const totalDays = end - start + 1;
+  if (totalDays <= 0) return Object.freeze([]);
+  const quotient = Math.floor(amountPaise / totalDays);
+  const remainder = amountPaise % totalDays;
+  return Object.freeze(source.daily.flatMap(row => {
+    if (row.date < from || row.date > to || row.date < eligibleFrom || row.date > period.to) return [];
+    const offset = dayNumber(row.date) - start;
+    return [Object.freeze({
+      date: row.date,
+      amountPaise: quotient + (offset < remainder ? 1 : 0),
+      sourceId: row.sourceId,
+      sourceVersion: row.sourceVersion,
+    })];
+  }));
+}
+
 function blockedComplianceBases(sources: readonly CostAllocationSourceResultV1[]): Set<string> {
   return new Set(sources.filter(source => source.disposition === "overlap_review_required")
     .map(source => source.sourceId.endsWith(":overlap-withheld")
@@ -75,15 +102,11 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
       if (source.sourceKind !== "emi" || source.disposition !== "allocated") return [];
       const split = complianceSplit(source, report.businessStartDate);
       if (!split) return [];
-      const rows = source.daily.filter(row => row.date >= from && row.date <= to);
-      if (!rows.length && split.postBusinessPaise > 0) return [];
-      const quotient = rows.length ? Math.floor(split.postBusinessPaise / rows.length) : 0;
-      const remainder = rows.length ? split.postBusinessPaise % rows.length : 0;
-      return rows.map((row, index) => Object.freeze({
-        date: row.date, kind: "emi" as const,
-        amountPaise: quotient + (index < remainder ? 1 : 0), verified: true,
-        sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
-      }));
+      return postBusinessDailyRows(source, report.businessStartDate, from, to, split.postBusinessPaise)
+        .map(row => Object.freeze({
+          date: row.date, kind: "emi" as const, amountPaise: row.amountPaise, verified: true,
+          sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
+        }));
     }));
   }
 
@@ -95,15 +118,11 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
       const split = complianceSplit(source, report.businessStartDate);
       if (!split) return [];
-      const rows = source.daily.filter(row => row.date >= from && row.date <= to);
-      if (!rows.length && split.postBusinessPaise > 0) return [];
-      const quotient = rows.length ? Math.floor(split.postBusinessPaise / rows.length) : 0;
-      const remainder = rows.length ? split.postBusinessPaise % rows.length : 0;
-      return rows.map((row, index) => Object.freeze({
-        date: row.date, kind: "compliance" as const,
-        amountPaise: quotient + (index < remainder ? 1 : 0), verified: true,
-        sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
-      }));
+      return postBusinessDailyRows(source, report.businessStartDate, from, to, split.postBusinessPaise)
+        .map(row => Object.freeze({
+          date: row.date, kind: "compliance" as const, amountPaise: row.amountPaise, verified: true,
+          sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
+        }));
     }));
   }
 
