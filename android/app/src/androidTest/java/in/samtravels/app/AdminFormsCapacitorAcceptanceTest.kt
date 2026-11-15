@@ -42,7 +42,7 @@ class AdminFormsCapacitorAcceptanceTest {
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
                 "driver" to "Add driver", "compliance" to "Add a vehicle before recording compliance.",
-                "finance" to "Platform Fees", "maintenance" to "Start service visit")
+                "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
                 assertTrue("Section $id", await(activity,
