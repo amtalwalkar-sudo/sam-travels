@@ -104,7 +104,7 @@ describe("Admin business expense form submission mapping", () => {
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 5000,
         currencyCode: "INR", effect: "charge", category: "Parking",
-        vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
+        tripExpenseTreatment: "standalone", vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
         reference: "receipt-7",
       },
     });
@@ -123,6 +123,7 @@ describe("Admin business expense form submission mapping", () => {
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 1200,
         currencyCode: "INR", effect: "charge", category: "Toll",
+        tripExpenseTreatment: "already-in-trip-closeout",
         tripFinancialSourceId: "work:trip-financial-obligation:trip-42",
         tripFinancialComponent: "toll",
       },
