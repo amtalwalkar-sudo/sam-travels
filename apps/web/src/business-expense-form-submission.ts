@@ -157,7 +157,7 @@ export function createBusinessExpenseFormSubmissionHandler(
     const category = requiredString(values.category, "miscellaneous_expense_category_required");
     const tripTreatment = optionalString(values.tripExpenseTreatment);
     const hasTripLink = !!optionalString(values.tripFinancialSourceId) || !!optionalString(values.tripFinancialComponent);
-    const tollOrParking = /\\b(toll|parking)\\b/i.test(category);
+    const tollOrParking = /\b(toll|parking)\b/i.test(category);
     if (tollOrParking && tripTreatment !== "standalone" && tripTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
