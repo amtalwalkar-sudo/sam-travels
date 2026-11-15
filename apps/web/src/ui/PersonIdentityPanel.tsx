@@ -75,7 +75,7 @@ export function PersonIdentityPanel({ adapter }: { adapter: AdminIdentityPresent
         <label><input type="checkbox" checked={roles.includes("admin")} onChange={event =>
           setRoles(current => event.target.checked ? [...current.filter(role => role !== "admin"), "admin"] : current.filter(role => role !== "admin"))} /> Admin role</label>
       </div>
-      {!snapshot.pinConfigured && <label>Initial Admin PIN<input required minLength={4} maxLength={12} inputMode="numeric" type="password" value={pin} onChange={event => setPin(event.target.value)} /></label>}
+      {roles.includes("admin") && !snapshot.pinConfigured && <label>Initial Admin PIN<input required minLength={4} maxLength={12} inputMode="numeric" type="password" value={pin} onChange={event => setPin(event.target.value)} /></label>}
       <button className="admin-primary" disabled={busy || !name.trim() || !roles.length ||
         (!snapshot.pinConfigured && (!roles.includes("admin") || !/^\d{4,12}$/.test(pin)))}>Enroll person</button>
     </form>
