@@ -38,9 +38,9 @@ export function PeriodNavigation(props: TimelinePeriodNavigationProps) {
     {mode === "week" && <div className="timeline-week-grid" role="group" aria-label={"Week beginning " + weekStart}>
       {weekDays.map(day => <button type="button" key={day.date}
         className={"timeline-week-day" + (day.selected ? " selected" : "")}
-        aria-pressed={day.selected} onClick={() => onDateChange(day.date)}>
+        aria-pressed={day.selected} onClick={() => { onDateChange(day.date); onModeChange("day"); }}>
         <span>{day.label}</span><strong>{Number(day.date.slice(-2))}</strong>
-        <small>{day.activityCount > 0 ? day.activityCount + " events" : "—"}</small>
+        <small>{day.activityCount > 0 ? day.activityCount + " events" : "No activity"}</small>
       </button>)}
     </div>}
   </section>;
