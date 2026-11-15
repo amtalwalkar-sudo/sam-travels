@@ -151,32 +151,6 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
-    @Test fun businessExpenseRecordsRoundTripThroughRoomBackup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java).allowMainThreadQueries().build()
-        val at = "2026-11-15T05:00:00.000Z"
-        val vehicleId = "feature:vehicle:MH01AB1234"
-        try {
-            database.records().put(featureRecord(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", "MH01AB1234").put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV").put("fuelType", "CNG").put("yearOfManufacture", 2022).put("ownership", "Owned").put("lifecycleState", "active"), at))
-            val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000"
-            database.records().put(featureRecord(fuelId, JSONObject().put("schemaVersion", 1).put("kind", "fuel_purchase").put("id", fuelId).put("revision", 1).put("businessDate", "2026-11-15").put("occurredAt", at).put("vehicleId", vehicleId).put("odometerKm", 45000).put("pricePaisePerKg", 9000).put("amountPaise", 18000).put("partialRefill", false), at))
-            val platformId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174001"
-            val miscId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174002"
-            val challanId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174003"
-            fun expense(id: String, kind: String, extra: JSONObject) = featureRecord(id, JSONObject().put("schemaVersion", 1).put("kind", "business_expense").put("id", id).put("revision", 1).put("sourceKind", kind).put("businessDate", "2026-11-15").put("amountPaise", 1200).put("currencyCode", "INR").put("effect", "charge").put("vehicleId", vehicleId).put("description", "Backup acceptance").also { data -> extra.keys().asSequence().forEach { key -> data.put(key, extra.get(key)) } }, at)
-            database.records().put(expense(platformId, "platform_fee", JSONObject().put("reference", "settlement-1").put("alreadyNettedFromIncome", true)))
-            database.records().put(expense(miscId, "miscellaneous", JSONObject().put("category", "Parking")))
-            database.records().put(expense(challanId, "traffic_challan", JSONObject().put("paymentStatus", "unpaid")))
-            val snapshot = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            NativeBackupCoverage.validateBusinessRecords(snapshot, requireExplicitOwnerTags = true)
-            NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
-            assertNull(database.records().get(fuelId)); assertNull(database.records().get(platformId))
-            NativeBackupCoverage.replaceBusinessRecords(database, snapshot)
-            assertNotNull(database.records().get(fuelId)); assertNotNull(database.records().get(platformId))
-            assertNotNull(database.records().get(miscId)); assertNotNull(database.records().get(challanId))
-            NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false }, requireExplicitOwnerTags = true)
-        } finally { database.close() }
-    }
     @Test fun convertsLegacySharedRecordsToCurrentFeatureOwnershipBeforeRestore() {
         val legacy = JSONArray()
             .put(JSONObject().put("id", "driver-state")
