@@ -25,12 +25,23 @@ type SubmittedTripFinancialRecord = RecordEnvelope<
  */
 export class PerformanceTripRevenueAdapterV1
 implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
+  private snapshot?: Promise<readonly SubmittedTripFinancialRecord[]>;
+
   constructor(
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
   ) {}
 
+  async prepareSnapshot(_from: string, _to: string): Promise<void> {
+    this.snapshot = this.tripFinancials.submittedTripFinancialRecords();
+    await this.snapshot;
+  }
+
+  releaseSnapshot(): void {
+    this.snapshot = undefined;
+  }
+
   private async records(): Promise<readonly SubmittedTripFinancialRecord[]> {
-    return this.tripFinancials.submittedTripFinancialRecords();
+    return this.snapshot ?? this.tripFinancials.submittedTripFinancialRecords();
   }
 
   async listVerifiedDailyRevenue(from: string, to: string): Promise<readonly PerformanceDailyRevenueInputV1[]> {
