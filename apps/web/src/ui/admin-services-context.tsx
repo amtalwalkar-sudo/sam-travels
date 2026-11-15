@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import type { AdminIdentityPresentationAdapter } from "../admin-identity-presentation-adapter";
 import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
+import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-historical-correction";
 
 type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "businessSettings" | "costAllocation">;
 type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
@@ -28,11 +29,13 @@ type AdminSectionAdapters = Readonly<{
 const AdminServicesContext = createContext<AdminSectionAdapters | null>(null);
 const AdminIdentityContext = createContext<AdminIdentityPresentationAdapter | null>(null);
 const AdminMaintenanceCorrectionContext = createContext<MaintenanceExpenseCorrectionAdapter | null>(null);
+const AdminComplianceCorrectionContext = createContext<ComplianceHistoricalCorrectionAdapter | null>(null);
 
-export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, children }: {
+export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, complianceCorrections, children }: {
   services: AdminPresentationServices;
   identityAdapter: AdminIdentityPresentationAdapter;
   maintenanceCorrections: MaintenanceExpenseCorrectionAdapter;
+  complianceCorrections: ComplianceHistoricalCorrectionAdapter;
   children: ReactNode;
 }) {
   const adapters = useMemo<AdminSectionAdapters>(() => ({
@@ -54,7 +57,9 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
 
   return <AdminServicesContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
-      <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>{children}</AdminMaintenanceCorrectionContext.Provider>
+      <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>
+        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}>{children}</AdminComplianceCorrectionContext.Provider>
+      </AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
   </AdminServicesContext.Provider>;
 }
@@ -84,5 +89,11 @@ export function useAdminIdentityAdapter(): AdminIdentityPresentationAdapter {
 export function useAdminMaintenanceCorrectionAdapter(): MaintenanceExpenseCorrectionAdapter {
   const adapter = useContext(AdminMaintenanceCorrectionContext);
   if (!adapter) throw new Error("Maintenance correction adapter was not supplied by the composition root.");
+  return adapter;
+}
+
+export function useAdminComplianceCorrectionAdapter(): ComplianceHistoricalCorrectionAdapter {
+  const adapter = useContext(AdminComplianceCorrectionContext);
+  if (!adapter) throw new Error("Compliance correction adapter was not supplied by the composition root.");
   return adapter;
 }
