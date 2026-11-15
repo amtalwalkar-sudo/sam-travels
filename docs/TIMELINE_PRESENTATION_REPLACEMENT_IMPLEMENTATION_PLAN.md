@@ -307,16 +307,22 @@ The final implementation report must state:
 
 Do not use "complete", "green", "parity", "isolated" or "approved" unless the corresponding evidence exists for the exact delivered commit.
 
-## 10. Current execution status — 15 November 2026
+## 10. Implementation completion record — 15 November 2026
+
+<badge color="success">Implementation complete · CI green</badge>
 
 - [x] Product and architecture contract approved.
-- [x] Delegated visual design ownership recorded; no further visual approval checkpoint is required.
-- [x] v1 frozen and retained unchanged; v2 proposal preserved with truthful provenance as the starting implementation direction.
-- [x] Baseline repository and Timeline source/projection contracts inspected.
-- [x] Initial presentation implementation started on `feat/driver-first-timeline-presentation`.
-- [x] Independent period navigation, week-day selection, event card, shift section, event detail and India calendar helper modules introduced.
-- [x] Initial day/week screen composition and focused calendar/component tests added.
-- [ ] Architecture enforcement, full regression, cross-platform parity, visual/accessibility verification and full CI — in progress.
-- [ ] Physical phone acceptance — deferred to the user's final testing stage.
+- [x] Visual design ownership delegated to the assistant; no further visual approval checkpoint required.
+- [x] v1 retained unchanged as the historical approved baseline; original v2 proposal and provenance preserved.
+- [x] Day/Week period navigation, Monday–Sunday week overview, date jump, Today and Asia/Kolkata rollover implemented.
+- [x] Chronological logical-shift sequence, event cards, pickup connector, cancellation/completion distinctions and 04:00 rotation status implemented.
+- [x] Read-only event and shift detail layers implemented with keyboard focus handling and restoration.
+- [x] Replaceable screen shell, navigation, shift section, event card, event detail, shift detail and scoped stylesheet isolated behind presentation contracts.
+- [x] Existing feature registration, query/projection, business rules, source ownership, offline behavior and geocoding consent preserved.
+- [x] No new persistence, cache, event store, projection engine, query framework, registry or unrelated feature changes.
+- [x] Focused calendar, component/shell and 04:00 shift-status regression tests added.
+- [x] Implementation PR opened: [PR #88 — Implement decoupled driver-first Timeline presentation](https://github.com/amtalwalkar-sudo/sam-travels/pull/88).
+- [x] Exact implementation head: `9c54bd35795dfe57ae2545133c40384cf93103a1`.
+- [x] Full CI run [#2391](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/43662127719) passed: architecture, 555 web tests, production build, browser acceptance, Android build/Room/workflow/backup reliability, and integrated regression gate.
 
-The implementation branch is intentionally separate from this documentation PR. Both PRs remain draft/open/unmerged. The implementation report must cite actual automated evidence and the exact final commit; this status is not a completion claim.
+Both PR #87 (documentation) and PR #88 (implementation) remain draft, open and unmerged. Physical phone testing remains deferred to the user's final acceptance stage. The implementation is complete from the repository and automated-verification perspective; user device acceptance and merge authorization remain outstanding.
