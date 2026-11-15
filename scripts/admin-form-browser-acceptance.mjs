@@ -49,6 +49,12 @@ try {
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
   console.log("Admin identity enrolled and PIN-verified actor activated.");
 
+  await page.getByRole("button", { name: "Business setup", exact: true }).click();
+  await page.getByLabel("Business start date").fill("2024-01-01");
+  await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
+  console.log("Business Setup form saved and authoritative setting rendered.");
+
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
   await page.getByLabel("Registration number").fill(registration);
