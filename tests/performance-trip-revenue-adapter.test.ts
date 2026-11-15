@@ -43,6 +43,32 @@ describe("Performance trip revenue adapter v1", () => {
     ]);
   });
 
+  it("uses the captured operational date on either side of the 04:00 boundary", async () => {
+    const records = [
+      envelope("work:trip-financial-obligation:before-0400", {
+        schemaVersion: 1, tripId: "before-0400", kind: "completed_ride_financials",
+        status: "submitted", endRideEventId: "end-before", createdAt: "2026-04-06T03:59:59.000Z",
+        tripContext: { schemaVersion: 1, shiftId: "shift-before", driverId: "driver-1",
+          assignmentId: "assignment-1", vehicleId: "vehicle-1", operationalDate: "2026-04-05" },
+        farePaise: 1_000,
+      } satisfies CompletedTripFinancialObligation),
+      envelope("work:trip-financial-obligation:at-0400", {
+        schemaVersion: 1, tripId: "at-0400", kind: "completed_ride_financials",
+        status: "submitted", endRideEventId: "end-at", createdAt: "2026-04-06T04:00:00.000Z",
+        tripContext: { schemaVersion: 1, shiftId: "shift-after", driverId: "driver-1",
+          assignmentId: "assignment-1", vehicleId: "vehicle-1", operationalDate: "2026-04-06" },
+        farePaise: 2_000,
+      } satisfies CompletedTripFinancialObligation),
+    ];
+    const adapter = new PerformanceTripRevenueAdapterV1({
+      submittedTripFinancialRecords: async () => records,
+    });
+    const result = await adapter.listVerifiedDailyRevenue("2026-04-05", "2026-04-06");
+    expect(result.map(row => [row.date, row.grossFarePaise])).toEqual([
+      ["2026-04-05", 1_000], ["2026-04-06", 2_000],
+    ]);
+  });
+
   it("does not guess revenue attribution when legacy records lack trip context", async () => {
     const records = [envelope("work:trip-financial-obligation:legacy", {
       schemaVersion: 1, tripId: "legacy", kind: "completed_ride_financials",
