@@ -55,6 +55,7 @@ function validatePerformanceAdminRecord(value: unknown): asserts value is Perfor
 export class PerformanceAdminSettingsServiceV1
 implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostReadModel {
   private readonly records: FeatureRecordService<PerformanceAdminRecordV1>;
+  private snapshot?: Promise<Array<RecordEnvelope<PerformanceAdminRecordV1>>>;
 
   constructor(repository: AtomicRecordRepository, now?: () => string) {
     this.records = new FeatureRecordService(repository, {
@@ -92,9 +93,21 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     }) as Promise<RecordEnvelope<PerformanceAdminSettingsRecordV1>>;
   }
 
+  async prepareSnapshot(_from: string, _to: string): Promise<void> {
+    this.snapshot = this.records.list();
+    await this.snapshot;
+  }
+
+  releaseSnapshot(): void {
+    this.snapshot = undefined;
+  }
+
   async getMonthlyTargetPaise(): Promise<number> {
-    const settings = await this.getSettings();
+    const settings = this.snapshot
+      ? (await this.snapshot).find(record => record.id === PERFORMANCE_ADMIN_SETTINGS_RECORD_ID)
+      : await this.getSettings();
     if (!settings) throw new Error("performance_driver_target_not_configured");
+    if (settings.data.kind !== "settings") throw new Error("performance_admin_settings_identity_mismatch");
     return settings.data.monthlyDriverTargetPaise;
   }
 
@@ -127,7 +140,7 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
   }
 
   async listEntries(): Promise<readonly PreBusinessRecoverySourceV1[]> {
-    const records = await this.records.list();
+    const records = this.snapshot ? await this.snapshot : await this.records.list();
     return Object.freeze(records.flatMap(record => {
       if (record.data.kind !== "pre_business_cost") return [];
       return [Object.freeze({
