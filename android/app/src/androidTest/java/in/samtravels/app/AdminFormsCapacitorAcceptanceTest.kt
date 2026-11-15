@@ -122,7 +122,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Expense date", "2026-11-15")
             set(activity, "Category", "Parking " + marker)
             set(activity, "Amount (₹)", "50")
-            set(activity, "Vehicle", registration, 1)
+            set(activity, "Vehicle", vehicleRecordId, 1)
             set(activity, "Description", marker + " parking")
             set(activity, "Receipt / source reference", "PARK-" + marker)
             click(activity, "Save expense", 1)
