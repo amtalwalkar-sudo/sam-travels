@@ -48,6 +48,34 @@
         "effect": "charge",
         "category": "Cleaning"
       }
+    },
+    {
+      "id": "feature:performance:settings",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T07:00:00.000Z",
+      "updatedAt": "2026-03-15T07:00:00.000Z",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "settings",
+        "monthlyDriverTargetPaise": 50000
+      }
+    },
+    {
+      "id": "feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T07:00:00.000Z",
+      "updatedAt": "2026-03-15T07:00:00.000Z",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "pre_business_cost",
+        "amountPaise": 18000,
+        "note": "Setup",
+        "commandId": "123e4567-e89b-42d3-a456-426614174091"
+      }
     }
   ],
   "input": {
