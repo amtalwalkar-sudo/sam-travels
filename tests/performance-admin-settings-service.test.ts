@@ -80,6 +80,31 @@ describe("Performance Admin source records v1", () => {
     expect(await service.listEntries()).toHaveLength(1);
   });
 
+  it("recovers from a transient atomic-storage failure when the command is retried", async () => {
+    class FailOnceRepository extends MemoryRepository {
+      private failNext = true;
+      async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
+        if (this.failNext) {
+          this.failNext = false;
+          throw new Error("temporary_storage_failure");
+        }
+        return super.compareAndSet(id, expectedRevision, next);
+      }
+    }
+    const repository = new FailOnceRepository();
+    const service = new PerformanceAdminSettingsServiceV1(repository);
+    const input = {
+      commandId: "66666666-6666-4666-8666-666666666666",
+      amountPaise: 23_450, note: "Recovery after storage retry", source: "android" as const,
+    };
+    await expect(service.createPreBusinessCost(input)).rejects.toThrow("temporary_storage_failure");
+    const recovered = await service.createPreBusinessCost(input);
+    const replay = await service.createPreBusinessCost(input);
+    expect(recovered.id).toBe(replay.id);
+    expect(recovered.revision).toBe(1);
+    expect(await service.listEntries()).toHaveLength(1);
+  });
+
   it("rejects invalid target and pre-business entries without persisting them", async () => {
     const repository = new MemoryRepository();
     const service = new PerformanceAdminSettingsServiceV1(repository);
