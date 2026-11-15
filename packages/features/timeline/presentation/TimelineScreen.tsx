@@ -136,7 +136,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [selectedEvent, setSelectedEvent] = useState<TimelineEventDetailModel | null>(null);
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
-  const today = indiaDate(new Date());
+  const today = indiaCalendarDate(new Date());
   const fromDate = mode === "week" ? timelineWeekStart(selectedDate) : selectedDate;
   const toDate = mode === "week" ? moveTimelineDate(fromDate, 6) : selectedDate;
 
@@ -284,7 +284,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       status: event.command.eventType === "cancel_ride" || event.command.eventType === "ride_cancel"
         ? "Cancelled attempt" : event.command.eventType === "end_ride" || event.command.eventType === "trip_end"
           ? "Completed" : "Recorded",
-      time: eventTimeFormatter.format(new Date(event.command.transitionAt)) + " · " + formatTimelineDate(selectedDate),
+      time: formatTimelineEventTime(event.command.transitionAt) + " · " + formatTimelineDate(selectedDate),
       duration: eventDescription(event, allEvents),
       location,
       evidence: event.gps ? "GPS evidence is attached to this event" : "GPS evidence not available",
@@ -311,7 +311,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     <PeriodNavigation mode={mode} selectedDate={selectedDate} today={today} weekStart={fromDate}
       weekDays={weekDays} onModeChange={onModeChange} onDateChange={setSelectedDate}
       onMove={onMove} onToday={onToday} />
-    <p className="timeline-selected-period">{mode === "day" ? dateLabel(selectedDate) : formatTimelineDate(fromDate) + " – " + formatTimelineDate(toDate)}</p>
+    <p className="timeline-selected-period">{mode === "day" ? formatTimelineDate(selectedDate) : formatTimelineDate(fromDate) + " – " + formatTimelineDate(toDate)}</p>
     {error && <p className="timeline-error" role="alert">{error}</p>}
     {loading && model && <p className="timeline-refreshing" role="status">Refreshing activity · showing the last loaded records</p>}
     {!!model?.projection.integrityIssues.length && <aside className="timeline-integrity" role="alert">
