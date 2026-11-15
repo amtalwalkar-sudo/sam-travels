@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { GeneralMaintenanceExpenseV1 } from "../../../../packages/application/src/maintenance-service";
-import type { HistoricalCorrectionService } from "../../../../packages/application/src/historical-correction-service";
 import { projectHistoricalCorrectionsV1 } from "../../../../packages/domain/src/historical-correction";
 import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
 
@@ -15,7 +14,7 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState((expense.data.amountPaise / 100).toFixed(2));
   const [reason, setReason] = useState("");
-  const [history, setHistory] = useState<Awaited<ReturnType<HistoricalCorrectionService["listForTarget"]>>>([]);
+  const [history, setHistory] = useState<Awaited<ReturnType<MaintenanceExpenseCorrectionAdapter["listForTarget"]>>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   // Keep the same operation identity after an ambiguous submission failure so a retry replays safely.
