@@ -36,9 +36,15 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     return this.fullCost.getSourceProjection(from, to);
   }
 
-  async listDailyCosts(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
+  async listDailyCosts(from: string, to: string): Promise<readonly Readonly<{
+    date: string; kind: PerformanceOperatingCostKindV1; amountPaise: number; verified: boolean;
+    sourceRefs: PerformanceDailyCostInputV1["sourceRefs"];
+  }>[]> {
     const projection = await this.projection(from, to);
-    const result: PerformanceDailyCostInputV1[] = [];
+    const result: Array<Readonly<{
+      date: string; kind: PerformanceOperatingCostKindV1; amountPaise: number; verified: boolean;
+      sourceRefs: PerformanceDailyCostInputV1["sourceRefs"];
+    }>> = [];
     for (const activity of projection.dailyActivity) {
       if (activity.date < from || activity.date > to) continue;
       if ((activity.fuelCostPaise ?? 0) > 0 && activity.fuelSourceRefs.length) result.push(Object.freeze({
