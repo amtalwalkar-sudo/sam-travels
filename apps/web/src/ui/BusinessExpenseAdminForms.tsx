@@ -6,7 +6,7 @@ import {
   type FormDefinition,
   type FormFieldDefinition,
 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminFormRuntime } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
 type ExpenseDefinition = typeof PLATFORM_FEE_FORM_V1 | typeof MISC_BUSINESS_EXPENSE_FORM_V1 | typeof TRAFFIC_CHALLAN_FORM_V1;
@@ -14,7 +14,7 @@ type ExpenseDefinition = typeof PLATFORM_FEE_FORM_V1 | typeof MISC_BUSINESS_EXPE
 function ExpenseEntryForm({ definition, heading, description }: {
   definition: ExpenseDefinition; heading: string; description: string;
 }) {
-  const services = useAdminServices();
+  const services = useAdminFormRuntime();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const copyRef = useRef<typeof copy>(undefined);
