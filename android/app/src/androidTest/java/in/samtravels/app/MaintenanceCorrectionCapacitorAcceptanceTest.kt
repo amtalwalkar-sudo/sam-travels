@@ -76,7 +76,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
       assertTrue("Name field appears", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Admin role selectable", evaluate(activity, """
+      assertTrue("Admin role select", evaluate(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
             const input = label?.querySelector('input[type=checkbox]');
@@ -88,7 +88,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
-      assertTrue("Enrollment fields accept values", evaluate(activity, """
+      assertTrue("Enrollment fields", evaluate(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -108,7 +108,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Person enrolled", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Admin activation ready", awaitJavascript(activity, """
+      assertTrue("Admin ready", awaitJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
@@ -154,7 +154,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Section $id", awaitJavascript(activity,
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
-      assertTrue("Maintenance loads", awaitJavascript(activity,
+      assertTrue("Maintenance load", awaitJavascript(activity,
           "document.body.textContent.includes('Accept tyre repair')", 15_000))
       evaluate(activity, """
           (() => {
@@ -164,9 +164,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return Boolean(record);
           })()
       """)
-      assertTrue("Correction form opens", awaitJavascript(activity,
+      assertTrue("Correction opens", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-      assertTrue("Correction inputs", evaluate(activity, """
+      assertTrue("Correction input", evaluate(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -189,14 +189,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """)
-      assertTrue("Correction saved", awaitJavascript(activity,
+      assertTrue("Correction save", awaitJavascript(activity,
           "document.body.textContent.includes('Correction appended')", 15_000))
       val original = JSONObject(database.records().get(expenseId)!!.json)
       val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
-      assertEquals("Original expense unchanged", 10000L,
+      assertEquals("Original unchanged", 10000L,
           original.getJSONObject("data").getLong("amountPaise"))
-      assertEquals("One correction appended", 1, correctionRows.size)
+      assertEquals("One correction", 1, correctionRows.size)
       val correction = correctionRows.single().getJSONObject("data")
       assertEquals(10000L, correction.getLong("beforeValue"))
       assertEquals(15000L, correction.getLong("afterValue"))
@@ -206,9 +206,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
       assertEquals(1, head.getInt("chainRevision"))
       assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
-      assertNotNull("Room correction stored",
+      assertNotNull("Room stored",
           database.records().get(correctionRows.single().getString("id")))
-      assertTrue("Driver selected", evaluate(activity, """
+      assertTrue("Driver select", evaluate(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
