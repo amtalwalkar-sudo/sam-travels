@@ -224,3 +224,121 @@ The implementation is complete only when all applicable gates pass:
 7. **CI and PR:** complete all required CI checks, report exact head and job results, and leave the PR draft/open/unmerged unless the user explicitly instructs otherwise.
 
 No implementation step may silently expand the approved scope. If a missing upstream data source blocks a value, preserve the explicit unavailable state and report the gap rather than inventing data or changing ownership.
+
+
+## 13. Enforceable decoupling contract
+
+This section makes the independence requirements testable. A folder split, component count, or naming convention alone does not satisfy it.
+
+### 13.1 Dependency direction
+
+The permitted direction is:
+
+`authoritative feature sources → existing application query/projection → Timeline feature composition adapter → typed presentation model/actions → Timeline shell and leaf components`
+
+The arrow means "may provide data to / may be depended on by". Dependencies must not point back toward infrastructure from presentation.
+
+- The feature composition adapter is the only Timeline presentation boundary allowed to bind the existing feature context/query to the presentation.
+- The adapter may depend on the existing public Timeline/application contract and feature extension context. It must not become a second business-rule implementation.
+- The shell may depend on Timeline-owned presentation contracts and Timeline-owned visual primitives only.
+- A leaf component may depend on its own prop contract and presentation primitives explicitly approved for reuse. It may not import the shell, composition adapter, application query, projection service, domain model, repository, or another leaf component's private implementation.
+- Shared leaf components must not import sibling components. Composition belongs to a parent composition component.
+- Domain and application code may not depend on any Timeline presentation module, React, JSX, CSS, DOM, browser, or platform API.
+- No component may reach into global application context, a singleton service locator, a feature registry, a repository, or a database to obtain data or actions.
+
+### 13.2 Component responsibility and interface inventory
+
+The exact file names may follow the repository's established naming conventions, but the responsibilities and contracts below are mandatory and must remain independently replaceable.
+
+| Boundary | Owns | Receives | Must not own |
+|---|---|---|---|
+| Feature composition adapter | Connects existing Timeline context to presentation props/actions | Existing typed feature context | Visual layout, business rules, persistence |
+| Timeline shell | Overall Timeline frame and placement of child regions | Screen-level presentation model and callbacks | Source queries, event interpretation, durable state |
+| Period navigation | Day/week mode, previous/next, date jump, Today interaction rendering | Selected period, mode, permitted date bounds/status, callbacks | Calendar business policy, source query |
+| Period overview | Seven-day week overview and activity cues | Prepared week/day view model | Data fetching, inferred activity |
+| Day sequence | Ordered logical-shift sections | Prepared sequence view model | Reordering source events, shift lifecycle |
+| Shift section | Shift boundary, shift-level sequence and summary placement | One shift view model | Calculating authoritative shift values |
+| Event renderer | One event's compact visual representation | One discriminated event view model | Fetching other events, deriving missing fields |
+| Pickup connector | Pickup interval visual connector | Explicit pickup interval/status view model | Reconstructing trip state |
+| Event detail | Expanded read-only details for one selected event | One detail view model and close callback | Mutation/correction commands |
+| Shift detail/summary | Read-only shift detail and metric states | One shift summary/detail view model | Recalculating finance or distance |
+| Status surfaces | Loading, refreshing, stale, empty, unavailable, error and integrity states | Explicit status model and retry callback where supported | Converting failures into empty success |
+| Timeline style layer | Timeline-local tokens, CSS and icons | No runtime data | Global theme mutation or styles leaking to other features |
+
+If a responsibility is combined for a demonstrable simplicity reason, its public interface must still be independently testable and replaceable. Do not create speculative generic component frameworks.
+
+### 13.3 Typed presentation contracts
+
+- Define a presentation-only model that is serializable or otherwise plain-data in shape: discriminated unions, explicit nullable/optional fields, stable source identifiers, and explicit value-status variants.
+- Do not pass domain entities, database rows, repository objects, class instances with behavior, or broad service objects directly to visual components.
+- Represent values using the source's real status. At minimum preserve confirmed, pending, unavailable, invalid, and not-applicable where the source contract distinguishes them.
+- A missing value must not be encoded as numeric zero, empty string, or a fabricated location.
+- Events must retain stable source identity, source timestamp, event kind, logical-shift association and provenance needed for ordering/details. Presentation keys must not be generated from array position.
+- Actions are explicit callbacks with narrow arguments (for example, select period, select day, open event detail, close detail, retry read). No arbitrary command dispatcher or stringly typed action bus.
+- Component props must be immutable inputs. Components must not mutate the supplied view model.
+- Public feature context identity/version rules from the UI/UX Shell Foundation and Feature Module contracts remain in force. Any context contract change requires versioning and compatibility tests.
+
+### 13.4 State ownership and lifecycle
+
+- Durable operational state remains in its owning feature and repository.
+- Read/query state remains with the existing application/query owner.
+- The feature composition adapter coordinates query lifecycle only where the existing feature contract assigns it that responsibility.
+- The presentation shell owns transient selection state only: day/week mode, selected calendar date/week, expanded event or shift detail, and local scroll/focus restoration state.
+- Leaf components are controlled renderers. They do not keep duplicate copies of selected date, event data, shift totals, or source status.
+- No global mutable store, cross-feature event bus, shared singleton, or persistent browser storage may be introduced for Timeline view state.
+- A selected period change invalidates or supersedes prior reads. Aborted or stale results must not overwrite the currently selected period.
+- Returning from details restores the selected period and prior sequence position/focus without persisting business data.
+
+### 13.5 Style and visual isolation
+
+- Timeline styles are feature-owned and namespaced/scoped. They must not redefine global element selectors, shared shell styles, or global tokens as a side effect.
+- Timeline may use shared low-level primitives only when those primitives are presentation-neutral and their use does not constrain independent replacement.
+- Timeline-specific typography, spacing, colours, icons, event shapes, and motion are local to Timeline unless explicitly approved as shared tokens.
+- Removing/replacing Timeline CSS must not alter Work/Drive, Performance, Admin, global navigation, or Android overlay presentation.
+- Responsive adaptation follows the approved visual reference and visual-fidelity contract; it is not permission to couple Timeline to global breakpoints or redesign other screens.
+
+### 13.6 Explicit non-coupling guarantees
+
+The implementation must demonstrate all of the following:
+
+1. Replacing the Timeline shell while keeping the same presentation contract leaves every leaf component and the application query/projection unchanged.
+2. Replacing one leaf component while keeping its props contract leaves the shell, sibling components, query/projection and persistence unchanged.
+3. Replacing Timeline styling leaves component behavior, query/projection, and all other feature styles unchanged.
+4. Replacing the presentation adapter implementation while honoring the public feature context contract leaves the shell and leaf components unchanged.
+5. Replacing the Timeline presentation as a whole leaves authoritative source records, source feature APIs, business calculations, persistence schemas, backup/restore and other screens unchanged.
+6. Replacing or extending the authoritative source implementation behind the existing public query/projection contract does not require presentation components to import or understand its storage/platform implementation.
+
+A test or architecture check must fail if these guarantees are violated. Document the exact enforced import paths and any unavoidable exception; exceptions require a named owner, reason, narrow scope and regression test.
+
+### 13.7 Prohibited shortcuts
+
+The following are implementation failures even if the screen appears correct:
+
+- Passing a whole runtime/context/service container through the component tree.
+- Importing domain, application, repository, database, native or network modules from presentation components.
+- Recomputing fare, duration, pickup interval, shift ownership, odometer, business distance or other authoritative semantics in JSX/components.
+- Duplicating query/projection logic in the shell or leaf components.
+- Sharing mutable state between unrelated components through module globals or a hidden singleton.
+- Importing sibling components from leaf components to create implicit circular composition.
+- Global CSS selectors or global token changes to achieve Timeline styling.
+- A component that cannot be rendered in isolation from a typed fixture without mounting the entire application runtime.
+- Making unrelated features change their public API or visual output to accommodate Timeline layout.
+
+## 14. Definition of done — no partial substitution
+
+Timeline replacement is not complete merely because the new screen renders or because CI is green. All of the following are required:
+
+- Approved v2 reference and manifest; v1 bytes and checksum unchanged.
+- Documented component/interface inventory and dependency direction.
+- Feature-owned composition adapter and shell, with narrow typed props/actions.
+- Each independently replaceable component can be rendered/tested using fixtures without the full application runtime.
+- Automated import/dependency enforcement covers all prohibited presentation-to-infrastructure and domain/application-to-presentation edges.
+- Contract tests demonstrate shell replacement, leaf replacement, adapter replacement and style isolation.
+- Existing projection output is unchanged for the same authoritative source fixtures.
+- No writes, schema changes, caches, new event stores, or business-rule changes.
+- All required behavior, accessibility, responsive, offline, stale-read and platform-parity tests pass.
+- Full required CI is green on the exact final PR head SHA.
+- Manual physical-device testing remains separately pending until the user performs it; do not claim it has passed.
+- PR remains draft/open/unmerged until the user explicitly authorizes merge.
+
+The detailed staged execution checklist and evidence ledger are maintained in `docs/TIMELINE_PRESENTATION_REPLACEMENT_IMPLEMENTATION_PLAN.md`. That plan is a delivery guide; this contract and the existing owner contracts remain authoritative.
