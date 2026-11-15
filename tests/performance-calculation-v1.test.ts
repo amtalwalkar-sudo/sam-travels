@@ -105,6 +105,21 @@ describe("Performance Calculation Contract v1.0", () => {
     ]));
   });
 
+  it("marks only the affected day incomplete for date-scoped unverified facts", () => {
+    const result = calculatePerformanceV1(fixture({
+      revenue: [
+        { date: "2026-04-05", grossFarePaise: 1_000, cancellationFeePaise: 0, verified: false,
+          sourceRefs: [{ sourceId: "unverified-fare", revision: 1 }] },
+        { date: "2026-04-06", grossFarePaise: 2_000, cancellationFeePaise: 0, verified: true,
+          sourceRefs: [{ sourceId: "verified-fare", revision: 1 }] },
+      ],
+      periodFrom: "2026-04-05",
+      periodTo: "2026-04-06",
+    }));
+    expect(result.daily.find(row => row.date === "2026-04-05")?.complete).toBe(false);
+    expect(result.daily.find(row => row.date === "2026-04-06")?.complete).toBe(true);
+  });
+
   it("rejects duplicate recovery source identities and invalid amounts", () => {
     expect(() => allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "same", revision: 1, amountPaise: 1, note: "a", origin: "manual" },
