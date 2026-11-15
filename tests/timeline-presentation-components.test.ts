@@ -1,11 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { PeriodNavigation } from "../packages/features/timeline/presentation/PeriodNavigation";
-import { TimelineEventCard } from "../packages/features/timeline/presentation/TimelineEventCard";
-import { TimelineEventDetail } from "../packages/features/timeline/presentation/TimelineEventDetail";
-import { TimelineShiftSection } from "../packages/features/timeline/presentation/TimelineShiftSection";
-import { TimelineScreenShell } from "../packages/features/timeline/presentation/TimelineScreenShell";
+import { PeriodNavigation, TimelineEventCard, TimelineEventDetail, TimelineShiftSection, TimelineScreenShell } from "../packages/features/timeline";
 
 describe("Timeline presentation component contracts", () => {
   it("renders the week as seven independently selectable calendar days", () => {
