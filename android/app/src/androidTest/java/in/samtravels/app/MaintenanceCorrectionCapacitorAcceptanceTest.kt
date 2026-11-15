@@ -152,7 +152,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
       assertTrue("Maintenance loads", awaitJavascript(activity,
-          "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
+          "document.body.textContent.includes('Accept tyre repair')", 15_000))
       evaluate(activity, """
           (() => {
             document.querySelector('details.loan-schedule')?.setAttribute('open','');
