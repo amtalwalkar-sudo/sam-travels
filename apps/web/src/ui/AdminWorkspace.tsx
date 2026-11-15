@@ -7,11 +7,10 @@ import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOpe
 import { LoanPaymentsPanel } from "./LoanPaymentsPanel";
 import { LoanDetailsForm } from "./LoanDetailsForm";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminServices, useAdminIdentityAdapter } from "./admin-services-context";
 import type { LoanAmortizationSchedule } from "../../../../packages/features/finance";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
 import { PlatformFeeSection, MiscBusinessExpenseSection, TrafficChallanSection } from "./BusinessExpenseAdminForms";
-import { useAdminIdentityRecords } from "./admin-services-context";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Loan = Awaited<ReturnType<AdminPresentationServices["financeLoans"]["list"]>>[number];
@@ -26,7 +25,7 @@ function rate(basisPoints: number): string {
   return (basisPoints / 100).toFixed(2) + "% p.a.";
 }
 export function AdminWorkspace() {
-  const identityRecords = useAdminIdentityRecords();
+  const identityAdapter = useAdminIdentityAdapter();
   const services = useAdminServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -141,6 +140,6 @@ export function AdminWorkspace() {
     </> },
     { id: "maintenance", label: "Maintenance", content: <MaintenanceSection /> },
   ];
-  return <AdminWorkspaceShell identityPanel={<PersonIdentityPanel records={identityRecords} />}
+  return <AdminWorkspaceShell identityPanel={<PersonIdentityPanel adapter={identityAdapter} />}
     sections={sections} initialExpandedSection="finance" />;
 }
