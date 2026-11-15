@@ -81,7 +81,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
 
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance vehicle selector", await(activity, "document.querySelectorAll('#admin-section-panel-compliance select').length>0", 10000))
-            eval(activity, """(()=>{const s=document.querySelector('#admin-section-panel-compliance select');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            eval(activity, """(()=>{const s=document.querySelector('#admin-section-panel-compliance select');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
             click(activity, "Add compliance / renewal")
             set(activity, "Compliance type / name", marker + " Insurance")
             set(activity, "Valid from", "2026-11-15")
