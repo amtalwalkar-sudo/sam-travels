@@ -3,8 +3,12 @@ import { PerformanceFixedCostAllocationAdapterV1 } from "../packages/application
 import type { BusinessStartDateCostAllocationReportV1 } from "../packages/application/src/business-start-date-cost-allocation-service";
 import type { CostAllocationSourceResultV1 } from "../packages/domain/src/business-start-date-cost-allocation";
 
-function daily(sourceId: string, sourceKind: "emi" | "compliance", sourceVersion: number, dates: string[]) {
-  return dates.map(date => ({ date, amountPaise: 1, sourceId, sourceKind, sourceVersion }));
+function daily(sourceId: string, sourceKind: "emi" | "compliance", sourceVersion: number, from: string, to: string) {
+  const rows: { date: string; amountPaise: number; sourceId: string; sourceKind: "emi" | "compliance"; sourceVersion: number }[] = [];
+  for (let day = Date.parse(from + "T00:00:00.000Z"); day <= Date.parse(to + "T00:00:00.000Z"); day += 86_400_000) {
+    rows.push({ date: new Date(day).toISOString().slice(0, 10), amountPaise: 1, sourceId, sourceKind, sourceVersion });
+  }
+  return rows;
 }
 function source(input: Partial<CostAllocationSourceResultV1> & Pick<CostAllocationSourceResultV1, "sourceId" | "sourceKind" | "sourceVersion" | "sourceAmountPaise" | "disposition">): CostAllocationSourceResultV1 {
   return { ...input, daily: input.daily ?? [] };
@@ -18,7 +22,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceAmountPaise: 31_000, disposition: "allocated",
         sourcePeriod: { from: "2026-01-01", to: "2026-03-31", label: "EMI installment 3" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
-        daily: daily("loan:emi:3", "emi", 2, ["2026-03-01", "2026-03-02", "2026-03-03"]),
+        daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
       source({
         sourceId: "loan:pre-business-emi-carry-forward",
@@ -30,7 +34,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceAmountPaise: 36_500, disposition: "allocated",
         sourcePeriod: { from: "2026-01-01", to: "2026-12-31", label: "Annual permit" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-12-31",
-        daily: daily("compliance:overlap", "compliance", 4, ["2026-03-01", "2026-03-02", "2026-12-31"]),
+        daily: daily("compliance:overlap", "compliance", 4, "2026-03-01", "2026-12-31"),
       }),
       source({
         sourceId: "compliance:historical", sourceKind: "compliance", sourceVersion: 3,
