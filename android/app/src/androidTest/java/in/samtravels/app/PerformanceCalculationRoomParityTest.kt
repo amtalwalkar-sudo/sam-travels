@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
@@ -20,6 +21,8 @@ class PerformanceCalculationRoomParityTest {
         val expected = fixture.getJSONObject("expected")
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
+        NativeBusinessExpensesBackup.ensureRegistered()
+        NativePerformanceBackup.ensureRegistered()
         try {
             for (index in 0 until records.length()) {
                 val record = records.getJSONObject(index)
@@ -42,6 +45,24 @@ class PerformanceCalculationRoomParityTest {
                 assertEquals(source.getJSONObject("data").toString(),
                     restoredEnvelope.getJSONObject("data").toString())
             }
+            val backupRows = JSONArray()
+            for (index in 0 until records.length()) {
+                val source = records.getJSONObject(index)
+                val id = source.getString("id")
+                val participant = when {
+                    id.startsWith("feature:business-expenses:") -> "business-expenses-records"
+                    id.startsWith("feature:performance:") -> "performance-records"
+                    else -> "platform-records"
+                }
+                backupRows.put(JSONObject()
+                    .put("id", id)
+                    .put("json", source.toString())
+                    .put("schemaVersion", source.getInt("schemaVersion"))
+                    .put("updatedAt", source.getString("updatedAt"))
+                    .put("participantId", participant))
+            }
+            NativeBackupCoverage.validateBusinessRecords(backupRows, requireExplicitOwnerTags = true)
+
             // These expected values are consumed by the TypeScript browser test,
             // which runs the shared platform-neutral calculation against this
             // same fixture. Room must preserve the exact source records supplied
