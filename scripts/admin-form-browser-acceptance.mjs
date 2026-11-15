@@ -227,7 +227,7 @@ try {
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
 
     await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
-  await paymentPanel.getByLabel("Settlement date").fill(today);
+  await paymentPanel.getByLabel("Settlement date").fill(monthDateOffset(1));
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
   await paymentPanel.getByRole("button", { name: "Checking…", exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).waitFor({ state: "visible", timeout: 10000 });
