@@ -74,7 +74,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
       assertTrue("Admin render", awaitJavascript(activity,
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
-      assertTrue("Name field appears", awaitJavascript(activity,
+      assertTrue("Name field", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
       assertTrue("Admin role select", evaluate(activity, """
           (() => {
@@ -131,10 +131,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("PIN appears", awaitJavascript(activity,
+      assertTrue("PIN field", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
           5_000))
-      assertTrue("PIN accepted", evaluate(activity, """
+      assertTrue("PIN accept", evaluate(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
             const pin = label?.querySelector('input');
@@ -261,7 +261,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           })()
       """))
       assertTrue("Driver saved", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Correction appended')", 15_000))
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Acceptance tyre repair'))?.textContent.includes('Append correction')", 15_000))
       assertTrue("Other record", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre repair'))", 10_000))
       assertTrue("Other form button", evaluate(activity, """
