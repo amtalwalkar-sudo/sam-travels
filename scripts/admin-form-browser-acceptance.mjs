@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
-const vehicleId = "feature:vehicle:MH00AA0090";
+let vehicleId = "";
 const registration = "MH00AA0090";
 const today = new Date().toISOString().slice(0, 10);
 function monthDateOffset(offset) {
@@ -60,7 +60,25 @@ try {
     console.log("Vehicle panel after create attempt:", await vehiclePanel.innerHTML());
     throw new Error("vehicle_record_not_rendered_after_create:" + (error instanceof Error ? error.message : String(error)));
   }
-  console.log("Vehicle create workflow saved a canonical vehicle record.");
+  vehicleId = await page.evaluate(async registrationNumber => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const matches = rows.filter(row => row.data?.registrationNumber === registrationNumber && row.id.startsWith("feature:vehicle:"));
+    if (matches.length !== 1) throw new Error("canonical_vehicle_id_lookup_failed:" + matches.length);
+    return matches[0].id;
+  }, registration);
+  console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
+
 
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
