@@ -3,9 +3,9 @@ import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
 import type { TimelineScreenContext } from "../runtime";
 import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
-import { PeriodNavigation, type TimelinePeriodMode } from "./PeriodNavigation";
-import { TimelineEventDetail, type TimelineEventDetailModel } from "./TimelineEventDetail";
-import { TimelineShiftSection } from "./TimelineShiftSection";
+import type { TimelinePeriodMode } from "./PeriodNavigation";
+import type { TimelineEventDetailModel } from "./TimelineEventDetail";
+import { TimelineScreenShell, type TimelineDaySectionModel } from "./TimelineScreenShell";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
 import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime } from "./timeline-date";
 import "./timeline.css";
@@ -134,6 +134,8 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [error, setError] = useState("");
   const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEventDetailModel | null>(null);
+  const detailReturnFocus = useRef<HTMLElement | null>(null);
+  const detailWasOpen = useRef(false);
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const today = indiaCalendarDate(new Date());
@@ -195,6 +197,15 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       document.removeEventListener("visibilitychange", resume);
     };
   }, [locationLookupEnabled, fromDate, toDate, context.loadTimeline]);
+
+  useEffect(() => {
+    if (selectedEvent) detailWasOpen.current = true;
+    else if (detailWasOpen.current) {
+      detailReturnFocus.current?.focus();
+      detailReturnFocus.current = null;
+      detailWasOpen.current = false;
+    }
+  }, [selectedEvent]);
 
   const allEvents = model?.events ?? [];
   const eventById = useMemo(() => new Map(allEvents.map(event => [event.eventId, event])), [model]);
@@ -275,6 +286,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, [day, eventById, shiftByEvent, allEvents, model, selectedDate]);
 
   const openEvent = (eventId: string) => {
+    if (!selectedEvent && document.activeElement instanceof HTMLElement) detailReturnFocus.current = document.activeElement;
     const event = eventById.get(eventId);
     if (!event) return;
     const location = locationLabel(event, model?.locations[eventId]);
@@ -296,46 +308,42 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const onModeChange = (nextMode: TimelinePeriodMode) => setMode(nextMode);
   const onToday = () => { setSelectedDate(today); setMode("day"); };
 
-  return <section className="timeline-screen" aria-label="Timeline history">
-    <header className="timeline-toolbar">
-      <div className="timeline-heading"><small>YOUR WORK</small><h2>Timeline</h2></div>
-      <button type="button" className="timeline-refresh" onClick={() => void refresh()} disabled={loading}>Refresh</button>
-    </header>
-    <div className="timeline-location-consent">
-      <p>Optional location names send only GPS coordinates from events in this selected period to Geoapify through the secure proxy when Internet Access is on. Saved GPS records are never changed.</p>
-      <button type="button" aria-pressed={locationLookupEnabled}
-        onClick={() => setLocationLookupEnabled(enabled => !enabled)}>
-        {locationLookupEnabled ? "Turn off location names" : "Allow location names"}
-      </button>
-    </div>
-    <PeriodNavigation mode={mode} selectedDate={selectedDate} today={today} weekStart={fromDate}
-      weekDays={weekDays} onModeChange={onModeChange} onDateChange={setSelectedDate}
-      onMove={onMove} onToday={onToday} />
-    <p className="timeline-selected-period">{mode === "day" ? formatTimelineDate(selectedDate) : formatTimelineDate(fromDate) + " – " + formatTimelineDate(toDate)}</p>
-    {error && <p className="timeline-error" role="alert">{error}</p>}
-    {loading && model && <p className="timeline-refreshing" role="status">Refreshing activity · showing the last loaded records</p>}
-    {!!model?.projection.integrityIssues.length && <aside className="timeline-integrity" role="alert">
-      <strong>Some recorded activity needs review.</strong>
-      <ul>{model.projection.integrityIssues.map((issue, index) => (
-        <li key={issue.code + ":" + (issue.eventId ?? "record") + ":" + index}>{issue.code.replaceAll("_", " ")}</li>
-      ))}</ul>
-    </aside>}
-    {loading && !model && <p className="timeline-empty" role="status">Loading your activity…</p>}
-    {!loading && !error && mode === "day" && groupedShifts.length === 0 &&
-      <p className="timeline-empty">No activity recorded for this day.</p>}
-    {mode === "day" && groupedShifts.map(group => <TimelineShiftSection key={group.id} id={group.id}
-      title={group.shift ? "Shift · " + group.shift.anchorDate : "Activity"}
-      status={group.status} events={group.events} onOpenEvent={openEvent}
-      summary={group.shift && group.events.some(event => event.kind === "shift") &&
-        allEvents.some(event => group.shift!.eventIds.includes(event.eventId) && event.command.eventType === "shift_end")
-        ? <ShiftSummary shift={group.shift} /> : undefined} />)}
-    {mode === "week" && <section className="timeline-week-summary" aria-label="Week activity summary">
-      <h3>Week at a glance</h3>
-      <p>{weekDays.reduce((count, item) => count + item.activityCount, 0)} recorded events across the selected week.</p>
-      <p>Select any day above to open its chronological shift sequence.</p>
-    </section>}
-    <p className="timeline-attribution">Location names powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
-    <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
-    <TimelineEventDetail event={selectedEvent} onClose={() => setSelectedEvent(null)} />
-  </section>;
+  const daySections: TimelineDaySectionModel[] = groupedShifts.map(group => ({
+    id: group.id,
+    title: group.shift ? "Shift · " + group.shift.anchorDate : "Activity",
+    status: group.status,
+    events: group.events,
+    summary: group.shift && group.events.some(event => event.kind === "shift") &&
+      allEvents.some(event => group.shift!.eventIds.includes(event.eventId) && event.command.eventType === "shift_end")
+      ? <ShiftSummary shift={group.shift} /> : undefined,
+  }));
+  const weekEventCount = weekDays.reduce((count, item) => count + item.activityCount, 0);
+  const integrityIssues = (model?.projection.integrityIssues ?? []).map(issue => issue.code);
+
+  return <TimelineScreenShell
+    mode={mode}
+    selectedDate={selectedDate}
+    today={today}
+    weekStart={fromDate}
+    weekDays={weekDays}
+    selectedPeriodLabel={mode === "day"
+      ? formatTimelineDate(selectedDate)
+      : formatTimelineDate(fromDate) + " – " + formatTimelineDate(toDate)}
+    loading={loading}
+    hasLoadedModel={!!model}
+    error={error}
+    locationLookupEnabled={locationLookupEnabled}
+    integrityIssues={integrityIssues}
+    daySections={daySections}
+    weekEventCount={weekEventCount}
+    selectedEvent={selectedEvent}
+    onModeChange={onModeChange}
+    onDateChange={setSelectedDate}
+    onMove={onMove}
+    onToday={onToday}
+    onRefresh={() => { void refresh(); }}
+    onToggleLocationLookup={() => setLocationLookupEnabled(enabled => !enabled)}
+    onOpenEvent={openEvent}
+    onCloseEvent={() => setSelectedEvent(null)}
+  />;
 }
