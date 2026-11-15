@@ -1,6 +1,6 @@
 # Timeline Presentation Replacement Implementation Contract
 
-**Status:** User-approved implementation contract (15 November 2026); runtime implementation remains gated on explicit approval of the versioned v2 visual reference in §4.  
+**Status:** User-approved implementation contract (15 November 2026); design and visual implementation decisions are delegated to the assistant within this contract's product and architecture boundaries.  
 **Target:** Sam Travels PWA main application, with shared platform-neutral presentation contracts where applicable.  
 **Scope:** Replace the Timeline screen presentation end to end while preserving authoritative event ownership, projection semantics, PWA lifecycle, offline behavior, and platform boundaries.  
 **Product intent:** A driver can quickly review any day or week, understand the sequence of work at a glance, and reveal deeper event details in clearly separated layers with very few interactions.
@@ -47,25 +47,24 @@ The same separation principles used for the Work screen replacement apply:
 
 The implementation should follow a composition pattern equivalent to Work: a thin feature composition adapter supplies narrowed, explicit presentation contracts to a feature-owned screen shell and independent components. The shell must not import business or persistence infrastructure.
 
-## 4. Visual authority and required approval gate
+## 4. Visual authority and delegated design ownership
 
-The repository currently contains an approved, frozen v1 visual reference:
+The repository contains an approved, frozen v1 visual reference:
 
 - `docs/reference/timeline-mockup/sam-travels-timeline-approved-direction-v1.svg`
 - `docs/reference/timeline-mockup/manifest-v1.md`
 
-The v1 reference governs the existing Timeline visual presentation. It must remain immutable.
+The v1 artifact remains immutable as the historical approved baseline and source of its original visual language. It is not to be overwritten or retroactively relabelled.
 
-This request adds a stronger product requirement: layered day/week review with a driver-first overview and progressive event detail. Where this new interaction model cannot be implemented faithfully within the v1 visual reference, it is a visual/product change—not an implementation convenience.
+The layered day/week and progressive-detail requirement is a new presentation direction. The user has explicitly delegated design decisions to the assistant and instructed implementation to proceed without further visual approval checkpoints. Accordingly:
 
-Before replacing the visible design:
-1. Retain v1 unchanged as historical approved baseline.
-2. Produce a versioned v2 visual reference and manifest that demonstrate the agreed driver-first day/week overview, sequence, and progressive detail layers.
-3. Obtain explicit user approval of v2.
-4. Update the visual-fidelity contract to identify v2 as the current visual source of truth while retaining v1 and its provenance.
-5. Capture deterministic reference fixtures and viewport assumptions.
+1. The assistant owns visual refinement and implementation decisions within the driver-centric product intent, the three-layer information hierarchy, existing navigation identity, accessibility requirements, and all architecture/data/privacy/platform constraints in this contract.
+2. The v2 proposal and manifest are the recorded design rationale and starting point for the delegated implementation direction. Their provenance remains truthful: v2 was authored as a proposal, not personally approved by the user.
+3. The assistant may refine the selected direction during implementation when needed for usability, accessibility, responsive behavior, or source-data truthfulness. Material changes must be documented in the implementation PR; v1 and the original v2 proposal bytes remain preserved.
+4. No additional user visual-approval gate is required. The user retains final acceptance and merge authority.
+5. Visual-fidelity evidence must compare the implementation to the selected, documented implementation direction and identify the exact reference revision and viewport. Do not claim the user approved a design they delegated.
 
-No developer may silently redraw, overwrite, or discard v1. Until v2 is approved, implementation may proceed only on documentation, architecture preparation, and tests that do not commit the app to a conflicting visual design.
+This delegation changes who makes presentation decisions; it does not authorize changes to business semantics, source ownership, persistence, privacy, feature registration, or platform contracts.
 
 ## 5. Driver-oriented information architecture
 
@@ -102,7 +101,7 @@ The proposed information hierarchy has three review levels. They are presentatio
 - Collapsing details returns to the same day/scroll position.
 - The default sequence must remain compact; secondary evidence must not dominate the first-glance view.
 
-The exact visual composition and interaction affordances for these layers are to be shown in the v2 reference before implementation. Do not introduce maps, map tiles, or a dashboard-style redesign.
+The v2 reference records the initial selected direction. The assistant may refine component composition and interaction affordances within the delegated design authority above. Do not introduce maps, map tiles, or a dashboard-style redesign.
 
 ## 6. Existing event and summary semantics to preserve
 
