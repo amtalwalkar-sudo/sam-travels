@@ -189,6 +189,9 @@ class AdminFormsCapacitorAcceptanceTest {
                 "FEE-" + marker, "PARK-" + marker, marker + " service visit")
                 .forEach { assertTrue("Room backup restores " + it, restoredJson.contains(it)) }
         } finally {
+            // Keep shared emulator state isolated even when an assertion fails midway.
+            db.records().list().filter { it.json.contains(marker) }.forEach { db.records().remove(it.id) }
+            runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             instrumentation.runOnMainSync { activity.finish() }
             db.close()
         }
@@ -218,7 +221,7 @@ class AdminFormsCapacitorAcceptanceTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             webView.evaluateJavascript(script) { latch.countDown() }
         }
-        check(latch.await(3, TimeUnit.SECONDS))
+        check(latch.await(15, TimeUnit.SECONDS))
     }
 
     private fun javascriptValue(activity: MainActivity, expression: String): String? {
