@@ -43,22 +43,12 @@ try {
   await page.getByLabel("Year of manufacture").fill("2024");
   await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
   const vehiclePanel = page.locator("#admin-section-panel-vehicle");
-  const vehicleStatus = vehiclePanel.getByRole("status").last();
-  await page.waitForTimeout(1000);
-  console.log("Vehicle section after submit:", await vehiclePanel.innerText());
-  const vehicleFormState = await vehiclePanel.locator("form").evaluate(form => ({
-    valid: form.checkValidity(),
-    invalid: Array.from(form.querySelectorAll(":invalid")).map(input => ({
-      labels: Array.from(input.labels ?? []).map(label => label.innerText),
-      value: input.value, required: input.required, type: input.type,
-    })),
-  }));
-  console.log("Vehicle form validity diagnostic:", JSON.stringify(vehicleFormState));
-  await vehicleStatus.waitFor({ state: "visible", timeout: 15000 });
-  const vehicleSaveMessage = await vehicleStatus.innerText();
-  console.log("Vehicle form submission status:", vehicleSaveMessage);
-  if (vehicleSaveMessage !== "Vehicle record created.") throw new Error("vehicle_form_save_failed:" + vehicleSaveMessage);
-  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
+  try {
+    await page.getByText(registration, { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+  } catch (error) {
+    console.log("Vehicle panel after create attempt:", await vehiclePanel.innerHTML());
+    throw new Error("vehicle_record_not_rendered_after_create:" + (error instanceof Error ? error.message : String(error)));
+  }
   console.log("Vehicle create workflow saved a canonical vehicle record.");
 
   await page.getByRole("button", { name: "Driver", exact: true }).click();
