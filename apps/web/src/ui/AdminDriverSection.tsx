@@ -11,11 +11,6 @@ const today = () => {
   const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")}`;
 };
-function daysUntil(date: string): number {
-  const [y,m,d]=date.split("-").map(Number);
-  const [ty,tm,td]=today().split("-").map(Number);
-  return Math.floor((Date.UTC(y,m-1,d)-Date.UTC(ty,tm-1,td))/86400000);
-}
 export function DriverSection() {
   const services = useAdminDriverServices();
   const [drivers, setDrivers] = useState<Driver[]>([]);
