@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { PeriodNavigation, type TimelinePeriodMode } from "./PeriodNavigation";
 import { TimelineEventDetail, type TimelineEventDetailModel } from "./TimelineEventDetail";
+import { TimelineShiftDetail, type TimelineShiftDetailModel } from "./TimelineShiftDetail";
 import { TimelineShiftSection } from "./TimelineShiftSection";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
 
@@ -27,6 +28,7 @@ export type TimelineScreenShellProps = Readonly<{
   daySections: readonly TimelineDaySectionModel[];
   weekEventCount: number;
   selectedEvent: TimelineEventDetailModel | null;
+  selectedShift: TimelineShiftDetailModel | null;
   onModeChange: (mode: TimelinePeriodMode) => void;
   onDateChange: (date: string) => void;
   onMove: (direction: -1 | 1) => void;
@@ -35,6 +37,7 @@ export type TimelineScreenShellProps = Readonly<{
   onToggleLocationLookup: () => void;
   onOpenEvent: (eventId: string) => void;
   onCloseEvent: () => void;
+  onCloseShift: () => void;
 }>;
 
 /**
@@ -45,8 +48,8 @@ export function TimelineScreenShell(props: TimelineScreenShellProps) {
   const {
     mode, selectedDate, today, weekStart, weekDays, selectedPeriodLabel, loading,
     hasLoadedModel, error, locationLookupEnabled, integrityIssues, daySections,
-    weekEventCount, selectedEvent, onModeChange, onDateChange, onMove, onToday,
-    onRefresh, onToggleLocationLookup, onOpenEvent, onCloseEvent,
+    weekEventCount, selectedEvent, selectedShift, onModeChange, onDateChange, onMove, onToday,
+    onRefresh, onToggleLocationLookup, onOpenEvent, onCloseEvent, onCloseShift,
   } = props;
   return <section className="timeline-screen" aria-label="Timeline history">
     <header className="timeline-toolbar">
@@ -83,5 +86,6 @@ export function TimelineScreenShell(props: TimelineScreenShellProps) {
     <p className="timeline-attribution">Location names powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a></p>
     <p className="timeline-readonly-note">Timeline is read-only. Shift and trip records remain owned by Work and Log Book.</p>
     <TimelineEventDetail event={selectedEvent} onClose={onCloseEvent} />
+    <TimelineShiftDetail shift={selectedShift} onClose={onCloseShift} />
   </section>;
 }
