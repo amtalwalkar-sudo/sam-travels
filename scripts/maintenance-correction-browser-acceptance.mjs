@@ -91,9 +91,9 @@ try {
   await page.getByRole("button", { name: "Activate role" }).click();
   await page.getByRole("status").filter({ hasText: "Role activated" }).waitFor();
 
-  const maintenanceSection = page.locator(".admin-section").filter({ hasText: "Maintenance" });
-  await maintenanceSection.locator(".admin-section-trigger").click();
-  await maintenanceSection.locator(".admin-section-content").waitFor();
+  const maintenanceSection = page.locator(".admin-replacement-section").filter({ hasText: "Maintenance" });
+  await maintenanceSection.locator(".admin-replacement-section-trigger").click();
+  await maintenanceSection.locator(".admin-replacement-section-content").waitFor();
   const maintenancePanel = maintenanceSection.locator(".admin-capability-panel").filter({ hasText: "Record actual service visits" });
   await maintenancePanel.waitFor();
   const vehicleSelect = maintenancePanel.locator("select").first();

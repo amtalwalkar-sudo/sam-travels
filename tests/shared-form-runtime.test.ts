@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1, LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../packages/application/src/admin-form-definitions";
+import { ADMIN_FORM_DEFINITIONS, BUSINESS_SETUP_FORM_V1, VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1, LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1 } from "../packages/application/src/admin-form-definitions";
 import {
   SharedFormRuntime, validateFormValues,
   type FormDefinition, type FormWorkingCopy, type FormWorkingCopyRepository,
@@ -30,6 +30,21 @@ const definition: FormDefinition = {
 };
 
 describe("shared form runtime", () => {
+  it("discovers and validates every canonical Admin form definition", () => {
+    expect(ADMIN_FORM_DEFINITIONS).toHaveLength(14);
+    expect(new Set(ADMIN_FORM_DEFINITIONS.map(form => form.id)).size).toBe(ADMIN_FORM_DEFINITIONS.length);
+    for (const form of ADMIN_FORM_DEFINITIONS) {
+      expect(form.id).toMatch(/^admin\./);
+      expect(form.version).toBeGreaterThan(0);
+      expect(form.owner.trim()).not.toBe("");
+      expect(form.purpose.trim()).not.toBe("");
+      expect(["save", "submit"]).toContain(form.primaryAction);
+      expect(form.fields.length).toBeGreaterThan(0);
+      expect(new Set(form.fields.map(field => field.id)).size).toBe(form.fields.length);
+      expect(() => validateFormValues(form, {})).not.toThrow();
+    }
+  });
+
   it("validates the canonical Admin Business Setup definition", () => {
     expect(BUSINESS_SETUP_FORM_V1).toMatchObject({
       id: "admin.business-setup", version: 1, owner: "business-settings", primaryAction: "save",

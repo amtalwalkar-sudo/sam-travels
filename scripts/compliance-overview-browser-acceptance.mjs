@@ -88,7 +88,8 @@ try {
     db.close();
     return { today: date(0), overlapFrom: date(-10), overlapTo: date(10),
       insuranceIds: [ "feature:compliance:" + uuids.insuranceA, "feature:compliance:" + uuids.insuranceB ],
-      fitnessIds: [ "feature:compliance:" + uuids.fitnessA, "feature:compliance:" + uuids.fitnessB ] };
+      fitnessIds: [ "feature:compliance:" + uuids.fitnessA, "feature:compliance:" + uuids.fitnessB ],
+      pucIds: [ "feature:compliance:" + uuids.pucA, "feature:compliance:" + uuids.pucB ] };
   }, { primaryVehicleId, secondaryVehicleId, uuids });
 
   await page.getByRole("button", { name: "Admin", exact: true }).click();
@@ -104,8 +105,8 @@ try {
   await page.getByRole("button", { name: "Activate role" }).click();
   await page.getByRole("status").filter({ hasText: "Role activated" }).waitFor();
 
-  const complianceSection = page.locator(".admin-section").filter({ hasText: "Compliance" });
-  await complianceSection.locator(".admin-section-trigger").click();
+  const complianceSection = page.locator(".admin-replacement-section").filter({ hasText: "Compliance" });
+  await complianceSection.locator(".admin-replacement-section-trigger").click();
   const overview = complianceSection.locator(".compliance-fleet-overview");
   await overview.waitFor();
   await overview.getByRole("heading", { name: "Coverage gaps", exact: true }).waitFor();
@@ -205,7 +206,44 @@ try {
       persisted.insurance[1].validTo !== seededDateOffset(seeded.today, 20)) {
     throw new Error("confirmed_overlap_mutated_original_source_dates");
   }
-  console.log("PASS: rendered Admin Compliance PWA shows fleet counts, separate gaps/overlaps, vehicle filtering and expiry states; reject/confirm reviews persist exact source provenance; daily costs remain withheld or aggregate exactly as expected.");
+  const pucCard = overview.locator("article.admin-capability-record").filter({ hasText: "PUC · Expired" }).first();
+  await pucCard.getByRole("button", { name: "Correct details / history" }).click();
+  const correctedValidTo = seededDateOffset(seeded.today, -25);
+  await pucCard.getByLabel("Field to correct").selectOption("validTo");
+  await pucCard.getByLabel("Corrected valid-until date").fill(correctedValidTo);
+  await pucCard.getByLabel("Reason for correction").fill("Corrected against the original PUC certificate.");
+  await pucCard.getByRole("button", { name: "Append correction" }).click();
+  await pucCard.getByText("Correction appended. The original Compliance record remains unchanged.", { exact: true }).waitFor();
+  await pucCard.locator("details.compliance-correction-history > summary").click();
+  await pucCard.getByText("valid To · admin", { exact: true }).waitFor();
+
+  const correctionAudit = await page.evaluate(async ({ pucId }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const original = rows.find(row => row.id === pucId);
+    const correction = rows.find(row => row.id.startsWith("historical-correction:") &&
+      row.data.targetRecordId === pucId && row.data.fieldPath === "validTo");
+    return { original: original?.data, correction: correction?.data };
+  }, { pucId: seeded.pucIds[0] });
+  if (correctionAudit.original?.validTo !== seededDateOffset(seeded.today, -26) ||
+      correctionAudit.correction?.beforeValue !== seededDateOffset(seeded.today, -26) ||
+      correctionAudit.correction?.afterValue !== correctedValidTo ||
+      correctionAudit.correction?.actor?.role !== "admin" ||
+      correctionAudit.correction?.reason !== "Corrected against the original PUC certificate.") {
+    throw new Error("compliance_correction_audit_or_original_immutability_invalid:" + JSON.stringify(correctionAudit));
+  }
+
+  console.log("PASS: rendered Admin Compliance PWA shows fleet counts, separate gaps/overlaps, vehicle filtering, expiry states and append-only Compliance corrections; reject/confirm reviews persist exact source provenance; daily costs remain withheld or aggregate exactly as expected.");
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}

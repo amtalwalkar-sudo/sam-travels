@@ -62,23 +62,22 @@ import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationIn
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
-import { handleBusinessExpenseFormSubmission } from "./business-expense-form-submission";
+import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-form-submission";
 import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
+import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
 // Initialize contracts, backup validators, and platform services before lifecycle/UI.
-const ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK = true;
-
 async function bootstrap(): Promise<void> {
   const runtimeRegistry = initializeApplicationRuntimeRegistry({ extensions: [...DISCOVERED_FEATURE_EXTENSIONS] });
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
-  await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
+  const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
     const actor = await getPersonIdentityService().currentActor();
     return { personId: actor.actorId, role: actor.role };
@@ -86,6 +85,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),
   );
@@ -98,6 +98,9 @@ async function bootstrap(): Promise<void> {
     calculateFuelCostRateHistory,
   }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
+  const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
+    getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
+  );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
     repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
@@ -111,7 +114,6 @@ async function bootstrap(): Promise<void> {
       return { actorId: actor.actorId, role: actor.role };
     },
   }, getApplicationRecordSource());
-
   initializeApplicationComplianceAnalysisService(
     getApplicationComplianceService(), complianceReviewEvents, getPersonIdentityService(), {
       analyzeCoverage: analyzeComplianceCoverage,
@@ -119,7 +121,7 @@ async function bootstrap(): Promise<void> {
       calculateDailyCost: calculateDailyComplianceCost,
       validateProjectedComplianceData: assertComplianceRecordV1,
     },
-    historicalCorrections,
+    adminAdapters.compliance,
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
@@ -130,9 +132,9 @@ async function bootstrap(): Promise<void> {
     new RecordFormWorkingCopyRepository(repository, getApplicationRecordSource()),
     {
       submit: async (command) => {
-        const expenseResult = await handleBusinessExpenseFormSubmission(command, businessExpenseEnrichmentQueue);
+        const expenseResult = await handleBusinessExpenseSubmission(command);
         if (expenseResult !== undefined) return expenseResult;
-        if (command.action !== "save") throw new Error("unsupported_admin_form_operation");
+        if (command.action !== "save" && command.action !== "submit") throw new Error("unsupported_admin_form_operation");
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
@@ -381,8 +383,8 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityRecords={repository}>
-        <App adminServices={adminServices} runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={ENABLE_TEMPORARY_BREAKEVEN_SANITY_CHECK} />
+      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance}>
+        <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={true} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );

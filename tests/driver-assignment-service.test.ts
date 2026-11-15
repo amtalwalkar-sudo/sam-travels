@@ -41,6 +41,7 @@ describe("DriverAssignmentService", () => {
     expect(second.data.assignments[0].unassignedAt).toBe("2026-11-08T09:00:00.000Z");
     expect(second.data.assignments[1].unassignedAt).toBeUndefined();
     expect(second.revision).toBe(2);
+    expect(await drivers.list()).toHaveLength(1); // Assignment-history records share the feature namespace but are not Driver profiles.
   });
 
   it("rejects inactive drivers, inactive vehicles, invalid histories, and stale unassignment", async () => {

@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  PLATFORM_FEE_FORM_V1,
-  MISC_BUSINESS_EXPENSE_FORM_V1,
-  TRAFFIC_CHALLAN_FORM_V1,
-  type FormDefinition,
-  type FormFieldDefinition,
+  PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
+  type FormDefinition, type FormFieldDefinition,
 } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
-import "./AdminWorkspace.css";
+import { useAdminFormRuntime } from "./admin-services-context";
+import "./AdminFormControls.css";
 
 type ExpenseDefinition = typeof PLATFORM_FEE_FORM_V1 | typeof MISC_BUSINESS_EXPENSE_FORM_V1 | typeof TRAFFIC_CHALLAN_FORM_V1;
 
 function ExpenseEntryForm({ definition, heading, description }: {
   definition: ExpenseDefinition; heading: string; description: string;
 }) {
-  const services = useAdminServices();
+  const services = useAdminFormRuntime();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const copyRef = useRef<typeof copy>(undefined);
@@ -93,15 +90,4 @@ function ExpenseEntryForm({ definition, heading, description }: {
   </section>;
 }
 
-export function PlatformFeeSection() {
-  return <ExpenseEntryForm definition={PLATFORM_FEE_FORM_V1} heading="Platform Fees"
-    description="Record fees from actual trip or settlement evidence. Mark fees already deducted from income to prevent double-counting." />;
-}
-export function MiscBusinessExpenseSection() {
-  return <ExpenseEntryForm definition={MISC_BUSINESS_EXPENSE_FORM_V1} heading="Miscellaneous Business Expenses"
-    description="Record other business costs with a category and optional vehicle or driver attribution." />;
-}
-export function TrafficChallanSection() {
-  return <ExpenseEntryForm definition={TRAFFIC_CHALLAN_FORM_V1} heading="Traffic Challans"
-    description="Record each challan against its vehicle. Challans remain separate from normal operating costs and are included in full-cost reporting." />;
-}
+export { ExpenseEntryForm };

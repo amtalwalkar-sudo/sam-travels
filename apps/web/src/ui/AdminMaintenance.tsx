@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
-import { useAdminServices, useAdminIdentityRecords } from "./admin-services-context";
-import { createMaintenanceExpenseCorrectionService, projectMaintenanceExpenses, MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
-import "./AdminWorkspace.css";
+import { useAdminMaintenanceServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
+import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
+import { projectMaintenanceExpenseRecords } from "../maintenance-expense-correction-runtime";
+import "./AdminFormControls.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Maintenance = Awaited<ReturnType<AdminPresentationServices["maintenance"]["listVehicleRecords"]>>;
@@ -22,9 +23,8 @@ type RecordMode = "visit" | "expense";
 type ActiveForm = RecordMode | "rate" | null;
 
 export function MaintenanceSection() {
-  const services = useAdminServices();
-  const identityRecords = useAdminIdentityRecords();
-  const correctionService = useMemo(() => createMaintenanceExpenseCorrectionService(identityRecords, services.recordSource), [identityRecords, services.recordSource]);
+  const services = useAdminMaintenanceServices();
+  const correctionService = useAdminMaintenanceCorrectionAdapter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
   const [records, setRecords] = useState<Maintenance | null>(null);
@@ -68,7 +68,7 @@ export function MaintenanceSection() {
       services.maintenance.listVehicleRecords(id),
       services.maintenance.getServiceReminderStates(id, today()),
     ]);
-    const expenses = await projectMaintenanceExpenses(history.expenses, correctionService);
+    const expenses = await projectMaintenanceExpenseRecords(history.expenses, correctionService);
     setRecords({ ...history, expenses });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
   }, [services, correctionService]);
