@@ -64,3 +64,27 @@ describe("Admin presentation dependency boundaries", () => {
     }
   });
 });
+
+  it("exposes only owner-specific section adapters, not a shared broad services hook", () => {
+    const context = source("../apps/web/src/ui/admin-services-context.tsx");
+    expect(context).not.toContain("export function useAdminServices(");
+    for (const hook of [
+      "useAdminBusinessSetupServices", "useAdminVehicleServices", "useAdminDriverServices",
+      "useAdminComplianceServices", "useAdminMaintenanceServices", "useAdminFinanceServices",
+      "useAdminFormRuntime", "useAdminIdentityAdapter", "useAdminMaintenanceCorrectionAdapter",
+    ]) expect(context).toContain(hook);
+    const sectionConsumers = [
+      ["AdminBusinessSetupSection.tsx", "useAdminBusinessSetupServices"],
+      ["AdminVehicleSection.tsx", "useAdminVehicleServices"],
+      ["AdminDriverSection.tsx", "useAdminDriverServices"],
+      ["AdminComplianceSection.tsx", "useAdminComplianceServices"],
+      ["AdminFinanceSection.tsx", "useAdminWorkspaceServices"],
+      ["AdminMaintenance.tsx", "useAdminMaintenanceServices"],
+      ["AdminPlatformFeeSection.tsx", "ExpenseEntryForm"],
+      ["AdminMiscBusinessExpenseSection.tsx", "ExpenseEntryForm"],
+      ["AdminTrafficChallanSection.tsx", "ExpenseEntryForm"],
+    ] as const;
+    for (const [file, hook] of sectionConsumers) {
+      expect(source("../apps/web/src/ui/" + file)).toContain(hook);
+    }
+  });
