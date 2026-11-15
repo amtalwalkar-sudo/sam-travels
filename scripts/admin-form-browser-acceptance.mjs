@@ -191,10 +191,11 @@ try {
   await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
   await paymentPanel.getByLabel("Transaction reference (optional)").fill("EMI-FUTURE-ACCEPTANCE-1");
   await paymentPanel.getByRole("button", { name: "Suggest oldest-due-first allocation", exact: true }).click();
-  await paymentPanel.getByText("Review allocation", { exact: false }).waitFor({ state: "visible" });
+  await paymentPanel.getByRole("status").filter({ hasText: "No eligible due EMI was suggested; amount will remain unallocated unless you add an allocation." }).waitFor({ state: "visible" });
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
-  console.log("Next scheduled EMI payment was recorded against its due-date cutoff.");
+  await paymentPanel.getByText("EMI-FUTURE-ACCEPTANCE-1", { exact: false }).waitFor({ state: "visible" });
+  console.log("Future-dated payment correctly remains unallocated until the EMI due-date cutoff.");
 
     await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
   await paymentPanel.getByLabel("Settlement date").fill(monthDateOffset(1));
