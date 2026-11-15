@@ -19,12 +19,26 @@ export type TimelineEventDetailProps = Readonly<{
 /** Read-only detail layer. It receives display values only, never source records or services. */
 export function TimelineEventDetail({ event, onClose }: TimelineEventDetailProps) {
   const panel = useRef<HTMLElement>(null);
-  useEffect(() => { if (event) panel.current?.focus(); }, [event]);
+  useEffect(() => { if (event) panel.current?.querySelector<HTMLButtonElement>("button")?.focus(); }, [event]);
   if (!event) return null;
   const handleKeyDown = (keyEvent: KeyboardEvent<HTMLElement>) => {
     if (keyEvent.key === "Escape") {
       keyEvent.preventDefault();
       onClose();
+      return;
+    }
+    if (keyEvent.key === "Tab") {
+      const focusable = panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (keyEvent.shiftKey && document.activeElement === first) {
+        keyEvent.preventDefault();
+        last.focus();
+      } else if (!keyEvent.shiftKey && document.activeElement === last) {
+        keyEvent.preventDefault();
+        first.focus();
+      }
     }
   };
   return <div className="timeline-detail-backdrop" role="presentation" onMouseDown={e => {
