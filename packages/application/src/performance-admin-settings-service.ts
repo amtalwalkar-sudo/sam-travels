@@ -33,15 +33,18 @@ function validatePerformanceAdminRecord(value: unknown): asserts value is Perfor
     throw new Error("performance_admin_record_invalid");
   }
   const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
   if (record.kind === "settings") {
-    if (!Number.isSafeInteger(record.monthlyDriverTargetPaise) ||
+    if (keys.join("|") !== "kind|monthlyDriverTargetPaise|schemaVersion" ||
+        !Number.isSafeInteger(record.monthlyDriverTargetPaise) ||
         (record.monthlyDriverTargetPaise as number) < 0) {
       throw new Error("performance_driver_target_invalid");
     }
     return;
   }
   if (record.kind === "pre_business_cost") {
-    if (!Number.isSafeInteger(record.amountPaise) || (record.amountPaise as number) <= 0 ||
+    if (keys.join("|") !== "amountPaise|commandId|kind|note|schemaVersion" ||
+        !Number.isSafeInteger(record.amountPaise) || (record.amountPaise as number) <= 0 ||
         typeof record.note !== "string" || !record.note.trim() ||
         typeof record.commandId !== "string" || !UUID.test(record.commandId)) {
       throw new Error("performance_pre_business_cost_invalid");
