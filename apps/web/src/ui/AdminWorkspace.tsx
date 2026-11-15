@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminWorkspaceShell } from "./AdminWorkspaceShell";
+import "./AdminWorkspace.css";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
 import { BusinessStartDateCostAllocationPanel } from "./BusinessStartDateCostAllocationPanel";
 import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOperations";
