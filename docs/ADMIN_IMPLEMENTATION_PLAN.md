@@ -20,7 +20,7 @@ The six sections are:
 5. Loan
 6. Maintenance
 
-Loan is one Admin section but its domain, lifecycle, calculations, and persistence are owned by Finance. Admin is an access/presentation surface, not a second finance ledger or calculation engine.
+Finance is the visible Admin section. Loan is a Finance-owned workflow within it, alongside the distinct Platform Fees and Miscellaneous Business Expenses forms. Traffic Challans remain under Compliance. Fuel purchase entry remains Work-owned. Loan domain state, lifecycle, calculations, and persistence are owned by Finance. Admin is an access/presentation surface, not a second finance ledger or calculation engine.
 
 ## Current implementation status and evidence boundary
 
