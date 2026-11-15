@@ -5,6 +5,7 @@ import { PeriodNavigation } from "../packages/features/timeline/presentation/Per
 import { TimelineEventCard } from "../packages/features/timeline/presentation/TimelineEventCard";
 import { TimelineEventDetail } from "../packages/features/timeline/presentation/TimelineEventDetail";
 import { TimelineShiftSection } from "../packages/features/timeline/presentation/TimelineShiftSection";
+import { TimelineScreenShell } from "../packages/features/timeline/presentation/TimelineScreenShell";
 
 describe("Timeline presentation component contracts", () => {
   it("renders the week as seven independently selectable calendar days", () => {
@@ -71,4 +72,29 @@ describe("Timeline presentation component contracts", () => {
     expect(html).toContain("Shift summary");
     expect(html).toContain("Shift started");
   });
+  it("renders the screen shell from a presentation-only fixture without an application runtime", () => {
+    const html = renderToStaticMarkup(createElement(TimelineScreenShell, {
+      mode: "day",
+      selectedDate: "2026-11-12",
+      today: "2026-11-15",
+      weekStart: "2026-11-09",
+      weekDays: [{ date: "2026-11-12", label: "Thu", activityCount: 2, selected: true }],
+      selectedPeriodLabel: "12 Nov 2026",
+      loading: false,
+      hasLoadedModel: true,
+      error: "",
+      locationLookupEnabled: false,
+      integrityIssues: [],
+      daySections: [],
+      weekEventCount: 2,
+      selectedEvent: null,
+      onModeChange: vi.fn(), onDateChange: vi.fn(), onMove: vi.fn(), onToday: vi.fn(),
+      onRefresh: vi.fn(), onToggleLocationLookup: vi.fn(), onOpenEvent: vi.fn(), onCloseEvent: vi.fn(),
+    }));
+    expect(html).toContain('aria-label="Timeline history"');
+    expect(html).toContain("12 Nov 2026");
+    expect(html).toContain("No activity recorded for this day.");
+    expect(html).toContain("Timeline is read-only");
+  });
+
 });
