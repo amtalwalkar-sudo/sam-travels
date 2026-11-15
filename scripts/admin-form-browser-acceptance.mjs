@@ -140,18 +140,31 @@ try {
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(today);
-  await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
+  await paymentPanel.getByLabel("Amount paid (₹)").fill("100000");
+  await paymentPanel.getByLabel("Transaction reference (optional)").fill("EMI-ACCEPTANCE-1");
   await paymentPanel.getByRole("button", { name: "Suggest oldest-due-first allocation", exact: true }).click();
   await paymentPanel.getByText("Review allocation", { exact: false }).waitFor({ state: "visible" });
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
+  console.log("Payment allocated oldest-due-first to all currently due EMIs.");
+
+  await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
+  await paymentPanel.getByLabel("Payment date").fill(today);
+  await paymentPanel.getByLabel("Amount paid (₹)").fill("50");
+  await paymentPanel.getByLabel("Transaction reference (optional)").fill("CREDIT-ACCEPTANCE-1");
+  await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
+  await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
+  console.log("Separate unallocated credit payment saved for reversal coverage.");
 
   page.on("dialog", async dialog => {
     if (dialog.type() === "prompt") await dialog.accept("Acceptance full reversal reason");
     else await dialog.accept();
   });
-  await paymentPanel.getByRole("button", { name: "Reverse", exact: true }).click();
+  const creditPaymentRow = paymentPanel.locator(".loan-payment-row").filter({ hasText: "CREDIT-ACCEPTANCE-1" });
+  await creditPaymentRow.getByRole("button", { name: "Reverse", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Full payment reversal recorded." }).waitFor({ state: "visible" });
+  await paymentPanel.getByText("Reversal · " + today, { exact: false }).waitFor({ state: "visible" });
+  console.log("Full reversal retained history without releasing due-EMI allocations.");
 
   await paymentPanel.getByRole("button", { name: "Prepay principal", exact: true }).click();
   await paymentPanel.getByLabel("Prepayment date").fill(today);
