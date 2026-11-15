@@ -5,6 +5,7 @@ import type { TimelineScreenContext } from "../runtime";
 import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
 import type { TimelinePeriodMode } from "./PeriodNavigation";
 import type { TimelineEventDetailModel } from "./TimelineEventDetail";
+import type { TimelineShiftDetailModel } from "./TimelineShiftDetail";
 import { TimelineScreenShell, type TimelineDaySectionModel } from "./TimelineScreenShell";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
 import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime } from "./timeline-date";
@@ -70,9 +71,9 @@ const METRICS: Array<[TimelineMetricId, string]> = [
   ["parking_total", "Parking"], ["business_km", "Business distance"],
 ];
 
-function ShiftSummary({ shift }: { shift: TimelineShiftProjection }) {
+function ShiftSummary({ shift, onOpen }: { shift: TimelineShiftProjection; onOpen: () => void }) {
   return <section className="timeline-summary" aria-label={"Summary for " + shift.anchorDate}>
-    <header><strong>SHIFT SUMMARY</strong><span>READ ONLY</span></header>
+    <header><strong>SHIFT SUMMARY</strong><button type="button" onClick={onOpen}>VIEW DETAILS ›</button></header>
     <div className="timeline-summary-grid">
       {METRICS.map(([id, label]) => {
         const metric = shift.metrics[id];
@@ -134,6 +135,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const [error, setError] = useState("");
   const [locationLookupEnabled, setLocationLookupEnabled] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEventDetailModel | null>(null);
+  const [selectedShift, setSelectedShift] = useState<TimelineShiftDetailModel | null>(null);
   const detailReturnFocus = useRef<HTMLElement | null>(null);
   const detailWasOpen = useRef(false);
   const requestSequence = useRef(0);
@@ -199,13 +201,13 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, [locationLookupEnabled, fromDate, toDate, context.loadTimeline]);
 
   useEffect(() => {
-    if (selectedEvent) detailWasOpen.current = true;
+    if (selectedEvent || selectedShift) detailWasOpen.current = true;
     else if (detailWasOpen.current) {
       detailReturnFocus.current?.focus();
       detailReturnFocus.current = null;
       detailWasOpen.current = false;
     }
-  }, [selectedEvent]);
+  }, [selectedEvent, selectedShift]);
 
   const allEvents = model?.events ?? [];
   const eventById = useMemo(() => new Map(allEvents.map(event => [event.eventId, event])), [model]);
@@ -304,6 +306,22 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     });
   };
 
+  const openShift = (shiftId: string) => {
+    if (!selectedEvent && !selectedShift && document.activeElement instanceof HTMLElement) detailReturnFocus.current = document.activeElement;
+    const shift = model?.projection.logicalShifts.find(item => item.id === shiftId);
+    if (!shift) return;
+    setSelectedEvent(null);
+    setSelectedShift({
+      title: "Shift · " + shift.anchorDate,
+      status: "Read-only summary",
+      rows: METRICS.map(([id, label]) => ({
+        label,
+        value: metricLabel(shift.metrics[id]),
+        status: shift.metrics[id].status.replaceAll("_", " "),
+      })),
+    });
+  };
+
   const onMove = (direction: -1 | 1) => setSelectedDate(value => moveTimelineDate(value, direction * (mode === "week" ? 7 : 1)));
   const onModeChange = (nextMode: TimelinePeriodMode) => setMode(nextMode);
   const onToday = () => { setSelectedDate(today); setMode("day"); };
@@ -313,9 +331,11 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     title: group.shift ? "Shift · " + group.shift.anchorDate : "Activity",
     status: group.status,
     events: group.events,
-    summary: group.shift && group.events.some(event => event.kind === "shift") &&
-      allEvents.some(event => group.shift!.eventIds.includes(event.eventId) && event.command.eventType === "shift_end")
-      ? <ShiftSummary shift={group.shift} /> : undefined,
+    summary: group.shift && group.events.some(event => {
+      const source = eventById.get(event.id);
+      return source?.command.eventType === "shift_end";
+    })
+      ? <ShiftSummary shift={group.shift} onOpen={() => openShift(group.shift!.id)} /> : undefined,
   }));
   const weekEventCount = weekDays.reduce((count, item) => count + item.activityCount, 0);
   const integrityIssues = (model?.projection.integrityIssues ?? []).map(issue => issue.code);
@@ -337,6 +357,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     daySections={daySections}
     weekEventCount={weekEventCount}
     selectedEvent={selectedEvent}
+    selectedShift={selectedShift}
     onModeChange={onModeChange}
     onDateChange={setSelectedDate}
     onMove={onMove}
@@ -345,5 +366,6 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     onToggleLocationLookup={() => setLocationLookupEnabled(enabled => !enabled)}
     onOpenEvent={openEvent}
     onCloseEvent={() => setSelectedEvent(null)}
+    onCloseShift={() => setSelectedShift(null)}
   />;
 }
