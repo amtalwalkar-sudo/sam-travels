@@ -175,12 +175,22 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const missingPeriod = report.result.sources.filter(source =>
       (source.sourceKind === "compliance" || source.sourceKind === "emi") &&
       source.disposition === "allocated" && !source.sourcePeriod);
-    if (blocked.length || missingPeriod.length) return Object.freeze([Object.freeze({
+    const incompleteDaily = report.result.sources.filter(source => {
+      if ((source.sourceKind !== "compliance" && source.sourceKind !== "emi") ||
+          source.disposition !== "allocated" || !source.eligibleFrom || !source.eligibleTo) return false;
+      const expectedDays = dayNumber(source.eligibleTo) - dayNumber(source.eligibleFrom) + 1;
+      const dates = source.daily.map(row => row.date);
+      return expectedDays <= 0 || dates.length !== expectedDays ||
+        dates[0] !== source.eligibleFrom || dates[dates.length - 1] !== source.eligibleTo ||
+        dates.some((date, index) => index > 0 && dayNumber(date) !== dayNumber(dates[index - 1]) + 1);
+    });
+    if (blocked.length || missingPeriod.length || incompleteDaily.length) return Object.freeze([Object.freeze({
       source: "finance-and-compliance-allocation",
       status: "review-required" as const,
       detail: [
         ...blocked.map(source => source.sourceId + " has unresolved overlap"),
         ...missingPeriod.map(source => source.sourceId + " lacks its original validity window"),
+        ...incompleteDaily.map(source => source.sourceId + " has incomplete daily allocation rows"),
       ].sort().join("; "),
     })]);
     return Object.freeze([Object.freeze({
