@@ -139,7 +139,7 @@ export class FullCostBreakevenService {
     const withheldLegacyTollParkingExpenseIds = new Set<string>();
     for (const expense of expenses) {
       if (expense.data.sourceKind === "miscellaneous" &&
-          /\\b(toll|parking)\\b/i.test(expense.data.category ?? "") &&
+          /\b(toll|parking)\b/i.test(expense.data.category ?? "") &&
           !expense.data.tripExpenseTreatment) {
         withheldLegacyTollParkingExpenseIds.add(expense.id);
         completeness.push({
