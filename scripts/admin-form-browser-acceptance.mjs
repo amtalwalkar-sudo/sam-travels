@@ -28,7 +28,6 @@ try {
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
-  page.on("console", message => { if (message.text().includes("diagnostic")) console.log("Browser diagnostic:", message.text()); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
@@ -94,20 +93,7 @@ try {
   await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
   await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
   await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  try {
-    await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible", timeout: 15000 });
-  } catch (error) {
-    console.log("Driver assignment status:", await page.locator("#admin-section-panel-driver [role=status]").allTextContents());
-    console.log("Persisted Driver record payloads:", await page.evaluate(async () => {
-      const request = indexedDB.open("sam-travels-browser");
-      const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-      const rows = await new Promise((resolve, reject) => { const tx = db.transaction("records", "readonly"); const get = tx.objectStore("records").getAll(); get.onsuccess = () => resolve(get.result); get.onerror = () => reject(get.error); });
-      db.close();
-      return rows.filter(row => row.id.startsWith("feature:driver-records:driver:")).map(row => ({ id: row.id, data: row.data, revision: row.revision }));
-    }));
-    console.log("Driver assignment panel:", await driverCard.innerHTML());
-    throw new Error("driver_vehicle_assignment_failed:" + (error instanceof Error ? error.message : String(error)));
-  }
+  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
   await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
   await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
