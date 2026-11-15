@@ -309,7 +309,7 @@ Do not use "complete", "green", "parity", "isolated" or "approved" unless the co
 
 ## 10. Implementation completion record — 15 November 2026
 
-<badge color="success">Implementation complete · CI green</badge>
+**Implementation complete — CI green.**
 
 - [x] Product and architecture contract approved.
 - [x] Visual design ownership delegated to the assistant; no further visual approval checkpoint required.
