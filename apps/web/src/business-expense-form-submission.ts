@@ -164,7 +164,14 @@ export function createBusinessExpenseFormSubmissionHandler(
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
         ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
         ...(optionalString(values.tripFinancialSourceId)
-          ? { tripFinancialSourceId: optionalString(values.tripFinancialSourceId) } : {}),
+          ? {
+              tripFinancialSourceId: optionalString(values.tripFinancialSourceId),
+              tripFinancialComponent: requiredString(values.tripFinancialComponent,
+                "business_expense_trip_financial_component_required") as "toll" | "parking" | "combined",
+            }
+          : values.tripFinancialComponent !== undefined
+            ? (() => { throw new Error("business_expense_trip_financial_source_required"); })()
+            : {}),
       },
     });
   }
