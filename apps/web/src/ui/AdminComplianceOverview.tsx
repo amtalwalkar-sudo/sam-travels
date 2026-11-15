@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminComplianceServices } from "./admin-services-context";
 import "./AdminWorkspace.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
@@ -22,7 +22,7 @@ function overlapKey(item: Overview["overlaps"][number]) {
 }
 
 export function AdminComplianceOverview() {
-  const services = useAdminServices();
+  const services = useAdminComplianceServices();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [vehicleFilter, setVehicleFilter] = useState("all");
