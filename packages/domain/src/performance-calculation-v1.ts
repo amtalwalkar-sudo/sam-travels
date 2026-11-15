@@ -12,7 +12,8 @@ export const PRE_BUSINESS_RECOVERY_MONTHS_V1 = 18 as const;
 
 export type PerformanceCostKindV1 =
   | "fuel" | "maintenance" | "emi" | "compliance" | "platform-fee"
-  | "traffic-challan" | "toll-parking" | "miscellaneous" | "pre-business-recovery";
+  | "traffic-challan" | "toll-parking" | "miscellaneous"
+  | "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery";
 
 export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number }>;
 
@@ -26,7 +27,7 @@ export type PerformanceDailyRevenueInputV1 = Readonly<{
 
 export type PerformanceDailyCostInputV1 = Readonly<{
   date: string;
-  kind: Exclude<PerformanceCostKindV1, "pre-business-recovery">;
+  kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery">;
   amountPaise: number;
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
@@ -93,7 +94,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
@@ -105,7 +106,8 @@ const DAY_MS = 86_400_000;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COST_KINDS: readonly PerformanceCostKindV1[] = Object.freeze([
   "fuel", "maintenance", "emi", "compliance", "platform-fee",
-  "traffic-challan", "toll-parking", "miscellaneous", "pre-business-recovery",
+  "traffic-challan", "toll-parking", "miscellaneous",
+  "pre-business-manual-recovery", "pre-business-emi-recovery", "pre-business-compliance-recovery",
 ]);
 
 function assertDate(value: string): number {
@@ -161,7 +163,7 @@ export function allocatePreBusinessRecoveryV1(
   const dayCount = endDay - startDay;
   if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
   const seen = new Set<string>();
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number }[] = [];
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }[] = [];
   let totalPaise = 0;
   for (const source of sources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
@@ -178,6 +180,7 @@ export function allocatePreBusinessRecoveryV1(
       const amountPaise = quotient + (offset < remainder ? 1 : 0);
       if (amountPaise > 0) daily.push({
         date: dateAt(startDay + offset), amountPaise, sourceId: source.sourceId, revision: source.revision,
+        origin: source.origin, note: source.note,
       });
     }
   }
@@ -199,8 +202,6 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   safeAmount(input.monthlyDriverTargetPaise, "performance_monthly_target_invalid");
 
   const recovery = allocatePreBusinessRecoveryV1(input.businessStartDate, input.preBusinessRecovery);
-  const recoveryByDate = new Map<string, number>();
-  for (const row of recovery.daily) recoveryByDate.set(row.date, add(recoveryByDate.get(row.date) ?? 0, row.amountPaise));
 
   const revenueByDate = new Map<string, number>();
   const refs: PerformanceSourceRefV1[] = [];
@@ -235,10 +236,12 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     costsByDate.set(row.date, bucket);
     refs.push(...row.sourceRefs);
   }
-  for (const [date, amount] of recoveryByDate) {
-    const bucket = costsByDate.get(date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
-    bucket["pre-business-recovery"] = add(bucket["pre-business-recovery"], amount);
-    costsByDate.set(date, bucket);
+  for (const row of recovery.daily) {
+    const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
+    const recoveryKind: PerformanceCostKindV1 = row.origin === "emi" ? "pre-business-emi-recovery"
+      : row.origin === "compliance" ? "pre-business-compliance-recovery" : "pre-business-manual-recovery";
+    bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
+    costsByDate.set(row.date, bucket);
   }
   for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });
 
