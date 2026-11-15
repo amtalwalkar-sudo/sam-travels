@@ -15,7 +15,7 @@ export type TimelineEventCardProps = Readonly<{
 
 /** One event renderer; stable source identity is the only interaction argument. */
 export function TimelineEventCard({ event, onOpen }: TimelineEventCardProps) {
-  return <button type="button" className={"timeline-event-card " + event.kind}
+  return <button type="button" data-event-id={event.id} className={"timeline-event-card " + event.kind}
     onClick={() => onOpen(event.id)} aria-label={event.title + ", " + event.time + ". View details"}>
     <span className="timeline-card-time">{event.time}</span>
     <span className="timeline-card-body">
