@@ -218,7 +218,7 @@ try {
   console.log("Future-dated payment correctly remains unallocated before the next EMI due-date cutoff.");
 
     await paymentPanel.getByRole("button", { name: "Settle & close", exact: true }).click();
-  await paymentPanel.getByLabel("Settlement date").fill(monthDateOffset(1));
+  await paymentPanel.getByLabel("Settlement date").fill(today);
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).click();
   await paymentPanel.getByRole("button", { name: "Checking…", exact: true }).waitFor({ state: "visible", timeout: 5000 });
   await paymentPanel.getByRole("button", { name: "Check settlement amount", exact: true }).waitFor({ state: "visible", timeout: 10000 });
