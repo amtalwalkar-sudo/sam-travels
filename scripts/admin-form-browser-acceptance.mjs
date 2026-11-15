@@ -19,36 +19,21 @@ try {
   const page = await browser.newPage();
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
-  await page.evaluate(async ({ vehicleId, registration }) => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const now = new Date().toISOString();
-    const vehicle = {
-      id: vehicleId, schemaVersion: 1, createdAt: now, updatedAt: now, source: "web", revision: 1,
-      data: { schemaVersion: 1, registrationNumber: registration, make: "Acceptance", model: "Vehicle",
-        vehicleType: "Car", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" },
-    };
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction("records", "readwrite");
-      tx.objectStore("records").put(vehicle);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
-    });
-    db.close();
-  }, { vehicleId, registration });
-
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  console.log("Vehicle create/edit form opened and safely dismissed.");
+  await page.getByLabel("Registration number").fill(registration);
+  await page.getByLabel("Make").fill("Acceptance");
+  await page.getByLabel("Model").fill("Vehicle");
+  await page.getByLabel("Vehicle type").fill("Car");
+  await page.getByLabel("Fuel type").selectOption("CNG");
+  await page.getByLabel("Year of manufacture").fill("2024");
+  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
+  await page.getByText("Vehicle record created.", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
+  console.log("Vehicle create workflow saved a canonical vehicle record.");
 
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
