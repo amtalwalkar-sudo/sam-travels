@@ -63,3 +63,4 @@ export * from "./performance-trip-revenue-adapter";
 export * from "./performance-fixed-cost-allocation-adapter";
 export * from "./performance-admin-settings-service";
 export * from "./performance-operating-cost-adapter";
+export * from "./performance-calculation-runtime";
