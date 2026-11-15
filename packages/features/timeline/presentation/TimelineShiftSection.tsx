@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { TimelineEventCard, type TimelineEventCardModel } from "./TimelineEventCard";
 
 export type TimelineShiftSectionProps = Readonly<{
@@ -6,7 +7,7 @@ export type TimelineShiftSectionProps = Readonly<{
   status: string;
   events: readonly TimelineEventCardModel[];
   onOpenEvent: (eventId: string) => void;
-  summary?: React.ReactNode;
+  summary?: ReactNode;
 }>;
 
 /** Logical shift boundary and sequence grouping, independent from event source ownership. */
