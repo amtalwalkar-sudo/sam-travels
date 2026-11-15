@@ -179,6 +179,9 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
 
+            db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+                .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+                .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
             val records = db.records().list().joinToString("\n") { it.json }
             listOf(registration, marker + " Driver", marker + " Insurance", "CHALLAN-" + marker,
                 marker + " Loan", "FEE-" + marker, "PARK-" + marker, marker + " service visit")
