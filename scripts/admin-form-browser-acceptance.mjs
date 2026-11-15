@@ -157,7 +157,13 @@ try {
   await paymentPanel.getByLabel("Prepayment date").fill(today);
   await paymentPanel.getByLabel("Principal amount (₹)").fill("5000");
   await paymentPanel.getByRole("button", { name: "Preview prepayment", exact: true }).click();
-  await paymentPanel.getByText("Review before confirmation", { exact: true }).waitFor({ state: "visible" });
+  try {
+    await paymentPanel.getByText("Review before confirmation", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+  } catch (error) {
+    console.log("Prepayment preview status:", await paymentPanel.locator("[role=status]").allTextContents());
+    console.log("Prepayment form markup:", await paymentPanel.locator("form.loan-form").allInnerTexts());
+    throw new Error("admin_prepayment_preview_failed:" + (error instanceof Error ? error.message : String(error)));
+  }
   await paymentPanel.getByRole("button", { name: "Confirm prepayment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Principal prepayment and revised schedule committed atomically." }).waitFor({ state: "visible" });
 
