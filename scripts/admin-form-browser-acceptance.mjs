@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
-const vehicleId = "feature:vehicle:ADMIN-ACCEPTANCE";
+const vehicleId = "feature:vehicle:MH00AA0090";
 const registration = "MH00AA0090";
 const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
   detached: true, stdio: "ignore",
