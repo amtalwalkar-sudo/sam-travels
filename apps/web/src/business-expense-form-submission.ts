@@ -4,8 +4,6 @@ import {
   PLATFORM_FEE_FORM_V1,
   MISC_BUSINESS_EXPENSE_FORM_V1,
   TRAFFIC_CHALLAN_FORM_V1,
-  getApplicationBusinessExpensesService,
-  getApplicationRecordSource,
 } from "../../../packages/application/src";
 import { maintenanceBusinessDateFromInstant } from "../../../packages/features/maintenance";
 import type { TimelineEnrichmentQueue } from "../../../packages/application/src";
@@ -181,16 +179,4 @@ export function createBusinessExpenseFormSubmissionHandler(
     },
   });
   };
-}
-
-/** Composition-root compatibility adapter; the form itself receives no service locator. */
-export async function handleBusinessExpenseFormSubmission(
-  command: FormSubmissionCommand,
-  locationEnrichment?: TimelineEnrichmentQueue,
-): Promise<unknown | undefined> {
-  return createBusinessExpenseFormSubmissionHandler(
-    getApplicationBusinessExpensesService(),
-    getApplicationRecordSource(),
-    locationEnrichment,
-  )(command);
 }
