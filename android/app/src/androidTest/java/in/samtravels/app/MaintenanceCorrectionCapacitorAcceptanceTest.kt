@@ -108,7 +108,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Enrolled", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Admin ready", awaitJavascript(activity, """
+      assertTrue("Ready", awaitJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
@@ -131,7 +131,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("PIN field", awaitJavascript(activity,
+      assertTrue("PIN", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
           5_000))
       assertTrue("PIN accept", evaluate(activity, """
