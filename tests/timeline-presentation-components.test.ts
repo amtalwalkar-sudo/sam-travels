@@ -84,8 +84,9 @@ describe("Timeline presentation component contracts", () => {
       daySections: [],
       weekEventCount: 2,
       selectedEvent: null,
+      selectedShift: null,
       onModeChange: vi.fn(), onDateChange: vi.fn(), onMove: vi.fn(), onToday: vi.fn(),
-      onRefresh: vi.fn(), onToggleLocationLookup: vi.fn(), onOpenEvent: vi.fn(), onCloseEvent: vi.fn(),
+      onRefresh: vi.fn(), onToggleLocationLookup: vi.fn(), onOpenEvent: vi.fn(), onCloseEvent: vi.fn(), onCloseShift: vi.fn(),
     }));
     expect(html).toContain('aria-label="Timeline history"');
     expect(html).toContain("12 Nov 2026");
