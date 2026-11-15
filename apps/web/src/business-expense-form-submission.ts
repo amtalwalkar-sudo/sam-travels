@@ -1,4 +1,6 @@
 import type { FormSubmissionCommand } from "../../../packages/application/src/form-submission-port";
+import type { AdminPresentationServices } from "../../../packages/application/src/admin-presentation-services";
+import type { RecordEnvelope } from "../../../packages/core/src/types";
 import {
   FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1,
@@ -83,8 +85,8 @@ export function beginFuelLocationCapture(geolocation: Geolocation | undefined =
 
 /** Creates a feature-owned form adapter with explicit application dependencies. */
 export function createBusinessExpenseFormSubmissionHandler(
-  service: ReturnType<typeof getApplicationBusinessExpensesService>,
-  source: ReturnType<typeof getApplicationRecordSource>,
+  service: AdminPresentationServices["businessExpenses"],
+  source: RecordEnvelope<unknown>["source"],
   locationEnrichment?: TimelineEnrichmentQueue,
 ): (command: FormSubmissionCommand) => Promise<unknown | undefined> {
   return async (command: FormSubmissionCommand): Promise<unknown | undefined> => {
