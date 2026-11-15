@@ -106,3 +106,10 @@
 .timeline-summary header button{border:0;background:transparent;color:#65b9e8;font-size:9px;font-weight:750;letter-spacing:.04em;cursor:pointer}
 .timeline-summary header button:focus-visible{outline:2px solid #65b9e8;outline-offset:3px;border-radius:3px}
 .timeline-shift-detail-metrics div small{display:block;margin-top:5px;color:#8295a3;font-size:8px;text-transform:uppercase}
+
+/* Pickup attempts stay visually outside completed ride cards as a connector event. */
+.timeline-event-card.pickup{grid-template-columns:68px minmax(0,1fr) 12px;padding:5px 9px;background:transparent;border:0}
+.timeline-event-card.pickup .timeline-card-body{display:flex;align-items:center;gap:9px}
+.timeline-event-card.pickup .timeline-card-body:before{content:"↓";flex:none;color:#65b9e8;font-size:19px;font-weight:400}
+.timeline-event-card.pickup .timeline-card-body strong{color:#a9c9db;font-size:11px}
+.timeline-event-card.pickup .timeline-card-body small{font-size:9px}
