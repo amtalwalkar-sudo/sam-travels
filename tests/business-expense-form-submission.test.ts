@@ -95,6 +95,7 @@ describe("Admin business expense form submission mapping", () => {
     const { createExpenseEntry, submit, command, source } = setup();
     await submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
       businessDate: "2026-11-13", category: "Parking", amountRupees: 50,
+      tripExpenseTreatment: "standalone",
       vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
       reference: "receipt-7",
     }));
@@ -113,6 +114,7 @@ describe("Admin business expense form submission mapping", () => {
     const { createExpenseEntry, submit, command, source } = setup();
     await submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
       businessDate: "2026-11-13", category: "Toll", amountRupees: 12,
+      tripExpenseTreatment: "already-in-trip-closeout",
       tripFinancialSourceId: "work:trip-financial-obligation:trip-42",
       tripFinancialComponent: "toll",
     }));
@@ -127,7 +129,7 @@ describe("Admin business expense form submission mapping", () => {
     });
     await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
       businessDate: "2026-11-13", category: "Toll", amountRupees: 12,
-      tripFinancialComponent: "toll",
+      tripExpenseTreatment: "already-in-trip-closeout", tripFinancialComponent: "toll",
     }))).rejects.toThrow("business_expense_trip_financial_source_required");
   });
 
@@ -147,6 +149,18 @@ describe("Admin business expense form submission mapping", () => {
         driverId: "driver-2", reference: "challan-8",
       },
     });
+  });
+
+  it("requires toll and parking entries to declare standalone or trip-closeout treatment", async () => {
+    const { submit, command } = setup();
+    await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-13", category: "Parking", amountRupees: 50,
+    }))).rejects.toThrow("business_expense_toll_parking_treatment_required");
+    await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-13", category: "Parking", amountRupees: 50,
+      tripExpenseTreatment: "already-in-trip-closeout",
+      tripFinancialSourceId: "work:trip-financial-obligation:trip-42",
+    }))).rejects.toThrow("business_expense_trip_financial_source_required");
   });
 
   it("rejects invalid currency amounts and missing owner-required fields", async () => {
