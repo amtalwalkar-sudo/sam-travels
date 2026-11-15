@@ -151,7 +151,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         assertTrue("Section $id", awaitJavascript(activity,
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
-      evaluate(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
       assertTrue("Maintenance loads", awaitJavascript(activity,
           "document.body.textContent.includes('Acceptance tyre repair')", 15_000))
       evaluate(activity, """
