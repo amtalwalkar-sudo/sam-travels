@@ -23,7 +23,7 @@ export class DriverRecordsService {
   constructor(repository: AtomicRecordRepository, validate: DriverRecordValidator, now?: () => string) {
     this.records = new FeatureRecordService(repository, {
       featureId: "driver-records",
-      recordIdPrefix: "feature:driver-records:",
+      recordIdPrefix: "feature:driver-records:driver:",
       validate,
     }, now);
   }
@@ -42,7 +42,6 @@ export class DriverRecordsService {
   }
 
   async get(driverId: string): Promise<RecordEnvelope<DriverRecordV1> | undefined> {
-    console.info("DriverRecordsService.get diagnostic", driverId, driverRecordId(driverId));
     const record = await this.records.get(driverRecordId(driverId));
     if (record) this.assertIdentity(record);
     return record;
