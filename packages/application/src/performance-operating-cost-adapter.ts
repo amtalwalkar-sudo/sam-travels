@@ -13,13 +13,30 @@ const TRIP_FINANCIAL_PREFIX = "work:trip-financial-obligation:";
  * Fuel and Maintenance remain consumption/accrual costs, not pump purchases
  * or duplicated expense-ledger amounts.
  */
-export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCostReadModel {
+export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCostReadModel, PerformanceCompletenessReadModel {
+  private snapshot?: { from: string; to: string; value: ReturnType<FullCostBreakevenService["getSourceProjection"]> };
+
   constructor(
     private readonly fullCost: Pick<FullCostBreakevenService, "getSourceProjection">,
   ) {}
 
+  async prepareSnapshot(from: string, to: string): Promise<void> {
+    const value = this.fullCost.getSourceProjection(from, to);
+    this.snapshot = { from, to, value };
+    await value;
+  }
+
+  releaseSnapshot(): void {
+    this.snapshot = undefined;
+  }
+
+  private async projection(from: string, to: string) {
+    if (this.snapshot?.from === from && this.snapshot.to === to) return this.snapshot.value;
+    return this.fullCost.getSourceProjection(from, to);
+  }
+
   async listDailyCosts(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
-    const projection = await this.fullCost.getSourceProjection(from, to);
+    const projection = await this.projection(from, to);
     const result: PerformanceDailyCostInputV1[] = [];
     for (const activity of projection.dailyActivity) {
       if (activity.date < from || activity.date > to) continue;
@@ -49,6 +66,11 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
       }));
     }
     return Object.freeze(result);
+  }
+
+  async getCompleteness(from: string, to: string): Promise<readonly PerformanceCompletenessV1[]> {
+    const projection = await this.projection(from, to);
+    return Object.freeze(projection.completeness.map(item => Object.freeze({ ...item })));
   }
 }
 
