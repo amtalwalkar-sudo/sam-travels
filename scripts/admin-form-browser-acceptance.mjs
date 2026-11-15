@@ -83,7 +83,7 @@ try {
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
   await page.getByLabel("Maintenance type").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
-  await page.getByLabel("Record type").selectOption("expense");
+  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").nth(1).selectOption("expense");
   await page.getByRole("button", { name: "Start general expense", exact: true }).click();
   await page.getByLabel("Expense name").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
