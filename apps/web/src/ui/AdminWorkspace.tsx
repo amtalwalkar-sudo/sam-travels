@@ -1,7 +1,9 @@
 import { AdminWorkspaceShell } from "./AdminWorkspaceShell";
 import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
 import { BusinessStartDateCostAllocationPanel } from "./BusinessStartDateCostAllocationPanel";
-import { DriverSection, ComplianceSection, MaintenanceSection } from "./AdminOperations";
+import { DriverSection } from "./AdminDriverSection";
+import { ComplianceSection } from "./AdminComplianceSection";
+import { MaintenanceSection } from "./AdminMaintenance";
 import { AdminFinanceSection } from "./AdminFinanceSection";
 import { useAdminIdentityAdapter } from "./admin-services-context";
 import { PersonIdentityPanel } from "./PersonIdentityPanel";
