@@ -22,6 +22,7 @@ function isCalendarDate(value: unknown): value is string {
 
 /** Validate the Driver-owned profile without inventing uniqueness rules for contact or licence fields. */
 export function assertDriverRecordV1(value: unknown): asserts value is DriverRecordV1 {
+  console.info("assertDriverRecordV1 diagnostic", JSON.stringify(value));
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("driver_record_invalid");
   const record = value as Record<string, unknown>;
   const keys = Object.keys(record).sort();
