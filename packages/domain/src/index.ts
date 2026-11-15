@@ -9,3 +9,4 @@ export * from "./person-identity";
 
 export * from "./business-start-date-cost-allocation";
 export * from "./full-cost-breakeven";
+export * from "./performance-calculation-v1";
