@@ -9,7 +9,7 @@ import {
 } from "../../domain/src/performance-calculation-v1";
 
 type DailyCostKind = PerformanceDailyCostInputV1["kind"];
-type OperatingCostKind = Exclude<DailyCostKind, "emi" | "compliance">;
+export type PerformanceOperatingCostKindV1 = Exclude<DailyCostKind, "emi" | "compliance">;
 
 export interface PerformanceSnapshotReadModel {
   prepareSnapshot?(from: string, to: string): Promise<void>;
@@ -27,7 +27,7 @@ export interface PerformanceRevenueReadModel {
 }
 export interface PerformanceOperatingCostReadModel {
   listDailyCosts(from: string, to: string): Promise<readonly Readonly<{
-    date: string; kind: OperatingCostKind; amountPaise: number; verified: boolean;
+    date: string; kind: PerformanceOperatingCostKindV1; amountPaise: number; verified: boolean;
     sourceRefs: PerformanceDailyCostInputV1["sourceRefs"];
   }>[]>;
 }
