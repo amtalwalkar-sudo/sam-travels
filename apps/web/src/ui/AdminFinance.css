@@ -27,3 +27,11 @@
 .loan-workflow-boundary{display:grid;gap:5px;margin-top:10px;padding:11px;background:#f7f8f8;border-radius:9px}
 .loan-workflow-boundary strong{font-size:10px;color:#536873}
 .loan-workflow-boundary span,.admin-hint,.admin-placeholder p{font-size:10px;line-height:1.55;color:#7b8991}
+
+@media(max-width:420px){
+  .loan-form-grid{grid-template-columns:1fr}
+  .loan-record{padding:12px}
+  .loan-record-heading{align-items:flex-start}
+  .loan-record-heading .admin-secondary{padding:8px;font-size:10px}
+  .loan-metrics strong{font-size:12px}
+}
