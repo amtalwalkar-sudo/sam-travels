@@ -203,9 +203,9 @@ export const PLATFORM_FEE_FORM_V1 = Object.freeze<FormDefinition>({
   primaryAction: "save",
   fields: [
     { id: "businessDate", label: "Fee date", type: "date", required: true },
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true, maxLength: 160 },
     { id: "amountRupees", label: "Fee amount (₹)", type: "number", required: true },
     { id: "reference", label: "Trip / settlement reference", type: "text", required: true, maxLength: 240 },
-    { id: "alreadyNettedFromIncome", label: "Already deducted from gross income", type: "checkbox", required: true },
     { id: "description", label: "Note", type: "text", maxLength: 1000 },
   ],
 });
@@ -241,3 +241,21 @@ export const TRAFFIC_CHALLAN_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "paymentStatus", label: "Payment status", type: "select", required: true, options: ["unpaid", "paid"] },
   ],
 });
+
+/** Canonical discoverable inventory used by conformance tests and Admin presentation parity checks. */
+export const ADMIN_FORM_DEFINITIONS: readonly FormDefinition[] = Object.freeze([
+  BUSINESS_SETUP_FORM_V1,
+  VEHICLE_FORM_V1,
+  DRIVER_FORM_V1,
+  COMPLIANCE_FORM_V1,
+  MAINTENANCE_VISIT_FORM_V1,
+  MAINTENANCE_EXPENSE_FORM_V1,
+  MAINTENANCE_RATE_FORM_V1,
+  LOAN_DETAILS_FORM_V1,
+  LOAN_PAYMENT_FORM_V1,
+  LOAN_PREPAYMENT_FORM_V1,
+  LOAN_SETTLEMENT_FORM_V1,
+  PLATFORM_FEE_FORM_V1,
+  MISC_BUSINESS_EXPENSE_FORM_V1,
+  TRAFFIC_CHALLAN_FORM_V1,
+]);

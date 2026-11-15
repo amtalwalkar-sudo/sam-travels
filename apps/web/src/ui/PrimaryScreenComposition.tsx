@@ -1,18 +1,15 @@
 import type { ReactNode } from "react";
-import type { AdminPresentationServices, FullCostBreakevenService } from "../../../../packages/application/src";
-import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { FullCostBreakevenService } from "../../../../packages/application/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import { FullCostBreakevenPanel } from "./FullCostBreakevenPanel";
-import { AdminServicesProvider } from "./admin-services-context";
 import type { useDriverWorkspace } from "./use-driver-workspace";
 
 export type PrimaryScreenCompositionProps = Readonly<{
   activeScreen: "Drive" | "Timeline" | "Performance" | "Admin";
   runtimeRegistry: RuntimeRegistry;
   workspace: ReturnType<typeof useDriverWorkspace>;
-  adminServices: AdminPresentationServices;
-  platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository;
   fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
   showBreakevenSanityCheck: boolean;
   children: ReactNode;
@@ -20,7 +17,7 @@ export type PrimaryScreenCompositionProps = Readonly<{
 
 /** Replaceable screen composition; feature renderers remain opaque behind their typed host contracts. */
 export function PrimaryScreenComposition({
-  activeScreen, runtimeRegistry, workspace, adminServices, platformRepository,
+  activeScreen, runtimeRegistry, workspace,
   fullCostBreakeven, showBreakevenSanityCheck, children,
 }: PrimaryScreenCompositionProps) {
   return <>
@@ -39,10 +36,8 @@ export function PrimaryScreenComposition({
       </section>
     )}
     {activeScreen === "Admin" && (
-      <AdminServicesProvider services={adminServices} identityRecords={platformRepository}>
-        <FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin"
-          contextContract={{ id: "admin.workspace", version: 1 }} context={<AdminWorkspace />} />
-      </AdminServicesProvider>
+      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin"
+        contextContract={{ id: "admin.workspace", version: 1 }} context={<AdminWorkspace />} />
     )}
   </>;
 }

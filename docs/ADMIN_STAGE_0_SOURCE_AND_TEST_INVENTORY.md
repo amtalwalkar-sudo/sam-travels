@@ -158,7 +158,7 @@ The inspected native participant implementation includes:
 
 Finance settlement is stored as a Finance payment-ledger entry and validated against Loan closed/active lifecycle by NativeFinanceSettlementBackup; it is not a separate Admin participant. Shared native feature participant/manifest validation is in NativeFeatureBackupParticipants.kt and NativeBackupCoverage.kt.
 
-Named Android tests found include NativeBusinessSettingsBackupTest, NativeVehicleBackupTest, NativeDriverRecordsBackupTest, NativeComplianceBackupTest (local unit-test source set), NativeFinancePaymentBackupTest and NativeMaintenanceBackupRoomTest, plus generic NativeBackupCoverageTest. MaintenanceCorrectionCapacitorAcceptanceTest exercises the live Room-backed WebView correction path. No dedicated NativeBusinessExpensesBackupTest file was found in the inspected tree; keep its participant validation and test coverage explicit during later acceptance. No dedicated tests/finance-backup.test.ts was found either; the browser Finance participant is registered and appears in generic backup-snapshot participant-manifest coverage, while feature-specific Finance backup coverage is strongest in the Android NativeFinancePaymentBackupTest. Add explicit browser Finance loan/payment/prepayment/settlement round-trip coverage if the existing generic suite does not exercise those records end to end.
+Named Android tests found include NativeBusinessSettingsBackupTest, NativeVehicleBackupTest, NativeDriverRecordsBackupTest, NativeComplianceBackupTest (local unit-test source set), NativeFinancePaymentBackupTest and NativeMaintenanceBackupRoomTest, plus generic NativeBackupCoverageTest. MaintenanceCorrectionCapacitorAcceptanceTest exercises the live Room-backed WebView correction path. PR #90 adds `NativeBusinessExpensesBackupTest.kt` for native validation of Fuel, Platform Fee, Miscellaneous Expense and Traffic Challan records, including required vehicle/payment-state relationships. It also adds `tests/finance-backup.test.ts` for browser Finance loan, payment-ledger and prepayment-history round-trip validation. These new tests remain subject to the latest CI run; neither addition is being described as passed until CI confirms it.
 
 There is no Admin-specific persistence participant. Do not create one.
 
@@ -217,9 +217,9 @@ Service tests cover source-kind rules for platform fees, miscellaneous expenses 
 
 ### 9.3 Admin rendered UI acceptance is partial
 
-Only Compliance overview/review and Maintenance correction have dedicated browser-driven Admin acceptance scripts. Android's named rendered Admin acceptance is the Maintenance correction Capacitor test. No dedicated rendered section/form acceptance was found for Business Setup, Vehicle, Driver, Loan, Platform Fee, Miscellaneous Expense, Traffic Challan, or ordinary Maintenance visit/expense/rate forms. Generic feature-host/accessibility tests do not replace these tests.
+The existing Compliance overview/review and Maintenance correction browser acceptance scripts have been migrated to the replacement Admin shell selectors. The Compliance script now also exercises the owner-approved append-only Compliance correction editor and verifies correction provenance plus original-record immutability. Android's named rendered Admin acceptance remains the Maintenance correction Capacitor test. Dedicated rendered section/form acceptance is still required for Business Setup, Vehicle, Driver, Loan, Platform Fee, Miscellaneous Expense, Traffic Challan, and ordinary Maintenance visit/expense/rate forms. Generic feature-host/accessibility tests do not replace these tests.
 
-The implementation plan must add section-by-section rendered PWA acceptance and corresponding Room-backed Android/WebView acceptance for workflows that run on Android. Keep physical-phone acceptance separate.
+The implementation plan must add section-by-section rendered PWA acceptance and corresponding Room-backed Android/WebView acceptance for workflows that run on Android. Keep physical-phone acceptance separate. The replacement shell and first Compliance/Maintenance acceptance paths are now wired; the remaining section/form acceptance matrix is still open.
 
 ### 9.4 Maintenance correction boundary is not presentation-clean
 
@@ -227,7 +227,9 @@ The existing correction UI directly constructs and consumes a persistence-backed
 
 ### 9.5 Compliance correction editor is not surfaced in current Admin composition
 
-Compliance correction services/projection tests exist and corrected source values feed the overview, but no Admin correction form/action was found in inspected AdminOperations.tsx / AdminComplianceOverview.tsx presentation. Treat this as an existing capability/UI gap to reconcile against the Compliance product/correction owner contract before claiming full Compliance workflow parity. Do not invent a new correction policy in the UI.
+**Disposition confirmed from the owner implementation:** `apps/web/src/compliance-historical-correction.ts` explicitly permits append-only corrections to `validFrom`, `validTo`, `totalCostPaise`, and `supportingDocumentRef`. Vehicle identity, schema identity and renewal linkage remain immutable. The shared historical-correction service enforces the approved driver-self/admin-any actor authority, reason, target revision and correction-chain checks.
+
+The replacement now exposes an Admin correction editor and audit history for those four fields, uses the Compliance-owned correction service, and reads corrected projections consistently in both the fleet overview and vehicle record list. This is not a generic edit/delete path and does not change the owner-approved field allowlist.
 
 ### 9.6 Finance/Loan section label needs document reconciliation
 
@@ -256,7 +258,7 @@ Stage 0 source inventory is complete at the recorded SHA. The following reconcil
 1. Reconcile Finance/Loan visible section wording in the normative Admin product and implementation documents.
 2. Close the three missing shared-form definition tests and add direct Business Expense form-mapping tests.
 3. Move Maintenance correction and Person Identity service/repository access behind explicit owner adapters; retain existing behaviour and permissions.
-4. Decide Compliance correction UI parity against the owning Compliance correction contract; do not silently omit an approved workflow.
+4. Verify the Compliance correction editor against the existing four-field owner allowlist and shared actor-authority contract; do not expand its permissions or editable fields.
 5. Diagnose and green the exact failing Android acceptance test from CI #2394.
 6. Add the section/form acceptance matrix to the runtime implementation plan before retiring any existing Admin UI.
 

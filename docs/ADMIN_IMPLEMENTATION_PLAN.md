@@ -17,14 +17,14 @@ The six sections are:
 2. Vehicle
 3. Driver
 4. Compliance
-5. Loan
+5. Finance (Loan workflows, Platform Fees and Miscellaneous Business Expenses)
 6. Maintenance
 
-Loan is one Admin section but its domain, lifecycle, calculations, and persistence are owned by Finance. Admin is an access/presentation surface, not a second finance ledger or calculation engine.
+Finance is the visible Admin section. Loan is a Finance-owned workflow within it, alongside the distinct Platform Fees and Miscellaneous Business Expenses forms. Traffic Challans remain under Compliance. Fuel purchase entry remains Work-owned. Loan domain state, lifecycle, calculations, and persistence are owned by Finance. Admin is an access/presentation surface, not a second finance ledger or calculation engine.
 
 ## Current implementation status and evidence boundary
 
-The current web source contains an AdminWorkspace composition with entry points for Business setup, Vehicle, Driver, Compliance, Loan, and Maintenance. The shared form migration and the Work/Trip overlay form evidence are recorded in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md). This confirms implementation slices and automated coverage; it does not, by itself, prove that every section and every backup/restore/recovery path is complete end to end.
+The current web source contains an AdminWorkspace composition with entry points for Business setup, Vehicle, Driver, Compliance, Finance, and Maintenance. The shared form migration and the Work/Trip overlay form evidence are recorded in [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md). This confirms implementation slices and automated coverage; it does not, by itself, prove that every section and every backup/restore/recovery path is complete end to end.
 
 Use the [Contract and Documentation Index](CONTRACT_INDEX.md) to resolve the product and technical authorities for each capability. This plan remains the delivery/completion checklist; the baseline audit is historical and must not be used as current implementation status.
 
@@ -150,7 +150,7 @@ Reminder delivery is a separate integration concern; do not claim reminders are 
 Prerequisite: PR #28's Finance-owned calculation contract v1 is merged and its required CI checks pass.
 
 - Keep Loan data and calculations in Finance; Admin calls only Finance public use cases and queries.
-- Implement loan create/view/edit/history and the original fixed-rate schedule using the exact registered calculation ID/version.
+- Implement loan create/view/history and the original fixed-rate schedule. Saved loan details are immutable after creation; no edit action is permitted. using the exact registered calculation ID/version.
 - Implement repayment schedule projection and separate actual payment records; never treat a scheduled EMI as proof of payment.
 - Define and approve payment lifecycle semantics (due, paid, partial, overpayment, reversal/correction, duplicate payment, and allocation) before enabling payment writes.
 - Define and approve prepayment timing/allocation and re-amortization choices before implementing either reduce-tenure or reduce-EMI behavior.

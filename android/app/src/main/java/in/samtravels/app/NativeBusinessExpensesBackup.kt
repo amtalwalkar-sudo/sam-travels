@@ -98,6 +98,9 @@ internal object NativeBusinessExpensesBackup {
         if (data.has("alreadyNettedFromIncome")) require(data.opt("alreadyNettedFromIncome") is Boolean && data.optString("sourceKind") == "platform_fee") {
             "business_expense_income_treatment_not_applicable"
         }
+        if (data.optString("sourceKind") == "platform_fee") require(!data.optBoolean("alreadyNettedFromIncome", false)) {
+            "business_expense_platform_fee_netting_not_supported"
+        }
         if (data.has("paymentStatus")) require(data.optString("sourceKind") == "traffic_challan" && data.optString("paymentStatus") in setOf("unpaid", "paid")) {
             "traffic_challan_payment_status_invalid"
         }

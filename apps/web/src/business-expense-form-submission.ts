@@ -1,11 +1,11 @@
 import type { FormSubmissionCommand } from "../../../packages/application/src/form-submission-port";
+import type { AdminPresentationServices } from "../../../packages/application/src/admin-presentation-services";
+import type { RecordEnvelope } from "../../../packages/core/src/types";
 import {
   FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1,
   MISC_BUSINESS_EXPENSE_FORM_V1,
   TRAFFIC_CHALLAN_FORM_V1,
-  getApplicationBusinessExpensesService,
-  getApplicationRecordSource,
 } from "../../../packages/application/src";
 import { maintenanceBusinessDateFromInstant } from "../../../packages/features/maintenance";
 import type { TimelineEnrichmentQueue } from "../../../packages/application/src";
@@ -83,14 +83,14 @@ export function beginFuelLocationCapture(geolocation: Geolocation | undefined =
   return Object.freeze({ promise, completedAt: () => completedAt });
 }
 
-/** Shared-form submission adapter; persistence and domain validation remain in application services. */
-export async function handleBusinessExpenseFormSubmission(
-  command: FormSubmissionCommand,
+/** Creates a feature-owned form adapter with explicit application dependencies. */
+export function createBusinessExpenseFormSubmissionHandler(
+  service: AdminPresentationServices["businessExpenses"],
+  source: RecordEnvelope<unknown>["source"],
   locationEnrichment?: TimelineEnrichmentQueue,
-): Promise<unknown | undefined> {
-  const values = command.values;
-  const service = getApplicationBusinessExpensesService();
-  const source = getApplicationRecordSource();
+): (command: FormSubmissionCommand) => Promise<unknown | undefined> {
+  return async (command: FormSubmissionCommand): Promise<unknown | undefined> => {
+    const values = command.values;
 
   if (command.formId === FUEL_ENTRY_FORM_V1.id) {
     if (command.action !== "submit") throw new Error("fuel_entry_requires_submit");
@@ -143,13 +143,12 @@ export async function handleBusinessExpenseFormSubmission(
   const amountPaise = positiveRupeesToPaise(values.amountRupees, "business_expense_amount_invalid");
 
   if (command.formId === PLATFORM_FEE_FORM_V1.id) {
-    if (typeof values.alreadyNettedFromIncome !== "boolean") throw new Error("platform_fee_income_treatment_required");
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
       data: {
         sourceKind: "platform_fee", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
+        vehicleId: requiredString(values.vehicleId, "platform_fee_vehicle_required"),
         reference: requiredString(values.reference, "platform_fee_source_reference_required"),
-        alreadyNettedFromIncome: values.alreadyNettedFromIncome,
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
       },
     });
@@ -180,4 +179,5 @@ export async function handleBusinessExpenseFormSubmission(
       ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
     },
   });
+  };
 }

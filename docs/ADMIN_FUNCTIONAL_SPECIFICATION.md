@@ -17,7 +17,7 @@ Admin contains six sections:
 2. Vehicle
 3. Driver
 4. Compliance
-5. Loan
+5. Finance (Loan workflows, Platform Fees and Miscellaneous Business Expenses)
 6. Maintenance
 
 The approved Driver section is an explicit product-scope decision under the existing rule in the Feature Module and Extension Contract that driver rosters/assignments require explicit approval. This approval is bounded to the driver records and assignment behaviour specified here.

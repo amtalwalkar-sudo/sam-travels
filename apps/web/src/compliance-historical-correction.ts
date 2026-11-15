@@ -1,6 +1,8 @@
 import type { AtomicRecordBatchRepository } from "../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../packages/core/src/types";
 import { HistoricalCorrectionService, type HistoricalCorrectionActorProvider } from "../../../packages/application/src/historical-correction-service";
+
+export type ComplianceHistoricalCorrectionAdapter = Pick<HistoricalCorrectionService, "listForTarget" | "submit">;
 import { assertComplianceRecordIdentity, assertComplianceRecordV1 } from "../../../packages/features/compliance";
 
 const COMPLIANCE_PREFIX = "feature:compliance:";

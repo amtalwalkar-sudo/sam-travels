@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
-import "./AdminWorkspace.css";
+import { useAdminComplianceServices, useAdminComplianceCorrectionAdapter } from "./admin-services-context";
+import { ComplianceHistoricalCorrection } from "./ComplianceHistoricalCorrection";
+import "./AdminFormControls.css";
+import "./AdminCompliance.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Overview = Awaited<ReturnType<AdminPresentationServices["complianceAnalysis"]["getOverview"]>>;
@@ -22,7 +24,8 @@ function overlapKey(item: Overview["overlaps"][number]) {
 }
 
 export function AdminComplianceOverview() {
-  const services = useAdminServices();
+  const services = useAdminComplianceServices();
+  const corrections = useAdminComplianceCorrectionAdapter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [vehicleFilter, setVehicleFilter] = useState("all");
@@ -108,6 +111,7 @@ export function AdminComplianceOverview() {
               <div><strong>{record.data.complianceName} · {expiryStatus(record.data.validTo)}</strong>
                 <small>{vehicleName(record.data.vehicleId)} · valid {record.data.validFrom} to {record.data.validTo}</small>
                 <small>{record.data.supportingDocumentRef ? "Document reference: " + record.data.supportingDocumentRef : "Supporting document missing"}</small>
+                <ComplianceHistoricalCorrection record={record} service={corrections} onCorrected={refresh} />
               </div>
             </article>,
           )}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminFormRuntime } from "./admin-services-context";
 import {
   LOAN_PAYMENT_FORM_V1, LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1,
 } from "../../../../packages/application/src/admin-form-definitions";
@@ -41,7 +41,7 @@ export function activePayments(entries: readonly FinancePaymentEntryV1[]) {
 
 /** Shared-runtime draft lifecycle for all Loan payment, prepayment and settlement forms. */
 export function useLoanFormDrafts(input: Inputs) {
-  const services = useAdminServices();
+  const services = useAdminFormRuntime();
   const [draftAvailability, setDraftAvailability] = useState<Record<DraftKind, boolean>>({
     payment: false, prepayment: false, settlement: false,
   });

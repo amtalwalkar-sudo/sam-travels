@@ -5,6 +5,8 @@
 **Scope:** Stable ownership, record identity, public boundaries, and initial persistence/backup registration for the six Admin sections  
 **Runtime/UI changes:** None in this document
 
+**Current supersession note (2026-11-15):** This is an historical capability baseline. The visible Admin section is now **Finance**, containing Finance-owned Loan workflows, Platform Fees and Miscellaneous Business Expenses. The current Loan details workflow is create/view only: saved original loan details are immutable and may not be edited. Later Finance owner contracts and the Admin presentation replacement contract take precedence wherever this baseline says otherwise.
+
 This document records the initial Slice 1 capability ownership and persistence design. It does not itself enable writes or authorize unapproved business rules. Its initial implementation gates are historical; later feature migrations and their current evidence are tracked in the form conformance audit and owning Finance, Compliance, Maintenance, Vehicle, Driver and persistence contracts.
 
 ## 1. Capability inventory and stable identities
@@ -176,7 +178,7 @@ The exact Driver Records ↔ Work public integration contract is an implementati
 
 **Loan detail fields:** approved loan name, required lender name, optional loan account reference, original principal in INR paise, fixed annual interest rate in basis points, loan start date, tenure in months, first EMI date, and vehicle ID.
 
-**Operations available under this base contract:** create/read/edit loan details; generate and view the original schedule through the exact registered calculation `finance.loan-monthly-reducing-balance.v1`; inspect schedule provenance and loan history.
+**Operations available under this base contract:** create/read loan details; saved loan details are immutable after creation and do not expose an edit operation. generate and view the original schedule through the exact registered calculation `finance.loan-monthly-reducing-balance.v1`; inspect schedule provenance and loan history.
 
 **Calculation boundary:** use the merged Finance Calculation Contract v1 unchanged. Keep scheduled EMI separate from actual payments. Store the calculation ID/version, input/output schema versions, effective date, and the source inputs needed to explain the original schedule.
 

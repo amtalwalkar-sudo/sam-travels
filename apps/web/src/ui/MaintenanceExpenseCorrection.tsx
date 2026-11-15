@@ -1,54 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { AtomicRecordBatchRepository } from "../../../../packages/core/src/repositories";
+import "./AdminFormControls.css";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
 import type { GeneralMaintenanceExpenseV1 } from "../../../../packages/application/src/maintenance-service";
-import { HistoricalCorrectionService } from "../../../../packages/application/src/historical-correction-service";
-import { projectHistoricalCorrectionsV1 } from "../../../../packages/domain/src/historical-correction";
-import { getPersonIdentityService } from "../person-identity-runtime";
+import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
 
 const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 
-export function createMaintenanceExpenseCorrectionService(records: AtomicRecordBatchRepository, source: RecordEnvelope<unknown>["source"]) {
-  return new HistoricalCorrectionService(records, getPersonIdentityService(), {
-    resolve: async (record: RecordEnvelope<unknown>) => {
-      const data = record.data as Record<string, unknown>;
-      if (!record.id.startsWith("feature:maintenance:expense:") || data.kind !== "expense" || data.schemaVersion !== 1 ||
-          typeof data.amountPaise !== "number" || !Number.isSafeInteger(data.amountPaise) || data.amountPaise < 0) {
-        throw new Error("maintenance_expense_correction_target_invalid");
-      }
-      return {
-        featureId: "maintenance",
-        allowedFieldPaths: ["amountPaise"],
-        validateProjectedData: value => {
-          const projected = value as Record<string, unknown>;
-          if (projected.kind !== "expense" || !Number.isSafeInteger(projected.amountPaise) ||
-              (projected.amountPaise as number) < 0) throw new Error("maintenance_expense_correction_value_invalid");
-        },
-      };
-    },
-  }, source);
-}
-
-export async function projectMaintenanceExpenses(
-  expenses: readonly RecordEnvelope<GeneralMaintenanceExpenseV1>[],
-  service: HistoricalCorrectionService,
-) {
-  return Promise.all(expenses.map(async expense => {
-    const corrections = await service.listForTarget(expense.id);
-    const projection = projectHistoricalCorrectionsV1(expense.data, corrections);
-    return projection.status === "valid" ? { ...expense, data: projection.data } : expense;
-  }));
-}
-
 export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: {
   expense: RecordEnvelope<GeneralMaintenanceExpenseV1>;
-  service: HistoricalCorrectionService;
+  service: MaintenanceExpenseCorrectionAdapter;
   onCorrected: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState((expense.data.amountPaise / 100).toFixed(2));
   const [reason, setReason] = useState("");
-  const [history, setHistory] = useState<Awaited<ReturnType<HistoricalCorrectionService["listForTarget"]>>>([]);
+  const [history, setHistory] = useState<Awaited<ReturnType<MaintenanceExpenseCorrectionAdapter["listForTarget"]>>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   // Keep the same operation identity after an ambiguous submission failure so a retry replays safely.

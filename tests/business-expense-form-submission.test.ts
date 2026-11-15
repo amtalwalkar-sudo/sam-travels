@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { beginFuelLocationCapture } from "../apps/web/src/business-expense-form-submission";
+import { describe, expect, it, vi } from "vitest";
+import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
+import {
+  PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
+} from "../packages/application/src/admin-form-definitions";
 
 describe("Fuel Entry submit-time GPS acquisition", () => {
   it("requests a fresh device fix and resolves with its actual timestamp and accuracy", async () => {
@@ -54,5 +57,86 @@ describe("Fuel Entry submit-time GPS acquisition", () => {
     await expect(capture.promise).resolves.toEqual({
       status: "unavailable", reason: "geolocation_unsupported",
     });
+  });
+});
+
+
+describe("Admin business expense form submission mapping", () => {
+  function setup() {
+    const createExpenseEntry = vi.fn(async (input: unknown) => input);
+    const source = { platform: "browser-test" };
+    const submit = createBusinessExpenseFormSubmissionHandler(
+      { createExpenseEntry } as never,
+      source as never,
+    );
+    const command = (formId: string, values: Record<string, unknown>) => ({
+      formId, action: "save", instanceId: "admin-entry-1", operationId: "operation-1", values,
+    }) as never;
+    return { createExpenseEntry, submit, command, source };
+  }
+
+  it("maps Platform Fee fields to the distinct fee record contract", async () => {
+    const { createExpenseEntry, submit, command, source } = setup();
+    await submit(command(PLATFORM_FEE_FORM_V1.id, {
+      businessDate: "2026-11-14", vehicleId: "vehicle-1", amountRupees: 12.34, reference: "trip-42",
+      description: "platform settlement",
+    }));
+    expect(createExpenseEntry).toHaveBeenCalledWith({
+      uuid: "admin-entry-1", source,
+      data: {
+        sourceKind: "platform_fee", businessDate: "2026-11-14", amountPaise: 1234,
+        currencyCode: "INR", effect: "charge", vehicleId: "vehicle-1", reference: "trip-42",
+        description: "platform settlement",
+      },
+    });
+  });
+
+  it("maps Miscellaneous Expense fields without losing optional attribution", async () => {
+    const { createExpenseEntry, submit, command, source } = setup();
+    await submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-13", category: "Parking", amountRupees: 50,
+      vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
+      reference: "receipt-7",
+    }));
+    expect(createExpenseEntry).toHaveBeenCalledWith({
+      uuid: "admin-entry-1", source,
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+        vehicleId: "vehicle-1", driverId: "driver-1", description: "airport parking",
+        reference: "receipt-7",
+      },
+    });
+  });
+
+  it("maps Traffic Challan to its separate vehicle and payment-state record", async () => {
+    const { createExpenseEntry, submit, command, source } = setup();
+    await submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
+      businessDate: "2026-11-12", vehicleId: "vehicle-2", driverId: "driver-2",
+      amountRupees: 500, description: "Signal violation", reference: "challan-8",
+      paymentStatus: "unpaid",
+    }));
+    expect(createExpenseEntry).toHaveBeenCalledWith({
+      uuid: "admin-entry-1", source,
+      data: {
+        sourceKind: "traffic_challan", businessDate: "2026-11-12", amountPaise: 50000,
+        currencyCode: "INR", effect: "charge", vehicleId: "vehicle-2",
+        paymentStatus: "unpaid", description: "Signal violation",
+        driverId: "driver-2", reference: "challan-8",
+      },
+    });
+  });
+
+  it("rejects invalid currency amounts and missing owner-required fields", async () => {
+    const { submit, command } = setup();
+    await expect(submit(command(PLATFORM_FEE_FORM_V1.id, {
+      businessDate: "2026-11-14", vehicleId: "vehicle-1", amountRupees: 12.345, reference: "trip-1",
+    }))).rejects.toThrow("business_expense_amount_invalid");
+    await expect(submit(command(MISC_BUSINESS_EXPENSE_FORM_V1.id, {
+      businessDate: "2026-11-14", amountRupees: 10,
+    }))).rejects.toThrow("miscellaneous_expense_category_required");
+    await expect(submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
+      businessDate: "2026-11-14", amountRupees: 10, description: "Violation", paymentStatus: "unpaid",
+    }))).rejects.toThrow("traffic_challan_vehicle_required");
   });
 });
