@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
-import { useAdminServices } from "./admin-services-context";
+import { useAdminBusinessSetupServices } from "./admin-services-context";
 
 type Report = Awaited<ReturnType<AdminPresentationServices["costAllocation"]["getReport"]>>;
 const money = (paise: number) => new Intl.NumberFormat("en-IN", {
@@ -8,7 +8,7 @@ const money = (paise: number) => new Intl.NumberFormat("en-IN", {
 }).format(paise / 100);
 
 export function BusinessStartDateCostAllocationPanel() {
-  const services = useAdminServices();
+  const services = useAdminBusinessSetupServices();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
