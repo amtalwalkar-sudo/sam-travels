@@ -141,9 +141,15 @@ export class FullCostBreakevenService {
       if (!linkedTripId) continue;
       const linkedTrip = tripFinancialById.get(linkedTripId);
       const tripData = linkedTrip?.data;
-      const driverPaidAmount = tripData?.kind === "completed_ride_financials"
-        ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0) +
-          (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+      const expectedLinkedAmount = tripData?.kind === "completed_ride_financials"
+        ? expense.data.tripFinancialComponent === "toll"
+          ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0)
+          : expense.data.tripFinancialComponent === "parking"
+            ? (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+            : expense.data.tripFinancialComponent === "combined"
+              ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0) +
+                (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+              : 0
         : 0;
       const original = expense.data.effect === "reversal"
         ? expenseById.get(expense.data.reversesSourceId ?? "") : undefined;
@@ -156,8 +162,8 @@ export class FullCostBreakevenService {
           original.data.businessDate === linkedDate);
       const validLink = expense.data.sourceKind === "miscellaneous" &&
         tripData?.kind === "completed_ride_financials" && tripData.status === "submitted" &&
-        Number.isSafeInteger(driverPaidAmount) && driverPaidAmount > 0 &&
-        expense.data.amountPaise === driverPaidAmount && originalMatches &&
+        Number.isSafeInteger(expectedLinkedAmount) && expectedLinkedAmount > 0 &&
+        expense.data.amountPaise === expectedLinkedAmount && originalMatches &&
         (expense.data.effect === "reversal" || expense.data.businessDate === linkedDate);
       if (validLink) shadowedTripDuplicateExpenseIds.add(expense.id);
       else completeness.push({
