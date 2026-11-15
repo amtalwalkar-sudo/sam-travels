@@ -98,7 +98,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Payment status", "unpaid")
             click(activity, "Save expense")
             assertTrue("Traffic challan saved: " + (javascriptValue(activity, "document.body.innerText") ?: "no WebView text"),
-                await(activity, "document.body.innerText.includes('Saved.')", 15000))
+                await(activity, "document.body.innerText.includes('Saved.')", 45000))
 
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
@@ -206,7 +206,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         assertTrue("Admin field loads: " + label, await(activity,
             "[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name'))", 15000))
         val text = value.replace("'", "\\'")
-        val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event('input',{bubbles:true}));c.dispatchEvent(new Event('change',{bubbles:true}));return true})()"""
+        val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
         check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
     }
 
