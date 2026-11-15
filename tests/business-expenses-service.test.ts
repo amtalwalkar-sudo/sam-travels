@@ -160,12 +160,13 @@ describe("BusinessExpensesService", () => {
     const original = await service.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174010", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 1200,
-        currencyCode: "INR", effect: "charge", category: "Parking" },
+        currencyCode: "INR", effect: "charge", category: "Parking", tripExpenseTreatment: "standalone" },
     });
     await service.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174011", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-16", amountPaise: 1200,
-        currencyCode: "INR", effect: "reversal", reversesSourceId: original.id, category: "Parking" },
+        currencyCode: "INR", effect: "reversal", reversesSourceId: original.id, category: "Parking",
+        tripExpenseTreatment: "standalone" },
     });
     const daily = await service.listDailyExpenseOutputs();
     expect(daily.find(item => item.businessDate === "2026-11-15")?.miscellaneousPaise).toBe(1200);
@@ -189,6 +190,7 @@ describe("BusinessExpensesService", () => {
     const linked = {
       sourceKind: "miscellaneous" as const, businessDate: "2026-11-15", amountPaise: 1200,
       currencyCode: "INR" as const, effect: "charge" as const, category: "Toll",
+      tripExpenseTreatment: "already-in-trip-closeout" as const,
       tripFinancialSourceId: tripId, tripFinancialComponent: "toll" as const,
     };
     await expect(service.createExpenseEntry({
@@ -199,6 +201,7 @@ describe("BusinessExpensesService", () => {
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 700,
         currencyCode: "INR", effect: "charge", category: "Parking",
+        tripExpenseTreatment: "already-in-trip-closeout",
         tripFinancialSourceId: tripId, tripFinancialComponent: "parking",
       },
     })).rejects.toThrow("business_expense_trip_financial_duplicate");
@@ -215,6 +218,7 @@ describe("BusinessExpensesService", () => {
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-16", amountPaise: 1200,
         currencyCode: "INR", effect: "reversal", reversesSourceId: legacyId, category: "Toll",
+        tripExpenseTreatment: "already-in-trip-closeout",
         tripFinancialSourceId: tripId, tripFinancialComponent: "toll",
       },
     });
