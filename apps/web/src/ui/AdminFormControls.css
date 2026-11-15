@@ -28,3 +28,11 @@
 .admin-wide-field{grid-column:1/-1}
 .admin-capability-record .loan-form-actions select{min-width:0;max-width:190px;padding:8px;border:1px solid #dce4e8;border-radius:8px;background:#fff;color:#253b48;font:inherit;font-size:10px}
 .admin-capability-form>strong{font-size:11px;color:#38596b}
+
+.admin-hint,.admin-placeholder p{font-size:10px;line-height:1.55;color:#7b8991}
+@media(max-width:420px){
+  .loan-form-grid{grid-template-columns:1fr}
+  .admin-capability-record{align-items:flex-start}
+  .admin-capability-record-actions{flex-direction:column;align-items:flex-end}
+  .admin-capability-record-actions .admin-secondary{padding:8px}
+}
