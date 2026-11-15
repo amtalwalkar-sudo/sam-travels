@@ -9,11 +9,11 @@ export const PERFORMANCE_FEATURE = Object.freeze({
   contractVersion: 1,
   dependencies: [
     { id: "platform", contractVersion: 1 },
-    { id: "business-settings", contractVersion: 1, optional: true },
-    { id: "business-expenses", contractVersion: 1, optional: true },
-    { id: "maintenance", contractVersion: 1, optional: true },
-    { id: "finance", contractVersion: 2, optional: true },
-    { id: "compliance", contractVersion: 1, optional: true },
+    { id: "business-settings", contractVersion: 1 },
+    { id: "business-expenses", contractVersion: 1 },
+    { id: "maintenance", contractVersion: 1 },
+    { id: "finance", contractVersion: 2 },
+    { id: "compliance", contractVersion: 1 },
   ],
   persistence: {
     schemaVersion: 1,
