@@ -203,9 +203,9 @@ export const PLATFORM_FEE_FORM_V1 = Object.freeze<FormDefinition>({
   primaryAction: "save",
   fields: [
     { id: "businessDate", label: "Fee date", type: "date", required: true },
+    { id: "vehicleId", label: "Vehicle", type: "text", required: true, maxLength: 160 },
     { id: "amountRupees", label: "Fee amount (₹)", type: "number", required: true },
     { id: "reference", label: "Trip / settlement reference", type: "text", required: true, maxLength: 240 },
-    { id: "alreadyNettedFromIncome", label: "Already deducted from gross income", type: "checkbox", required: true },
     { id: "description", label: "Note", type: "text", maxLength: 1000 },
   ],
 });
