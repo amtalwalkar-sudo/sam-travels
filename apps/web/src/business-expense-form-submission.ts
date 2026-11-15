@@ -179,6 +179,9 @@ export function createBusinessExpenseFormSubmissionHandler(
       data: {
         sourceKind: "miscellaneous", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
         category,
+        ...(tollOrParking
+          ? { tripExpenseTreatment: tripTreatment as "standalone" | "already-in-trip-closeout" }
+          : {}),
         ...(optionalString(values.vehicleId) ? { vehicleId: optionalString(values.vehicleId) } : {}),
         ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
