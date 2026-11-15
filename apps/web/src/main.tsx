@@ -134,7 +134,7 @@ async function bootstrap(): Promise<void> {
       submit: async (command) => {
         const expenseResult = await handleBusinessExpenseSubmission(command);
         if (expenseResult !== undefined) return expenseResult;
-        if (command.action !== "save") throw new Error("unsupported_admin_form_operation");
+        if (command.action !== "save" && command.action !== "submit") throw new Error("unsupported_admin_form_operation");
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
