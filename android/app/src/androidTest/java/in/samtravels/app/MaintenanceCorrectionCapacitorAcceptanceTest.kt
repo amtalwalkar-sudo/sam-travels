@@ -68,15 +68,15 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       }
       assertTrue("WebView loads Drive",
           awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-      assertTrue("Admin navigation", awaitJavascript(activity,
+      assertTrue("Adminigation", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
           10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
       assertTrue("Admin render", awaitJavascript(activity,
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
-      assertTrue("Name field", awaitJavascript(activity,
+      assertTrue("Name", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Admin role select", evaluate(activity, """
+      assertTrue("Admin role", evaluate(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
             const input = label?.querySelector('input[type=checkbox]');
@@ -88,7 +88,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
-      assertTrue("Enrollment fields", evaluate(activity, """
+      assertTrue("Fields", evaluate(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -103,7 +103,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
           })()
       """))
-      assertTrue("Enroll button enabled", awaitJavascript(activity,
+      assertTrue("Enroll enabled", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Enrolled", awaitJavascript(activity,
@@ -166,7 +166,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """)
       assertTrue("Correction opens", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-      assertTrue("Correction input", evaluate(activity, """
+      assertTrue("Inputs", evaluate(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -189,7 +189,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """)
-      assertTrue("Correction save", awaitJavascript(activity,
+      assertTrue("Saved", awaitJavascript(activity,
           "document.body.textContent.includes('Appended')", 15_000))
       val original = JSONObject(database.records().get(expenseId)!!.json)
       val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
@@ -208,7 +208,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
       assertNotNull("Room stored",
           database.records().get(correctionRows.single().getString("id")))
-      assertTrue("Driver select", evaluate(activity, """
+      assertTrue("Driver", evaluate(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
