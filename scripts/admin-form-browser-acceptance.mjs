@@ -238,7 +238,7 @@ try {
 
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Fee date").fill(today);
-  await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
+  await page.getByLabel("Vehicle", { exact: true }).first().fill(vehicleId);
   await page.getByLabel("Fee amount (₹)").fill("120");
   await page.getByLabel("Trip / settlement reference").fill("SETTLEMENT-ACCEPTANCE-1");
   await page.getByLabel("Note").fill("Acceptance platform fee");
@@ -249,7 +249,7 @@ try {
   await page.getByLabel("Expense date").fill(today);
   await page.getByLabel("Category").fill("Parking");
   await page.getByLabel("Amount (₹)").fill("50");
-  await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
+  await page.getByLabel("Vehicle", { exact: true }).last().fill(vehicleId);
   await page.getByLabel("Description").fill("Acceptance parking");
   await page.getByLabel("Receipt / source reference").fill("PARKING-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save expense", exact: true }).last().click();
