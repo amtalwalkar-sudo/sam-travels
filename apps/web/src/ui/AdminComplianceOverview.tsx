@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminPresentationServices } from "../../../../packages/application/src";
 import { useAdminComplianceServices, useAdminComplianceCorrectionAdapter } from "./admin-services-context";
 import { ComplianceHistoricalCorrection } from "./ComplianceHistoricalCorrection";
-import "./AdminWorkspace.css";
+import "./AdminFormControls.css";
+import "./AdminCompliance.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Overview = Awaited<ReturnType<AdminPresentationServices["complianceAnalysis"]["getOverview"]>>;
