@@ -61,9 +61,16 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if (source.sourceKind !== "emi") return [];
-      return source.daily.filter(row => row.date >= from && row.date <= to).map(row => Object.freeze({
-        date: row.date, kind: "emi" as const, amountPaise: row.amountPaise, verified: true,
+      if (source.sourceKind !== "emi" || source.disposition !== "allocated") return [];
+      const split = complianceSplit(source, report.businessStartDate);
+      if (!split) return [];
+      const rows = source.daily.filter(row => row.date >= from && row.date <= to);
+      if (!rows.length && split.postBusinessPaise > 0) return [];
+      const quotient = rows.length ? Math.floor(split.postBusinessPaise / rows.length) : 0;
+      const remainder = rows.length ? split.postBusinessPaise % rows.length : 0;
+      return rows.map((row, index) => Object.freeze({
+        date: row.date, kind: "emi" as const,
+        amountPaise: quotient + (index < remainder ? 1 : 0), verified: true,
         sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
       }));
     }));
@@ -91,15 +98,24 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
 
   async listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
     const report = await this.report();
-    return Object.freeze(report.result.sources.filter(source =>
-      source.sourceKind === "emi-pre-business-carry-forward" &&
-      source.disposition !== "overlap_review_required" && source.sourceAmountPaise > 0,
-    ).map(source => Object.freeze({
-      sourceId: source.sourceId, revision: source.sourceVersion,
-      amountPaise: source.sourceAmountPaise,
-      note: "Pre-business EMI carry-forward from " + source.sourceId,
-      origin: "emi" as const,
-    })));
+    return Object.freeze(report.result.sources.flatMap(source => {
+      if (source.disposition === "overlap_review_required" || source.sourceAmountPaise <= 0) return [];
+      if (source.sourceKind === "emi-pre-business-carry-forward") return [Object.freeze({
+        sourceId: source.sourceId, revision: source.sourceVersion,
+        amountPaise: source.sourceAmountPaise,
+        note: "Pre-business EMI carry-forward from " + source.sourceId,
+        origin: "emi" as const,
+      })];
+      if (source.sourceKind !== "emi") return [];
+      const split = complianceSplit(source, report.businessStartDate);
+      if (!split || split.preBusinessPaise === 0) return [];
+      return [Object.freeze({
+        sourceId: source.sourceId, revision: source.sourceVersion,
+        amountPaise: split.preBusinessPaise,
+        note: "Pre-business portion of " + (source.sourcePeriod?.label ?? source.sourceId),
+        origin: "emi" as const,
+      })];
+    }));
   }
 
   async listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
@@ -127,7 +143,8 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const blocked = report.result.sources.filter(source =>
       source.disposition === "overlap_review_required");
     const missingPeriod = report.result.sources.filter(source =>
-      source.sourceKind === "compliance" && source.disposition === "allocated" && !source.sourcePeriod);
+      (source.sourceKind === "compliance" || source.sourceKind === "emi") &&
+      source.disposition === "allocated" && !source.sourcePeriod);
     if (blocked.length || missingPeriod.length) return Object.freeze([Object.freeze({
       source: "finance-and-compliance-allocation",
       status: "review-required" as const,
