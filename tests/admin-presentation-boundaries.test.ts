@@ -13,6 +13,28 @@ describe("Admin presentation dependency boundaries", () => {
     }
   });
 
+  it("keeps the Admin workspace as a composition-only shell", () => {
+    const workspace = source("../apps/web/src/ui/AdminWorkspace.tsx");
+    for (const forbidden of ["AdminPresentationServices", "financeLoans", "financeLoanPrepayments", "useAdminWorkspaceServices", "AtomicRecordRepository"]) {
+      expect(workspace).not.toContain(forbidden);
+    }
+    for (const section of ["AdminBusinessSetupSection", "AdminVehicleSection", "AdminDriverSection",
+      "AdminComplianceSection", "AdminFinanceSection", "AdminMaintenance"]) {
+      expect(workspace).toContain(section);
+    }
+  });
+
+  it("keeps independently owned Admin section modules and expense forms separate", () => {
+    expect(source("../apps/web/src/ui/AdminBusinessSetupSection.tsx")).toContain("useAdminBusinessSetupServices");
+    expect(source("../apps/web/src/ui/AdminVehicleSection.tsx")).toContain("useAdminVehicleServices");
+    expect(source("../apps/web/src/ui/AdminDriverSection.tsx")).toContain("useAdminDriverServices");
+    expect(source("../apps/web/src/ui/AdminComplianceSection.tsx")).toContain("useAdminComplianceServices");
+    expect(source("../apps/web/src/ui/AdminFinanceSection.tsx")).toContain("useAdminWorkspaceServices");
+    expect(source("../apps/web/src/ui/AdminPlatformFeeSection.tsx")).toContain("PLATFORM_FEE_FORM_V1");
+    expect(source("../apps/web/src/ui/AdminMiscBusinessExpenseSection.tsx")).toContain("MISC_BUSINESS_EXPENSE_FORM_V1");
+    expect(source("../apps/web/src/ui/AdminTrafficChallanSection.tsx")).toContain("TRAFFIC_CHALLAN_FORM_V1");
+  });
+
   it("keeps Person Identity persistence and session services behind its adapter", () => {
     const panel = source("../apps/web/src/ui/PersonIdentityPanel.tsx");
     for (const forbidden of ["AtomicRecordRepository", "getPlatformRecordSource", "getPersonIdentityService", "person-identity-adapters"]) {
