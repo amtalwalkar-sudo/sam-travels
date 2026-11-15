@@ -46,7 +46,7 @@ class NativeBusinessExpensesBackupTest {
                 .also { data -> extras.keys().asSequence().forEach { key -> data.put(key, extras.get(key)) } })
 
     private fun tripFinancialRow() = row(
-        "work:trip-financial-obligation:trip-dup", "work-driver-records",
+        "work:trip-financial-obligation:trip-dup", "work-driver-state",
         JSONObject().put("schemaVersion", 1).put("tripId", "trip-dup")
             .put("kind", "completed_ride_financials").put("status", "submitted")
             .put("tripContext", JSONObject().put("schemaVersion", 1)
