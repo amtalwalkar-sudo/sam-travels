@@ -163,6 +163,8 @@ export function createBusinessExpenseFormSubmissionHandler(
         ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
         ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
+        ...(optionalString(values.tripFinancialSourceId)
+          ? { tripFinancialSourceId: optionalString(values.tripFinancialSourceId) } : {}),
       },
     });
   }
