@@ -82,7 +82,7 @@ try {
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
   await page.getByLabel("Maintenance type").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
-  await page.locator("#admin-section-panel-maintenance select").first().selectOption("expense");
+  await page.getByLabel("Record type").selectOption("expense");
   await page.getByRole("button", { name: "Start general expense", exact: true }).click();
   await page.getByLabel("Expense name").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
