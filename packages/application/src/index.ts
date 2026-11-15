@@ -60,3 +60,4 @@ export * from "./full-cost-breakeven-service";
 
 export * from "./performance-calculation-service";
 export * from "./performance-trip-revenue-adapter";
+export * from "./performance-fixed-cost-allocation-adapter";
