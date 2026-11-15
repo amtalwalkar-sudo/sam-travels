@@ -7,35 +7,8 @@ import { PeriodNavigation, type TimelinePeriodMode } from "./PeriodNavigation";
 import { TimelineEventDetail, type TimelineEventDetailModel } from "./TimelineEventDetail";
 import { TimelineShiftSection } from "./TimelineShiftSection";
 import type { TimelineEventCardModel } from "./TimelineEventCard";
+import { indiaCalendarDate, moveTimelineDate, timelineWeekStart, formatTimelineDate, formatTimelineWeekday, formatTimelineEventTime } from "./timeline-date";
 import "./timeline.css";
-
-const dateFormatter = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric",
-});
-const weekdayFormatter = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
-const eventTimeFormatter = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true,
-});
-
-function indiaDate(value: Date): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(value);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? "";
-  return part("year") + "-" + part("month") + "-" + part("day");
-}
-function moveDate(value: string, days: number): string {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
-}
-function weekStart(value: string): string {
-  const [year, month, day] = value.split("-").map(Number);
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return moveDate(value, -(weekday === 0 ? 6 : weekday - 1));
-}
-function dateLabel(value: string): string {
-  return dateFormatter.format(new Date(value + "T12:00:00+05:30"));
-}
 function activeShiftAt(events: readonly DriverEvent[], instant: number): DriverEvent | undefined {
   const ordered = [...events].sort((a, b) =>
     Date.parse(a.command.transitionAt) - Date.parse(b.command.transitionAt) ||
@@ -155,7 +128,7 @@ type TimelineModel = LoadedTimeline["model"] & { locations: TimelineLocationMap 
 
 export function TimelineScreen({ context }: { context: TimelineScreenContext }) {
   const [mode, setMode] = useState<TimelinePeriodMode>("day");
-  const [selectedDate, setSelectedDate] = useState(indiaDate(new Date()));
+  const [selectedDate, setSelectedDate] = useState(indiaCalendarDate(new Date()));
   const [model, setModel] = useState<TimelineModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -164,8 +137,8 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   const requestSequence = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const today = indiaDate(new Date());
-  const fromDate = mode === "week" ? weekStart(selectedDate) : selectedDate;
-  const toDate = mode === "week" ? moveDate(fromDate, 6) : selectedDate;
+  const fromDate = mode === "week" ? timelineWeekStart(selectedDate) : selectedDate;
+  const toDate = mode === "week" ? moveTimelineDate(fromDate, 6) : selectedDate;
 
   const refresh = async (allowLocationLookup = locationLookupEnabled) => {
     activeRequest.current?.abort();
@@ -234,11 +207,11 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
   }, [model]);
   const daysByDate = useMemo(() => new Map((model?.projection.calendarDays ?? []).map(day => [day.date, day])), [model]);
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = moveDate(fromDate, index);
+    const date = moveTimelineDate(fromDate, index);
     const day = daysByDate.get(date);
     return {
       date,
-      label: weekdayFormatter.format(new Date(date + "T12:00:00+05:30")),
+      label: formatTimelineWeekday(date),
       activityCount: day?.eventIds.length ?? 0,
       selected: date === selectedDate,
     };
@@ -270,7 +243,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
         const kind = eventKind(event);
         return {
           id: event.eventId,
-          time: eventTimeFormatter.format(new Date(event.command.transitionAt)),
+          time: formatTimelineEventTime(event.command.transitionAt),
           title: eventTitle(event),
           description: eventDescription(event, allEvents),
           secondary: event.command.eventType === "start_ride" || event.command.eventType === "trip_start"
@@ -311,7 +284,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
       status: event.command.eventType === "cancel_ride" || event.command.eventType === "ride_cancel"
         ? "Cancelled attempt" : event.command.eventType === "end_ride" || event.command.eventType === "trip_end"
           ? "Completed" : "Recorded",
-      time: eventTimeFormatter.format(new Date(event.command.transitionAt)) + " · " + dateLabel(selectedDate),
+      time: eventTimeFormatter.format(new Date(event.command.transitionAt)) + " · " + formatTimelineDate(selectedDate),
       duration: eventDescription(event, allEvents),
       location,
       evidence: event.gps ? "GPS evidence is attached to this event" : "GPS evidence not available",
@@ -319,7 +292,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     });
   };
 
-  const onMove = (direction: -1 | 1) => setSelectedDate(value => moveDate(value, direction * (mode === "week" ? 7 : 1)));
+  const onMove = (direction: -1 | 1) => setSelectedDate(value => moveTimelineDate(value, direction * (mode === "week" ? 7 : 1)));
   const onModeChange = (nextMode: TimelinePeriodMode) => setMode(nextMode);
   const onToday = () => { setSelectedDate(today); setMode("day"); };
 
@@ -338,7 +311,7 @@ export function TimelineScreen({ context }: { context: TimelineScreenContext }) 
     <PeriodNavigation mode={mode} selectedDate={selectedDate} today={today} weekStart={fromDate}
       weekDays={weekDays} onModeChange={onModeChange} onDateChange={setSelectedDate}
       onMove={onMove} onToday={onToday} />
-    <p className="timeline-selected-period">{mode === "day" ? dateLabel(selectedDate) : dateLabel(fromDate) + " – " + dateLabel(toDate)}</p>
+    <p className="timeline-selected-period">{mode === "day" ? dateLabel(selectedDate) : formatTimelineDate(fromDate) + " – " + formatTimelineDate(toDate)}</p>
     {error && <p className="timeline-error" role="alert">{error}</p>}
     {loading && model && <p className="timeline-refreshing" role="status">Refreshing activity · showing the last loaded records</p>}
     {!!model?.projection.integrityIssues.length && <aside className="timeline-integrity" role="alert">
