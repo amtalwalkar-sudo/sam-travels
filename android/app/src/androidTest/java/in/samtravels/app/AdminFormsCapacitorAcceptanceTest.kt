@@ -20,7 +20,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
-        val db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+        var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val marker = "Admin Android " + UUID.randomUUID().toString().take(8)
