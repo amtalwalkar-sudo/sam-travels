@@ -136,7 +136,21 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
       schemaVersion: 1, kind: "pre_business_cost",
       amountPaise: input.amountPaise, note: input.note.trim(), commandId,
     };
-    return this.records.create({ id, data, source: input.source }) as Promise<RecordEnvelope<PerformancePreBusinessCostRecordV1>>;
+    try {
+      return await this.records.create({ id, data, source: input.source }) as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
+    } catch (error) {
+      // Concurrent retries may race after both observe the identity as absent.
+      // Re-read the CAS winner and accept only an exact idempotent replay.
+      const committed = await this.records.get(id);
+      if (committed?.data.kind === "pre_business_cost" &&
+          committed.data.amountPaise === input.amountPaise &&
+          committed.data.note === input.note.trim() &&
+          committed.data.commandId === commandId) {
+        return committed as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
+      }
+      if (committed) throw new Error("performance_pre_business_cost_idempotency_conflict");
+      throw error;
+    }
   }
 
   async listEntries(): Promise<readonly PreBusinessRecoverySourceV1[]> {
