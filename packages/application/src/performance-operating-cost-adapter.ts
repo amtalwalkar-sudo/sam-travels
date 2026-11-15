@@ -2,6 +2,7 @@ import type { PerformanceDailyCostInputV1, PerformanceCompletenessV1 } from "../
 import type { FullCostBreakevenService } from "./full-cost-breakeven-service";
 import type {
   PerformanceOperatingCostReadModel,
+  PerformanceOperatingCostKindV1,
   PerformanceCompletenessReadModel,
 } from "./performance-calculation-service";
 
@@ -40,18 +41,18 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     const result: PerformanceDailyCostInputV1[] = [];
     for (const activity of projection.dailyActivity) {
       if (activity.date < from || activity.date > to) continue;
-      if (activity.fuelCostPaise > 0 && activity.fuelSourceRefs.length) result.push(Object.freeze({
-        date: activity.date, kind: "fuel", amountPaise: activity.fuelCostPaise, verified: true,
+      if ((activity.fuelCostPaise ?? 0) > 0 && activity.fuelSourceRefs.length) result.push(Object.freeze({
+        date: activity.date, kind: "fuel", amountPaise: activity.fuelCostPaise ?? 0, verified: true,
         sourceRefs: Object.freeze(activity.fuelSourceRefs.map(ref => Object.freeze({ ...ref }))),
       }));
-      if (activity.maintenanceCostPaise > 0 && activity.maintenanceSourceRefs.length) result.push(Object.freeze({
-        date: activity.date, kind: "maintenance", amountPaise: activity.maintenanceCostPaise, verified: true,
+      if ((activity.maintenanceCostPaise ?? 0) > 0 && activity.maintenanceSourceRefs.length) result.push(Object.freeze({
+        date: activity.date, kind: "maintenance", amountPaise: activity.maintenanceCostPaise ?? 0, verified: true,
         sourceRefs: Object.freeze(activity.maintenanceSourceRefs.map(ref => Object.freeze({ ...ref }))),
       }));
     }
     for (const cost of projection.datedCosts) {
       if (cost.date < from || cost.date > to || cost.amountPaise === 0) continue;
-      let kind: PerformanceDailyCostInputV1["kind"];
+      let kind: PerformanceOperatingCostKindV1;
       if (cost.kind === "platform-fee") kind = "platform-fee";
       else if (cost.kind === "traffic-challan") kind = "traffic-challan";
       else if (cost.kind === "miscellaneous") {
