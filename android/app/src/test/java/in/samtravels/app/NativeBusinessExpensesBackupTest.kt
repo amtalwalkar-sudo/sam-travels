@@ -55,7 +55,7 @@ class NativeBusinessExpensesBackupTest {
     fun acceptsFuelPlatformFeeMiscellaneousAndTrafficChallanRecords() = withParticipants {
         val records = JSONArray().put(vehicleRow()).put(fuelRow())
             .put(expenseRow("platform_fee", "123e4567-e89b-42d3-a456-426614174001",
-                JSONObject().put("reference", "platform-settlement-1").put("alreadyNettedFromIncome", true)))
+                JSONObject().put("reference", "platform-settlement-1").put("alreadyNettedFromIncome", false)))
             .put(expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174002",
                 JSONObject().put("category", "Parking")))
             .put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174003",
@@ -73,6 +73,17 @@ class NativeBusinessExpensesBackupTest {
         assertEquals("business_expense_vehicle_not_found", error.message)
     }
 
+    @Test
+    fun rejectsLegacyNettedPlatformFeeState() = withParticipants {
+        val records = JSONArray().put(vehicleRow()).put(expenseRow(
+            "platform_fee", "123e4567-e89b-42d3-a456-426614174006",
+            JSONObject().put("reference", "platform-settlement-2").put("alreadyNettedFromIncome", true),
+        ))
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
+        }
+        assertEquals("business_expense_platform_fee_netting_not_supported", error.message)
+    }
     @Test
     fun rejectsTrafficChallanWithoutPaymentState() = withParticipants {
         val records = JSONArray().put(vehicleRow()).put(expenseRow(
