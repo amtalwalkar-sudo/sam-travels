@@ -143,13 +143,12 @@ export function createBusinessExpenseFormSubmissionHandler(
   const amountPaise = positiveRupeesToPaise(values.amountRupees, "business_expense_amount_invalid");
 
   if (command.formId === PLATFORM_FEE_FORM_V1.id) {
-    if (typeof values.alreadyNettedFromIncome !== "boolean") throw new Error("platform_fee_income_treatment_required");
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
       data: {
         sourceKind: "platform_fee", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
+        vehicleId: requiredString(values.vehicleId, "platform_fee_vehicle_required"),
         reference: requiredString(values.reference, "platform_fee_source_reference_required"),
-        alreadyNettedFromIncome: values.alreadyNettedFromIncome,
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
       },
     });
