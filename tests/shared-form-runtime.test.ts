@@ -34,7 +34,7 @@ describe("shared form runtime", () => {
     expect(ADMIN_FORM_DEFINITIONS).toHaveLength(14);
     expect(new Set(ADMIN_FORM_DEFINITIONS.map(form => form.id)).size).toBe(ADMIN_FORM_DEFINITIONS.length);
     for (const form of ADMIN_FORM_DEFINITIONS) {
-      expect(form.id).toMatch(/^admin\\./);
+      expect(form.id).toMatch(/^admin\./);
       expect(form.version).toBeGreaterThan(0);
       expect(form.owner.trim()).not.toBe("");
       expect(form.purpose.trim()).not.toBe("");
