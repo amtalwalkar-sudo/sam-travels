@@ -73,7 +73,7 @@ try {
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
-  await page.getByLabel("Already netted from income").waitFor({ state: "visible" });
+  await page.getByLabel("Already deducted from gross income").waitFor({ state: "visible" });
   console.log("Loan details, Platform Fee and Miscellaneous Expense forms rendered.");
 
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
@@ -87,7 +87,7 @@ try {
   await page.getByLabel("Expense name").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
   await page.getByRole("button", { name: "Change per-kilometre rate", exact: true }).click();
-  await page.getByLabel("Maintenance rate (₹/km)").waitFor({ state: "visible" });
+  await page.getByLabel("New rate (₹ per km)").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Close and keep draft", exact: true }).click();
   console.log("Maintenance visit, expense and rate forms rendered.");
 } finally {
