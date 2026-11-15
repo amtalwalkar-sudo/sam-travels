@@ -133,7 +133,13 @@ try {
   await page.getByLabel("Loan start date").fill(loanStartDate);
   await page.getByLabel("First EMI date (first day of month)").fill(firstEmiDate);
   await page.getByRole("button", { name: "Save loan details", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Loan details saved as an immutable historical record." }).waitFor({ state: "visible" });
+  try {
+    await page.getByRole("status").filter({ hasText: "Loan details saved as an immutable historical record." }).waitFor({ state: "visible", timeout: 15000 });
+  } catch (error) {
+    console.log("Loan form status:", await page.locator("#admin-section-panel-finance [role=status]").allTextContents());
+    console.log("Loan form markup:", await page.locator("#admin-section-panel-finance .loan-form").innerHTML());
+    throw new Error("admin_loan_create_failed:" + (error instanceof Error ? error.message : String(error)));
+  }
   const loanCard = page.locator(".loan-record").filter({ hasText: "Admin Browser Loan" });
   const paymentPanel = loanCard.locator(".loan-payment-panel");
 
