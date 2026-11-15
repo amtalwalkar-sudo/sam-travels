@@ -98,7 +98,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
               input.dispatchEvent(new Event('input', { bubbles: true }));
               return true;
             };
-            return set('Person name', 'Correction Admin') && set('Set initial Admin PIN', '4831');
+            return set('Person name', 'Corr Admin') && set('Set initial Admin PIN', '4831');
           })()
       """))
       assertTrue("Enroll button enabled", awaitJavascript(activity,
