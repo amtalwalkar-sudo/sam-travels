@@ -8,6 +8,8 @@ export type { TimelineEventCardModel, TimelineEventCardProps } from "./presentat
 export { TimelineEventDetail } from "./presentation/TimelineEventDetail";
 export type { TimelineEventDetailModel, TimelineEventDetailProps } from "./presentation/TimelineEventDetail";
 export { TimelineShiftSection } from "./presentation/TimelineShiftSection";
+export { TimelineShiftDetail } from "./presentation/TimelineShiftDetail";
+export type { TimelineShiftDetailModel, TimelineShiftDetailProps } from "./presentation/TimelineShiftDetail";
 export type { TimelineShiftSectionProps } from "./presentation/TimelineShiftSection";
 export { TimelineScreenShell } from "./presentation/TimelineScreenShell";
 export type { TimelineDaySectionModel, TimelineScreenShellProps } from "./presentation/TimelineScreenShell";
