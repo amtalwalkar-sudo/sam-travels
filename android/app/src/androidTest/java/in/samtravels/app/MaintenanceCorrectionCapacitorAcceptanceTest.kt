@@ -42,7 +42,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val otherExpenseId = expenseId.dropLast(36) + UUID.randomUUID()
     val expense = envelope(expenseId, now, JSONObject()
       .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
-      .put("expenseDate", "2026-10-10").put("expenseName", "Acceptance tyre repair")
+      .put("expenseDate", "2026-10-10").put("expenseName", "Accept tyre repair")
       .put("description", "Acceptance receipt").put("amountPaise", 10000L),
       JSONObject().put("personId", "person-driver-one").put("role", "driver"))
     val otherExpense = envelope(otherExpenseId, now, JSONObject()
