@@ -1,6 +1,6 @@
 # Timeline Presentation Replacement Implementation Contract
 
-**Status:** Proposed implementation contract — documentation-only phase; no Timeline implementation is authorized by this document until the user approves the contract and the visual change-control item in §4.  
+**Status:** User-approved implementation contract (15 November 2026); runtime implementation remains gated on explicit approval of the versioned v2 visual reference in §4.  
 **Target:** Sam Travels PWA main application, with shared platform-neutral presentation contracts where applicable.  
 **Scope:** Replace the Timeline screen presentation end to end while preserving authoritative event ownership, projection semantics, PWA lifecycle, offline behavior, and platform boundaries.  
 **Product intent:** A driver can quickly review any day or week, understand the sequence of work at a glance, and reveal deeper event details in clearly separated layers with very few interactions.
