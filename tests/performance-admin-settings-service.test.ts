@@ -65,6 +65,21 @@ describe("Performance Admin source records v1", () => {
       .rejects.toThrow("performance_pre_business_cost_idempotency_conflict");
   });
 
+  it("makes concurrent retries of one pre-business cost command converge on one record", async () => {
+    const repository = new MemoryRepository();
+    const service = new PerformanceAdminSettingsServiceV1(repository);
+    const input = {
+      commandId: "33333333-3333-4333-8333-333333333333",
+      amountPaise: 44_000, note: "Registration before launch", source: "web" as const,
+    };
+    const [first, retry] = await Promise.all([
+      service.createPreBusinessCost(input),
+      service.createPreBusinessCost(input),
+    ]);
+    expect(first.id).toBe(retry.id);
+    expect(await service.listEntries()).toHaveLength(1);
+  });
+
   it("adapts the authoritative Business Settings record without guessing a start date", async () => {
     const adapter = new PerformanceBusinessSettingsAdapterV1({
       get: async () => undefined,
