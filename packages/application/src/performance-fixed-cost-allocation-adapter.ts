@@ -50,12 +50,23 @@ function complianceSplit(source: CostAllocationSourceResultV1, businessStartDate
  */
 export class PerformanceFixedCostAllocationAdapterV1
 implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceCompletenessReadModel {
+  private snapshot?: ReturnType<BusinessStartDateCostAllocationService["getReport"]>;
+
   constructor(
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
   ) {}
 
+  async prepareSnapshot(): Promise<void> {
+    this.snapshot = this.allocation.getReport();
+    await this.snapshot;
+  }
+
+  releaseSnapshot(): void {
+    this.snapshot = undefined;
+  }
+
   private async report() {
-    return this.allocation.getReport();
+    return this.snapshot ?? this.allocation.getReport();
   }
 
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
