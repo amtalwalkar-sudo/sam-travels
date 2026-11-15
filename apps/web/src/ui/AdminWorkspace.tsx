@@ -1,5 +1,6 @@
 import { AdminWorkspaceShell } from "./AdminWorkspaceShell";
-import { BusinessSetupSection, VehicleSection } from "./AdminBusinessVehicle";
+import { BusinessSetupSection } from "./AdminBusinessSetupSection";
+import { VehicleSection } from "./AdminVehicleSection";
 import { BusinessStartDateCostAllocationPanel } from "./BusinessStartDateCostAllocationPanel";
 import { DriverSection } from "./AdminDriverSection";
 import { ComplianceSection } from "./AdminComplianceSection";
