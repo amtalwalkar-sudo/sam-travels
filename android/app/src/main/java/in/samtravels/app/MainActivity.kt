@@ -13,6 +13,7 @@ class MainActivity : BridgeActivity() {
         NativeMaintenanceBackup.ensureRegistered()
         NativeFinanceBackup.ensureRegistered()
         NativeBusinessExpensesBackup.ensureRegistered()
+        NativePerformanceBackup.ensureRegistered()
         registerPlugin(RoomStorePlugin::class.java)
         registerPlugin(DriverWorkflowPlugin::class.java)
         registerPlugin(TimelineEnrichmentPlugin::class.java)
