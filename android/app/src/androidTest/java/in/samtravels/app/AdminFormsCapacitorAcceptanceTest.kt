@@ -50,6 +50,7 @@ class AdminFormsCapacitorAcceptanceTest {
             }
 
             eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
+            assertTrue("Business settings form loads", await(activity, "document.body.innerText.includes('Business start date')", 15000))
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
             assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
