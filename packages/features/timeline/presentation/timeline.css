@@ -102,3 +102,7 @@
 .timeline-integrity ul{margin:8px 0 0;padding-left:18px}
 @media(min-width:620px){.timeline-detail-backdrop{align-items:center}.timeline-detail-panel{border-radius:16px}.timeline-shift-section{padding:16px}.timeline-event-card{grid-template-columns:84px minmax(0,1fr) 12px}}
 @media(max-width:360px){.timeline-week-grid{gap:2px}.timeline-week-day{padding:7px 1px}.timeline-week-day span{font-size:8px}.timeline-week-day small{font-size:7px}.timeline-event-card{grid-template-columns:58px minmax(0,1fr) 10px;gap:6px;padding:9px 6px}}
+
+.timeline-summary header button{border:0;background:transparent;color:#65b9e8;font-size:9px;font-weight:750;letter-spacing:.04em;cursor:pointer}
+.timeline-summary header button:focus-visible{outline:2px solid #65b9e8;outline-offset:3px;border-radius:3px}
+.timeline-shift-detail-metrics div small{display:block;margin-top:5px;color:#8295a3;font-size:8px;text-transform:uppercase}
