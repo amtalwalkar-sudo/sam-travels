@@ -89,7 +89,7 @@ function ShiftSummary({ shift, onOpen }: { shift: TimelineShiftProjection; onOpe
 }
 
 function locationLabel(event: DriverEvent, location?: TimelineLocationEnrichment): string {
-  if (location?.status === "resolved") return location.label;
+  if (location?.status === "resolved") return location.label ?? "Location captured · place name not available";
   if (location?.status === "network_disabled") return "Location captured · Internet access disabled";
   if (location?.status === "pending") return "Location captured · place name pending";
   if (location?.status === "unavailable") return "Location captured · place name will retry";
