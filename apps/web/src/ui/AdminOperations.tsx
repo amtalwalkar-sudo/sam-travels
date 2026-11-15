@@ -199,8 +199,8 @@ export function ComplianceSection() {
   const [message,setMessage]=useState("");
   const refresh=useCallback(async()=>{
     try{
-      const [v,r]=await Promise.all([services.vehicles.list(),services.compliance.list()]);
-      setVehicles(v);setRecords(r);setVehicleId(current=>current||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"");
+      const [v,overview]=await Promise.all([services.vehicles.list(),services.complianceAnalysis.getOverview()]);
+      setVehicles(v);setRecords([...overview.records]);setVehicleId(current=>current||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"");
     }catch(e){setMessage(e instanceof Error?e.message:"Could not load compliance records.");}
   },[services]);
   useEffect(()=>{void refresh();},[refresh]);
