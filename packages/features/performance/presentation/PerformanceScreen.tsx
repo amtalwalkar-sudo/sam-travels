@@ -30,8 +30,8 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     setLoading(true); setError(""); setDistanceError("");
     try {
       const [selectedPeriod, distance] = await Promise.allSettled([
-        context.calculation.calculate(from, to),
-        context.fullCostBreakeven.calculate(from, to),
+        Promise.resolve().then(() => context.calculation.calculate(from, to)),
+        Promise.resolve().then(() => context.fullCostBreakeven.calculate(from, to)),
       ]);
       if (selectedPeriod.status === "rejected") throw selectedPeriod.reason;
       setResult(selectedPeriod.value);
