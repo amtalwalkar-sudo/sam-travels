@@ -72,3 +72,8 @@
 .performance-range-presets button{border:1px solid #dce4e9;background:#fff;color:#60717c;border-radius:9px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer}
 .performance-range-presets button.active{background:#18364a;color:#fff;border-color:#18364a}
 .performance-range-presets button:disabled{opacity:.45;cursor:not-allowed}
+
+.performance-completeness-banner{display:inline-flex;align-items:center;border-radius:99px;padding:7px 10px;font-size:10px;font-weight:800;text-decoration:none}
+.performance-completeness-banner.review{background:#fff4e5;color:#94621b}
+.performance-completeness-banner.complete{background:#e9f7ef;color:#21764e}
+.performance-completeness-banner:hover{text-decoration:underline}
