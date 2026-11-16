@@ -183,7 +183,6 @@ try {
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   const recovery = page.locator(".performance-recovery");
   await recovery.locator(".performance-recovery-summary").waitFor();
-  console.log("Performance recovery detail:", await recovery.innerText());
   await recovery.locator("td").filter({ hasText: note }).first().waitFor();
   const summary = await recovery.locator(".performance-recovery-summary").innerText();
   if (!summary.includes(businessStartDate) || !summary.includes(recoveryToExclusive)) {
@@ -203,7 +202,7 @@ try {
   console.log("Monthly roll-up preserves the full configured target for partial calendar months.");
 
   const provenance = page.locator("#performance-provenance");
-  await provenance.locator("summary").click();
+  await provenance.locator("summary").first().click();
   await provenance.getByText("performance.calculation.v1", { exact: false }).waitFor().catch(() => {});
   await provenance.getByText("Calculation ID", { exact: false }).waitFor();
   console.log("Performance calculation provenance and completeness disclosure rendered.");
