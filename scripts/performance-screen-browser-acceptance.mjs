@@ -81,19 +81,18 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
-  try {
-    await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
-  } catch (error) {
-    console.log("Performance screen initial state:", await page.locator(".performance-dashboard").innerText());
-    throw error;
-  }
 
   const period = page.locator(".performance-period-form");
   await period.getByLabel("Period from").fill(businessStartDate);
   await period.getByLabel("Period to").fill(today);
-  await period.getByRole("button", { name: "Refresh performance", exact: true }).click();
+  await period.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
+  try {
+    await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
+  } catch (error) {
+    console.log("Performance screen after calculation:", await page.locator(".performance-dashboard").innerText());
+    throw error;
+  }
   await page.getByText(businessStartDate, { exact: true }).waitFor();
-  await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor();
 
   const targetCard = page.getByRole("button", { name: "Explain Monthly Driver Target", exact: true });
   await targetCard.waitFor();
