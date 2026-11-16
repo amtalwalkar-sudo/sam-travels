@@ -1,7 +1,5 @@
 package `in`.samtravels.app
 
-import androidx.room.RoomDatabase
-
 /**
  * Process-wide startup gate shared by the driver plugin, overlay service, and
  * backup plugin. An unverified restore is rolled back only when a new process
