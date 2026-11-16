@@ -212,20 +212,15 @@ jobs:
             gradle -p android :app:installDebug :app:installDebugAndroidTest
             adb -s emulator-5554 shell pm path in.samtravels.app
             adb -s emulator-5554 shell pm path in.samtravels.app.test
-            echo "Prepare durable Room state"
-            output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)" || { status=$?; printf "%s\\n" "$output"; exit "$status"; }
-            printf "%s\\n" "$output"
-            printf "%s\n" "$output"
-            printf '%s\n' "$output" | grep -Fq "OK (1 test)"
-            if printf '%s\n' "$output" | grep -Fq "FAILURES!!!"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi
-            echo "Force-stop both packages without reinstalling"
+            echo "Prepare durable Room state in the first instrumentation process"
+            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
+            echo "Force-stop both packages to create a real process boundary"
             adb -s emulator-5554 shell am force-stop in.samtravels.app
             adb -s emulator-5554 shell am force-stop in.samtravels.app.test
-            echo "Recover from the same installed app data in a fresh instrumentation process"
-            output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)" || { status=$?; printf "%s\\n" "$output"; exit "$status"; }
-            printf "%s\\n" "$output"
-            printf '%s\n' "$output" | grep -Fq "OK (1 test)"
-            if printf '%s\n' "$output" | grep -Fq "FAILURES!!!"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi
+            echo "Reinstall only the instrumentation APK; preserve target app Room data"
+            gradle -p android :app:installDebugAndroidTest
+            echo "Recover persisted pending workflow in a fresh instrumentation process"
+            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart
             echo "Run all remaining Android instrumentation tests"
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest
       - name: Publish unsigned release APK from merged main
