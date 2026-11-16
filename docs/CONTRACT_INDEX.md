@@ -91,7 +91,8 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
-- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
+- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — historical upstream contract/code comparison; retain its original baseline and evidence, while using the post-PR #93 conformance audit for current Performance status.
+- [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) — current-main audit of calculation ownership, source-to-consumer wiring, fixed-cost allocation authority, snapshot consistency, policy conflicts and targeted correction priorities.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
@@ -111,7 +112,8 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 
 ## Current evidence discipline
 
-- PR #69 is the active integrated reliability and cross-platform workstream; use its current head SHA and CI run for current automated evidence.
+- PR #69 is a historical merged integrated reliability and cross-platform workstream; its recorded head and CI run are evidence for that baseline, not a live open workstream.
+- For current Performance implementation status, use the post-PR #93 [Performance End-to-End Conformance Audit](PERFORMANCE_END_TO_END_IMPLEMENTATION_CONFORMANCE_AUDIT.md); for cross-domain calculation ownership and wiring, use the [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md).
 - Green CI proves only the jobs and tests it ran. It does not prove physical-device acceptance, OS/OEM force-stop behaviour or live Dropbox account acceptance.
 - The [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) records form-specific evidence. It does not certify every possible form/surface/lifecycle combination.
 - Historical audit documents must not be rewritten to appear as if they were performed on the current commit.
