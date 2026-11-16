@@ -316,6 +316,7 @@ try {
   await page.getByRole("columnheader", { name: "Eligible costs", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   await page.getByText("Recovery window", { exact: true }).waitFor({ state: "visible" });
+  await page.locator(".performance-provenance > summary").click();
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
   console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
 
