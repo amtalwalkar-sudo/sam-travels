@@ -64,6 +64,18 @@ try {
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
 
   const adminSections = page.getByRole("navigation", { name: "Admin sections" });
+  await adminSections.getByRole("button", { name: "Vehicle", exact: true }).click();
+  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
+  await page.getByLabel("Registration number").fill("MH00PS0093");
+  await page.getByLabel("Make").fill("Acceptance");
+  await page.getByLabel("Model").fill("Performance");
+  await page.getByLabel("Vehicle type").fill("Car");
+  await page.getByLabel("Fuel type").selectOption("CNG");
+  await page.getByLabel("Year of manufacture").fill("2024");
+  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
+  await page.getByText("MH00PS0093", { exact: true }).waitFor();
+  console.log("Single active vehicle configured for the Performance distance projection.");
+
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
