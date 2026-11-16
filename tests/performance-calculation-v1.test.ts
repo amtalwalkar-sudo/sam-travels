@@ -51,6 +51,23 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(result.daily.every(row => row.date < result.toExclusive)).toBe(true);
   });
 
+  it("weights a partial first calendar month by its operational-day count", () => {
+    // The exact 18-month window has 549 operational dates here. At 100 paise
+    // per date, the 17-day partial March receives 1,700 paise versus 3,000
+    // paise for the following 30-day full month.
+    const result = allocatePreBusinessRecoveryV1("2026-03-15", [
+      { sourceId: "partial-month", revision: 1, amountPaise: 54_900, note: "setup", origin: "manual" },
+    ]);
+    const march = result.daily.filter(row => row.date.startsWith("2026-03"))
+      .reduce((sum, row) => sum + row.amountPaise, 0);
+    const april = result.daily.filter(row => row.date.startsWith("2026-04"))
+      .reduce((sum, row) => sum + row.amountPaise, 0);
+    expect(march).toBe(1_700);
+    expect(april).toBe(3_000);
+    expect(march / 17).toBe(april / 30);
+    expect(result.toExclusive).toBe("2027-09-15");
+  });
+
   it("allocates remainder paise deterministically and reconciles multiple independent entries", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "a", revision: 1, amountPaise: 1, note: "one paise", origin: "manual" },
