@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
 import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
@@ -20,27 +20,35 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [distanceProjection, setDistanceProjection] = useState<BreakevenPeriodResultV1>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [distanceError, setDistanceError] = useState("");
   const [activeView, setActiveView] = useState<"daily" | "monthly" | "recovery">("daily");
   const [selectedInsight, setSelectedInsight] = useState("lifetime-target-position");
 
   async function calculate(event?: FormEvent) {
     event?.preventDefault();
     if (!from || !to || from > to) return;
-    setLoading(true); setError("");
+    setLoading(true); setError(""); setDistanceError("");
     try {
-      const [selectedPeriod, distance] = await Promise.all([
+      const [selectedPeriod, distance] = await Promise.allSettled([
         context.calculation.calculate(from, to),
         context.fullCostBreakeven.calculate(from, to),
       ]);
-      setResult(selectedPeriod);
-      setDistanceProjection(distance);
-
+      if (selectedPeriod.status === "rejected") throw selectedPeriod.reason;
+      setResult(selectedPeriod.value);
+      if (distance.status === "fulfilled") {
+        setDistanceProjection(distance.value);
+      } else {
+        setDistanceProjection(undefined);
+        setDistanceError(distance.reason instanceof Error ? distance.reason.message : "Confirmed distance projection is unavailable.");
+      }
     }
     catch (reason) {
       setResult(undefined); setDistanceProjection(undefined);
       setError(reason instanceof Error ? reason.message : "Performance calculation failed.");
     } finally { setLoading(false); }
   }
+
+  useEffect(() => { void calculate(); }, []);
 
   const categories = result ? aggregateCosts(result) : [];
   const months = result ? monthlyTotals(result) : [];
@@ -82,6 +90,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       </button>
     </form>
     {error && <p className="performance-error" role="alert">{error}</p>}
+    {distanceError && <p className="performance-loading" role="status">Distance and fuel-per-km metrics unavailable: {distanceError}</p>}
     {!result && !loading && !error && <div className="performance-empty">
       <strong>Ready to calculate</strong><p>Choose the reporting period and refresh to load the Performance figures.</p>
     </div>}
@@ -155,11 +164,11 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <span>Total eligible pre-business amounts <strong>{money(result.recovery.totalPaise)}</strong></span></div>
           <div className="performance-table-wrap"><table className="performance-table">
             <thead><tr><th>Source / note</th><th>Origin</th><th>Allocated daily</th><th>Source revision</th></tr></thead>
-            <tbody>{result.recovery.daily.slice(-90).map((row, index) => <tr key={row.sourceId + ":" + row.date + ":" + index}>
+            <tbody>{result.recovery.daily.filter(row => row.date >= result.periodFrom && row.date <= result.periodTo).slice(-90).map((row, index) => <tr key={row.sourceId + ":" + row.date + ":" + index}>
               <td>{row.note}<small className="performance-subtext">{row.date}</small></td><td>{row.origin}</td>
               <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("recovery-allocation")}>{money(row.amountPaise)}</button></td>
               <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("recovery-source-revision")}>{row.sourceId} · r{row.revision}</button></td></tr>)}</tbody>
-          </table></div><p className="performance-explainer">Showing at most the most recent 90 allocated recovery dates. The calculation window is exactly 18 months from business start.</p>
+          </table></div><p className="performance-explainer">Showing at most the most recent 90 recovery dates within the selected period. The full calculation window is exactly 18 months from business start.</p>
         </div>}
       </section>
       <section className="performance-category-panel" aria-labelledby="performance-category-list-title">
