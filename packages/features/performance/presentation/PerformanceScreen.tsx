@@ -82,7 +82,6 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [to, setTo] = useState(today);
   const [rangePreset, setRangePreset] = useState<"today" | "week" | "month" | "custom" | "lifetime">("month");
   const [result, setResult] = useState<PerformanceCalculationResultV1>();
-  const [monthToDate, setMonthToDate] = useState<PerformanceCalculationResultV1>();
   const [distanceProjection, setDistanceProjection] = useState<BreakevenPeriodResultV1>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -100,13 +99,10 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       ]);
       setResult(selectedPeriod);
       setDistanceProjection(distance);
-      const currentOperationalDate = operationalToday();
-      try {
-        setMonthToDate(await context.calculation.calculate(currentOperationalDate.slice(0, 7) + "-01", currentOperationalDate));
-      } catch { setMonthToDate(undefined); }
+
     }
     catch (reason) {
-      setResult(undefined); setMonthToDate(undefined); setDistanceProjection(undefined);
+      setResult(undefined); setDistanceProjection(undefined);
       setError(reason instanceof Error ? reason.message : "Performance calculation failed.");
     } finally { setLoading(false); }
   }
@@ -117,8 +113,10 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const businessKm = distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
   const fuelCostPaise = categories.find(item => item.key === "fuel")?.amount ?? 0;
   const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
-  const monthToDateAchievementPercent = monthToDate && monthToDate.period.monthlyDriverTargetPaise > 0
-    ? Math.round(monthToDate.period.profitPaise / monthToDate.period.monthlyDriverTargetPaise * 100)
+  const currentOperationalDate = operationalToday();
+  const isMonthToDateSelected = !!result && from === currentOperationalDate.slice(0, 7) + "-01" && to === currentOperationalDate;
+  const monthToDateAchievementPercent = isMonthToDateSelected && result.period.monthlyDriverTargetPaise > 0
+    ? Math.round(result.period.profitPaise / result.period.monthlyDriverTargetPaise * 100)
     : undefined;
   const insightDefinitions: Record<string, { label: string; formula: string }> = {
     "period-revenue": { label: "Period revenue", formula: "Verified gross completed fares + verified cancellation fees, summed over the selected operational dates. Unverified revenue is excluded." },
@@ -181,8 +179,8 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Eligible period costs" onClick={() => setSelectedInsight("period-cost")}><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period net position" onClick={() => setSelectedInsight("period-net")}><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Monthly Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
-          {monthToDate ? <span>Month-to-date net: {signedMoney(monthToDate.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
-            : <span>Month-to-date achievement is currently unavailable.</span>}</button>
+          {isMonthToDateSelected ? <span>Month-to-date net: {signedMoney(result.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
+            : <span>Select This month to view month-to-date achievement.</span>}</button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Business distance" onClick={() => setSelectedInsight("business-distance")}><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Fuel cost per business km" onClick={() => setSelectedInsight("fuel-per-km")}><small>Fuel cost per business km</small><strong>{fuelCostPerBusinessKmPaise === undefined ? "—" : money(fuelCostPerBusinessKmPaise)}</strong><span>{businessKm > 0 ? "Selected-period fuel cost ÷ confirmed business km" : "Unavailable without confirmed distance"}</span></button>
       </section>
