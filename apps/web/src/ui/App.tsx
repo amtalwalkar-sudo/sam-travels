@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from "react";
-import type { FullCostBreakevenService } from "../../../../packages/application/src";
+import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -19,7 +19,7 @@ export type AppProps = Readonly<{
 /** Application composition owns global services and shell injection, not feature screen internals. */
 export function App({
   ShellRenderer = ApplicationShell, runtimeRegistry, platformRepository,
-  fullCostBreakeven, showBreakevenSanityCheck,
+  fullCostBreakeven, performanceCalculation,
 }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
   const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
