@@ -171,7 +171,10 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     {result && <>
       <div className="performance-meta"><span>Business started <strong>{result.businessStartDate}</strong></span>
         <span>Selected period <strong>{result.periodFrom} — {result.periodTo}</strong></span>
-        <span>Operational days <strong>{result.daily.length}</strong></span></div>
+        <span>Operational days <strong>{result.daily.length}</strong></span>
+        <a className={incomplete.length > 0 ? "performance-completeness-banner review" : "performance-completeness-banner complete"} href="#performance-provenance">
+          {incomplete.length > 0 ? "Provisional · " + incomplete.length + " source checks need review" : "Completeness checks passed"}
+        </a></div>
 
       <section className="performance-kpi-grid" aria-label="Selected period results">
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period revenue" onClick={() => setSelectedInsight("period-revenue")}><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></button>
@@ -243,7 +246,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       <section className="performance-check-numbers" aria-labelledby="performance-check-numbers-title">
       <header><small>CHECK MY NUMBERS</small><h3 id="performance-check-numbers-title">How each figure was calculated</h3></header>
       <div className="performance-insight" aria-live="polite"><h4>{insight.label}</h4><p className="performance-formula">{insight.formula}</p><details><summary>Source-record path ({result.provenance.sourceRefs.length} source references)</summary><p>These immutable source IDs and revisions are passed through the Performance calculation provenance from their owning modules. Use the owning module's record/history view to inspect or correct source data; Performance is read-only.</p><ul>{result.provenance.sourceRefs.map((ref, index) => <li key={ref.sourceId + ":" + ref.revision + ":" + index}>{ref.sourceId} · revision {ref.revision}</li>)}</ul></details></div>
-      <details className="performance-provenance"><summary>Calculation completeness & source provenance ({result.provenance.sourceRefs.length} source references)</summary>
+      <details className="performance-provenance" id="performance-provenance"><summary>Calculation completeness & source provenance ({result.provenance.sourceRefs.length} source references)</summary>
         {incomplete.length === 0 ? <p>All supplied completeness checks are complete.</p> : <ul>{incomplete.map((item, index) =>
           <li key={item.source + ":" + index}><strong>{item.source}:</strong> {item.status}{item.detail ? " — " + item.detail : ""}</li>)}</ul>}
         <p>Calculation ID {result.calculationId} · version {result.calculationVersion}</p>
