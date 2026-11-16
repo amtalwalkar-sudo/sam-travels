@@ -253,7 +253,7 @@ try {
 
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Expense date").fill(today);
-  await page.getByLabel("Category").fill("Parking");
+  await page.getByRole("textbox", { name: "Category", exact: true }).fill("Parking");
   await page.getByLabel("Toll / parking treatment (required for Toll or Parking category)").selectOption("standalone");
   await page.getByLabel("Amount (₹)").last().fill("50");
   await page.getByLabel("Vehicle", { exact: true }).last().fill(vehicleId);
