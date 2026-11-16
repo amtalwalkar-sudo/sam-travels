@@ -131,6 +131,17 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     "lifetime-target": { label: "Accumulated target", formula: "Configured monthly Driver Target × elapsed calendar months from business start through selected period-to month, counting both start and end months." },
     "lifetime-target-position": { label: "Lifetime target position", formula: "Lifetime net profit − accumulated target. Positive means ahead of the accumulated target; negative means shortfall." },
     "target-month-count": { label: "Target months counted", formula: "Calendar month count from business start month through selected period-to month, inclusive." },
+    "daily-revenue": { label: "Daily revenue", formula: "Verified completed-ride gross fare + verified cancellation fees for this operational date." },
+    "daily-cost": { label: "Daily eligible costs", formula: "All verified eligible costs and allocated recoveries recorded for this operational date; EMI and Compliance remain separate categories." },
+    "daily-net": { label: "Daily net position", formula: "Daily verified revenue − daily eligible costs." },
+    "daily-completeness": { label: "Daily record completeness", formula: "A review status derived from the calculation's source completeness checks. Provisional or incomplete source records are not treated as verified totals." },
+    "monthly-revenue": { label: "Monthly revenue", formula: "Verified revenue aggregated for the dates included in the selected period for this calendar month." },
+    "monthly-cost": { label: "Monthly eligible costs", formula: "Eligible costs aggregated for the dates included in the selected period for this calendar month." },
+    "monthly-net": { label: "Monthly net position", formula: "Monthly aggregate revenue − monthly aggregate eligible costs." },
+    "monthly-target": { label: "Monthly Driver Target", formula: "The full fixed monthly rupee target is shown, even if the selected period contains only part of a calendar month." },
+    "monthly-target-position": { label: "Monthly target position", formula: "Net position for the included dates in the month − full configured monthly target. Target is not prorated for a partial month." },
+    "recovery-allocation": { label: "Pre-business recovery allocation", formula: "The source amount is allocated evenly over operational days in the exact 18-month recovery window, with partial first-month weighting based on operational days." },
+    "recovery-source-revision": { label: "Recovery source revision", formula: "The immutable revision identifier for the manual pre-business, pre-business EMI, or pre-business Compliance source record used in this recovery allocation." },
   };
   const insight = insightDefinitions[selectedInsight] ?? {
     label: selectedInsight.startsWith("cost-kind:") ? CATEGORY_LABELS[selectedInsight.slice(9) as PerformanceCostKindV1] ?? "Cost category" : "Performance figure",
@@ -213,17 +224,21 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         {activeView === "daily" && <div className="performance-table-wrap"><table className="performance-table">
           <thead><tr><th>Operational date</th><th>Revenue</th><th>Costs</th><th>Net</th><th>Record status</th></tr></thead>
           <tbody>{result.daily.slice().reverse().map(row => <tr key={row.date}>
-            <td>{row.date}</td><td>{money(row.grossRevenuePaise)}</td><td>{money(row.totalCostPaise)}</td>
-            <td className={row.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(row.profitPaise)}</td>
-            <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
+            <td>{row.date}</td><td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("daily-revenue")}>{money(row.grossRevenuePaise)}</button></td>
+            <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("daily-cost")}>{money(row.totalCostPaise)}</button></td>
+            <td><button type="button" className={"performance-table-number " + (row.profitPaise >= 0 ? "positive" : "negative")} onClick={() => setSelectedInsight("daily-net")}>{signedMoney(row.profitPaise)}</button></td>
+            <td><button type="button" className={"performance-table-number " + (row.complete ? "positive" : "negative")} onClick={() => setSelectedInsight("daily-completeness")}><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></button></td>
           </tr>)}</tbody>
         </table></div>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
           <caption>Monthly Driver Passbook · full configured target is shown for each month, even when selected dates cover only part of it.</caption>
           <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
-          <tbody>{months.map(row => <tr key={row.month}><td>{row.month}</td><td>{money(row.revenue)}</td><td>{money(row.cost)}</td>
-            <td className={row.profit >= 0 ? "positive" : "negative"}>{signedMoney(row.profit)}</td><td>{money(row.target)}</td>
-            <td className={row.targetPosition >= 0 ? "positive" : "negative"}>{signedMoney(row.targetPosition)}</td></tr>)}</tbody>
+          <tbody>{months.map(row => <tr key={row.month}><td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-net")}>{row.month}</button></td>
+            <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-revenue")}>{money(row.revenue)}</button></td>
+            <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-cost")}>{money(row.cost)}</button></td>
+            <td><button type="button" className={"performance-table-number " + (row.profit >= 0 ? "positive" : "negative")} onClick={() => setSelectedInsight("monthly-net")}>{signedMoney(row.profit)}</button></td>
+            <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-target")}>{money(row.target)}</button></td>
+            <td><button type="button" className={"performance-table-number " + (row.targetPosition >= 0 ? "positive" : "negative")} onClick={() => setSelectedInsight("monthly-target-position")}>{signedMoney(row.targetPosition)}</button></td></tr>)}</tbody>
         </table></div>}
         {activeView === "recovery" && <div className="performance-recovery">
           <div className="performance-recovery-summary"><span>Recovery window <strong>{result.recovery.from} — {result.recovery.toExclusive} (exclusive)</strong></span>
@@ -232,7 +247,8 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <thead><tr><th>Source / note</th><th>Origin</th><th>Allocated daily</th><th>Source revision</th></tr></thead>
             <tbody>{result.recovery.daily.slice(-90).map((row, index) => <tr key={row.sourceId + ":" + row.date + ":" + index}>
               <td>{row.note}<small className="performance-subtext">{row.date}</small></td><td>{row.origin}</td>
-              <td>{money(row.amountPaise)}</td><td>{row.sourceId} · r{row.revision}</td></tr>)}</tbody>
+              <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("recovery-allocation")}>{money(row.amountPaise)}</button></td>
+              <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("recovery-source-revision")}>{row.sourceId} · r{row.revision}</button></td></tr>)}</tbody>
           </table></div><p className="performance-explainer">Showing at most the most recent 90 allocated recovery dates. The calculation window is exactly 18 months from business start.</p>
         </div>}
       </section>
