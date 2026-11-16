@@ -8,7 +8,7 @@ concurrency:
   group: sam-travels-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   architecture:
     runs-on: ubuntu-24.04
@@ -216,6 +216,51 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             bash -euo pipefail -c 'echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest; echo "Install target and instrumentation APKs before restart phases"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state in a direct instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Preparation instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Preparation instrumentation reported failures" >&2; exit 1 ;; esac; echo "Force-stop target and instrumentation packages to prove process restart"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover pending workflow in a separate instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Recovery instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Recovery instrumentation reported failures" >&2; exit 1 ;; esac; echo "Run remaining Android instrumentation suite excluding special cases"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest'
+      - name: Build update-compatible signed APK from merged main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/android-signing/release.jks"
+          test -s "$RUNNER_TEMP/android-signing/release.jks"
+          git fetch --force --tags
+          latest="$(git tag --list 'android-v[0-9]*' | sed 's/^android-v//' | awk '/^[0-9]+$/ { if ($1 > max) max=$1 } END { print max+0 }')"
+          VERSION_CODE=$((latest + 1))
+          VERSION_NAME="0.${VERSION_CODE}.0"
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/android-signing/release.jks"
+          export ANDROID_KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+          export ANDROID_KEY_ALIAS="$KEY_ALIAS"
+          export ANDROID_KEY_PASSWORD="$KEY_PASSWORD"
+          gradle -p android :app:assembleRelease -PVERSION_CODE="$VERSION_CODE" -PVERSION_NAME="$VERSION_NAME"
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='in.samtravels.app' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/android-signing/apk-sha256.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "android-v$VERSION_CODE" -m "Sam Travels Android $VERSION_NAME (versionCode $VERSION_CODE)"
+          git push origin "android-v$VERSION_CODE"
+      - name: Publish update-compatible signed APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sam-travels-update-apk
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            ${{ runner.temp }}/android-signing/apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove temporary Android signing material
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: rm -rf "$RUNNER_TEMP/android-signing"
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
