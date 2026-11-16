@@ -20,7 +20,8 @@
     "check:stage5": "node scripts/check-stage-5.mjs",
     "deploy:geocoder": "npx wrangler@4 deploy --config services/geocoder/wrangler.toml",
     "test:geocoder": "vitest run services/geocoder/index.test.ts tests/timeline-reverse-geocoding.test.ts",
-    "remove:breakeven-sanity-check": "node scripts/remove-breakeven-sanity-check.mjs"
+    "remove:breakeven-sanity-check": "node scripts/remove-breakeven-sanity-check.mjs",
+    "check:docs": "node scripts/check-markdown-links.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
