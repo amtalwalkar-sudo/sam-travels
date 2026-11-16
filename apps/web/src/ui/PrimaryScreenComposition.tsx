@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
+import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
@@ -10,13 +10,14 @@ export type PrimaryScreenCompositionProps = Readonly<{
   runtimeRegistry: RuntimeRegistry;
   workspace: ReturnType<typeof useDriverWorkspace>;
   performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
+  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
   children: ReactNode;
 }>;
 
 /** Replaceable screen composition; feature renderers remain opaque behind their typed host contracts. */
 export function PrimaryScreenComposition({
   activeScreen, runtimeRegistry, workspace,
-  performanceCalculation, children,
+  performanceCalculation, fullCostBreakeven, children,
 }: PrimaryScreenCompositionProps) {
   return <>
     <div hidden={activeScreen !== "Drive"}>{children}</div>
@@ -29,7 +30,7 @@ export function PrimaryScreenComposition({
       <section className="screen-heading">
         <small>YOUR WORKSPACE</small><h1>Performance</h1>
         <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
-          contextContract={{ id: "performance.host", version: 1 }} context={{ calculation: performanceCalculation }} />
+          contextContract={{ id: "performance.host", version: 1 }} context={{ calculation: performanceCalculation, fullCostBreakeven }} />
       </section>
     )}
     {activeScreen === "Admin" && (
