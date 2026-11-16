@@ -109,7 +109,7 @@ try {
     console.log("Performance errors:", await page.locator(".performance-error, .performance-loading, .performance-empty").allTextContents());
     throw error;
   }
-  await page.getByText(businessStartDate, { exact: true }).waitFor();
+  await page.locator(".performance-meta").getByText(businessStartDate, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Explain Business distance", exact: true }).waitFor();
   if (await page.locator(".performance-error").count()) {
     throw new Error("optional_distance_projection_failure_blocked_core_performance_calculation");
