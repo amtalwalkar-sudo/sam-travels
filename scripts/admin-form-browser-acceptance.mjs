@@ -296,7 +296,7 @@ try {
   await page.getByRole("status").filter({ hasText: "Per-kilometre rate saved with effective-date history." }).waitFor({ state: "visible" });
   console.log("Maintenance visit, general expense and effective-date rate workflows submitted.");
 
-  await page.getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByLabel("Monthly Driver Target (₹)").fill("45000");
   await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
