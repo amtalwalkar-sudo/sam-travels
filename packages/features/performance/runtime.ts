@@ -53,6 +53,5 @@ export const PERFORMANCE_FEATURE_EXTENSION: FeatureExtensionDefinition = Object.
   version: 1,
   featureId: "performance",
   publicEntryPoint: "packages/features/performance/index.ts",
-  feature: PERFORMANCE_FEATURE,
   presentationScreens: [PERFORMANCE_PRESENTATION_SCREEN_V1],
 });
