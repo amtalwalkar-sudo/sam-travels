@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from "react";
 import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
+import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
+import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1, PerformanceCostKindV1 } from "../../../domain/src/performance-calculation-v1";
 import "./performance-screen.css";
 
 type PerformanceScreenContext = Readonly<{
   calculation: Pick<PerformanceCalculationServiceV1, "calculate">;
+  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
 }>;
 
 const CATEGORY_LABELS: Readonly<Record<PerformanceCostKindV1, string>> = {
@@ -57,13 +60,18 @@ function monthlyTotals(result: PerformanceCalculationResultV1) {
     item.revenue += row.grossRevenuePaise; item.cost += row.totalCostPaise; item.profit += row.profitPaise;
     totals.set(month, item);
   }
-  return [...totals].map(([month, item]) => ({ month, ...item }));
+  return [...totals].map(([month, item]) => ({ month, ...item,
+    target: result.period.monthlyDriverTargetPaise,
+    targetPosition: item.profit - result.period.monthlyDriverTargetPaise,
+  }));
 }
 
 export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
   const [from, setFrom] = useState(localDateOffset(29));
   const [to, setTo] = useState(localDateOffset(0));
   const [result, setResult] = useState<PerformanceCalculationResultV1>();
+  const [monthToDate, setMonthToDate] = useState<PerformanceCalculationResultV1>();
+  const [distanceProjection, setDistanceProjection] = useState<BreakevenPeriodResultV1>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<"daily" | "monthly" | "recovery">("daily");
@@ -72,9 +80,20 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     event?.preventDefault();
     if (!from || !to || from > to) return;
     setLoading(true); setError("");
-    try { setResult(await context.calculation.calculate(from, to)); }
+    try {
+      const [selectedPeriod, distance] = await Promise.all([
+        context.calculation.calculate(from, to),
+        context.fullCostBreakeven.calculate(from, to),
+      ]);
+      setResult(selectedPeriod);
+      setDistanceProjection(distance);
+      const today = localDateOffset(0);
+      try {
+        setMonthToDate(await context.calculation.calculate(today.slice(0, 7) + "-01", today));
+      } catch { setMonthToDate(undefined); }
+    }
     catch (reason) {
-      setResult(undefined);
+      setResult(undefined); setMonthToDate(undefined); setDistanceProjection(undefined);
       setError(reason instanceof Error ? reason.message : "Performance calculation failed.");
     } finally { setLoading(false); }
   }
@@ -82,11 +101,17 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const categories = result ? aggregateCosts(result) : [];
   const months = result ? monthlyTotals(result) : [];
   const incomplete = result?.provenance.completeness.filter(item => item.status !== "complete") ?? [];
+  const businessKm = distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
+  const fuelCostPaise = categories.find(item => item.key === "fuel")?.amount ?? 0;
+  const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
+  const monthToDateAchievementPercent = monthToDate && monthToDate.period.monthlyDriverTargetPaise > 0
+    ? Math.round(monthToDate.period.profitPaise / monthToDate.period.monthlyDriverTargetPaise * 100)
+    : undefined;
 
   return <section className="performance-dashboard" aria-labelledby="performance-dashboard-title">
     <header className="performance-dashboard-heading">
       <div><small>BUSINESS HEALTH · CONTRACT V1</small><h2 id="performance-dashboard-title">Performance overview</h2>
-        <p>Verified revenue and eligible costs, calculated from your actual business start date.</p></div>
+        <p>Start with the business story, then explore costs and source details. Figures use verified records from your actual business start date.</p></div>
       <span className="performance-version">Calculation v{result?.calculationVersion ?? 1}</span>
     </header>
 
@@ -112,9 +137,15 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <article className="performance-kpi"><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></article>
         <article className="performance-kpi"><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></article>
         <article className="performance-kpi"><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></article>
-        <article className="performance-kpi"><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span></article>
+        <article className="performance-kpi"><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
+          {monthToDate ? <span>Month-to-date net: {signedMoney(monthToDate.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
+            : <span>Month-to-date achievement is currently unavailable.</span>}</article>
+        <article className="performance-kpi"><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></article>
+        <article className="performance-kpi"><small>Fuel cost per business km</small><strong>{fuelCostPerBusinessKmPaise === undefined ? "—" : money(fuelCostPerBusinessKmPaise)}</strong><span>{businessKm > 0 ? "Selected-period fuel cost ÷ confirmed business km" : "Unavailable without confirmed distance"}</span></article>
       </section>
 
+      <section className="performance-story" aria-labelledby="performance-lifetime-title">
+      <div className="performance-story-title"><small>THE BUSINESS STORY</small><h3>Am I ahead of breakeven?</h3></div>
       <section className="performance-lifetime" aria-labelledby="performance-lifetime-title">
         <header><div><small>FROM BUSINESS START DATE THROUGH PERIOD END</small><h3 id="performance-lifetime-title">Lifetime breakeven & target position</h3></div>
           <span className={result.lifetime.targetPositionPaise >= 0 ? "performance-position positive" : "performance-position negative"}>{signedMoney(result.lifetime.targetPositionPaise)}</span></header>
@@ -127,8 +158,11 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         </div>
         <p className="performance-explainer">Target position is lifetime net profit minus the fixed monthly target multiplied by elapsed calendar months since business start (including the start and period-to months).</p>
       </section>
+      </section>
 
-      <section className="performance-detail-panel">
+      <section className="performance-understand" aria-labelledby="performance-understand-title">
+      <header><small>UNDERSTAND MY BUSINESS</small><h3 id="performance-understand-title">Where the money goes</h3></header>
+      <section className="performance-category-panel" aria-labelledby="performance-cost-breakdown-title">
         <div className="performance-tabs" role="tablist" aria-label="Performance detail views">
           <button type="button" role="tab" aria-selected={activeView === "daily"} className={activeView === "daily" ? "active" : ""} onClick={() => setActiveView("daily")}>Daily details</button>
           <button type="button" role="tab" aria-selected={activeView === "monthly"} className={activeView === "monthly" ? "active" : ""} onClick={() => setActiveView("monthly")}>Monthly roll-up</button>
@@ -143,9 +177,11 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           </tr>)}</tbody>
         </table></div>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
-          <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th></tr></thead>
+          <caption>Monthly Driver Passbook · full configured target is shown for each month, even when selected dates cover only part of it.</caption>
+          <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
           <tbody>{months.map(row => <tr key={row.month}><td>{row.month}</td><td>{money(row.revenue)}</td><td>{money(row.cost)}</td>
-            <td className={row.profit >= 0 ? "positive" : "negative"}>{signedMoney(row.profit)}</td></tr>)}</tbody>
+            <td className={row.profit >= 0 ? "positive" : "negative"}>{signedMoney(row.profit)}</td><td>{money(row.target)}</td>
+            <td className={row.targetPosition >= 0 ? "positive" : "negative"}>{signedMoney(row.targetPosition)}</td></tr>)}</tbody>
         </table></div>}
         {activeView === "recovery" && <div className="performance-recovery">
           <div className="performance-recovery-summary"><span>Recovery window <strong>{result.recovery.from} — {result.recovery.toExclusive} (exclusive)</strong></span>
@@ -158,14 +194,15 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           </table></div><p className="performance-explainer">Showing at most the most recent 90 allocated recovery dates. The calculation window is exactly 18 months from business start.</p>
         </div>}
       </section>
-
-      <section className="performance-category-panel" aria-labelledby="performance-cost-breakdown-title">
-        <h3 id="performance-cost-breakdown-title">Selected period cost breakdown</h3>
+      <section className="performance-detail-panel">
         {categories.length === 0 ? <p>No verified costs were allocated to this period.</p> : <div className="performance-category-list">
           {categories.map(item => <div className="performance-category-row" key={item.key}><span>{item.label}</span><strong>{money(item.amount)}</strong></div>)}
         </div>}
       </section>
 
+      <section className="performance-check-numbers" aria-labelledby="performance-check-numbers-title">
+      <header><small>CHECK MY NUMBERS</small><h3 id="performance-check-numbers-title">How each figure was calculated</h3></header>
+      <p className="performance-formula">Revenue = verified gross completed fares + verified cancellation fees. Full costs = eligible operating costs + EMI + Compliance + pre-business recovery. Net = revenue − full costs.</p>
       <details className="performance-provenance"><summary>Calculation completeness & source provenance ({result.provenance.sourceRefs.length} source references)</summary>
         {incomplete.length === 0 ? <p>All supplied completeness checks are complete.</p> : <ul>{incomplete.map((item, index) =>
           <li key={item.source + ":" + index}><strong>{item.source}:</strong> {item.status}{item.detail ? " — " + item.detail : ""}</li>)}</ul>}
@@ -173,6 +210,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <details><summary>Source IDs and revisions</summary><ul>{result.provenance.sourceRefs.map((ref, index) =>
           <li key={ref.sourceId + ":" + ref.revision + ":" + index}>{ref.sourceId} · revision {ref.revision}</li>)}</ul></details>
       </details>
+      </section>
     </>}
   </section>;
 }
