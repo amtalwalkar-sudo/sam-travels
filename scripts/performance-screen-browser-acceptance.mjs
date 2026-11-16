@@ -42,6 +42,8 @@ try {
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  page.on("pageerror", error => console.log("Browser page error:", error.message));
+  page.on("console", message => { if (message.type() === "error") console.log("Browser console error:", message.text()); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
 
@@ -90,6 +92,9 @@ try {
     await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
   } catch (error) {
     console.log("Performance screen after calculation:", await page.locator(".performance-dashboard").innerText());
+    console.log("Performance inputs:", await period.locator("input").evaluateAll(inputs => inputs.map(input => ({ value: input.value, disabled: input.disabled }))));
+    console.log("Performance refresh button:", await period.getByRole("button").evaluate(button => ({ text: button.innerText, disabled: button.disabled, html: button.outerHTML })));
+    console.log("Performance errors:", await page.locator(".performance-error, .performance-loading, .performance-empty").allTextContents());
     throw error;
   }
   await page.getByText(businessStartDate, { exact: true }).waitFor();
