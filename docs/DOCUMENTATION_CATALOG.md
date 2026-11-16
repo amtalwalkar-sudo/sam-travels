@@ -88,6 +88,7 @@
 | Document | Primary role |
 |---|---|
 | [Architecture Enforcement](ARCHITECTURE_ENFORCEMENT.md) | Executable source-boundary and architecture CI rules |
+| `scripts/check-markdown-links.mjs` | Local Markdown link validator, run by `npm run check:docs` and required in CI |
 | [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Admin delivery plan and completion gates |
 | [Platform Acceptance Contract](PLATFORM_ACCEPTANCE_CONTRACT.md) | Cross-platform acceptance gates |
 | [Android Device Readiness Contract](ANDROID_DEVICE_READINESS_CONTRACT.md) | Android permissions, settings and device readiness |
