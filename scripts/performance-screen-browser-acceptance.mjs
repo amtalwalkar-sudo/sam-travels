@@ -48,6 +48,18 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+  const testPin = String(1000 + (Date.now() % 9000));
+  await page.getByLabel("Person name").fill("Performance Screen Acceptance Admin");
+  await page.getByLabel("Admin role").check();
+  await page.getByLabel("Set initial Admin PIN").fill(testPin);
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
+  await page.locator("label").filter({ hasText: "Select person" }).locator("select")
+    .selectOption({ label: "Performance Screen Acceptance Admin" });
+  await page.getByLabel("Active role").selectOption("admin");
+  await page.getByLabel("Admin PIN").fill(testPin);
+  await page.getByRole("button", { name: "Activate role", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
 
   const adminSections = page.getByRole("navigation", { name: "Admin sections" });
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
