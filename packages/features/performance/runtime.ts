@@ -3,10 +3,12 @@ import type { FeatureExtensionDefinition } from "../../core/src/feature-extensio
 import type { FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/feature-presentation";
 import type { FeatureDefinition } from "../../core/src/features";
 import type { PerformanceCalculationServiceV1 } from "../../application/src/performance-calculation-service";
+import type { FullCostBreakevenService } from "../../application/src/full-cost-breakeven-service";
 import { PerformanceScreen } from "./presentation/PerformanceScreen";
 
 export type PerformanceScreenContextV1 = Readonly<{
   calculation: Pick<PerformanceCalculationServiceV1, "calculate">;
+  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
 }>;
 export type PerformancePresentationContextV1 =
   FeaturePresentationContext<"performance.host", 1, PerformanceScreenContextV1>;
