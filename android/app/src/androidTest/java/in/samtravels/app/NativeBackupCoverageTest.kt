@@ -152,7 +152,7 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
-    @Test fun convertsLegacySharedRecordsToCurrentFeatureOwnershipBeforeRestore() {
+    @Test fun normalizesLegacyRecordsBeforeRestore() {
         val legacy = JSONArray()
             .put(JSONObject().put("id", "driver-state")
                 .put("json", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""")
@@ -233,12 +233,12 @@ class NativeBackupCoverageTest {
         } finally { database.close() }
     }
 
-    @Test fun failsClosedWhenARoomEntityHasNoParticipantContract() {
+    @Test fun failsClosedForUnregisteredRoomEntity() {
         val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnregisteredRoomEntity::class.java)) }.exceptionOrNull()
         assertTrue(failure?.message?.startsWith("backup_room_entity_missing_participant:") == true)
     }
 
-    @Test fun failsClosedWhenParticipantHasNoExecutableSnapshotAdapter() {
+    @Test fun failsClosedForMissingSnapshotAdapter() {
         val failure = runCatching { NativeBackupCoverage.discoverEntityTypesForTest(listOf(UnsupportedAdapterEntity::class.java)) }.exceptionOrNull()
         assertEquals("backup_room_snapshot_adapter_missing:unimplemented-adapter", failure?.message)
     }
@@ -246,7 +246,7 @@ class NativeBackupCoverageTest {
     class UnregisteredRoomEntity
     @NativeBackupParticipant(id = "future-feature", featureId = "future-feature", roomTable = "future_records", snapshotVersion = 1, adapterId = "unimplemented-adapter")
     class UnsupportedAdapterEntity
-    @Test fun isolatedPersistentFeatureUsesRoomOwnedBackupAdapterAndRestoresIntoCleanStore() {
+    @Test fun isolatedFeatureBackupRoundTripsCleanStore() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
