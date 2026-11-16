@@ -36,7 +36,7 @@ These are targeted ownership, policy and wiring problems. They do not justify cr
 
 ## 2. Audit method and evidence boundary
 
-The audit used the current `main` baseline above and inspected the repository's architecture/authority documentation, calculation contracts, the Performance conformance audit, and representative implementation paths for Work/Shift distance, Finance/Compliance allocation, fuel/business expenses, Maintenance, trip financials, Full Cost Breakeven and Performance.
+The audit used the current `main` baseline above and inspected the repository's architecture/authority documentation, calculation contracts, the Performance conformance audit, and representative implementation paths for Finance/Compliance allocation, fuel/business expenses, Maintenance, trip financials, Full Cost Breakeven and Performance. Work/Shift distance was assessed against its normative owner contract; a complete Work/Shift source/test path inventory remains outstanding.
 
 Key documents inspected:
 
@@ -57,7 +57,7 @@ Key documents inspected:
 
 Representative implementation paths inspected:
 
-- `packages/domain/src/work-shift-odometer.ts` (owner contract and public Work/Shift surface; implementation path inventory remains to be completed)
+- Work/Shift implementation status was assessed against its normative odometer/daily-distance contract; the exact source/test path inventory remains to be completed.
 - `packages/features/maintenance/index.ts` and Maintenance application service/rate/accrual implementation
 - `packages/features/business-expenses/index.ts`
 - `packages/features/finance/index.ts`
