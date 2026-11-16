@@ -4,4 +4,5 @@ export type {
   PerformancePreBusinessCostRecordV1,
   PerformanceRecordV1,
 } from "./records";
-export { PERFORMANCE_FEATURE, PERFORMANCE_FEATURE_EXTENSION } from "./runtime";
+export { PERFORMANCE_FEATURE, PERFORMANCE_FEATURE_EXTENSION, PERFORMANCE_PRESENTATION_SCREEN_V1 } from "./runtime";
+export type { PerformanceScreenContextV1 } from "./runtime";
