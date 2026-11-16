@@ -4,16 +4,22 @@ import { spawn } from "node:child_process";
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
 const registration = "MH00AA0090";
-const today = new Date().toISOString().slice(0, 10);
+function indiaDateOffsetDays(offset) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
+  return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
+}
+const today = indiaDateOffsetDays(0);
 function futureDateOffsetDays(offset) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return date.toISOString().slice(0, 10);
+  return indiaDateOffsetDays(offset);
 }
 function monthDateOffset(offset) {
-  const date = new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() + offset);
+  const parts = today.split("-").map(Number);
+  const date = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() + offset);
   return date.toISOString().slice(0, 10);
 }
 const loanStartDate = monthDateOffset(-10);
