@@ -78,7 +78,7 @@ function monthlyTotals(result: PerformanceCalculationResultV1) {
 
 export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
   const today = operationalToday();
-  const [from, setFrom] = useState(offsetDate(today, -29));
+  const [from, setFrom] = useState(today.slice(0, 7) + "-01");
   const [to, setTo] = useState(today);
   const [rangePreset, setRangePreset] = useState<"today" | "week" | "month" | "custom" | "lifetime">("month");
   const [result, setResult] = useState<PerformanceCalculationResultV1>();
