@@ -177,7 +177,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             // Keep shared emulator state isolated even when an assertion fails midway.
             db.records().list().filter { it.json.contains(marker) }.forEach { db.records().remove(it.id) }
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
-            NativeStartupRecovery.invalidate()
+            NativeStartupRecovery.invalidate(db)
             instrumentation.runOnMainSync { activity.finish() }
             db.close()
         }
