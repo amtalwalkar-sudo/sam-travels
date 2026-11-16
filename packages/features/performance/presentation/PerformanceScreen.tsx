@@ -206,6 +206,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       <section className="performance-understand" aria-labelledby="performance-understand-title">
       <header><small>UNDERSTAND MY BUSINESS</small><h3 id="performance-understand-title">Where the money goes</h3></header>
       <section className="performance-category-panel" aria-labelledby="performance-cost-breakdown-title">
+        <h3 id="performance-cost-breakdown-title">Explore performance by period</h3>
         <div className="performance-tabs" role="tablist" aria-label="Performance detail views">
           <button type="button" role="tab" aria-selected={activeView === "daily"} className={activeView === "daily" ? "active" : ""} onClick={() => setActiveView("daily")}>Daily details</button>
           <button type="button" role="tab" aria-selected={activeView === "monthly"} className={activeView === "monthly" ? "active" : ""} onClick={() => setActiveView("monthly")}>Monthly roll-up</button>
@@ -237,10 +238,12 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           </table></div><p className="performance-explainer">Showing at most the most recent 90 allocated recovery dates. The calculation window is exactly 18 months from business start.</p>
         </div>}
       </section>
-      <section className="performance-detail-panel">
+      <section className="performance-category-panel" aria-labelledby="performance-category-list-title">
+        <h3 id="performance-category-list-title">Selected period cost breakdown</h3>
         {categories.length === 0 ? <p>No verified costs were allocated to this period.</p> : <div className="performance-category-list">
           {categories.map(item => <button type="button" className="performance-category-row performance-number-action" key={item.key} onClick={() => setSelectedInsight("cost-kind:" + item.key)}><span>{item.label}</span><strong>{money(item.amount)}</strong></button>)}
         </div>}
+      </section>
       </section>
 
       <section className="performance-check-numbers" aria-labelledby="performance-check-numbers-title">
