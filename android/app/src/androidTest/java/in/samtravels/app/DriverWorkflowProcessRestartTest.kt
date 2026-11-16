@@ -22,13 +22,10 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DriverWorkflowProcessRestartTest {
     private val databaseName = "driver-workflow-process-restart.db"
-    private val preferenceName = "driver-workflow-process-restart"
 
     @Test fun preparePendingWorkflowForProcessRestart() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        val prefs = app.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
         app.deleteDatabase(databaseName)
-        prefs.edit().putInt("prepared_pid", Process.myPid()).commit()
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries().build()
@@ -65,40 +62,39 @@ class DriverWorkflowProcessRestartTest {
             DriverWorkflowStore.complete(db, "restart-active-shift", JSONObject().put("latitude", 19.076)
                 .put("longitude", 72.8777).put("horizontalAccuracyM", 8.0).put("fixAt", shiftAt).put("provider", "android-test"))
             val pendingAt = java.time.Instant.now().toString()
-            prefs.edit().putString("prepared_pending_at", pendingAt).commit()
             DriverWorkflowStore.queue(db, command("restart-pending-trip", "trip_create", "shift_active", 1, pendingAt))
             assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
             assertEquals("pending_location", JSONObject(db.records().get("driver-intent:restart-pending-trip")!!.json)
                 .getString("status"))
+            putRecord("driver-process-restart-marker", JSONObject()
+                .put("preparedPid", Process.myPid())
+                .put("preparedPendingAt", pendingAt)
+                .put("preparedAppPackage", app.packageName)
+                .put("preparedDbPath", app.getDatabasePath(databaseName).absolutePath))
         } finally {
             db.close()
         }
         val databaseFile = app.getDatabasePath(databaseName)
         assertEquals(true, databaseFile.exists())
-        prefs.edit()
-            .putLong("prepared_db_length", databaseFile.length())
-            .putString("prepared_app_package", app.packageName)
-            .putString("prepared_db_path", databaseFile.absolutePath)
-            .commit()
     }
 
     @Test fun recoverPendingWorkflowAfterProcessRestart() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        val prefs = app.getSharedPreferences(preferenceName, Context.MODE_PRIVATE)
-        val previousPid = prefs.getInt("prepared_pid", -1)
-        assertNotEquals("CI must restart the instrumentation/app process between phases", previousPid, Process.myPid())
         val databaseFile = app.getDatabasePath(databaseName)
-        assertEquals("Instrumentation must reopen the same target application package",
-            prefs.getString("prepared_app_package", null), app.packageName)
-        assertEquals("Instrumentation must reopen the same Room database path",
-            prefs.getString("prepared_db_path", null), databaseFile.absolutePath)
         assertEquals("Room database file must survive the force-stop boundary", true, databaseFile.exists())
-        assertEquals("Room database file size must survive the force-stop boundary",
-            prefs.getLong("prepared_db_length", -1L), databaseFile.length())
         val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries().build()
         try {
+            val markerRow = db.records().get("driver-process-restart-marker")
+            assertNotNull("Room restart marker must survive the force-stop boundary", markerRow)
+            val marker = JSONObject(markerRow!!.json).getJSONObject("data")
+            assertNotEquals("CI must restart the instrumentation process between phases",
+                marker.getInt("preparedPid"), Process.myPid())
+            assertEquals("Instrumentation must reopen the same target application package",
+                marker.getString("preparedAppPackage"), app.packageName)
+            assertEquals("Instrumentation must reopen the same Room database path",
+                marker.getString("preparedDbPath"), databaseFile.absolutePath)
             val persistedStateRow = db.records().get("driver-state")
             assertNotNull("Persisted driver-state row must exist before startup recovery", persistedStateRow)
             val persistedState = JSONObject(persistedStateRow!!.json).getJSONObject("value").getString("state")
@@ -118,7 +114,7 @@ class DriverWorkflowProcessRestartTest {
             // Use an explicit event-time clock so this test proves post-restart commit
             // deterministically without depending on CI scheduling within the 30s GPS window.
             val transitionAt = java.time.Instant.parse(
-                prefs.getString("prepared_pending_at", null) ?: error("pending_transition_time_missing"),
+                marker.getString("preparedPendingAt"),
             )
             val gps = JSONObject().put("latitude", 19.076).put("longitude", 72.8777)
                 .put("horizontalAccuracyM", 8.0).put("fixAt", transitionAt.toString())
@@ -145,7 +141,6 @@ class DriverWorkflowProcessRestartTest {
         } finally {
             db.close()
             app.deleteDatabase(databaseName)
-            prefs.edit().remove("prepared_pid").remove("prepared_pending_at").commit()
         }
     }
 }
