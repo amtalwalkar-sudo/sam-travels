@@ -51,9 +51,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
       .put("description", "Other Driver receipt").put("amountPaise", 20000L),
       JSONObject().put("personId", "person-driver-two").put("role", "driver"))
-    val activity = instrumentation.startActivitySync(
-      Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-    ) as MainActivity
+    lateinit var activity: MainActivity
     try {
       database.records().put(vehicle)
       database.records().put(expense)
@@ -66,6 +64,12 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           payload.getJSONObject("data").put("displayName", name)
           database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
       }
+      // Seed all Room records before MainActivity starts its initial repository read.
+      // Starting the WebView first races the initial load and can hide these test fixtures.
+      NativeStartupRecovery.invalidate(database)
+      activity = instrumentation.startActivitySync(
+        Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      ) as MainActivity
       assertTrue("WebView loads Drive",
           awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
       assertTrue("Adminigation", awaitJavascript(activity,
