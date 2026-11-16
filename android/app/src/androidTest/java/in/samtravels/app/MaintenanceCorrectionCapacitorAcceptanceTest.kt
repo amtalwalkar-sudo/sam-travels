@@ -64,23 +64,21 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           payload.getJSONObject("data").put("displayName", name)
           database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
       }
-      // Seed all Room records before MainActivity starts its initial repository read.
-      // Starting the WebView first races the initial load and can hide these test fixtures.
       NativeStartupRecovery.invalidate(database)
       activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
       ) as MainActivity
-      assertTrue("WebView loads Drive",
+      assertTrue("Drive",
           awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-      assertTrue("Adminigation", awaitJavascript(activity,
+      assertTrue("Admin nav", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
           10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
-      assertTrue("Admin render", awaitJavascript(activity,
+      assertTrue("Admin", awaitJavascript(activity,
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
       assertTrue("Name", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Admin role", evaluate(activity, """
+      assertTrue("Role", evaluate(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
             const input = label?.querySelector('input[type=checkbox]');
@@ -107,7 +105,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
           })()
       """))
-      assertTrue("Enroll enabled", awaitJavascript(activity,
+      assertTrue("Enroll", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
       evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
       assertTrue("Enrolled", awaitJavascript(activity,
@@ -117,7 +115,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
       """, 15_000))
-      assertTrue("Activate PIN", evaluate(activity, """
+      assertTrue("Activate", evaluate(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
@@ -150,7 +148,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Admin active", awaitJavascript(activity,
+      assertTrue("Active", awaitJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
@@ -198,7 +196,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       val original = JSONObject(database.records().get(expenseId)!!.json)
       val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
-      assertEquals("Original unchanged", 10000L,
+      assertEquals("Original", 10000L,
           original.getJSONObject("data").getLong("amountPaise"))
       assertEquals("One correction", 1, correctionRows.size)
       val correction = correctionRows.single().getJSONObject("data")
@@ -305,7 +303,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertEquals("Two-entry correction chain", 2, driverOneChain.size)
       assertEquals("person-driver-one", driverOneChain.last().getJSONObject("actor").getString("actorId"))
       assertEquals("Driver One verified own receipt", driverOneChain.last().getString("reason"))
-      assertEquals("Other Driver must receive no correction row", 0, database.records().list()
+      assertEquals("No other correction", 0, database.records().list()
           .filter { it.id.startsWith(correctionPrefix) }
           .count { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == otherExpenseId }.getOrDefault(false) })
       val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
@@ -314,7 +312,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           .count { it.id == expenseId || it.id == otherExpenseId || it.id == chainId })
       NativeBackupCoverage.replaceBusinessRecords(database, backup)
       val restoredOriginal = JSONObject(database.records().get(expenseId)!!.json)
-      assertEquals("Recovery must preserve the immutable original amount", 10000L,
+      assertEquals("Restore original", 10000L,
           restoredOriginal.getJSONObject("data").getLong("amountPaise"))
       val restoredCorrections = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json).getJSONObject("data") }
