@@ -2,7 +2,7 @@
 
 ## Documentation authority
 
-Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, product specification, implementation guide, audit and historical record. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the 63-file baseline inventory and reconciliation decisions.
+Start with the [Sam Travels System Blueprint](docs/SAM_TRAVELS_SYSTEM_BLUEPRINT.md) for the complete system map. Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, and the [Documentation Catalog](docs/DOCUMENTATION_CATALOG.md) to navigate all six documentation areas and every Markdown document. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the audit baselines and reconciliation history.
 
 ## Permanent application architecture
 
