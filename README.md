@@ -30,7 +30,7 @@ Core foundation and shared driver workflow have been merged to main. The PWA/Cap
 - Android Studio and Android SDK for native builds
 - A supported Android device for overlay, background, and screen-off validation
 
-Install dependencies with `npm install`, run checks with `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 21.
+Install dependencies with `npm install`, run checks with `npm run check:docs`, `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 21.
 
 ## Architecture contracts
 
