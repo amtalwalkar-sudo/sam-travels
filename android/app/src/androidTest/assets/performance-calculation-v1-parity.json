@@ -1,0 +1,195 @@
+{
+  "records": [
+    {
+      "id": "work:trip-financial-obligation:parity-trip-1",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T05:00:00.000Z",
+      "updatedAt": "2026-03-15T05:05:00.000Z",
+      "businessDate": "2026-03-15",
+      "source": "web",
+      "revision": 2,
+      "data": {
+        "schemaVersion": 1,
+        "tripId": "parity-trip-1",
+        "kind": "completed_ride_financials",
+        "status": "submitted",
+        "endRideEventId": "end-parity-1",
+        "createdAt": "2026-03-15T05:00:00.000Z",
+        "tripContext": {
+          "schemaVersion": 1,
+          "shiftId": "shift-parity-1",
+          "driverId": "driver-1",
+          "assignmentId": "assignment-1",
+          "vehicleId": "feature:vehicle:MH01AB1234",
+          "operationalDate": "2026-03-15"
+        },
+        "farePaise": 10000,
+        "tollPaise": 2500,
+        "tollPayer": "driver"
+      }
+    },
+    {
+      "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174090",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T06:00:00.000Z",
+      "updatedAt": "2026-03-15T06:00:00.000Z",
+      "businessDate": "2026-03-15",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "business_expense",
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174090",
+        "revision": 1,
+        "sourceKind": "miscellaneous",
+        "businessDate": "2026-03-15",
+        "amountPaise": 500,
+        "currencyCode": "INR",
+        "effect": "charge",
+        "category": "Cleaning"
+      }
+    },
+    {
+      "id": "feature:performance:settings",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T07:00:00.000Z",
+      "updatedAt": "2026-03-15T07:00:00.000Z",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "settings",
+        "monthlyDriverTargetPaise": 50000
+      }
+    },
+    {
+      "id": "feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091",
+      "schemaVersion": 1,
+      "createdAt": "2026-03-15T07:00:00.000Z",
+      "updatedAt": "2026-03-15T07:00:00.000Z",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "pre_business_cost",
+        "amountPaise": 18000,
+        "note": "Setup",
+        "commandId": "123e4567-e89b-42d3-a456-426614174091"
+      }
+    }
+  ],
+  "input": {
+    "businessStartDate": "2026-03-15",
+    "periodFrom": "2027-09-15",
+    "periodTo": "2027-09-15",
+    "monthlyDriverTargetPaise": 50000,
+    "revenue": [
+      {
+        "date": "2026-03-15",
+        "grossFarePaise": 10000,
+        "cancellationFeePaise": 0,
+        "verified": true,
+        "sourceRefs": [
+          {
+            "sourceId": "work:trip-financial-obligation:parity-trip-1",
+            "revision": 2
+          }
+        ]
+      },
+      {
+        "date": "2027-09-15",
+        "grossFarePaise": 20000,
+        "cancellationFeePaise": 0,
+        "verified": true,
+        "sourceRefs": [
+          {
+            "sourceId": "fare-anniversary",
+            "revision": 1
+          }
+        ]
+      }
+    ],
+    "costs": [
+      {
+        "date": "2026-03-15",
+        "kind": "toll-parking",
+        "amountPaise": 2500,
+        "verified": true,
+        "sourceRefs": [
+          {
+            "sourceId": "work:trip-financial-obligation:parity-trip-1",
+            "revision": 2
+          }
+        ]
+      },
+      {
+        "date": "2026-03-15",
+        "kind": "miscellaneous",
+        "amountPaise": 500,
+        "verified": true,
+        "sourceRefs": [
+          {
+            "sourceId": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174090",
+            "revision": 1
+          }
+        ]
+      },
+      {
+        "date": "2027-09-15",
+        "kind": "maintenance",
+        "amountPaise": 1000,
+        "verified": true,
+        "sourceRefs": [
+          {
+            "sourceId": "maintenance-anniversary",
+            "revision": 1
+          }
+        ]
+      }
+    ],
+    "preBusinessRecovery": [
+      {
+        "sourceId": "pre-manual",
+        "revision": 1,
+        "amountPaise": 18000,
+        "note": "Setup",
+        "origin": "manual"
+      },
+      {
+        "sourceId": "pre-emi",
+        "revision": 2,
+        "amountPaise": 9000,
+        "note": "Pre-start EMI",
+        "origin": "emi"
+      },
+      {
+        "sourceId": "pre-compliance",
+        "revision": 1,
+        "amountPaise": 3000,
+        "note": "Pre-start permit",
+        "origin": "compliance"
+      }
+    ],
+    "completeness": [
+      {
+        "source": "parity-fixture",
+        "status": "complete"
+      }
+    ]
+  },
+  "expected": {
+    "periodRevenuePaise": 20000,
+    "periodCostPaise": 1000,
+    "periodProfitPaise": 19000,
+    "lifetimeRevenuePaise": 30000,
+    "lifetimeCostPaise": 34000,
+    "lifetimeProfitPaise": -4000,
+    "lifetimeTargetPaise": 950000,
+    "lifetimeTargetPositionPaise": -954000,
+    "recoveryFrom": "2026-03-15",
+    "recoveryToExclusive": "2027-09-15",
+    "recoveryTotalPaise": 30000,
+    "recoveryLastDate": "2027-09-14",
+    "elapsedCalendarMonths": 19
+  }
+}

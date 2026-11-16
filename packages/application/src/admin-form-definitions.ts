@@ -223,6 +223,9 @@ export const MISC_BUSINESS_EXPENSE_FORM_V1 = Object.freeze<FormDefinition>({
     { id: "driverId", label: "Driver", type: "text", maxLength: 160 },
     { id: "description", label: "Description", type: "text", maxLength: 2000 },
     { id: "reference", label: "Receipt / source reference", type: "text", maxLength: 240 },
+    { id: "tripExpenseTreatment", label: "Toll / parking treatment (required for Toll or Parking category)", type: "select", options: ["standalone", "already-in-trip-closeout"] },
+    { id: "tripFinancialSourceId", label: "Trip closeout source ID (when already recorded in a trip)", type: "text", maxLength: 240 },
+    { id: "tripFinancialComponent", label: "Linked trip cost", type: "select", options: ["toll", "parking", "combined"] },
   ],
 });
 
@@ -259,3 +262,28 @@ export const ADMIN_FORM_DEFINITIONS: readonly FormDefinition[] = Object.freeze([
   MISC_BUSINESS_EXPENSE_FORM_V1,
   TRAFFIC_CHALLAN_FORM_V1,
 ]);
+
+/** Admin-owned fixed monthly Driver Target; values are entered in rupees. */
+export const PERFORMANCE_DRIVER_TARGET_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.performance-driver-target",
+  version: 1,
+  owner: "performance",
+  purpose: "Set the fixed monthly Driver Target",
+  primaryAction: "save",
+  fields: [
+    { id: "monthlyTargetRupees", label: "Monthly Driver Target (₹)", type: "number", required: true },
+  ],
+});
+
+/** Each pre-business cost is an independent immutable entry with its own note. */
+export const PRE_BUSINESS_COST_FORM_V1 = Object.freeze<FormDefinition>({
+  id: "admin.pre-business-cost",
+  version: 1,
+  owner: "performance",
+  purpose: "Record one cost incurred before business start",
+  primaryAction: "save",
+  fields: [
+    { id: "amountRupees", label: "Amount (₹)", type: "number", required: true },
+    { id: "note", label: "What was this cost for?", type: "text", required: true, maxLength: 240 },
+  ],
+});

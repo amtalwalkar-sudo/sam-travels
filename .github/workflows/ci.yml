@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, foundation/native-android-architecture, 'phase-*/*']
+    branches: [main, foundation/native-android-architecture, 'phase-*/*', fix/performance-calculation-contract-v1]
 concurrency:
   group: sam-travels-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -64,6 +64,8 @@ jobs:
         run: node scripts/admin-workspace-browser-acceptance.mjs
       - name: Verify Admin form workflows through the rendered PWA
         run: node scripts/admin-form-browser-acceptance.mjs
+      - name: Verify Performance calculations and dashboard end to end through the rendered PWA
+        run: node scripts/performance-screen-browser-acceptance.mjs
   geocoder-production:
     name: Production geocoder verification
     runs-on: ubuntu-24.04
@@ -205,7 +207,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            bash -euo pipefail -c 'echo "Install the app and instrumentation APKs once"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi; echo "Force-stop both packages without reinstalling"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover from the same installed app data in a fresh instrumentation process"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\n" "$output"; grep -Fq "OK (1 test)" <<<"$output"; if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi; echo "Run all remaining Android instrumentation tests"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest'
+            bash -euo pipefail -c 'echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"; gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest; echo "Install target and instrumentation APKs before restart phases"; gradle -p android :app:installDebug :app:installDebugAndroidTest; adb -s emulator-5554 shell pm path in.samtravels.app; adb -s emulator-5554 shell pm path in.samtravels.app.test; echo "Prepare durable Room state in a direct instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Preparation instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Preparation instrumentation reported failures" >&2; exit 1 ;; esac; echo "Force-stop target and instrumentation packages to prove process restart"; adb -s emulator-5554 shell am force-stop in.samtravels.app; adb -s emulator-5554 shell am force-stop in.samtravels.app.test; echo "Recover pending workflow in a separate instrumentation invocation"; output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"; printf "%s\\n" "$output"; case "$output" in *"OK (1 test)"*) ;; *) echo "Recovery instrumentation did not report one passing test" >&2; exit 1 ;; esac; case "$output" in *"FAILURES!!!"*) echo "Recovery instrumentation reported failures" >&2; exit 1 ;; esac; echo "Run remaining Android instrumentation suite excluding special cases"; gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest'
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4

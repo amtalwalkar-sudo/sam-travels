@@ -22,9 +22,32 @@ describe("FullCostBreakevenService source integration", () => {
           id: "unpaid-challan-1", revision: 1,
           data: { sourceKind: "traffic_challan", businessDate: "2026-11-01", amountPaise: 9000,
             effect: "charge", paymentStatus: "unpaid" },
+        }, {
+          id: "manual-trip-toll-duplicate", revision: 1,
+          data: { sourceKind: "miscellaneous", businessDate: "2026-11-01", amountPaise: 50,
+            effect: "charge", tripExpenseTreatment: "already-in-trip-closeout",
+            tripFinancialSourceId: "work:trip-financial-obligation:trip-1", tripFinancialComponent: "toll" },
+        }, {
+          id: "legacy-parking-unclear", revision: 1,
+          data: { sourceKind: "miscellaneous", businessDate: "2026-11-01", amountPaise: 3000,
+            effect: "charge", category: "Parking" },
+        }, {
+          id: "manual-trip-toll-reversal", revision: 1,
+          data: { sourceKind: "miscellaneous", businessDate: "2026-11-02", amountPaise: 50,
+            effect: "reversal", reversesSourceId: "manual-trip-toll-duplicate",
+            tripExpenseTreatment: "already-in-trip-closeout",
+            tripFinancialSourceId: "work:trip-financial-obligation:trip-1",
+            tripFinancialComponent: "toll" },
         }],
         listDailyExpenseOutputs: async () => [{ businessDate: "2026-11-01", platformFeesPaise: 100,
-          trafficChallansPaise: 0, miscellaneousPaise: 0, sourceIds: ["platform-fee-1"], sourceRevisions: [1] }],
+          trafficChallansPaise: 0, miscellaneousPaise: 3050, sourceIds: [
+            "platform-fee-1", "manual-trip-toll-duplicate", "legacy-parking-unclear",
+          ], sourceRevisions: [1, 1, 1] }, {
+          businessDate: "2026-11-02", platformFeesPaise: 0,
+          trafficChallansPaise: 0, miscellaneousPaise: -50, sourceIds: [
+            "manual-trip-toll-reversal",
+          ], sourceRevisions: [1],
+        }],
         listFuelPurchases: async () => [fuelPurchase],
         listFuelCostRateHistory: async () => [{
           calculationVersion: "business-expenses.fuel-cost-rate-history.v1",
@@ -46,7 +69,7 @@ describe("FullCostBreakevenService source integration", () => {
         }),
       } as never,
       { submittedTripFinancialRecords: async () => [{
-        id: "trip-financial-1", revision: 2,
+        id: "work:trip-financial-obligation:trip-1", revision: 2,
         data: { kind: "completed_ride_financials", status: "submitted",
           tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
           parkingPaise: 40, parkingPayer: "customer" },
@@ -64,8 +87,12 @@ describe("FullCostBreakevenService source integration", () => {
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
     expect(result.provenance.sourceIds).toContain("maintenance-rate-history-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
-    expect(result.provenance.sourceIds).toContain("trip-financial-1");
+    expect(result.provenance.sourceIds).toContain("work:trip-financial-obligation:trip-1");
     expect(result.daily[0].complete).toBe(false);
     expect(result.provenance.completeness).toContainEqual(expect.objectContaining({ source: "trip-financials", status: "incomplete" }));
+    expect(result.provenance.completeness).toContainEqual(expect.objectContaining({
+      source: "business-expenses", status: "review-required",
+      detail: expect.stringContaining("Legacy toll/parking expense legacy-parking-unclear"),
+    }));
   });
 });

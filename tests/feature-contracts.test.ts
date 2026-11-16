@@ -375,7 +375,7 @@ describe("runtime registry bootstrap", () => {
     expect(runtime.features.has("timeline")).toBe(false);
     expect(runtime.startupOrder[0].id).toBe("platform");
     expect(runtime.integrations.size).toBe(0);
-    expect([...runtime.backupParticipants.keys()]).toEqual(["platform-records", "work-driver-state", "logbook-events", "finance-records", "vehicle-records"]);
+    expect([...runtime.backupParticipants.keys()]).toEqual(["platform-records", "work-driver-state", "logbook-events", "finance-records", "vehicle-records", "performance-records"]);
     expect(runtime.backupParticipants.get("work-driver-state")).toMatchObject({ featureId: "work", snapshotVersion: 1, required: true });
     expect(runtime.calculations.size).toBe(0);
     expect(Object.isFrozen(runtime)).toBe(true);

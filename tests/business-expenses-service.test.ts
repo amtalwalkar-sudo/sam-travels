@@ -160,13 +160,88 @@ describe("BusinessExpensesService", () => {
     const original = await service.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174010", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 1200,
-        currencyCode: "INR", effect: "charge", category: "Parking" },
+        currencyCode: "INR", effect: "charge", category: "Parking", tripExpenseTreatment: "standalone" },
     });
     await service.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174011", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-16", amountPaise: 1200,
-        currencyCode: "INR", effect: "reversal", reversesSourceId: original.id, category: "Parking" },
+        currencyCode: "INR", effect: "reversal", reversesSourceId: original.id, category: "Parking",
+        tripExpenseTreatment: "standalone" },
     });
+    const daily = await service.listDailyExpenseOutputs();
+    expect(daily.find(item => item.businessDate === "2026-11-15")?.miscellaneousPaise).toBe(1200);
+    expect(daily.find(item => item.businessDate === "2026-11-16")?.miscellaneousPaise).toBe(-1200);
+  });
+
+  it("requires an explicit treatment for new standalone toll and parking expenses", async () => {
+    const { service } = setup();
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174074", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 500,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+      },
+    })).rejects.toThrow("business_expense_toll_parking_treatment_required");
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174075", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 500,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+        tripExpenseTreatment: "standalone",
+      },
+    })).resolves.toMatchObject({ data: { tripExpenseTreatment: "standalone" } });
+  });
+
+  it("rejects a linked manual toll duplicate and allows its legacy reversal without erasing trip cost", async () => {
+    const { service, repository } = setup();
+    const tripId = "work:trip-financial-obligation:trip-dup";
+    await repository.put({
+      id: tripId, schemaVersion: 1, createdAt: "2026-11-15T00:00:00.000Z",
+      updatedAt: "2026-11-15T00:00:00.000Z", source: "web", revision: 2,
+      data: {
+        schemaVersion: 1, tripId: "trip-dup", kind: "completed_ride_financials", status: "submitted",
+        endRideEventId: "end-trip-dup", createdAt: "2026-11-15T00:00:00.000Z",
+        tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1",
+          assignmentId: "assignment-1", vehicleId, operationalDate: "2026-11-15" },
+        farePaise: 5000, tollPaise: 1200, tollPayer: "driver", parkingPaise: 700, parkingPayer: "driver",
+      },
+    });
+    const linked = {
+      sourceKind: "miscellaneous" as const, businessDate: "2026-11-15", amountPaise: 1200,
+      currencyCode: "INR" as const, effect: "charge" as const, category: "Toll",
+      tripExpenseTreatment: "already-in-trip-closeout" as const,
+      tripFinancialSourceId: tripId, tripFinancialComponent: "toll" as const,
+    };
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174070", source: "web", data: linked,
+    })).rejects.toThrow("business_expense_trip_financial_duplicate");
+    await expect(service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174073", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 700,
+        currencyCode: "INR", effect: "charge", category: "Parking",
+        tripExpenseTreatment: "already-in-trip-closeout",
+        tripFinancialSourceId: tripId, tripFinancialComponent: "parking",
+      },
+    })).rejects.toThrow("business_expense_trip_financial_duplicate");
+
+    const legacyId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174071";
+    await repository.put({
+      id: legacyId, schemaVersion: 1, createdAt: "2026-11-15T00:00:00.000Z",
+      updatedAt: "2026-11-15T00:00:00.000Z", businessDate: "2026-11-15",
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, kind: "business_expense", id: legacyId, revision: 1, ...linked },
+    });
+    const reversal = await service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174072", source: "web",
+      data: {
+        sourceKind: "miscellaneous", businessDate: "2026-11-16", amountPaise: 1200,
+        currencyCode: "INR", effect: "reversal", reversesSourceId: legacyId, category: "Toll",
+        tripExpenseTreatment: "already-in-trip-closeout",
+        tripFinancialSourceId: tripId, tripFinancialComponent: "toll",
+      },
+    });
+    expect(reversal.data.tripFinancialSourceId).toBe(tripId);
     const daily = await service.listDailyExpenseOutputs();
     expect(daily.find(item => item.businessDate === "2026-11-15")?.miscellaneousPaise).toBe(1200);
     expect(daily.find(item => item.businessDate === "2026-11-16")?.miscellaneousPaise).toBe(-1200);

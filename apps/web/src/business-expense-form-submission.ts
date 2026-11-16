@@ -154,15 +154,46 @@ export function createBusinessExpenseFormSubmissionHandler(
     });
   }
   if (command.formId === MISC_BUSINESS_EXPENSE_FORM_V1.id) {
+    const category = requiredString(values.category, "miscellaneous_expense_category_required");
+    const tripTreatment = optionalString(values.tripExpenseTreatment);
+    const hasTripLink = !!optionalString(values.tripFinancialSourceId) || !!optionalString(values.tripFinancialComponent);
+    const tollOrParking = /\b(tolls?|parking)\b/i.test(category);
+    if (tollOrParking && tripTreatment !== "standalone" && tripTreatment !== "already-in-trip-closeout") {
+      throw new Error("business_expense_toll_parking_treatment_required");
+    }
+    if (tripTreatment === "already-in-trip-closeout" &&
+        (!optionalString(values.tripFinancialSourceId) || !optionalString(values.tripFinancialComponent))) {
+      throw new Error("business_expense_trip_financial_source_required");
+    }
+    if (tripTreatment === "standalone" && hasTripLink) {
+      throw new Error("business_expense_standalone_must_not_link_trip_source");
+    }
+    if (tripTreatment && !["standalone", "already-in-trip-closeout"].includes(tripTreatment)) {
+      throw new Error("business_expense_toll_parking_treatment_invalid");
+    }
+    if (tripTreatment === "already-in-trip-closeout" && !tollOrParking) {
+      throw new Error("business_expense_trip_link_requires_toll_or_parking");
+    }
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
       data: {
         sourceKind: "miscellaneous", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
-        category: requiredString(values.category, "miscellaneous_expense_category_required"),
+        category,
+        ...(tollOrParking
+          ? { tripExpenseTreatment: tripTreatment as "standalone" | "already-in-trip-closeout" }
+          : {}),
         ...(optionalString(values.vehicleId) ? { vehicleId: optionalString(values.vehicleId) } : {}),
         ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
         ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
+        ...(tripTreatment === "already-in-trip-closeout"
+          ? {
+              tripFinancialSourceId: requiredString(values.tripFinancialSourceId,
+                "business_expense_trip_financial_source_required"),
+              tripFinancialComponent: requiredString(values.tripFinancialComponent,
+                "business_expense_trip_financial_component_required") as "toll" | "parking" | "combined",
+            }
+          : {}),
       },
     });
   }

@@ -4,16 +4,22 @@ import { spawn } from "node:child_process";
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
 const registration = "MH00AA0090";
-const today = new Date().toISOString().slice(0, 10);
+function indiaDateOffsetDays(offset) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
+  return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
+}
+const today = indiaDateOffsetDays(0);
 function futureDateOffsetDays(offset) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return date.toISOString().slice(0, 10);
+  return indiaDateOffsetDays(offset);
 }
 function monthDateOffset(offset) {
-  const date = new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() + offset);
+  const parts = today.split("-").map(Number);
+  const date = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() + offset);
   return date.toISOString().slice(0, 10);
 }
 const loanStartDate = monthDateOffset(-10);
@@ -247,7 +253,8 @@ try {
 
   await page.getByRole("heading", { name: "Miscellaneous Business Expenses", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Expense date").fill(today);
-  await page.getByLabel("Category").fill("Parking");
+  await page.getByRole("textbox", { name: "Category", exact: true }).fill("Parking");
+  await page.getByLabel("Toll / parking treatment (required for Toll or Parking category)").selectOption("standalone");
   await page.getByLabel("Amount (₹)").last().fill("50");
   await page.getByLabel("Vehicle", { exact: true }).last().fill(vehicleId);
   await page.getByLabel("Description").fill("Acceptance parking");
@@ -288,6 +295,31 @@ try {
   await page.getByRole("button", { name: "Save rate", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Per-kilometre rate saved with effective-date history." }).waitFor({ state: "visible" });
   console.log("Maintenance visit, general expense and effective-date rate workflows submitted.");
+
+  await page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByLabel("Monthly Driver Target (₹)").fill("45000");
+  await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
+  await page.getByLabel("Amount (₹)").fill("12500");
+  await page.getByLabel("What was this cost for?").fill("Pre-launch vehicle registration");
+  await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor({ state: "visible" });
+  await page.getByText("Pre-launch vehicle registration", { exact: true }).waitFor({ state: "visible" });
+  console.log("Performance monthly Driver Target and multiple-entry pre-business cost Admin forms passed.");
+
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
+  await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  await page.getByText("Monthly Driver Target", { exact: true }).first().waitFor({ state: "visible" });
+  await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
+  await page.getByRole("columnheader", { name: "Eligible costs", exact: true }).waitFor({ state: "visible" });
+  await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
+  await page.getByText("Recovery window", { exact: false }).waitFor({ state: "visible" });
+  await page.locator(".performance-provenance > summary").click();
+  await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
+  console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
+
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}

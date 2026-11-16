@@ -11,6 +11,7 @@ type ComplianceServices = Pick<AdminPresentationServices, "formRuntime" | "compl
 type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource">;
 type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses">;
 type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles">;
+type PerformanceServices = Pick<AdminPresentationServices, "formRuntime" | "performanceSettings" | "performanceCalculation">;
 type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments">;
 type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime">;
 
@@ -24,6 +25,7 @@ type AdminSectionAdapters = Readonly<{
   workspace: WorkspaceServices;
   forms: FormRuntimeServices;
   fuelEntry: FuelEntryServices;
+  performance: PerformanceServices;
 }>;
 
 const AdminServicesContext = createContext<AdminSectionAdapters | null>(null);
@@ -53,6 +55,8 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
       financeLoanPrepayments: services.financeLoanPrepayments },
     forms: { formRuntime: services.formRuntime },
     fuelEntry: { formRuntime: services.formRuntime, vehicles: services.vehicles, businessExpenses: services.businessExpenses },
+    performance: { formRuntime: services.formRuntime, performanceSettings: services.performanceSettings,
+      performanceCalculation: services.performanceCalculation },
   }), [services]);
 
   return <AdminServicesContext.Provider value={adapters}>
@@ -79,6 +83,7 @@ export function useAdminFinanceServices(): FinanceServices { return useSectionAd
 export function useAdminWorkspaceServices(): WorkspaceServices { return useSectionAdapters().workspace; }
 export function useAdminFormRuntime(): FormRuntimeServices { return useSectionAdapters().forms; }
 export function useAdminFuelEntryServices(): FuelEntryServices { return useSectionAdapters().fuelEntry; }
+export function useAdminPerformanceServices(): PerformanceServices { return useSectionAdapters().performance; }
 
 export function useAdminIdentityAdapter(): AdminIdentityPresentationAdapter {
   const adapter = useContext(AdminIdentityContext);

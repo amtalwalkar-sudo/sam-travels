@@ -67,7 +67,8 @@ internal object NativeBusinessExpensesBackup {
         val required = setOf("schemaVersion", "kind", "id", "revision", "sourceKind", "businessDate",
             "amountPaise", "currencyCode", "effect")
         val optional = setOf("reversesSourceId", "vehicleId", "driverId", "category", "description",
-            "reference", "alreadyNettedFromIncome", "paymentStatus")
+            "reference", "alreadyNettedFromIncome", "paymentStatus", "tripExpenseTreatment",
+            "tripFinancialSourceId", "tripFinancialComponent")
         val keys = data.keys().asSequence().toSet()
         require(keys.containsAll(required) && keys.all { it in required || it in optional } &&
             data.optInt("schemaVersion", -1) == 1 && data.optString("kind") == "business_expense" &&
@@ -83,6 +84,23 @@ internal object NativeBusinessExpensesBackup {
                 "business_expense_reversal_link_invalid"
             }
         } else require(!data.has("reversesSourceId")) { "business_expense_entry_invalid" }
+        val hasTripSource = data.has("tripFinancialSourceId")
+        val hasTripComponent = data.has("tripFinancialComponent")
+        val treatment = data.optString("tripExpenseTreatment")
+        if (data.has("tripExpenseTreatment")) require(treatment in setOf("standalone", "already-in-trip-closeout")) {
+            "business_expense_toll_parking_treatment_invalid"
+        }
+        if (treatment == "standalone") require(!hasTripSource && !hasTripComponent) {
+            "business_expense_standalone_must_not_link_trip_source"
+        }
+        if (treatment == "already-in-trip-closeout" || hasTripSource || hasTripComponent) {
+            require(data.optString("sourceKind") == "miscellaneous" &&
+                treatment == "already-in-trip-closeout" &&
+                data.optString("tripFinancialSourceId").startsWith("work:trip-financial-obligation:") &&
+                data.optString("tripFinancialComponent") in setOf("toll", "parking", "combined")) {
+                "business_expense_trip_financial_link_invalid"
+            }
+        }
         if (data.has("vehicleId")) require(data.optString("vehicleId").startsWith("feature:vehicle:")) {
             "business_expense_entry_invalid"
         }
@@ -138,6 +156,38 @@ internal object NativeBusinessExpensesBackup {
                 it.optString("participantId") == "driver-records" && it.optString("id") == driverId
             }) { "business_expense_driver_not_found" }
         }
+        entries.values.filter { it.optString("kind") == "business_expense" && it.has("tripFinancialSourceId") }
+            .forEach { expense ->
+                val tripId = expense.optString("tripFinancialSourceId")
+                val tripRow = allRows.firstOrNull { it.optString("id") == tripId }
+                    ?: error("business_expense_trip_financial_link_invalid")
+                val tripEnvelope = JSONObject(tripRow.getString("json"))
+                val trip = tripEnvelope.getJSONObject("data")
+                val component = expense.optString("tripFinancialComponent")
+                val expectedAmount = when (component) {
+                    "toll" -> if (trip.optString("tollPayer") == "driver") trip.optLong("tollPaise", 0L) else 0L
+                    "parking" -> if (trip.optString("parkingPayer") == "driver") trip.optLong("parkingPaise", 0L) else 0L
+                    "combined" ->
+                        (if (trip.optString("tollPayer") == "driver") trip.optLong("tollPaise", 0L) else 0L) +
+                        (if (trip.optString("parkingPayer") == "driver") trip.optLong("parkingPaise", 0L) else 0L)
+                    else -> 0L
+                }
+                val tripDate = trip.optJSONObject("tripContext")?.optString("operationalDate")
+                val linkedOriginal = if (expense.optString("effect") == "reversal")
+                    entries[expense.optString("reversesSourceId")] else expense
+                require(expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
+                    trip.optString("kind") == "completed_ride_financials" &&
+                    trip.optString("status") == "submitted" && expectedAmount > 0L &&
+                    integer(expense, "amountPaise") == expectedAmount &&
+                    linkedOriginal != null &&
+                    linkedOriginal.optString("tripFinancialSourceId") == tripId &&
+                    linkedOriginal.optString("tripFinancialComponent") == component &&
+                    linkedOriginal.optString("businessDate") == tripDate &&
+                    (expense.optString("effect") == "reversal" ||
+                        expense.optString("businessDate") == tripDate)) {
+                    "business_expense_trip_financial_link_invalid"
+                }
+            }
         val reversed = mutableSetOf<String>()
         entries.values.filter { it.optString("kind") == "business_expense" && it.optString("effect") == "reversal" }
             .forEach { reversal ->
@@ -151,7 +201,10 @@ internal object NativeBusinessExpensesBackup {
                     integer(original, "amountPaise") == integer(reversal, "amountPaise") &&
                     original.optString("businessDate") <= reversal.optString("businessDate") &&
                     original.optBoolean("alreadyNettedFromIncome") == reversal.optBoolean("alreadyNettedFromIncome") &&
-                    original.optString("paymentStatus") == reversal.optString("paymentStatus")) {
+                    original.optString("paymentStatus") == reversal.optString("paymentStatus") &&
+                    original.optString("tripExpenseTreatment") == reversal.optString("tripExpenseTreatment") &&
+                    original.optString("tripFinancialSourceId") == reversal.optString("tripFinancialSourceId") &&
+                    original.optString("tripFinancialComponent") == reversal.optString("tripFinancialComponent")) {
                     "business_expense_reversal_link_invalid"
                 }
             }

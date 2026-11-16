@@ -17,6 +17,8 @@ export type BusinessExpenseEntryV1 = Readonly<{
   effect: "charge" | "reversal"; reversesSourceId?: string; vehicleId?: string;
   driverId?: string; category?: string; description?: string; reference?: string;
   alreadyNettedFromIncome?: boolean; paymentStatus?: "unpaid" | "paid";
+  tripExpenseTreatment?: "standalone" | "already-in-trip-closeout"; tripFinancialSourceId?: string;
+  tripFinancialComponent?: "toll" | "parking" | "combined";
 }>;
 export type BusinessExpenseRecordV1 = FuelPurchaseV1 | BusinessExpenseEntryV1;
 export type FuelPurchaseInputV1 = Omit<FuelPurchaseV1, "schemaVersion" | "kind" | "id" | "revision">;
@@ -76,7 +78,7 @@ export class BusinessExpensesService {
   private readonly records: FeatureRecordService<BusinessExpenseRecordV1>;
 
   constructor(
-    repository: AtomicRecordRepository,
+    private readonly repository: AtomicRecordRepository,
     private readonly domain: BusinessExpensesDomain,
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
@@ -118,6 +120,11 @@ export class BusinessExpensesService {
     if (data.sourceKind === "platform_fee" && data.alreadyNettedFromIncome === true) {
       throw new Error("business_expense_platform_fee_netting_not_supported");
     }
+    if (data.sourceKind === "miscellaneous" && /\b(tolls?|parking)\b/i.test(data.category ?? "") &&
+        data.tripExpenseTreatment !== "standalone" &&
+        data.tripExpenseTreatment !== "already-in-trip-closeout") {
+      throw new Error("business_expense_toll_parking_treatment_required");
+    }
     this.domain.validateExpenseEntry(data);
     if (data.vehicleId) await this.requireVehicle(data.vehicleId);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
@@ -141,6 +148,36 @@ export class BusinessExpensesService {
     if (data.sourceKind !== "platform_fee" && data.alreadyNettedFromIncome !== undefined) {
       throw new Error("business_expense_income_treatment_not_applicable");
     }
+    if (data.tripFinancialSourceId) {
+      const linked = await this.repository.get(data.tripFinancialSourceId);
+      const linkedData = linked?.data as {
+        kind?: string; status?: string; tripContext?: { operationalDate?: string };
+        tollPaise?: number; tollPayer?: string; parkingPaise?: number; parkingPayer?: string;
+      } | undefined;
+      const linkedExpenseOriginal = data.effect === "reversal"
+        ? await this.records.get(data.reversesSourceId!) : undefined;
+      const originalBusinessDate = linkedExpenseOriginal?.data.kind === "business_expense"
+        ? linkedExpenseOriginal.data.businessDate : undefined;
+      const expectedLinkedAmount = data.tripFinancialComponent === "toll"
+        ? (linkedData?.tollPayer === "driver" ? linkedData.tollPaise ?? 0 : 0)
+        : data.tripFinancialComponent === "parking"
+          ? (linkedData?.parkingPayer === "driver" ? linkedData.parkingPaise ?? 0 : 0)
+          : data.tripFinancialComponent === "combined"
+            ? (linkedData?.tollPayer === "driver" ? linkedData.tollPaise ?? 0 : 0) +
+              (linkedData?.parkingPayer === "driver" ? linkedData.parkingPaise ?? 0 : 0)
+            : 0;
+      const sourceDateMatches = data.effect === "charge"
+        ? linkedData?.tripContext?.operationalDate === data.businessDate
+        : linkedData?.tripContext?.operationalDate === originalBusinessDate;
+      if (linkedData?.kind !== "completed_ride_financials" || linkedData.status !== "submitted" ||
+          !Number.isSafeInteger(expectedLinkedAmount) || expectedLinkedAmount <= 0 ||
+          !sourceDateMatches || expectedLinkedAmount !== data.amountPaise) {
+        throw new Error("business_expense_trip_financial_link_invalid");
+      }
+      if (data.effect === "charge") {
+        throw new Error("business_expense_trip_financial_duplicate");
+      }
+    }
     if (data.effect === "reversal") {
       const original = await this.records.get(data.reversesSourceId!);
       if (!original || original.data.kind !== "business_expense" ||
@@ -148,7 +185,10 @@ export class BusinessExpensesService {
           original.data.amountPaise !== data.amountPaise ||
           original.data.businessDate > data.businessDate ||
           (original.data.alreadyNettedFromIncome ?? false) !== (data.alreadyNettedFromIncome ?? false) ||
-          original.data.paymentStatus !== data.paymentStatus) {
+          original.data.paymentStatus !== data.paymentStatus ||
+          original.data.tripExpenseTreatment !== data.tripExpenseTreatment ||
+          original.data.tripFinancialSourceId !== data.tripFinancialSourceId ||
+          original.data.tripFinancialComponent !== data.tripFinancialComponent) {
         throw new Error("business_expense_reversal_link_invalid");
       }
       const existing = await this.listExpenseEntries();

@@ -23,6 +23,8 @@ export type CostAllocationSourceResultV1 = Readonly<{
   scheduleVersion?: number;
   sourceAmountPaise: number;
   disposition: AllocationDispositionV1;
+  /** Original validity window retained so downstream calculations can split pre/post business-start portions without guessing. */
+  sourcePeriod?: Readonly<{ from: string; to: string; label: string }>;
   eligibleFrom?: string;
   eligibleTo?: string;
   daily: readonly DailyCostAllocationV1[];
@@ -115,17 +117,20 @@ export function allocateComplianceCostV1(
     record.overlapReviewStatus !== "not_overlapping";
   if (overlapBlocked) return Object.freeze({
     sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
-    sourceAmountPaise: record.totalCostPaise, disposition: "overlap_review_required", daily: Object.freeze([]),
+    sourceAmountPaise: record.totalCostPaise, disposition: "overlap_review_required",
+    sourcePeriod: Object.freeze({ from: record.validFrom, to: record.validTo, label: record.complianceName }), daily: Object.freeze([]),
   });
   if (record.validTo < businessStartDate) return Object.freeze({
     sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
-    sourceAmountPaise: record.totalCostPaise, disposition: "pre_business_historical", daily: Object.freeze([]),
+    sourceAmountPaise: record.totalCostPaise, disposition: "pre_business_historical",
+    sourcePeriod: Object.freeze({ from: record.validFrom, to: record.validTo, label: record.complianceName }), daily: Object.freeze([]),
   });
   const from = record.validFrom < businessStartDate ? businessStartDate : record.validFrom;
   const daily = distribute({ sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
     amountPaise: record.totalCostPaise, from, to: record.validTo });
   return Object.freeze({ sourceId: record.id, sourceKind: "compliance", sourceVersion: record.revision,
-    sourceAmountPaise: record.totalCostPaise, disposition: "allocated", eligibleFrom: from,
+    sourceAmountPaise: record.totalCostPaise, disposition: "allocated",
+    sourcePeriod: Object.freeze({ from: record.validFrom, to: record.validTo, label: record.complianceName }), eligibleFrom: from,
     eligibleTo: record.validTo, daily: Object.freeze(daily) });
 }
 
@@ -191,6 +196,8 @@ export function allocateScheduledEmisV1(
       amountPaise: period.row.installmentAmountPaise, from, to: period.to });
     results.push(Object.freeze({ sourceId, sourceKind: "emi", sourceVersion: schedule.loanRevision, scheduleVersion: rowScheduleVersion,
       sourceAmountPaise: period.row.installmentAmountPaise, disposition: "allocated",
+      sourcePeriod: Object.freeze({ from: period.row.dueDate, to: period.to,
+        label: "EMI installment " + period.row.installmentNumber }),
       eligibleFrom: from, eligibleTo: period.to, daily: Object.freeze(daily) }));
   }
   return Object.freeze(results);

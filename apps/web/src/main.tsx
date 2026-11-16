@@ -1,51 +1,19 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import {
-  initializeApplicationRuntimeRegistry,
-  getApplicationBusinessSettingsService,
-  getApplicationVehicleService,
-  getApplicationDriverRecordsService,
-  getApplicationDriverAssignmentService,
-  getApplicationComplianceService,
-  getApplicationComplianceAnalysisService,
-  initializeApplicationComplianceAnalysisService,
-  getApplicationMaintenanceService,
-  getApplicationFinanceLoanService,
-  getApplicationFinanceLoanPaymentService,
-  getApplicationFinanceLoanPrepaymentService,
-  getApplicationFinanceLoanSettlementService,
-  getApplicationRecordSource,
-  initializeApplicationFeatureLifecycle,
-  initializeApplicationBusinessSettingsService,
-  initializeApplicationVehicleService,
-  initializeApplicationDriverRecordsService,
-  initializeApplicationDriverAssignmentService,
-  initializeApplicationComplianceService,
-  initializeApplicationMaintenanceService,
-  initializeApplicationFinanceLoanService,
-  initializeApplicationFinanceLoanPaymentService,
-  initializeApplicationFinanceLoanPrepaymentService,
-  initializeApplicationFinanceLoanSettlementService,
-  getApplicationBusinessExpensesService,
-  initializeApplicationBusinessExpensesService,
-  initializeApplicationRecordSource,
-  RecordFormWorkingCopyRepository,
-  FeatureRecordService,
-  SharedFormRuntime,
-  BUSINESS_SETUP_FORM_V1,
-  VEHICLE_FORM_V1,
-  DRIVER_FORM_V1,
-  COMPLIANCE_FORM_V1,
-  MAINTENANCE_VISIT_FORM_V1,
-  MAINTENANCE_EXPENSE_FORM_V1,
-  MAINTENANCE_RATE_FORM_V1,
-  LOAN_DETAILS_FORM_V1,
-  LOAN_PAYMENT_FORM_V1,
-  LOAN_PREPAYMENT_FORM_V1,
-  LOAN_SETTLEMENT_FORM_V1,
-  BusinessStartDateCostAllocationService,
-  FullCostBreakevenService,
-  TripFinancialService,
+  initializeApplicationRuntimeRegistry, getApplicationBusinessSettingsService, getApplicationVehicleService, getApplicationDriverRecordsService,
+  getApplicationDriverAssignmentService, getApplicationComplianceService, getApplicationComplianceAnalysisService, initializeApplicationComplianceAnalysisService,
+  getApplicationMaintenanceService, getApplicationFinanceLoanService, getApplicationFinanceLoanPaymentService, getApplicationFinanceLoanPrepaymentService,
+  getApplicationFinanceLoanSettlementService, getApplicationRecordSource, initializeApplicationFeatureLifecycle, initializeApplicationBusinessSettingsService,
+  initializeApplicationVehicleService, initializeApplicationDriverRecordsService, initializeApplicationDriverAssignmentService, initializeApplicationComplianceService,
+  initializeApplicationMaintenanceService, initializeApplicationFinanceLoanService, initializeApplicationFinanceLoanPaymentService, initializeApplicationFinanceLoanPrepaymentService,
+  initializeApplicationFinanceLoanSettlementService, getApplicationBusinessExpensesService, initializeApplicationBusinessExpensesService, initializeApplicationRecordSource,
+  RecordFormWorkingCopyRepository, FeatureRecordService, SharedFormRuntime, BUSINESS_SETUP_FORM_V1,
+  VEHICLE_FORM_V1, DRIVER_FORM_V1, COMPLIANCE_FORM_V1, MAINTENANCE_VISIT_FORM_V1,
+  MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1, LOAN_DETAILS_FORM_V1, LOAN_PAYMENT_FORM_V1,
+  LOAN_PREPAYMENT_FORM_V1, LOAN_SETTLEMENT_FORM_V1, PERFORMANCE_DRIVER_TARGET_FORM_V1, PRE_BUSINESS_COST_FORM_V1,
+  PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
+  TripFinancialService
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -53,12 +21,12 @@ import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { assertComplianceRecordV1, analyzeComplianceCoverage, calculateDailyComplianceCost, resolveComplianceOverlapReview, ComplianceOverlapReviewService } from "../../../packages/features/compliance";
 import {
-  assertMaintenanceRecordV1,
-  calculateMaintenanceVisitTotal,
-  maintenanceBusinessDateFromInstant,
+  assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant
 } from "../../../packages/features/maintenance";
-import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged,
-  assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1 } from "../../../packages/features/finance";
+import {
+  assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, assertFinanceLoanPrepaymentStateV1,
+  createLoanPrepaymentRevisionV1
+} from "../../../packages/features/finance";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
@@ -76,6 +44,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
+  const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
@@ -135,6 +104,28 @@ async function bootstrap(): Promise<void> {
         const expenseResult = await handleBusinessExpenseSubmission(command);
         if (expenseResult !== undefined) return expenseResult;
         if (command.action !== "save" && command.action !== "submit") throw new Error("unsupported_admin_form_operation");
+        if (command.formId === PERFORMANCE_DRIVER_TARGET_FORM_V1.id) {
+          const rupees = Number(command.values.monthlyTargetRupees);
+          if (!Number.isFinite(rupees) || rupees < 0 || !Number.isSafeInteger(Math.round(rupees * 100))) {
+            throw new Error("performance_driver_target_invalid");
+          }
+          return performanceAdminSettings.setMonthlyDriverTargetPaise(
+            Math.round(rupees * 100), getApplicationRecordSource(),
+          );
+        }
+        if (command.formId === PRE_BUSINESS_COST_FORM_V1.id) {
+          const rupees = Number(command.values.amountRupees);
+          const note = String(command.values.note ?? "").trim();
+          if (!Number.isFinite(rupees) || rupees <= 0 || !Number.isSafeInteger(Math.round(rupees * 100)) || !note) {
+            throw new Error("performance_pre_business_cost_invalid");
+          }
+          return performanceAdminSettings.createPreBusinessCost({
+            commandId: command.instanceId,
+            amountPaise: Math.round(rupees * 100),
+            note,
+            source: getApplicationRecordSource(),
+          });
+        }
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
@@ -364,6 +355,13 @@ async function bootstrap(): Promise<void> {
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
   );
+  const performanceCalculation = createPerformanceCalculationServiceV1({
+    businessSettings: getApplicationBusinessSettingsService(),
+    adminSettings: performanceAdminSettings,
+    fullCost: fullCostBreakeven,
+    allocation: costAllocation,
+    tripFinancials,
+  });
   const adminServices = Object.freeze({
     formRuntime,
     businessSettings: getApplicationBusinessSettingsService(),
@@ -379,12 +377,14 @@ async function bootstrap(): Promise<void> {
     financeLoanPrepayments: getApplicationFinanceLoanPrepaymentService(),
     financeLoanSettlements: getApplicationFinanceLoanSettlementService(),
     businessExpenses: getApplicationBusinessExpensesService(),
+    performanceSettings: performanceAdminSettings,
+    performanceCalculation,
     recordSource: getApplicationRecordSource(),
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance}>
-        <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} showBreakevenSanityCheck={true} />
+        <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} performanceCalculation={performanceCalculation} />
       </AdminServicesProvider>
     </React.StrictMode>,
   );

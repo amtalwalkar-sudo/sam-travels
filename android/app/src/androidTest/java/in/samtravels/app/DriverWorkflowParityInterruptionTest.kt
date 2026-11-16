@@ -224,7 +224,7 @@ class DriverWorkflowParityInterruptionTest {
 
             durable.close()
             durable = builder.build()
-            NativeStartupRecovery.invalidate()
+            NativeStartupRecovery.invalidate(durable)
             NativeStartupRecovery.ensure(durable)
             assertEquals("shift_active", DriverWorkflowStore.snapshot(durable).getString("state"))
             assertNotNull(DriverWorkflowStore.listPending(durable)

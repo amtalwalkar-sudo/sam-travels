@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "performance",
+  "entryPoint": "packages/features/performance/index.ts",
+  "extensionExport": "PERFORMANCE_FEATURE_EXTENSION"
+}

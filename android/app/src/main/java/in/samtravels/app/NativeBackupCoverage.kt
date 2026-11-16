@@ -365,35 +365,3 @@ internal object NativeBackupRecovery {
             key to Triple(row.getString("json"), row.getInt("schemaVersion"), row.getString("updatedAt"))
         }
 }
-
-
-/**
- * Process-wide startup gate shared by the driver plugin, overlay service, and
- * backup plugin. An unverified restore is rolled back only when a new process
- * first opens the authoritative database. A failed recovery never opens the gate.
- */
-internal object NativeStartupRecovery {
-    // Capacitor plugins and the overlay each own a Room handle, but named
-    // handles can point at the same durable database file. Cache recovery by
-    // database identity, not Kotlin object identity, to avoid repeatedly
-    // replaying the same recovery scan on every cross-plugin operation.
-    // In-memory test databases have no name and remain instance-scoped.
-    @Volatile private var readyDatabaseKey: String? = null
-
-    private fun key(database: LocalDatabase): String =
-        database.openHelper.databaseName ?: "memory:" + System.identityHashCode(database)
-
-    @Synchronized
-    fun ensure(database: LocalDatabase): List<String> {
-        val databaseKey = key(database)
-        if (readyDatabaseKey == databaseKey) return emptyList()
-        val recovered = NativeBackupRecovery.recoverPending(database)
-        readyDatabaseKey = databaseKey
-        return recovered
-    }
-
-    @Synchronized
-    fun invalidate() {
-        readyDatabaseKey = null
-    }
-}

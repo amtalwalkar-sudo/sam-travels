@@ -11,6 +11,16 @@ import {
   type BreakevenPeriodResultV1,
 } from "../../domain/src/full-cost-breakeven";
 
+export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV1 & {
+  fuelSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
+  maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
+}>;
+export type FullCostBreakevenSourceProjectionV1 = Readonly<{
+  dailyActivity: readonly FullCostBreakevenSourceActivityV1[];
+  datedCosts: readonly BreakevenDailyCostV1[];
+  completeness: readonly BreakevenCompletenessV1[];
+}>;
+
 function ratioAmount(km: number, ratio: { numerator: string; denominator: string }): number {
   const numerator = BigInt(ratio.numerator), denominator = BigInt(ratio.denominator);
   if (denominator <= 0n || numerator < 0n) throw new Error("breakeven_source_rate_invalid");
@@ -33,7 +43,7 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
   ) {}
 
-  async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
+  async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
     const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
@@ -43,6 +53,8 @@ export class FullCostBreakevenService {
     const activityByDate = new Map<string, {
       businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number;
       refs: { sourceId: string; revision: number }[];
+      fuelRefs: { sourceId: string; revision: number }[];
+      maintenanceRefs: { sourceId: string; revision: number }[];
     }>();
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
@@ -64,7 +76,8 @@ export class FullCostBreakevenService {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
         const bucket = activityByDate.get(date) ?? {
-          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, refs: [],
+          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0,
+          refs: [], fuelRefs: [], maintenanceRefs: [],
         };
         const km = accrual.data.businessKm;
         const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
@@ -73,20 +86,30 @@ export class FullCostBreakevenService {
             detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
         } else if (km > 0 && rate) {
           bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
-          rate.sourcePurchaseIds.forEach((sourceId, index) => bucket.refs.push({
-            sourceId, revision: rate.sourceRevisions[index] ?? 1,
-          }));
+          rate.sourcePurchaseIds.forEach((sourceId, index) => {
+            const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
+            bucket.refs.push(ref);
+            bucket.fuelRefs.push(ref);
+          });
         }
         bucket.businessKm += km;
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
-        bucket.refs.push({ sourceId: accrual.id, revision: accrual.revision });
+        const accrualRef = { sourceId: accrual.id, revision: accrual.revision };
+        bucket.refs.push(accrualRef);
+        bucket.maintenanceRefs.push(accrualRef);
         if (records.rateHistoryRecord) {
-          bucket.refs.push({ sourceId: records.rateHistoryRecord.id, revision: records.rateHistoryRecord.revision });
+          const rateRef = { sourceId: records.rateHistoryRecord.id, revision: records.rateHistoryRecord.revision };
+          bucket.refs.push(rateRef);
+          bucket.maintenanceRefs.push(rateRef);
         } else {
-          bucket.refs.push({ sourceId: vehicle.id, revision: vehicle.revision });
+          const vehicleRef = { sourceId: vehicle.id, revision: vehicle.revision };
+          bucket.refs.push(vehicleRef);
+          bucket.maintenanceRefs.push(vehicleRef);
         }
-        bucket.refs.push({ sourceId: accrual.data.dailyBusinessKmRecordId,
-          revision: accrual.data.dailyBusinessKmRevision });
+        const distanceRef = { sourceId: accrual.data.dailyBusinessKmRecordId,
+          revision: accrual.data.dailyBusinessKmRevision };
+        bucket.refs.push(distanceRef);
+        bucket.maintenanceRefs.push(distanceRef);
         if (![bucket.businessKm, bucket.fuelCostPaise, bucket.maintenanceCostPaise].every(Number.isSafeInteger)) {
           throw new Error("breakeven_activity_total_overflow");
         }
@@ -99,16 +122,76 @@ export class FullCostBreakevenService {
         detail: "No committed daily business-kilometre maintenance accruals exist in the selected period." };
     }
 
-    const dailyActivity: BreakevenDailyActivityV1[] = [...activityByDate].map(([date, value]) => ({
+    const dailyActivity: FullCostBreakevenSourceActivityV1[] = [...activityByDate].map(([date, value]) => ({
       date, businessKm: value.businessKm, fuelCostPaise: value.fuelCostPaise,
       maintenanceCostPaise: value.maintenanceCostPaise,
       distanceSourceId: value.refs.map(ref => ref.sourceId).sort().join("|"),
       distanceSourceRevision: Math.max(1, ...value.refs.map(ref => ref.revision)),
       sourceRefs: value.refs,
+      fuelSourceRefs: value.fuelRefs,
+      maintenanceSourceRefs: value.maintenanceRefs,
     }));
 
     const datedCosts: BreakevenDailyCostV1[] = [];
     const expenseById = new Map(expenses.map(record => [record.id, record]));
+    const tripFinancialById = new Map(tripFinancialRecords.map(record => [record.id, record]));
+    const shadowedTripDuplicateExpenseIds = new Set<string>();
+    const withheldTripLinkedExpenseIds = new Set<string>();
+    const withheldLegacyTollParkingExpenseIds = new Set<string>();
+    for (const expense of expenses) {
+      if (expense.data.sourceKind === "miscellaneous" &&
+          /\b(tolls?|parking)\b/i.test(expense.data.category ?? "") &&
+          !expense.data.tripExpenseTreatment) {
+        withheldLegacyTollParkingExpenseIds.add(expense.id);
+        completeness.push({
+          source: "business-expenses", status: "review-required",
+          detail: "Legacy toll/parking expense " + expense.id +
+            " has no explicit standalone or trip-closeout treatment and was withheld.",
+        });
+      }
+    }
+    for (const expense of expenses) {
+      const linkedTripId = expense.data.tripFinancialSourceId;
+      if (!linkedTripId) continue;
+      const linkedTrip = tripFinancialById.get(linkedTripId);
+      const tripData = linkedTrip?.data;
+      const expectedLinkedAmount = tripData?.kind === "completed_ride_financials"
+        ? expense.data.tripFinancialComponent === "toll"
+          ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0)
+          : expense.data.tripFinancialComponent === "parking"
+            ? (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+            : expense.data.tripFinancialComponent === "combined"
+              ? (tripData.tollPayer === "driver" ? tripData.tollPaise ?? 0 : 0) +
+                (tripData.parkingPayer === "driver" ? tripData.parkingPaise ?? 0 : 0)
+              : 0
+        : 0;
+      const original = expense.data.effect === "reversal"
+        ? expenseById.get(expense.data.reversesSourceId ?? "") : undefined;
+      const linkedDate = tripData?.kind === "completed_ride_financials"
+        ? tripData.tripContext?.operationalDate : undefined;
+      const originalMatches = expense.data.effect === "charge" ||
+        (original?.data.kind === "business_expense" && original.data.effect === "charge" &&
+          original.data.tripExpenseTreatment === "already-in-trip-closeout" &&
+          original.data.tripFinancialSourceId === linkedTripId &&
+          original.data.tripFinancialComponent === expense.data.tripFinancialComponent &&
+          original.data.amountPaise === expense.data.amountPaise &&
+          original.data.businessDate === linkedDate);
+      const validLink = expense.data.sourceKind === "miscellaneous" &&
+        expense.data.tripExpenseTreatment === "already-in-trip-closeout" &&
+        tripData?.kind === "completed_ride_financials" && tripData.status === "submitted" &&
+        Number.isSafeInteger(expectedLinkedAmount) && expectedLinkedAmount > 0 &&
+        expense.data.amountPaise === expectedLinkedAmount && originalMatches &&
+        (expense.data.effect === "reversal" || expense.data.businessDate === linkedDate);
+      if (validLink) shadowedTripDuplicateExpenseIds.add(expense.id);
+      else {
+        withheldTripLinkedExpenseIds.add(expense.id);
+        completeness.push({
+        source: "business-expenses", status: "review-required",
+        detail: "Miscellaneous expense " + expense.id +
+          " has an invalid trip-financial duplicate link and was withheld.",
+        });
+      }
+    }
     const expenseKinds = [
       { field: "platformFeesPaise", sourceKind: "platform_fee", kind: "platform-fee" },
       { field: "trafficChallansPaise", sourceKind: "traffic_challan", kind: "traffic-challan" },
@@ -116,13 +199,23 @@ export class FullCostBreakevenService {
     ] as const;
     for (const daily of dailyExpenseOutputs) {
       for (const category of expenseKinds) {
-        const amountPaise = daily[category.field];
+        let amountPaise = daily[category.field];
         const refs = daily.sourceIds.flatMap((sourceId, index) => {
           const source = expenseById.get(sourceId);
-          return source?.data.sourceKind === category.sourceKind
+          return source?.data.sourceKind === category.sourceKind &&
+            !shadowedTripDuplicateExpenseIds.has(sourceId) &&
+            !withheldTripLinkedExpenseIds.has(sourceId) &&
+            !withheldLegacyTollParkingExpenseIds.has(sourceId)
             ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
             : [];
         });
+        if (category.sourceKind === "miscellaneous") {
+          amountPaise = refs.reduce((sum, ref) => {
+            const source = expenseById.get(ref.sourceId)!;
+            const sign = source.data.effect === "reversal" ? -1 : 1;
+            return sum + sign * source.data.amountPaise;
+          }, 0);
+        }
         if (!Number.isSafeInteger(amountPaise)) throw new Error("breakeven_expense_amount_invalid");
         if (amountPaise !== 0 && !refs.length) {
           completeness.push({ source: "business-expenses", status: "incomplete",
@@ -151,6 +244,7 @@ export class FullCostBreakevenService {
       if (driverExpenses > 0) datedCosts.push({
         date: context.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
         sourceId: record.id, sourceRevision: record.revision,
+        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
       });
     }
 
@@ -171,8 +265,18 @@ export class FullCostBreakevenService {
       }
     }
 
+    return Object.freeze({
+      dailyActivity: Object.freeze(dailyActivity),
+      datedCosts: Object.freeze(datedCosts),
+      completeness: Object.freeze(completeness),
+    });
+  }
+
+  async calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> {
+    const projection = await this.getSourceProjection(from, to);
     return calculateFullCostBreakevenV1({
-      from, to, dailyActivity, datedCosts, completeness,
+      from, to, dailyActivity: projection.dailyActivity,
+      datedCosts: projection.datedCosts, completeness: projection.completeness,
     });
   }
 }

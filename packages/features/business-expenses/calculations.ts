@@ -45,6 +45,9 @@ export type BusinessExpenseEntryV1 = Readonly<{
   /** True when this fee has already been deducted from the corresponding income source. */
   alreadyNettedFromIncome?: boolean;
   paymentStatus?: "unpaid" | "paid";
+  tripExpenseTreatment?: "standalone" | "already-in-trip-closeout";
+  tripFinancialSourceId?: string;
+  tripFinancialComponent?: "toll" | "parking" | "combined";
 }>;
 
 export type ExactRatioV1 = Readonly<{ numerator: string; denominator: string }>;
@@ -158,7 +161,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
   const row = value as Record<string, unknown>;
   const required = ["schemaVersion", "kind", "id", "revision", "sourceKind", "businessDate",
     "amountPaise", "currencyCode", "effect"];
-  const optional = ["reversesSourceId", "vehicleId", "driverId", "category", "description", "reference", "alreadyNettedFromIncome", "paymentStatus"];
+  const optional = ["reversesSourceId", "vehicleId", "driverId", "category", "description", "reference", "alreadyNettedFromIncome", "paymentStatus", "tripExpenseTreatment", "tripFinancialSourceId", "tripFinancialComponent"];
   if (required.some(key => !(key in row)) ||
       Object.keys(row).some(key => !required.includes(key) && !optional.includes(key)) ||
       row.schemaVersion !== 1 || row.kind !== "business_expense" ||
@@ -171,6 +174,19 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.effect === "charge" && row.reversesSourceId !== undefined) ||
       (row.alreadyNettedFromIncome !== undefined && typeof row.alreadyNettedFromIncome !== "boolean") ||
       (row.paymentStatus !== undefined && !["unpaid", "paid"].includes(String(row.paymentStatus))) ||
+      (row.tripExpenseTreatment !== undefined &&
+        !["standalone", "already-in-trip-closeout"].includes(String(row.tripExpenseTreatment))) ||
+      (row.tripExpenseTreatment === "standalone" &&
+        (row.tripFinancialSourceId !== undefined || row.tripFinancialComponent !== undefined)) ||
+      (row.tripExpenseTreatment === "already-in-trip-closeout" &&
+        (row.sourceKind !== "miscellaneous" || typeof row.category !== "string" ||
+          !/\b(tolls?|parking)\b/i.test(row.category) || typeof row.tripFinancialSourceId !== "string" ||
+          !row.tripFinancialSourceId.startsWith("work:trip-financial-obligation:") ||
+          row.tripFinancialSourceId.length <= "work:trip-financial-obligation:".length ||
+          !["toll", "parking", "combined"].includes(String(row.tripFinancialComponent)))) ||
+      (row.tripFinancialSourceId !== undefined &&
+        row.tripExpenseTreatment !== "already-in-trip-closeout") ||
+      (row.tripFinancialComponent !== undefined && row.tripFinancialSourceId === undefined) ||
       (row.sourceKind === "traffic_challan" && row.paymentStatus === undefined) ||
       (row.sourceKind !== "traffic_challan" && row.paymentStatus !== undefined) ||
       (row.sourceKind === "platform_fee" && (row.vehicleId === undefined || row.alreadyNettedFromIncome === true)) ||
