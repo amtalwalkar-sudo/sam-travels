@@ -18,7 +18,7 @@ class NativeBackupCoverageTest {
         NativeBusinessSettingsBackup.ensureRegistered(); NativeVehicleBackup.ensureRegistered()
         NativeDriverRecordsBackup.ensureRegistered(); NativeComplianceBackup.ensureRegistered()
         NativeMaintenanceBackup.ensureRegistered(); NativeFinanceBackup.ensureRegistered()
-        NativeBusinessExpensesBackup.ensureRegistered()
+        NativeBusinessExpensesBackup.ensureRegistered(); NativePerformanceBackup.ensureRegistered()
     }
     @Test fun sharedSnapshotManifestIncludesLogBook() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -42,7 +42,7 @@ class NativeBackupCoverageTest {
             val logBookRow = (0 until records.length()).map { records.getJSONObject(it) }
                 .single { it.optString("id") == "scheduled-backup-event" }
             assertEquals("logbook-events", logBookRow.getString("participantId"))
-            assertEquals(12, result.manifest.getJSONArray("participants").length())
+            assertEquals(13, result.manifest.getJSONArray("participants").length())
             assertEquals(1, result.manifest.getJSONObject("recordCounts").getInt("records"))
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
@@ -103,6 +103,7 @@ class NativeBackupCoverageTest {
                 "business-settings-records", "vehicle-records", "driver-records",
                 "compliance-records", "maintenance-records", "finance-records",
                 "finance-payment-records", "finance-prepayment-records", "business-expenses-records",
+                "performance-records",
             ), participants.map { it.id }.toSet())
             assertEquals(setOf("records", "logbook_events"), participants.map { it.roomTable }.toSet())
             assertEquals(participants.map { it.id }.toSet(), NativeBackupCoverage.registeredParticipantIds())
@@ -177,7 +178,7 @@ class NativeBackupCoverageTest {
 
     @Test fun nativeParticipantManifestIsVersionedAndOwnershipSpecific() {
         val manifest = NativeBackupCoverage.participantManifest()
-        assertEquals(12, manifest.length())
+        assertEquals(13, manifest.length())
         NativeBackupCoverage.validateParticipantManifest(manifest)
         val changed = JSONArray()
         for (index in 0 until manifest.length()) {
