@@ -184,7 +184,7 @@ try {
   const recovery = page.locator(".performance-recovery");
   await recovery.locator(".performance-recovery-summary").waitFor();
   console.log("Performance recovery detail:", await recovery.innerText());
-  await recovery.getByText(note, { exact: true }).waitFor();
+  await recovery.locator("td").filter({ hasText: note }).first().waitFor();
   const summary = await recovery.locator(".performance-recovery-summary").innerText();
   if (!summary.includes(businessStartDate) || !summary.includes(recoveryToExclusive)) {
     throw new Error("recovery_window_does_not_match_exact_18_month_anniversary:" + summary);
