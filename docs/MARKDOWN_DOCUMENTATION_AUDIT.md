@@ -266,13 +266,14 @@ Delivered in this phase:
 - Added [Documentation Catalog](DOCUMENTATION_CATALOG.md), grouping the repository's Markdown documentation into the six agreed areas: Product and Business Rules; Calculation Foundation; Application Architecture; UI/UX Architecture; Quality and Release; Historical Records and References.
 - Updated [Contract and Documentation Index](CONTRACT_INDEX.md) to distinguish six-area navigation from normative contract authority.
 - Updated the root README to route readers through the System Blueprint, Contract Index and Documentation Catalog.
+- Added `npm run check:docs` and a required CI step to validate local Markdown links across the repository; the validator excludes fenced code examples and external URLs.
 - Preserved existing document paths, detailed contracts, audits, plans, reference manifests and historical evidence. No mass file move or deletion was performed, avoiding unnecessary link churn and loss of historical context.
 - Clarified that the catalog is navigational: the Contract Index and named owner contracts continue to determine authority.
 
 **Inventory accounting:** The Phase 3 starting tree contained 84 tracked Markdown files. The System Blueprint and Documentation Catalog add two files. The expected Phase 3 inventory is therefore 86 Markdown files, including this audit and the Contract Index. The exact final tree and internal-link validation must be checked at the final PR head before Phase 3 is marked complete.
 
 **Still required before documentation phase exit:**
-1. Validate every relative Markdown link across the exact final repository tree, including links in root documents, service documentation and reference artifacts.
+1. Run `npm run check:docs` on the exact final repository tree and fix every broken local Markdown link it reports.
 2. Check catalog coverage against the recursive Git tree so every Markdown file has exactly one primary catalog entry (root and service entry points included).
 3. Reconcile current status statements only where exact source/test/CI evidence supports the change; preserve historical audit baselines.
 4. Resolve or explicitly hold the known calculation policy conflicts recorded in the Calculation Authority audit. Documentation must not silently choose a new business rule.
