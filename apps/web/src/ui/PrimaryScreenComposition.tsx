@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { FullCostBreakevenService } from "../../../../packages/application/src";
+import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
@@ -11,14 +11,14 @@ export type PrimaryScreenCompositionProps = Readonly<{
   runtimeRegistry: RuntimeRegistry;
   workspace: ReturnType<typeof useDriverWorkspace>;
   fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-  showBreakevenSanityCheck: boolean;
+  performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
   children: ReactNode;
 }>;
 
 /** Replaceable screen composition; feature renderers remain opaque behind their typed host contracts. */
 export function PrimaryScreenComposition({
   activeScreen, runtimeRegistry, workspace,
-  fullCostBreakeven, showBreakevenSanityCheck, children,
+  fullCostBreakeven, performanceCalculation, children,
 }: PrimaryScreenCompositionProps) {
   return <>
     <div hidden={activeScreen !== "Drive"}>{children}</div>
