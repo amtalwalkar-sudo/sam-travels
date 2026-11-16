@@ -44,3 +44,11 @@
 .positive{color:#21764e!important}.negative{color:#a43c3c!important}
 @media(max-width:760px){.performance-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.performance-lifetime-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.performance-dashboard-heading h2{font-size:19px}.performance-period-form{align-items:stretch}.performance-period-form label{flex:1 1 42%}.performance-period-form button{width:100%}.performance-lifetime>header{align-items:flex-start;flex-direction:column}.performance-kpi{padding:12px}.performance-kpi strong{font-size:16px}}
+
+.performance-story,.performance-understand,.performance-check-numbers{display:grid;gap:12px}
+.performance-story-title small,.performance-understand>header small,.performance-check-numbers>header small{font-size:10px;letter-spacing:.08em;color:#87959e;font-weight:800}
+.performance-story-title h3,.performance-understand>header h3,.performance-check-numbers>header h3{margin:5px 0 0;font-size:18px;color:#2a4050}
+.performance-understand>header,.performance-check-numbers>header{margin:2px 0 4px}
+.performance-category-panel h3{font-size:15px;margin:0 0 12px}
+.performance-category-panel .performance-table caption{text-align:left;caption-side:top;color:#81909a;font-size:10px;padding:0 8px 12px;line-height:1.5}
+.performance-formula{background:#f5f8fa;border:1px solid #e3eaf0;border-radius:12px;padding:14px;margin:0;color:#506574;font-size:12px;line-height:1.65}
