@@ -81,7 +81,12 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
-  await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
+  try {
+    await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
+  } catch (error) {
+    console.log("Performance screen initial state:", await page.locator(".performance-dashboard").innerText());
+    throw error;
+  }
 
   const period = page.locator(".performance-period-form");
   await period.getByLabel("Period from").fill(businessStartDate);
