@@ -75,6 +75,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState<"daily" | "monthly" | "recovery">("daily");
+  const [selectedInsight, setSelectedInsight] = useState("lifetime-target-position");
 
   async function calculate(event?: FormEvent) {
     event?.preventDefault();
@@ -107,6 +108,26 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const monthToDateAchievementPercent = monthToDate && monthToDate.period.monthlyDriverTargetPaise > 0
     ? Math.round(monthToDate.period.profitPaise / monthToDate.period.monthlyDriverTargetPaise * 100)
     : undefined;
+  const insightDefinitions: Record<string, { label: string; formula: string }> = {
+    "period-revenue": { label: "Period revenue", formula: "Verified gross completed fares + verified cancellation fees, summed over the selected operational dates. Unverified revenue is excluded." },
+    "period-cost": { label: "Eligible period costs", formula: "Sum of verified operating costs, separately allocated EMI and Compliance, and applicable pre-business recovery amounts. Costs are not duplicated across source modules." },
+    "period-net": { label: "Period net position", formula: "Selected-period revenue − selected-period full eligible costs." },
+    "monthly-target": { label: "Monthly Driver Target", formula: "A fixed rupee amount set in Admin. It is shown in full for selected date filters and is not prorated. Month-to-date achievement = month-to-date net profit ÷ monthly target." },
+    "business-distance": { label: "Business distance", formula: "Sum of confirmed allocated daily business kilometres in the selected period. Unallocated distance is not included." },
+    "fuel-per-km": { label: "Fuel cost per business km", formula: "Verified fuel cost in the selected period ÷ confirmed allocated business kilometres. It is unavailable when distance is zero or not confirmed." },
+    "lifetime-revenue": { label: "Lifetime revenue", formula: "Verified revenue summed from the actual business start date through the selected period end." },
+    "lifetime-cost": { label: "Lifetime eligible costs", formula: "Verified eligible costs and recovery allocations summed from actual business start date through selected period end." },
+    "lifetime-net": { label: "Lifetime net", formula: "Lifetime verified revenue − lifetime eligible costs." },
+    "lifetime-target": { label: "Accumulated target", formula: "Configured monthly Driver Target × elapsed calendar months from business start through selected period-to month, counting both start and end months." },
+    "lifetime-target-position": { label: "Lifetime target position", formula: "Lifetime net profit − accumulated target. Positive means ahead of the accumulated target; negative means shortfall." },
+    "target-month-count": { label: "Target months counted", formula: "Calendar month count from business start month through selected period-to month, inclusive." },
+  };
+  const insight = insightDefinitions[selectedInsight] ?? {
+    label: selectedInsight.startsWith("cost-kind:") ? CATEGORY_LABELS[selectedInsight.slice(9) as PerformanceCostKindV1] ?? "Cost category" : "Performance figure",
+    formula: selectedInsight.startsWith("cost-kind:")
+      ? "This category total is the sum of verified daily amounts for this cost kind over the selected period."
+      : "The figure is calculated from the selected period's verified and allocated source records.",
+  };
 
   return <section className="performance-dashboard" aria-labelledby="performance-dashboard-title">
     <header className="performance-dashboard-heading">
@@ -134,27 +155,27 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <span>Operational days <strong>{result.daily.length}</strong></span></div>
 
       <section className="performance-kpi-grid" aria-label="Selected period results">
-        <article className="performance-kpi"><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></article>
-        <article className="performance-kpi"><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></article>
-        <article className="performance-kpi"><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></article>
-        <article className="performance-kpi"><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period revenue" onClick={() => setSelectedInsight("period-revenue")}><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Eligible period costs" onClick={() => setSelectedInsight("period-cost")}><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period net position" onClick={() => setSelectedInsight("period-net")}><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Monthly Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
           {monthToDate ? <span>Month-to-date net: {signedMoney(monthToDate.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
-            : <span>Month-to-date achievement is currently unavailable.</span>}</article>
-        <article className="performance-kpi"><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></article>
-        <article className="performance-kpi"><small>Fuel cost per business km</small><strong>{fuelCostPerBusinessKmPaise === undefined ? "—" : money(fuelCostPerBusinessKmPaise)}</strong><span>{businessKm > 0 ? "Selected-period fuel cost ÷ confirmed business km" : "Unavailable without confirmed distance"}</span></article>
+            : <span>Month-to-date achievement is currently unavailable.</span>}</button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Business distance" onClick={() => setSelectedInsight("business-distance")}><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Fuel cost per business km" onClick={() => setSelectedInsight("fuel-per-km")}><small>Fuel cost per business km</small><strong>{fuelCostPerBusinessKmPaise === undefined ? "—" : money(fuelCostPerBusinessKmPaise)}</strong><span>{businessKm > 0 ? "Selected-period fuel cost ÷ confirmed business km" : "Unavailable without confirmed distance"}</span></button>
       </section>
 
       <section className="performance-story" aria-labelledby="performance-lifetime-title">
       <div className="performance-story-title"><small>THE BUSINESS STORY</small><h3>Am I ahead of breakeven?</h3></div>
       <section className="performance-lifetime" aria-labelledby="performance-lifetime-title">
         <header><div><small>FROM BUSINESS START DATE THROUGH PERIOD END</small><h3 id="performance-lifetime-title">Lifetime breakeven & target position</h3></div>
-          <span className={result.lifetime.targetPositionPaise >= 0 ? "performance-position positive" : "performance-position negative"}>{signedMoney(result.lifetime.targetPositionPaise)}</span></header>
+          <button type="button" className={result.lifetime.targetPositionPaise >= 0 ? "performance-position performance-number-action positive" : "performance-position performance-number-action negative"} aria-label="Explain Lifetime target position" onClick={() => setSelectedInsight("lifetime-target-position")}>{signedMoney(result.lifetime.targetPositionPaise)}</button></header>
         <div className="performance-lifetime-grid">
-          <div><small>Lifetime revenue</small><strong>{money(result.lifetime.revenuePaise)}</strong></div>
-          <div><small>Lifetime eligible costs</small><strong>{money(result.lifetime.costPaise)}</strong></div>
-          <div><small>Lifetime net</small><strong className={result.lifetime.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.lifetime.profitPaise)}</strong></div>
-          <div><small>Accumulated target</small><strong>{money(result.lifetime.targetPaise)}</strong></div>
-          <div><small>Target months counted</small><strong>{result.lifetime.elapsedCalendarMonths}</strong></div>
+          <button type="button" onClick={() => setSelectedInsight("lifetime-revenue")}><small>Lifetime revenue</small><strong>{money(result.lifetime.revenuePaise)}</strong></button>
+          <button type="button" onClick={() => setSelectedInsight("lifetime-cost")}><small>Lifetime eligible costs</small><strong>{money(result.lifetime.costPaise)}</strong></button>
+          <button type="button" onClick={() => setSelectedInsight("lifetime-net")}><small>Lifetime net</small><strong className={result.lifetime.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.lifetime.profitPaise)}</strong></button>
+          <button type="button" onClick={() => setSelectedInsight("lifetime-target")}><small>Accumulated target</small><strong>{money(result.lifetime.targetPaise)}</strong></button>
+          <button type="button" onClick={() => setSelectedInsight("target-month-count")}><small>Target months counted</small><strong>{result.lifetime.elapsedCalendarMonths}</strong></button>
         </div>
         <p className="performance-explainer">Target position is lifetime net profit minus the fixed monthly target multiplied by elapsed calendar months since business start (including the start and period-to months).</p>
       </section>
@@ -196,13 +217,13 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       </section>
       <section className="performance-detail-panel">
         {categories.length === 0 ? <p>No verified costs were allocated to this period.</p> : <div className="performance-category-list">
-          {categories.map(item => <div className="performance-category-row" key={item.key}><span>{item.label}</span><strong>{money(item.amount)}</strong></div>)}
+          {categories.map(item => <button type="button" className="performance-category-row performance-number-action" key={item.key} onClick={() => setSelectedInsight("cost-kind:" + item.key)}><span>{item.label}</span><strong>{money(item.amount)}</strong></button>)}
         </div>}
       </section>
 
       <section className="performance-check-numbers" aria-labelledby="performance-check-numbers-title">
       <header><small>CHECK MY NUMBERS</small><h3 id="performance-check-numbers-title">How each figure was calculated</h3></header>
-      <p className="performance-formula">Revenue = verified gross completed fares + verified cancellation fees. Full costs = eligible operating costs + EMI + Compliance + pre-business recovery. Net = revenue − full costs.</p>
+      <div className="performance-insight" aria-live="polite"><h4>{insight.label}</h4><p className="performance-formula">{insight.formula}</p><details><summary>Source-record path ({result.provenance.sourceRefs.length} source references)</summary><p>These immutable source IDs and revisions are passed through the Performance calculation provenance from their owning modules. Use the owning module's record/history view to inspect or correct source data; Performance is read-only.</p><ul>{result.provenance.sourceRefs.map((ref, index) => <li key={ref.sourceId + ":" + ref.revision + ":" + index}>{ref.sourceId} · revision {ref.revision}</li>)}</ul></details></div>
       <details className="performance-provenance"><summary>Calculation completeness & source provenance ({result.provenance.sourceRefs.length} source references)</summary>
         {incomplete.length === 0 ? <p>All supplied completeness checks are complete.</p> : <ul>{incomplete.map((item, index) =>
           <li key={item.source + ":" + index}><strong>{item.source}:</strong> {item.status}{item.detail ? " — " + item.detail : ""}</li>)}</ul>}
