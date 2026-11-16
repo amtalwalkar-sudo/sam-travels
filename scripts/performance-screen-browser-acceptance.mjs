@@ -90,6 +90,54 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
+  await page.evaluate(async ({ operationalDate }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const createdAt = operationalDate + "T10:00:00.000Z";
+    const tripContext = {
+      schemaVersion: 1, shiftId: "performance-acceptance-shift",
+      driverId: "performance-acceptance-driver",
+      assignmentId: "performance-acceptance-assignment",
+      vehicleId: "performance-acceptance-vehicle",
+      operationalDate,
+    };
+    const records = [
+      {
+        id: "work:trip-financial-obligation:performance-screen-fare",
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        data: {
+          schemaVersion: 1, tripId: "performance-screen-fare",
+          kind: "completed_ride_financials", status: "submitted",
+          endRideEventId: "performance-screen-fare-end", createdAt,
+          tripContext, farePaise: 120000,
+        },
+      },
+      {
+        id: "work:trip-financial-obligation:performance-screen-cancellation",
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        data: {
+          schemaVersion: 1, tripId: "performance-screen-cancellation",
+          kind: "cancellation_fee", status: "submitted",
+          cancellationEventId: "performance-screen-cancellation-event", createdAt,
+          tripContext, feePaise: 5000,
+        },
+      },
+    ];
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction("records", "readwrite");
+      for (const record of records) transaction.objectStore("records").put(record);
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    db.close();
+  }, { operationalDate: today });
+  console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
   await page.getByRole("navigation", { name: "Primary navigation" })
@@ -115,6 +163,14 @@ try {
     throw new Error("optional_distance_projection_failure_blocked_core_performance_calculation");
   }
 
+  const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
+  if (!(await periodRevenue.innerText()).includes("₹1,250.00")) {
+    throw new Error("verified_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  }
+  const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
+  if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
+    throw new Error("verified_revenue_missing_from_lifetime_position");
+  }
   const targetCard = page.getByRole("button", { name: "Explain Monthly Driver Target", exact: true });
   await targetCard.waitFor();
   if (!(await targetCard.innerText()).includes("₹30,000.00")) {
