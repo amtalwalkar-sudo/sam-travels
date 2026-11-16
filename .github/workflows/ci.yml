@@ -205,24 +205,29 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 900
           script: |
-            set -eu
+            bash -euo pipefail <<'BASH'
             echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"
             gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest
-            echo "Reinstall app and instrumentation APKs for the process-restart recovery gate"
+            echo "Install target and instrumentation APKs before the restart phases"
             gradle -p android :app:installDebug :app:installDebugAndroidTest
             adb -s emulator-5554 shell pm path in.samtravels.app
             adb -s emulator-5554 shell pm path in.samtravels.app.test
-            echo "Prepare durable Room state in the first instrumentation process"
-            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart
-            echo "Force-stop both packages to create a real process boundary"
+            echo "Prepare durable Room state in a direct instrumentation invocation"
+            output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+            printf "%s\\n" "$output"
+            grep -Fq "OK (1 test)" <<<"$output"
+            if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Preparation instrumentation reported failures" >&2; exit 1; fi
+            echo "Force-stop target and instrumentation packages to prove process restart"
             adb -s emulator-5554 shell am force-stop in.samtravels.app
             adb -s emulator-5554 shell am force-stop in.samtravels.app.test
-            echo "Reinstall only the instrumentation APK; preserve target app Room data"
-            gradle -p android :app:installDebugAndroidTest
-            echo "Recover persisted pending workflow in a fresh instrumentation process"
-            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart
-            echo "Run all remaining Android instrumentation tests"
+            echo "Recover pending workflow using a separate instrumentation invocation"
+            output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#recoverPendingWorkflowAfterProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)"
+            printf "%s\\n" "$output"
+            grep -Fq "OK (1 test)" <<<"$output"
+            if grep -Fq "FAILURES!!!" <<<"$output"; then echo "Recovery instrumentation reported failures" >&2; exit 1; fi
+            echo "Run remaining Android instrumentation suite excluding already run special cases"
             gradle -p android connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=in.samtravels.app.DriverWorkflowProcessRestartTest,in.samtravels.app.PerformanceCalculationRoomParityTest
+            BASH
       - name: Publish unsigned release APK from merged main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
