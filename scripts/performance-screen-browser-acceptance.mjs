@@ -182,6 +182,8 @@ try {
 
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   const recovery = page.locator(".performance-recovery");
+  await recovery.locator(".performance-recovery-summary").waitFor();
+  console.log("Performance recovery detail:", await recovery.innerText());
   await recovery.getByText(note, { exact: true }).waitFor();
   const summary = await recovery.locator(".performance-recovery-summary").innerText();
   if (!summary.includes(businessStartDate) || !summary.includes(recoveryToExclusive)) {
