@@ -427,3 +427,15 @@ The single implementation PR is complete only when both sides of the product can
 - The full CI and architecture verification matrix passes; manual physical-device acceptance is reported separately.
 
 The agreed delivery strategy is one audit/decision PR followed by one consolidated implementation PR. Internal stages and commits are encouraged; unnecessary dependent PRs are not.
+
+
+## 14. Documentation navigation and authority
+
+This audit is a baseline-specific findings and decision record. It does not replace the detailed calculation owners or approve any unresolved policy change.
+
+- [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) provides the end-to-end architecture and calculation flow overview.
+- [Documentation Catalog](DOCUMENTATION_CATALOG.md) provides the six-area navigation and document-role inventory.
+- [Contract and Documentation Index](CONTRACT_INDEX.md) identifies normative owners and precedence.
+- [Repository Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) records documentation reconciliation and historical evidence.
+
+When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. Findings CA-10 through CA-12 remain review/decision items; this navigation update does not change their policy status.
