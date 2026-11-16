@@ -19,7 +19,7 @@
 .performance-lifetime>header{align-items:center}.performance-lifetime h3{font-size:17px}
 .performance-position{font-size:clamp(17px,3vw,23px);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .performance-lifetime-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:15px}
-.performance-lifetime-grid>div{background:#f5f8fa;border-radius:11px;padding:12px;min-width:0}
+.performance-lifetime-grid>button{background:#f5f8fa;border:1px solid transparent;border-radius:11px;padding:12px;min-width:0;text-align:left;color:#344e5e;cursor:pointer}
 .performance-lifetime-grid small,.performance-lifetime-grid strong{display:block}.performance-lifetime-grid strong{font-size:15px;margin-top:7px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .performance-explainer{color:#82909a;font-size:10px;line-height:1.55;margin:13px 0 0}
 .performance-detail-panel,.performance-category-panel{background:#fff;border:1px solid #e1e8ed;border-radius:16px;padding:16px;min-width:0}
@@ -52,3 +52,18 @@
 .performance-category-panel h3{font-size:15px;margin:0 0 12px}
 .performance-category-panel .performance-table caption{text-align:left;caption-side:top;color:#81909a;font-size:10px;padding:0 8px 12px;line-height:1.5}
 .performance-formula{background:#f5f8fa;border:1px solid #e3eaf0;border-radius:12px;padding:14px;margin:0;color:#506574;font-size:12px;line-height:1.65}
+
+.performance-number-action{appearance:none;border:1px solid #e1e8ed;background:#fff;color:#263b49;text-align:left;cursor:pointer;font:inherit}
+.performance-kpi.performance-number-action{width:100%;min-width:0}
+.performance-number-action:hover,.performance-lifetime-grid>button:hover{border-color:#a9c0cf;background:#f7fbfd}
+.performance-number-action:focus-visible,.performance-lifetime-grid>button:focus-visible{outline:2px solid #4c7d99;outline-offset:2px}
+.performance-category-row.performance-number-action{width:100%;font:inherit;text-align:left;border:0;border-bottom:1px solid #f0f2f4;background:transparent}
+.performance-category-row.performance-number-action:hover{background:#f7fbfd}
+.performance-lifetime-grid>button small,.performance-lifetime-grid>button strong{display:block}
+.performance-lifetime-grid>button strong{font-size:15px;margin-top:7px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.performance-position.performance-number-action{padding:5px 8px;border-radius:9px;background:#f7fafb;border:1px solid #e2e8ed;font:inherit;font-size:clamp(17px,3vw,23px);font-weight:800}
+.performance-insight{background:#f8fafb;border:1px solid #e1e8ed;border-radius:12px;padding:14px}
+.performance-insight h4{font-size:13px;margin:0 0 8px;color:#334d5e}
+.performance-insight details{margin-top:10px;color:#647783;font-size:10px}
+.performance-insight details summary{cursor:pointer;font-weight:750}
+.performance-insight details li{overflow-wrap:anywhere;margin:6px 0}
