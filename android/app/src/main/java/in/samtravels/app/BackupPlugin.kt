@@ -157,7 +157,7 @@ class BackupPlugin : Plugin() {
                     try {
                         NativeBackupRecovery.rollback(db, id)
                     } catch (rollbackError: Exception) {
-                        NativeStartupRecovery.invalidate()
+                        NativeStartupRecovery.invalidate(db)
                         rollbackError.addSuppressed(restoreError)
                         throw rollbackError
                     }
@@ -223,7 +223,7 @@ class BackupPlugin : Plugin() {
                 try {
                     NativeBackupRecovery.rollback(db, id)
                 } catch (rollbackError: Exception) {
-                    NativeStartupRecovery.invalidate()
+                    NativeStartupRecovery.invalidate(db)
                     throw rollbackError
                 }
                 call.resolve()
