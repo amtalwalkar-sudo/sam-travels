@@ -13,7 +13,7 @@ export type AppProps = Readonly<{
   runtimeRegistry: RuntimeRegistry;
   platformRepository: RecordRepository & PolicyRepository & AtomicRecordBatchRepository;
   fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-  showBreakevenSanityCheck: boolean;
+  performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
 }>;
 
 /** Application composition owns global services and shell injection, not feature screen internals. */
@@ -37,7 +37,7 @@ export function App({
       </>}>
       <PrimaryScreenComposition activeScreen={activeScreen} runtimeRegistry={runtimeRegistry} workspace={workspace}
         fullCostBreakeven={fullCostBreakeven}
-        showBreakevenSanityCheck={showBreakevenSanityCheck}>
+        performanceCalculation={performanceCalculation}>
         <DriveScreen workspace={workspace} runtimeRegistry={runtimeRegistry} />
       </PrimaryScreenComposition>
       <FuelEntryPanel />
