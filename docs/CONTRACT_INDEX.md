@@ -107,7 +107,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
 - [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — historical upstream contract/code comparison; retain its original baseline and evidence, while using the post-PR #93 conformance audit for current Performance status.
-- [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) — current-main audit of calculation ownership, source-to-consumer wiring, fixed-cost allocation authority, snapshot consistency, policy conflicts, UI/UX shell and screen independence, and consolidated correction priorities.
+- [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) — PR #96 baseline audit of calculation ownership, source-to-consumer wiring, fixed-cost allocation authority, snapshot consistency, policy conflicts, UI/UX shell and screen independence, and consolidated correction priorities.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
