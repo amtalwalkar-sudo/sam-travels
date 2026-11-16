@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
@@ -15,7 +16,7 @@ import org.junit.runner.RunWith
 class PerformanceCalculationRoomParityTest {
     @Test fun roomPreservesTheSameSharedPerformanceFixtureEnvelopes() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val fixture = context.assets.open("performance-calculation-v1-parity.json")
+        val fixture = InstrumentationRegistry.getInstrumentation().context.assets.open("performance-calculation-v1-parity.json")
             .bufferedReader().use { JSONObject(it.readText()) }
         val records = fixture.getJSONArray("records")
         val expected = fixture.getJSONObject("expected")
