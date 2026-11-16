@@ -77,3 +77,8 @@
 .performance-completeness-banner.review{background:#fff4e5;color:#94621b}
 .performance-completeness-banner.complete{background:#e9f7ef;color:#21764e}
 .performance-completeness-banner:hover{text-decoration:underline}
+
+.performance-table-number{appearance:none;border:1px solid transparent;background:transparent;color:#536570;padding:2px 3px;border-radius:5px;font:inherit;font-variant-numeric:tabular-nums;cursor:pointer;text-align:left;white-space:nowrap}
+.performance-table-number:hover{border-color:#a9c0cf;background:#f7fbfd;color:#263b49}
+.performance-table-number:focus-visible{outline:2px solid #4c7d99;outline-offset:2px}
+.performance-table-number.positive{color:#21764e!important}.performance-table-number.negative{color:#a43c3c!important}
