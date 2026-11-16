@@ -98,6 +98,10 @@ try {
     throw error;
   }
   await page.getByText(businessStartDate, { exact: true }).waitFor();
+  await page.getByRole("status").filter({ hasText: "Distance and fuel-per-km metrics unavailable:" }).waitFor();
+  if (await page.locator(".performance-error").count()) {
+    throw new Error("optional_distance_projection_failure_blocked_core_performance_calculation");
+  }
 
   const targetCard = page.getByRole("button", { name: "Explain Monthly Driver Target", exact: true });
   await targetCard.waitFor();
