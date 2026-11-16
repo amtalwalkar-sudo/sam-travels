@@ -18,6 +18,7 @@
 | Document | Primary role |
 |---|---|
 | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved Admin product behaviour and bounded scope |
+| [Finance Loan Payment Workflow Contract](FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md) | Proposed payment workflow; not ratified product/accounting policy |
 | [Driver Workflow Contract](DRIVER_WORKFLOW_CONTRACT.md) | Work/Shift and Trip business workflow rules |
 | [Work/Shift Odometer and Daily Distance Contract](WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md) | Odometer facts, operational date, shift rotation and distance allocation |
 | [Work Driver Trip Snapshot Integration](WORK_DRIVER_TRIP_SNAPSHOT_INTEGRATION_CONTRACT.md) | Immutable Driver/Vehicle/assignment context across workflow boundaries |
@@ -51,6 +52,8 @@
 | [Shared Data Contract](../DATA_CONTRACT.md) | Shared data meaning, dates, units, values and record semantics |
 | [Permanent Application Architecture](PERMANENT_APPLICATION_ARCHITECTURE.md) | Approved architecture scope and non-goals |
 | [Architecture Foundation Contract](ARCHITECTURE_FOUNDATION_CONTRACT.md) | Shared application, capability and reliability guarantees |
+| [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Admin capability interfaces and technical obligations |
+| [Forgiving Data Entry and Historical Correction](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) | Cross-feature correction, history and restatement safeguards |
 | [Feature Module Contract](FEATURE_MODULE_CONTRACT.md) | Feature ownership, public interfaces and module boundaries |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guidance for feature contributions |
 | [Feature Extension Lifecycle](FEATURE_EXTENSION_LIFECYCLE_CONTRACT.md) | Feature lifecycle and compatibility |
@@ -85,6 +88,7 @@
 | Document | Primary role |
 |---|---|
 | [Architecture Enforcement](ARCHITECTURE_ENFORCEMENT.md) | Executable source-boundary and architecture CI rules |
+| [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Admin delivery plan and completion gates |
 | [Platform Acceptance Contract](PLATFORM_ACCEPTANCE_CONTRACT.md) | Cross-platform acceptance gates |
 | [Android Device Readiness Contract](ANDROID_DEVICE_READINESS_CONTRACT.md) | Android permissions, settings and device readiness |
 | [Android Signed Release Contract](ANDROID_SIGNED_RELEASE_CONTRACT.md) | Signed APK/release requirements |
@@ -107,6 +111,7 @@ These documents are retained for auditability. Their original baseline, scope an
 | Document | Historical/reference role |
 |---|---|
 | [Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) | Repository-wide documentation audit and reconciliation history |
+| [Documentation Catalog](DOCUMENTATION_CATALOG.md) | Six-area navigation and complete Markdown role inventory |
 | [Permanent Architecture Audit](PERMANENT_APPLICATION_ARCHITECTURE_AUDIT.md) | Original Stage 0 architecture baseline |
 | [Permanent Architecture Progress](PERMANENT_APPLICATION_ARCHITECTURE_PROGRESS.md) | Staged architecture implementation history |
 | [Permanent Architecture Stage 2 Audit](PERMANENT_APPLICATION_ARCHITECTURE_STAGE_2_AUDIT.md) | Stage 2 evidence snapshot |
