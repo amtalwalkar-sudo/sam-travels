@@ -4,7 +4,7 @@
 **Repository:** `amtalwalkar-sudo/sam-travels`  
 **Audited baseline:** `main` at `2148f244ac20f1ab503002763b7cea856c4c41ec` (2026-11-16; includes merged PRs #93, #94 and #95).  
 **Audit date:** 2026-11-17  
-**Scope:** Business calculation ownership, authoritative source records/read models, application orchestration, downstream consumers, provenance, and contract alignment.  
+**Scope:** Business calculation ownership, authoritative source records/read models, application orchestration, downstream consumers, provenance, contract alignment, UI/UX shell independence, screen/component boundaries, and presentation-to-application wiring.  
 **Change policy:** Documentation only. No application source, tests, database schemas, migrations, records, or calculation framework were changed.
 
 ## 1. Executive summary
@@ -28,7 +28,7 @@ The audit found concrete areas that need correction or explicit reconciliation b
 1. The Performance fixed-cost adapter reconstructs EMI/Compliance daily allocations from source amounts and dates instead of simply consuming the canonical daily amounts already published by the Business Start Date allocation owner.
 2. Performance v1.0 introduces an 18-month pre-business recovery policy that does not match the existing Business Start Date allocation contract's source-period carry-forward policy. The older Breakeven/Driver Target v1.9 contract also specifies partial-month target proration, while the merged Performance implementation displays the full monthly target for a selected partial month.
 3. Performance's operating-cost and fixed-cost adapters obtain their source projections independently. The operating-cost path reaches the allocation service through FullCostBreakevenService, while the fixed-cost path calls the allocation service separately. The current orchestration does not establish one shared cross-source snapshot boundary for those two reads.
-4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.
+4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.\n5. The UI/UX architecture already defines replaceable shell and feature-screen contracts, but current composition still contains screen-specific wiring, and the available tests prove only selected replacement seams—not that every screen and its internal presentation components can be replaced independently end to end.
 
 These are targeted ownership, policy and wiring problems. They do not justify creating a new central formula engine, replacing the persistence foundation, or moving every formula into one large module.
 
@@ -75,7 +75,7 @@ Representative implementation paths inspected:
 - `packages/application/src/trip-financial-service.ts`
 - Finance loan prepayment and settlement application services
 
-This is a calculation-authority audit, not a complete line-by-line audit of every source file, every test, every screen, or every backup participant. Where full implementation/test evidence was not directly inspected, the status is explicitly marked partial or requiring verification rather than assumed complete. The pre-existing Permanent Architecture Audit and Performance End-to-End Conformance Audit remain separate evidence records and are not rewritten by this document.
+This is an architecture-authority and application-wiring audit, not a complete line-by-line audit of every source file, every test, every screen, or every backup participant. The UI/UX section adds targeted inspection of the shell contract, screen host, primary composition, and representative presentation tests; a full screen-by-screen source/test inventory remains outstanding. Where full implementation/test evidence was not directly inspected, the status is explicitly marked partial or requiring verification rather than assumed complete. The pre-existing Permanent Architecture Audit and Performance End-to-End Conformance Audit remain separate evidence records and are not rewritten by this document.
 
 ## 3. Governing architecture decisions
 
@@ -181,7 +181,7 @@ Status meanings:
 | CA-13 | Provenance completeness | Partially implemented | Source IDs/revisions and completeness are carried through the calculation types. A complete source-to-final-result trace across all owner outputs and corrections is not yet demonstrated by the inspected evidence. |
 | CA-14 | Downstream consumer convergence | Not verified | Performance and Maintenance have identified consumers, but a repository-wide inventory of every report/history/dashboard consumer and proof that none independently recalculates the same figure remains outstanding. |
 | CA-15 | Backup/restore and persistence parity | Partially verified | PR #93 records Performance browser/Room backup participants and shared parity fixtures. This audit did not independently inspect every participant/restore validator or the complete cross-feature recovery matrix. |
-| CA-16 | UI ownership | Implemented by architecture contract; targeted verification outstanding | Existing architecture and Admin replacement work separate presentation from feature ownership. A full screen-by-screen audit of calculation logic in presentation files remains outstanding. |
+| CA-16 | UI ownership | Implemented by architecture contract; targeted verification outstanding | Existing architecture separates presentation from feature ownership. A full screen-by-screen audit of calculation logic in presentation files remains outstanding. |\n| CA-19 | Shell replacement boundary | Implemented by contract and selected tests; runtime coverage partial | Framework-neutral shell definition and renderer injection allow shell replacement in principle. Existing contract tests prove replacement shell definitions can preserve navigation capabilities, but do not yet prove all live runtime composition, lifecycle, overlays, back/focus handling and platform variants are replaceable together. |\n| CA-20 | Independent screen replacement | Partially implemented; needs stronger proof | Versioned feature presentation contexts and `FeatureScreenHost` isolate feature renderers and failures. `PrimaryScreenComposition.tsx` still centrally branches on Drive/Timeline/Performance/Admin and constructs screen-specific contexts. Tests prove a fixture screen can mount inside a replacement shell, not that every production screen can be swapped without editing unrelated composition or foundation code. |\n| CA-21 | Within-screen presentation independence | Not verified | The current audit has not established that each screen separates composition, presentation state, view model/projection, interaction adapter and visual components consistently. Performance is a priority inspection target because its host receives calculation service capabilities directly; verify that the screen consumes a presentation-ready model and approved application actions rather than owning calculation orchestration. |\n| CA-22 | Shared UI components and visual system | Contract intentionally permits independence; implementation inventory outstanding | `UI_UX_SHELL_FOUNDATION_CONTRACT.md` explicitly permits feature-specific visual systems and custom screens; shared components are optional. Verify there are no hidden global CSS/component assumptions that make a screen redesign cascade into unrelated screens. |\n| CA-23 | Web/Android presentation parity | Not verified | Existing platform contracts protect persistence/runtime authority, but this audit has not yet proven that shell and screen replacement boundaries behave consistently across browser PWA and installed Android/WebView/native surfaces. |
 | CA-17 | New central calculation framework | Not necessary currently | Existing versioned domain calculations, adapters and composition are sufficient. No new generic engine or global calculation registry is justified by current evidence. |
 
 ## 7. Confirmed high-priority findings
@@ -293,7 +293,7 @@ No implementation is authorized by this audit document. After review and explici
 6. **Close Performance-specific gates.** Complete passbook, distance summaries, target/recovery contract conformance and product acceptance as separately scoped work.
 7. **Run the full verification matrix.** Domain arithmetic, source adapter tests, application orchestration, correction/retry/recovery, offline behaviour, Room/IndexedDB parity, backup/restore validation, Architecture/Web/Android/Integrated CI. Physical-device acceptance remains separate.
 
-Each correction should be a narrow PR with explicit acceptance tests. Do not bundle unrelated Admin, UI shell, database or feature redesign into this work.
+Implement the approved corrections as internal, reviewable stages and commits on one coherent implementation branch and one implementation PR, as agreed with the product owner. Keep changes narrow within that PR, with explicit acceptance tests for each boundary. Do not bundle unrelated visual redesign or database work unless the audit demonstrates it is required.
 
 ## 11. Explicit non-goals
 
@@ -304,7 +304,7 @@ Each correction should be a narrow PR with explicit acceptance tests. Do not bun
 - No second expense ledger or reporting ledger.
 - No generic event bus, microservices or distributed architecture.
 - No multi-driver/multi-vehicle expansion.
-- No unrelated Admin, Work, Timeline or Performance visual redesign as part of this audit.
+- No visual redesign of Admin, Work, Timeline or Performance as part of this audit; this audit evaluates the replaceability architecture only.
 - No claim of physical-device or live Dropbox acceptance from CI.
 
 ## 12. Audit conclusion
@@ -316,3 +316,114 @@ Sam Travels already has the core ingredients of a clean architecture: feature-ow
 The main work is to make the wiring honour those contracts consistently—especially around fixed-cost allocation, calculation snapshots, policy precedence, provenance and downstream consumers.
 
 This audit should be reviewed and approved before any source-code changes begin.
+
+
+## 13. UI/UX shell and screen independence audit
+
+### 13.1 Desired product capability
+
+The presentation system must be replaceable independently from the business foundation, and each production screen must be replaceable independently from the shell and from other screens. A complete visual redesign or replacement of an existing screen interaction should not require changes to calculation rules, domain contracts, durable records, persistence adapters, recovery semantics or unrelated feature implementations.
+
+The product owner has explicitly requested the ability to ask for a complete shell, screen or presentation redesign as one coherent change. “One command” is an acceptance goal for the development workflow: a request to replace a screen or shell should be implementable within the presentation boundary, provided the replacement uses existing application capabilities. A genuinely new business capability remains an application/domain change and must not be disguised as presentation-only work.
+
+### 13.2 Existing contracts and implementation evidence
+
+The existing `docs/UI_UX_SHELL_FOUNDATION_CONTRACT.md` already establishes the correct high-level rules:
+
+- Presentation is replaceable and does not own calculations, persistence, recovery or business invariants.
+- Shell, navigation, screen composition, components, forms, design tokens and global feedback are distinct responsibilities.
+- Screens receive state through explicit view models, selectors or typed presentation contracts and dispatch actions through approved application interfaces.
+- Feature screens may be fully custom; no universal screen template or shared visual language is mandatory.
+- Feature presentation contexts have explicit identity/version contracts and are validated by the host.
+- Presentation architecture rules should be executable and verified through existing architecture gates and CI.
+
+Targeted source/test inspection found:
+
+- `packages/presentation/src/shell-contracts.ts` defines a framework-neutral shell contract.
+- `apps/web/src/ui/FeatureScreenHost.tsx` mounts feature-owned renderers through versioned contexts and isolates renderer failures behind retryable boundaries.
+- `tests/presentation-shell-contracts.test.ts` proves that replacement shell definitions can retain the same navigation capabilities.
+- `tests/feature-screen-host.test.tsx` proves a fixture feature screen can mount inside a replacement shell and that a renderer failure is contained.
+- `tests/presentation-accessibility-responsive.test.tsx` covers selected navigation accessibility and responsive/safe-area rules.
+- `apps/web/src/ui/PrimaryScreenComposition.tsx` still contains explicit conditional branches for Drive, Timeline, Performance and Admin, and constructs their screen-specific contexts in the central composition.
+- Performance receives calculation service capabilities through its presentation context. The current evidence does not establish that all calculation preparation is completed before entering the screen renderer or that the screen is entirely driven by a presentation-ready model plus application actions.
+
+This is a useful foundation, but selected contract tests are not proof of complete product-level replaceability.
+
+### 13.3 Required presentation dependency direction
+
+The intended direction is:
+
+```text
+Application shell / navigation / global presentation
+                    |
+                    v
+         Independently replaceable screen
+                    |
+                    v
+       Screen presentation model / selectors
+                    |
+                    v
+       Application use-case/action interfaces
+                    |
+                    v
+       Domain owners and calculation services
+                    |
+                    v
+       Authoritative persistence and recovery
+```
+
+The dependency direction must not reverse. A screen must not directly reach into database tables, Room/IndexedDB adapters, native plugins, feature-private implementation details or another screen's local state. The application composition may connect a screen to approved capabilities, but should not become a second owner of business rules.
+
+Within a screen, inspect and separate these responsibilities where useful:
+
+1. Screen composition and layout.
+2. Visual components and styling.
+3. Disposable presentation state (selection, filters, expanded panels, temporary input).
+4. Presentation model/projection and formatting.
+5. Interaction adapter that dispatches approved application actions.
+
+Do not impose a universal component system or force custom screens into one template. Reuse shared components only where it reduces coupling rather than creating it.
+
+### 13.4 Acceptance tests for replaceability
+
+The implementation work must add or strengthen automated evidence, reusing the existing architecture gate and test conventions:
+
+1. **Shell swap:** replace the active shell renderer while keeping all registered production screens, their application capabilities and authoritative runtime lifecycle behaviour unchanged.
+2. **Single-screen swap:** replace each production screen renderer independently using the same presentation contract; unrelated screens, application services, calculations and stored data remain unchanged.
+3. **Within-screen visual replacement:** replace a screen's layout/components/styles without changing its presentation contract or business/application implementation.
+4. **No cross-screen imports/state:** static architecture checks reject production screen-to-screen imports and shared mutable screen state unless an explicitly approved public contract requires it.
+5. **No foundation leakage:** presentation modules cannot import persistence adapters, database schemas, native storage implementations or feature-private calculation internals.
+6. **Action boundary:** screen interactions invoke approved application capabilities; they do not write durable records or calculate authoritative financial/operational values themselves.
+7. **Lifecycle and failure containment:** shell/screen replacement preserves startup, blocked/recovery states, pending/unknown outcomes, retry behaviour, focus/back handling and failure isolation.
+8. **Platform parity:** verify the same screen contracts and authoritative state semantics on browser PWA and installed Android/WebView/native surfaces. Platform-specific presentation may differ where contracts permit it.
+9. **Accessibility and responsive behaviour:** retain semantic navigation, focus, text scaling, safe areas, keyboard/IME and supported viewport behaviour after replacement.
+
+Tests must distinguish static dependency checks, contract tests, integration/runtime tests, visual/accessibility automation and manual usability/device acceptance. Do not claim a static import test proves runtime replaceability or physical-device acceptance.
+
+### 13.5 UI/UX implementation work to include in the single implementation PR
+
+After audit findings and policy decisions are approved, include the necessary presentation corrections in the same coherent implementation PR as calculation authority and application wiring. Do not open a separate UI architecture PR.
+
+The work should be staged internally:
+
+1. Inventory shell, production screen registrations, presentation contexts, screen internals, shared styles/components and platform-specific surfaces.
+2. Remove only proven screen-to-screen and screen-to-foundation coupling; preserve existing feature and lifecycle contracts.
+3. Move any authoritative calculation orchestration found in presentation into the existing owning application service/adapters. Screens should receive presentation-ready projections and approved actions.
+4. Make production screen registration/composition replaceable without a central screen-specific conditional becoming a required edit point for every screen change, using the smallest extension of existing contracts.
+5. Add shell-swap and per-screen replacement integration tests, plus static boundary checks and required accessibility/responsive regressions.
+6. Verify browser/Room parity and startup/recovery/failure states remain unchanged.
+
+Do not add a second presentation framework, mandatory design system, global component library or speculative plugin architecture. Extend the current contracts only where a concrete production screen replacement test demonstrates a gap.
+
+### 13.6 Combined product acceptance
+
+The single implementation PR is complete only when both sides of the product can evolve independently:
+
+- Calculation/domain owners produce authoritative, versioned results with coherent source snapshots and provenance.
+- Application services expose stable use-case and presentation-ready capabilities.
+- The shell can be replaced without changing screens or foundation.
+- Any one screen can be replaced without changing the shell, other screens or foundation.
+- A screen's visual presentation can be replaced without changing its application/domain behaviour.
+- The full CI and architecture verification matrix passes; manual physical-device acceptance is reported separately.
+
+The agreed delivery strategy is one audit/decision PR followed by one consolidated implementation PR. Internal stages and commits are encouraged; unnecessary dependent PRs are not.
