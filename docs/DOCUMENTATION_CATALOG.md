@@ -131,15 +131,12 @@ These documents are retained for auditability. Their original baseline, scope an
 ## Root-level documentation
 
 - [README](../README.md) — product and developer entry point.
-- [Architecture](../ARCHITECTURE.md) — system overview.
-- [Data Contract](../DATA_CONTRACT.md) — shared data semantics.
-- [Development Plan](../DEVELOPMENT_PLAN.md) — staged project plan.
 
 ## Machine-readable and non-Markdown references
 
 - `contracts/driver-swipe-presentation-v1.json` — versioned driver interaction policy.
 - `contracts/driver-presentation-v1.json` — versioned presentation states/tokens/motion.
-- [Geocoder service guide](../services/geocoder/README.md) — service adapter setup.
+- The geocoder service setup is listed once under Historical Records and References.
 - The Timeline reference directory contains immutable and proposed mockup manifests; see its README.
 
 ## Maintenance rules
