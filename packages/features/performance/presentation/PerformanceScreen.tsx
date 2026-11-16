@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
 import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
@@ -48,7 +48,6 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { void calculate(); }, []);
 
   const categories = result ? aggregateCosts(result) : [];
   const months = result ? monthlyTotals(result) : [];
@@ -85,7 +84,8 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     <form className="performance-period-form" onSubmit={calculate}>
       <label>Period from<input type="date" required value={from} max={to} onChange={event => { setFrom(event.target.value); setRangePreset("custom"); }} /></label>
       <label>Period to<input type="date" required value={to} min={from} onChange={event => { setTo(event.target.value); setRangePreset("custom"); }} /></label>
-      <button className="primary-action" type="submit" disabled={loading || !from || !to || from > to}>
+      <button className="primary-action" type="submit" disabled={loading || !from || !to || from > to}
+        onClick={event => { event.preventDefault(); void calculate(); }}>
         {loading ? "Calculating…" : "Refresh performance"}
       </button>
     </form>
