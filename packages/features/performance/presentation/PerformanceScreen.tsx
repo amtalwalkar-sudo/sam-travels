@@ -31,6 +31,16 @@ function localDateOffset(days: number): string {
   const [year, month, day] = parts.map(Number);
   return new Date(Date.UTC(year, month - 1, day - days)).toISOString().slice(0, 10);
 }
+function operationalToday(): string {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23",
+  }).format(new Date()));
+  return hour < 4 ? localDateOffset(-1) : localDateOffset(0);
+}
+function offsetDate(value: string, days: number): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
 function money(paise: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR",
     minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(paise / 100);
@@ -67,8 +77,10 @@ function monthlyTotals(result: PerformanceCalculationResultV1) {
 }
 
 export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
-  const [from, setFrom] = useState(localDateOffset(29));
-  const [to, setTo] = useState(localDateOffset(0));
+  const today = operationalToday();
+  const [from, setFrom] = useState(offsetDate(today, -29));
+  const [to, setTo] = useState(today);
+  const [rangePreset, setRangePreset] = useState<"today" | "week" | "month" | "custom" | "lifetime">("month");
   const [result, setResult] = useState<PerformanceCalculationResultV1>();
   const [monthToDate, setMonthToDate] = useState<PerformanceCalculationResultV1>();
   const [distanceProjection, setDistanceProjection] = useState<BreakevenPeriodResultV1>();
@@ -88,9 +100,9 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       ]);
       setResult(selectedPeriod);
       setDistanceProjection(distance);
-      const today = localDateOffset(0);
+      const currentOperationalDate = operationalToday();
       try {
-        setMonthToDate(await context.calculation.calculate(today.slice(0, 7) + "-01", today));
+        setMonthToDate(await context.calculation.calculate(currentOperationalDate.slice(0, 7) + "-01", currentOperationalDate));
       } catch { setMonthToDate(undefined); }
     }
     catch (reason) {
@@ -136,9 +148,16 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
       <span className="performance-version">Calculation v{result?.calculationVersion ?? 1}</span>
     </header>
 
+    <div className="performance-range-presets" role="group" aria-label="Performance date range presets">
+      <button type="button" className={rangePreset === "today" ? "active" : ""} onClick={() => { setFrom(today); setTo(today); setRangePreset("today"); }}>Today</button>
+      <button type="button" className={rangePreset === "week" ? "active" : ""} onClick={() => { const weekday = new Date(today + "T00:00:00Z").getUTCDay(); const daysFromMonday = (weekday + 6) % 7; setFrom(offsetDate(today, -daysFromMonday)); setTo(today); setRangePreset("week"); }}>This week</button>
+      <button type="button" className={rangePreset === "month" ? "active" : ""} onClick={() => { setFrom(today.slice(0, 7) + "-01"); setTo(today); setRangePreset("month"); }}>This month</button>
+      <button type="button" className={rangePreset === "custom" ? "active" : ""} onClick={() => setRangePreset("custom")}>Custom</button>
+      <button type="button" className={rangePreset === "lifetime" ? "active" : ""} disabled={!result} onClick={() => { if (result) { setFrom(result.businessStartDate); setTo(today); setRangePreset("lifetime"); } }}>Lifetime</button>
+    </div>
     <form className="performance-period-form" onSubmit={calculate}>
-      <label>Period from<input type="date" required value={from} max={to} onChange={event => setFrom(event.target.value)} /></label>
-      <label>Period to<input type="date" required value={to} min={from} onChange={event => setTo(event.target.value)} /></label>
+      <label>Period from<input type="date" required value={from} max={to} onChange={event => { setFrom(event.target.value); setRangePreset("custom"); }} /></label>
+      <label>Period to<input type="date" required value={to} min={from} onChange={event => { setTo(event.target.value); setRangePreset("custom"); }} /></label>
       <button className="primary-action" type="submit" disabled={loading || !from || !to || from > to}>
         {loading ? "Calculating…" : "Refresh performance"}
       </button>
