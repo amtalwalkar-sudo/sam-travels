@@ -1,5 +1,6 @@
 import { createElement } from "react";
-import type { FeatureExtensionDefinition, FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/feature-extension";
+import type { FeatureExtensionDefinition } from "../../core/src/feature-extension";
+import type { FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/feature-presentation";
 import type { FeatureDefinition } from "../../core/src/features";
 import type { PerformanceCalculationServiceV1 } from "../../application/src/performance-calculation-service";
 import { PerformanceScreen } from "./presentation/PerformanceScreen";
