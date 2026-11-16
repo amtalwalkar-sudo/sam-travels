@@ -206,12 +206,12 @@ jobs:
           emulator-boot-timeout: 900
           script: |
             set -eu
-            echo "Install the app and instrumentation APKs once"
+            echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"
+            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest
+            echo "Reinstall app and instrumentation APKs for the process-restart recovery gate"
             gradle -p android :app:installDebug :app:installDebugAndroidTest
             adb -s emulator-5554 shell pm path in.samtravels.app
             adb -s emulator-5554 shell pm path in.samtravels.app.test
-            echo "Run Performance browser/Room shared-fixture parity on the provisioned emulator"
-            gradle -p android :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=in.samtravels.app.PerformanceCalculationRoomParityTest
             echo "Prepare durable Room state"
             output="$(adb -s emulator-5554 shell am instrument -w -e class "in.samtravels.app.DriverWorkflowProcessRestartTest#preparePendingWorkflowForProcessRestart" in.samtravels.app.test/androidx.test.runner.AndroidJUnitRunner 2>&1)" || { status=$?; printf "%s\\n" "$output"; exit "$status"; }
             printf "%s\\n" "$output"
