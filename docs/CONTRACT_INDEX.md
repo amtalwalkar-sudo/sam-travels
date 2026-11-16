@@ -4,6 +4,19 @@
 **Repository-wide inventory and reconciliation record:** [Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md).  
 **Authority rule:** Each document owns only the responsibility explicitly assigned below. Supporting documents link to the owner rather than redefining its rules.
 
+## Six-area documentation navigation
+
+The repository is organised into six logical areas. Existing contract paths remain stable; this is a navigation and authority structure, not a mass file move.
+
+1. **Product and business rules** — approved user-visible behaviour and workflow rules.
+2. **Calculation foundation** — calculation owners, inputs/outputs, effective dates, rounding and provenance.
+3. **Application architecture** — domain/application boundaries, feature contracts, persistence, lifecycle, platform and recovery.
+4. **UI/UX architecture** — shell, navigation, screens, forms, components and presentation boundaries.
+5. **Quality and release** — CI, architecture enforcement, testing, backup/restore, Android builds and acceptance.
+6. **Historical records and references** — audits, plans, completed phases, proposals and reference artifacts.
+
+Start with the [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) for the end-to-end system map, then use the [Documentation Catalog](DOCUMENTATION_CATALOG.md) for the complete six-area inventory and each document's role. This index remains the authority map for normative owners; the catalog does not create or override authority.
+
 ## Conflict and precedence rules
 
 1. Approved product specifications own user-facing product decisions within their scope.
@@ -16,6 +29,8 @@
 ## Project entry points
 
 - [Repository README](../README.md) — project overview and documentation entry point.
+- [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) — end-to-end product, calculation, application, persistence and presentation map.
+- [Documentation Catalog](DOCUMENTATION_CATALOG.md) — complete six-area Markdown inventory and document roles.
 - [Architecture overview](../ARCHITECTURE.md) — high-level system map; detailed rules remain in the owner contracts below.
 - [Development Plan](../DEVELOPMENT_PLAN.md) — staged delivery history and plan.
 
@@ -88,7 +103,7 @@
 
 These records are evidence snapshots, not live policy. Their recorded base SHA, PR and CI run remain historical.
 
-- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
+- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — original Phase 1/Phase 2 baseline and subsequent documentation reconciliation history; see the current six-area inventory in the Documentation Catalog.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
 - [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — historical upstream contract/code comparison; retain its original baseline and evidence, while using the post-PR #93 conformance audit for current Performance status.
