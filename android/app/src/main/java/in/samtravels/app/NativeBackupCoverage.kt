@@ -373,27 +373,32 @@ internal object NativeBackupRecovery {
  * first opens the authoritative database. A failed recovery never opens the gate.
  */
 internal object NativeStartupRecovery {
-    // Capacitor plugins and the overlay each own a Room handle, but named
-    // handles can point at the same durable database file. Cache recovery by
-    // database identity, not Kotlin object identity, to avoid repeatedly
-    // replaying the same recovery scan on every cross-plugin operation.
-    // In-memory test databases have no name and remain instance-scoped.
-    @Volatile private var readyDatabaseKey: String? = null
+    // Multiple Room handles can point at the same durable file. Cache startup
+    // recovery per physical database path, not per handle or bare filename.
+    // A restore failure for one test/tenant database must not invalidate the
+    // startup gate for an unrelated database in the same process.
+    private val readyDatabaseKeys = mutableSetOf<String>()
 
-    private fun key(database: LocalDatabase): String =
-        database.openHelper.databaseName ?: "memory:" + System.identityHashCode(database)
+    private fun key(database: LocalDatabase): String {
+        val path = runCatching { database.openHelper.writableDatabase.path }.getOrNull()
+        return if (!path.isNullOrBlank() && path != ":memory:") {
+            "file:" + path
+        } else {
+            "memory:" + System.identityHashCode(database)
+        }
+    }
 
     @Synchronized
     fun ensure(database: LocalDatabase): List<String> {
         val databaseKey = key(database)
-        if (readyDatabaseKey == databaseKey) return emptyList()
+        if (databaseKey in readyDatabaseKeys) return emptyList()
         val recovered = NativeBackupRecovery.recoverPending(database)
-        readyDatabaseKey = databaseKey
+        readyDatabaseKeys.add(databaseKey)
         return recovered
     }
 
     @Synchronized
-    fun invalidate() {
-        readyDatabaseKey = null
+    fun invalidate(database: LocalDatabase) {
+        readyDatabaseKeys.remove(key(database))
     }
 }
