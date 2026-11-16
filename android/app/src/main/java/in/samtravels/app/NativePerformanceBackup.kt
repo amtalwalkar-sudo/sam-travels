@@ -19,8 +19,13 @@ internal object NativePerformanceBackup {
 
     private fun integer(data: JSONObject, key: String, minimum: Long): Long {
         val value = data.opt(key)
+        val errorCode = when (key) {
+            "monthlyDriverTargetPaise" -> "performance_driver_target_invalid"
+            "amountPaise" -> "performance_pre_business_cost_invalid"
+            else -> "performance_record_field_invalid:$key"
+        }
         require(value is Number && value.toDouble() == value.toLong().toDouble() && value.toLong() >= minimum) {
-            "performance_record_field_invalid:$key"
+            errorCode
         }
         return value.toLong()
     }
