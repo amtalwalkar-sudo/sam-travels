@@ -163,7 +163,7 @@ describe("Business Expenses browser backup participant", () => {
     expect(projectedPurchases.find(row => row.id === targetRecordId)?.data.amountPaise).toBe(27_000);
     expect(await expenses.listCorrectionReferences(targetRecordId)).toEqual([
       { sourceId: "historical-correction:" + correctionId, revision: 1 },
-      { sourceId: "historical-correction:" + secondCorrectionId, revision: 1 },
+      { sourceId: "historical-correction:" + secondCorrectionId, revision: 2 },
     ]);
     const rateHistory = await expenses.listFuelCostRateHistory();
     expect(rateHistory).toHaveLength(1);
