@@ -204,6 +204,7 @@ Status meanings:
 | CA-35 | Production shell/screen replacement proof | Partially implemented | Existing tests prove selected contracts and fixture mounting, not replacement of each live production screen and the complete shell with its real context, global overlays, lifecycle and platform boundaries. Add production-level shell and per-screen replacement tests. |
 | CA-36 | File cohesion and readability | Needs cleanup | Several architecture-critical files approach the 400-line/24-KB guard; `native-store.ts` and the browser Work repository are compressed into unusually long lines. Split by responsibility and format for readability without changing atomic transaction boundaries or weakening size gates. |
 | CA-37 | Legacy Work domain path | Candidate retirement; not yet proven unused | `src/domain/driver/workflow.ts` appears to duplicate the current `packages/domain/src/driver-workflow.ts` implementation. Keep it until a repository-wide static import/dependency scan proves it has no production consumers; then remove the obsolete path and any legacy-only tests only after equivalent current-contract coverage exists. |
+| CA-38 | Architecture gate dependency model | Needs correction before relocation | `scripts/architecture-import-policy.mjs` classifies every `packages/features/<capability>/**` file as one `feature` layer and currently forbids shared `application` from importing any feature, even through its public entry point. This prevents the intended feature-owned domain/application/presentation sublayers and explicit application coordination. `scripts/check-architecture.mjs` also hard-codes the current `useDriverWorkspace` repository injection and Drive direct-mount pattern. Update the checker and its positive/negative fixtures to enforce feature sublayer direction and public APIs, then replace obsolete screen-specific exemptions with the new contracts; do not weaken persistence, Room, cycle or size checks. |
 
 ## 7. Confirmed high-priority findings
 
@@ -513,7 +514,7 @@ This map describes the current source placement against the intended capability 
 ## 17. Controlled implementation sequence
 
 1. Freeze this source map and gap register against the audited baseline; record the exact baseline and all existing regression gates.
-2. Move feature-owned code in cohesive slices, retaining public entry points or temporary compatibility exports while updating every consumer.
+2. Update architecture enforcement to understand feature domain/application/ports/adapters/presentation sublayers and public cross-feature contracts; then move feature-owned code in cohesive slices, retaining public entry points or temporary compatibility exports while updating every consumer.
 3. Move Work event coordination and trip-form service construction out of presentation; keep UI hooks as thin state/action adapters.
 4. Correct Performance's canonical allocation consumption, aggregate pre-business recovery and shared snapshot behaviour without changing source records or unrelated calculation rules.
 5. Complete production screen registration/context boundaries and the replaceable shell/global-overlay seam; do not redesign visuals.
