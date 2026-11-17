@@ -202,7 +202,9 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
           ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) }]),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
   const activeDrivingDayCount = daily.filter(row => row.activeDrivingDay).length;
-  const confirmedBusinessKm = daily.reduce((sum, row) => safeAdd(sum, row.businessKm), 0);
+  const confirmedBusinessKm = daily
+    .filter(row => row.activeDrivingDay)
+    .reduce((sum, row) => safeAdd(sum, row.businessKm), 0);
   return Object.freeze({
     from: input.from, to: input.to,
     totalCostPaise: daily.reduce((sum, row) => safeAdd(sum, row.totalCostPaise), 0),
