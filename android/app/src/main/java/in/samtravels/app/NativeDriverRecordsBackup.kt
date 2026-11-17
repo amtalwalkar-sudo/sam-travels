@@ -21,8 +21,12 @@ internal object NativeDriverRecordsBackup {
         featureId = FEATURE_ID,
         snapshotVersion = 1,
         recordIdPrefix = RECORD_PREFIX,
-        validateRelationships = { rows, _ ->
+        validateRelationships = { rows, allRecords ->
             var selectedWorkDrivers = 0
+            val vehicleIds = allRecords.filter {
+                it.optString("participantId") == "vehicle-records" &&
+                    it.optString("id").startsWith("feature:vehicle:")
+            }.map { it.optString("id") }.toSet()
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = JSONObject(row.getString("json")).getJSONObject("data")
@@ -68,7 +72,8 @@ internal object NativeDriverRecordsBackup {
                                 assignmentKeys.containsAll(setOf("assignmentId", "vehicleId", "assignedAt")) &&
                                 assignment.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
                                 ids.add(assignment.optString("assignmentId")) &&
-                                assignment.optString("vehicleId").startsWith("feature:vehicle:")) { "driver_assignment_invalid" }
+                                assignment.optString("vehicleId").startsWith("feature:vehicle:") &&
+                                assignment.optString("vehicleId") in vehicleIds) { "driver_assignment_vehicle_reference_missing" }
                             val assigned = Instant.parse(assignment.getString("assignedAt")).toEpochMilli()
                             require(assigned >= previous) { "driver_assignment_history_order_invalid" }
                             previous = assigned
