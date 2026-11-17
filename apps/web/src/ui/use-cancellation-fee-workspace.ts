@@ -5,7 +5,9 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";\nimport { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";\nimport { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
+import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
+import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 export function useCancellationFeeWorkspace(
   platformRepository: RecordRepository & AtomicRecordRepository,
