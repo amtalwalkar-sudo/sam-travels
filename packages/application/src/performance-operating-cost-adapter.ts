@@ -34,6 +34,16 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     this.snapshot = undefined;
   }
 
+  async getSnapshotIdentity(): Promise<string> {
+    const snapshot = this.snapshot;
+    if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
+    const projection = await snapshot.value;
+    if (projection.businessStartDate === undefined || projection.businessSettingsRevision === undefined) {
+      return "business-settings-unavailable";
+    }
+    return "business-settings:" + projection.businessSettingsRevision + ":" + projection.businessStartDate;
+  }
+
   private async projection(from: string, to: string) {
     if (this.snapshot?.from === from && this.snapshot.to === to) return this.snapshot.value;
     return this.fullCost.getSourceProjection(from, to);
