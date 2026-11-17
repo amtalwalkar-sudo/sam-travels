@@ -73,6 +73,7 @@ export class BusinessStartDateCostAllocationService {
     businessSettingsRevision: number,
     result: BusinessStartDateAllocationResultV1,
     generatedAt: string,
+    sourceCorrectionRefs: readonly Readonly<{ sourceId: string; refs: readonly Readonly<{ sourceId: string; revision: number }>[] }>[] = [],
   ): Promise<Readonly<{ id: string; fingerprint: string }> | undefined> {
     if (!this.provenanceRepository) return undefined;
     const canonicalInputs = JSON.stringify({
@@ -84,6 +85,10 @@ export class BusinessStartDateCostAllocationService {
         sourceId: source.sourceId, sourceKind: source.sourceKind, sourceVersion: source.sourceVersion,
         scheduleVersion: source.scheduleVersion, sourceAmountPaise: source.sourceAmountPaise,
         disposition: source.disposition, eligibleFrom: source.eligibleFrom, eligibleTo: source.eligibleTo,
+      })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
+      sourceCorrectionRefs: sourceCorrectionRefs.map(item => ({
+        sourceId: item.sourceId,
+        refs: item.refs.map(ref => ({ ...ref })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
       })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
     });
     const digest = fingerprint(canonicalInputs);
@@ -230,7 +235,9 @@ export class BusinessStartDateCostAllocationService {
 
     const generatedAt = this.now();
     const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
-    const provenance = await this.retainProvenance(businessStartDate, settings.revision, result, generatedAt);
+    const provenance = await this.retainProvenance(
+      businessStartDate, settings.revision, result, generatedAt, sourceCorrectionRefs,
+    );
     const provenanceHistory = await this.getProvenanceHistory();
     return Object.freeze({
       businessStartDate,
