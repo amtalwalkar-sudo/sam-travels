@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1, PerformanceCostKindV1 } from "../../../domain/src/performance-calculation-v1";
 import type { PerformanceScreenContextV1 } from "./performance-screen-model";
+import { PerformanceDistanceHistory } from "./PerformanceDistanceHistory";
 import { aggregateCosts, CATEGORY_LABELS, INSIGHT_DEFINITIONS, money, monthlyTotals, offsetDate, operationalToday, signedMoney } from "./performance-screen-model";
 import "./performance-screen.css";
 
@@ -41,8 +42,6 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const distanceSummary = distanceProjection?.distanceSummary;
   const businessKm = distanceSummary?.totalBusinessKm ??
     distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
-  const formatKm = (value: number | null) => value === null
-    ? "—" : value.toLocaleString("en-IN", { maximumFractionDigits: 2 }) + " km";
   const fuelCostPaise = categories.find(item => item.key === "fuel")?.amount ?? 0;
   const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
   const currentOperationalDate = operationalToday();
@@ -143,47 +142,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <td><button type="button" className={"performance-table-number " + (row.complete ? "positive" : "negative")} onClick={() => setSelectedInsight("daily-completeness")}><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></button></td>
           </tr>)}</tbody>
         </table></div>}
-        {activeView === "distance" && <div className="performance-distance-history">
-          {distanceSummary ? <>
-            <div className="performance-recovery-summary">
-              <span>Confirmed business distance <strong>{formatKm(distanceSummary.totalBusinessKm)}</strong></span>
-              <span>Qualifying active driving days <strong>{distanceSummary.activeDrivingDayCount}</strong></span>
-              <span>Average per active day <strong>{formatKm(distanceSummary.averageBusinessKmPerActiveDrivingDay)}</strong></span>
-              <span>Distance source <strong>{distanceSummary.complete ? "Complete" : "Review required"}</strong></span>
-            </div>
-            <p className="performance-explainer">Totals include every confirmed allocated business kilometre in the selected period. Personal kilometres are excluded. Averages divide confirmed business kilometres by qualifying active driving days; zero-kilometre active days remain in the denominator. Unallocated boundary distance is withheld and marked for review.</p>
-            <h4>Daily distance</h4>
-            <div className="performance-table-wrap"><table className="performance-table">
-              <caption>Daily distance from confirmed Work allocations</caption>
-              <thead><tr><th>Operational date</th><th>Business km</th><th>Active driving day</th><th>Average km / active day</th><th>Status</th></tr></thead>
-              <tbody>{distanceSummary.daily.slice().reverse().map(row => <tr key={row.date}>
-                <td>{row.date}</td><td>{formatKm(row.businessKm)}</td><td>{row.activeDrivingDay ? "Yes" : "No"}</td>
-                <td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
-                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
-              </tr>)}</tbody>
-            </table></div>
-            <h4>Weekly distance</h4>
-            <div className="performance-table-wrap"><table className="performance-table">
-              <caption>Weekly confirmed business distance and active-day average</caption>
-              <thead><tr><th>ISO week</th><th>Dates</th><th>Business km</th><th>Active days</th><th>Average km / active day</th><th>Status</th></tr></thead>
-              <tbody>{distanceSummary.weekly.slice().reverse().map(row => <tr key={row.period}>
-                <td>{row.period}</td><td>{row.from} — {row.to}</td><td>{formatKm(row.businessKm)}</td>
-                <td>{row.activeDrivingDayCount}</td><td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
-                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
-              </tr>)}</tbody>
-            </table></div>
-            <h4>Monthly distance</h4>
-            <div className="performance-table-wrap"><table className="performance-table">
-              <caption>Monthly confirmed business distance and active-day average</caption>
-              <thead><tr><th>Month</th><th>Dates</th><th>Business km</th><th>Active days</th><th>Average km / active day</th><th>Status</th></tr></thead>
-              <tbody>{distanceSummary.monthly.slice().reverse().map(row => <tr key={row.period}>
-                <td>{row.period}</td><td>{row.from} — {row.to}</td><td>{formatKm(row.businessKm)}</td>
-                <td>{row.activeDrivingDayCount}</td><td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
-                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
-              </tr>)}</tbody>
-            </table></div>
-          </> : <p>Confirmed distance history is unavailable for this period.</p>}
-        </div>}
+        {activeView === "distance" && <PerformanceDistanceHistory summary={distanceSummary}/>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
           <caption>Monthly revenue, full-cost expense, net and calendar-day-prorated target for the dates included in each month.</caption>
           <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
