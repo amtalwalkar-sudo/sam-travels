@@ -90,7 +90,7 @@ export class FullCostBreakevenService {
       if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
           typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
           typeof context.operationalDate !== "string" ||
-          !/^\\d{4}-\\d{2}-\\d{2}$/.test(context.operationalDate) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(context.operationalDate) ||
           context.operationalDate < from || context.operationalDate > to) {
         if (context || trip.data.status === "submitted") activeDaySourceIssues.push(trip.id);
         continue;
