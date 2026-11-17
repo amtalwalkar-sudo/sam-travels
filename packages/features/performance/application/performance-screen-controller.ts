@@ -1,5 +1,4 @@
-import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
-import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
+import type { PerformanceCalculationPortV1, PerformanceDistanceProjectionPortV1 } from "./contracts";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1 } from "../../../domain/src/performance-calculation-v1";
 
@@ -17,8 +16,8 @@ export type PerformanceScreenLoadResultV1 = Readonly<{
  */
 export class PerformanceScreenControllerV1 {
   constructor(
-    private readonly calculation: Pick<PerformanceCalculationServiceV1, "calculate">,
-    private readonly fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">,
+    private readonly calculation: PerformanceCalculationPortV1,
+    private readonly fullCostBreakeven: PerformanceDistanceProjectionPortV1,
   ) {}
 
   async loadPeriod(from: string, to: string): Promise<PerformanceScreenLoadResultV1> {
@@ -28,7 +27,7 @@ export class PerformanceScreenControllerV1 {
 
     const [selectedPeriod, distance] = await Promise.allSettled([
       this.calculation.calculate(from, to),
-      this.fullCostBreakeven.calculate(from, to),
+      this.fullCostBreakeven.calculateDistance(from, to),
     ]);
 
     if (selectedPeriod.status === "rejected") {
