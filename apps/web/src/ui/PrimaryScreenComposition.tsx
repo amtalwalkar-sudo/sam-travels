@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
+import { PerformanceScreenControllerV1 } from "../../../../packages/features/performance";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import type { useDriverWorkspace } from "./use-driver-workspace";
@@ -19,6 +20,11 @@ export function PrimaryScreenComposition({
   activeScreen, runtimeRegistry, workspace,
   performanceCalculation, fullCostBreakeven, children,
 }: PrimaryScreenCompositionProps) {
+  const performanceController = useMemo(
+    () => new PerformanceScreenControllerV1(performanceCalculation, fullCostBreakeven),
+    [performanceCalculation, fullCostBreakeven],
+  );
+
   return <>
     <div hidden={activeScreen !== "Drive"}>{children}</div>
     {activeScreen === "Timeline" && (
@@ -30,7 +36,7 @@ export function PrimaryScreenComposition({
       <section className="screen-heading">
         <small>YOUR WORKSPACE</small><h1>Performance</h1>
         <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
-          contextContract={{ id: "performance.host", version: 1 }} context={{ calculation: performanceCalculation, fullCostBreakeven }} />
+          contextContract={{ id: "performance.host", version: 1 }} context={{ loadPeriod: (from, to) => performanceController.loadPeriod(from, to) }} />
       </section>
     )}
     {activeScreen === "Admin" && (
