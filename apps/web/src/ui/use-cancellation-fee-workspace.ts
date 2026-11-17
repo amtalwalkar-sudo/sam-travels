@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
 import { getPlatformRecordSource } from "../native-store";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
 import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
 import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
@@ -15,7 +14,7 @@ export function useCancellationFeeWorkspace(
   const [cancellationFeeDrafts, setCancellationFeeDrafts] = useState<Record<string,string>>({});
   const [cancellationFeeBusy, setCancellationFeeBusy] = useState(false);
   const draftQueue = useRef(new Map<string,Promise<void>>());
-  const { financials: service, forms } = useMemo(() => createTripFinancialFormRuntimeV1(
+  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
     platformRepository, getPlatformRecordSource(), async () => {
       const actor = await getPersonIdentityService().currentActor();
       return { personId: actor.actorId, role: actor.role };
@@ -23,22 +22,19 @@ export function useCancellationFeeWorkspace(
   ), [platformRepository]);
 
     const refresh = useCallback(async () => {
-    const obligations = await service.pendingCancellationFees();
+    const obligations = await tripFinancialForms.listPendingCancellationFees();
     const drafts: Record<string,string> = {};
     for (const obligation of obligations) {
       const tripId = obligation.data.tripId;
-      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      const amount = copy.values.cancellationFeePaise;
+      const values = await tripFinancialForms.openCancellationFeeDraft(tripId);
+      const amount = values.cancellationFeePaise;
       drafts[tripId] = typeof amount === "number" && Number.isSafeInteger(amount) && amount >= 0
         ? (amount / 100).toFixed(2).replace(/\\.?0+$/, "")
         : "";
     }
     setPendingCancellationFees(obligations.map(row => ({id:row.id,data:row.data})));
     setCancellationFeeDrafts(drafts);
-  }, [service, forms]);
+  }, [tripFinancialForms]);
 
   useEffect(() => {
     void refresh().catch(cause => setDriverMessage(cause instanceof Error ? cause.message : "Unable to restore cancellation-fee forms"));
@@ -65,11 +61,7 @@ export function useCancellationFeeWorkspace(
     setCancellationFeeDrafts(current => ({...current,[tripId]:value}));
     const previous = draftQueue.current.get(tripId) ?? Promise.resolve();
     const next = previous.then(async () => {
-      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", parseRupeesToPaise(value) ?? "");
+      await tripFinancialForms.updateCancellationFeeDraft(tripId, parseRupeesToPaise(value) ?? "");
     });
     draftQueue.current.set(tripId, next);
     await next;
@@ -86,14 +78,7 @@ export function useCancellationFeeWorkspace(
     setDriverMessage("Saving cancellation fee…");
     try {
       await draftQueue.current.get(tripId);
-      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
-      if (copy.values.tripId !== tripId) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
-      }
-      if (copy.values.cancellationFeePaise !== amount) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amount);
-      }
-      await forms.submit(TRIP_CANCELLATION_FEE_FORM_V1, copy);
+      await tripFinancialForms.submitCancellationFeeDraft(tripId, amount);
       await refresh();
       setDriverMessage("Cancellation fee saved securely");
     } catch (cause) {
