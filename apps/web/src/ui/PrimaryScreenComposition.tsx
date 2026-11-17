@@ -35,7 +35,6 @@ export function PrimaryScreenComposition({
   const performanceController = useMemo(
     () => new PerformanceScreenControllerV1(
       new PerformanceScreenServicesAdapterV1(performanceCalculation, fullCostBreakeven),
-      new PerformanceScreenServicesAdapterV1(performanceCalculation, fullCostBreakeven),
     ),
     [performanceCalculation, fullCostBreakeven],
   );
