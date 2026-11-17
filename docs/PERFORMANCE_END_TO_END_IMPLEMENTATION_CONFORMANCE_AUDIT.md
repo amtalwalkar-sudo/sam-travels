@@ -195,3 +195,11 @@ Implementation added on PR #97:
 - The new code and regressions are awaiting exact-head CI. Do not mark these implementation slices CI-verified until Architecture, Web, Android and Integrated gates pass on the latest PR head.
 - The Maintenance expense correction UI targets visit/repair expense records, while the frozen Performance cost contract currently includes Maintenance accrual as confirmed business kilometres × effective per-km rate. It does not explicitly include visit/repair amounts as a second Performance cost. The correction chain is now backup-validated and reprojectable, but whether those visit/repair amounts themselves enter Full-cost breakeven remains a separate accounting decision; no second maintenance cost has been silently added.
 - Physical Android device acceptance remains separate from automated Room/emulator verification.
+
+
+### Effective-date and correction provenance refinement — 2026-11-17
+
+- ComplianceAnalysisService now exposes immutable correction-chain references separately from the original Compliance record revision. Business Start Date allocation reports carry those references, and allocation provenance fingerprints them. Performance fixed-cost daily rows include the Compliance correction references, so a corrected validity date or premium is visible in downstream provenance after the owner service recalculates the canonical daily rows.
+- EMI daily source references now preserve scheduleVersion in addition to the source record revision. The Performance source-revision fingerprint includes scheduleVersion and rejects conflicting versions for the same source identity.
+- Existing owner-path regressions continue to cover Compliance renewal date/amount restatement, EMI prepayment schedule history, settlement cutoff and competing stale-prepayment preview rejection. The new provenance assertions verify Compliance correction IDs and EMI schedule version survive into Performance.
+- Exact-head CI is still pending; these changes are not yet verified.
