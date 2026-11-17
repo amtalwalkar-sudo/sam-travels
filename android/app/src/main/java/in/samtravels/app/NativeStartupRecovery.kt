@@ -35,10 +35,3 @@ internal object NativeStartupRecovery {
         readyDatabaseKeys.remove(key(database))
     }
 }
-
-package `in`.samtravels.app
-
-import org.json.JSONArray
-import org.json.JSONObject
-import java.time.Instant
-import java.util.UUID
