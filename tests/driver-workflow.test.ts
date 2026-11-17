@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import {beforeEach,describe,expect,it} from "vitest";
 import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
-import {createDriverCommand,DriverWorkflowService} from "../packages/features/work-shift";
+import {createDriverCommand,DriverWorkflowService} from "../packages/features/work";
 import type {GpsFix} from "../packages/core/src/types";
 import {
  LOGBOOK_FEATURE_EXTENSION,

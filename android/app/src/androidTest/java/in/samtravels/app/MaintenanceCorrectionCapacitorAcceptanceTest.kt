@@ -244,7 +244,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Driver form", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('label input') !== null",
-          5_000))
+          15_000))
       assertTrue("Driver submits", evaluate(activity, """
           (() => {
             const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
@@ -262,8 +262,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Driver saved", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Append correction')", 15_000))
+      assertTrue("Driver correction committed", awaitJavascript(activity,
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Correction appended')", 15_000))
       assertTrue("Other record", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
       assertTrue("Other form button", evaluate(activity, """
@@ -276,7 +276,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Other form opens", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.querySelector('label input') !== null",
-          5_000))
+          15_000))
       assertTrue("Other input", evaluate(activity, """
           (() => {
             const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));

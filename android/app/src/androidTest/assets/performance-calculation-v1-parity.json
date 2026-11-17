@@ -154,20 +154,6 @@
         "amountPaise": 18000,
         "note": "Setup",
         "origin": "manual"
-      },
-      {
-        "sourceId": "pre-emi",
-        "revision": 2,
-        "amountPaise": 9000,
-        "note": "Pre-start EMI",
-        "origin": "emi"
-      },
-      {
-        "sourceId": "pre-compliance",
-        "revision": 1,
-        "amountPaise": 3000,
-        "note": "Pre-start permit",
-        "origin": "compliance"
       }
     ],
     "completeness": [
@@ -182,13 +168,13 @@
     "periodCostPaise": 1000,
     "periodProfitPaise": 19000,
     "lifetimeRevenuePaise": 30000,
-    "lifetimeCostPaise": 34000,
-    "lifetimeProfitPaise": -4000,
-    "lifetimeTargetPaise": 950000,
-    "lifetimeTargetPositionPaise": -954000,
+    "lifetimeCostPaise": 22000,
+    "lifetimeProfitPaise": 8000,
+    "lifetimeTargetPaise": 902419,
+    "lifetimeTargetPositionPaise": -894419,
     "recoveryFrom": "2026-03-15",
     "recoveryToExclusive": "2027-09-15",
-    "recoveryTotalPaise": 30000,
+    "recoveryTotalPaise": 18000,
     "recoveryLastDate": "2027-09-14",
     "elapsedCalendarMonths": 19
   }

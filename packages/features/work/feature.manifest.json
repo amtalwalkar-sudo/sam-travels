@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "work",
+  "entryPoint": "packages/features/work/index.ts",
+  "extensionExport": "WORK_FEATURE_EXTENSION"
+}

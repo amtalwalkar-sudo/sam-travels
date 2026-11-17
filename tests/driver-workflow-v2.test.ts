@@ -4,12 +4,13 @@ import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
 import {DexieRecordRepository} from "../packages/storage-browser/src";
 import {WorkDriverSelectionService} from "../packages/application/src/work-driver-selection-service";
-import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/work-shift";
+import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/work";
 import {buildTripHistory} from "../packages/domain/src/trip-history";
 import {TripFinancialService} from "../packages/application/src/trip-financial-service";
 import {operationalDateAt} from "../packages/domain/src/work-driver-context";
 import {isOperationalBoundaryPending,nextOperationalBoundaryAt} from "../packages/domain/src/driver-workflow";
 import type {GpsFix} from "../packages/core/src/types";
+import parity from "./fixtures/driver-workflow-parity-v1.json";
 
 const base=Date.now()-20_000;
 const timestamp=new Date(base-60_000).toISOString();
@@ -26,6 +27,23 @@ describe("version 2 Work trip lifecycle",()=>{
   expect(operationalDateAt("2026-11-08T22:30:00.000Z")).toBe("2026-11-09");
  });
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open();});
+ it("defers 04:00 rotation while a trip is active using the shared parity contract",async()=>{
+  expect(parity.activeTripRotation.allowed).toBe(false);
+  const startedAt="2026-11-08T20:00:00.000Z";
+  const boundaryAt="2026-11-08T22:30:00.000Z";
+  const snapshot={schemaVersion:1 as const,revision:4,state:"trip_active" as const,shiftId:"active-shift",
+   shiftStartedAt:startedAt,shiftStartOdometerKm:12000,lastConfirmedOdometerKm:12000,activeTripId:"active-trip"};
+  await browserDatabase.driverState.put({id:"driver-state",value:snapshot});
+  const command=createDriverCommandV2(snapshot,"shift_rotate","pwa","active-trip-rotation",
+   "2026-11-08T22:31:00.000Z",{schemaVersion:1,readingKm:12125,businessKm:125},
+   {schemaVersion:1,outgoingShiftId:"active-shift",outgoingShiftStartedAt:startedAt,outgoingStartOdometerKm:12000,boundaryAt});
+  const repository=new DexieDriverWorkflowRepository();
+  await expect(repository.queueIntent({command,status:"pending_location",createdAt:boundaryAt,updatedAt:boundaryAt}))
+   .rejects.toThrow("shift_rotation_during_active_trip");
+  expect(await repository.listPending()).toHaveLength(0);
+  expect(await repository.listEvents()).toHaveLength(0);
+  expect(await repository.getSnapshot()).toMatchObject({state:"trip_active",activeTripId:"active-trip",revision:4});
+ });
  it("captures Work Driver context at shift start and immutable trip context at trip creation",async()=>{
   await browserDatabase.records.bulkPut(records);
   const repository=new DexieDriverWorkflowRepository();
@@ -131,25 +149,25 @@ describe("version 2 Work trip lifecycle",()=>{
    const command=createDriverCommandV2(snapshot,type,"pwa",id,fixAt,odometer);
    return service.dispatch(command);
   };
-  await send("shift_start","odo-shift-1-start",0,12000);
-  await send("shift_end","odo-shift-1-end",1000,12100);
-  await send("shift_start","odo-shift-2-start",2000,12125);
+  await send("shift_start","odo-shift-1-start",0,parity.personalDistance.firstShiftStartOdometerKm);
+  await send("shift_end","odo-shift-1-end",1000,parity.personalDistance.previousShiftEndOdometerKm);
+  await send("shift_start","odo-shift-2-start",2000,parity.personalDistance.nextShiftStartOdometerKm);
   const snapshot=await repository.getSnapshot();
   expect(snapshot).toMatchObject({shiftStartOdometerKm:12125,lastConfirmedOdometerKm:12125});
   const startEvent=(await repository.listEvents()).find(event=>event.eventId==="odo-shift-2-start");
-  expect(startEvent?.command.odometer).toMatchObject({readingKm:12125,previousConfirmedKm:12100,personalKm:25});
+  expect(startEvent?.command.odometer).toMatchObject({readingKm:parity.personalDistance.nextShiftStartOdometerKm,previousConfirmedKm:parity.personalDistance.previousShiftEndOdometerKm,personalKm:parity.personalDistance.personalKm});
   const invalid=createDriverCommandV2(snapshot,"shift_start","pwa","odo-invalid-lower",new Date(base+2500).toISOString(),
-   {schemaVersion:1,readingKm:12124,previousConfirmedKm:12125,personalKm:0});
+   {schemaVersion:1,readingKm:parity.personalDistance.nextShiftStartOdometerKm-1,previousConfirmedKm:parity.personalDistance.nextShiftStartOdometerKm,personalKm:0});
   await expect(repository.queueIntent({command:invalid,status:"pending_location",createdAt:fixAt,updatedAt:fixAt}))
    .rejects.toThrow("shift_start_odometer_invalid");
-  await send("shift_end","odo-shift-2-end",3000,12125);
+  await send("shift_end","odo-shift-2-end",3000,parity.personalDistance.nextShiftStartOdometerKm+parity.personalDistance.secondShiftBusinessKm);
   const daily=await recordsRepository.get<{entries:Array<{businessKm:number;personalKm?:number}>;totalBusinessKm:number}> (
    "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(new Date(base).toISOString()),
   );
   expect(daily?.data.entries).toHaveLength(2);
-  expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([100,0]);
-  expect(daily?.data.entries.map(entry=>entry.personalKm)).toEqual([0,25]);
-  expect(daily?.data.totalBusinessKm).toBe(100);
+  expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([parity.personalDistance.currentShiftBusinessKm,parity.personalDistance.secondShiftBusinessKm]);
+  expect(daily?.data.entries.map(entry=>entry.personalKm)).toEqual([0,parity.personalDistance.personalKm]);
+  expect(daily?.data.totalBusinessKm).toBe(parity.personalDistance.expectedTotalBusinessKm);
  });
  it("does not advance a shift or write an event when Work Driver selection is missing",async()=>{
   await browserDatabase.records.bulkPut(records);

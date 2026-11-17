@@ -24,11 +24,41 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
   async prepareSnapshot(from: string, to: string): Promise<void> {
     const value = this.fullCost.getSourceProjection(from, to);
     this.snapshot = { from, to, value };
-    await value;
+    const projection = await value;
+    if (projection.businessStartDate !== undefined && projection.businessStartDate !== from) {
+      throw new Error("performance_operating_snapshot_business_start_date_mismatch");
+    }
   }
 
   releaseSnapshot(): void {
     this.snapshot = undefined;
+  }
+
+  async getSourceSnapshotIdentity(): Promise<string> {
+    const snapshot = this.snapshot;
+    if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
+    const projection = await snapshot.value;
+    const refs = [
+      ...projection.dailyActivity.flatMap(activity =>
+        activity.sourceRefs?.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined) ?? []),
+      ...projection.datedCosts.flatMap(cost =>
+        cost.sourceRefs?.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined) ??
+        [{ sourceId: cost.sourceId, revision: cost.sourceRevision }]),
+    ];
+    return "performance-operating-sources:" + refs
+      .map(ref => ref.sourceId + "@" + ref.revision)
+      .sort()
+      .join("|");
+  }
+
+  async getSnapshotIdentity(): Promise<string | undefined> {
+    const snapshot = this.snapshot;
+    if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
+    const projection = await snapshot.value;
+    if (projection.businessStartDate === undefined || projection.businessSettingsRevision === undefined) {
+      return undefined;
+    }
+    return "business-settings:" + projection.businessSettingsRevision + ":" + projection.businessStartDate;
   }
 
   private async projection(from: string, to: string) {

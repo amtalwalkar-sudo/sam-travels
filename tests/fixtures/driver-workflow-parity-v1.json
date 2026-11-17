@@ -1,9 +1,49 @@
 {
   "schemaVersion": 1,
   "scenario": "v2-shift-trip-recovery-after-pending-ride-start",
-  "states": ["shift_active", "going_to_pickup", "trip_active", "shift_active", "idle"],
+  "states": [
+    "shift_active",
+    "going_to_pickup",
+    "trip_active",
+    "shift_active",
+    "idle"
+  ],
   "finalRevision": 5,
   "eventCount": 5,
   "outboxCount": 5,
-  "interruptedEventId": "parity-ride-start"
+  "interruptedEventId": "parity-ride-start",
+  "boundaryDistance": {
+    "operationalDate": "2026-11-08",
+    "totalBusinessKm": 0,
+    "unallocatedBusinessKm": 100,
+    "allocationStatus": "awaiting_operational_boundary"
+  },
+  "personalDistance": {
+    "firstShiftStartOdometerKm": 12000,
+    "previousShiftEndOdometerKm": 12100,
+    "nextShiftStartOdometerKm": 12125,
+    "personalKm": 25,
+    "currentShiftBusinessKm": 100,
+    "secondShiftBusinessKm": 0,
+    "expectedTotalBusinessKm": 100
+  },
+  "activeTripRotation": {
+    "allowed": false
+  },
+  "activeDrivingDay": {
+    "vehicleId": "feature:vehicle:MH01AB1234",
+    "operationalDate": "2026-11-08",
+    "followingOperationalDate": "2026-11-09",
+    "shiftId": "parity-active-day-shift",
+    "driverId": "parity-driver",
+    "assignmentId": "parity-assignment",
+    "tripId": "parity-cross-boundary-trip",
+    "tripCreatedAt": "2026-11-08T22:20:00.000Z",
+    "tripCompletedAt": "2026-11-08T22:40:00.000Z",
+    "businessKm": 42,
+    "personalKm": 7,
+    "expectedActiveDrivingDayCount": 1,
+    "expectedTotalBusinessKm": 42,
+    "expectedAverageBusinessKmPerActiveDrivingDay": 42
+  }
 }

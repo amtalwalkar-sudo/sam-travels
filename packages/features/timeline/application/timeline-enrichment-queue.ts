@@ -1,7 +1,7 @@
-import type { NetworkGateway } from "../../core/src/network";
-import type { RecordRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
-import type { DriverEvent } from "../../domain/src/driver-workflow";
+import type { NetworkGateway } from "../../../core/src/network";
+import type { RecordRepository } from "../../../core/src/repositories";
+import type { RecordEnvelope } from "../../../core/src/types";
+import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { ReverseGeocoderAdapter, TimelineLocationEnrichment, TimelineLocationMap } from "./timeline-reverse-geocoding";
 
 export const TIMELINE_ENRICHMENT_RECORD_PREFIX = "timeline-enrichment:";

@@ -149,3 +149,98 @@ The Performance workstream may be called end-to-end complete only when all appli
 - This audit supersedes the *implementation-status conclusion only* of the pre-PR #93 `docs/BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md`. It does not erase that historical evidence or assert that every old finding has been closed.
 
 **Final status: calculation foundation and substantial dashboard implementation merged; Performance end-to-end product acceptance remains open.**
+
+
+## PR #97 architecture-wiring addendum — 2026-11-17
+
+This addendum updates the implementation evidence without changing the product-policy authority or claiming that the Performance workstream is fully accepted.
+
+### Cross-source snapshot coherence status
+
+PR #97 adds `PerformanceCalculationSnapshotBoundaryV1`, wired to the same application `RecordRepository` used by the Performance source adapters. The service captures the shared record revision vector before source preparation and after all read-model consumption, rejects detected drift, and includes the repository fingerprint plus source revision provenance in the result. A regression mutates a shared record during calculation and asserts rejection.
+
+**Finding status: materially addressed with a bounded optimistic fence; strict transactional snapshot isolation is not implemented.** This is stronger than the earlier per-adapter/source-identity checks, but it is not an MVCC or serializable transaction. The guarantee and limitation are recorded in `docs/PR_97_ARCHITECTURE_CONFORMANCE.md`. The remaining source-conformance audit still needs to verify every authoritative owner output and correction/effective-date path; this addendum does not close that broader gate.
+
+### Canonical fixed-cost recovery correction
+
+The current Performance service now consumes canonical daily EMI and Compliance allocations, including their pre-business carry-forward rows, and only manual pre-business entries enter the generic recovery schedule. The former separate EMI/Compliance pre-business recovery inputs were removed to avoid counting the same carry-forward twice. Focused adapter/service tests and the shared Android Performance fixture were updated for this ownership rule.
+
+### Driver Target implementation evidence
+
+The current calculation implementation uses calendar-day proration for the selected date range and carries the target settings revision into provenance. Unit fixtures and rendered-PWA Performance acceptance cover the current implementation. The governing product contract and the earlier target-semantics ambiguity remain the policy authority; this architecture addendum does not approve a new target rule or close the separate passbook/lifetime acceptance requirements.
+
+### Evidence boundary
+
+Exact-head CI for PR #97 head `7a11dd7221381d058b991346bb8d40cd1a625061` passed Architecture, Web, Android and Integrated regression (run #44052752021). Subsequent documentation-only changes require their own exact-head CI confirmation. Physical-device acceptance remains deferred. The outstanding passbook, distance-summary, product-owner UX and production-data source-reconciliation gates in this audit remain open.
+
+## 9. Product-owner addendum implementation follow-up — 2026-11-17
+
+The product owner confirmed:
+- Driver Target Passbook must compare cumulative actual surplus against cumulative calendar-day-prorated target, carry earlier shortfalls forward, and show ahead/behind plus remaining target.
+- An active driving day requires an Online Work shift and at least one ride recorded against that exact shift and operational date.
+- Historical Maintenance expense corrections must preserve history and be reflected in any Performance projection that consumes the corrected source.
+
+Implementation added on PR #97:
+- PerformanceCalculationResultV1.passbook now contains a daily cumulative projection from Business Start Date through the selected end date: expected cumulative target, actual daily surplus, actual cumulative surplus, ahead/behind position and remaining target.
+- The Passbook aggregate reconciles to the same calculation's lifetime profit and lifetime target; remaining target is never negative.
+- Performance screen now has a dedicated Driver Passbook view, separate from the monthly roll-up. Rendered-PWA acceptance asserts the cumulative target and remaining-balance presentation.
+- Full-cost daily activity now exposes active-driving-day qualification, count and average confirmed business kilometres per active driving day.
+- Qualification uses submitted completed-ride or cancellation-fee closeout records carrying immutable Work trip context (shiftId, vehicleId, operationalDate). Work only captures that context when a shift is active, so the context proves the Online-shift side without waiting for the shift to end. Where the matching finalized Work daily-distance projection is not yet available, the day remains counted but the distance source is marked incomplete; the average must be treated as provisional.
+- The Performance screen exposes active-day count and average business kilometres per active day. Browser acceptance checks both metrics.
+- Business Expenses backup validation now validates historical correction records, contiguous chain revisions, target revisions, projected source values and correction-chain heads. A browser backup/restore regression corrects a fuel amount, exports/restores the records and verifies the original remains immutable while the corrected projection is reproducible.
+- Maintenance backup validation now validates its append-only expense correction chains and chain heads. An IndexedDB records round-trip regression verifies the corrected projection and original source survive restoration.
+
+### Boundaries still requiring closure (historical snapshot; superseded by section 13.6)
+
+- The original snapshot recorded the code and regressions as awaiting exact-head CI. This status was superseded when Architecture, Web, Android and Integrated gates passed on the exact PR head in workflow run #44095766482.
+- The Maintenance expense correction UI targets visit/repair expense records, while the frozen Performance cost contract currently includes Maintenance accrual as confirmed business kilometres × effective per-km rate. It does not explicitly include visit/repair amounts as a second Performance cost. The correction chain is now backup-validated and reprojectable, but whether those visit/repair amounts themselves enter Full-cost breakeven remains a separate accounting decision; no second maintenance cost has been silently added.
+- Physical Android device acceptance remains separate from automated Room/emulator verification.
+
+
+### Effective-date and correction provenance refinement — 2026-11-17
+
+- ComplianceAnalysisService now exposes immutable correction-chain references separately from the original Compliance record revision. Business Start Date allocation reports carry those references, and allocation provenance fingerprints them. Performance fixed-cost daily rows include the Compliance correction references, so a corrected validity date or premium is visible in downstream provenance after the owner service recalculates the canonical daily rows.
+- EMI daily source references now preserve scheduleVersion in addition to the source record revision. The Performance source-revision fingerprint includes scheduleVersion and rejects conflicting versions for the same source identity.
+- Existing owner-path regressions continue to cover Compliance renewal date/amount restatement, EMI prepayment schedule history, settlement cutoff and competing stale-prepayment preview rejection. The new provenance assertions verify Compliance correction IDs and EMI schedule version survive into Performance.
+- Exact-head CI is still pending; these changes are not yet verified.
+
+## 13. PR #97 implementation completion follow-up — 2026-11-17
+
+This section supersedes the earlier open implementation findings in sections 3.1–3.4 and the PR #97 follow-up notes above.
+
+### 13.1 Driver Target Passbook — implemented
+
+- A dedicated read-only Passbook view now projects every operational date from the actual Business Start Date through the selected end date.
+- Each row exposes prorated expected cumulative target, eligible daily surplus, actual cumulative surplus, ahead/behind position, remaining target and source IDs/revisions.
+- Aggregate Passbook totals reconcile to Performance lifetime profit and lifetime target. Earlier shortfalls carry forward; later surplus recovers them; remaining target is clamped at zero.
+- Unit tests assert daily cumulative arithmetic, target proration, source provenance and shortfall recovery. Rendered-PWA acceptance checks the cumulative figures and source-reference disclosure.
+
+### 13.2 Active-driving-day and distance history — implemented
+
+- Active day requires an authoritative Online Work shift and a submitted completed-ride or cancellation-fee closeout tied to that exact shift and Asia/Kolkata operational date.
+- The 04:00 boundary uses immutable trip-creation context. A missing, legacy or wrong-shift context does not become an active day. If the matching finalized distance row is not available, the active day remains counted but its distance is explicitly incomplete/review-required.
+- Confirmed allocated business kilometres are the numerator; personal kilometres are excluded; zero-kilometre active days remain in the denominator. Daily, ISO-week and calendar-month totals/averages are exposed.
+- Domain/service tests cover shift-only, ride-only/legacy, wrong-shift, matching-shift, 04:00 crossing, cancellation, zero-kilometre active day and unallocated boundary distance. Browser and Android Room-backed shared-fixture checks cover the same expected count and average.
+
+### 13.3 Target semantics and recovery boundaries — reconciled
+
+The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` resolves the partial-period target ambiguity: the configured monthly surplus target is prorated by actual calendar days from Business Start Date for cumulative Passbook progress and by included calendar days for a selected-period view. The old full-month display interpretation is superseded. Recovery tests now cover mid-month starts, month-end clamping, leap day, the exclusive 18-month anniversary and exact source-total reconciliation.
+
+### 13.4 Source correction and restore — verified at implementation level
+
+Business Expenses and Maintenance correction chains remain append-only. Their backup participants validate original target identity/revision, contiguous correction chain and head, and corrected projection. Browser and Android tests restore the records, reproject corrected values/provenance, and assert that original Work odometer/daily-distance and Maintenance accrual snapshots remain unchanged. Compliance correction references and EMI scheduleVersion are carried into Performance fixed-cost provenance; corrected Business Expense effective dates and fuel rates are carried into Full-cost provenance.
+
+### 13.5 Remaining separate acceptance gates
+
+- Record-by-record reconciliation against a deployed production dataset is not evidenced by repository fixtures.
+- Physical Android phone acceptance remains deferred to the agreed final phone-testing stage.
+- Final visual composition approval remains separate; the current rendered-PWA screen is the implementation/validation surface and this PR does not claim an unrelated Performance redesign.
+- Maintenance visit/repair expense amounts remain outside Performance costs; only confirmed business-kilometre Maintenance accrual is included under the current accounting contract.
+
+### 13.6 Exact-head CI
+
+The final exact PR head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482). Android emulator-backed Room/workflow/backup reliability and the debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred.
+
+### 13.7 Subsequent documentation-head verification
+
+The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` passed Architecture, Web, Android and Integrated regression in [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Android Room/workflow/backup reliability and debug-signed phone-test APK publication passed. Production geocoder verification was skipped; physical-device acceptance remains deferred. The verified commit was documentation-only and did not change the implementation already tested on the code-bearing head above.

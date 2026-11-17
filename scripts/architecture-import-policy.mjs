@@ -43,29 +43,47 @@ export function resolveImport(specifier, fromFile, resolveAlias) {
   return resolveAlias(specifier);
 }
 
+/**
+ * Feature packages are capability modules, not a single architectural layer.
+ * Their internal subdirectories have distinct dependency rules. Root files are
+ * retained as a migration-compatible feature boundary until they are moved.
+ */
 export function targetLayer(resolved) {
-  const p = "/" + normalizePath(resolved);
-  if (p.includes("/packages/core/src/")) return "core";
-  if (p.includes("/packages/domain/src/")) return "domain";
-  if (p.includes("/packages/application/src/")) return "application";
-  if (p.includes("/packages/presentation/src/")) return "presentation";
-  if (p.includes("/packages/storage-browser/src/") || p.includes("/packages/storage-android/src/")) return "storage";
-  if (p.includes("/packages/features/")) return "feature";
-  if (p.includes("/apps/web/src/")) return "ui";
+  const normalized = normalizePath(resolved);
+  const featureSubLayer = normalized.match(
+    /^packages\/features\/[^/]+\/(domain|application|ports|adapters|presentation|tests)(?:\/|$)/,
+  );
+  if (featureSubLayer) return `feature-${featureSubLayer[1]}`;
+  if (normalized.startsWith("packages/features/")) return "feature-root";
+  if (normalized.startsWith("packages/core/src/")) return "core";
+  if (normalized.startsWith("packages/domain/src/")) return "domain";
+  if (normalized.startsWith("packages/application/src/")) return "application";
+  if (normalized.startsWith("packages/presentation/src/")) return "presentation";
+  if (normalized.startsWith("packages/storage-browser/src/") || normalized.startsWith("packages/storage-android/src/")) return "storage";
+  if (normalized.startsWith("apps/web/src/ui/") || normalized.startsWith("apps/web/src/components/")) return "ui";
+  if (normalized.startsWith("apps/web/src/")) return "web-app";
   return null;
 }
 
+const forbiddenByLayer = {
+  core: new Set(["domain", "application", "storage", "ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  domain: new Set(["application", "storage", "ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  application: new Set(["storage", "ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  presentation: new Set(["core", "domain", "application", "storage", "ui", "web-app", "feature-root", "feature-domain", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  storage: new Set(["ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  "feature-domain": new Set(["application", "storage", "ui", "web-app", "presentation", "feature-root", "feature-application", "feature-ports", "feature-adapters", "feature-presentation", "feature-tests"]),
+  "feature-ports": new Set(["application", "storage", "ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-adapters", "feature-presentation", "feature-tests"]),
+  "feature-application": new Set(["storage", "ui", "web-app", "presentation", "feature-adapters", "feature-presentation", "feature-tests"]),
+  "feature-adapters": new Set(["ui", "web-app", "presentation", "feature-presentation", "feature-tests"]),
+  "feature-presentation": new Set(["application", "storage", "web-app", "feature-root", "feature-ports", "feature-adapters", "feature-tests"]),
+  "feature-root": new Set(["storage", "ui", "web-app", "feature-adapters", "feature-tests"]),
+  "feature-tests": new Set(),
+  ui: new Set(["storage"]),
+  "web-app": new Set(),
+};
+
 export function isForbiddenLayerDependency(from, target) {
-  return (
-    (from === "core" && ["domain", "application", "storage", "ui", "feature", "presentation"].includes(target)) ||
-    (from === "domain" && ["application", "storage", "ui", "presentation"].includes(target)) ||
-    (from === "application" && ["storage", "ui", "presentation"].includes(target)) ||
-    (from === "presentation" && ["core", "domain", "application", "storage", "feature", "ui", "web-app"].includes(target)) ||
-    (from === "storage" && ["ui", "presentation"].includes(target)) ||
-    (["core", "domain", "application", "storage"].includes(from) && target === "feature") ||
-    (from === "feature" && ["storage", "ui", "presentation"].includes(target)) ||
-    (from === "ui" && target === "storage")
-  );
+  return forbiddenByLayer[from]?.has(target) ?? false;
 }
 
 export function isPublicFeatureEntry(resolved) {

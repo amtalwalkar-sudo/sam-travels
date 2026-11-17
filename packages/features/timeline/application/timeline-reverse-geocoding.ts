@@ -1,5 +1,5 @@
-import { NetworkAccessDisabledError, type NetworkGateway } from "../../core/src/network";
-import type { DriverEvent } from "../../domain/src/driver-workflow";
+import { NetworkAccessDisabledError, type NetworkGateway } from "../../../core/src/network";
+import type { DriverEvent } from "../../../domain/src/driver-workflow";
 
 export type TimelineLocationStatus = "resolved" | "not_found" | "pending" | "network_disabled" | "unavailable";
 export type TimelineLocationEnrichment = Readonly<{

@@ -1,3 +1,10 @@
+import {
+  buildPerformancePassbookV1,
+  proratedDriverTargetForRangeV1,
+  type PerformancePassbookV1,
+  type PerformancePassbookSourceRefV1,
+} from "./performance-passbook-v1";
+
 /**
  * Performance Calculation Contract v1.0.
  *
@@ -13,10 +20,9 @@ export const PRE_BUSINESS_RECOVERY_MONTHS_V1 = 18 as const;
 export type PerformanceCostKindV1 =
   | "fuel" | "maintenance" | "emi" | "compliance" | "platform-fee"
   | "traffic-challan" | "toll-parking" | "miscellaneous"
-  | "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery";
+  | "pre-business-manual-recovery";
 
-export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number }>;
-
+export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number; scheduleVersion?: number }>;
 export type PerformanceDailyRevenueInputV1 = Readonly<{
   date: string;
   grossFarePaise: number;
@@ -24,29 +30,25 @@ export type PerformanceDailyRevenueInputV1 = Readonly<{
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
 }>;
-
 export type PerformanceDailyCostInputV1 = Readonly<{
   date: string;
-  kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery">;
+  kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery">;
   amountPaise: number;
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
 }>;
-
 export type PreBusinessRecoverySourceV1 = Readonly<{
   sourceId: string;
   revision: number;
   amountPaise: number;
   note: string;
-  origin: "manual" | "emi" | "compliance";
+  origin: "manual";
 }>;
-
 export type PerformanceCompletenessV1 = Readonly<{
   source: string;
   status: "complete" | "incomplete" | "unavailable" | "review-required";
   detail?: string;
 }>;
-
 export type PerformanceCalculationInputV1 = Readonly<{
   businessStartDate: string;
   periodFrom: string;
@@ -56,6 +58,8 @@ export type PerformanceCalculationInputV1 = Readonly<{
   costs: readonly PerformanceDailyCostInputV1[];
   preBusinessRecovery: readonly PreBusinessRecoverySourceV1[];
   completeness: readonly PerformanceCompletenessV1[];
+  /** Shared Business Start Date source revision identity captured for this calculation. */
+  sourceSnapshotId?: string;
 }>;
 
 export type PerformanceDailyResultV1 = Readonly<{
@@ -66,7 +70,6 @@ export type PerformanceDailyResultV1 = Readonly<{
   profitPaise: number;
   complete: boolean;
 }>;
-
 export type PerformanceCalculationResultV1 = Readonly<{
   calculationId: typeof PERFORMANCE_CALCULATION_ID_V1;
   calculationVersion: typeof PERFORMANCE_CALCULATION_VERSION_V1;
@@ -78,8 +81,10 @@ export type PerformanceCalculationResultV1 = Readonly<{
     revenuePaise: number;
     costPaise: number;
     profitPaise: number;
-    /** The configured monthly target is never prorated by a selected date filter. */
+    /** Configured Admin monthly surplus target, before date-range proration. */
     monthlyDriverTargetPaise: number;
+    /** Sum of calendar-day prorated target amounts for the selected date range. */
+    targetPaise: number;
   }>;
   lifetime: Readonly<{
     revenuePaise: number;
@@ -90,15 +95,18 @@ export type PerformanceCalculationResultV1 = Readonly<{
     targetPositionPaise: number;
     elapsedCalendarMonths: number;
   }>;
+  /** Cumulative surplus-versus-target ledger from Business Start Date through periodTo. */
+  passbook: PerformancePassbookV1;
   recovery: Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
     completeness: readonly PerformanceCompletenessV1[];
+    sourceSnapshotId?: string;
   }>;
 }>;
 
@@ -107,7 +115,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COST_KINDS: readonly PerformanceCostKindV1[] = Object.freeze([
   "fuel", "maintenance", "emi", "compliance", "platform-fee",
   "traffic-challan", "toll-parking", "miscellaneous",
-  "pre-business-manual-recovery", "pre-business-emi-recovery", "pre-business-compliance-recovery",
+  "pre-business-manual-recovery",
 ]);
 
 function assertDate(value: string): number {
@@ -137,16 +145,19 @@ function add(a: number, b: number): number {
 }
 function validateRefs(refs: readonly PerformanceSourceRefV1[]): void {
   if (!Array.isArray(refs) || refs.some(ref =>
-    !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1)) {
+    !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1 ||
+    (ref.scheduleVersion !== undefined && (!Number.isSafeInteger(ref.scheduleVersion) || ref.scheduleVersion < 1)))) {
     throw new Error("performance_source_provenance_invalid");
   }
 }
 
 /**
- * Distributes each eligible pre-business amount over the 18-month recovery
- * window [businessStartDate, anniversary), using operational dates. The first
- * and final calendar months are naturally partial; no date is added beyond
- * the exact anniversary. Remainder paise go to the earliest recovery dates.
+ * Recovers the aggregate eligible pre-business pool in 18 equal monthly
+ * instalments. The first instalment starts on the Business Start Date and the
+ * final instalment is due in the month containing its 18-month anniversary.
+ * Each month's instalment is spread over that calendar month's remaining
+ * operational dates; paise remainders go to the earliest dates. Source shares
+ * are retained for audit provenance without changing the aggregate schedule.
  */
 export function allocatePreBusinessRecoveryV1(
   businessStartDate: string,
@@ -160,36 +171,72 @@ export function allocatePreBusinessRecoveryV1(
     amountPaise: number;
     sourceId: string;
     revision: number;
-    origin: "manual" | "emi" | "compliance";
+    origin: "manual";
     note: string;
   }>[];
 }> {
   const startDay = assertDate(businessStartDate);
   const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
-  const endDay = assertDate(toExclusive);
-  const dayCount = endDay - startDay;
-  if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
   const seen = new Set<string>();
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }[] = [];
   let totalPaise = 0;
   for (const source of sources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
-        !["manual", "emi", "compliance"].includes(source.origin) || seen.has(source.sourceId)) {
+        source.origin !== "manual" || seen.has(source.sourceId)) {
       throw new Error("performance_recovery_source_invalid");
     }
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
-    const quotient = Math.floor(source.amountPaise / dayCount);
-    const remainder = source.amountPaise % dayCount;
-    for (let offset = 0; offset < dayCount; offset++) {
-      const amountPaise = quotient + (offset < remainder ? 1 : 0);
-      if (amountPaise > 0) daily.push({
-        date: dateAt(startDay + offset), amountPaise, sourceId: source.sourceId, revision: source.revision,
-        origin: source.origin, note: source.note,
-      });
-    }
+  }
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }[] = [];
+  if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
+
+  // Equal monthly instalments are calculated from the aggregate pool, not
+  // independently per source. Cumulative apportionment preserves every
+  // source's provenance while ensuring each month exactly reconciles.
+  const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1);
+  const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
+  const monthTotal = (monthIndex: number): number =>
+    monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
+  let cumulativePoolAllocated = 0;
+  let previousSourceShares = sources.map(() => 0);
+  const cumulativeSourceShares = (monthlyAmount: number): number[] => {
+    cumulativePoolAllocated = add(cumulativePoolAllocated, monthlyAmount);
+    let cumulativeSourceAmount = 0;
+    const cumulativePrefixTargets = sources.map(source => {
+      cumulativeSourceAmount = add(cumulativeSourceAmount, source.amountPaise);
+      return Number(
+        (BigInt(cumulativePoolAllocated) * BigInt(cumulativeSourceAmount)) / BigInt(totalPaise),
+      );
+    });
+    const nextShares = cumulativePrefixTargets.map((prefix, index) =>
+      prefix - (index > 0 ? cumulativePrefixTargets[index - 1] : 0));
+    const monthlyShares = nextShares.map((target, index) => target - previousSourceShares[index]);
+    previousSourceShares = nextShares;
+    return monthlyShares;
+  };
+  for (let monthIndex = 0; monthIndex < PRE_BUSINESS_RECOVERY_MONTHS_V1; monthIndex++) {
+    const monthStart = addMonthsClamped(businessStartDate, monthIndex);
+    const monthEndExclusive = addMonthsClamped(businessStartDate, monthIndex + 1);
+    const start = Math.max(startDay, assertDate(monthStart));
+    const end = assertDate(monthEndExclusive);
+    const dayCount = end - start;
+    if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
+    const instalment = monthTotal(monthIndex);
+    const sourceShares = cumulativeSourceShares(instalment);
+    sources.forEach((source, sourceIndex) => {
+      const amount = sourceShares[sourceIndex];
+      const quotient = Math.floor(amount / dayCount);
+      const remainder = amount % dayCount;
+      for (let offset = 0; offset < dayCount; offset++) {
+        const amountPaise = quotient + (offset < remainder ? 1 : 0);
+        if (amountPaise > 0) daily.push({
+          date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
+          revision: source.revision, origin: source.origin, note: source.note,
+        });
+      }
+    });
   }
   const allocated = daily.reduce((sum, row) => add(sum, row.amountPaise), 0);
   if (allocated !== totalPaise) throw new Error("performance_recovery_reconciliation_failed");
@@ -212,6 +259,13 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
 
   const revenueByDate = new Map<string, number>();
   const refs: PerformanceSourceRefV1[] = [];
+  const passbookSourceRefsByDate = new Map<string, PerformancePassbookSourceRefV1[]>();
+  const addPassbookSourceRefs = (date: string, sourceRefs: readonly PerformanceSourceRefV1[]) => {
+    if (sourceRefs.length === 0) return;
+    const dailyRefs = passbookSourceRefsByDate.get(date) ?? [];
+    dailyRefs.push(...sourceRefs);
+    passbookSourceRefsByDate.set(date, dailyRefs);
+  };
   const completeness = input.completeness.map(item => Object.freeze({ ...item }));
   for (const row of input.revenue) {
     const day = assertDate(row.date);
@@ -226,6 +280,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     revenueByDate.set(row.date, add(revenueByDate.get(row.date) ?? 0,
       add(row.grossFarePaise, row.cancellationFeePaise)));
     refs.push(...row.sourceRefs);
+    addPassbookSourceRefs(row.date, row.sourceRefs);
   }
 
   const costsByDate = new Map<string, Record<PerformanceCostKindV1, number>>();
@@ -242,13 +297,13 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     bucket[row.kind] = add(bucket[row.kind], row.amountPaise);
     costsByDate.set(row.date, bucket);
     refs.push(...row.sourceRefs);
+    addPassbookSourceRefs(row.date, row.sourceRefs);
   }
   for (const row of recovery.daily) {
     const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
-    const recoveryKind: PerformanceCostKindV1 = row.origin === "emi" ? "pre-business-emi-recovery"
-      : row.origin === "compliance" ? "pre-business-compliance-recovery" : "pre-business-manual-recovery";
-    bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
+    bucket["pre-business-manual-recovery"] = add(bucket["pre-business-manual-recovery"], row.amountPaise);
     costsByDate.set(row.date, bucket);
+    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision }]);
   }
   for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });
 
@@ -256,6 +311,9 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;
   if (lifetimeDays > 36600) throw new Error("performance_period_too_large");
   const daily: PerformanceDailyResultV1[] = [];
+  const lifetimeDailySurplus: {
+    date: string; profitPaise: number; sourceRefs: readonly PerformancePassbookSourceRefV1[];
+  }[] = [];
   let lifetimeRevenuePaise = 0, lifetimeCostPaise = 0, periodRevenuePaise = 0, periodCostPaise = 0;
   for (let offset = 0; offset < lifetimeDays; offset++) {
     const date = dateAt(businessStartDay + offset);
@@ -265,6 +323,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const profitPaise = revenuePaise - totalCostPaise;
     lifetimeRevenuePaise = add(lifetimeRevenuePaise, revenuePaise);
     lifetimeCostPaise = add(lifetimeCostPaise, totalCostPaise);
+    lifetimeDailySurplus.push({ date, profitPaise, sourceRefs: passbookSourceRefsByDate.get(date) ?? [] });
     if (date >= input.periodFrom && date <= input.periodTo) {
       periodRevenuePaise = add(periodRevenuePaise, revenuePaise);
       periodCostPaise = add(periodCostPaise, totalCostPaise);
@@ -291,8 +350,17 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const [ey, em] = input.periodTo.split("-").map(Number);
     return (ey - sy) * 12 + (em - sm) + 1;
   })();
-  const lifetimeTargetPaise = input.monthlyDriverTargetPaise * elapsedCalendarMonths;
+  const lifetimeTargetPaise = proratedDriverTargetForRangeV1(
+    input.monthlyDriverTargetPaise, input.businessStartDate, input.periodTo,
+  );
+  const periodTargetPaise = proratedDriverTargetForRangeV1(
+    input.monthlyDriverTargetPaise,
+    input.periodFrom < input.businessStartDate ? input.businessStartDate : input.periodFrom,
+    input.periodTo,
+  );
   safeAmount(lifetimeTargetPaise, "performance_target_overflow");
+  safeAmount(periodTargetPaise, "performance_target_overflow");
+
   const lifetimeProfitPaise = lifetimeRevenuePaise - lifetimeCostPaise;
   const periodProfitPaise = periodRevenuePaise - periodCostPaise;
 
@@ -306,8 +374,8 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     period: Object.freeze({
       revenuePaise: periodRevenuePaise, costPaise: periodCostPaise,
       profitPaise: periodProfitPaise,
-      // Intentionally unchanged for daily/weekly/custom filters.
       monthlyDriverTargetPaise: input.monthlyDriverTargetPaise,
+      targetPaise: periodTargetPaise,
     }),
     lifetime: Object.freeze({
       revenuePaise: lifetimeRevenuePaise, costPaise: lifetimeCostPaise,
@@ -315,10 +383,17 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
       targetPositionPaise: lifetimeProfitPaise - lifetimeTargetPaise,
       elapsedCalendarMonths,
     }),
+    passbook: buildPerformancePassbookV1({
+      businessStartDate: input.businessStartDate,
+      periodTo: input.periodTo,
+      monthlyDriverTargetPaise: input.monthlyDriverTargetPaise,
+      daily: lifetimeDailySurplus,
+    }),
     recovery,
     provenance: Object.freeze({
       sourceRefs: Object.freeze(refs.sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision)),
       completeness: Object.freeze(completeness),
+      ...(input.sourceSnapshotId ? { sourceSnapshotId: input.sourceSnapshotId } : {}),
     }),
   });
 }

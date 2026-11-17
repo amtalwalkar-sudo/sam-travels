@@ -5,8 +5,8 @@ import {
   type TimelinePickupInterval,
   type TimelineProjection,
   type TimelineSourceSnapshot,
-} from "../../domain/src/timeline";
-import type { DriverEvent } from "../../domain/src/driver-workflow";
+} from "../../../domain/src/timeline";
+import type { DriverEvent } from "../../../domain/src/driver-workflow";
 
 export type TimelineReadModel = Readonly<{
   events: DriverEvent[];

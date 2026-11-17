@@ -1,15 +1,9 @@
 import { createElement } from "react";
 import type { FeatureExtensionDefinition, FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/index";
-import type { TimelineReadModel } from "../../application/src/timeline-projection-service";
-import type { TimelineLocationMap } from "../../application/src/timeline-reverse-geocoding";
 import { TimelineScreen } from "./presentation/TimelineScreen";
+import type { TimelineScreenContext as TimelineContext } from "./presentation/timeline-screen-model";
 
-export type TimelineScreenContext = Readonly<{
-  loadTimeline: (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => Promise<Readonly<{
-    model: TimelineReadModel;
-    locations: Promise<TimelineLocationMap>;
-  }>>;
-}>;
+export type TimelineScreenContext = TimelineContext;
 export type TimelinePresentationContext = FeaturePresentationContext<"timeline.main", 1, TimelineScreenContext>;
 
 export const TIMELINE_PRESENTATION_SCREEN: FeaturePresentationScreen<TimelinePresentationContext> = Object.freeze({

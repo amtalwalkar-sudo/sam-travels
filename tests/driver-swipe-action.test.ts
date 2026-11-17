@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { driverSwipePresentationContract, getDriverSwipeAction } from "../packages/features/work-shift";
+import { driverSwipePresentationContract, getDriverSwipeAction } from "../packages/features/work";
 
 describe("state-aware trip swipe action", () => {
   it("offers Going to pickup only while a shift is active", () => {

@@ -10,6 +10,31 @@ function indiaDateOffsetDays(offset) {
   const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
   return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
 }
+function proratedTargetPaise(monthlyTargetPaise, from, to) {
+  let total = 0;
+  let cursor = from;
+  while (cursor <= to) {
+    const [year, month] = cursor.split("-").map(Number);
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const end = monthEnd < to ? monthEnd : to;
+    const days = Math.round((Date.parse(end + "T00:00:00Z") - Date.parse(cursor + "T00:00:00Z")) / 86_400_000) + 1;
+    total += Math.floor((monthlyTargetPaise * days * 2 + daysInMonth) / (2 * daysInMonth));
+    cursor = new Date(Date.parse(end + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
+  }
+  return total;
+}
+function moneyFromPaise(paise) {
+  return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function monthTargetPaise(month, from, to, monthlyTargetPaise) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = month + "-01";
+  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  const start = from > monthStart ? from : monthStart;
+  const end = to < monthEnd ? to : monthEnd;
+  return start > end ? 0 : proratedTargetPaise(monthlyTargetPaise, start, end);
+}
 function previousMonthDate(day) {
   const today = indiaDateOffsetDays(0);
   const [year, month] = today.split("-").map(Number);
@@ -101,10 +126,22 @@ try {
       schemaVersion: 1, shiftId: "performance-acceptance-shift",
       driverId: "performance-acceptance-driver",
       assignmentId: "performance-acceptance-assignment",
-      vehicleId: "performance-acceptance-vehicle",
+      vehicleId: "feature:vehicle:MH00PS0093",
       operationalDate,
     };
     const records = [
+      {
+        id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        data: {
+          schemaVersion: 1, kind: "daily_business_kilometres",
+          vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
+          totalBusinessKm: 42, unallocatedBusinessKm: 0,
+          entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
+            businessKm: 42, personalKm: 7 }],
+        },
+      },
       {
         id: "work:trip-financial-obligation:performance-screen-fare",
         schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
@@ -159,6 +196,8 @@ try {
   }
   await page.locator(".performance-meta").getByText(businessStartDate, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Explain Business distance", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Explain active driving days", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Explain average business kilometres per active driving day", exact: true }).waitFor();
   if (await page.locator(".performance-error").count()) {
     throw new Error("optional_distance_projection_failure_blocked_core_performance_calculation");
   }
@@ -171,14 +210,44 @@ try {
   if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
     throw new Error("verified_revenue_missing_from_lifetime_position");
   }
-  const targetCard = page.getByRole("button", { name: "Explain Monthly Driver Target", exact: true });
+  const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
-  if (!(await targetCard.innerText()).includes("₹30,000.00")) {
-    throw new Error("monthly_driver_target_not_displayed_as_full_fixed_amount");
+  const configuredTargetPaise = Number(targetRupees) * 100;
+  const selectedTarget = proratedTargetPaise(configuredTargetPaise, businessStartDate, today);
+  if (!(await targetCard.innerText()).includes(moneyFromPaise(selectedTarget))) {
+    throw new Error("selected_period_target_does_not_match_calendar_day_proration:" + selectedTarget);
   }
   await page.getByRole("button", { name: "Explain Lifetime target position", exact: true }).waitFor();
   await page.getByText("Lifetime eligible costs", { exact: true }).waitFor();
-  console.log("Performance period, lifetime breakeven and fixed monthly target rendered.");
+  console.log("Performance period, lifetime breakeven and calendar-day prorated target rendered.");
+
+  await page.getByRole("tab", { name: "Distance history", exact: true }).click();
+  const distanceHistory = page.locator(".performance-distance-history");
+  await distanceHistory.getByText("Daily distance", { exact: true }).waitFor();
+  const distanceSummaryText = await distanceHistory.locator(".performance-recovery-summary").innerText();
+  if (!distanceSummaryText.includes("42 km") || !distanceSummaryText.includes("Qualifying active driving days") ||
+      !distanceSummaryText.includes("1") || !distanceSummaryText.includes("Complete")) {
+    throw new Error("confirmed_distance_summary_or_active_day_average_missing:" + distanceSummaryText);
+  }
+  const dailyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Daily distance from confirmed Work allocations" }),
+  });
+  const weeklyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Weekly confirmed business distance" }),
+  });
+  const monthlyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Monthly confirmed business distance" }),
+  });
+  for (const table of [dailyDistance, weeklyDistance, monthlyDistance]) {
+    const tableText = await table.innerText();
+    if (!tableText.includes("42 km")) {
+      throw new Error("distance_period_rollup_missing_confirmed_business_km:" + tableText);
+    }
+  }
+  if ((await dailyDistance.innerText()).includes("49 km")) {
+    throw new Error("personal_kilometres_were_included_in_business_distance");
+  }
+  console.log("Daily, weekly and monthly confirmed business distance, active-day averages and personal-km exclusion rendered.");
 
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   const recovery = page.locator(".performance-recovery");
@@ -196,10 +265,34 @@ try {
 
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
   await page.getByText("Monthly target", { exact: true }).waitFor();
-  const monthlyTable = page.locator(".performance-table").filter({ has: page.locator("caption", { hasText: "Monthly Driver Passbook" }) });
+  const monthlyTable = page.locator(".performance-table").filter({ has: page.locator("caption", { hasText: "Monthly revenue, full-cost expense, net and calendar-day-prorated target" }) });
   const monthlyText = await monthlyTable.innerText();
-  if (!monthlyText.includes("₹30,000.00")) throw new Error("monthly_target_was_prorated_or_missing_in_monthly_rollup");
-  console.log("Monthly roll-up preserves the full configured target for partial calendar months.");
+  const monthKeys = [...new Set([businessStartDate.slice(0, 7), today.slice(0, 7)])];
+  for (const month of monthKeys) {
+    const expected = moneyFromPaise(monthTargetPaise(month, businessStartDate, today, configuredTargetPaise));
+    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration:" + month + ":" + expected);
+  }
+  console.log("Monthly roll-up target values reconcile to calendar-day proration for each partial month.");
+
+  await page.getByRole("tab", { name: "Driver Passbook", exact: true }).click();
+  const passbookTable = page.locator(".performance-table").filter({
+    has: page.locator("thead", { hasText: "Expected cumulative" }),
+  });
+  await passbookTable.waitFor();
+  const passbookText = await passbookTable.innerText();
+  if (!passbookText.includes(moneyFromPaise(selectedTarget)) ||
+      !passbookText.includes("Remaining") || !passbookText.includes("Source records") ||
+      !/\b[1-9]\d* sources?\b/.test(passbookText)) {
+    throw new Error("driver_passbook_cumulative_target_or_source_provenance_missing");
+  }
+  const sourceDetails = passbookTable.locator("tbody details summary").filter({ hasText: /[1-9]/ }).first();
+  await sourceDetails.click();
+  if (!(await passbookTable.locator("tbody").innerText()).includes("revision")) {
+    throw new Error("driver_passbook_daily_source_references_not_exposed");
+  }
+  await page.getByText(/Expected cumulative surplus/).waitFor();
+  await page.getByText(/Actual cumulative surplus/).waitFor();
+  console.log("Driver Passbook cumulative target, actual surplus and remaining balance rendered.");
 
   const provenance = page.locator("#performance-provenance");
   await provenance.locator("summary").first().click();

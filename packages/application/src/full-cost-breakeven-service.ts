@@ -1,8 +1,10 @@
 import type { VehicleService } from "./vehicle-service";
+import type { RecordRepository } from "../../core/src/repositories";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { TripFinancialService } from "./trip-financial-service";
+import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
 import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
@@ -16,6 +18,9 @@ export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV
   maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
 }>;
 export type FullCostBreakevenSourceProjectionV1 = Readonly<{
+  /** Identity of the fixed-cost allocation snapshot used by this projection. */
+  businessStartDate?: string;
+  businessSettingsRevision?: number;
   dailyActivity: readonly FullCostBreakevenSourceActivityV1[];
   datedCosts: readonly BreakevenDailyCostV1[];
   completeness: readonly BreakevenCompletenessV1[];
@@ -38,24 +43,33 @@ export class FullCostBreakevenService {
   constructor(
     private readonly vehicles: Pick<VehicleService, "list">,
     private readonly maintenance: Pick<MaintenanceService, "listVehicleRecords">,
-    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory">,
+    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory"> & Partial<Pick<BusinessExpensesService, "listCorrectionReferences">>,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
+    /** Shared authoritative records repository used to verify Work daily shift projections. */
+    private readonly recordRepository?: Pick<RecordRepository, "list">,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
-    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
+      this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
     ]);
+    const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
+    if (this.expenses.listCorrectionReferences) {
+      const correctionTargets = [...new Set([
+        ...expenses.map(record => record.id),
+        ...fuelPurchases.map(record => record.id),
+      ])];
+      const correctionEntries = await Promise.all(correctionTargets.map(async sourceId => [
+        sourceId, await this.expenses.listCorrectionReferences!(sourceId),
+      ] as const));
+      correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
+    }
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
-    const activityByDate = new Map<string, {
-      businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number;
-      refs: { sourceId: string; revision: number }[];
-      fuelRefs: { sourceId: string; revision: number }[];
-      maintenanceRefs: { sourceId: string; revision: number }[];
-    }>();
+
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
       { source: "business-expenses", status: "complete" },
@@ -63,6 +77,27 @@ export class FullCostBreakevenService {
       { source: "maintenance-accruals", status: "complete" },
     ];
 
+    const vehicleId = vehicles[0].id;
+    const {
+      activityByDate, distanceByDate, activeDaySourceIssues,
+    } = buildFullCostWorkDistanceProjectionV1({
+      dailyDistanceRecords: authoritativeRecords?.filter(record =>
+        record.id.startsWith("work:daily-business-km:")) ?? [],
+      tripFinancialRecords, vehicleId, from, to,
+    });
+    if (activeDaySourceIssues.length) {
+      completeness.push({
+        source: "active-driving-day-distance", status: "incomplete",
+        detail: activeDaySourceIssues.length +
+          " Work/Trip source record(s) need review. Active-day classification uses immutable trip context; unconfirmed distance is withheld.",
+      });
+    }
+    if (!authoritativeRecords) {
+      completeness.push({ source: "active-driving-day-distance", status: "unavailable",
+        detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
+    }
+
+    const accruedOperationalDates = new Set<string>();
     const histories = await Promise.all(vehicles.map(async vehicle => ({
       vehicle,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
@@ -72,27 +107,59 @@ export class FullCostBreakevenService {
       })),
     })));
     for (const { vehicle, records, rates } of histories) {
+      for (const [date, distance] of distanceByDate) {
+        if (!distance.complete || distance.businessKm === 0) continue;
+        const bucket = activityByDate.get(date)!;
+        const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
+        if (!rate) {
+          completeness[2] = { source: "fuel-rate-history", status: "incomplete",
+            detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
+          continue;
+        }
+        bucket.fuelCostPaise += ratioAmount(distance.businessKm, rate.costPaisePerKm);
+        const distanceRef = { sourceId: distance.record.id, revision: distance.record.revision };
+        bucket.fuelRefs.push(distanceRef);
+        rate.sourcePurchaseIds.forEach((sourceId, index) => {
+          const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
+          bucket.refs.push(ref);
+          bucket.fuelRefs.push(ref);
+          for (const correctionRef of correctionRefsBySourceId.get(sourceId) ?? []) {
+            bucket.refs.push(correctionRef);
+            bucket.fuelRefs.push(correctionRef);
+          }
+        });
+      }
+
       for (const accrual of records.accruals) {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
+        const distance = distanceByDate.get(date);
         const bucket = activityByDate.get(date) ?? {
-          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0,
+          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
           refs: [], fuelRefs: [], maintenanceRefs: [],
         };
-        const km = accrual.data.businessKm;
-        const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
-        if (km > 0 && !rate) {
-          completeness[2] = { source: "fuel-rate-history", status: "incomplete",
-            detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
-        } else if (km > 0 && rate) {
-          bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
-          rate.sourcePurchaseIds.forEach((sourceId, index) => {
-            const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
-            bucket.refs.push(ref);
-            bucket.fuelRefs.push(ref);
-          });
+        const personalKm = distance?.entries.reduce((sum, entry) => sum + (entry.personalKm ?? 0), 0) ?? 0;
+        const effectiveRate = records.rateHistory.filter(item => item.effectiveFrom <= date).slice(-1)[0];
+        const expectedAmount = distance && distance.complete
+          ? distance.businessKm * accrual.data.ratePaisePerKm : -1;
+        const sourceMatches = !!distance && distance.complete &&
+          accrual.data.dailyBusinessKmRecordId === distance.record.id &&
+          accrual.data.dailyBusinessKmRevision === distance.record.revision &&
+          accrual.data.businessKm === distance.businessKm;
+        const rateMatches = !!effectiveRate &&
+          accrual.data.rateEffectiveFrom === effectiveRate.effectiveFrom &&
+          accrual.data.ratePaisePerKm === effectiveRate.ratePaisePerKm;
+        const amountMatches = Number.isSafeInteger(expectedAmount) &&
+          accrual.data.amountPaise === expectedAmount &&
+          (accrual.data.personalKm ?? 0) === personalKm &&
+          (accrual.data.personalAmountPaise ?? 0) === personalKm * accrual.data.ratePaisePerKm;
+        if (!sourceMatches || !rateMatches || !amountMatches) {
+          completeness.push({ source: "maintenance-accruals", status: "incomplete",
+            detail: "Maintenance accrual " + accrual.id +
+              " does not reconcile to the finalized Work distance and effective operational-date rate." });
+          continue;
         }
-        bucket.businessKm += km;
+        accruedOperationalDates.add(date);
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
         const accrualRef = { sourceId: accrual.id, revision: accrual.revision };
         bucket.refs.push(accrualRef);
@@ -106,9 +173,7 @@ export class FullCostBreakevenService {
           bucket.refs.push(vehicleRef);
           bucket.maintenanceRefs.push(vehicleRef);
         }
-        const distanceRef = { sourceId: accrual.data.dailyBusinessKmRecordId,
-          revision: accrual.data.dailyBusinessKmRevision };
-        bucket.refs.push(distanceRef);
+        const distanceRef = { sourceId: distance!.record.id, revision: distance!.record.revision };
         bucket.maintenanceRefs.push(distanceRef);
         if (![bucket.businessKm, bucket.fuelCostPaise, bucket.maintenanceCostPaise].every(Number.isSafeInteger)) {
           throw new Error("breakeven_activity_total_overflow");
@@ -117,14 +182,23 @@ export class FullCostBreakevenService {
       }
     }
 
-    if (![...activityByDate.keys()].some(date => date >= from && date <= to)) {
+    for (const [date, distance] of distanceByDate) {
+      if (distance.complete && distance.businessKm > 0 && !accruedOperationalDates.has(date)) {
+        completeness.push({ source: "maintenance-accruals", status: "incomplete",
+          detail: "Confirmed business distance on " + date + " has no matching immutable Maintenance accrual." });
+      }
+    }
+
+    if (![...accruedOperationalDates].some(date => date >= from && date <= to) &&
+        ![...distanceByDate.values()].some(distance => distance.complete && distance.businessKm > 0) &&
+        ![...activityByDate.values()].some(activity => activity.activeDrivingDay)) {
       completeness[3] = { source: "maintenance-accruals", status: "unavailable",
         detail: "No committed daily business-kilometre maintenance accruals exist in the selected period." };
     }
 
     const dailyActivity: FullCostBreakevenSourceActivityV1[] = [...activityByDate].map(([date, value]) => ({
-      date, businessKm: value.businessKm, fuelCostPaise: value.fuelCostPaise,
-      maintenanceCostPaise: value.maintenanceCostPaise,
+      date, businessKm: value.businessKm, activeDrivingDay: value.activeDrivingDay,
+      fuelCostPaise: value.fuelCostPaise, maintenanceCostPaise: value.maintenanceCostPaise,
       distanceSourceId: value.refs.map(ref => ref.sourceId).sort().join("|"),
       distanceSourceRevision: Math.max(1, ...value.refs.map(ref => ref.revision)),
       sourceRefs: value.refs,
@@ -206,7 +280,10 @@ export class FullCostBreakevenService {
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
             !withheldTripLinkedExpenseIds.has(sourceId) &&
             !withheldLegacyTollParkingExpenseIds.has(sourceId)
-            ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
+            ? [
+                { sourceId, revision: daily.sourceRevisions[index] ?? source.revision },
+                ...(correctionRefsBySourceId.get(sourceId) ?? []),
+              ]
             : [];
         });
         if (category.sourceKind === "miscellaneous") {
@@ -266,6 +343,8 @@ export class FullCostBreakevenService {
     }
 
     return Object.freeze({
+      businessStartDate: allocationReport.businessStartDate,
+      businessSettingsRevision: allocationReport.businessSettingsRevision,
       dailyActivity: Object.freeze(dailyActivity),
       datedCosts: Object.freeze(datedCosts),
       completeness: Object.freeze(completeness),

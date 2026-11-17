@@ -8,7 +8,7 @@ import {
   TRAFFIC_CHALLAN_FORM_V1,
 } from "../../../packages/application/src";
 import { maintenanceBusinessDateFromInstant } from "../../../packages/features/maintenance";
-import type { TimelineEnrichmentQueue } from "../../../packages/application/src";
+import type { TimelineEnrichmentQueue } from "../../../packages/features/timeline";
 import { scheduleNativeTimelineEnrichment } from "./timeline-enrichment-native";
 
 function positiveRupeesToPaise(value: unknown, code: string): number {

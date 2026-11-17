@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TimelineProjectionService } from "../packages/application/src/timeline-projection-service";
+import { TimelineProjectionService } from "../packages/features/timeline";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 
 function sourceEvent(eventId: string, eventType: string, transitionAt: string, revision: number): DriverEvent {

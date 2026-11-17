@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NetworkAccessDisabledError } from "../packages/core/src/network";
-import { TimelineEnrichmentQueue } from "../packages/application/src/timeline-enrichment-queue";
+import { TimelineEnrichmentQueue } from "../packages/features/timeline";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";

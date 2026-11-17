@@ -1,27 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
+import type { FeatureRecordSource } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import {
-  createDriverWorkflow,
-} from "../driver-workflow";
-import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/features/work";
+import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
-import { dispatchCommittedFeatureEvent, TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
+import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
-import type { RuntimeRegistry } from "../../../../packages/core/src";
-import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
+
+import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
-import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
-  const { maintenance, recordSource } = useAdminMaintenanceServices();
+  const workRuntime = useWorkApplicationRuntime();
+  if (!workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
+  const featureRecordSource: FeatureRecordSource = useAdminMaintenanceServices().recordSource;
+  const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -67,16 +69,14 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     let live = true;
     let unsubscribe: (() => void) | undefined;
 
-    createDriverWorkflow()
-      .then(async ({ repository, location }) => {
+    workRuntime.initialize()
+      .then(async ({ repository, service, selection, selectedDriver: selected, restored }) => {
         if (!live) {
-          (repository as typeof repository & { dispose?: () => void }).dispose?.();
+          workRuntime.dispose(repository);
           return;
         }
 
         const platformRecords = platformRepository;
-        const selection = new WorkDriverSelectionService(platformRecords, repository);
-        const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();
         setDriverChoices(allRecords.filter(row => typeof row.id === "string" && row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
           .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
@@ -84,27 +84,9 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           .map(row => ({driverId:row.driverId!,name:row.name!})));
         setSelectedDriverId(selected?.driverId ?? "");
         setSelectionService(selection);
-        const service = new DriverWorkflowService(repository, location, async (event) => {
-          // A 04:00 rotation closes the outgoing operational day. Do not accrue
-          // on ordinary shift_end: another shift can still add kilometres to
-          // that same daily projection. This runs through the durable Work
-          // outbox, so a restart/replay safely retries the same accrual.
-          await accrueMaintenanceForCompletedWorkDay({
-            event,
-            records: platformRecords,
-            maintenance,
-            source: recordSource,
-          });
-          await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, async () => {
-            rebuildTripHistoryProjection(await repository.listEvents());
-          });
-        });
         setWorkflow(service);
-        setDriver(await service.snapshot());
-        rebuildTripHistoryProjection(await service.events());
-        await service.replayCommittedEvents();
-        await service.reconcilePending();
-        const pendingItems = await service.resumePendingBackground();
+        setDriver(restored.snapshot);
+        const pendingItems = restored.pending;
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
@@ -144,9 +126,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         refreshWorkflowStatus();
         const resumeWorkflow = () => {
           if (document.visibilityState === "hidden") return;
-          void service.replayCommittedEvents();
-          void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
-          void service.reconcilePending().then(items => { if (live) setPending(items); });
+          void workRuntime.resume(service).then(state => {
+            if (!live) return;
+            setDriver(state.snapshot);
+            setPending(state.pending);
+          });
         };
         window.addEventListener("focus", resumeWorkflow);
         document.addEventListener("visibilitychange", resumeWorkflow);
@@ -156,7 +140,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           unsubscribeStatus();
           window.removeEventListener("focus", resumeWorkflow);
           document.removeEventListener("visibilitychange", resumeWorkflow);
-          (repository as typeof repository & { dispose?: () => void }).dispose?.();
+          workRuntime.dispose(repository);
         };
       })
       .catch((cause) => {
@@ -170,7 +154,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       live = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [workRuntime, platformRepository]);
 
   async function retry(eventId: string) {
     if (!workflow || driverBusy) return;
@@ -206,7 +190,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       const link = await getDriverPersonLink(platformRepository, driverId);
       if (!link) throw new Error("Link this Driver profile to an enrolled person before starting work.");
       await getPersonIdentityService().activate(link.personId, "driver");
-      const selected = await selectionService.selectDriver(driverId, recordSource);
+      const selected = await selectionService.selectDriver(driverId, featureRecordSource);
       setSelectedDriverId(selected.driverId);
       setDriverMessage("Work Driver selected");
     } catch (cause) {
@@ -294,8 +278,8 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const boundaryAt = driver?.shiftStartedAt ? nextOperationalBoundaryAt(driver.shiftStartedAt) : undefined;
   const pendingBoundary = !!driver?.shiftContext && driver.state === "shift_active" && isOperationalBoundaryPending(driver.shiftStartedAt, now);
-  const cancellationFees = useCancellationFeeWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
-  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
+  const cancellationFees = useCancellationFeeWorkspace(tripFinancialForms, workspaceRefreshKey, setDriverMessage);
+  const completedTripFinancials = useCompletedTripFinancialsWorkspace(tripFinancialForms, workspaceRefreshKey, setDriverMessage);
   // A pending Fare does not block other actions: that product rule remains explicitly unresolved.
   const pendingBlocksWorkflow = pendingBoundary || pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
     cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;

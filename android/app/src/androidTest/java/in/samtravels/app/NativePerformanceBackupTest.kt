@@ -45,6 +45,49 @@ class NativePerformanceBackupTest {
         }
     }
 
+    @Test fun performanceSettingsAndManualCostsRoundTripThroughRoomBackup() {
+        val db = androidx.room.Room.inMemoryDatabaseBuilder(
+            androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>(),
+            LocalDatabase::class.java,
+        ).allowMainThreadQueries().build()
+        val registration = NativePerformanceBackup.register()
+        try {
+            val timestamp = "2026-11-17T00:00:00.000Z"
+            val settingsId = "feature:performance:settings"
+            val costId = "feature:performance:pre-business-cost:11111111-1111-4111-8111-111111111111"
+            db.records().put(StoredRecord(settingsId, JSONObject()
+                .put("id", settingsId).put("schemaVersion", 1).put("createdAt", timestamp)
+                .put("updatedAt", timestamp).put("source", "android").put("revision", 2)
+                .put("data", JSONObject().put("schemaVersion", 1).put("kind", "settings")
+                    .put("monthlyDriverTargetPaise", 4500000)).toString(), 1, timestamp))
+            db.records().put(StoredRecord(costId, JSONObject()
+                .put("id", costId).put("schemaVersion", 1).put("createdAt", timestamp)
+                .put("updatedAt", timestamp).put("source", "android").put("revision", 1)
+                .put("data", JSONObject().put("schemaVersion", 1).put("kind", "pre_business_cost")
+                    .put("amountPaise", 12000).put("note", "Vehicle setup")
+                    .put("commandId", "11111111-1111-4111-8111-111111111111")).toString(), 1, timestamp))
+
+            val exported = NativeBackupCoverage.exportBusinessRecords(db, NativeBackupRecovery::isInternalRecord)
+            NativeBackupCoverage.validateBusinessRecords(exported)
+            assertEquals(setOf(settingsId, costId),
+                (0 until exported.length()).map { exported.getJSONObject(it).getString("id") }.toSet())
+            assertEquals(setOf("performance-records"),
+                (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
+
+            NativeBackupCoverage.replaceBusinessRecords(db, JSONArray())
+            assertEquals(null, db.records().get(settingsId))
+            assertEquals(null, db.records().get(costId))
+            NativeBackupCoverage.replaceBusinessRecords(db, exported)
+            assertEquals(4500000, JSONObject(db.records().get(settingsId)!!.json)
+                .getJSONObject("data").getInt("monthlyDriverTargetPaise"))
+            assertEquals(12000, JSONObject(db.records().get(costId)!!.json)
+                .getJSONObject("data").getInt("amountPaise"))
+        } finally {
+            registration.close()
+            db.close()
+        }
+    }
+
     @Test fun rejectsInvalidAmountsAndMismatchedCostIdentities() {
         val registration = NativePerformanceBackup.register()
         try {

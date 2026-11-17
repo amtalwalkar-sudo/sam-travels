@@ -97,7 +97,7 @@ export function AdminPerformanceSettingsSection() {
   }
 
   return <div className="admin-capability-panel">
-    <p className="admin-hint">The Driver Target is a fixed rupee amount per calendar month, not a percentage. A selected daily or weekly report does not prorate this target.</p>
+    <p className="admin-hint">The Driver Target is a fixed rupee surplus amount per calendar month, not a percentage. Performance prorates it by the included calendar days for partial-month date ranges.</p>
     {loading ? <p className="admin-hint">Loading Performance settings…</p> : <>
       <form className="admin-capability-form" onSubmit={saveTarget}>
         <label>Monthly Driver Target (₹)

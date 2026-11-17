@@ -1,17 +1,12 @@
 import { useState, type FormEvent } from "react";
-import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
-import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1, PerformanceCostKindV1 } from "../../../domain/src/performance-calculation-v1";
+import type { PerformanceScreenContextV1 } from "./performance-screen-model";
+import { PerformanceDistanceHistory } from "./PerformanceDistanceHistory";
 import { aggregateCosts, CATEGORY_LABELS, INSIGHT_DEFINITIONS, money, monthlyTotals, offsetDate, operationalToday, signedMoney } from "./performance-screen-model";
 import "./performance-screen.css";
 
-type PerformanceScreenContext = Readonly<{
-  calculation: Pick<PerformanceCalculationServiceV1, "calculate">;
-  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-}>;
-
-export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
+export function PerformanceScreen({ context }: { context: PerformanceScreenContextV1 }) {
   const today = operationalToday();
   const [from, setFrom] = useState(today.slice(0, 7) + "-01");
   const [to, setTo] = useState(today);
@@ -21,7 +16,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [distanceError, setDistanceError] = useState("");
-  const [activeView, setActiveView] = useState<"daily" | "monthly" | "recovery">("daily");
+  const [activeView, setActiveView] = useState<"daily" | "distance" | "monthly" | "passbook" | "recovery">("daily");
   const [selectedInsight, setSelectedInsight] = useState("lifetime-target-position");
 
   async function calculate(event?: FormEvent) {
@@ -29,18 +24,10 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     if (!from || !to || from > to) return;
     setLoading(true); setError(""); setDistanceError("");
     try {
-      const [selectedPeriod, distance] = await Promise.allSettled([
-        Promise.resolve().then(() => context.calculation.calculate(from, to)),
-        Promise.resolve().then(() => context.fullCostBreakeven.calculate(from, to)),
-      ]);
-      if (selectedPeriod.status === "rejected") throw selectedPeriod.reason;
-      setResult(selectedPeriod.value);
-      if (distance.status === "fulfilled") {
-        setDistanceProjection(distance.value);
-      } else {
-        setDistanceProjection(undefined);
-        setDistanceError(distance.reason instanceof Error ? distance.reason.message : "Confirmed distance projection is unavailable.");
-      }
+      const loaded = await context.loadPeriod(from, to);
+      setResult(loaded.result);
+      setDistanceProjection(loaded.distanceProjection);
+      setDistanceError(loaded.distanceError ?? "");
     }
     catch (reason) {
       setResult(undefined); setDistanceProjection(undefined);
@@ -52,13 +39,15 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const categories = result ? aggregateCosts(result) : [];
   const months = result ? monthlyTotals(result) : [];
   const incomplete = result?.provenance.completeness.filter(item => item.status !== "complete") ?? [];
-  const businessKm = distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
+  const distanceSummary = distanceProjection?.distanceSummary;
+  const businessKm = distanceSummary?.totalBusinessKm ??
+    distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
   const fuelCostPaise = categories.find(item => item.key === "fuel")?.amount ?? 0;
   const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
   const currentOperationalDate = operationalToday();
   const isMonthToDateSelected = !!result && from === currentOperationalDate.slice(0, 7) + "-01" && to === currentOperationalDate;
-  const monthToDateAchievementPercent = isMonthToDateSelected && result.period.monthlyDriverTargetPaise > 0
-    ? Math.round(result.period.profitPaise / result.period.monthlyDriverTargetPaise * 100)
+  const monthToDateAchievementPercent = isMonthToDateSelected && result.period.targetPaise > 0
+    ? Math.round(result.period.profitPaise / result.period.targetPaise * 100)
     : undefined;
   const insight = INSIGHT_DEFINITIONS[selectedInsight] ?? {
     label: selectedInsight.startsWith("cost-kind:") ? CATEGORY_LABELS[selectedInsight.slice(9) as PerformanceCostKindV1] ?? "Cost category" : "Performance figure",
@@ -108,11 +97,13 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period revenue" onClick={() => setSelectedInsight("period-revenue")}><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Eligible period costs" onClick={() => setSelectedInsight("period-cost")}><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period net position" onClick={() => setSelectedInsight("period-net")}><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></button>
-        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Monthly Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain selected-period Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Target for selected period</small><strong>{money(result.period.targetPaise)}</strong><span>Configured monthly surplus target, prorated by calendar days</span>
           {isMonthToDateSelected ? <span>Month-to-date net: {signedMoney(result.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
             : <span>Select This month to view month-to-date achievement.</span>}</button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Business distance" onClick={() => setSelectedInsight("business-distance")}><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Fuel cost per business km" onClick={() => setSelectedInsight("fuel-per-km")}><small>Fuel cost per business km</small><strong>{fuelCostPerBusinessKmPaise === undefined ? "—" : money(fuelCostPerBusinessKmPaise)}</strong><span>{businessKm > 0 ? "Selected-period fuel cost ÷ confirmed business km" : "Unavailable without confirmed distance"}</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain active driving days" onClick={() => setSelectedInsight("active-driving-days")}><small>Active driving days</small><strong>{distanceProjection ? distanceProjection.activeDrivingDayCount : "—"}</strong><span>Online shift plus at least one recorded ride</span></button>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain average business kilometres per active driving day" onClick={() => setSelectedInsight("average-km-active-day")}><small>Average km per active day</small><strong>{distanceProjection?.averageBusinessKmPerActiveDrivingDay == null ? "—" : distanceProjection.averageBusinessKmPerActiveDrivingDay.toLocaleString("en-IN", { maximumFractionDigits: 2 }) + " km"}</strong><span>Confirmed business km ÷ qualifying active driving days</span></button>
       </section>
 
       <section className="performance-story" aria-labelledby="performance-lifetime-title">
@@ -127,7 +118,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           <button type="button" onClick={() => setSelectedInsight("lifetime-target")}><small>Accumulated target</small><strong>{money(result.lifetime.targetPaise)}</strong></button>
           <button type="button" onClick={() => setSelectedInsight("target-month-count")}><small>Target months counted</small><strong>{result.lifetime.elapsedCalendarMonths}</strong></button>
         </div>
-        <p className="performance-explainer">Target position is lifetime net profit minus the fixed monthly target multiplied by elapsed calendar months since business start (including the start and period-to months).</p>
+        <p className="performance-explainer">Target position is lifetime net profit minus the monthly surplus target prorated by calendar days from business start through the selected period end.</p>
       </section>
       </section>
 
@@ -137,7 +128,9 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <h3 id="performance-cost-breakdown-title">Explore performance by period</h3>
         <div className="performance-tabs" role="tablist" aria-label="Performance detail views">
           <button type="button" role="tab" aria-selected={activeView === "daily"} className={activeView === "daily" ? "active" : ""} onClick={() => setActiveView("daily")}>Daily details</button>
+          <button type="button" role="tab" aria-selected={activeView === "distance"} className={activeView === "distance" ? "active" : ""} onClick={() => setActiveView("distance")}>Distance history</button>
           <button type="button" role="tab" aria-selected={activeView === "monthly"} className={activeView === "monthly" ? "active" : ""} onClick={() => setActiveView("monthly")}>Monthly roll-up</button>
+          <button type="button" role="tab" aria-selected={activeView === "passbook"} className={activeView === "passbook" ? "active" : ""} onClick={() => setActiveView("passbook")}>Driver Passbook</button>
           <button type="button" role="tab" aria-selected={activeView === "recovery"} className={activeView === "recovery" ? "active" : ""} onClick={() => setActiveView("recovery")}>Pre-business recovery</button>
         </div>
         {activeView === "daily" && <div className="performance-table-wrap"><table className="performance-table">
@@ -149,8 +142,9 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <td><button type="button" className={"performance-table-number " + (row.complete ? "positive" : "negative")} onClick={() => setSelectedInsight("daily-completeness")}><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></button></td>
           </tr>)}</tbody>
         </table></div>}
+        {activeView === "distance" && <PerformanceDistanceHistory summary={distanceSummary}/>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
-          <caption>Monthly Driver Passbook · full configured target is shown for each month, even when selected dates cover only part of it.</caption>
+          <caption>Monthly revenue, full-cost expense, net and calendar-day-prorated target for the dates included in each month.</caption>
           <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
           <tbody>{months.map(row => <tr key={row.month}><td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-net")}>{row.month}</button></td>
             <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-revenue")}>{money(row.revenue)}</button></td>
@@ -159,6 +153,29 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-target")}>{money(row.target)}</button></td>
             <td><button type="button" className={"performance-table-number " + (row.targetPosition >= 0 ? "positive" : "negative")} onClick={() => setSelectedInsight("monthly-target-position")}>{signedMoney(row.targetPosition)}</button></td></tr>)}</tbody>
         </table></div>}
+        {activeView === "passbook" && <div className="performance-recovery">
+          <div className="performance-recovery-summary">
+            <span>Expected cumulative surplus <strong>{money(result.passbook.expectedCumulativeTargetPaise)}</strong></span>
+            <span>Actual cumulative surplus <strong>{money(result.passbook.actualEligibleSurplusPaise)}</strong></span>
+            <span>{result.passbook.positionPaise >= 0 ? "Ahead of target" : "Behind target"} <strong>{signedMoney(result.passbook.positionPaise)}</strong></span>
+            <span>Remaining to target <strong>{money(result.passbook.remainingTargetPaise)}</strong></span>
+          </div>
+          <p className="performance-explainer">Passbook progress runs from the Business Start Date. Daily actual surplus is gross completed-trip fares and cancellation fees minus the same verified full-cost expenses used by Performance. Earlier shortfalls carry forward and later surplus can recover them.</p>
+          <div className="performance-table-wrap"><table className="performance-table">
+            <thead><tr><th>Date</th><th>Expected cumulative</th><th>Actual daily surplus</th><th>Actual cumulative</th><th>Ahead / behind</th><th>Remaining</th><th>Source records</th></tr></thead>
+            <tbody>{result.passbook.daily.slice().reverse().map(row => <tr key={row.date}>
+              <td>{row.date}</td><td>{money(row.expectedCumulativeTargetPaise)}</td>
+              <td>{signedMoney(row.actualDailySurplusPaise)}</td><td>{signedMoney(row.actualCumulativeSurplusPaise)}</td>
+              <td className={row.positionPaise >= 0 ? "positive" : "negative"}>{signedMoney(row.positionPaise)}</td>
+              <td>{money(row.remainingTargetPaise)}</td>
+              <td><details><summary>{row.sourceRefs.length} source{row.sourceRefs.length === 1 ? "" : "s"}</summary>
+                <ul>{row.sourceRefs.map((ref, index) => <li key={ref.sourceId + ":" + ref.revision + ":" + index}>
+                  {ref.sourceId} · revision {ref.revision}{ref.scheduleVersion === undefined ? "" : " · schedule " + ref.scheduleVersion}
+                </li>)}</ul>
+              </details></td>
+            </tr>)}</tbody>
+          </table></div>
+        </div>}
         {activeView === "recovery" && <div className="performance-recovery">
           <div className="performance-recovery-summary"><span>Recovery window <strong>{result.recovery.from} — {result.recovery.toExclusive} (exclusive)</strong></span>
             <span>Total eligible pre-business amounts <strong>{money(result.recovery.totalPaise)}</strong></span></div>

@@ -9,7 +9,7 @@ import type {
   GpsFix,
 } from "../../../packages/features/work-shift";
 import { DexieDriverWorkflowRepository } from "../../../packages/storage-browser/src/driver-workflow";
-import { TimelineProjectionService, type TimelineEvidenceSource } from "../../../packages/application/src/timeline-projection-service";
+import { TimelineProjectionService, type TimelineEvidenceSource } from "../../../packages/features/timeline";
 import { recoverPendingBackupTransactions } from "./backup-runtime";
 import { validateGpsFix } from "../../../packages/core/src/gps";
 

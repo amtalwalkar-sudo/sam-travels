@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DriverEvent } from "../../../domain/src/driver-workflow";
 import type { TimelineMetric, TimelineMetricId, TimelineShiftProjection } from "../../../domain/src/timeline";
-import type { TimelineScreenContext } from "../runtime";
-import type { TimelineLocationEnrichment, TimelineLocationMap } from "../../../application/src/timeline-reverse-geocoding";
+import type { TimelineScreenContext } from "./timeline-screen-model";
+import type { TimelineLocationEnrichment, TimelineLocationMap } from "../application/timeline-reverse-geocoding";
 import type { TimelinePeriodMode } from "./PeriodNavigation";
 import type { TimelineEventDetailModel } from "./TimelineEventDetail";
 import type { TimelineShiftDetailModel } from "./TimelineShiftDetail";

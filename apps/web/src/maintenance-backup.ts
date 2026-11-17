@@ -8,6 +8,10 @@ import {
 } from "../../../packages/features/maintenance";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
+import {
+  assertHistoricalCorrectionV1,
+  projectHistoricalCorrectionsV1,
+} from "../../../packages/domain/src/historical-correction";
 
 const PREFIX = "feature:maintenance:";
 
@@ -23,6 +27,60 @@ function validateVehicleReference(
     throw new Error("maintenance_vehicle_identity_mismatch");
   }
   return vehicle;
+}
+
+/** Validate Maintenance's append-only correction chains inside a complete backup snapshot. */
+export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEnvelope<unknown>[]): void {
+  const originals = new Map(records.filter(record =>
+    record.id.startsWith(PREFIX + "expense:")).map(record => [record.id, record]));
+  const correctionsByTarget = new Map<string, Array<RecordEnvelope<unknown>>>();
+  for (const record of records.filter(item => item.id.startsWith("historical-correction:"))) {
+    const data = record.data as { featureId?: unknown; targetRecordId?: unknown } | undefined;
+    if (data?.featureId !== "maintenance") continue;
+    assertHistoricalCorrectionV1(record.data);
+    if (record.revision !== 1 ||
+        typeof data.targetRecordId !== "string" || !data.targetRecordId.startsWith(PREFIX + "expense:") ||
+        record.id !== "historical-correction:" + (record.data as { correctionId: string }).correctionId) {
+      throw new Error("maintenance_correction_backup_identity_invalid");
+    }
+    const rows = correctionsByTarget.get(data.targetRecordId) ?? [];
+    rows.push(record);
+    correctionsByTarget.set(data.targetRecordId, rows);
+  }
+
+  for (const [targetId, rows] of correctionsByTarget) {
+    const target = originals.get(targetId);
+    if (!target || target.revision < 1) throw new Error("maintenance_correction_backup_target_missing");
+    const ordered = rows.map(row => row.data as import("../../../packages/domain/src/historical-correction").HistoricalCorrectionV1)
+      .sort((a, b) => a.chainRevision - b.chainRevision);
+    if (ordered.some((row, index) => row.chainRevision !== index + 1 ||
+        row.targetRecordId !== targetId || row.targetRecordRevision !== target.revision ||
+        row.featureId !== "maintenance" || row.fieldPath !== "amountPaise")) {
+      throw new Error("maintenance_correction_backup_chain_invalid");
+    }
+    const projection = projectHistoricalCorrectionsV1(target.data, ordered);
+    if (projection.status !== "valid" ||
+        !Number.isSafeInteger((projection.data as { amountPaise?: number }).amountPaise) ||
+        ((projection.data as { amountPaise: number }).amountPaise) < 0) {
+      throw new Error("maintenance_correction_backup_projection_invalid");
+    }
+    const chainHeadId = "historical-correction-chain:" + encodeURIComponent(targetId);
+    const head = records.find(record => record.id === chainHeadId);
+    const headData = head?.data as { schemaVersion?: number; targetRecordId?: string; chainRevision?: number; headCorrectionId?: string } | undefined;
+    if (!head || head.revision !== projection.chainRevision ||
+        headData?.schemaVersion !== 1 || headData.targetRecordId !== targetId ||
+        headData.chainRevision !== projection.chainRevision ||
+        headData.headCorrectionId !== projection.headCorrectionId) {
+      throw new Error("maintenance_correction_backup_head_invalid");
+    }
+  }
+
+  const maintenanceHeads = records.filter(record => record.id.startsWith("historical-correction-chain:") &&
+    (record.data as { targetRecordId?: string } | undefined)?.targetRecordId?.startsWith(PREFIX + "expense:"));
+  if (maintenanceHeads.some(head => !correctionsByTarget.has(
+    (head.data as { targetRecordId: string }).targetRecordId))) {
+    throw new Error("maintenance_correction_backup_chain_missing");
+  }
 }
 
 /** Register Maintenance backup validation for all owned records and Vehicle references. */
@@ -75,6 +133,7 @@ export function registerMaintenanceBrowserBackupParticipant(): () => void {
       }
     },
     validateSnapshot(records) {
+      validateMaintenanceCorrectionSnapshot(records);
       const owned = records.filter(record => record.id.startsWith(PREFIX));
       const ids = new Set<string>();
       const rateVehicles = new Set<string>();
