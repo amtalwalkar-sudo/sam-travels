@@ -5,7 +5,7 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { calculateTripFinancialSummary, submitCompletedTripFinancials as submitCompletedFinancials, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";
+import { calculateTripFinancialSummary, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";\nimport { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";\nimport { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 type Draft = { fare:string; toll:string; tollPayer:string; parking:string; parkingPayer:string };
 const emptyDraft=():Draft=>({fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""});
@@ -33,20 +33,14 @@ export function useCompletedTripFinancialsWorkspace(
   const [completedTripFinancialDrafts,setCompletedTripFinancialDrafts]=useState<Record<string,Draft>>({});
   const [completedTripFinancialBusy,setCompletedTripFinancialBusy]=useState(false);
   const queues=useRef(new Map<string,Promise<void>>());
-  const forms=useMemo(()=>{
-    const copies=new RecordFormWorkingCopyRepository(platformRepository,getPlatformRecordSource());
-    return new SharedFormRuntime(copies,{
-      submit:async command=>{
-        if(command.formId!==TRIP_COMPLETED_FINANCIALS_FORM_V1.id||command.action!=="submit")throw new Error("unsupported_trip_financial_form");
-        const values=command.values as {farePaise:number;tollPaise?:number;tollPayer?:"driver"|"customer";parkingPaise?:number;parkingPayer?:"driver"|"customer"};
-        const actor = await getPersonIdentityService().currentActor();
-        return submitCompletedFinancials(platformRepository,getPlatformRecordSource(),command.instanceId,values,command.operationId,undefined,
-          { personId: actor.actorId, role: actor.role });
-      },
-    });
-  },[platformRepository]);
+  const {forms}=useMemo(()=>createTripFinancialFormRuntimeV1(
+    platformRepository,getPlatformRecordSource(),async()=>{
+      const actor=await getPersonIdentityService().currentActor();
+      return {personId:actor.actorId,role:actor.role};
+    },
+  ),[platformRepository]);
 
-  const refresh=useCallback(async()=>{
+    const refresh=useCallback(async()=>{
     const rows=await platformRepository.list<CompletedTripFinancialObligation>();
     const obligations=rows.filter(row=>row.id.startsWith("work:trip-financial-obligation:")&&!row.deletedAt&&
       row.data?.kind==="completed_ride_financials"&&row.data.status==="pending");
