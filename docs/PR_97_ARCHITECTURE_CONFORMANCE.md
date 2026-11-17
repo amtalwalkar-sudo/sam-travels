@@ -100,6 +100,7 @@ This is stronger than testing only a synthetic screen fixture, but it is not a c
 ## 8. PR disposition
 
 PR #97 remains **draft, open and unmerged**. Green CI establishes automated success on the exact head above; it does not authorize merging or waive the remaining acceptance gates.
+
 ## 9. Passbook, distance and exact-head verification follow-up — 2026-11-17
 
 The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` is now implemented on this PR branch:
