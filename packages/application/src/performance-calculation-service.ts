@@ -14,6 +14,7 @@ export type PerformanceOperatingCostKindV1 = Exclude<DailyCostKind, "emi" | "com
 export interface PerformanceSnapshotReadModel {
   prepareSnapshot?(from: string, to: string): Promise<void>;
   getSnapshotIdentity?(): Promise<string | undefined>;
+  getSourceSnapshotIdentity?(): Promise<string | undefined>;
   releaseSnapshot?(): void;
 }
 
@@ -88,6 +89,8 @@ export class PerformanceCalculationServiceV1 {
         ...preparedSources.map(source =>
           (source as PerformanceSnapshotReadModel).getSnapshotIdentity?.()),
       ]);
+      const sourceSnapshotIdentities = await Promise.all(preparedSources.map(source =>
+        (source as PerformanceSnapshotReadModel).getSourceSnapshotIdentity?.()));
       const identitySet = new Set(snapshotIdentities.filter((value): value is string => Boolean(value)));
       if (identitySet.size > 1) throw new Error("performance_source_snapshot_revision_mismatch");
     const [
@@ -148,6 +151,7 @@ export class PerformanceCalculationServiceV1 {
       .join("|");
     const sourceSnapshotId = [
       ...(identitySet.size === 1 ? [...identitySet] : []),
+      ...sourceSnapshotIdentities.filter((value): value is string => Boolean(value)),
       "performance-source-revisions:" + sourceRevisionFingerprint,
     ].join(";");
     const input: PerformanceCalculationInputV1 = {
