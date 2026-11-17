@@ -186,12 +186,10 @@ export function allocatePreBusinessRecoveryV1(
   // Equal monthly instalments are calculated from the aggregate pool, not
   // independently per source. Cumulative apportionment preserves every
   // source's provenance while ensuring each month exactly reconciles.
-  const monthTotal = (monthIndex: number): number => {
-    const total = BigInt(totalPaise);
-    const before = (total * BigInt(monthIndex)) / BigInt(PRE_BUSINESS_RECOVERY_MONTHS_V1);
-    const after = (total * BigInt(monthIndex + 1)) / BigInt(PRE_BUSINESS_RECOVERY_MONTHS_V1);
-    return Number(after - before);
-  };
+  const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1);
+  const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
+  const monthTotal = (monthIndex: number): number =>
+    monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
     let cumulative = 0;
     return sources.map(source => {
