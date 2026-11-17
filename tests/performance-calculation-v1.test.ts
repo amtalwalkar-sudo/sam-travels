@@ -133,11 +133,25 @@ describe("Performance Calculation Contract v1.0", () => {
     // March 15-31 is 17 of 31 days; April and later months are full.
     expect(result.lifetime.elapsedCalendarMonths).toBe(2);
     expect(result.lifetime.targetPaise).toBe(17_000 + 31_000);
+    expect(result.period.targetPaise).toBe(31_000);
   });
 
-  it("does not prorate the configured monthly target for a one-day selected period", () => {
+  it("prorates selected-period and lifetime targets across partial calendar months", () => {
+    const result = calculatePerformanceV1(fixture({
+      periodFrom: "2026-04-05", periodTo: "2026-05-15",
+      monthlyDriverTargetPaise: 30_000,
+    }));
+    // April 5-30 is 26/30 days; May 1-15 is 15/31 days.
+    expect(result.period.monthlyDriverTargetPaise).toBe(30_000);
+    expect(result.period.targetPaise).toBe(26_000 + 14_516);
+    // Lifetime March 15-31 (17/31), all April, then May 1-15.
+    expect(result.lifetime.targetPaise).toBe(16_452 + 30_000 + 14_516);
+  });
+
+  it("prorates the configured monthly target for a one-day selected period", () => {
     const result = calculatePerformanceV1(fixture({ periodFrom: "2026-04-05", periodTo: "2026-04-05" }));
     expect(result.period.monthlyDriverTargetPaise).toBe(50_000);
+    expect(result.period.targetPaise).toBe(1_667);
     expect(result.daily).toHaveLength(1);
   });
 
