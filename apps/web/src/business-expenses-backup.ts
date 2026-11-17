@@ -7,6 +7,10 @@ import {
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
 import { assertDriverRecordV1 } from "../../../packages/features/driver-records";
 import { registerBrowserFeatureBackupParticipant } from "../../../packages/storage-browser/src";
+import {
+  assertHistoricalCorrectionV1,
+  projectHistoricalCorrectionsV1,
+} from "../../../packages/domain/src/historical-correction";
 
 const PREFIX = "feature:business-expenses:";
 
@@ -38,6 +42,56 @@ function validateReferences(
   }
 }
 
+/** Validate append-only Business Expenses correction chains as part of backup/restore. */
+export function validateBusinessExpenseCorrectionSnapshot(records: readonly RecordEnvelope<unknown>[]): void {
+  const originals = new Map(records.filter(record => record.id.startsWith(PREFIX)).map(record => [record.id, record]));
+  const correctionsByTarget = new Map<string, Array<RecordEnvelope<unknown>>>();
+  for (const record of records.filter(item => item.id.startsWith("historical-correction:"))) {
+    const data = record.data as { featureId?: unknown; targetRecordId?: unknown } | undefined;
+    if (data?.featureId !== "business-expenses") continue;
+    assertHistoricalCorrectionV1(record.data);
+    if (typeof data.targetRecordId !== "string" || !data.targetRecordId.startsWith(PREFIX) ||
+        record.id !== "historical-correction:" + (record.data as { correctionId: string }).correctionId) {
+      throw new Error("business_expense_correction_backup_identity_invalid");
+    }
+    const rows = correctionsByTarget.get(data.targetRecordId) ?? [];
+    rows.push(record);
+    correctionsByTarget.set(data.targetRecordId, rows);
+  }
+  for (const [targetId, rows] of correctionsByTarget) {
+    const target = originals.get(targetId);
+    if (!target || target.deletedAt || target.revision < 1) {
+      throw new Error("business_expense_correction_backup_target_missing");
+    }
+    const ordered = rows.map(row => row.data as import("../../../packages/domain/src/historical-correction").HistoricalCorrectionV1)
+      .sort((a, b) => a.chainRevision - b.chainRevision);
+    if (ordered.some((row, index) => row.chainRevision !== index + 1 ||
+        row.targetRecordId !== targetId || row.targetRecordRevision !== target.revision ||
+        row.featureId !== "business-expenses")) {
+      throw new Error("business_expense_correction_backup_chain_invalid");
+    }
+    const projection = projectHistoricalCorrectionsV1(target.data, ordered);
+    if (projection.status !== "valid") throw new Error("business_expense_correction_backup_projection_invalid");
+    const projected = projection.data as Record<string, unknown>;
+    if (projected.kind === "fuel_purchase") assertFuelPurchaseV1(projected);
+    else if (projected.kind === "business_expense") assertBusinessExpenseEntryV1(projected);
+    else throw new Error("business_expense_correction_backup_kind_invalid");
+    const head = records.find(record =>
+      record.id === "historical-correction-chain:" + encodeURIComponent(targetId));
+    const headData = head?.data as { schemaVersion?: number; targetRecordId?: string; chainRevision?: number; headCorrectionId?: string } | undefined;
+    if (!head || headData?.schemaVersion !== 1 || headData.targetRecordId !== targetId ||
+        headData.chainRevision !== projection.chainRevision ||
+        headData.headCorrectionId !== projection.headCorrectionId) {
+      throw new Error("business_expense_correction_backup_head_invalid");
+    }
+  }
+  const heads = records.filter(record => record.id.startsWith("historical-correction-chain:") &&
+    (record.data as { targetRecordId?: string } | undefined)?.targetRecordId?.startsWith(PREFIX));
+  if (heads.some(head => !correctionsByTarget.has((head.data as { targetRecordId: string }).targetRecordId))) {
+    throw new Error("business_expense_correction_backup_chain_missing");
+  }
+}
+
 /** Business expense records use the shared records table and the standard backup/restore participant. */
 export function registerBusinessExpensesBrowserBackupParticipant(): () => void {
   return registerBrowserFeatureBackupParticipant({
@@ -53,6 +107,7 @@ export function registerBusinessExpensesBrowserBackupParticipant(): () => void {
       validateReferences(data, allRecords);
     },
     validateSnapshot(records) {
+      validateBusinessExpenseCorrectionSnapshot(records);
       const owned = records.filter(record => record.id.startsWith(PREFIX));
       const byId = new Map(owned.map(record => [record.id, record]));
       if (byId.size !== owned.length) throw new Error("business_expense_backup_duplicate_identity");
