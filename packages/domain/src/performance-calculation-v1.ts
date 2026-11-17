@@ -143,10 +143,12 @@ function validateRefs(refs: readonly PerformanceSourceRefV1[]): void {
 }
 
 /**
- * Distributes each eligible pre-business amount over the 18-month recovery
- * window [businessStartDate, anniversary), using operational dates. The first
- * and final calendar months are naturally partial; no date is added beyond
- * the exact anniversary. Remainder paise go to the earliest recovery dates.
+ * Recovers the aggregate eligible pre-business pool in 18 equal monthly
+ * instalments. The first instalment starts on the Business Start Date and the
+ * final instalment is due in the month containing its 18-month anniversary.
+ * Each month's instalment is spread over that calendar month's remaining
+ * operational dates; paise remainders go to the earliest dates. Source shares
+ * are retained for audit provenance without changing the aggregate schedule.
  */
 export function allocatePreBusinessRecoveryV1(
   businessStartDate: string,
@@ -166,11 +168,7 @@ export function allocatePreBusinessRecoveryV1(
 }> {
   const startDay = assertDate(businessStartDate);
   const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
-  const endDay = assertDate(toExclusive);
-  const dayCount = endDay - startDay;
-  if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
   const seen = new Set<string>();
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }[] = [];
   let totalPaise = 0;
   for (const source of sources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
@@ -181,15 +179,48 @@ export function allocatePreBusinessRecoveryV1(
     }
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
-    const quotient = Math.floor(source.amountPaise / dayCount);
-    const remainder = source.amountPaise % dayCount;
-    for (let offset = 0; offset < dayCount; offset++) {
-      const amountPaise = quotient + (offset < remainder ? 1 : 0);
-      if (amountPaise > 0) daily.push({
-        date: dateAt(startDay + offset), amountPaise, sourceId: source.sourceId, revision: source.revision,
-        origin: source.origin, note: source.note,
-      });
-    }
+  }
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }[] = [];
+  if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
+
+  // Equal monthly instalments are calculated from the aggregate pool, not
+  // independently per source. Cumulative apportionment preserves every
+  // source's provenance while ensuring each month exactly reconciles.
+  const monthTotal = (monthIndex: number): number => {
+    const before = Math.floor((totalPaise * monthIndex) / PRE_BUSINESS_RECOVERY_MONTHS_V1);
+    const after = Math.floor((totalPaise * (monthIndex + 1)) / PRE_BUSINESS_RECOVERY_MONTHS_V1);
+    return after - before;
+  };
+  const cumulativeSourceShares = (monthlyAmount: number): number[] => {
+    let cumulative = 0;
+    return sources.map(source => {
+      const before = Math.floor((monthlyAmount * cumulative) / totalPaise);
+      cumulative = add(cumulative, source.amountPaise);
+      const after = Math.floor((monthlyAmount * cumulative) / totalPaise);
+      return after - before;
+    });
+  };
+  for (let monthIndex = 0; monthIndex < PRE_BUSINESS_RECOVERY_MONTHS_V1; monthIndex++) {
+    const monthStart = addMonthsClamped(businessStartDate, monthIndex);
+    const monthEndExclusive = addMonthsClamped(businessStartDate, monthIndex + 1);
+    const start = Math.max(startDay, assertDate(monthStart));
+    const end = assertDate(monthEndExclusive);
+    const dayCount = end - start;
+    if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
+    const instalment = monthTotal(monthIndex);
+    const sourceShares = cumulativeSourceShares(instalment);
+    sources.forEach((source, sourceIndex) => {
+      const amount = sourceShares[sourceIndex];
+      const quotient = Math.floor(amount / dayCount);
+      const remainder = amount % dayCount;
+      for (let offset = 0; offset < dayCount; offset++) {
+        const amountPaise = quotient + (offset < remainder ? 1 : 0);
+        if (amountPaise > 0) daily.push({
+          date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
+          revision: source.revision, origin: source.origin, note: source.note,
+        });
+      }
+    });
   }
   const allocated = daily.reduce((sum, row) => add(sum, row.amountPaise), 0);
   if (allocated !== totalPaise) throw new Error("performance_recovery_reconciliation_failed");
@@ -291,7 +322,17 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const [ey, em] = input.periodTo.split("-").map(Number);
     return (ey - sy) * 12 + (em - sm) + 1;
   })();
-  const lifetimeTargetPaise = input.monthlyDriverTargetPaise * elapsedCalendarMonths;
+  const firstMonthDays = new Date(Date.UTC(
+    Number(input.businessStartDate.slice(0, 4)),
+    Number(input.businessStartDate.slice(5, 7)), 0,
+  )).getUTCDate();
+  const firstMonthRemainingDays = firstMonthDays - Number(input.businessStartDate.slice(8, 10)) + 1;
+  const firstMonthTargetPaise = Number(
+    (BigInt(input.monthlyDriverTargetPaise) * BigInt(firstMonthRemainingDays) * 2n +
+      BigInt(firstMonthDays)) / (2n * BigInt(firstMonthDays)),
+  );
+  const laterMonthsTargetPaise = input.monthlyDriverTargetPaise * (elapsedCalendarMonths - 1);
+  const lifetimeTargetPaise = add(firstMonthTargetPaise, laterMonthsTargetPaise);
   safeAmount(lifetimeTargetPaise, "performance_target_overflow");
   const lifetimeProfitPaise = lifetimeRevenuePaise - lifetimeCostPaise;
   const periodProfitPaise = periodRevenuePaise - periodCostPaise;
