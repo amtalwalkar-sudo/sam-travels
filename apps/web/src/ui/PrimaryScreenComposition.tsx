@@ -70,7 +70,7 @@ export function PrimaryScreenComposition({
     case "Admin":
       return <FeatureScreenHost registry={runtimeRegistry} mountPoint={ADMIN_SCREEN_CONTRACT.mountPoint}
         contextContract={ADMIN_SCREEN_CONTRACT.contextContract} context={adminContext} />;
-  }
     default:
       throw new Error("primary_screen_not_registered");
+  }
 }
