@@ -177,7 +177,7 @@ Status meanings:
 | CA-09 | Performance calculation | Implemented, product acceptance partial | A pure versioned calculation and application orchestration exist, with separate source ports and provenance/completeness fields. PR #94 records outstanding passbook, distance-summary, policy, source-conformance, UX and device gates. |
 | CA-10 | Fixed-cost adapter authority | Needs correction/review | Performance's fixed-cost adapter derives daily EMI/Compliance amounts from source amount and dates instead of consuming the canonical `source.daily[].amountPaise` rows unchanged. |
 | CA-11 | Calculation snapshot consistency | Partially implemented; needs correction | Performance's operating-cost adapter snapshots Full Cost Breakeven's projection, while its fixed-cost adapter independently snapshots Business Start Date allocation. Both paths reach the allocation owner separately; there is no shared snapshot token/result guaranteeing the same source revisions across both reads. |
-| CA-12 | Calculation policy agreement | Partially resolved; partial-month target decision remains open | The owner approved date-based 18-month recovery for pre-business amounts; the Business Start Date allocation contract now records it. Partial-month Driver Target semantics still require owner decision and contract reconciliation. |
+| CA-12 | Calculation policy agreement | Owner policy resolved; runtime conformance remains open | The owner approved the aggregate 18-month pre-business recovery pool and a fixed monthly Driver Target independent of business days, with proration only for the first calendar month from the Business Start Date. The Breakeven/Driver Target Contract v2.0 Addendum J records the target rule. Runtime display, passbook and lifetime totals still require regression proof. |
 | CA-13 | Provenance completeness | Partially implemented | Source IDs/revisions and completeness are carried through the calculation types. A complete source-to-final-result trace across all owner outputs and corrections is not yet demonstrated by the inspected evidence. |
 | CA-14 | Downstream consumer convergence | Not verified | Performance and Maintenance have identified consumers, but a repository-wide inventory of every report/history/dashboard consumer and proof that none independently recalculates the same figure remains outstanding. |
 | CA-15 | Backup/restore and persistence parity | Partially verified | PR #93 records Performance browser/Room backup participants and shared parity fixtures. This audit did not independently inspect every participant/restore validator or the complete cross-feature recovery matrix. |
@@ -240,13 +240,11 @@ The owner has confirmed the following two-stage aggregate-pool rule, now normati
 
 This is the governing policy, not an optional Performance-only adjustment. Runtime conformance is not yet complete: the current Performance domain distributes recovery evenly by day across the full 18-month interval rather than building one aggregate pool, dividing it into 18 equal monthly instalments, and distributing each instalment across its recovery-month days. Its Compliance adapter proportionally splits amounts by validity days instead of adding each full qualifying record amount to the aggregate pool. The EMI and manual-cost adapters must also contribute their complete qualifying amounts to that same pool. These are recorded implementation gaps for the consolidated implementation PR.
 
-**B. Partial-month Driver Target**
+**B. Driver Target — owner policy decided; runtime conformance remains open**
 
-- Breakeven and Driver Target Contract v1.9 states that the monthly surplus target and expected cumulative progress are prorated by calendar days for partial months.
-- Performance v1.0 states that the configured monthly target is never prorated by a selected date filter, and the merged implementation reports the full monthly target for a selected partial month.
-- PR #94 already identifies the target display/pacing/lifetime semantics as a contract-reconciliation gate.
+The owner has approved a fixed monthly Driver Target, independent of business/operating days, with proration only for the first calendar month when the Business Start Date falls mid-month. The first-month fraction counts calendar days from and including the Business Start Date through month-end; every later month uses the full configured amount. The normative rule is in [Breakeven and Driver Target Calculation Contract v2.0, Addendum J](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md).
 
-The owner must separately define (1) selected-period display, (2) passbook achievement/pacing, and (3) lifetime target accumulation for partial first/last months. Do not treat the displayed full monthly target as proof that partial-month passbook pacing is complete.
+The current Performance implementation and passbook/lifetime calculations still need regression proof against that rule. In particular, verify that first-month target is prorated once, later months are full, and selected-period reporting does not accidentally prorate a later month or vary the target by operating-day count.
 
 ### CA-18 — Stale calculation status documentation
 
@@ -289,7 +287,7 @@ No evidence from this audit justifies a database migration or data rewrite.
 
 No implementation is authorized by this audit document. After review and explicit approval, the smallest safe sequence is:
 
-1. **Resolve remaining policy authority.** Obtain the owner's decision on partial-month Driver Target display, pacing and lifetime accumulation. The 18-month pre-business recovery policy is approved and documented.
+1. **Verify approved policy conformance.** The 18-month pre-business recovery policy and fixed monthly Driver Target/first-month-only proration are owner-approved and documented. Prove both in runtime and passbook/lifetime regression tests.
 2. **Correct fixed-cost consumption.** Make Performance consume canonical Business Start Date allocation outputs, or implement only the separately approved transformation with explicit versioning and provenance.
 3. **Unify calculation snapshots.** Ensure Full Cost Breakeven and Performance use one coherent set of source revisions for a single calculation request.
 4. **Complete provenance/change propagation.** Verify correction/reversal/revision behaviour from source owner through the final result and each published consumer.
@@ -442,4 +440,4 @@ This audit is a baseline-specific findings and decision record. It does not repl
 - [Contract and Documentation Index](CONTRACT_INDEX.md) identifies normative owners and precedence.
 - [Repository Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) records documentation reconciliation and historical evidence.
 
-When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. CA-10 and CA-11 remain implementation/wiring findings; CA-12's pre-business recovery policy is resolved, while its partial-month Driver Target decision remains open. This navigation update does not change those statuses.
+When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. CA-10 and CA-11 remain implementation/wiring findings; CA-12's pre-business recovery and Driver Target policies are resolved, while runtime conformance remains open. This navigation update does not change those statuses.
