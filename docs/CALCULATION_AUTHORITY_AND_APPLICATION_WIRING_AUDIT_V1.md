@@ -26,7 +26,7 @@ The calculation work already present includes Work/Shift daily business-kilometr
 The audit found concrete areas that need correction or explicit reconciliation before further architectural cleanup:
 
 1. The Performance fixed-cost adapter reconstructs EMI/Compliance daily allocations from source amounts and dates instead of simply consuming the canonical daily amounts already published by the Business Start Date allocation owner.
-2. Performance v1.0 introduces an 18-month pre-business recovery policy that does not match the existing Business Start Date allocation contract's source-period carry-forward policy. The older Breakeven/Driver Target v1.9 contract also specifies partial-month target proration, while the merged Performance implementation displays the full monthly target for a selected partial month.
+2. The pre-business recovery policy is now owner-approved and documented consistently: any source amount whose authoritative business/effective date is before the Business Start Date is recovered evenly over the following 18 months and included in Full Cost Breakeven; amounts dated on or after that date follow their normal source-category rules. The older Breakeven/Driver Target v1.9 contract still specifies partial-month target proration, while the merged Performance implementation displays the full monthly target for a selected partial month.
 3. Performance's operating-cost and fixed-cost adapters obtain their source projections independently. The operating-cost path reaches the allocation service through FullCostBreakevenService, while the fixed-cost path calls the allocation service separately. The current orchestration does not establish one shared cross-source snapshot boundary for those two reads.
 4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.\n5. The UI/UX architecture already defines replaceable shell and feature-screen contracts, but current composition still contains screen-specific wiring, and the available tests prove only selected replacement seams—not that every screen and its internal presentation components can be replaced independently end to end.
 
@@ -177,7 +177,7 @@ Status meanings:
 | CA-09 | Performance calculation | Implemented, product acceptance partial | A pure versioned calculation and application orchestration exist, with separate source ports and provenance/completeness fields. PR #94 records outstanding passbook, distance-summary, policy, source-conformance, UX and device gates. |
 | CA-10 | Fixed-cost adapter authority | Needs correction/review | Performance's fixed-cost adapter derives daily EMI/Compliance amounts from source amount and dates instead of consuming the canonical `source.daily[].amountPaise` rows unchanged. |
 | CA-11 | Calculation snapshot consistency | Partially implemented; needs correction | Performance's operating-cost adapter snapshots Full Cost Breakeven's projection, while its fixed-cost adapter independently snapshots Business Start Date allocation. Both paths reach the allocation owner separately; there is no shared snapshot token/result guaranteeing the same source revisions across both reads. |
-| CA-12 | Calculation policy agreement | Needs explicit owner reconciliation | Performance v1.0's 18-month pre-business recovery and full-month target display differ from existing source/product contract wording. |
+| CA-12 | Calculation policy agreement | Partially resolved; partial-month target decision remains open | The owner approved date-based 18-month recovery for pre-business amounts; the Business Start Date allocation contract now records it. Partial-month Driver Target semantics still require owner decision and contract reconciliation. |
 | CA-13 | Provenance completeness | Partially implemented | Source IDs/revisions and completeness are carried through the calculation types. A complete source-to-final-result trace across all owner outputs and corrections is not yet demonstrated by the inspected evidence. |
 | CA-14 | Downstream consumer convergence | Not verified | Performance and Maintenance have identified consumers, but a repository-wide inventory of every report/history/dashboard consumer and proof that none independently recalculates the same figure remains outstanding. |
 | CA-15 | Backup/restore and persistence parity | Partially verified | PR #93 records Performance browser/Room backup participants and shared parity fixtures. This audit did not independently inspect every participant/restore validator or the complete cross-feature recovery matrix. |
@@ -226,15 +226,18 @@ Add a regression that changes an allocation source between attempted reads and p
 
 ### CA-12 — Performance and existing contracts disagree on policy
 
-Two material policy differences are recorded:
+**A. Pre-business cost recovery — owner decision approved and contract reconciled**
 
-**A. Pre-business EMI/Compliance treatment**
+The owner has confirmed the following simple date-based rule, now normative in the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md):
 
-- The Business Start Date Cost Allocation Contract defines carry-forward over the remaining eligible source/schedule period, ending at the source validity or applicable final EMI allocation-period end.
-- Performance v1.0 defines an 18-month recovery window beginning on the actual Business Start Date.
-- The Performance fixed-cost adapter additionally reconstructs source-period portions before sending them into the 18-month recovery calculation.
+- Use each source category's authoritative business/effective date, not record creation or edit time.
+- If that date is before the Business Start Date, recover the full source amount evenly over the 18 months beginning on the Business Start Date and include those monthly portions in Full Cost Breakeven.
+- Source validity/end dates and schedule end dates do not shorten or extend the 18-month recovery period.
+- If the authoritative date is on or after the Business Start Date, use the source category's normal calculation rules.
+- Preserve source records and recognize each amount exactly once.
+- For Compliance, the classification date is `validFrom`; for each EMI, it is the scheduled due date; manual dated costs use their explicit business/effective date.
 
-These are different allocation policies. The implementation cannot make them equivalent by adapter naming. The owner must explicitly decide whether Performance's 18-month recovery is a separate reporting adjustment, whether the existing Business Start Date policy remains the only allocation policy, or whether the product contract is to be amended. Until then, do not silently change either calculation.
+This is the governing policy, not an optional Performance-only adjustment. The existing source-period carry-forward wording has been replaced in the Business Start Date allocation contract. The Performance adapter must still consume authoritative source amounts and preserve source provenance; implementation conformance remains to be verified.
 
 **B. Partial-month Driver Target**
 
@@ -285,7 +288,7 @@ No evidence from this audit justifies a database migration or data rewrite.
 
 No implementation is authorized by this audit document. After review and explicit approval, the smallest safe sequence is:
 
-1. **Resolve policy authority first.** Reconcile the 18-month recovery and partial-month target decisions with the owning product contracts. Preserve source-owner rules unless explicitly amended.
+1. **Resolve remaining policy authority.** Obtain the owner's decision on partial-month Driver Target display, pacing and lifetime accumulation. The 18-month pre-business recovery policy is approved and documented.
 2. **Correct fixed-cost consumption.** Make Performance consume canonical Business Start Date allocation outputs, or implement only the separately approved transformation with explicit versioning and provenance.
 3. **Unify calculation snapshots.** Ensure Full Cost Breakeven and Performance use one coherent set of source revisions for a single calculation request.
 4. **Complete provenance/change propagation.** Verify correction/reversal/revision behaviour from source owner through the final result and each published consumer.
@@ -438,4 +441,4 @@ This audit is a baseline-specific findings and decision record. It does not repl
 - [Contract and Documentation Index](CONTRACT_INDEX.md) identifies normative owners and precedence.
 - [Repository Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) records documentation reconciliation and historical evidence.
 
-When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. Findings CA-10 through CA-12 remain review/decision items; this navigation update does not change their policy status.
+When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. CA-10 and CA-11 remain implementation/wiring findings; CA-12's pre-business recovery policy is resolved, while its partial-month Driver Target decision remains open. This navigation update does not change those statuses.
