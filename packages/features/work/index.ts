@@ -37,3 +37,6 @@ export type {
 export type { GpsFix } from "../../core/src/types";
 export { WORK_FEATURE_EXTENSION } from "./runtime";
 export type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "./presentation/drive-screen-model";
+export { WorkScreenShell } from "./presentation/WorkScreenShell";
+export type { WorkScreenShellProps } from "./presentation/WorkScreenShell";
+export { driverPresentationContract, driverPresentationCssVars } from "./presentation/driver-presentation";
