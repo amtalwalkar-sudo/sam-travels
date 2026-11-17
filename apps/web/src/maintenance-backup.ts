@@ -54,7 +54,7 @@ export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEn
       .sort((a, b) => a.chainRevision - b.chainRevision);
     if (ordered.some((row, index) => row.chainRevision !== index + 1 ||
         row.targetRecordId !== targetId || row.targetRecordRevision !== target.revision ||
-        row.featureId !== "maintenance")) {
+        row.featureId !== "maintenance" || row.fieldPath !== "amountPaise")) {
       throw new Error("maintenance_correction_backup_chain_invalid");
     }
     const projection = projectHistoricalCorrectionsV1(target.data, ordered);
