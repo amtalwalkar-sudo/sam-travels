@@ -118,6 +118,9 @@ describe("BusinessExpensesService", () => {
     const [daily] = await service.listDailyExpenseOutputs();
     expect(daily.fuelPaise).toBe(25000);
     expect(daily.sourceIds).toContain(fuelId);
+    await expect(service.listCorrectionReferences(fuelId)).resolves.toEqual([
+      { sourceId: "historical-correction:fuel-amount-fix", revision: 1 },
+    ]);
   });
 
   it("rebuilds the prospective fuel cost/km timeline from corrected purchase amounts", async () => {
