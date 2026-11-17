@@ -113,7 +113,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           <button type="button" onClick={() => setSelectedInsight("lifetime-target")}><small>Accumulated target</small><strong>{money(result.lifetime.targetPaise)}</strong></button>
           <button type="button" onClick={() => setSelectedInsight("target-month-count")}><small>Target months counted</small><strong>{result.lifetime.elapsedCalendarMonths}</strong></button>
         </div>
-        <p className="performance-explainer">Target position is lifetime net profit minus the fixed monthly target multiplied by elapsed calendar months since business start (including the start and period-to months).</p>
+        <p className="performance-explainer">Target position is lifetime net profit minus the monthly surplus target prorated by calendar days from business start through the selected period end.</p>
       </section>
       </section>
 
