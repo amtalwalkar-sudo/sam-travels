@@ -97,23 +97,25 @@ Until the governing contract/addendum is reconciled with the approved latest own
 
 ### 3.4 Pre-business recovery — policy approved; implementation conformance remains to be proven
 
-The owner-approved rule is date-based: use each source category's authoritative business/effective date. If that date is before the Business Start Date, recover the full source amount evenly over the 18 months beginning on the Business Start Date and include the monthly recovery portions in Full Cost Breakeven. Source validity and schedule end dates do not cap that period. Amounts dated on or after the Business Start Date follow their normal source-category rules. Record creation/edit timestamps do not determine classification.
+The owner-approved rule is a two-stage aggregate-pool calculation. First, collect the full amount of every eligible source amount whose authoritative business/effective date is before the Business Start Date into one pre-business cost pool. Do not prorate any qualifying source amount by validity days or remaining schedule days. Second, divide the aggregate pool into 18 equal monthly instalments beginning on the Business Start Date, then spread each monthly instalment evenly across the days in its Business-Start-Date-anchored recovery month for daily Full Cost Breakeven. Amounts dated on or after the Business Start Date stay out of this pool and follow their normal source-category rules. Source validity/schedule end dates do not cap the pool recovery period. Record creation/edit timestamps do not determine classification.
 
-The source-date mapping is Compliance `validFrom`, each EMI's scheduled due date, and the explicit business/effective date for manual dated costs. Preserve source records and provenance, and ensure the amount is recognized exactly once.
+The source-date mapping is Compliance `validFrom` (include the full record amount), each EMI's scheduled due date (include the full scheduled EMI amount), and the explicit business/effective date for manual dated costs. Aggregate all qualifying amounts across categories into one pool. Preserve source records and per-amount provenance, and ensure each amount is recognized exactly once.
 
-The current implementation is not yet conformant to the clarified contract in two important details:
-- `allocatePreBusinessRecoveryV1` distributes the source amount evenly by day across the entire 18-month interval. The approved contract now requires 18 equal monthly instalments, with each instalment spread across the days of its own Business-Start-Date-anchored recovery month for daily breakeven.
-- `PerformanceFixedCostAllocationAdapterV1` proportionally splits a Compliance amount by the pre-/post-Business-Start-Date share of its validity days. The approved rule classifies the full Compliance source amount by `validFrom`: if `validFrom` is before the Business Start Date, the full amount enters 18-month recovery; otherwise the normal validity-period allocation applies.
+The current implementation is not yet conformant to the clarified contract in three important details:
+- `allocatePreBusinessRecoveryV1` distributes source amounts evenly by day across the entire 18-month interval. It must instead receive the single aggregate pre-business pool, create 18 equal monthly instalments, then distribute each instalment across the days in its own Business-Start-Date-anchored recovery month.
+- `PerformanceFixedCostAllocationAdapterV1` proportionally splits a Compliance amount by the pre-/post-Business-Start-Date share of its validity days. It must include the full amount of every eligible Compliance record whose `validFrom` is before the Business Start Date in the aggregate pool.
+- EMI and manual-cost adapters must contribute the full qualifying source amounts to the same aggregate pool. Do not create separate 18-month schedules per source or category.
 
-The EMI and manual-cost adapters must likewise pass the full source amount when their authoritative date is before the Business Start Date. Do not treat this documentation update as proof that the runtime has been corrected. These are explicit implementation changes and regression gates for the consolidated architecture implementation PR.
+Do not treat this documentation update as proof that the runtime has been corrected. These are explicit implementation changes and regression gates for the consolidated architecture implementation PR.
 
 Add/retain explicit regression cases for:
 - An amount dated immediately before, exactly on, and immediately after the Business Start Date.
-- A source validity/schedule end before the Business Start Date, proving the full pre-business amount still recovers over 18 months.
+- Multiple pre-business amounts across Compliance, EMI and manual costs, proving they are summed into one pool before the 18-month plan is created.
+- A source validity/schedule end before the Business Start Date, proving the full pre-business amount still enters the aggregate pool.
 - A source validity/schedule end inside the 18-month recovery interval, proving it does not truncate recovery.
 - A mid-month Business Start Date and the exact first/final recovery-month boundaries.
 - Leap-year dates and month-end anniversary handling.
-- Integer-paise residual distribution and exact reconciliation to each original source amount.
+- Integer-paise residual distribution and exact reconciliation from source-level pool ledger to aggregate pool, 18 monthly instalments and daily allocations.
 - Separate source provenance and no duplicate recovery of the same source.
 - Compliance renewals and individual EMI due dates classified independently.
 - Browser/Room parity, correction, retry and restore behaviour.
