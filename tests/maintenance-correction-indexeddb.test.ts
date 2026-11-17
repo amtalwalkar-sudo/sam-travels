@@ -4,6 +4,7 @@ import { HistoricalCorrectionService } from "../packages/application/src/histori
 import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
 
 describe("Maintenance correction on the browser IndexedDB repository", () => {
   const records = new DexieRecordRepository();
@@ -80,6 +81,20 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     });
     expect(head?.data).toMatchObject({ chainRevision: 1, headCorrectionId: correctionId });
     expect(projectHistoricalCorrectionsV1(unchanged!.data, history)).toMatchObject({
+      status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
+    });
+
+    // Simulate a records-table backup round trip: preserve originals, correction
+    // rows and the serialized chain head, then validate and reproject after restore.
+    const backupRows = await records.list<unknown>();
+    for (const id of touched) await records.remove(id);
+    for (const row of backupRows.filter(row => touched.includes(row.id))) await records.put(row);
+    const restoredRows = await records.list<unknown>();
+    expect(() => validateMaintenanceCorrectionSnapshot(restoredRows)).not.toThrow();
+    const restoredHistory = await service.listForTarget(targetRecordId);
+    const restoredOriginal = await records.get<typeof original.data>(targetRecordId);
+    expect(restoredOriginal?.data.amountPaise).toBe(10000);
+    expect(projectHistoricalCorrectionsV1(restoredOriginal!.data, restoredHistory)).toMatchObject({
       status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
     });
     expect((await browserDatabase.records.get(targetRecordId))?.revision).toBe(1);
