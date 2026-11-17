@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
-import type { FeaturePresentationContextContract, RuntimeRegistry } from "../../../../packages/core/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
 import type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "../../../../packages/features/work";
 import type { TimelineScreenContext } from "../../../../packages/features/timeline";
 import { PerformanceScreenControllerV1, PerformanceScreenServicesAdapterV1, type PerformanceScreenContextV1 } from "../../../../packages/features/performance";
