@@ -105,6 +105,15 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     this.snapshot = undefined;
   }
 
+  async getSourceSnapshotIdentity(): Promise<string> {
+    const records = this.snapshot ? await this.snapshot : await this.records.list();
+    const settings = records.find(record => record.id === PERFORMANCE_ADMIN_SETTINGS_RECORD_ID);
+    if (!settings || settings.data.kind !== "settings") {
+      throw new Error("performance_driver_target_not_configured");
+    }
+    return "performance-driver-target:" + settings.id + "@" + settings.revision;
+  }
+
   async getMonthlyTargetPaise(): Promise<number> {
     const settings = this.snapshot
       ? (await this.snapshot).find(record => record.id === PERFORMANCE_ADMIN_SETTINGS_RECORD_ID)
