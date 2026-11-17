@@ -22,7 +22,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceAmountPaise: 31, disposition: "allocated",
         sourcePeriod: { from: "2026-03-01", to: "2026-03-31", label: "EMI installment 3" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
-        daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31"),
+        daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31").map(row => ({ ...row, scheduleVersion: 1 })),
       }),
       source({
         sourceId: "loan:pre-business-emi-carry-forward",
@@ -56,6 +56,10 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     const report = {
       businessStartDate: "2026-03-01", businessSettingsRevision: 1,
       generatedAt: "2026-11-15T00:00:00.000Z",
+      sourceCorrectionRefs: [{
+        sourceId: "compliance:overlap",
+        refs: [{ sourceId: "historical-correction:compliance-validity-change", revision: 1 }],
+      }],
       result: {
         calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
         businessStartDate: "2026-03-01", sources,
@@ -78,13 +82,14 @@ describe("Performance fixed-cost allocation adapter v1", () => {
 
     expect(reads).toBe(1);
     expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(62);
-    expect(emi.every(row => row.verified && row.sourceRefs.length === 1 &&
-      row.sourceRefs[0].revision === 2)).toBe(true);
+    expect(emi.every(row => row.verified && row.sourceRefs[0].revision === 2)).toBe(true);
+    expect(emi.find(row => row.sourceRefs[0].sourceId === "loan:emi:3")?.sourceRefs[0].scheduleVersion).toBe(1);
     expect(new Set(emi.map(row => row.sourceRefs[0].sourceId)))
       .toEqual(new Set(["loan:emi:3", "loan:pre-business-emi-carry-forward"]));
     expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(306);
-    expect(compliance.every(row => row.verified && row.sourceRefs.length === 1 &&
-      row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
+    expect(compliance.every(row => row.verified &&
+      row.sourceRefs.some(ref => ref.sourceId === "compliance:overlap" && ref.revision === 4) &&
+      row.sourceRefs.some(ref => ref.sourceId === "historical-correction:compliance-validity-change" && ref.revision === 1))).toBe(true);
     // The adapter returns the canonical daily paise rows verbatim and does not
     // reconstruct a new distribution for the requested report window.
     expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(2);
