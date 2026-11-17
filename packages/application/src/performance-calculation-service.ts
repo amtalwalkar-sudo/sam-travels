@@ -6,6 +6,7 @@ import {
   type PerformanceDailyCostInputV1,
   type PreBusinessRecoverySourceV1,
   type PerformanceCompletenessV1,
+  type PerformanceSourceRefV1,
 } from "../../domain/src/performance-calculation-v1";
 
 type DailyCostKind = PerformanceDailyCostInputV1["kind"];
@@ -144,7 +145,7 @@ export class PerformanceCalculationServiceV1 {
     // not merely the shared Business Start Date settings revision. Reject a
     // mixed revision for the same source before publishing any calculation.
     const sourceRevisionById = new Map<string, { revision: number; scheduleVersion?: number }>();
-    const sourceRefs = [
+    const sourceRefs: PerformanceSourceRefV1[] = [
       ...revenue.flatMap(row => row.sourceRefs),
       ...operatingCosts.flatMap(row => row.sourceRefs),
       ...emiCosts.flatMap(row => row.sourceRefs),
