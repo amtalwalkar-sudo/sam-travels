@@ -184,6 +184,8 @@ try {
   }
   await page.locator(".performance-meta").getByText(businessStartDate, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Explain Business distance", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Explain active driving days", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Explain average business kilometres per active driving day", exact: true }).waitFor();
   if (await page.locator(".performance-error").count()) {
     throw new Error("optional_distance_projection_failure_blocked_core_performance_calculation");
   }
