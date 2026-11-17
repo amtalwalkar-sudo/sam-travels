@@ -19,7 +19,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     const sources: CostAllocationSourceResultV1[] = [
       source({
         sourceId: "loan:emi:3", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
-        sourceAmountPaise: 31_000, disposition: "allocated",
+        sourceAmountPaise: 31, disposition: "allocated",
         sourcePeriod: { from: "2026-03-01", to: "2026-03-31", label: "EMI installment 3" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
         daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31"),
@@ -81,7 +81,9 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     expect(reads).toBe(1);
     expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(62);
     expect(emi.every(row => row.verified && row.sourceRefs.length === 1 &&
-      row.sourceRefs[0].sourceId === "loan:emi:3" && row.sourceRefs[0].revision === 2)).toBe(true);
+      row.sourceRefs[0].revision === 2)).toBe(true);
+    expect(new Set(emi.map(row => row.sourceRefs[0].sourceId)))
+      .toEqual(new Set(["loan:emi:3", "loan:pre-business-emi-carry-forward"]));
     expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(306);
     expect(compliance.every(row => row.verified && row.sourceRefs.length === 1 &&
       row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
