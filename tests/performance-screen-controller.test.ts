@@ -7,10 +7,7 @@ describe("PerformanceScreenControllerV1", () => {
     const distanceProjection = { daily: [{ date: "2026-11-17", businessKm: 12 }] };
     const calculate = vi.fn(async () => result);
     const calculateDistance = vi.fn(async () => distanceProjection);
-    const controller = new PerformanceScreenControllerV1(
-      { calculate } as never,
-      { calculateDistance } as never,
-    );
+    const controller = new PerformanceScreenControllerV1({ calculate, calculateDistance } as never);
 
     await expect(controller.loadPeriod("2026-11-01", "2026-11-17")).resolves.toEqual({
       result,
@@ -25,10 +22,7 @@ describe("PerformanceScreenControllerV1", () => {
     const result = { calculationId: "performance.calculation.v1" };
     const calculate = vi.fn(async () => result);
     const calculateDistance = vi.fn(async () => { throw new Error("distance unavailable"); });
-    const controller = new PerformanceScreenControllerV1(
-      { calculate } as never,
-      { calculate: calculateDistance } as never,
-    );
+    const controller = new PerformanceScreenControllerV1({ calculate, calculateDistance } as never);
 
     await expect(controller.loadPeriod("2026-11-01", "2026-11-17")).resolves.toEqual({
       result,
