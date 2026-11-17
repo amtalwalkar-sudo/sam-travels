@@ -6,7 +6,11 @@ import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
 import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
 import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
-import { assertFuelPurchaseV1 } from "../packages/features/business-expenses";
+import {
+  assertBusinessExpenseRecordV1, assertBusinessExpenseEntryV1, assertFuelPurchaseV1,
+  calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
+} from "../packages/features/business-expenses";
+import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
 describe("Business Expenses browser backup participant", () => {
   let unregisterVehicle: (() => void) | undefined;
@@ -51,6 +55,25 @@ describe("Business Expenses browser backup participant", () => {
     });
   }
 
+
+  async function seedFuelInterval() {
+    const purchases = [
+      ["123e4567-e89b-42d3-a456-426614174050", "2026-11-01T09:00:00.000Z", "2026-11-01", 100, false, 50_000],
+      ["123e4567-e89b-42d3-a456-426614174051", "2026-11-05T09:00:00.000Z", "2026-11-05", 110, true, 20_000],
+      ["123e4567-e89b-42d3-a456-426614174052", "2026-11-10T09:00:00.000Z", "2026-11-10", 120, false, 30_000],
+    ] as const;
+    for (const [uuid, occurredAt, businessDate, odometerKm, partialRefill, amountPaise] of purchases) {
+      const id = "feature:business-expenses:fuel:" + uuid;
+      await browserDatabase.records.put({
+        id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+        source: "web", revision: 1, businessDate,
+        createdBy: { personId: "driver-1", role: "driver" },
+        data: { schemaVersion: 1, kind: "fuel_purchase", id, revision: 1, businessDate,
+          occurredAt, vehicleId, odometerKm, pricePaisePerKg: 10_000, amountPaise, partialRefill },
+      });
+    }
+  }
+
   it("exports and restores fuel facts under the required feature participant", async () => {
     await seedVehicle(); await seedFuel();
     const snapshot = await exportBrowserSnapshot("0.1.0");
@@ -67,8 +90,8 @@ describe("Business Expenses browser backup participant", () => {
   });
 
   it("restores fuel correction history and reproduces the corrected source projection", async () => {
-    await seedVehicle(); await seedFuel();
-    const targetRecordId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000";
+    await seedVehicle(); await seedFuelInterval();
+    const targetRecordId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174051";
     const correctionId = "backup-fuel-correction-" + crypto.randomUUID();
     const correctionService = new HistoricalCorrectionService(
       new (await import("../packages/storage-browser/src")).DexieRecordRepository(),
@@ -113,9 +136,35 @@ describe("Business Expenses browser backup participant", () => {
     const original = await restoredRecords.get(targetRecordId);
     const corrections = await restoredCorrectionService.listForTarget(targetRecordId);
     expect(original?.revision).toBe(1);
-    expect((original?.data as { amountPaise: number }).amountPaise).toBe(18000);
+    expect((original?.data as { amountPaise: number }).amountPaise).toBe(20_000);
     expect(projectHistoricalCorrectionsV1(original!.data, corrections)).toMatchObject({
-      status: "valid", data: { amountPaise: 19000 }, chainRevision: 1,
+      status: "valid", data: { amountPaise: 25_000 }, chainRevision: 1,
+    });
+    const expenseDomain = {
+      validateRecord: assertBusinessExpenseRecordV1,
+      validateFuelPurchase: assertFuelPurchaseV1,
+      validateExpenseEntry: assertBusinessExpenseEntryV1,
+      calculateDailyExpenses: calculateDailyBusinessExpenses,
+      calculateFuelIntervals,
+      calculateFuelCostRateHistory,
+    };
+    const expenses = new BusinessExpensesService(
+      restoredRecords, expenseDomain,
+      { getById: async id => restoredRecords.get(id) } as never,
+      () => timestamp, restoredCorrectionService,
+    );
+    const projectedPurchases = await expenses.listFuelPurchases();
+    expect(projectedPurchases.find(row => row.id === targetRecordId)?.data.amountPaise).toBe(25_000);
+    expect(await expenses.listCorrectionReferences(targetRecordId)).toEqual([
+      { sourceId: "historical-correction:" + correctionId, revision: 1 },
+    ]);
+    const rateHistory = await expenses.listFuelCostRateHistory();
+    expect(rateHistory).toHaveLength(1);
+    expect(rateHistory[0]).toMatchObject({
+      completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
+      cumulativeSpendPaise: 55_000, cumulativeDistanceKm: 20,
+      costPaisePerKm: { numerator: "55000", denominator: "20" },
+      sourcePurchaseIds: [targetRecordId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052"],
     });
   });
 

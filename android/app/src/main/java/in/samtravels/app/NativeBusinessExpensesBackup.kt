@@ -108,7 +108,10 @@ internal object NativeBusinessExpensesBackup {
             "business_expense_entry_invalid"
         }
         when (data.optString("sourceKind")) {
-            "platform_fee" -> require(data.optString("reference").isNotBlank()) { "platform_fee_source_reference_required" }
+            "platform_fee" -> require(data.optString("reference").isNotBlank() &&
+                data.optString("vehicleId").startsWith("feature:vehicle:")) {
+                "platform_fee_source_reference_required"
+            }
             "traffic_challan" -> require(data.optString("vehicleId").isNotBlank() &&
                 (data.optString("description").isNotBlank() || data.optString("reference").isNotBlank())) { "traffic_challan_vehicle_required" }
             "miscellaneous" -> require(data.optString("category").isNotBlank()) { "miscellaneous_expense_category_required" }

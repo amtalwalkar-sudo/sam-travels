@@ -89,7 +89,7 @@ internal object NativeBusinessExpenseCorrectionBackup {
                 val fieldPath = data.optString("fieldPath")
                 require(envelope.optString("id") == id && id == CORRECTION_PREFIX + correctionId &&
                     envelope.optLong("revision", -1L) == 1L && safeId.matches(correctionId) &&
-                    data.optInt("schemaVersion", -1) == 1 &&
+                    positiveInteger(data.opt("schemaVersion")) && data.optInt("schemaVersion", -1) == 1 &&
                     data.optString("targetRecordId") == targetId &&
                     positiveInteger(data.opt("targetRecordRevision")) &&
                     data.optLong("targetRecordRevision", -1L) == targetEnvelope.optLong("revision", -2L) &&

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   allocatePreBusinessRecoveryV1,
-  buildPerformancePassbookV1,
   calculatePerformanceV1,
   type PerformanceCalculationInputV1,
 } from "../packages/domain/src/performance-calculation-v1";
+import { buildPerformancePassbookV1 } from "../packages/domain/src/performance-passbook-v1";
 
 function fixture(overrides: Partial<PerformanceCalculationInputV1> = {}): PerformanceCalculationInputV1 {
   return {
