@@ -17,6 +17,8 @@ export interface PerformanceSnapshotReadModel {
 }
 
 export interface PerformanceBusinessSettingsReadModel {
+  prepareSnapshot?(): Promise<void>;
+  releaseSnapshot?(): void;
   getBusinessStartDate(): Promise<string>;
 }
 export interface PerformanceDriverTargetReadModel {
@@ -74,6 +76,7 @@ export class PerformanceCalculationServiceV1 {
     const preparedSources = snapshotSources.filter(source =>
       typeof source.prepareSnapshot === "function");
     try {
+      await this.sources.businessSettings.prepareSnapshot?.();
       const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
       if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
       await Promise.all(preparedSources.map(source =>
@@ -118,6 +121,7 @@ export class PerformanceCalculationServiceV1 {
     } finally {
       preparedSources.forEach(source =>
         (source as PerformanceSnapshotReadModel).releaseSnapshot?.());
+      this.sources.businessSettings.releaseSnapshot?.();
     }
   }
 }
