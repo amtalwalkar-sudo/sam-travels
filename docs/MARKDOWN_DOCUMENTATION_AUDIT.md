@@ -270,14 +270,16 @@ Delivered in this phase:
 - Preserved existing document paths, detailed contracts, audits, plans, reference manifests and historical evidence. No mass file move or deletion was performed, avoiding unnecessary link churn and loss of historical context.
 - Clarified that the catalog is navigational: the Contract Index and named owner contracts continue to determine authority.
 
-**Inventory accounting:** The Phase 3 starting tree contained 84 tracked Markdown files. The System Blueprint and Documentation Catalog add two files. The expected Phase 3 inventory is therefore 86 Markdown files, including this audit and the Contract Index. The exact final tree and internal-link validation must be checked at the final PR head before Phase 3 is marked complete.
+**Inventory accounting and verification:** The PR #96 branch tree was checked recursively and is not truncated. It contains 86 Markdown files. The Documentation Catalog contains 86 unique Markdown links: every tracked Markdown file has exactly one primary catalog entry, with no missing entries or duplicate entries. The local Markdown-link validator is included in CI as `npm run check:docs`; its final result must be read from the workflow run for the exact final PR head.
 
-**Still required before documentation phase exit:**
-1. Run `npm run check:docs` on the exact final repository tree and fix every broken local Markdown link it reports.
-2. Check catalog coverage against the recursive Git tree so every Markdown file has exactly one primary catalog entry (root and service entry points included).
-3. Reconcile current status statements only where exact source/test/CI evidence supports the change; preserve historical audit baselines.
-4. Resolve or explicitly hold the known calculation policy conflicts recorded in the Calculation Authority audit. Documentation must not silently choose a new business rule.
-5. Run the repository's documentation consistency checks and full required CI on the exact final PR head.
-6. Keep PR #96 draft and unmerged until the documentation baseline is reviewed and the user authorizes the next step.
+**Phase 3 completion status:**
+1. Six-area navigation and the end-to-end System Blueprint are delivered.
+2. The Contract Index identifies normative owners and precedence; the catalog is explicitly navigation-only.
+3. The fixed monthly Driver Target policy and aggregate pre-business recovery policy are now explicitly resolved in their owner contracts and reconciled in the Calculation Authority audit.
+4. Historical plans and audits remain preserved; superseded source-allocation instructions are explicitly labelled so they cannot be mistaken for the current downstream recovery rule.
+5. Existing file paths are preserved. Catalog coverage is verified at 86/86.
+6. The final documentation CI/link-validation result remains a release gate and must pass on the exact final PR head before this phase is called CI-verified.
+
+PR #96 remains draft and unmerged pending review and explicit user authorization. This phase remains documentation-only: no application source, runtime behaviour, database schema, migrations, APK publication or physical-device testing is changed or claimed.
 
 **Scope confirmation:** This phase is documentation-only. Application source, runtime behaviour, database schema, migrations, APK publication and physical-device testing are not changed or claimed.
