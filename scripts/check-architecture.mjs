@@ -298,7 +298,7 @@ if (!workScreenRuntime.includes('mountPoint: "WorkScreen"') ||
     driveScreen.includes("useDriverWorkspace") ||
     driveScreen.includes("FeatureScreenHost") ||
     !screenComposition.includes('mountPoint: "WorkScreen"') ||
-    screenComposition.includes("<DriveScreen") || screenComposition.includes('from "../../../../packages/features/work/presentation/DriveScreen"')) {
+    /<DriveScreen(?:\\s|>)/.test(screenComposition) || screenComposition.includes('from "../../../../packages/features/work/presentation/DriveScreen"')) {
   failures.push("Work must own a registered, replaceable Drive screen; application composition supplies its typed context and extension slot");
 }
 
