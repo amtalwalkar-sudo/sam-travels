@@ -252,7 +252,7 @@ The current Contract Index and Finance/Performance Approval Gate still contain w
 
 The historical Breakeven Source Reconciliation Audit must retain its original baseline and findings. It should not be rewritten as if it were audited on the current commit. Instead, the current status should be linked to the post-PR #93 conformance audit and this new calculation-authority audit.
 
-**Required correction direction:** reconcile only current status/authority wording in the relevant index/approval documentation after this audit is reviewed. Do not silently alter the frozen v1.9 business rules.
+**Required correction direction:** retain the 2026-11-16 v1.9 baseline as historical evidence. The owner has since explicitly amended the target rule through v2.0 Addendum J; do not infer any other policy change from that amendment.
 
 ## 8. Performance status: implementation versus acceptance
 
@@ -262,7 +262,7 @@ Outstanding gates recorded by PR #94 include:
 
 - Full Driver Target passbook pacing, cumulative ahead/behind, remaining target and shortfall carry-forward/recovery.
 - Historical daily/weekly/monthly business-distance summaries and active-driving-day definitions.
-- Explicit reconciliation of partial-month target and lifetime target semantics.
+- Runtime verification that first-month-only target proration and full subsequent monthly obligations flow correctly through passbook/lifetime totals.
 - Exact pre-business recovery boundary/provenance cases.
 - Post-PR #93 source conformance against current owner contracts and historical corrections.
 - Final Performance presentation/product-owner acceptance.
