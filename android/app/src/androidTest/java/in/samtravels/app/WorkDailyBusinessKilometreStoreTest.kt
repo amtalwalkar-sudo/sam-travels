@@ -57,26 +57,42 @@ class WorkDailyBusinessKilometreStoreTest {
             .context.assets.open("driver-workflow-parity-v1.json").bufferedReader().use { it.readText() })
             .getJSONObject("personalDistance")
         val startedAt = "2026-11-02T08:00:00.000Z"
-        val now = "2026-11-02T10:00:00.000Z"
+        val firstEndAt = "2026-11-02T09:00:00.000Z"
+        val secondEndAt = "2026-11-02T10:00:00.000Z"
         val vehicleId = "feature:vehicle:MH01AB1234"
-        val startOdometer = fixture.getInt("nextShiftStartOdometerKm")
-        val businessKm = fixture.getInt("currentShiftBusinessKm")
-        val current = JSONObject().put("state", "shift_active").put("shiftId", "shift-personal")
-            .put("shiftStartedAt", startedAt).put("shiftStartOdometerKm", startOdometer)
-            .put("shiftStartPersonalKm", fixture.getInt("personalKm"))
-            .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
-                .put("assignmentId", "assignment-1").put("vehicleId", vehicleId))
-        val command = JSONObject().put("eventType", "shift_end").put("transitionAt", now)
+        val firstStart = fixture.getInt("firstShiftStartOdometerKm")
+        val firstEnd = fixture.getInt("previousShiftEndOdometerKm")
+        val nextStart = fixture.getInt("nextShiftStartOdometerKm")
+        val firstBusinessKm = firstEnd - firstStart
+        val secondBusinessKm = fixture.getInt("secondShiftBusinessKm")
+        val context = JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
+            .put("assignmentId", "assignment-1").put("vehicleId", vehicleId)
+
+        val firstShift = JSONObject().put("state", "shift_active").put("shiftId", "shift-personal-1")
+            .put("shiftStartedAt", startedAt).put("shiftStartOdometerKm", firstStart)
+            .put("shiftContext", context)
+        val firstEndCommand = JSONObject().put("eventType", "shift_end").put("transitionAt", firstEndAt)
             .put("odometer", JSONObject().put("schemaVersion", 1)
-                .put("readingKm", startOdometer + businessKm).put("businessKm", businessKm))
-        WorkDailyBusinessKilometreStore.append(db, current, command, "shift-personal-end", now)
+                .put("readingKm", firstEnd).put("businessKm", firstBusinessKm))
+        WorkDailyBusinessKilometreStore.append(db, firstShift, firstEndCommand, "shift-personal-end-1", firstEndAt)
+
+        val secondShift = JSONObject().put("state", "shift_active").put("shiftId", "shift-personal-2")
+            .put("shiftStartedAt", firstEndAt).put("shiftStartOdometerKm", nextStart)
+            .put("shiftStartPersonalKm", fixture.getInt("personalKm")).put("shiftContext", context)
+        val secondEndCommand = JSONObject().put("eventType", "shift_end").put("transitionAt", secondEndAt)
+            .put("odometer", JSONObject().put("schemaVersion", 1)
+                .put("readingKm", nextStart + secondBusinessKm).put("businessKm", secondBusinessKm))
+        WorkDailyBusinessKilometreStore.append(db, secondShift, secondEndCommand, "shift-personal-end-2", secondEndAt)
+
         val operationalDate = DriverWorkflowStore.operationalDateAt(startedAt)
         val id = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") + ":" + operationalDate
         val data = JSONObject(db.records().get(id)!!.json).getJSONObject("data")
-        val entry = data.getJSONArray("entries").getJSONObject(0)
-        assertEquals(businessKm.toLong(), entry.getLong("businessKm"))
-        assertEquals(fixture.getInt("personalKm").toLong(), entry.getLong("personalKm"))
+        val entries = data.getJSONArray("entries")
+        assertEquals(2, entries.length())
+        assertEquals(firstBusinessKm.toLong(), entries.getJSONObject(0).getLong("businessKm"))
+        assertEquals(0, entries.getJSONObject(0).getLong("personalKm"))
+        assertEquals(secondBusinessKm.toLong(), entries.getJSONObject(1).getLong("businessKm"))
+        assertEquals(fixture.getInt("personalKm").toLong(), entries.getJSONObject(1).getLong("personalKm"))
         assertEquals(fixture.getInt("expectedTotalBusinessKm").toLong(), data.getLong("totalBusinessKm"))
     }
-
 }
