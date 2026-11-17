@@ -9,7 +9,6 @@ export * from "./trip-financial-service";
 export * from "./shared-form-runtime";
 export * from "./record-form-working-copy-repository";
 
-export * from "./timeline-projection-service";
 export * from "./runtime-registry";
 
 export * from "./feature-lifecycle-coordinator";
@@ -42,9 +41,7 @@ export * from "./finance-loan-prepayment-service";
 export * from "./finance-loan-prepayment-runtime";
 export * from "./finance-loan-settlement-runtime";
 
-export * from "./timeline-reverse-geocoding";
 
-export * from "./timeline-enrichment-queue";
 export type { AdminPresentationServices } from "./admin-presentation-services";
 
 export * from "./compliance-analysis-service";
