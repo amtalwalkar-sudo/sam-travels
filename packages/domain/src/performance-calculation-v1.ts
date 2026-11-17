@@ -80,8 +80,10 @@ export type PerformanceCalculationResultV1 = Readonly<{
     revenuePaise: number;
     costPaise: number;
     profitPaise: number;
-    /** The configured monthly target is never prorated by a selected date filter. */
+    /** Configured Admin monthly surplus target, before date-range proration. */
     monthlyDriverTargetPaise: number;
+    /** Sum of calendar-day prorated target amounts for the selected date range. */
+    targetPaise: number;
   }>;
   lifetime: Readonly<{
     revenuePaise: number;
@@ -377,8 +379,8 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     period: Object.freeze({
       revenuePaise: periodRevenuePaise, costPaise: periodCostPaise,
       profitPaise: periodProfitPaise,
-      // Calendar-day prorated over the selected period, summed month by month.
-      monthlyDriverTargetPaise: periodTargetPaise,
+      monthlyDriverTargetPaise: input.monthlyDriverTargetPaise,
+      targetPaise: periodTargetPaise,
     }),
     lifetime: Object.freeze({
       revenuePaise: lifetimeRevenuePaise, costPaise: lifetimeCostPaise,
