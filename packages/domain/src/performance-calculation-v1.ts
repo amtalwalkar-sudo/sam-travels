@@ -343,10 +343,10 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const [ey, em] = input.periodTo.split("-").map(Number);
     return (ey - sy) * 12 + (em - sm) + 1;
   })();
-  const lifetimeTargetPaise = proratedTargetForRange(
+  const lifetimeTargetPaise = proratedDriverTargetForRangeV1(
     input.monthlyDriverTargetPaise, input.businessStartDate, input.periodTo,
   );
-  const periodTargetPaise = proratedTargetForRange(
+  const periodTargetPaise = proratedDriverTargetForRangeV1(
     input.monthlyDriverTargetPaise,
     input.periodFrom < input.businessStartDate ? input.businessStartDate : input.periodFrom,
     input.periodTo,
