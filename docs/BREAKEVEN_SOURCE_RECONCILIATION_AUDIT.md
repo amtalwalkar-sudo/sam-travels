@@ -231,3 +231,11 @@ Regression coverage now checks:
 - Fuel historical corrections already restate the source-owned weighted-rate history; Business Expenses correction IDs/revisions are now explicitly carried into the downstream Full-cost provenance. Loan schedule/prepayment and Compliance validity/renewal remain governed by their owner services and effective-date snapshots; this follow-up does not mutate historical schedule or validity records.
 - Maintenance per-kilometre accrual remains the only Maintenance cost currently included in the frozen Performance calculation contract. Whether visit/repair expense records are a separate eligible Full-cost item remains unresolved and must not be double-counted without explicit accounting approval.
 - These additions are awaiting exact-head CI and do not close the complete source-reconciliation matrix or physical-device acceptance.
+
+
+## 12. Effective-date provenance refinement — 2026-11-17
+
+- Compliance correction references now flow from ComplianceAnalysisService through BusinessStartDateCostAllocationService into Performance fixed-cost source rows. The allocation provenance fingerprint includes correction references; a corrected Compliance validity date or amount is recalculated by the owner service and its correction chain is traceable downstream.
+- EMI allocation rows now preserve scheduleVersion as well as the source loan revision. Performance fingerprints both, so prepayment schedule changes cannot be hidden behind an unchanged loan record identity.
+- The owner services continue to determine effective dates: Compliance uses corrected inclusive validity dates; EMI uses the composite immutable schedule history and settlement cutoff. Performance consumes the resulting canonical daily rows and does not rebuild either schedule.
+- Adapter and allocation tests now assert Compliance correction-chain references and EMI scheduleVersion. Exact-head CI is pending.
