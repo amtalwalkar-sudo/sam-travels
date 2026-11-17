@@ -176,6 +176,37 @@ This is meaningful coverage, but it is not yet a generated, single-source proof 
 
 Browser backup explicitly excludes recovery checkpoints, credential-vault material and diagnostics from the business snapshot table inventory. This is an intentional security/operational boundary, not an omission, provided credentials remain in their secure vault and restore journals/checkpoints remain local recovery infrastructure. Confirm the same exclusion semantics on Android and document which diagnostic export/retention mechanism, if any, is separate from business backup.
 
+### 9.7 G-17 — Actual restore transactions are robust locally, but do not normalize cross-platform packages
+**Severity:** High for cross-platform restore.
+**Status:** Confirmed source-level incompatibility in both directions; runtime integration test still required to capture the exact surfaced error and prove no mutation.
+
+**Browser transaction (TypeScript):**
+1. `restoreBackupForCurrentRuntime` requires confirmation, decrypts the package and parses the plaintext before dispatching to the browser store.
+2. `restoreBrowserSnapshot` validates the browser snapshot and manifest before reading current tables or creating a checkpoint.
+3. It snapshots the current Dexie tables, creates a local checkpoint, then clears/repopulates the registered snapshot tables in one read/write transaction and marks the checkpoint `restored_unverified`.
+4. It reads back and compares every registered table. On failure it restores the prior tables and marks `rollback_complete`.
+5. A successful restore remains unverified until explicit verification; startup recovery rolls back checkpoints left in `checkpoint` or `restored_unverified`.
+
+**Android transaction (Kotlin/Room):**
+1. The Capacitor bridge requires explicit confirmation and a snapshot plus manifest. The shared TypeScript runtime decrypts before calling this bridge.
+2. Android validates snapshot and manifest shape, validates both participant manifests against its registered participants, validates business record ownership/relationships and snapshot revision, then checks schema/count limits.
+3. It creates a Room checkpoint and journal in a transaction.
+4. It replaces participant-owned business records and marks the journal `restored_unverified` in a Room transaction.
+5. It rebuilds a snapshot and compares record count plus canonical owner/id/payload/schema/timestamp tuples.
+6. On failure it rolls back from the checkpoint and verifies the rollback. Startup recovery also rolls back pending/unverified journals. Successful restores require explicit verification before checkpoint discard.
+
+**Confirmed Finance mismatch in both directions:**
+- **Browser package → Android:** Android's expected participant manifest contains separate `finance-records`, `finance-payment-records` and `finance-prepayment-records`. The browser manifest has one `finance-records` participant. Android's compatibility path only permits omission of the two native Finance participants when no records exist for their namespaces. Payment/prepayment rows make those omissions unsafe, so the package is rejected before checkpoint creation. In addition, Android's canonical participant comparison expects the native `adapterId` field, which the browser manifest does not define.
+- **Android package → browser:** Browser expects one `finance-records` participant and compares participant identities/feature/version/validator fields before checkpoint creation. Android emits separate payment and prepayment participant IDs, so the manifest does not match. Beyond Finance, the serialized snapshot shapes are different: browser has separate `driverState`, `driverIntents`, `driverEvents` and `driverOutbox` arrays and RecordEnvelope rows; Android puts owner-tagged JSON-string records in one `records` array and stores Log Book rows there under their own participant. There is no demonstrated normalization layer to make those payloads acceptable to the other platform.
+- **Conclusion:** For a populated Finance snapshot, the source code establishes a pre-mutation rejection in each direction. This is not merely a cosmetic manifest mismatch. The exact thrown/surfaced error can vary by which incompatible shape is encountered first; the decisive fact is that validation is before checkpoint and data replacement.
+
+**Required closure:** Define a platform-neutral snapshot wire format and canonical Finance participant identity, or explicitly declare packages platform-bound and enforce that in the UI/package contract before decryption/restore. Add integration tests that export an encrypted package on each platform, attempt restore on the other with populated Finance history, assert rejection/acceptance policy and prove destination records remain unchanged.
+
+### 9.8 G-18 — Cross-feature references and correction-chain round-trip are not yet proven as one populated snapshot
+**Severity:** High.
+**Evidence:** Browser Finance validation links loans to Vehicle, payments to loan schedules and prepayment schedule revisions, and settlements to loan lifecycle. Business Expenses validation links expenses to Vehicle/Driver records, validates reversal pairs and validates append-only historical correction chains and chain heads. Android has corresponding feature-specific relationship validators and separate Business Expense/Maintenance correction backup validators. These checks run as part of feature-owned record validation, but the audit has not yet established a single fully populated snapshot where all owner records and all correction/provenance chains survive export → restore → re-export on both platforms. The distinct browser/Android payload formats and Finance participant identities currently prevent claiming that cross-platform integrated round-trip.
+**Required closure:** Build a deterministic populated fixture spanning Vehicle, Driver Records, Finance loans/payment reversals/prepayment revisions/settlements, Compliance, Maintenance rate history/daily accrual/corrections, Business Expenses with Vehicle/Driver references and reversal/correction chains, Performance source references/recovery state, Work pending intents/outbox and Log Book events. Exercise each platform's native export/restore/rollback/re-export and compare normalized business semantics, including correction chain heads, revisions, source IDs, effective dates, schedule versions and Maintenance accrual provenance.
+
 ### 9.7 Backup audit conclusion
 
 Current source shows explicit persistent-feature participants and fail-closed table/record ownership checks on both platforms. The important remaining issue is not simply missing participant registration: it is proving that platform-specific participant manifests, serialized snapshot shapes, validators and restore outcomes are semantically equivalent. Finance participant divergence is a concrete incompatibility risk; full cross-platform encrypted restore has not been demonstrated. Do not claim complete backup parity until G-13 through G-16 are closed with integrated tests.
