@@ -13,7 +13,7 @@ export type PerformanceOperatingCostKindV1 = Exclude<DailyCostKind, "emi" | "com
 
 export interface PerformanceSnapshotReadModel {
   prepareSnapshot?(from: string, to: string): Promise<void>;
-  getSnapshotIdentity?(): Promise<string>;
+  getSnapshotIdentity?(): Promise<string | undefined>;
   releaseSnapshot?(): void;
 }
 
