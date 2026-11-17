@@ -37,6 +37,13 @@ describe("Driver Records browser backup participant", () => {
   it("backs up assignment history under the Driver feature participant", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
     await browserDatabase.records.put({
+      id: "feature:vehicle:MH01AB1234", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: { schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace",
+        vehicleType: "LCV", fuelType: "Diesel", yearOfManufacture: 2022,
+        ownership: "Owned", lifecycleState: "active" },
+    });
+    await browserDatabase.records.put({
       id: "feature:driver-records:assignment:driver-001", schemaVersion: 1,
       createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
       data: { schemaVersion: 1, driverId: "driver-001", assignments: [
@@ -48,7 +55,7 @@ describe("Driver Records browser backup participant", () => {
       id: "driver-records", featureId: "driver-records", snapshotVersion: 1,
       restoreValidatorId: "driver-records-v1",
     });
-    expect(snapshot.data.records).toHaveLength(1);
+    expect(snapshot.data.records).toHaveLength(2);
   });
 
   it("rejects a backup containing more than one selected Work driver", async () => {
