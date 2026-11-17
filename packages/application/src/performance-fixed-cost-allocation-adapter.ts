@@ -80,6 +80,15 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     return "business-settings:" + report.businessSettingsRevision + ":" + report.businessStartDate;
   }
 
+  async getSourceSnapshotIdentity(): Promise<string> {
+    const report = await this.report();
+    const sources = report.result.sources.map(source =>
+      source.sourceId + "@" + source.sourceVersion + ":" + source.disposition + ":" +
+      source.daily.map(row => row.date + "=" + row.amountPaise).join(","),
+    ).sort();
+    return "performance-fixed-cost-sources:" + sources.join("|");
+  }
+
   private async report() {
     return this.snapshot ?? this.allocation.getReport();
   }
