@@ -7,7 +7,7 @@ import {
   validateDriverCompletion,
   type DriverIntent,
   type GpsFix,
-} from "../packages/features/work-shift";
+} from "../packages/features/work";
 
 const transitionAt = new Date().toISOString();
 
