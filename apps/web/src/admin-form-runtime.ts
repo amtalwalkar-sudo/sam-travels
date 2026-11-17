@@ -10,10 +10,10 @@ import {
   PERFORMANCE_DRIVER_TARGET_FORM_V1, PRE_BUSINESS_COST_FORM_V1,
   type FeatureRecordSource, type PerformanceAdminSettingsServiceV1,
 } from "../../../packages/application/src";
-import type { RecordRepository } from "../../../packages/core/src";
+import type { AtomicRecordRepository, RecordRepository } from "../../../packages/core/src";
 import type { FormSubmissionCommand } from "../../../packages/application/src/form-submission-port";
 
-type AdminFormRepositoryV1 = RecordRepository;
+type AdminFormRepositoryV1 = RecordRepository & AtomicRecordRepository;
 type BusinessExpenseSubmissionV1 = (command: FormSubmissionCommand) => Promise<unknown>;
 
 /** Feature-specific Admin form command routing, kept out of platform bootstrap. */
