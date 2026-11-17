@@ -45,3 +45,15 @@ A Maintenance expense correction must not rewrite immutable Work odometer facts,
 - PWA and Android Room must consume the same deterministic source facts and assert identical active-day counts and business-kilometre averages.
 - Maintenance correction restore tests preserve correction chain IDs/revisions and reproduce the same corrected projection after restore; daily accrual snapshots remain immutable.
 - Full Web, Android and Integrated CI must pass on the exact PR head. Physical-device acceptance remains separate.
+
+## 5. Implementation evidence record — 2026-11-17
+
+The approved behaviours are implemented on draft PR #97 and have the following automated evidence:
+
+- Passbook arithmetic, source provenance, cumulative shortfall recovery, leap-day/month-end recovery boundaries: `tests/performance-calculation-v1.test.ts`.
+- Active-day qualification, wrong-shift/legacy context handling, 04:00 operational-date retention, zero-kilometre active days and unallocated distance review: `tests/full-cost-breakeven-contract-boundaries.test.ts` and `tests/full-cost-breakeven-service.test.ts`.
+- Rendered Performance Passbook and daily/weekly/monthly distance presentation: `scripts/performance-screen-browser-acceptance.mjs`.
+- Room-backed shared-fixture parity: `android/app/src/androidTest/java/in/samtravels/app/PerformanceActiveDrivingDayRoomParityTest.kt`.
+- Maintenance correction-chain restore and immutable Work/accrual boundary: `tests/maintenance-correction-indexeddb.test.ts` and `android/app/src/androidTest/java/in/samtravels/app/NativeMaintenanceBackupRoomTest.kt`.
+
+These tests establish automated implementation evidence, not physical-device acceptance or final visual sign-off.

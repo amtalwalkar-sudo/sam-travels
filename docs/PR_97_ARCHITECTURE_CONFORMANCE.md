@@ -36,7 +36,9 @@
 | Work startup/retry/recovery | Work application coordinator, durable outbox and repository recovery | Browser IndexedDB reopen, outbox retry/idempotency and Android process-restart instrumentation | Automated regression gates passed |
 | Offline Work and fuel entry | Browser Dexie and Android Room local persistence | PWA network-disabled shift/fuel tests; Android Room offline persistence test | Automated offline persistence covered |
 | Backup/restore and correction history | Existing backup participants, restore checkpoint/rollback and correction records | Browser backup/restore reliability tests; Android Performance backup round-trip and Room reliability gate | Automated regression gates passed |
-| Driver Target | Admin settings read model → Performance calculation | Target settings revision included in provenance; calendar-day prorated target tests and rendered-PWA Performance acceptance | Calculation/UI automation passed; policy authority remains the current versioned product contract |
+| Driver Target | Admin settings read model → Performance calculation | Target settings revision included in provenance; calendar-day proration tests and rendered-PWA Performance acceptance | Calculation/UI automation passed; policy authority remains the current versioned product contract |
+| Cumulative Driver Target Passbook | Performance calculation → read-only daily cumulative Passbook view | `tests/performance-calculation-v1.test.ts`; `scripts/performance-screen-browser-acceptance.mjs` | Cumulative target, actual daily/cumulative surplus, ahead/behind, remaining target, recovery and source references covered |
+| Active-driving-day distance | Immutable Work trip context + finalized daily-distance rows → Full-cost projection → daily/weekly/monthly history | `tests/full-cost-breakeven-contract-boundaries.test.ts`; shared PWA/Room fixture and `PerformanceActiveDrivingDayRoomParityTest` | Same-shift qualification, 04:00 context, zero-km active days, personal-km exclusion and incomplete-distance review covered |
 
 ## 3. Snapshot guarantee — exact boundary
 
@@ -91,9 +93,23 @@ This is stronger than testing only a synthetic screen fixture, but it is not a c
 2. **Every downstream correction/reversal/effective-date permutation:** the matrix records named focused tests; it is not exhaustive proof for all historical production records or every combination of correction and restore.
 3. **Production-data reconciliation:** controlled fixtures and rendered-PWA acceptance do not replace a real migrated-data audit.
 4. **Physical-device acceptance:** intentionally deferred to the final phone-testing stage.
-5. **Performance product-contract completion:** this architecture PR does not close separate outstanding Performance passbook, distance-summary, partial-period policy reconciliation or final UX approval items recorded in the Performance end-to-end audit.
+5. **Performance product acceptance:** cumulative Passbook and active-driving-day distance implementation gates are closed by the approved addendum and current regressions. Separate product-owner approval of final visual composition remains open; calendar-day partial-period target semantics are resolved by the approved Passbook addendum.
 6. **Further obsolete-path cleanup:** only remove after static dependency proof and replacement tests.
+7. **Migrated production-data audit:** deterministic source/correction/effective-date fixtures do not replace a record-by-record reconciliation of any deployed production dataset.
 
 ## 8. PR disposition
 
 PR #97 remains **draft, open and unmerged**. Green CI establishes automated success on the exact head above; it does not authorize merging or waive the remaining acceptance gates.
+## 9. Passbook, distance and exact-head verification follow-up — 2026-11-17
+
+The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` is now implemented on this PR branch:
+
+- The cumulative Passbook starts on the actual Business Start Date, includes every operational date through the selected end date, and exposes daily/cumulative surplus, prorated cumulative target, ahead/behind position, remaining target and source IDs/revisions. Its aggregate reconciles to the same calculation's lifetime profit and target.
+- Daily Passbook regression checks each row's cumulative arithmetic and calendar-day target against the shared target-proration function. Recovery coverage includes mid-month start, month-end clamping, leap day, the exclusive 18-month end and later-surplus recovery.
+- Active-driving-day classification requires immutable trip context for the same Work shift and operational date. A finalized distance row must contain that same shift; otherwise the distance remains incomplete/review-required. Confirmed personal kilometres are excluded, and zero-kilometre active days remain in the denominator.
+- Daily, ISO-week and calendar-month distance summaries and averages are rendered by the Performance screen. The shared PWA/Room fixture is exercised by the browser and Android Room-backed acceptance paths.
+- Maintenance visit/repair expense corrections are reprojected from the immutable original plus their full correction chain and validated through browser and native backup/restore. Their correction IDs/revisions remain traceable in the Maintenance owner projection. They are deliberately not added as a second Performance Maintenance cost: the frozen Performance cost remains the confirmed per-kilometre accrual unless a separate accounting decision changes that boundary.
+
+The previous exact-head green run `#44092755813` verified the then-current PR head `0a2ccab04441dac54efb2ad4dd58e88c7c9ac447` across Architecture, Web, Android and Integrated regression. A follow-up test commit adds the explicit leap-year recovery and per-day Passbook reconciliation assertions; the final exact-head CI run is recorded in the next evidence update.
+
+The remaining non-implementation gates are unchanged: a migrated production-data inventory/reconciliation is not available as a repository fixture, physical-phone acceptance is deferred to the agreed final testing stage, and final visual composition remains subject to product-owner approval. PR #97 remains draft and unmerged.
