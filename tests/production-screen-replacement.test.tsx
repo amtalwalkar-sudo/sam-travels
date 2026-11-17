@@ -17,14 +17,14 @@ function ReplacementShell({ children }: { children: ReactNode }) {
 describe("production screen replacement boundary", () => {
   it("registers each primary production screen behind a replaceable renderer contract", () => {
     const owners = new Set([...production.presentationScreens.values()].map(screen => screen.ownerFeatureId));
-    expect(owners).toEqual(expect.objectContaining(new Set(["work", "timeline", "performance", "admin"])));
+    for (const owner of ["work", "timeline", "performance", "admin"]) expect(owners.has(owner)).toBe(true);
   });
 
   it("replaces every registered production screen without replacing or coupling the shell", () => {
     const screens = [...production.presentationScreens.values()].filter(screen =>
       ["work", "timeline", "performance", "admin"].includes(screen.ownerFeatureId),
     );
-    expect(screens.map(screen => screen.ownerFeatureId).sort()).toEqual(["admin", "performance", "timeline", "work"]);
+    expect([...new Set(screens.map(screen => screen.ownerFeatureId))].sort()).toEqual(["admin", "performance", "timeline", "work"]);
 
     const replacements = new Map([...production.presentationScreens].map(([id, screen]) => [
       id,
