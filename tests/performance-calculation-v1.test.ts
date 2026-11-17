@@ -51,22 +51,20 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(result.daily.every(row => row.date < result.toExclusive)).toBe(true);
   });
 
-  it("weights a partial first calendar month by its operational-day count", () => {
-    // The exact 18-month window has 549 operational dates here. At 100 paise
-    // per date, the 17-day partial March receives 1,700 paise versus 3,000
-    // paise for the following 30-day full month.
+  it("recovers the aggregate pool in 18 equal monthly instalments with date clamping", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "partial-month", revision: 1, amountPaise: 54_900, note: "setup", origin: "manual" },
     ]);
-    const march = result.daily.filter(row => row.date.startsWith("2026-03"))
+    const firstCycle = result.daily.filter(row => row.date >= "2026-03-15" && row.date < "2026-04-15")
       .reduce((sum, row) => sum + row.amountPaise, 0);
-    const april = result.daily.filter(row => row.date.startsWith("2026-04"))
+    const secondCycle = result.daily.filter(row => row.date >= "2026-04-15" && row.date < "2026-05-15")
       .reduce((sum, row) => sum + row.amountPaise, 0);
-    expect(march).toBe(1_700);
-    expect(april).toBe(3_000);
-    expect(march / 17).toBe(april / 30);
+    expect(firstCycle).toBe(3_050);
+    expect(secondCycle).toBe(3_050);
     expect(result.toExclusive).toBe("2027-09-15");
+    expect(result.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(54_900);
   });
+
 
   it("allocates remainder paise deterministically and reconciles multiple independent entries", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
@@ -99,6 +97,16 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(result.lifetime.profitPaise).toBe(result.lifetime.revenuePaise - result.lifetime.costPaise);
     expect(result.lifetime.targetPositionPaise).toBe(result.lifetime.profitPaise - result.lifetime.targetPaise);
     expect(result.lifetime.elapsedCalendarMonths).toBe(2);
+  });
+
+  it("prorates only the first calendar month's Driver Target from the start date", () => {
+    const result = calculatePerformanceV1(fixture({
+      periodFrom: "2026-04-01", periodTo: "2026-04-30",
+      monthlyDriverTargetPaise: 31_000,
+    }));
+    // March 15-31 is 17 of 31 days; April and later months are full.
+    expect(result.lifetime.elapsedCalendarMonths).toBe(2);
+    expect(result.lifetime.targetPaise).toBe(17_000 + 31_000);
   });
 
   it("does not prorate the configured monthly target for a one-day selected period", () => {
