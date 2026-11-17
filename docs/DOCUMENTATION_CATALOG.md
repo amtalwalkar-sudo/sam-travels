@@ -35,7 +35,7 @@
 |---|---|
 | [Authority and Responsibility Allotment Map](AUTHORITY_AND_RESPONSIBILITY_ALLOTMENT_MAP.md) | Capability ownership and calculation responsibility map |
 | [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Effective-date allocation for eligible pre-business costs |
-| [Business Start Date Allocation Implementation Plan](BUSINESS_START_DATE_COST_ALLOCATION_IMPLEMENTATION_PLAN.md) | Delivery plan; not a second allocation policy |
+| [Business Start Date Allocation Implementation Plan](BUSINESS_START_DATE_COST_ALLOCATION_IMPLEMENTATION_PLAN.md) | Historical/superseded source-allocation implementation plan retained for provenance; current downstream recovery policy is owned by the contract |
 | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Breakeven and fixed-rupee driver target calculation semantics |
 | [Finance Loan Calculation Contract](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI/amortization calculation authority |
 | [Finance and Performance Calculation Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approved calculation decisions and scope |
