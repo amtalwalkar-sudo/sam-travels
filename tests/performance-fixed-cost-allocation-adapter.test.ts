@@ -15,12 +15,12 @@ function source(input: Partial<CostAllocationSourceResultV1> & Pick<CostAllocati
 }
 
 describe("Performance fixed-cost allocation adapter v1", () => {
-  it("splits pre-business EMI and Compliance portions by original validity dates", async () => {
+  it("consumes canonical daily rows and recovers full pre-business source amounts", async () => {
     const sources: CostAllocationSourceResultV1[] = [
       source({
         sourceId: "loan:emi:3", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
         sourceAmountPaise: 31_000, disposition: "allocated",
-        sourcePeriod: { from: "2026-01-01", to: "2026-03-31", label: "EMI installment 3" },
+        sourcePeriod: { from: "2026-03-01", to: "2026-03-31", label: "EMI installment 3" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
         daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
@@ -28,6 +28,11 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceId: "loan:pre-business-emi-carry-forward",
         sourceKind: "emi-pre-business-carry-forward", sourceVersion: 2,
         sourceAmountPaise: 12_000, disposition: "allocated",
+      }),
+      source({
+        sourceId: "loan:emi:2", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
+        sourceAmountPaise: 5_000, disposition: "pre_business_historical",
+        sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "EMI installment 2" },
       }),
       source({
         sourceId: "compliance:overlap", sourceKind: "compliance", sourceVersion: 4,
@@ -72,18 +77,18 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     adapter.releaseSnapshot();
 
     expect(reads).toBe(1);
-    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(10_678);
+    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(31);
     expect(emi.every(row => row.verified && row.sourceRefs.length === 1 &&
       row.sourceRefs[0].sourceId === "loan:emi:3" && row.sourceRefs[0].revision === 2)).toBe(true);
-    expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(30_600);
+    expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(0);
     expect(compliance.every(row => row.verified && row.sourceRefs.length === 1 &&
       row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
-    // Narrow report windows must take their original daily share, not re-spread
-    // the whole installment or validity-period amount across the selected dates.
-    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(345);
-    expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(100);
-    expect(emiRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(32_322);
-    expect(complianceRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(15_900);
+    // The adapter returns the canonical daily paise rows verbatim and does not
+    // reconstruct a new distribution for the requested report window.
+    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
+    expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(0);
+    expect(emiRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(17_000);
+    expect(complianceRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(46_500);
     expect([...emiRecovery, ...complianceRecovery].map(row => row.origin).sort())
       .toEqual(["compliance", "compliance", "emi", "emi"]);
     expect(completeness).toEqual([expect.objectContaining({ status: "review-required" })]);
