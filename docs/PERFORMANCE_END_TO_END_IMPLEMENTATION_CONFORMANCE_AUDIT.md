@@ -95,17 +95,24 @@ Do not silently treat these as equivalent. The contract owner must keep one expl
 
 Until the governing contract/addendum is reconciled with the approved latest owner decision, this is a documentation and acceptance ambiguity. The implementation's full-month display must not be presented as proof that partial-month passbook pacing is complete.
 
-### 3.4 Pre-business recovery — targeted reconciliation required
+### 3.4 Pre-business recovery — policy approved; implementation conformance remains to be proven
 
-The domain implementation allocates eligible manual, EMI and Compliance pre-business source amounts over the exact 18-month date interval beginning at the actual business start date, with the anniversary as an exclusive end. It distributes paise deterministically and reconciles allocated amounts to their source totals.
+The owner-approved rule is date-based: use each source category's authoritative business/effective date. If that date is before the Business Start Date, recover the full source amount evenly over the 18 months beginning on the Business Start Date and include the monthly recovery portions in Full Cost Breakeven. Source validity and schedule end dates do not cap that period. Amounts dated on or after the Business Start Date follow their normal source-category rules. Record creation/edit timestamps do not determine classification.
+
+The source-date mapping is Compliance `validFrom`, each EMI's scheduled due date, and the explicit business/effective date for manual dated costs. Preserve source records and provenance, and ensure the amount is recognized exactly once.
+
+The domain implementation already allocates eligible manual, EMI and Compliance pre-business source amounts over an 18-month date interval with deterministic paise distribution. The remaining conformance work is to prove that the adapters classify the complete source amounts using the approved dates and do not retain obsolete source-validity/remaining-schedule recovery horizons.
 
 Add/retain explicit regression cases for:
-- A mid-month business start.
-- The partial first calendar month.
-- Leap-year dates and a month-end anniversary clamp.
-- The final eligible date and the first excluded anniversary date.
+- An amount dated immediately before, exactly on, and immediately after the Business Start Date.
+- A source validity/schedule end before the Business Start Date, proving the full pre-business amount still recovers over 18 months.
+- A source validity/schedule end inside the 18-month recovery interval, proving it does not truncate recovery.
+- A mid-month Business Start Date and the exact first/final recovery-month boundaries.
+- Leap-year dates and month-end anniversary handling.
+- Integer-paise residual distribution and exact reconciliation to each original source amount.
 - Separate source provenance and no duplicate recovery of the same source.
-- EMI and Compliance pre-start portions reconciled to their authoritative source allocations.
+- Compliance renewals and individual EMI due dates classified independently.
+- Browser/Room parity, correction, retry and restore behaviour.
 
 ### 3.5 Final Performance UX status — not yet approved
 
