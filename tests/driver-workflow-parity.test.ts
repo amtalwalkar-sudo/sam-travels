@@ -151,6 +151,56 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(await records.getNetworkEnabled()).toBe(false);
   });
 
+  it("allocates the inter-shift odometer gap to personal distance using the shared fixture", async () => {
+    const fixture = parity.personalDistance;
+    const firstDate = "2026-11-08";
+    const secondDate = "2026-11-09";
+    const at = (date: string, time: string) => date + "T" + time + ":00.000Z";
+    const records = new DexieRecordRepository();
+    const repository = new DexieDriverWorkflowRepository();
+    const driverId = "personal-distance-driver";
+    const vehicleId = "feature:vehicle:MH01PD1234";
+    const createdAt = at(firstDate, "00:00");
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:" + driverId, schemaVersion: 1, createdAt, updatedAt: createdAt,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId, name: "Distance Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:" + driverId, schemaVersion: 1, createdAt, updatedAt: createdAt,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId, assignments: [{
+          assignmentId: "personal-distance-assignment", vehicleId, assignedAt: createdAt,
+        }] } },
+      { id: vehicleId, schemaVersion: 1, createdAt, updatedAt: createdAt, source: "web", revision: 1,
+        data: { schemaVersion: 1, registrationNumber: "MH01PD1234", make: "Make", model: "Model",
+          vehicleType: "Sedan", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    await new WorkDriverSelectionService(records, repository).selectDriver(driverId);
+    const service = new DriverWorkflowService(repository, { capture: async fixAt => gpsAt(fixAt) });
+    const commit = async (type: "shift_start" | "shift_end", id: string, timestamp: string,
+      odometer: { schemaVersion: 1; readingKm: number; businessKm?: number; previousConfirmedKm?: number; personalKm?: number }) => {
+      const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, timestamp, odometer);
+      const result = await service.dispatch(command);
+      expect(result.status).toBe("recorded");
+    };
+
+    await commit("shift_start", "personal-first-start", at(firstDate, "10:00"),
+      { schemaVersion: 1, readingKm: fixture.firstShiftStartOdometerKm });
+    await commit("shift_end", "personal-first-end", at(firstDate, "11:00"),
+      { schemaVersion: 1, readingKm: fixture.previousShiftEndOdometerKm, businessKm: fixture.currentShiftBusinessKm });
+    await commit("shift_start", "personal-second-start", at(secondDate, "10:00"),
+      { schemaVersion: 1, readingKm: fixture.nextShiftStartOdometerKm,
+        previousConfirmedKm: fixture.previousShiftEndOdometerKm, personalKm: fixture.personalKm });
+    await commit("shift_end", "personal-second-end", at(secondDate, "11:00"),
+      { schemaVersion: 1, readingKm: fixture.nextShiftStartOdometerKm, businessKm: fixture.secondShiftBusinessKm });
+
+    const rows = await browserDatabase.records.toArray();
+    const first = rows.find(row => row.id === "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + firstDate);
+    const second = rows.find(row => row.id === "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + secondDate);
+    expect(first?.data).toMatchObject({ totalBusinessKm: fixture.currentShiftBusinessKm, unallocatedBusinessKm: 0 });
+    expect(second?.data).toMatchObject({ totalBusinessKm: fixture.secondShiftBusinessKm, unallocatedBusinessKm: 0 });
+    const secondEntry = (second?.data as { entries: Array<{ personalKm: number; businessKm: number }> }).entries[0];
+    expect(secondEntry).toMatchObject({ personalKm: fixture.personalKm, businessKm: fixture.secondShiftBusinessKm });
+    expect(fixture.currentShiftBusinessKm + fixture.secondShiftBusinessKm).toBe(fixture.expectedTotalBusinessKm);
+  });
+
   it("keeps the 04:00 India operational-day boundary correct across a persisted shift restart", async () => {
     const beforeBoundary = "2026-11-08T22:29:59.000Z";
     const atBoundary = "2026-11-08T22:30:00.000Z";
