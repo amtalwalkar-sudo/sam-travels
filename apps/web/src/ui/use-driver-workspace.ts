@@ -132,9 +132,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         refreshWorkflowStatus();
         const resumeWorkflow = () => {
           if (document.visibilityState === "hidden") return;
-          void service.replayCommittedEvents();
-          void service.snapshot().then(snapshot => { if (live) setDriver(snapshot); });
-          void service.reconcilePending().then(items => { if (live) setPending(items); });
+          void coordinator.resume(service).then(state => {
+            if (!live) return;
+            setDriver(state.snapshot);
+            setPending(state.pending);
+          });
         };
         window.addEventListener("focus", resumeWorkflow);
         document.addEventListener("visibilitychange", resumeWorkflow);
