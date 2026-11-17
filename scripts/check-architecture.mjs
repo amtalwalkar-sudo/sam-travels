@@ -100,7 +100,7 @@ for (const absolute of sourceFiles) {
       failures.push(`${relative}:${reference.line}: browser persistence library "${specifier}" is private to the browser persistence adapter`);
     }
     const resolved = resolveImport(specifier, relative, resolveAlias);
-    const normalizedTarget = resolved?.replace(/\\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "");
+    const normalizedTarget = resolved?.replace(/\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "");
     if (normalizedTarget === "src/domain/driver/workflow") {
       retiredModuleImporters.push(`${relative}:${reference.line}`);
     }
