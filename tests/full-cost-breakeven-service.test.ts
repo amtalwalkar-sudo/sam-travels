@@ -49,6 +49,9 @@ describe("FullCostBreakevenService source integration", () => {
           ], sourceRevisions: [1],
         }],
         listFuelPurchases: async () => [fuelPurchase],
+        listCorrectionReferences: async (sourceId: string) => sourceId === "fuel-purchase-1"
+          ? [{ sourceId: "historical-correction:fuel-amount-correction", revision: 1 }]
+          : [],
         listFuelCostRateHistory: async () => [{
           calculationVersion: "business-expenses.fuel-cost-rate-history.v1",
           effectiveFrom: "2026-10-31", completionBusinessDate: "2026-10-30",
@@ -84,6 +87,7 @@ describe("FullCostBreakevenService source integration", () => {
       fuel: 15_000, maintenance: 2_000, "platform-fee": 100, emi: 500, miscellaneous: 50,
     });
     expect(result.provenance.sourceIds).toContain("fuel-purchase-1");
+    expect(result.provenance.sourceIds).toContain("historical-correction:fuel-amount-correction");
     expect(result.provenance.sourceIds).toContain("maintenance-accrual-1");
     expect(result.provenance.sourceIds).toContain("maintenance-rate-history-1");
     expect(result.provenance.sourceIds).toContain("loan:emi:1");
