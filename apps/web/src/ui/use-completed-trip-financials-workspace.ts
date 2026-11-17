@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
-import { getPlatformRecordSource } from "../native-store";
-import { getPersonIdentityService } from "../person-identity-runtime";
 import { calculateTripFinancialSummary, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";
-import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import type { TripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 type Draft = { fare:string; toll:string; tollPayer:string; parking:string; parkingPayer:string };
 const emptyDraft=():Draft=>({fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""});
@@ -23,7 +20,7 @@ function fromValues(values:Record<string,unknown>):Draft {
 }
 
 export function useCompletedTripFinancialsWorkspace(
-  platformRepository:RecordRepository&AtomicRecordRepository,
+  tripFinancialForms:TripFinancialFormRuntimeV1,
   refreshKey:number|undefined,
   setDriverMessage:Dispatch<SetStateAction<string>>,
 ) {
@@ -31,13 +28,6 @@ export function useCompletedTripFinancialsWorkspace(
   const [completedTripFinancialDrafts,setCompletedTripFinancialDrafts]=useState<Record<string,Draft>>({});
   const [completedTripFinancialBusy,setCompletedTripFinancialBusy]=useState(false);
   const queues=useRef(new Map<string,Promise<void>>());
-  const tripFinancialForms=useMemo(()=>createTripFinancialFormRuntimeV1(
-    platformRepository,getPlatformRecordSource(),async()=>{
-      const actor=await getPersonIdentityService().currentActor();
-      return {personId:actor.actorId,role:actor.role};
-    },
-  ),[platformRepository]);
-
     const refresh=useCallback(async()=>{
     const obligations=await tripFinancialForms.listPendingCompletedTripFinancials();
     const drafts:Record<string,Draft>={};
