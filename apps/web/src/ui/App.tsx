@@ -8,6 +8,8 @@ import { createTripFinancialFormRuntimeV1 } from "../../../../packages/applicati
 import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
+import { WorkApplicationRuntimeV1 } from "../work-application-runtime";
+import { useAdminMaintenanceServices } from "./admin-services-context";
 import { FuelEntryPanel } from "./FuelEntryPanel";
 import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
 import { PrimaryScreenComposition } from "./PrimaryScreenComposition";
@@ -38,7 +40,14 @@ function AppWorkspace({
   fullCostBreakeven, performanceCalculation,
 }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
-  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
+  const { maintenance, recordSource } = useAdminMaintenanceServices();
+  const workRuntime = useMemo(() => new WorkApplicationRuntimeV1({
+    runtime: runtimeRegistry,
+    records: platformRepository,
+    maintenance,
+    source: recordSource,
+  }), [runtimeRegistry, platformRepository, maintenance, recordSource]);
+  const workspace = useDriverWorkspace(workRuntime, platformRepository);
   const { repo, enabled } = workspace;
   const { toggleNetwork } = workspace.actions;
 
