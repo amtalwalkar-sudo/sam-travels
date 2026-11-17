@@ -21,6 +21,7 @@ function canonicalDailyRows(
   from: string,
   to: string,
   kind: "emi" | "compliance",
+  correctionRefs: readonly Readonly<{ sourceId: string; revision: number }>[] = [],
 ): readonly PerformanceDailyCostInputV1[] {
   return Object.freeze(source.daily.flatMap(row => {
     if (row.date < from || row.date > to) return [];
@@ -30,9 +31,13 @@ function canonicalDailyRows(
     }
     return [Object.freeze({
       date: row.date, kind, amountPaise: row.amountPaise, verified: true,
-      sourceRefs: Object.freeze([Object.freeze({
-        sourceId: row.sourceId, revision: row.sourceVersion,
-      })]),
+      sourceRefs: Object.freeze([
+        Object.freeze({
+          sourceId: row.sourceId, revision: row.sourceVersion,
+          ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}),
+        }),
+        ...correctionRefs.map(ref => Object.freeze({ ...ref })),
+      ]),
     })];
   }));
 }
@@ -72,10 +77,14 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
 
   async getSourceSnapshotIdentity(): Promise<string> {
     const report = await this.report();
-    const sources = report.result.sources.map(source =>
-      source.sourceId + "@" + source.sourceVersion + ":" + source.disposition + ":" +
-      source.daily.map(row => row.date + "=" + row.amountPaise).join(","),
-    ).sort();
+    const correctionRefs = report.sourceCorrectionRefs ?? [];
+    const sources = report.result.sources.map(source => {
+      const baseId = source.sourceId.replace(/:allocated$/, "");
+      const refs = correctionRefs.find(item => item.sourceId === baseId)?.refs ?? [];
+      return source.sourceId + "@" + source.sourceVersion + ":" + source.disposition + ":" +
+        source.daily.map(row => row.date + "=" + row.amountPaise).join(",") + ":" +
+        refs.map(ref => ref.sourceId + "@" + ref.revision).sort().join(",");
+    }).sort();
     return "performance-fixed-cost-sources:" + sources.join("|");
   }
 
@@ -95,10 +104,13 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
   async listDailyComplianceAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     const blocked = blockedComplianceBases(report.result.sources);
+    const correctionRefs = report.sourceCorrectionRefs ?? [];
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.sourceKind !== "compliance" || source.disposition !== "allocated" ||
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
-      return canonicalDailyRows(source, from, to, "compliance");
+      const baseId = source.sourceId.replace(/:allocated$/, "");
+      const refs = correctionRefs.find(item => item.sourceId === baseId)?.refs ?? [];
+      return canonicalDailyRows(source, from, to, "compliance", refs);
     }));
   }
 
