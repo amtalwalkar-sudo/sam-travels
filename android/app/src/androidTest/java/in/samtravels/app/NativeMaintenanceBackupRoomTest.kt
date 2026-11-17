@@ -75,7 +75,7 @@ class NativeMaintenanceBackupRoomTest {
                 .put("entries", JSONArray().put(JSONObject().put("shiftId", "shift-maintenance")
                     .put("businessKm", 10L).put("personalKm", 2L).put("allocationStatus", "allocated"))))
             .toString(),
-        4, timestamp,
+        1, timestamp,
     )
 
     private fun accrualRecord() = stored(
@@ -218,7 +218,7 @@ class NativeMaintenanceBackupRoomTest {
             }
             fun correctionProvenance(): List<String> = listOf(firstId, secondId, chainId).map { id ->
                 val row = database.records().get(id) ?: error("missing correction provenance row")
-                id + "@" + row.revision
+                id + "@" + JSONObject(row.json).optLong("revision", -1L)
             }
             val projectedBeforeRestore = projectedExpenseAmount()
             val provenanceBeforeRestore = correctionProvenance()
