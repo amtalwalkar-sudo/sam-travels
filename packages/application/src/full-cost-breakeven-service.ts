@@ -16,6 +16,9 @@ export type FullCostBreakevenSourceActivityV1 = Readonly<BreakevenDailyActivityV
   maintenanceSourceRefs: readonly Readonly<{ sourceId: string; revision: number }>[];
 }>;
 export type FullCostBreakevenSourceProjectionV1 = Readonly<{
+  /** Identity of the fixed-cost allocation snapshot used by this projection. */
+  businessStartDate?: string;
+  businessSettingsRevision?: number;
   dailyActivity: readonly FullCostBreakevenSourceActivityV1[];
   datedCosts: readonly BreakevenDailyCostV1[];
   completeness: readonly BreakevenCompletenessV1[];
@@ -266,6 +269,8 @@ export class FullCostBreakevenService {
     }
 
     return Object.freeze({
+      businessStartDate: allocationReport.businessStartDate,
+      businessSettingsRevision: allocationReport.businessSettingsRevision,
       dailyActivity: Object.freeze(dailyActivity),
       datedCosts: Object.freeze(datedCosts),
       completeness: Object.freeze(completeness),
