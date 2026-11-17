@@ -48,7 +48,7 @@ A Maintenance expense correction must not rewrite immutable Work odometer facts,
 
 ## 5. Implementation evidence record — 2026-11-17
 
-The approved behaviours are implemented on draft PR #97 and have the following automated evidence:
+The approved behaviours were implemented by PR #97, which has since merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`, and have the following automated evidence:
 
 - Passbook arithmetic, source provenance, cumulative shortfall recovery, leap-day/month-end recovery boundaries: `tests/performance-calculation-v1.test.ts`.
 - Active-day qualification, wrong-shift/legacy context handling, 04:00 operational-date retention, zero-kilometre active days and unallocated distance review: `tests/full-cost-breakeven-contract-boundaries.test.ts` and `tests/full-cost-breakeven-service.test.ts`.
@@ -64,4 +64,12 @@ These tests establish automated implementation evidence, not physical-device acc
 - [Workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482): Architecture, Web, Android and Integrated regression all passed.
 - Android emulator-backed Room/workflow/backup reliability and debug-signed phone-test APK publication passed. Physical phone acceptance is not claimed and remains deferred to the agreed final testing stage.
 - Production geocoder verification was skipped by workflow configuration; no live geocoder claim is made.
-- PR #97 remains draft and unmerged.
+- At the time of this pre-merge evidence record, PR #97 remained draft and unmerged. It was subsequently merged; this line is retained as historical status.
+
+
+## 7. Post-merge verification status — 2026-11-17
+
+- PR #97 is merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`; PR #96's documentation merge leaves `main` at `b54181330e4e89d1f25b2e1e56a40b8264f19014` at the start of the final software-quality pass.
+- The preceding main push on `a15acb7` passed Architecture, Web, Android, Production geocoder and Integrated regression in [run #44107617073](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44107617073).
+- The later `b541813` main run [#44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218) passed Architecture and Web but failed Android in the Maintenance correction driver-form acceptance. Integrated regression failed downstream; geocoder was skipped because Android failed. The Android test synchronization and architecture-size issues are being corrected in draft [PR #98](https://github.com/amtalwalkar-sudo/sam-travels/pull/98); do not mark the final-main gate green until its exact-head and post-merge runs pass.
+- A deployed production-data reconciliation and final visual-composition approval remain separate. Physical-phone acceptance remains explicitly deferred.
