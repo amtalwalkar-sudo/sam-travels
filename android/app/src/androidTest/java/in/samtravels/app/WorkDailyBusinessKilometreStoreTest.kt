@@ -37,7 +37,7 @@ class WorkDailyBusinessKilometreStoreTest {
             .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
                 .put("assignmentId", "assignment-1").put("vehicleId", vehicleId))
         val command = JSONObject().put("eventType", "shift_end").put("transitionAt", transitionAt)
-            .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 600).put("businessKm", 100))
+            .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", startOdometer + businessKm).put("businessKm", businessKm))
         WorkDailyBusinessKilometreStore.append(db, current, command, "shift-pending-end", transitionAt)
         val operationalDate = DriverWorkflowStore.operationalDateAt(startedAt)
         val id = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") + ":" + operationalDate
@@ -49,12 +49,17 @@ class WorkDailyBusinessKilometreStoreTest {
     }
 
     @Test fun personalKilometresRemainSeparateFromBusinessKilometresInRoomProjection() {
+        val fixture = JSONObject(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .context.assets.open("driver-workflow-parity-v1.json").bufferedReader().use { it.readText() })
+            .getJSONObject("personalDistance")
         val startedAt = "2026-11-02T08:00:00.000Z"
         val now = "2026-11-02T10:00:00.000Z"
         val vehicleId = "feature:vehicle:MH01AB1234"
+        val startOdometer = fixture.getInt("nextShiftStartOdometerKm")
+        val businessKm = fixture.getInt("currentShiftBusinessKm")
         val current = JSONObject().put("state", "shift_active").put("shiftId", "shift-personal")
-            .put("shiftStartedAt", startedAt).put("shiftStartOdometerKm", 500)
-            .put("shiftStartPersonalKm", 50)
+            .put("shiftStartedAt", startedAt).put("shiftStartOdometerKm", startOdometer)
+            .put("shiftStartPersonalKm", fixture.getInt("personalKm"))
             .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
                 .put("assignmentId", "assignment-1").put("vehicleId", vehicleId))
         val command = JSONObject().put("eventType", "shift_end").put("transitionAt", now)
@@ -64,9 +69,9 @@ class WorkDailyBusinessKilometreStoreTest {
         val id = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") + ":" + operationalDate
         val data = JSONObject(db.records().get(id)!!.json).getJSONObject("data")
         val entry = data.getJSONArray("entries").getJSONObject(0)
-        assertEquals(100, entry.getLong("businessKm"))
-        assertEquals(50, entry.getLong("personalKm"))
-        assertEquals(100, data.getLong("totalBusinessKm"))
+        assertEquals(businessKm.toLong(), entry.getLong("businessKm"))
+        assertEquals(fixture.getInt("personalKm").toLong(), entry.getLong("personalKm"))
+        assertEquals(fixture.getInt("expectedTotalBusinessKm").toLong(), data.getLong("totalBusinessKm"))
     }
 
 }
