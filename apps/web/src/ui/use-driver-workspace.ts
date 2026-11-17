@@ -13,7 +13,7 @@ import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
-import type { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
+import { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
 type RuntimeRegistry = ReturnType<typeof getApplicationRuntimeRegistry>;
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
