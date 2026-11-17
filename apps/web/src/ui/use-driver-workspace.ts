@@ -7,7 +7,7 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import {
   createDriverWorkflow,
 } from "../driver-workflow";
-import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work-shift";
+import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, WorkApplicationCoordinatorV1 } from "../../../../packages/features/work";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
@@ -85,27 +85,14 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           .map(row => ({driverId:row.driverId!,name:row.name!})));
         setSelectedDriverId(selected?.driverId ?? "");
         setSelectionService(selection);
-        const service = new DriverWorkflowService(repository, location, async (event) => {
-          // A 04:00 rotation closes the outgoing operational day. Do not accrue
-          // on ordinary shift_end: another shift can still add kilometres to
-          // that same daily projection. This runs through the durable Work
-          // outbox, so a restart/replay safely retries the same accrual.
-          await accrueMaintenanceForCompletedWorkDay({
-            event,
-            records: platformRecords,
-            maintenance,
-            source: recordSource,
-          });
-          await dispatchCommittedFeatureEvent(runtime, LOGBOOK_WORK_EVENT_INTEGRATION, event, async () => {
-            rebuildTripHistoryProjection(await repository.listEvents());
-          });
+        const coordinator = new WorkApplicationCoordinatorV1({
+          runtime, records: platformRecords, maintenance, source: recordSource,
         });
+        const service = coordinator.createWorkflow(repository, location);
         setWorkflow(service);
-        setDriver(await service.snapshot());
-        rebuildTripHistoryProjection(await service.events());
-        await service.replayCommittedEvents();
-        await service.reconcilePending();
-        const pendingItems = await service.resumePendingBackground();
+        const restored = await coordinator.initialize(service);
+        setDriver(restored.snapshot);
+        const pendingItems = restored.pending;
         setPending(pendingItems);
         setDriverMessage(
           pendingItems.length
