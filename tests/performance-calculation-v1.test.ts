@@ -4,7 +4,7 @@ import {
   calculatePerformanceV1,
   type PerformanceCalculationInputV1,
 } from "../packages/domain/src/performance-calculation-v1";
-import { buildPerformancePassbookV1 } from "../packages/domain/src/performance-passbook-v1";
+import { buildPerformancePassbookV1, proratedDriverTargetForRangeV1 } from "../packages/domain/src/performance-passbook-v1";
 
 function fixture(overrides: Partial<PerformanceCalculationInputV1> = {}): PerformanceCalculationInputV1 {
   return {
@@ -46,6 +46,19 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(result.daily[result.daily.length - 1].date).toBe("2027-09-14");
     expect(result.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(18_000);
     expect(result.daily.every(row => row.date < result.toExclusive)).toBe(true);
+  });
+
+  it("keeps the 18-month recovery window correct across leap day and a month-end start", () => {
+    const result = allocatePreBusinessRecoveryV1("2024-01-31", [
+      { sourceId: "leap-year-recovery", revision: 1, amountPaise: 1_800, note: "historical setup", origin: "manual" },
+    ]);
+    expect(result.from).toBe("2024-01-31");
+    expect(result.toExclusive).toBe("2025-07-31");
+    expect(result.daily.some(row => row.date === "2024-02-29")).toBe(true);
+    expect(result.daily[0].date).toBe("2024-01-31");
+    expect(result.daily.at(-1)?.date).toBe("2025-07-30");
+    expect(result.daily.every(row => row.date < result.toExclusive)).toBe(true);
+    expect(result.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1_800);
   });
 
   it("recovers the aggregate pool in 18 equal monthly instalments with date clamping", () => {
@@ -202,6 +215,17 @@ describe("Performance Calculation Contract v1.0", () => {
     );
     expect(result.passbook.daily.at(-1)?.positionPaise).toBe(result.passbook.positionPaise);
     expect(result.passbook.daily.at(-1)?.remainingTargetPaise).toBe(result.passbook.remainingTargetPaise);
+
+    let previousActual = 0;
+    for (const row of result.passbook.daily) {
+      expect(row.actualCumulativeSurplusPaise).toBe(previousActual + row.actualDailySurplusPaise);
+      expect(row.expectedCumulativeTargetPaise).toBe(
+        proratedDriverTargetForRangeV1(31_000, result.businessStartDate, row.date),
+      );
+      expect(row.positionPaise).toBe(row.actualCumulativeSurplusPaise - row.expectedCumulativeTargetPaise);
+      expect(row.remainingTargetPaise).toBe(Math.max(0, -row.positionPaise));
+      previousActual = row.actualCumulativeSurplusPaise;
+    }
   });
 
 
