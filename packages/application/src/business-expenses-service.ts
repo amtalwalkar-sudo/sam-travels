@@ -215,6 +215,16 @@ export class BusinessExpensesService {
     })));
   }
 
+  /** Returns immutable correction-chain references separately from the original source revision. */
+  async listCorrectionReferences(targetRecordId: string): Promise<readonly Readonly<{ sourceId: string; revision: number }>[]> {
+    if (!this.historicalCorrections) return Object.freeze([]);
+    const corrections = await this.historicalCorrections.listForTarget(targetRecordId);
+    return Object.freeze(corrections.map(correction => Object.freeze({
+      sourceId: "historical-correction:" + correction.correctionId,
+      revision: correction.chainRevision,
+    })));
+  }
+
   async listFuelPurchases(): Promise<readonly RecordEnvelope<FuelPurchaseV1>[]> {
     const records = await this.records.list();
     const fuel = records.filter(item => item.data.kind === "fuel_purchase") as RecordEnvelope<FuelPurchaseV1>[];
