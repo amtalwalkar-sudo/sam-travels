@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WorkApplicationCoordinatorV1 } from "../packages/features/work/application/work-application-coordinator";
+import { WorkApplicationCoordinatorV1 } from "../packages/features/work";
 import type { DriverWorkflowService } from "../packages/application/src/driver-workflow-service";
 
 function coordinator() {
