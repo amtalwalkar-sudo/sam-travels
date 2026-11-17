@@ -36,24 +36,14 @@ function canonicalDailyRows(
     })];
   }));
 }
-function recoverySource(
-  source: CostAllocationSourceResultV1,
-  origin: "emi" | "compliance",
-  note: string,
-): PreBusinessRecoverySourceV1 {
-  return Object.freeze({
-    sourceId: source.sourceId, revision: source.sourceVersion,
-    amountPaise: source.sourceAmountPaise, note, origin,
-  });
-}
 
 /**
  * Projects the canonical Business Start Date allocation rows into Performance.
  * Daily amounts are consumed verbatim; this adapter must not reconstruct or
  * re-spread an owning feature's allocation. Pre-business recovery eligibility
  * is based on the authoritative source date: EMI due date or Compliance
- * valid-from date. The full eligible source amount enters the shared recovery
- * pool, while unresolved overlap sources remain withheld.
+ * valid-from date. Pre-business portions are already included in the canonical
+ * daily rows; no second recovery schedule is created here.
  */
 export class PerformanceFixedCostAllocationAdapterV1
 implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceCompletenessReadModel {
@@ -107,28 +97,19 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const blocked = blockedComplianceBases(report.result.sources);
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.sourceKind !== "compliance" || source.disposition !== "allocated" ||
-          !source.sourcePeriod || source.sourcePeriod.from < report.businessStartDate ||
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
       return canonicalDailyRows(source, from, to, "compliance");
     }));
   }
 
   async listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
-    const report = await this.report();
-    return Object.freeze(report.result.sources.flatMap(source => {
-      if (source.disposition !== "allocated" || source.sourceAmountPaise <= 0) return [];
-      // EMI pre-business portions are already present in the canonical daily
-      // rows returned by listDailyEmiAllocations. Never feed them into the
-      // generic 18-month manual recovery schedule.
-    }));
+    // Canonical EMI daily rows already include any pre-business carry-forward.
+    return Object.freeze([]);
   }
 
   async listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
-    const report = await this.report();
-    const blocked = blockedComplianceBases(report.result.sources);
-    // Compliance pre-business portions are already represented by canonical
-    // daily rows from Business Start Date through the actual validTo date.
-    // Historical rows with no eligible dates are reported as incomplete.
+    // Canonical Compliance daily rows already include pre-business carry-forward.
+    return Object.freeze([]);
   }
 
   async getCompleteness(_from: string, _to: string): Promise<readonly PerformanceCompletenessV1[]> {
