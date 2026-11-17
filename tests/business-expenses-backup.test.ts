@@ -114,6 +114,12 @@ describe("Business Expenses browser backup participant", () => {
       fieldPath: "amountPaise", afterValue: 25_000, reason: "Verified against the corrected pump receipt",
       businessEffectiveDate: "2026-11-15",
     });
+    const secondCorrectionId = correctionId + "-second";
+    await correctionService.submit({
+      correctionId: secondCorrectionId, targetRecordId, expectedTargetRevision: 1, expectedChainRevision: 1,
+      fieldPath: "amountPaise", afterValue: 27_000, reason: "Second receipt verification",
+      businessEffectiveDate: "2026-11-15",
+    });
 
     const snapshot = await exportBrowserSnapshot("0.1.0");
     expect(snapshot.data.records.some(row => (row as { id?: string }).id === "historical-correction:" + correctionId)).toBe(true);
@@ -138,7 +144,7 @@ describe("Business Expenses browser backup participant", () => {
     expect(original?.revision).toBe(1);
     expect((original?.data as { amountPaise: number }).amountPaise).toBe(20_000);
     expect(projectHistoricalCorrectionsV1(original!.data, corrections)).toMatchObject({
-      status: "valid", data: { amountPaise: 25_000 }, chainRevision: 1,
+      status: "valid", data: { amountPaise: 27_000 }, chainRevision: 2,
     });
     const expenseDomain = {
       validateRecord: assertBusinessExpenseRecordV1,
@@ -154,16 +160,17 @@ describe("Business Expenses browser backup participant", () => {
       () => timestamp, restoredCorrectionService,
     );
     const projectedPurchases = await expenses.listFuelPurchases();
-    expect(projectedPurchases.find(row => row.id === targetRecordId)?.data.amountPaise).toBe(25_000);
+    expect(projectedPurchases.find(row => row.id === targetRecordId)?.data.amountPaise).toBe(27_000);
     expect(await expenses.listCorrectionReferences(targetRecordId)).toEqual([
       { sourceId: "historical-correction:" + correctionId, revision: 1 },
+      { sourceId: "historical-correction:" + secondCorrectionId, revision: 1 },
     ]);
     const rateHistory = await expenses.listFuelCostRateHistory();
     expect(rateHistory).toHaveLength(1);
     expect(rateHistory[0]).toMatchObject({
       completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
-      cumulativeSpendPaise: 55_000, cumulativeDistanceKm: 20,
-      costPaisePerKm: { numerator: "55000", denominator: "20" },
+      cumulativeSpendPaise: 57_000, cumulativeDistanceKm: 20,
+      costPaisePerKm: { numerator: "57000", denominator: "20" },
       sourcePurchaseIds: [targetRecordId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052"],
     });
   });
