@@ -39,3 +39,5 @@ export type {
   DriverWorkflowState,
 } from "../../core/src/commands";
 export type { GpsFix } from "../../core/src/types";
+export { WORK_SHIFT_FEATURE_EXTENSION } from "./runtime";
+export type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "./presentation/drive-screen-model";
