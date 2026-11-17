@@ -190,15 +190,21 @@ export function allocatePreBusinessRecoveryV1(
   const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
   const monthTotal = (monthIndex: number): number =>
     monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
+  let cumulativePoolAllocated = 0;
+  let previousSourceShares = sources.map(() => 0);
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
-    let cumulative = 0;
-    return sources.map(source => {
-      const total = BigInt(totalPaise);
-      const before = (BigInt(monthlyAmount) * BigInt(cumulative)) / total;
-      cumulative = add(cumulative, source.amountPaise);
-      const after = (BigInt(monthlyAmount) * BigInt(cumulative)) / total;
-      return Number(after - before);
+    cumulativePoolAllocated = add(cumulativePoolAllocated, monthlyAmount);
+    let cumulativeSourceAmount = 0;
+    const nextShares = sources.map(source => {
+      cumulativeSourceAmount = add(cumulativeSourceAmount, source.amountPaise);
+      const cumulativeTarget = Number(
+        (BigInt(cumulativePoolAllocated) * BigInt(cumulativeSourceAmount)) / BigInt(totalPaise),
+      );
+      return cumulativeTarget;
     });
+    const monthlyShares = nextShares.map((target, index) => target - previousSourceShares[index]);
+    previousSourceShares = nextShares;
+    return monthlyShares;
   };
   for (let monthIndex = 0; monthIndex < PRE_BUSINESS_RECOVERY_MONTHS_V1; monthIndex++) {
     const monthStart = addMonthsClamped(businessStartDate, monthIndex);
