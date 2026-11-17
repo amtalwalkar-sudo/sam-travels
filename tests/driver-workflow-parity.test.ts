@@ -122,7 +122,7 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(remoteOperation).not.toHaveBeenCalled();
 
     const repository = new DexieDriverWorkflowRepository();
-    const at = "2026-11-17T10:00:00.000Z";
+    const at = new Date().toISOString();
     const command = createDriverCommandV2(
       await repository.getSnapshot(), "shift_start", "pwa", "offline-shift-start", at,
       { schemaVersion: 1, readingKm: 1200 },
