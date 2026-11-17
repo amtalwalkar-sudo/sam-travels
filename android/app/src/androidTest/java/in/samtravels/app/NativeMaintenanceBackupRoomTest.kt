@@ -21,6 +21,8 @@ class NativeMaintenanceBackupRoomTest {
     private val vehicleId = "feature:vehicle:MH01AB1234"
     private val visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000"
     private val rateId = "feature:maintenance:rate:feature%3Avehicle%3AMH01AB1234"
+    private val workDailyId = "work:daily-business-km:feature%3Avehicle%3AMH01AB1234:2026-11-01"
+    private val accrualId = "feature:maintenance:daily-accrual:feature%3Avehicle%3AMH01AB1234:2026-11-01"
 
     private fun stored(id: String, data: JSONObject, at: String = timestamp) = StoredRecord(
         id,
@@ -60,6 +62,29 @@ class NativeMaintenanceBackupRoomTest {
                     .put("savedAt", "2026-11-02T10:00:00.000Z").put("isDefault", false)
                     .put("commandId", "123e4567-e89b-42d3-a456-426614174002").put("source", "web"))),
         at = "2026-11-02T10:00:00.000Z",
+    )
+
+    private fun workDailyRecord() = StoredRecord(
+        workDailyId,
+        JSONObject().put("id", workDailyId).put("schemaVersion", 1)
+            .put("createdAt", timestamp).put("updatedAt", timestamp).put("source", "web")
+            .put("revision", 4)
+            .put("data", JSONObject().put("schemaVersion", 1).put("kind", "daily_business_kilometres")
+                .put("vehicleId", vehicleId).put("operationalDate", "2026-11-01")
+                .put("totalBusinessKm", 10L).put("unallocatedBusinessKm", 0L)
+                .put("entries", JSONArray().put(JSONObject().put("shiftId", "shift-maintenance")
+                    .put("businessKm", 10L).put("personalKm", 2L).put("allocationStatus", "allocated"))))
+            .toString(),
+        1, timestamp,
+    )
+
+    private fun accrualRecord() = stored(
+        accrualId,
+        JSONObject().put("schemaVersion", 1).put("kind", "daily_accrual").put("vehicleId", vehicleId)
+            .put("operationalDate", "2026-11-01").put("dailyBusinessKmRecordId", workDailyId)
+            .put("dailyBusinessKmRevision", 4).put("businessKm", 10L).put("personalKm", 2L)
+            .put("personalAmountPaise", 500L).put("rateEffectiveFrom", "2026-11-01")
+            .put("ratePaisePerKm", 250L).put("amountPaise", 2500L),
     )
 
     @Test
@@ -114,6 +139,9 @@ class NativeMaintenanceBackupRoomTest {
         val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
         try {
             database.records().put(vehicleRecord())
+            database.records().put(rateRecord())
+            database.records().put(workDailyRecord())
+            database.records().put(accrualRecord())
             val expense = stored(expenseId, JSONObject().put("schemaVersion", 1).put("kind", "expense")
                 .put("vehicleId", vehicleId).put("expenseDate", "2026-10-10")
                 .put("expenseName", "Tyre repair").put("description", "Receipt amount")
@@ -172,6 +200,29 @@ class NativeMaintenanceBackupRoomTest {
 
             val originalBeforeRecovery = JSONObject(database.records().get(expenseId)!!.json)
             assertEquals(10000L, originalBeforeRecovery.getJSONObject("data").getLong("amountPaise"))
+            val workDailyBeforeRecovery = database.records().get(workDailyId)!!.json
+            val accrualBeforeRecovery = database.records().get(accrualId)!!.json
+
+            fun projectedExpenseAmount(): Long {
+                var amount = JSONObject(database.records().get(expenseId)!!.json)
+                    .getJSONObject("data").getLong("amountPaise")
+                val chain = database.records().list().filter { it.id.startsWith("historical-correction:") }
+                    .map { JSONObject(it.json).getJSONObject("data") }
+                    .filter { it.optString("targetRecordId") == expenseId }
+                    .sortedBy { it.getInt("chainRevision") }
+                chain.forEach { correction ->
+                    assertEquals(amount, correction.getLong("beforeValue"))
+                    amount = correction.getLong("afterValue")
+                }
+                return amount
+            }
+            fun correctionProvenance(): List<String> = listOf(firstId, secondId, chainId).map { id ->
+                val row = database.records().get(id) ?: error("missing correction provenance row")
+                id + "@" + row.revision
+            }
+            val projectedBeforeRestore = projectedExpenseAmount()
+            val provenanceBeforeRestore = correctionProvenance()
+            assertEquals(13000L, projectedBeforeRestore)
             val firstData = JSONObject(database.records().get(firstId)!!.json).getJSONObject("data")
             val secondData = JSONObject(database.records().get(secondId)!!.json).getJSONObject("data")
             assertEquals(10000L, firstData.getLong("beforeValue"))
@@ -188,6 +239,19 @@ class NativeMaintenanceBackupRoomTest {
             val exportedIds = (0 until exported.length()).map { exported.getJSONObject(it).optString("id") }
             assertTrue(exportedIds.containsAll(listOf(expenseId, firstId, secondId, chainId)))
             NativeBackupCoverage.validateBusinessRecords(exported, requireExplicitOwnerTags = true)
+            val invalidChain = JSONArray()
+            for (index in 0 until exported.length()) {
+                val row = JSONObject(exported.getJSONObject(index).toString())
+                if (row.optString("id") == secondId) {
+                    val envelope = JSONObject(row.getString("json"))
+                    envelope.getJSONObject("data").put("beforeValue", 99999L)
+                    row.put("json", envelope.toString())
+                }
+                invalidChain.put(row)
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                NativeBackupCoverage.validateBusinessRecords(invalidChain, requireExplicitOwnerTags = true)
+            }
             NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
             assertNull(database.records().get(expenseId))
             assertNull(database.records().get(firstId))
@@ -206,6 +270,10 @@ class NativeMaintenanceBackupRoomTest {
             assertEquals("admin-1", restoredSecond.getJSONObject("actor").getString("actorId"))
             assertEquals(2, restoredHead.getInt("chainRevision"))
             assertEquals("maintenance-fix-2", restoredHead.getString("headCorrectionId"))
+            assertEquals(projectedBeforeRestore, projectedExpenseAmount())
+            assertEquals(provenanceBeforeRestore, correctionProvenance())
+            assertEquals(workDailyBeforeRecovery, database.records().get(workDailyId)?.json)
+            assertEquals(accrualBeforeRecovery, database.records().get(accrualId)?.json)
         } finally {
             maintenance.close()
             vehicle.close()

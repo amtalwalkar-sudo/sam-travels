@@ -57,11 +57,16 @@ internal object NativeMaintenanceBackup {
                 val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found")
                 validatePayload(id, data, kind, vehicle.second, allRows)
             }
+            validateEffectiveRateSnapshots(rows, vehicles)
+            validateCorrectionChains(rows, allRows)
         },
     )
 
     private fun validDate(value: String): Boolean =
         runCatching { LocalDate.parse(value).toString() == value }.getOrDefault(false)
+
+    private fun validInstant(value: String): Boolean =
+        runCatching { OffsetDateTime.parse(value) }.isSuccess
 
     private fun validInteger(value: Any?): Boolean =
         value is Number && (value is Int || value is Long) && value.toLong() >= 0L &&
@@ -225,6 +230,170 @@ internal object NativeMaintenanceBackup {
                 }
             }
             else -> error("maintenance_record_kind_invalid")
+        }
+    }
+
+    private fun validateEffectiveRateSnapshots(rows: List<JSONObject>, vehicles: Map<String, Pair<JSONObject, String>>) {
+        val ratesByVehicle = rows.mapNotNull { row ->
+            val envelope = JSONObject(row.getString("json"))
+            val data = envelope.getJSONObject("data")
+            if (data.optString("kind") == "rate_history") data.optString("vehicleId") to data else null
+        }.toMap()
+        rows.forEach { row ->
+            val envelope = JSONObject(row.getString("json"))
+            val data = envelope.getJSONObject("data")
+            if (data.optString("kind") != "daily_accrual") return@forEach
+            val vehicleId = data.optString("vehicleId")
+            val vehicleCreatedAt = vehicles[vehicleId]?.second ?: error("maintenance_vehicle_not_found")
+            val operationalDate = data.getString("operationalDate")
+            val entries = ratesByVehicle[vehicleId]?.optJSONArray("entries")
+            var effective: JSONObject? = null
+            if (entries != null) {
+                for (index in 0 until entries.length()) {
+                    val candidate = entries.getJSONObject(index)
+                    val date = candidate.optString("effectiveFrom")
+                    val savedAt = candidate.optString("savedAt")
+                    val current = effective
+                    if (date <= operationalDate &&
+                        (current == null || date > current.optString("effectiveFrom") ||
+                            (date == current.optString("effectiveFrom") && savedAt > current.optString("savedAt")))) {
+                        effective = candidate
+                    }
+                }
+            }
+            val defaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+            val expectedEffectiveFrom = effective?.optString("effectiveFrom") ?: defaultDate
+            val expectedRate = effective?.optLong("ratePaisePerKm") ?: DEFAULT_RATE
+            require(expectedEffectiveFrom <= operationalDate &&
+                data.optString("rateEffectiveFrom") == expectedEffectiveFrom &&
+                data.optLong("ratePaisePerKm", -1L) == expectedRate) {
+                "maintenance_daily_accrual_effective_rate_mismatch"
+            }
+        }
+    }
+
+    private fun validateCorrectionChains(maintenanceRows: List<JSONObject>, allRows: List<JSONObject>) {
+        val expenses = maintenanceRows.filter { it.optString("id").startsWith(EXPENSE_PREFIX) }
+            .associateBy { it.optString("id") }
+        val correctionsByTarget = mutableMapOf<String, MutableList<Pair<JSONObject, JSONObject>>>()
+        val headsByTarget = mutableMapOf<String, Pair<JSONObject, JSONObject>>()
+
+        allRows.forEach { row ->
+            val id = row.optString("id")
+            val envelope = JSONObject(row.getString("json"))
+            val data = envelope.optJSONObject("data") ?: return@forEach
+            val targetId = data.optString("targetRecordId")
+            val featureId = data.optString("featureId")
+            if (id.startsWith("historical-correction:") &&
+                (featureId == FEATURE_ID || targetId.startsWith(EXPENSE_PREFIX))) {
+                require(featureId == FEATURE_ID && targetId.startsWith(EXPENSE_PREFIX)) {
+                    "maintenance_correction_identity_invalid"
+                }
+                correctionsByTarget.getOrPut(targetId) { mutableListOf() }.add(row to envelope)
+            }
+            if (id.startsWith("historical-correction-chain:") && targetId.startsWith(EXPENSE_PREFIX)) {
+                require(headsByTarget.put(targetId, row to envelope) == null) {
+                    "maintenance_correction_chain_head_duplicate"
+                }
+            }
+        }
+
+        val targetIds = correctionsByTarget.keys + headsByTarget.keys
+        targetIds.forEach { targetId ->
+            val originalRow = expenses[targetId] ?: error("maintenance_correction_target_missing")
+            val originalEnvelope = JSONObject(originalRow.getString("json"))
+            val originalData = originalEnvelope.getJSONObject("data")
+            require(originalData.optString("kind") == "expense" &&
+                validInteger(originalData.opt("amountPaise"))) {
+                "maintenance_correction_target_invalid"
+            }
+            val ordered = correctionsByTarget[targetId].orEmpty().sortedBy {
+                it.second.getJSONObject("data").optInt("chainRevision", -1)
+            }
+            val headPair = headsByTarget[targetId]
+            require(ordered.isNotEmpty() && headPair != null) {
+                "maintenance_correction_chain_head_missing"
+            }
+
+            var projectedAmount = originalData.getLong("amountPaise")
+            var previousCorrectionId: String? = null
+            ordered.forEachIndexed { index, (row, envelope) ->
+                RecordEnvelopeContract.validate(envelope)
+                val id = row.optString("id")
+                val data = envelope.getJSONObject("data")
+                assertExactKeys(
+                    data,
+                    setOf("schemaVersion", "correctionId", "targetRecordId", "targetRecordRevision",
+                        "featureId", "chainRevision", "fieldPath", "beforeValue", "afterValue",
+                        "reason", "actor", "recordedAt"),
+                    setOf("supersedesCorrectionId", "businessEffectiveDate"),
+                )
+                val correctionId = data.optString("correctionId")
+                require(envelope.optString("id") == id && id == "historical-correction:" + correctionId &&
+                    envelope.optLong("revision", -1L) == 1L &&
+                    correctionId.matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+                    data.optInt("schemaVersion", -1) == 1 && data.optString("targetRecordId") == targetId &&
+                    data.optLong("targetRecordRevision", -1L) == originalEnvelope.optLong("revision", -2L) &&
+                    data.optString("featureId") == FEATURE_ID && data.optInt("chainRevision", -1) == index + 1 &&
+                    data.optString("fieldPath") == "amountPaise" &&
+                    data.optString("reason").isNotBlank() && data.optString("reason").length <= 1000 &&
+                    validInstant(data.optString("recordedAt")) &&
+                    (!data.has("businessEffectiveDate") || validDate(data.optString("businessEffectiveDate")))) {
+                    "maintenance_correction_record_invalid"
+                }
+                if (index == 0) {
+                    require(!data.has("supersedesCorrectionId")) { "maintenance_correction_chain_link_invalid" }
+                } else {
+                    require(data.optString("supersedesCorrectionId") == previousCorrectionId) {
+                        "maintenance_correction_chain_link_invalid"
+                    }
+                }
+                val before = data.opt("beforeValue")
+                val after = data.opt("afterValue")
+                require(validInteger(before) && validInteger(after) &&
+                    (before as Number).toLong() == projectedAmount &&
+                    (after as Number).toLong() != projectedAmount) {
+                    "maintenance_correction_before_value_mismatch"
+                }
+                val actor = data.optJSONObject("actor") ?: error("maintenance_correction_actor_invalid")
+                assertExactKeys(actor, setOf("role", "actorId"), setOf("adminPinVerifiedAt"))
+                val role = actor.optString("role")
+                val actorId = actor.optString("actorId")
+                require(actorId.matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
+                    (role == "driver" || role == "admin")) {
+                    "maintenance_correction_actor_invalid"
+                }
+                val createdBy = envelope.optJSONObject("createdBy")
+                require(createdBy?.optString("personId") == actorId && createdBy.optString("role") == role) {
+                    "maintenance_correction_actor_envelope_mismatch"
+                }
+                if (role == "admin") {
+                    require(actor.has("adminPinVerifiedAt") && validInstant(actor.optString("adminPinVerifiedAt"))) {
+                        "maintenance_correction_admin_verification_required"
+                    }
+                } else {
+                    require(!actor.has("adminPinVerifiedAt") &&
+                        originalEnvelope.optJSONObject("createdBy")?.optString("personId") == actorId) {
+                        "maintenance_correction_driver_authority_invalid"
+                    }
+                }
+                projectedAmount = (after as Number).toLong()
+                previousCorrectionId = correctionId
+            }
+
+            val (headRow, headEnvelope) = headPair
+            RecordEnvelopeContract.validate(headEnvelope)
+            val headData = headEnvelope.getJSONObject("data")
+            assertExactKeys(headData, setOf("schemaVersion", "targetRecordId", "chainRevision", "headCorrectionId"))
+            val expectedHeadId = "historical-correction-chain:" +
+                URLEncoder.encode(targetId, "UTF-8").replace("+", "%20")
+            require(headRow.optString("id") == expectedHeadId &&
+                headEnvelope.optLong("revision", -1L) == ordered.size.toLong() &&
+                headData.optInt("schemaVersion", -1) == 1 && headData.optString("targetRecordId") == targetId &&
+                headData.optInt("chainRevision", -1) == ordered.size &&
+                headData.optString("headCorrectionId") == previousCorrectionId) {
+                "maintenance_correction_chain_head_invalid"
+            }
         }
     }
 
