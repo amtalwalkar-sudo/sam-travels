@@ -57,7 +57,7 @@ class NativeBackupRestoreCoordinatorTest {
             val result = NativeBackupRestoreCoordinator.restore(
                 db, source.snapshot, source.manifest,
             ) { snapshot(db) }
-            assertEquals(source.snapshot.getJSONObject("records").length(), result.restoredCount)
+            assertEquals(source.snapshot.getJSONArray("records").length(), result.restoredCount)
             db.close()
 
             // A new Room handle simulates a process restart. The unverified
