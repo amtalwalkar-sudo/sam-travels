@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getDriverSwipeAction } from "./driver-swipe-action";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { driverPresentationCssVars } from "./driver-presentation";
-import type { DriverStateProjection, DriverTransitionCommand } from "../../../domain/src/driver-workflow";
+import type { DriverStateProjection, DriverTransitionCommand } from "../../../core/src/commands";
 
 type CompletedTripFinancialDraft = {
   fare: string;
