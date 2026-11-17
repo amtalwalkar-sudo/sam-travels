@@ -1,7 +1,10 @@
-import { useState, type ComponentType } from "react";
+import { useMemo, useState, type ComponentType } from "react";
 import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { BackupPanel } from "./BackupPanel";
+import { getPlatformRecordSource } from "../native-store";
+import { getPersonIdentityService } from "../person-identity-runtime";
+import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
@@ -22,7 +25,13 @@ export function App({
   fullCostBreakeven, performanceCalculation,
 }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
-  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
+  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
+    platformRepository, getPlatformRecordSource(), async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { personId: actor.actorId, role: actor.role };
+    },
+  ), [platformRepository]);
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, tripFinancialForms);
   const { repo, enabled } = workspace;
   const { toggleNetwork } = workspace.actions;
 
