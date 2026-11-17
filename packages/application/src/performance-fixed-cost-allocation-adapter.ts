@@ -63,9 +63,12 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
   ) {}
 
-  async prepareSnapshot(): Promise<void> {
+  async prepareSnapshot(from: string, _to: string): Promise<void> {
     this.snapshot = this.allocation.getReport();
-    await this.snapshot;
+    const report = await this.snapshot;
+    if (report.businessStartDate !== from || report.result.businessStartDate !== from) {
+      throw new Error("performance_allocation_snapshot_business_start_date_mismatch");
+    }
   }
 
   releaseSnapshot(): void {
