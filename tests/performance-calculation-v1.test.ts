@@ -205,6 +205,23 @@ describe("Performance Calculation Contract v1.0", () => {
   });
 
 
+
+  it("carries the verified source identities into each daily Passbook row", () => {
+    const result = calculatePerformanceV1({
+      businessStartDate: "2026-03-01", periodFrom: "2026-03-01", periodTo: "2026-03-01",
+      monthlyDriverTargetPaise: 3_100,
+      revenue: [{ date: "2026-03-01", grossFarePaise: 5_000, cancellationFeePaise: 0,
+        verified: true, sourceRefs: [{ sourceId: "trip:passbook-source", revision: 2 }] }],
+      costs: [{ date: "2026-03-01", kind: "fuel", amountPaise: 500, verified: true,
+        sourceRefs: [{ sourceId: "fuel:passbook-source", revision: 3 }] }],
+      preBusinessRecovery: [], completeness: [],
+    });
+    expect(result.passbook.daily[0].sourceRefs).toEqual([
+      { sourceId: "fuel:passbook-source", revision: 3 },
+      { sourceId: "trip:passbook-source", revision: 2 },
+    ]);
+  });
+
   it("recovers an earlier Passbook shortfall with later eligible surplus", () => {
     const passbook = buildPerformancePassbookV1({
       businessStartDate: "2026-03-01",

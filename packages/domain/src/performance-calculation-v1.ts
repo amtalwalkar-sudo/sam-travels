@@ -2,6 +2,7 @@ import {
   buildPerformancePassbookV1,
   proratedDriverTargetForRangeV1,
   type PerformancePassbookV1,
+  type PerformancePassbookSourceRefV1,
 } from "./performance-passbook-v1";
 
 /**
@@ -264,6 +265,13 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
 
   const revenueByDate = new Map<string, number>();
   const refs: PerformanceSourceRefV1[] = [];
+  const passbookSourceRefsByDate = new Map<string, PerformancePassbookSourceRefV1[]>();
+  const addPassbookSourceRefs = (date: string, sourceRefs: readonly PerformanceSourceRefV1[]) => {
+    if (sourceRefs.length === 0) return;
+    const dailyRefs = passbookSourceRefsByDate.get(date) ?? [];
+    dailyRefs.push(...sourceRefs);
+    passbookSourceRefsByDate.set(date, dailyRefs);
+  };
   const completeness = input.completeness.map(item => Object.freeze({ ...item }));
   for (const row of input.revenue) {
     const day = assertDate(row.date);
@@ -278,6 +286,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     revenueByDate.set(row.date, add(revenueByDate.get(row.date) ?? 0,
       add(row.grossFarePaise, row.cancellationFeePaise)));
     refs.push(...row.sourceRefs);
+    addPassbookSourceRefs(row.date, row.sourceRefs);
   }
 
   const costsByDate = new Map<string, Record<PerformanceCostKindV1, number>>();
@@ -294,11 +303,13 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     bucket[row.kind] = add(bucket[row.kind], row.amountPaise);
     costsByDate.set(row.date, bucket);
     refs.push(...row.sourceRefs);
+    addPassbookSourceRefs(row.date, row.sourceRefs);
   }
   for (const row of recovery.daily) {
     const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
     bucket["pre-business-manual-recovery"] = add(bucket["pre-business-manual-recovery"], row.amountPaise);
     costsByDate.set(row.date, bucket);
+    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision }]);
   }
   for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });
 
@@ -306,7 +317,9 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;
   if (lifetimeDays > 36600) throw new Error("performance_period_too_large");
   const daily: PerformanceDailyResultV1[] = [];
-  const lifetimeDailySurplus: { date: string; profitPaise: number }[] = [];
+  const lifetimeDailySurplus: {
+    date: string; profitPaise: number; sourceRefs: readonly PerformancePassbookSourceRefV1[];
+  }[] = [];
   let lifetimeRevenuePaise = 0, lifetimeCostPaise = 0, periodRevenuePaise = 0, periodCostPaise = 0;
   for (let offset = 0; offset < lifetimeDays; offset++) {
     const date = dateAt(businessStartDay + offset);
@@ -316,7 +329,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const profitPaise = revenuePaise - totalCostPaise;
     lifetimeRevenuePaise = add(lifetimeRevenuePaise, revenuePaise);
     lifetimeCostPaise = add(lifetimeCostPaise, totalCostPaise);
-    lifetimeDailySurplus.push({ date, profitPaise });
+    lifetimeDailySurplus.push({ date, profitPaise, sourceRefs: passbookSourceRefsByDate.get(date) ?? [] });
     if (date >= input.periodFrom && date <= input.periodTo) {
       periodRevenuePaise = add(periodRevenuePaise, revenuePaise);
       periodCostPaise = add(periodCostPaise, totalCostPaise);

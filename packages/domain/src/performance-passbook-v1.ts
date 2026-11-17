@@ -1,3 +1,10 @@
+/** Immutable source identity inherited by a daily Passbook row. */
+export type PerformancePassbookSourceRefV1 = Readonly<{
+  sourceId: string;
+  revision: number;
+  scheduleVersion?: number;
+}>;
+
 /** Pure cumulative Driver Target Passbook projection. */
 export type PerformancePassbookV1 = Readonly<{
   from: string;
@@ -13,6 +20,7 @@ export type PerformancePassbookV1 = Readonly<{
     actualCumulativeSurplusPaise: number;
     positionPaise: number;
     remainingTargetPaise: number;
+    sourceRefs: readonly PerformancePassbookSourceRefV1[];
   }>[];
 }>;
 
@@ -67,7 +75,11 @@ export function buildPerformancePassbookV1(input: {
   businessStartDate: string;
   periodTo: string;
   monthlyDriverTargetPaise: number;
-  daily: readonly Readonly<{ date: string; profitPaise: number }>[];
+  daily: readonly Readonly<{
+    date: string;
+    profitPaise: number;
+    sourceRefs?: readonly PerformancePassbookSourceRefV1[];
+  }>[];
 }): PerformancePassbookV1 {
   dayNumber(input.businessStartDate);
   dayNumber(input.periodTo);
@@ -80,6 +92,22 @@ export function buildPerformancePassbookV1(input: {
       input.monthlyDriverTargetPaise, input.businessStartDate, row.date,
     );
     const positionPaise = actualCumulativeSurplusPaise - expectedCumulativeTargetPaise;
+    const refsBySource = new Map<string, PerformancePassbookSourceRefV1>();
+    for (const ref of row.sourceRefs ?? []) {
+      if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1 ||
+          (ref.scheduleVersion !== undefined &&
+            (!Number.isSafeInteger(ref.scheduleVersion) || ref.scheduleVersion < 1))) {
+        throw new Error("performance_passbook_source_reference_invalid");
+      }
+      const previous = refsBySource.get(ref.sourceId);
+      if (previous && (previous.revision !== ref.revision ||
+          previous.scheduleVersion !== ref.scheduleVersion)) {
+        throw new Error("performance_passbook_source_reference_conflict");
+      }
+      refsBySource.set(ref.sourceId, Object.freeze({ ...ref }));
+    }
+    const sourceRefs = Object.freeze([...refsBySource.values()]
+      .sort((a, b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision));
     return Object.freeze({
       date: row.date,
       expectedCumulativeTargetPaise,
@@ -87,6 +115,7 @@ export function buildPerformancePassbookV1(input: {
       actualCumulativeSurplusPaise,
       positionPaise,
       remainingTargetPaise: Math.max(0, -positionPaise),
+      sourceRefs,
     });
   });
   const expectedCumulativeTargetPaise = proratedDriverTargetForRangeV1(

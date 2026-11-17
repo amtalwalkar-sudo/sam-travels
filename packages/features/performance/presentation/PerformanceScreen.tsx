@@ -162,12 +162,17 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           </div>
           <p className="performance-explainer">Passbook progress runs from the Business Start Date. Daily actual surplus is gross completed-trip fares and cancellation fees minus the same verified full-cost expenses used by Performance. Earlier shortfalls carry forward and later surplus can recover them.</p>
           <div className="performance-table-wrap"><table className="performance-table">
-            <thead><tr><th>Date</th><th>Expected cumulative</th><th>Actual daily surplus</th><th>Actual cumulative</th><th>Ahead / behind</th><th>Remaining</th></tr></thead>
+            <thead><tr><th>Date</th><th>Expected cumulative</th><th>Actual daily surplus</th><th>Actual cumulative</th><th>Ahead / behind</th><th>Remaining</th><th>Source records</th></tr></thead>
             <tbody>{result.passbook.daily.slice().reverse().map(row => <tr key={row.date}>
               <td>{row.date}</td><td>{money(row.expectedCumulativeTargetPaise)}</td>
               <td>{signedMoney(row.actualDailySurplusPaise)}</td><td>{signedMoney(row.actualCumulativeSurplusPaise)}</td>
               <td className={row.positionPaise >= 0 ? "positive" : "negative"}>{signedMoney(row.positionPaise)}</td>
               <td>{money(row.remainingTargetPaise)}</td>
+              <td><details><summary>{row.sourceRefs.length} sources</summary>
+                <ul>{row.sourceRefs.map((ref, index) => <li key={ref.sourceId + ":" + ref.revision + ":" + index}>
+                  {ref.sourceId} · revision {ref.revision}{ref.scheduleVersion === undefined ? "" : " · schedule " + ref.scheduleVersion}
+                </li>)}</ul>
+              </details></td>
             </tr>)}</tbody>
           </table></div>
         </div>}

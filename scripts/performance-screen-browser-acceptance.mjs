@@ -281,8 +281,14 @@ try {
   await passbookTable.waitFor();
   const passbookText = await passbookTable.innerText();
   if (!passbookText.includes(moneyFromPaise(selectedTarget)) ||
-      !passbookText.includes("Remaining")) {
-    throw new Error("driver_passbook_cumulative_target_or_remaining_balance_missing");
+      !passbookText.includes("Remaining") || !passbookText.includes("Source records") ||
+      !/\\b[1-9]\\d* sources\\b/.test(passbookText)) {
+    throw new Error("driver_passbook_cumulative_target_or_source_provenance_missing");
+  }
+  const sourceDetails = passbookTable.locator("tbody details summary").filter({ hasText: /[1-9]/ }).first();
+  await sourceDetails.click();
+  if (!(await passbookTable.locator("tbody").innerText()).includes("revision")) {
+    throw new Error("driver_passbook_daily_source_references_not_exposed");
   }
   await page.getByText(/Expected cumulative surplus/).waitFor();
   await page.getByText(/Actual cumulative surplus/).waitFor();
