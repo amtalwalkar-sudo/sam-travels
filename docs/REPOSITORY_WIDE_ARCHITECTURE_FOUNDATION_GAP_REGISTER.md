@@ -1,7 +1,8 @@
 # Repository-Wide Architecture Foundation Gap Register
 
 **Status:** In-progress audit register; not an implementation completion certificate.  
-**Audited revision:** `main` at `a99ea6f48b05d3df1e35a72266acdaa127c010d7` (2026-11-17).  
+**Audited baseline:** `main` at `a99ea6f48b05d3df1e35a72266acdaa127c010d7` (2026-11-17).  
+**Backup/restore transaction trace:** source inspected on the same baseline; findings recorded in G-17/G-18. Documentation update commit: pending.  
 **Latest CI evidence at audit start:** workflow run [#44118872802](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44118872802), exact same SHA; Architecture, Web, Android, Production geocoder verification and Integrated regression gate all succeeded.  
 **Change scope:** Documentation only. This register does not change application source, tests, persisted data, contracts or runtime behaviour.
 
