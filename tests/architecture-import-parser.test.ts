@@ -25,6 +25,31 @@ describe("compiler-backed architecture import parser", () => {
     expect(isPublicFeatureEntry("packages/features/work/index.ts")).toBe(true);
     expect(isPublicFeatureEntry("packages/features/work/internal/store.ts")).toBe(false);
   });
+
+  it("recognizes capability-owned architectural sublayers", () => {
+    expect(targetLayer("packages/features/work-shift/domain/driver-workflow.ts")).toBe("feature-domain");
+    expect(targetLayer("packages/features/work-shift/application/workspace-coordinator.ts")).toBe("feature-application");
+    expect(targetLayer("packages/features/work-shift/ports/driver-workflow.ts")).toBe("feature-ports");
+    expect(targetLayer("packages/features/work-shift/adapters/dexie-driver-workflow.ts")).toBe("feature-adapters");
+    expect(targetLayer("packages/features/work-shift/presentation/DriveScreen.tsx")).toBe("feature-presentation");
+    expect(targetLayer("packages/features/work-shift/index.ts")).toBe("feature-root");
+    expect(targetLayer("packages/features/work-shift/driver-swipe-action.ts")).toBe("feature-root");
+  });
+
+  it("enforces inward dependencies within a capability without blocking application coordination", () => {
+    expect(isForbiddenLayerDependency("feature-domain", "feature-application")).toBe(true);
+    expect(isForbiddenLayerDependency("feature-domain", "storage")).toBe(true);
+    expect(isForbiddenLayerDependency("feature-application", "feature-domain")).toBe(false);
+    expect(isForbiddenLayerDependency("feature-application", "feature-ports")).toBe(false);
+    expect(isForbiddenLayerDependency("feature-application", "application")).toBe(false);
+    expect(isForbiddenLayerDependency("feature-application", "feature-adapters")).toBe(true);
+    expect(isForbiddenLayerDependency("feature-application", "storage")).toBe(true);
+    expect(isForbiddenLayerDependency("feature-presentation", "feature-application")).toBe(false);
+    expect(isForbiddenLayerDependency("feature-presentation", "feature-domain")).toBe(false);
+    expect(isForbiddenLayerDependency("feature-presentation", "application")).toBe(true);
+    expect(isForbiddenLayerDependency("application", "feature-root")).toBe(true);
+  });
+
   it("collects static, re-export, dynamic, and CommonJS module references", () => {
     const source = [
       'import type { Port } from "../application/port";',
