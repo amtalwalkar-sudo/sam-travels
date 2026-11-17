@@ -10,3 +10,7 @@ export interface PerformanceCalculationPortV1 {
 export interface PerformanceDistanceProjectionPortV1 {
   calculateDistance(from: string, to: string): Promise<BreakevenPeriodResultV1>;
 }
+
+/** Combined feature-owned capability supplied to the screen controller. */
+export interface PerformanceScreenServicesV1
+extends PerformanceCalculationPortV1, PerformanceDistanceProjectionPortV1 {}
