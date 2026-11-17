@@ -4,26 +4,22 @@ import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from 
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import {
-  createDriverWorkflow,
-} from "../driver-workflow";
-import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, WorkApplicationCoordinatorV1 } from "../../../../packages/features/work";
+import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work";
+import { WorkApplicationRuntimeV1 } from "../work-application-runtime";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
-import type { RuntimeRegistry } from "../../../../packages/core/src";
-import type { FeatureRecordSource } from "../../../../packages/application/src";
+
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
-  const { maintenance, recordSource } = useAdminMaintenanceServices();
-  const featureRecordSource: FeatureRecordSource = recordSource;
+export function useDriverWorkspace(workRuntime: WorkApplicationRuntimeV1, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+  const { recordSource } = useAdminMaintenanceServices();
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
@@ -42,7 +38,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [workRuntime, platformRepository]);
 
   const gateway = useMemo(() => repo ? new NetworkGateway(repo) : null, [repo]);
 
@@ -70,16 +66,14 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     let live = true;
     let unsubscribe: (() => void) | undefined;
 
-    createDriverWorkflow()
-      .then(async ({ repository, location }) => {
+    workRuntime.initialize()
+      .then(async ({ repository, service, selection, selectedDriver: selected, restored }) => {
         if (!live) {
-          (repository as typeof repository & { dispose?: () => void }).dispose?.();
+          workRuntime.dispose(repository);
           return;
         }
 
         const platformRecords = platformRepository;
-        const selection = new WorkDriverSelectionService(platformRecords, repository);
-        const selected = await selection.getSelectedDriver();
         const allRecords = await platformRecords.list<unknown>();
         setDriverChoices(allRecords.filter(row => typeof row.id === "string" && row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
           .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
@@ -87,12 +81,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           .map(row => ({driverId:row.driverId!,name:row.name!})));
         setSelectedDriverId(selected?.driverId ?? "");
         setSelectionService(selection);
-        const coordinator = new WorkApplicationCoordinatorV1({
-          runtime, records: platformRecords, maintenance, source: featureRecordSource,
-        });
-        const service = coordinator.createWorkflow(repository, location);
         setWorkflow(service);
-        const restored = await coordinator.initialize(service);
         setDriver(restored.snapshot);
         const pendingItems = restored.pending;
         setPending(pendingItems);
@@ -134,7 +123,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         refreshWorkflowStatus();
         const resumeWorkflow = () => {
           if (document.visibilityState === "hidden") return;
-          void coordinator.resume(service).then(state => {
+          void workRuntime.resume(service).then(state => {
             if (!live) return;
             setDriver(state.snapshot);
             setPending(state.pending);
@@ -148,7 +137,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
           unsubscribeStatus();
           window.removeEventListener("focus", resumeWorkflow);
           document.removeEventListener("visibilitychange", resumeWorkflow);
-          (repository as typeof repository & { dispose?: () => void }).dispose?.();
+          workRuntime.dispose(repository);
         };
       })
       .catch((cause) => {
