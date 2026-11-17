@@ -2,14 +2,10 @@ import { createElement } from "react";
 import type { FeatureExtensionDefinition } from "../../core/src/feature-extension";
 import type { FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/feature-presentation";
 import type { FeatureDefinition } from "../../core/src/features";
-import type { PerformanceCalculationServiceV1 } from "../../application/src/performance-calculation-service";
-import type { FullCostBreakevenService } from "../../application/src/full-cost-breakeven-service";
 import { PerformanceScreen } from "./presentation/PerformanceScreen";
+import type { PerformanceScreenContextV1 as PerformanceScreenContext } from "./presentation/performance-screen-model";
 
-export type PerformanceScreenContextV1 = Readonly<{
-  calculation: Pick<PerformanceCalculationServiceV1, "calculate">;
-  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-}>;
+export type PerformanceScreenContextV1 = PerformanceScreenContext;
 export type PerformancePresentationContextV1 =
   FeaturePresentationContext<"performance.host", 1, PerformanceScreenContextV1>;
 
