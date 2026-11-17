@@ -13,8 +13,8 @@ import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
-import { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
-type RuntimeRegistry = ReturnType<typeof getApplicationRuntimeRegistry>;
+import type { RuntimeRegistry } from "../../../../packages/core/src";
+import type { FeatureRecordSource } from "../../../../packages/application/src";
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
@@ -23,6 +23,7 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const { maintenance, recordSource } = useAdminMaintenanceServices();
+  const featureRecordSource: FeatureRecordSource = recordSource;
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
@@ -87,7 +88,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         setSelectedDriverId(selected?.driverId ?? "");
         setSelectionService(selection);
         const coordinator = new WorkApplicationCoordinatorV1({
-          runtime, records: platformRecords, maintenance, source: recordSource,
+          runtime, records: platformRecords, maintenance, source: featureRecordSource,
         });
         const service = coordinator.createWorkflow(repository, location);
         setWorkflow(service);
