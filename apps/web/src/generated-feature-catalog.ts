@@ -11,7 +11,7 @@ import { MAINTENANCE_FEATURE_EXTENSION as discoveredFeatureExtension8 } from "..
 import { PERFORMANCE_FEATURE_EXTENSION as discoveredFeatureExtension9 } from "../../../packages/features/performance/index";
 import { TIMELINE_FEATURE_EXTENSION as discoveredFeatureExtension10 } from "../../../packages/features/timeline/index";
 import { VEHICLE_FEATURE_EXTENSION as discoveredFeatureExtension11 } from "../../../packages/features/vehicle/index";
-import { WORK_SHIFT_FEATURE_EXTENSION as discoveredFeatureExtension12 } from "../../../packages/features/work-shift/index";
+import { WORK_FEATURE_EXTENSION as discoveredFeatureExtension12 } from "../../../packages/features/work/index";
 
 export const DISCOVERED_FEATURE_EXTENSIONS: readonly FeatureExtensionDefinition[] = Object.freeze([
   discoveredFeatureExtension1,
