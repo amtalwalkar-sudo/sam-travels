@@ -6,7 +6,7 @@ import type { DriverStateProjection, DriverTransitionCommand } from "../../../..
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work";
-import { WorkApplicationRuntimeV1 } from "../work-application-runtime";
+import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
@@ -19,7 +19,8 @@ import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../.
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, workRuntime: WorkApplicationRuntimeV1) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+  const workRuntime = useWorkApplicationRuntime();
   const { recordSource } = useAdminMaintenanceServices();
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
