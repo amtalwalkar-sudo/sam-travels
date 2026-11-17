@@ -24,6 +24,22 @@ class OfflineFirstWorkPersistenceTest {
         val at = Instant.parse("2026-11-17T10:00:00Z")
         try {
             DriverWorkflowIdentityTestFixtures.seed(db, "offline-driver", "offline-person")
+            val vehicleId = "feature:vehicle:MH01AB1234"
+            fun putBusinessRecord(id: String, data: JSONObject) {
+                val envelope = JSONObject().put("id", id).put("schemaVersion", 1)
+                    .put("createdAt", at.toString()).put("updatedAt", at.toString())
+                    .put("source", "android").put("revision", 1).put("data", data)
+                db.records().put(StoredRecord(id, envelope.toString(), 1, at.toString()))
+            }
+            putBusinessRecord("feature:driver-records:assignment:offline-driver",
+                JSONObject().put("schemaVersion", 1).put("driverId", "offline-driver")
+                    .put("assignments", org.json.JSONArray().put(JSONObject()
+                        .put("assignmentId", "offline-assignment").put("vehicleId", vehicleId)
+                        .put("assignedAt", at.toString()))))
+            putBusinessRecord(vehicleId, JSONObject().put("schemaVersion", 1)
+                .put("registrationNumber", "MH01AB1234").put("make", "Make").put("model", "Model")
+                .put("vehicleType", "Sedan").put("fuelType", "CNG").put("yearOfManufacture", 2024)
+                .put("ownership", "Owned").put("lifecycleState", "active"))
             db.records().put(StoredRecord(
                 "network-policy",
                 JSONObject().put("id", "network-policy").put("schemaVersion", 1)
