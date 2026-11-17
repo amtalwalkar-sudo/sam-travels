@@ -108,6 +108,13 @@ export class PerformanceCalculationServiceV1 {
       this.sources.completeness.getCompleteness(businessStartDate, periodTo),
     ]);
 
+    const sourceSnapshotIdentitiesAfter = await Promise.all(preparedSources.map(source =>
+      (source as PerformanceSnapshotReadModel).getSourceSnapshotIdentity?.()));
+    if (sourceSnapshotIdentities.some((identity, index) =>
+      identity !== sourceSnapshotIdentitiesAfter[index])) {
+      throw new Error("performance_source_snapshot_changed_during_calculation");
+    }
+
     if (emiCosts.some(row => row.kind !== "emi")) throw new Error("performance_emi_read_model_kind_invalid");
     if (complianceCosts.some(row => row.kind !== "compliance")) throw new Error("performance_compliance_read_model_kind_invalid");
     const allowedOperatingKinds = new Set<string>([
@@ -151,7 +158,7 @@ export class PerformanceCalculationServiceV1 {
       .join("|");
     const sourceSnapshotId = [
       ...(identitySet.size === 1 ? [...identitySet] : []),
-      ...sourceSnapshotIdentities.filter((value): value is string => Boolean(value)),
+      ...sourceSnapshotIdentitiesAfter.filter((value): value is string => Boolean(value)),
       "performance-source-revisions:" + sourceRevisionFingerprint,
     ].join(";");
     const input: PerformanceCalculationInputV1 = {
