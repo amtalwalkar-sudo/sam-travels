@@ -34,6 +34,21 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     this.snapshot = undefined;
   }
 
+  async getSourceSnapshotIdentity(): Promise<string> {
+    const snapshot = this.snapshot;
+    if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
+    const projection = await snapshot.value;
+    const refs = [
+      ...projection.dailyActivity.flatMap(activity => activity.sourceRefs),
+      ...projection.datedCosts.flatMap(cost => cost.sourceRefs ??
+        [{ sourceId: cost.sourceId, revision: cost.sourceRevision }]),
+    ];
+    return "performance-operating-sources:" + refs
+      .map(ref => ref.sourceId + "@" + ref.revision)
+      .sort()
+      .join("|");
+  }
+
   async getSnapshotIdentity(): Promise<string | undefined> {
     const snapshot = this.snapshot;
     if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
