@@ -4,14 +4,22 @@ import { HistoricalCorrectionService } from "../packages/application/src/histori
 import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
+import { maintenanceRateHistoryRecordId } from "../packages/features/maintenance";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
 import { validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
 import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../apps/web/src/maintenance-expense-correction-runtime";
 
 describe("Maintenance correction on the browser IndexedDB repository", () => {
   const records = new DexieRecordRepository();
   const touched: string[] = [];
+  let unregisterVehicle: (() => void) | undefined;
+  let unregisterMaintenance: (() => void) | undefined;
 
   afterEach(async () => {
+    unregisterMaintenance?.(); unregisterMaintenance = undefined;
+    unregisterVehicle?.(); unregisterVehicle = undefined;
     for (const id of touched.splice(0)) await records.remove(id);
   });
 
@@ -19,10 +27,13 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     const targetRecordId = "feature:maintenance:expense:" + crypto.randomUUID();
     const correctionId = "indexeddb-maintenance-" + crypto.randomUUID();
     const chainId = "historical-correction-chain:" + encodeURIComponent(targetRecordId);
-    const workDailyId = "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH01AB1234") + ":2026-10-10";
-    const accrualId = "feature:maintenance:daily-accrual:" + encodeURIComponent("feature:vehicle:MH01AB1234") + ":2026-10-10";
-    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId, workDailyId, accrualId);
-    const recordedAt = "2026-11-11T10:00:00.000Z";
+    const vehicleId = "feature:vehicle:MH01AB1234";
+    const workDailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-10-10";
+    const accrualId = "feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-10-10";
+    const rateHistoryId = maintenanceRateHistoryRecordId(vehicleId);
+    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId,
+      workDailyId, accrualId, vehicleId, rateHistoryId);
+    const recordedAt = "2026-10-10T00:00:00.000Z";
     const original = {
       id: targetRecordId, schemaVersion: 1 as const, createdAt: recordedAt,
       updatedAt: recordedAt, source: "web" as const, revision: 1,
@@ -33,18 +44,30 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
         description: "Original receipt", amountPaise: 10000,
       },
     };
+    await records.put({
+      id: vehicleId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace",
+        vehicleType: "LCV", fuelType: "CNG", yearOfManufacture: 2022, ownership: "Owned", lifecycleState: "active" },
+    });
+    await records.put({
+      id: rateHistoryId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1, businessDate: "2026-10-10",
+      data: { schemaVersion: 1, kind: "rate_history", vehicleId,
+        entries: [{ effectiveFrom: "2026-10-10", ratePaisePerKm: 250, savedAt: recordedAt, isDefault: true }] },
+    });
     await records.put(original);
     const workDaily = {
       id: workDailyId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
       source: "integration" as const, revision: 4,
-      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId: "feature:vehicle:MH01AB1234",
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId,
         operationalDate: "2026-10-10", totalBusinessKm: 10, unallocatedBusinessKm: 0,
         entries: [{ shiftId: "shift-maintenance", businessKm: 10, personalKm: 2, allocationStatus: "allocated" }] },
     };
     const accrual = {
       id: accrualId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
-      source: "integration" as const, revision: 1,
-      data: { schemaVersion: 1, kind: "daily_accrual", vehicleId: "feature:vehicle:MH01AB1234",
+      source: "integration" as const, revision: 1, businessDate: "2026-10-10",
+      data: { schemaVersion: 1, kind: "daily_accrual", vehicleId,
         operationalDate: "2026-10-10", dailyBusinessKmRecordId: workDailyId, dailyBusinessKmRevision: 4,
         businessKm: 10, personalKm: 2, personalAmountPaise: 500,
         rateEffectiveFrom: "2026-10-10", ratePaisePerKm: 250, amountPaise: 2500 },
@@ -114,11 +137,15 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
       status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
     });
 
-    // Simulate a records-table backup round trip: preserve originals, correction
-    // rows and the serialized chain head, then validate and reproject after restore.
-    const backupRows = await records.list<unknown>();
-    for (const id of touched) await records.remove(id);
-    for (const row of backupRows.filter(row => touched.includes(row.id))) await records.put(row);
+    // Exercise the real snapshot export/restore path. It validates the original
+    // expense, append-only correction rows, chain head, Vehicle and linked daily accrual.
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregisterMaintenance = registerMaintenanceBrowserBackupParticipant();
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({
+      data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true,
+    });
     const restoredRows = await records.list<unknown>();
     expect(() => validateMaintenanceCorrectionSnapshot(restoredRows)).not.toThrow();
     const restoredHistory = await service.listForTarget(targetRecordId);

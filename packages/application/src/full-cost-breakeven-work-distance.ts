@@ -59,7 +59,7 @@ export function buildFullCostWorkDistanceProjectionV1(input: {
     };
     if (data.vehicleId !== input.vehicleId) continue;
     const date = data.operationalDate;
-    if (typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+    if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
         !Number.isFinite(Date.parse(date + "T00:00:00Z")) ||
         new Date(Date.parse(date + "T00:00:00Z")).toISOString().slice(0, 10) !== date) {
       activeDaySourceIssues.push(daily.id + " has no valid operational date");
@@ -120,7 +120,7 @@ export function buildFullCostWorkDistanceProjectionV1(input: {
     if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
         typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
         typeof context.operationalDate !== "string" ||
-        !/^\\d{4}-\\d{2}-\\d{2}$/.test(context.operationalDate) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(context.operationalDate) ||
         !Number.isFinite(Date.parse(context.operationalDate + "T00:00:00Z")) ||
         new Date(Date.parse(context.operationalDate + "T00:00:00Z")).toISOString().slice(0, 10) !== context.operationalDate ||
         context.operationalDate < input.from || context.operationalDate > input.to) {
