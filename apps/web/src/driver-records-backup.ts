@@ -23,6 +23,9 @@ export function registerDriverRecordsBrowserBackupParticipant(): () => void {
     validateSnapshot(records) {
       const driverIds = new Set<string>();
       const assignmentIds = new Set<string>();
+      const vehicleIds = new Set(records
+        .filter(item => item.id.startsWith("feature:vehicle:"))
+        .map(item => item.id));
       let selectedWorkDrivers = 0;
       for (const record of records.filter(item => item.id.startsWith("feature:driver-records:"))) {
         if (record.id.startsWith("feature:driver-records:driver:")) {
@@ -39,6 +42,11 @@ export function registerDriverRecordsBrowserBackupParticipant(): () => void {
           const id = driverAssignmentHistoryId(record.data.driverId);
           if (record.id !== id || assignmentIds.has(id)) throw new Error("driver_assignment_identity_mismatch");
           assignmentIds.add(id);
+          for (const assignment of record.data.assignments) {
+            if (!vehicleIds.has(assignment.vehicleId)) {
+              throw new Error("driver_assignment_vehicle_reference_missing");
+            }
+          }
         } else throw new Error("driver_record_namespace_mismatch");
       }
       if (selectedWorkDrivers > 1) throw new Error("driver_multiple_selected_for_work");
