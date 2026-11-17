@@ -48,9 +48,10 @@ describe("replaceable Work screen shell", () => {
     expect(source).toContain("<WorkScreenHeading />");
     expect(source).toContain("<WorkScreenStatus");
     expect(source).toContain("DriverWorkflowPanel workspace={workspace}");
-    expect(source).toContain("<DriverWorkflowPanel workspace={workflowWorkspace} />");
-    expect(source).toContain("extensions={extensions}");
+        expect(source).toContain("extensions={extensions}");
     expect(source).not.toContain("loadTimeline:");
+    expect(source).not.toContain("useDriverWorkspace");
+    expect(source).not.toContain("FeatureScreenHost");
     expect(source).toContain("<WorkScreenShell");
     expect(source).not.toContain("work-screen.css");
     expect(source).not.toContain("useState(");
@@ -68,7 +69,7 @@ describe("replaceable Work screen shell", () => {
   });
 
   it("scopes responsive and touch-friendly styling to the Work shell", async () => {
-    const css = await readFile("apps/web/src/ui/work/work-screen.css", "utf8");
+    const css = await readFile("packages/features/work/presentation/work-screen.css", "utf8");
     expect(css).toContain(".work-screen-shell");
     expect(css).toContain(".work-driver-card .primary-action");
     expect(css).toContain("min-height:56px");
