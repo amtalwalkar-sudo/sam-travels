@@ -280,9 +280,11 @@ if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellPro
     appPresentation.includes("FeatureScreenHost") || appPresentation.includes("AdminWorkspace")) {
   failures.push("apps/web/src/ui/App.tsx: keep App as a thin replaceable-shell composition root; screen internals belong in screen composition modules");
 }
-if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition") ||
-    !shellPresentation.includes("shellDefinition.navigation.map")) {
-  failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
+if (!shellPresentation.includes("ApplicationShellDefinition<PrimaryScreen, string>") ||
+    !shellPresentation.includes("shellDefinition.navigation.map") ||
+    shellPresentation.includes("DeviceReadinessPrompt") ||
+    !appPresentation.includes("DeviceReadinessPrompt")) {
+  failures.push("The replaceable shell must consume a stable shell contract while global readiness overlays remain application-owned");
 }
 if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
     !featureCatalogue.includes("WORK_FEATURE_EXTENSION") ||
