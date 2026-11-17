@@ -43,7 +43,6 @@ class OfflineFirstWorkPersistenceTest {
                 .put("expectedPriorState", "idle")
                 .put("expectedRevision", 0)
                 .put("idempotencyKey", "offline-shift-start")
-                .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 1200))
             DriverWorkflowStore.queue(db, command, at)
             val completed = DriverWorkflowStore.complete(
                 db,
