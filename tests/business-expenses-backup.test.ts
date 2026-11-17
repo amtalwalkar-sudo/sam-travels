@@ -111,7 +111,7 @@ describe("Business Expenses browser backup participant", () => {
     );
     await correctionService.submit({
       correctionId, targetRecordId, expectedTargetRevision: 1, expectedChainRevision: 0,
-      fieldPath: "amountPaise", afterValue: 19000, reason: "Verified against the corrected pump receipt",
+      fieldPath: "amountPaise", afterValue: 25_000, reason: "Verified against the corrected pump receipt",
       businessEffectiveDate: "2026-11-15",
     });
 
