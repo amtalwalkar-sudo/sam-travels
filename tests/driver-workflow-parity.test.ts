@@ -176,8 +176,8 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(ended.state).toBe("idle");
     expect(ended.revision).toBe(5);
     const dailyDistance=(await browserDatabase.records.toArray()).find(row=>row.id.startsWith("work:daily-business-km:"));
-    expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:0,unallocatedBusinessKm:100});
-    expect((dailyDistance?.data as {entries:Array<{allocationStatus:string}>}).entries[0].allocationStatus).toBe("awaiting_operational_boundary");
+    expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:parity.boundaryDistance.totalBusinessKm,unallocatedBusinessKm:parity.boundaryDistance.unallocatedBusinessKm});
+    expect((dailyDistance?.data as {entries:Array<{allocationStatus:string}>}).entries[0].allocationStatus).toBe(parity.boundaryDistance.allocationStatus);
   });
 });
 
