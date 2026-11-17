@@ -41,7 +41,7 @@ export class FullCostBreakevenService {
   constructor(
     private readonly vehicles: Pick<VehicleService, "list">,
     private readonly maintenance: Pick<MaintenanceService, "listVehicleRecords">,
-    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory">,
+    private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory"> & Partial<Pick<BusinessExpensesService, "listCorrectionReferences">>,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
   ) {}
@@ -52,6 +52,17 @@ export class FullCostBreakevenService {
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
     ]);
+    const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
+    if (this.expenses.listCorrectionReferences) {
+      const correctionTargets = [...new Set([
+        ...expenses.map(record => record.id),
+        ...fuelPurchases.map(record => record.id),
+      ])];
+      const correctionEntries = await Promise.all(correctionTargets.map(async sourceId => [
+        sourceId, await this.expenses.listCorrectionReferences!(sourceId),
+      ] as const));
+      correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
+    }
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     const activityByDate = new Map<string, {
       businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number;
@@ -93,6 +104,10 @@ export class FullCostBreakevenService {
             const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
             bucket.refs.push(ref);
             bucket.fuelRefs.push(ref);
+            for (const correctionRef of correctionRefsBySourceId.get(sourceId) ?? []) {
+              bucket.refs.push(correctionRef);
+              bucket.fuelRefs.push(correctionRef);
+            }
           });
         }
         bucket.businessKm += km;
@@ -209,7 +224,10 @@ export class FullCostBreakevenService {
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
             !withheldTripLinkedExpenseIds.has(sourceId) &&
             !withheldLegacyTollParkingExpenseIds.has(sourceId)
-            ? [{ sourceId, revision: daily.sourceRevisions[index] ?? source.revision }]
+            ? [
+                { sourceId, revision: daily.sourceRevisions[index] ?? source.revision },
+                ...(correctionRefsBySourceId.get(sourceId) ?? []),
+              ]
             : [];
         });
         if (category.sourceKind === "miscellaneous") {
