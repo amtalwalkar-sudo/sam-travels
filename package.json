@@ -15,6 +15,7 @@
     "feature:create": "node scripts/create-feature.mjs",
     "cap:sync": "npm run build && cap sync android",
     "build:timeline-parity": "vite build --config vite.timeline-parity.config.ts",
+    "build:full-cost-distance-parity": "vite build --config vite.full-cost-distance-parity.config.ts",
     "features:discover": "node scripts/discover-features.mjs",
     "features:check": "node scripts/discover-features.mjs --check",
     "check:stage5": "node scripts/check-stage-5.mjs",

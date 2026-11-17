@@ -29,5 +29,21 @@
   },
   "activeTripRotation": {
     "allowed": false
+  },
+  "activeDrivingDay": {
+    "vehicleId": "feature:vehicle:MH01AB1234",
+    "operationalDate": "2026-11-08",
+    "followingOperationalDate": "2026-11-09",
+    "shiftId": "parity-active-day-shift",
+    "driverId": "parity-driver",
+    "assignmentId": "parity-assignment",
+    "tripId": "parity-cross-boundary-trip",
+    "tripCreatedAt": "2026-11-08T22:20:00.000Z",
+    "tripCompletedAt": "2026-11-08T22:40:00.000Z",
+    "businessKm": 42,
+    "personalKm": 7,
+    "expectedActiveDrivingDayCount": 1,
+    "expectedTotalBusinessKm": 42,
+    "expectedAverageBusinessKmPerActiveDrivingDay": 42
   }
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FullCostBreakevenService } from "../packages/application/src/full-cost-breakeven-service";
+import { buildFullCostWorkDistanceProjectionV1 } from "../packages/application/src/full-cost-breakeven-work-distance";
+import parityFixture from "./fixtures/driver-workflow-parity-v1.json";
 
 const vehicleIdForDistanceTests = "feature:vehicle:MH01AB1234";
 function distanceService(input: {
@@ -31,6 +33,39 @@ function distanceService(input: {
 }
 
 describe("Full-cost contract boundary regressions", () => {
+
+  it("matches the shared 04:00 active-driving-day fixture used by Android Room", () => {
+    const fixture = parityFixture.activeDrivingDay;
+    const dailyId = "work:daily-business-km:" + encodeURIComponent(fixture.vehicleId) + ":" + fixture.operationalDate;
+    const tripId = "work:trip-financial-obligation:" + fixture.tripId;
+    const projection = buildFullCostWorkDistanceProjectionV1({
+      vehicleId: fixture.vehicleId,
+      from: fixture.operationalDate,
+      to: fixture.followingOperationalDate,
+      dailyDistanceRecords: [{
+        id: dailyId, revision: 4,
+        data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId: fixture.vehicleId,
+          operationalDate: fixture.operationalDate, totalBusinessKm: fixture.businessKm,
+          unallocatedBusinessKm: 0, entries: [{ shiftId: fixture.shiftId, allocationStatus: "allocated",
+            businessKm: fixture.businessKm, personalKm: fixture.personalKm }] },
+      }],
+      tripFinancialRecords: [{
+        id: tripId, revision: 2,
+        data: { kind: "completed_ride_financials", status: "submitted",
+          createdAt: fixture.tripCreatedAt, completedAt: fixture.tripCompletedAt,
+          tripContext: { schemaVersion: 1, shiftId: fixture.shiftId, driverId: fixture.driverId,
+            assignmentId: fixture.assignmentId, vehicleId: fixture.vehicleId,
+            operationalDate: fixture.operationalDate } },
+      }],
+    });
+    const activeDays = [...projection.activityByDate.values()].filter(bucket => bucket.activeDrivingDay).length;
+    const totalBusinessKm = [...projection.distanceByDate.values()].reduce((sum, item) => sum + item.businessKm, 0);
+    expect(activeDays).toBe(fixture.expectedActiveDrivingDayCount);
+    expect(totalBusinessKm).toBe(fixture.expectedTotalBusinessKm);
+    expect(totalBusinessKm / activeDays).toBe(fixture.expectedAverageBusinessKmPerActiveDrivingDay);
+    expect(projection.activeDaySourceIssues).toEqual([]);
+  });
+
   it("does not classify a Work distance day as active without a submitted ride", async () => {
     const operationalDate = "2026-11-01";
     const dailyId = "work:daily-business-km:" + encodeURIComponent(vehicleIdForDistanceTests) + ":" + operationalDate;
