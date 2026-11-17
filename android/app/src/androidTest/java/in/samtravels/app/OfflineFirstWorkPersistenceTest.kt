@@ -77,7 +77,6 @@ class OfflineFirstWorkPersistenceTest {
             assertEquals(false, JSONObject(db.records().get("network-policy")!!.json)
                 .getJSONObject("data").getBoolean("enabled"))
 
-            val vehicleId = "feature:vehicle:MH01AB1234"
             val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174099"
             val fuelEnvelope = JSONObject().put("id", fuelId).put("schemaVersion", 1)
                 .put("createdAt", at.toString()).put("updatedAt", at.toString())
