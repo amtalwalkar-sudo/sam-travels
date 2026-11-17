@@ -110,7 +110,17 @@ export class FullCostBreakevenService {
           Array.isArray(data.entries) && data.entries.some(entry => entry.shiftId === context.shiftId);
       });
       if (matchingDistance) {
-        bucket.refs.push({ sourceId: matchingDistance.id, revision: matchingDistance.revision });
+        const distanceData = matchingDistance.data as {
+          unallocatedBusinessKm?: number;
+          entries?: Array<{ shiftId?: string; allocationStatus?: string }>;
+        };
+        const shiftEntry = distanceData.entries?.find(entry => entry.shiftId === context.shiftId);
+        if (distanceData.unallocatedBusinessKm === 0 && shiftEntry?.allocationStatus === "allocated" &&
+            distanceData.entries?.every(entry => entry.allocationStatus === "allocated")) {
+          bucket.refs.push({ sourceId: matchingDistance.id, revision: matchingDistance.revision });
+        } else {
+          activeDaySourceIssues.push(trip.id);
+        }
       } else {
         activeDaySourceIssues.push(trip.id);
       }
