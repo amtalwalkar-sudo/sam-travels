@@ -115,3 +115,7 @@ The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` i
 The follow-up test commit adds the explicit leap-year recovery and per-day Passbook reconciliation assertions. The final exact-head workflow run `#44095766482` passed Architecture, Web, Android and Integrated regression on `0f198be0d796a67521ea5d6763bac3d949f33718`; see section 7 for the complete job evidence.
 
 The remaining non-implementation gates are unchanged: a migrated production-data inventory/reconciliation is not available as a repository fixture, physical-phone acceptance is deferred to the agreed final testing stage, and final visual composition remains subject to product-owner approval. PR #97 remains draft and unmerged.
+
+## Subsequent documentation-head verification — 2026-11-17
+
+The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` was independently verified by [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Architecture, Web, Android and Integrated regression all completed successfully. The Android Room/workflow/backup reliability gate and debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred. This commit contained documentation changes only; the code-bearing implementation and its full test evidence remain recorded separately above.

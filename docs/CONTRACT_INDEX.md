@@ -112,7 +112,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 
 ## Current evidence discipline
 
-- PR #97 is the current architecture/performance conformance workstream; use its current head SHA and exact-head CI run for current automated evidence. As of 2026-11-17, head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482).
+- PR #97 is the current architecture/performance conformance workstream. The code-bearing implementation head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482). The subsequent documentation-only head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` also passed all four jobs in [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486).
 - Green CI proves only the jobs and tests it ran. It does not prove physical-device acceptance, OS/OEM force-stop behaviour or live Dropbox account acceptance.
 - The [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) records form-specific evidence. It does not certify every possible form/surface/lifecycle combination.
 - Historical audit documents must not be rewritten to appear as if they were performed on the current commit.

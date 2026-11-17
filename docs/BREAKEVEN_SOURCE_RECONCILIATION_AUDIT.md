@@ -274,3 +274,7 @@ This section supersedes the pending exact-head CI and partially closed implement
 5. Final visual composition approval remains separate from the calculation and rendered-PWA implementation evidence.
 
 **Implementation disposition:** the requested source reconciliation, correction/restore provenance, Passbook and active-driving-day distance implementation gates are closed in PR #97 with automated regression coverage. The remaining items above are explicitly separate production-data, architecture-guarantee, accounting-policy or release-acceptance boundaries.
+
+## Subsequent documentation-head verification — 2026-11-17
+
+The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` was independently verified by [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Architecture, Web, Android and Integrated regression all completed successfully. The Android Room/workflow/backup reliability gate and debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred. This commit contained documentation changes only; the code-bearing implementation and its full test evidence remain recorded separately above.

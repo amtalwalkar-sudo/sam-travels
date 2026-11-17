@@ -240,3 +240,7 @@ Business Expenses and Maintenance correction chains remain append-only. Their ba
 ### 13.6 Exact-head CI
 
 The final exact PR head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482). Android emulator-backed Room/workflow/backup reliability and the debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred.
+
+### 13.7 Subsequent documentation-head verification
+
+The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` passed Architecture, Web, Android and Integrated regression in [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Android Room/workflow/backup reliability and debug-signed phone-test APK publication passed. Production geocoder verification was skipped; physical-device acceptance remains deferred. The verified commit was documentation-only and did not change the implementation already tested on the code-bearing head above.
