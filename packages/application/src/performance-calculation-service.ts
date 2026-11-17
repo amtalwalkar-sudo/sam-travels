@@ -119,13 +119,44 @@ export class PerformanceCalculationServiceV1 {
       throw new Error("performance_pre_business_recovery_source_kind_invalid");
     }
 
+    // Bind the result to the complete set of source revisions actually read,
+    // not merely the shared Business Start Date settings revision. Reject a
+    // mixed revision for the same source before publishing any calculation.
+    const sourceRevisionById = new Map<string, number>();
+    const sourceRefs = [
+      ...revenue.flatMap(row => row.sourceRefs),
+      ...operatingCosts.flatMap(row => row.sourceRefs),
+      ...emiCosts.flatMap(row => row.sourceRefs),
+      ...complianceCosts.flatMap(row => row.sourceRefs),
+      ...manualRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
+      ...emiRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
+      ...complianceRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
+    ];
+    for (const ref of sourceRefs) {
+      if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1) {
+        throw new Error("performance_source_provenance_invalid");
+      }
+      const previous = sourceRevisionById.get(ref.sourceId);
+      if (previous !== undefined && previous !== ref.revision) {
+        throw new Error("performance_source_revision_conflict");
+      }
+      sourceRevisionById.set(ref.sourceId, ref.revision);
+    }
+    const sourceRevisionFingerprint = [...sourceRevisionById]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([sourceId, revision]) => sourceId + "@" + revision)
+      .join("|");
+    const sourceSnapshotId = [
+      ...(identitySet.size === 1 ? [...identitySet] : []),
+      "performance-source-revisions:" + sourceRevisionFingerprint,
+    ].join(";");
     const input: PerformanceCalculationInputV1 = {
       businessStartDate, periodFrom, periodTo, monthlyDriverTargetPaise,
       revenue,
       costs: [...operatingCosts, ...emiCosts, ...complianceCosts],
       preBusinessRecovery: [...manualRecovery, ...emiRecovery, ...complianceRecovery],
       completeness,
-      ...(identitySet.size === 1 ? { sourceSnapshotId: [...identitySet][0] } : {}),
+      sourceSnapshotId,
     };
       return calculatePerformanceV1(input);
     } finally {
