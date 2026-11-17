@@ -23,7 +23,7 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const workRuntime = useWorkApplicationRuntime();
   if (!workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
-  const { recordSource: featureRecordSource } = useAdminMaintenanceServices();
+  const featureRecordSource: FeatureRecordSource = useAdminMaintenanceServices().recordSource;
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
