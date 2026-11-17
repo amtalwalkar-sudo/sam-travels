@@ -5,7 +5,7 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { TripFinancialService, type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
+import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";\nimport { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";\nimport { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 export function useCancellationFeeWorkspace(
   platformRepository: RecordRepository & AtomicRecordRepository,
@@ -16,30 +16,14 @@ export function useCancellationFeeWorkspace(
   const [cancellationFeeDrafts, setCancellationFeeDrafts] = useState<Record<string,string>>({});
   const [cancellationFeeBusy, setCancellationFeeBusy] = useState(false);
   const draftQueue = useRef(new Map<string,Promise<void>>());
-  const service = useMemo(
-    () => new TripFinancialService(platformRepository, getPlatformRecordSource(), undefined, async () => {
+  const { financials: service, forms } = useMemo(() => createTripFinancialFormRuntimeV1(
+    platformRepository, getPlatformRecordSource(), async () => {
       const actor = await getPersonIdentityService().currentActor();
       return { personId: actor.actorId, role: actor.role };
-    }),
-    [platformRepository],
-  );
-  const forms = useMemo(() => {
-    const copies = new RecordFormWorkingCopyRepository(platformRepository, getPlatformRecordSource());
-    return new SharedFormRuntime(copies, {
-      submit: async command => {
-        if (command.formId !== TRIP_CANCELLATION_FEE_FORM_V1.id || command.action !== "submit") {
-          throw new Error("unsupported_trip_financial_form");
-        }
-        return service.submitCancellationFee(
-          command.instanceId,
-          command.values.cancellationFeePaise as number,
-          command.operationId,
-        );
-      },
-    });
-  }, [platformRepository, service]);
+    },
+  ), [platformRepository]);
 
-  const refresh = useCallback(async () => {
+    const refresh = useCallback(async () => {
     const obligations = await service.pendingCancellationFees();
     const drafts: Record<string,string> = {};
     for (const obligation of obligations) {
