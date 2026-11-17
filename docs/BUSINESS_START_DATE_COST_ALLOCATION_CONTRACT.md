@@ -7,11 +7,11 @@
 
 ## 1. Purpose and authority
 
-This contract defines how Compliance costs and scheduled loan EMI costs are allocated into business operating-day, monthly, and yearly reporting when the Business Start Date falls after the underlying record or schedule has already begun.
+This contract defines the downstream Breakeven treatment of costs that occurred before the Business Start Date, alongside normal post-start source allocation. It does not rewrite source-owned allocations, source history, or operational records.
 
-The Business Start Date is **not** a lower-bound validation rule for historical records and is **not** a reason to discard, truncate, or shift their actual dates. It is the point from which the business begins receiving the allocated cost.
+The Business Start Date is **not** a lower-bound validation rule for historical records and is **not** a reason to discard, truncate, or shift their actual dates. Pre-business recovery is a derived Breakeven calculation: it must not mutate canonical source allocations or historical source facts. It is the point from which the business begins receiving the allocated cost.
 
-This contract owns the cross-feature date-based pre-business recovery and normal post-start allocation policy. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
+This contract owns the downstream Breakeven pre-business recovery policy and the boundary between that recovery and normal post-start source allocation. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
 
 ## 2. Approved governing rule — date-based 18-month recovery
 
@@ -24,7 +24,7 @@ The authoritative date attached to an entered cost amount determines its treatme
 5. Divide the aggregate pool by 18 using integer paise. Distribute any indivisible paise remainder deterministically across the 18 monthly instalments so their sum equals the pool exactly.
 6. For daily Full Cost Breakeven, distribute each month's instalment evenly across the days in that recovery month, again using deterministic paise residual handling. Calendar-month reports sum the daily amounts that fall in each calendar month; a recovery month may cross a calendar-month boundary.
 7. If an amount's authoritative date is **on or after** the Business Start Date, keep it out of the pre-business pool and use the normal calculation and recognition rules for that source category.
-8. Recognize every source amount exactly once. The pool recovery is the breakeven treatment of the original pre-business costs, not a second expense added on top of them.
+8. Recognize every source amount exactly once in Breakeven. For a qualifying pre-business amount, use its contribution to the aggregate recovery pool instead of also including that same amount through normal post-start source allocation. The pool recovery is the Breakeven treatment of the original pre-business costs, not a second expense added on top of them. This downstream substitution does not alter the source owner's records or canonical source-allocation history.
 
 The source-specific date used for classification is:
 - Compliance: the compliance cost's effective/valid-from business date.
@@ -83,7 +83,7 @@ No principal/interest split is used in the reporting allocation or its daily/mon
 - The aggregate pre-business cost pool is recovered only within the 18-month interval beginning on the Business Start Date, regardless of any included source's validity or schedule end date.
 - Use integer paise and deterministic residual distribution so the 18 equal recovery-month instalments sum exactly to the aggregate pre-business pool; daily rows within each recovery month must sum exactly to that month's instalment.
 - Monthly and yearly breakeven summaries must be derived from the same versioned daily recovery schedule, not independently rounded calculations.
-- Normal post-start allocations continue to follow the owning source category's normal daily/monthly rules.
+- Normal post-start amounts continue to follow the owning source category's canonical daily/monthly allocation rules. The Breakeven consumer must select either the aggregate-pool recovery for a qualifying pre-business amount or its normal allocation, never both.
 
 A source whose validity or schedule ended before the Business Start Date is still eligible for inclusion in the aggregate pool when its authoritative cost date is before the Business Start Date. Its source dates are not changed.
 
