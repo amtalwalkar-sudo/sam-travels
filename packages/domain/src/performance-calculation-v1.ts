@@ -94,6 +94,23 @@ export type PerformanceCalculationResultV1 = Readonly<{
     targetPositionPaise: number;
     elapsedCalendarMonths: number;
   }>;
+  /** Cumulative surplus-versus-target ledger from Business Start Date through periodTo. */
+  passbook: Readonly<{
+    from: string;
+    to: string;
+    expectedCumulativeTargetPaise: number;
+    actualEligibleSurplusPaise: number;
+    positionPaise: number;
+    remainingTargetPaise: number;
+    daily: readonly Readonly<{
+      date: string;
+      expectedCumulativeTargetPaise: number;
+      actualDailySurplusPaise: number;
+      actualCumulativeSurplusPaise: number;
+      positionPaise: number;
+      remainingTargetPaise: number;
+    }>[];
+  }>;
   recovery: Readonly<{
     from: string;
     toExclusive: string;
@@ -318,6 +335,10 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;
   if (lifetimeDays > 36600) throw new Error("performance_period_too_large");
   const daily: PerformanceDailyResultV1[] = [];
+  const passbookDaily: {
+    date: string; expectedCumulativeTargetPaise: number; actualDailySurplusPaise: number;
+    actualCumulativeSurplusPaise: number; positionPaise: number; remainingTargetPaise: number;
+  }[] = [];
   let lifetimeRevenuePaise = 0, lifetimeCostPaise = 0, periodRevenuePaise = 0, periodCostPaise = 0;
   for (let offset = 0; offset < lifetimeDays; offset++) {
     const date = dateAt(businessStartDay + offset);
@@ -327,6 +348,18 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const profitPaise = revenuePaise - totalCostPaise;
     lifetimeRevenuePaise = add(lifetimeRevenuePaise, revenuePaise);
     lifetimeCostPaise = add(lifetimeCostPaise, totalCostPaise);
+    const actualCumulativeSurplusPaise = lifetimeRevenuePaise - lifetimeCostPaise;
+    const expectedCumulativeTargetPaise = proratedTargetForRange(
+      input.monthlyDriverTargetPaise, input.businessStartDate, date,
+    );
+    const positionPaise = actualCumulativeSurplusPaise - expectedCumulativeTargetPaise;
+    passbookDaily.push(Object.freeze({
+      date, expectedCumulativeTargetPaise,
+      actualDailySurplusPaise: profitPaise,
+      actualCumulativeSurplusPaise,
+      positionPaise,
+      remainingTargetPaise: Math.max(0, -positionPaise),
+    }));
     if (date >= input.periodFrom && date <= input.periodTo) {
       periodRevenuePaise = add(periodRevenuePaise, revenuePaise);
       periodCostPaise = add(periodCostPaise, totalCostPaise);
@@ -385,6 +418,15 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
       profitPaise: lifetimeProfitPaise, targetPaise: lifetimeTargetPaise,
       targetPositionPaise: lifetimeProfitPaise - lifetimeTargetPaise,
       elapsedCalendarMonths,
+    }),
+    passbook: Object.freeze({
+      from: input.businessStartDate,
+      to: input.periodTo,
+      expectedCumulativeTargetPaise: lifetimeTargetPaise,
+      actualEligibleSurplusPaise: lifetimeProfitPaise,
+      positionPaise: lifetimeProfitPaise - lifetimeTargetPaise,
+      remainingTargetPaise: Math.max(0, lifetimeTargetPaise - lifetimeProfitPaise),
+      daily: Object.freeze(passbookDaily),
     }),
     recovery,
     provenance: Object.freeze({
