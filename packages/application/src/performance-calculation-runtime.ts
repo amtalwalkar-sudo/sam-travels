@@ -12,7 +12,7 @@ import { PerformanceTripRevenueAdapterV1 } from "./performance-trip-revenue-adap
 export type PerformanceCalculationRuntimeDependenciesV1 = Readonly<{
   businessSettings: Pick<BusinessSettingsService, "get">;
   adminSettings: Pick<PerformanceAdminSettingsServiceV1,
-    "getMonthlyTargetPaise" | "listEntries" | "prepareSnapshot" | "releaseSnapshot">;
+    "getMonthlyTargetPaise" | "getSourceSnapshotIdentity" | "listEntries" | "prepareSnapshot" | "releaseSnapshot">;
   fullCost: Pick<FullCostBreakevenService, "getSourceProjection">;
   allocation: Pick<BusinessStartDateCostAllocationService, "getReport">;
   tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">;
