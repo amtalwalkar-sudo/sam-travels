@@ -1,6 +1,6 @@
 import {
   SharedFormRuntime, RecordFormWorkingCopyRepository,
-  getApplicationBusinessSettingsService, getApplicationComplianceService, getApplicationComplianceAnalysisService,
+  getApplicationBusinessSettingsService, getApplicationComplianceService,
   getApplicationMaintenanceService, getApplicationFinanceLoanService, getApplicationFinanceLoanPaymentService,
   getApplicationFinanceLoanPrepaymentService, getApplicationFinanceLoanSettlementService,
   getApplicationDriverRecordsService, getApplicationVehicleService,
