@@ -2,6 +2,8 @@ import type { RecordEnvelope } from "../../../packages/core/src/types";
 import {
   BUSINESS_EXPENSES_FEATURE,
   assertBusinessExpenseRecordV1,
+  assertBusinessExpenseEntryV1,
+  assertFuelPurchaseV1,
   type BusinessExpenseRecordV1,
 } from "../../../packages/features/business-expenses";
 import { assertVehicleRecordV1 } from "../../../packages/features/vehicle";
