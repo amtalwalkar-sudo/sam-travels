@@ -214,6 +214,20 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.lifetime.costPaise).toBe(18_000);
   });
 
+  it("binds Driver Target to the revisioned Admin settings snapshot", async () => {
+    const repository = new MemoryRepository();
+    const admin = new PerformanceAdminSettingsServiceV1(repository);
+    await admin.setMonthlyDriverTargetPaise(50_000, "web");
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base, driverTarget: admin, manualPreBusinessCosts: admin,
+    };
+    const result = await new PerformanceCalculationServiceV1(readModels)
+      .calculate("2026-03-16", "2026-03-16");
+    expect(result.provenance.sourceSnapshotId)
+      .toContain("performance-driver-target:feature:performance:settings@1");
+  });
+
   it("keeps the monthly target configuration read-only and unprorated for date filters", async () => {
     const readModels = sources();
     const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
