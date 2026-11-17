@@ -33,7 +33,7 @@ internal object NativeBusinessExpensesBackup {
     private fun validUuid(value: String): Boolean =
         runCatching { UUID.fromString(value).toString() == value.lowercase() }.getOrDefault(false)
 
-    private fun validateFuel(data: JSONObject, id: String) {
+    internal fun validateFuel(data: JSONObject, id: String) {
         val keys = setOf("schemaVersion", "kind", "id", "revision", "businessDate", "occurredAt",
             "vehicleId", "odometerKm", "pricePaisePerKg", "amountPaise", "partialRefill")
         val optional = setOf("locationEvidence")
@@ -63,7 +63,7 @@ internal object NativeBusinessExpensesBackup {
         }
     }
 
-    private fun validateExpense(data: JSONObject, id: String) {
+    internal fun validateExpense(data: JSONObject, id: String) {
         val required = setOf("schemaVersion", "kind", "id", "revision", "sourceKind", "businessDate",
             "amountPaise", "currencyCode", "effect")
         val optional = setOf("reversesSourceId", "vehicleId", "driverId", "category", "description",
@@ -130,6 +130,14 @@ internal object NativeBusinessExpensesBackup {
         }
         if (data.optString("sourceKind") == "traffic_challan") require(data.has("paymentStatus")) {
             "traffic_challan_payment_status_required"
+        }
+    }
+
+    internal fun validateCorrectedProjection(data: JSONObject, id: String) {
+        when (data.optString("kind")) {
+            "fuel_purchase" -> validateFuel(data, id)
+            "business_expense" -> validateExpense(data, id)
+            else -> error("business_expense_correction_backup_kind_invalid")
         }
     }
 
@@ -206,7 +214,8 @@ internal object NativeBusinessExpensesBackup {
                     original.optString("tripFinancialSourceId") == reversal.optString("tripFinancialSourceId") &&
                     original.optString("tripFinancialComponent") == reversal.optString("tripFinancialComponent")) {
                     "business_expense_reversal_link_invalid"
-                }
+                    NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
+    }
             }
     }
 
