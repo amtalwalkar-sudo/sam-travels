@@ -66,7 +66,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       getReport: async () => { reads++; return report; },
     });
 
-    await adapter.prepareSnapshot();
+    await adapter.prepareSnapshot("2026-03-01", "2026-12-31");
     const emi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-31");
     const compliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31");
     const firstDayEmi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-01");
@@ -92,6 +92,23 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     expect([...emiRecovery, ...complianceRecovery].map(row => row.origin).sort())
       .toEqual(["compliance", "compliance", "emi", "emi"]);
     expect(completeness).toEqual([expect.objectContaining({ status: "review-required" })]);
+  });
+
+  it("rejects an allocation snapshot for a different business start date", async () => {
+    const report = {
+      businessStartDate: "2026-03-01", businessSettingsRevision: 1,
+      generatedAt: "2026-11-15T00:00:00.000Z",
+      result: {
+        calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
+        businessStartDate: "2026-03-01", sources: [],
+        daily: [], monthly: [], yearly: [],
+        allocatedAmountPaise: 0, historicalAmountPaise: 0, withheldAmountPaise: 0,
+      },
+    } as unknown as BusinessStartDateCostAllocationReportV1;
+    const adapter = new PerformanceFixedCostAllocationAdapterV1({ getReport: async () => report });
+    await expect(adapter.prepareSnapshot("2026-04-01", "2026-04-30"))
+      .rejects.toThrow("performance_allocation_snapshot_business_start_date_mismatch");
+    adapter.releaseSnapshot();
   });
 
   it("does not emit unreviewed overlap costs into daily or recovery totals", async () => {
