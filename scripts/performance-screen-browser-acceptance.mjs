@@ -223,7 +223,7 @@ try {
 
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
   await page.getByText("Monthly target", { exact: true }).waitFor();
-  const monthlyTable = page.locator(".performance-table").filter({ has: page.locator("caption", { hasText: "Monthly Driver Passbook" }) });
+  const monthlyTable = page.locator(".performance-table").filter({ has: page.locator("caption", { hasText: "Monthly revenue, full-cost expense, net and calendar-day-prorated target" }) });
   const monthlyText = await monthlyTable.innerText();
   const monthKeys = [...new Set([businessStartDate.slice(0, 7), today.slice(0, 7)])];
   for (const month of monthKeys) {
@@ -231,6 +231,20 @@ try {
     if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration:" + month + ":" + expected);
   }
   console.log("Monthly roll-up target values reconcile to calendar-day proration for each partial month.");
+
+  await page.getByRole("tab", { name: "Driver Passbook", exact: true }).click();
+  const passbookTable = page.locator(".performance-table").filter({
+    has: page.locator("thead", { hasText: "Expected cumulative" }),
+  });
+  await passbookTable.waitFor();
+  const passbookText = await passbookTable.innerText();
+  if (!passbookText.includes(moneyFromPaise(selectedTarget)) ||
+      !passbookText.includes("Remaining")) {
+    throw new Error("driver_passbook_cumulative_target_or_remaining_balance_missing");
+  }
+  await page.getByText("Expected cumulative surplus", { exact: true }).waitFor();
+  await page.getByText("Actual cumulative surplus", { exact: true }).waitFor();
+  console.log("Driver Passbook cumulative target, actual surplus and remaining balance rendered.");
 
   const provenance = page.locator("#performance-provenance");
   await provenance.locator("summary").first().click();
