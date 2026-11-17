@@ -4,6 +4,9 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
+import { HistoricalCorrectionService } from "../packages/application/src/historical-correction-service";
+import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
+import { assertFuelPurchaseV1 } from "../packages/features/business-expenses";
 
 describe("Business Expenses browser backup participant", () => {
   let unregisterVehicle: (() => void) | undefined;
@@ -39,6 +42,7 @@ describe("Business Expenses browser backup participant", () => {
     await browserDatabase.records.put({
       id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
       source: "web", revision: 1, businessDate: "2026-11-15",
+      createdBy: { personId: "driver-1", role: "driver" },
       data: {
         schemaVersion: 1, kind: "fuel_purchase", id, revision: 1,
         businessDate: "2026-11-15", occurredAt: timestamp, vehicleId,
@@ -60,6 +64,59 @@ describe("Business Expenses browser backup participant", () => {
     expect(await browserDatabase.records.get(
       "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000",
     )).toBeDefined();
+  });
+
+  it("restores fuel correction history and reproduces the corrected source projection", async () => {
+    await seedVehicle(); await seedFuel();
+    const targetRecordId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000";
+    const correctionId = "backup-fuel-correction-" + crypto.randomUUID();
+    const correctionService = new HistoricalCorrectionService(
+      new (await import("../packages/storage-browser/src")).DexieRecordRepository(),
+      { currentActor: async () => ({ role: "driver" as const, actorId: "driver-1" }) },
+      {
+        resolve: async record => {
+          if (record.id !== targetRecordId) throw new Error("unsupported_target");
+          return {
+            featureId: "business-expenses",
+            allowedFieldPaths: ["amountPaise"],
+            validateProjectedData: assertFuelPurchaseV1,
+          };
+        },
+      },
+      "web",
+      () => timestamp,
+    );
+    await correctionService.submit({
+      correctionId, targetRecordId, expectedTargetRevision: 1, expectedChainRevision: 0,
+      fieldPath: "amountPaise", afterValue: 19000, reason: "Verified against the corrected pump receipt",
+      businessEffectiveDate: "2026-11-15",
+    });
+
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    expect(snapshot.data.records.some(row => (row as { id?: string }).id === "historical-correction:" + correctionId)).toBe(true);
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({ data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true });
+
+    const restoredRecords = new (await import("../packages/storage-browser/src")).DexieRecordRepository();
+    const restoredCorrectionService = new HistoricalCorrectionService(
+      restoredRecords,
+      { currentActor: async () => ({ role: "driver" as const, actorId: "driver-1" }) },
+      {
+        resolve: async () => ({
+          featureId: "business-expenses", allowedFieldPaths: ["amountPaise"],
+          validateProjectedData: assertFuelPurchaseV1,
+        }),
+      },
+      "web",
+      () => timestamp,
+    );
+    const original = await restoredRecords.get(targetRecordId);
+    const corrections = await restoredCorrectionService.listForTarget(targetRecordId);
+    expect(original?.revision).toBe(1);
+    expect((original?.data as { amountPaise: number }).amountPaise).toBe(18000);
+    expect(projectHistoricalCorrectionsV1(original!.data, corrections)).toMatchObject({
+      status: "valid", data: { amountPaise: 19000 }, chainRevision: 1,
+    });
   });
 
   it("rejects expense records with missing vehicle references", async () => {
