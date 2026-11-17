@@ -13,7 +13,7 @@ The fixed-rate, standard monthly reducing-balance Loan EMI quote and original am
 
 ## Remaining Finance transaction gates
 
-This generic gate does not reopen the product-owner-approved source dates and inclusion rules recorded in [Breakeven and Driver Target Calculation Contract v1.9](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) and its linked source contracts. Any additional transaction type or treatment outside that frozen scope still requires explicit owner approval, an authoritative date/status rule, and regression fixtures. Do not add refunds, reversals, adjustments, transfers, tax or lender-specific charges to the breakeven scope.
+This generic gate does not reopen the product-owner-approved source dates and inclusion rules recorded in [Breakeven and Driver Target Calculation Contract v2.0](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) and its linked source contracts. Any additional transaction type or treatment outside that frozen scope still requires explicit owner approval, an authoritative date/status rule, and regression fixtures. Do not add refunds, reversals, adjustments, transfers, tax or lender-specific charges to the breakeven scope.
 
 ## Performance approval required
 
@@ -25,4 +25,4 @@ Before registering any additional production Performance calculation beyond the 
 5. Missing-data behavior, estimates versus actuals, rounding, and historical recalculation policy.
 6. Expected results for representative normal, cancelled, incomplete, midnight-crossing, and corrected records.
 
-The existing versioned calculation registry and regression-fixture enforcement are ready to host approved definitions. No additional metric may be registered without its own owner-approved source, period, missing-data, rounding and regression rules. The full-cost breakeven engine remains blocked by the upstream implementation mismatches recorded in the Breakeven Source Reconciliation Audit; this document does not reopen the already-approved breakeven source decisions.
+The existing versioned calculation registry and regression-fixture enforcement are ready to host approved definitions. No additional metric may be registered without its own owner-approved source, period, missing-data, rounding and regression rules. The full-cost breakeven engine and Performance integration were subsequently merged in PR #83 and PR #93. The older Breakeven Source Reconciliation Audit retains its pre-implementation baseline and must not be treated as the current runtime status. Current implementation conformance and remaining acceptance gaps are tracked by the post-PR #93 Performance End-to-End Conformance Audit and the Calculation Authority and Application Wiring Audit. This document does not reopen the already-approved breakeven source decisions.
