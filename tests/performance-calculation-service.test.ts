@@ -38,17 +38,11 @@ function sources(): PerformanceCalculationReadModelsV1 {
         { date: "2026-03-16", kind: "emi" as const, amountPaise: 2_000, verified: true,
           sourceRefs: [{ sourceId: "emi", revision: 1 }] },
       ]),
-      listPreBusinessEmiPortions: vi.fn(async () => [
-        { sourceId: "emi-pre", revision: 1, amountPaise: 18_000, note: "Before business start", origin: "emi" as const },
-      ]),
     },
     compliance: {
       listDailyComplianceAllocations: vi.fn(async () => [
         { date: "2026-03-16", kind: "compliance" as const, amountPaise: 500, verified: true,
           sourceRefs: [{ sourceId: "compliance", revision: 1 }] },
-      ]),
-      listPreBusinessCompliancePortions: vi.fn(async () => [
-        { sourceId: "compliance-pre", revision: 1, amountPaise: 9_000, note: "Before business start", origin: "compliance" as const },
       ]),
     },
     manualPreBusinessCosts: { listEntries: vi.fn(async () => [
@@ -67,8 +61,7 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.daily[0].costs.emi).toBe(2_000);
     expect(result.daily[0].costs.compliance).toBe(500);
     expect(result.daily[0].costs["pre-business-manual-recovery"]).toBeGreaterThan(0);
-    expect(result.daily[0].costs["pre-business-emi-recovery"]).toBeGreaterThan(0);
-    expect(result.daily[0].costs["pre-business-compliance-recovery"]).toBeGreaterThan(0);
+    expect(result.recovery.daily.every(row => row.origin === "manual")).toBe(true);
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("emi");
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("compliance");
   });
@@ -212,8 +205,8 @@ describe("PerformanceCalculationServiceV1", () => {
       ...base,
       revenue,
       operatingCosts: { listDailyCosts: async () => [] },
-      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
-      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [] },
       manualPreBusinessCosts: { listEntries: async () => [] },
     };
     const service = new PerformanceCalculationServiceV1(readModels);
@@ -248,8 +241,8 @@ describe("PerformanceCalculationServiceV1", () => {
       ...base,
       revenue: { listVerifiedDailyRevenue: async () => [] },
       operatingCosts: { listDailyCosts: async () => [] },
-      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
-      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [] },
       manualPreBusinessCosts: admin,
     };
     const result = await new PerformanceCalculationServiceV1(readModels)

@@ -13,7 +13,7 @@ export const PRE_BUSINESS_RECOVERY_MONTHS_V1 = 18 as const;
 export type PerformanceCostKindV1 =
   | "fuel" | "maintenance" | "emi" | "compliance" | "platform-fee"
   | "traffic-challan" | "toll-parking" | "miscellaneous"
-  | "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery";
+  | "pre-business-manual-recovery";
 
 export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number }>;
 
@@ -27,7 +27,7 @@ export type PerformanceDailyRevenueInputV1 = Readonly<{
 
 export type PerformanceDailyCostInputV1 = Readonly<{
   date: string;
-  kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery" | "pre-business-emi-recovery" | "pre-business-compliance-recovery">;
+  kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery">;
   amountPaise: number;
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
@@ -38,7 +38,7 @@ export type PreBusinessRecoverySourceV1 = Readonly<{
   revision: number;
   amountPaise: number;
   note: string;
-  origin: "manual" | "emi" | "compliance";
+  origin: "manual";
 }>;
 
 export type PerformanceCompletenessV1 = Readonly<{
@@ -98,7 +98,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
@@ -112,7 +112,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const COST_KINDS: readonly PerformanceCostKindV1[] = Object.freeze([
   "fuel", "maintenance", "emi", "compliance", "platform-fee",
   "traffic-challan", "toll-parking", "miscellaneous",
-  "pre-business-manual-recovery", "pre-business-emi-recovery", "pre-business-compliance-recovery",
+  "pre-business-manual-recovery",
 ]);
 
 function assertDate(value: string): number {
@@ -200,13 +200,13 @@ export function allocatePreBusinessRecoveryV1(
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
-        !["manual", "emi", "compliance"].includes(source.origin) || seen.has(source.sourceId)) {
+        source.origin !== "manual" || seen.has(source.sourceId)) {
       throw new Error("performance_recovery_source_invalid");
     }
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
   }
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string }[] = [];
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }[] = [];
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
   // Equal monthly instalments are calculated from the aggregate pool, not
@@ -309,9 +309,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   }
   for (const row of recovery.daily) {
     const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
-    const recoveryKind: PerformanceCostKindV1 = row.origin === "emi" ? "pre-business-emi-recovery"
-      : row.origin === "compliance" ? "pre-business-compliance-recovery" : "pre-business-manual-recovery";
-    bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
+    bucket["pre-business-manual-recovery"] = add(bucket["pre-business-manual-recovery"], row.amountPaise);
     costsByDate.set(row.date, bucket);
   }
   for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });

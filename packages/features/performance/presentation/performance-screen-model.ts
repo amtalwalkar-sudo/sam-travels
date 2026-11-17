@@ -9,14 +9,12 @@ export const CATEGORY_LABELS: Readonly<Record<PerformanceCostKindV1, string>> = 
   fuel: "Fuel", maintenance: "Maintenance", emi: "Loan EMI", compliance: "Compliance",
   "platform-fee": "Platform fees", "traffic-challan": "Traffic challans", "toll-parking": "Tolls & parking",
   miscellaneous: "Miscellaneous", "pre-business-manual-recovery": "Pre-business cost recovery",
-  "pre-business-emi-recovery": "Pre-business EMI recovery",
-  "pre-business-compliance-recovery": "Pre-business compliance recovery",
 };
 
 export type PerformanceInsightDefinition = Readonly<{ label: string; formula: string }>;
 export const INSIGHT_DEFINITIONS: Readonly<Record<string, PerformanceInsightDefinition>> = {
   "period-revenue": { label: "Period revenue", formula: "Verified gross completed fares + verified cancellation fees, summed over the selected operational dates. Unverified revenue is excluded." },
-  "period-cost": { label: "Eligible period costs", formula: "Sum of verified operating costs, separately allocated EMI and Compliance, and applicable pre-business recovery amounts. Costs are not duplicated across source modules." },
+  "period-cost": { label: "Eligible period costs", formula: "Sum of verified operating costs, separately allocated EMI and Compliance, and manual pre-business recovery. Costs are not duplicated across source modules." },
   "period-net": { label: "Period net position", formula: "Selected-period revenue − selected-period full eligible costs." },
   "monthly-target": { label: "Driver Target for selected period", formula: "The fixed monthly rupee surplus configured in Admin, prorated by the selected calendar days in each month. Month-to-date achievement = selected-period net profit ÷ the prorated target for those dates." },
   "business-distance": { label: "Business distance", formula: "Sum of confirmed allocated daily business kilometres in the selected period. Unallocated distance is not included." },
@@ -35,8 +33,8 @@ export const INSIGHT_DEFINITIONS: Readonly<Record<string, PerformanceInsightDefi
   "monthly-cost": { label: "Monthly eligible costs", formula: "Eligible costs aggregated for the dates included in the selected period for this calendar month." },
   "monthly-net": { label: "Monthly net position", formula: "Monthly aggregate revenue − monthly aggregate eligible costs." },
   "monthly-target-position": { label: "Monthly target position", formula: "Net position for the included dates in the month − the configured monthly Driver Target prorated by the included calendar days in that month." },
-  "recovery-allocation": { label: "Pre-business recovery allocation", formula: "Manual pre-business cost entries are allocated over the documented 18-month recovery schedule. EMI and Compliance carry-forward uses the canonical daily allocations from the Business Start Date allocation service." },
-  "recovery-source-revision": { label: "Recovery source revision", formula: "The immutable revision identifier for the manual pre-business, pre-business EMI, or pre-business Compliance source record used in this recovery allocation." },
+  "recovery-allocation": { label: "Pre-business recovery allocation", formula: "Manual pre-business cost entries are allocated over the documented 18-month recovery schedule. EMI and Compliance carry-forward is included once in canonical daily allocations from the Business Start Date allocation service." },
+  "recovery-source-revision": { label: "Recovery source revision", formula: "The immutable revision identifier for the manual pre-business cost record used in this recovery allocation." },
 };
 
 export function localDateOffset(days: number): string {

@@ -28,10 +28,6 @@ function fixture(overrides: Partial<PerformanceCalculationInputV1> = {}): Perfor
     preBusinessRecovery: [
       { sourceId: "pre-business-manual-1", revision: 1, amountPaise: 18_000, note: "Initial setup",
         origin: "manual" },
-      { sourceId: "pre-business-emi-1", revision: 2, amountPaise: 9_000, note: "Pre-start EMI portion",
-        origin: "emi" },
-      { sourceId: "pre-business-compliance-1", revision: 1, amountPaise: 3_000, note: "Pre-start compliance portion",
-        origin: "compliance" },
     ],
     completeness: [{ source: "verified-records", status: "complete" }],
     ...overrides,
@@ -108,8 +104,7 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(aprilFirst.costs.emi).toBe(0);
     expect(aprilFirst.costs.compliance).toBe(0);
     expect(aprilFirst.costs["pre-business-manual-recovery"]).toBeGreaterThan(0);
-    expect(aprilFirst.costs["pre-business-emi-recovery"]).toBeGreaterThan(0);
-    expect(aprilFirst.costs["pre-business-compliance-recovery"]).toBeGreaterThan(0);
+    expect(result.recovery.daily.every(row => row.origin === "manual")).toBe(true);
     expect(result.daily.some(row => row.costs.emi > 0)).toBe(false);
     expect(result.daily.some(row => row.costs.compliance > 0)).toBe(true);
   });

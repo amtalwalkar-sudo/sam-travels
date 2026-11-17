@@ -38,11 +38,9 @@ export interface PerformanceOperatingCostReadModel extends PerformanceSnapshotRe
 }
 export interface PerformanceEmiReadModel extends PerformanceSnapshotReadModel {
   listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
-  listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
 export interface PerformanceComplianceReadModel extends PerformanceSnapshotReadModel {
   listDailyComplianceAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
-  listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
 export interface PerformanceManualPreBusinessCostReadModel extends PerformanceSnapshotReadModel {
   listEntries(): Promise<readonly PreBusinessRecoverySourceV1[]>;
@@ -107,7 +105,7 @@ export class PerformanceCalculationServiceV1 {
       if (identitySet.size > 1) throw new Error("performance_source_snapshot_revision_mismatch");
     const [
       monthlyDriverTargetPaise, revenue, operatingCosts, emiCosts, complianceCosts,
-      manualRecovery, emiRecovery, complianceRecovery, completeness,
+      manualRecovery, completeness,
     ] = await Promise.all([
       this.sources.driverTarget.getMonthlyTargetPaise(),
       this.sources.revenue.listVerifiedDailyRevenue(businessStartDate, periodTo),
@@ -115,8 +113,6 @@ export class PerformanceCalculationServiceV1 {
       this.sources.emi.listDailyEmiAllocations(businessStartDate, periodTo),
       this.sources.compliance.listDailyComplianceAllocations(businessStartDate, periodTo),
       this.sources.manualPreBusinessCosts.listEntries(),
-      this.sources.emi.listPreBusinessEmiPortions(),
-      this.sources.compliance.listPreBusinessCompliancePortions(),
       this.sources.completeness.getCompleteness(businessStartDate, periodTo),
     ]);
 
@@ -140,9 +136,7 @@ export class PerformanceCalculationServiceV1 {
     if (operatingCosts.some(row => !allowedOperatingKinds.has(row.kind))) {
       throw new Error("performance_operating_cost_contains_time_cost");
     }
-    if (manualRecovery.some(row => row.origin !== "manual") ||
-        emiRecovery.some(row => row.origin !== "emi") ||
-        complianceRecovery.some(row => row.origin !== "compliance")) {
+    if (manualRecovery.some(row => row.origin !== "manual")) {
       throw new Error("performance_pre_business_recovery_source_kind_invalid");
     }
 
@@ -156,8 +150,6 @@ export class PerformanceCalculationServiceV1 {
       ...emiCosts.flatMap(row => row.sourceRefs),
       ...complianceCosts.flatMap(row => row.sourceRefs),
       ...manualRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
-      ...emiRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
-      ...complianceRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
     ];
     for (const ref of sourceRefs) {
       if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1) {
@@ -185,7 +177,7 @@ export class PerformanceCalculationServiceV1 {
       businessStartDate, periodFrom, periodTo, monthlyDriverTargetPaise,
       revenue,
       costs: [...operatingCosts, ...emiCosts, ...complianceCosts],
-      preBusinessRecovery: [...manualRecovery, ...emiRecovery, ...complianceRecovery],
+      preBusinessRecovery: manualRecovery,
       completeness,
       sourceSnapshotId,
     };

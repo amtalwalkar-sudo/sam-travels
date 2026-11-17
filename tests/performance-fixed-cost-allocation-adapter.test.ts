@@ -15,7 +15,7 @@ function source(input: Partial<CostAllocationSourceResultV1> & Pick<CostAllocati
 }
 
 describe("Performance fixed-cost allocation adapter v1", () => {
-  it("consumes canonical daily rows and recovers full pre-business source amounts", async () => {
+  it("consumes canonical daily rows once and flags historical sources without eligible days", async () => {
     const sources: CostAllocationSourceResultV1[] = [
       source({
         sourceId: "loan:emi:3", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
@@ -73,8 +73,6 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     const compliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31");
     const firstDayEmi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-01");
     const firstDayCompliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-03-01");
-    const emiRecovery = await adapter.listPreBusinessEmiPortions();
-    const complianceRecovery = await adapter.listPreBusinessCompliancePortions();
     const completeness = await adapter.getCompleteness("2026-03-01", "2026-12-31");
     adapter.releaseSnapshot();
 
@@ -91,9 +89,6 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     // reconstruct a new distribution for the requested report window.
     expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(2);
     expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
-    expect(emiRecovery).toEqual([]);
-    expect(complianceRecovery).toEqual([]);
-    expect([...emiRecovery, ...complianceRecovery]).toEqual([]);
     expect(completeness).toEqual([expect.objectContaining({ status: "review-required" })]);
   });
 
@@ -139,7 +134,6 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     } as unknown as BusinessStartDateCostAllocationReportV1;
     const adapter = new PerformanceFixedCostAllocationAdapterV1({ getReport: async () => report });
     expect(await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31")).toEqual([]);
-    expect(await adapter.listPreBusinessCompliancePortions()).toEqual([]);
     await expect(adapter.getCompleteness("2026-03-01", "2026-03-31"))
       .resolves.toEqual([expect.objectContaining({
         status: "review-required",

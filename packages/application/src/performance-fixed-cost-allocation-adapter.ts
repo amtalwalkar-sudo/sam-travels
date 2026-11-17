@@ -1,4 +1,4 @@
-import type { PerformanceDailyCostInputV1, PreBusinessRecoverySourceV1, PerformanceCompletenessV1 } from "../../domain/src/performance-calculation-v1";
+import type { PerformanceDailyCostInputV1, PerformanceCompletenessV1 } from "../../domain/src/performance-calculation-v1";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { CostAllocationSourceResultV1 } from "../../domain/src/business-start-date-cost-allocation";
 import type { PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceCompletenessReadModel } from "./performance-calculation-service";
@@ -100,16 +100,6 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
       return canonicalDailyRows(source, from, to, "compliance");
     }));
-  }
-
-  async listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
-    // Canonical EMI daily rows already include any pre-business carry-forward.
-    return Object.freeze([]);
-  }
-
-  async listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
-    // Canonical Compliance daily rows already include pre-business carry-forward.
-    return Object.freeze([]);
   }
 
   async getCompleteness(_from: string, _to: string): Promise<readonly PerformanceCompletenessV1[]> {
