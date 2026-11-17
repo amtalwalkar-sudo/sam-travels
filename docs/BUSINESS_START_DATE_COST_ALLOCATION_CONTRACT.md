@@ -11,7 +11,7 @@ This contract defines how Compliance costs and scheduled loan EMI costs are allo
 
 The Business Start Date is **not** a lower-bound validation rule for historical records and is **not** a reason to discard, truncate, or shift their actual dates. It is the point from which the business begins receiving the allocated cost.
 
-This contract owns the cross-feature carry-forward and allocation policy. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
+This contract owns the cross-feature date-based pre-business recovery and normal post-start allocation policy. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
 
 ## 2. Approved governing rule — date-based 18-month recovery
 
@@ -104,6 +104,6 @@ This contract does not authorize runtime implementation by itself. Before wiring
 - overlap-review interaction and historical correction interaction;
 - schedule changes after approved prepayments, settlement, closure, or corrections;
 - backup/restore participation and browser/Android parity;
-- regression fixtures for pre-start carry-forward, boundary dates, leap years, month/year boundaries, final EMI periods, paise residuals, source corrections, and idempotent rebuilds.
+- regression fixtures for pre-start 18-month recovery, source-date boundary cases, equal monthly instalments, daily paise residuals, leap years, month/year boundaries, EMI schedule transitions, source corrections, and idempotent rebuilds.
 
 The implementation must not add a competing Admin/UI calculation, mutate immutable source history, or bypass existing transaction, recovery, persistence, and calculation-version safeguards.
