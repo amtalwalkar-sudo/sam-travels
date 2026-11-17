@@ -42,10 +42,7 @@ describe("PerformanceScreenControllerV1", () => {
   it("rejects an invalid reporting period before invoking either service", async () => {
     const calculate = vi.fn();
     const calculateDistance = vi.fn();
-    const controller = new PerformanceScreenControllerV1(
-      { calculate } as never,
-      { calculate: calculateDistance } as never,
-    );
+    const controller = new PerformanceScreenControllerV1({ calculate, calculateDistance } as never);
 
     await expect(controller.loadPeriod("2026-11-18", "2026-11-17")).rejects.toThrow("valid Performance reporting period");
     expect(calculate).not.toHaveBeenCalled();
