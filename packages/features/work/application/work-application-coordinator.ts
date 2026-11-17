@@ -64,7 +64,9 @@ export class WorkApplicationCoordinatorV1 {
       this.dependencies.runtime,
       LOGBOOK_WORK_EVENT_INTEGRATION,
       event,
-      async () => rebuildTripHistoryProjection(await repository.listEvents()),
+      async () => {
+        rebuildTripHistoryProjection(await repository.listEvents());
+      },
     );
   }
 }
