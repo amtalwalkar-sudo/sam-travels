@@ -101,7 +101,11 @@ The owner-approved rule is date-based: use each source category's authoritative 
 
 The source-date mapping is Compliance `validFrom`, each EMI's scheduled due date, and the explicit business/effective date for manual dated costs. Preserve source records and provenance, and ensure the amount is recognized exactly once.
 
-The domain implementation already allocates eligible manual, EMI and Compliance pre-business source amounts over an 18-month date interval with deterministic paise distribution. The remaining conformance work is to prove that the adapters classify the complete source amounts using the approved dates and do not retain obsolete source-validity/remaining-schedule recovery horizons.
+The current implementation is not yet conformant to the clarified contract in two important details:
+- `allocatePreBusinessRecoveryV1` distributes the source amount evenly by day across the entire 18-month interval. The approved contract now requires 18 equal monthly instalments, with each instalment spread across the days of its own Business-Start-Date-anchored recovery month for daily breakeven.
+- `PerformanceFixedCostAllocationAdapterV1` proportionally splits a Compliance amount by the pre-/post-Business-Start-Date share of its validity days. The approved rule classifies the full Compliance source amount by `validFrom`: if `validFrom` is before the Business Start Date, the full amount enters 18-month recovery; otherwise the normal validity-period allocation applies.
+
+The EMI and manual-cost adapters must likewise pass the full source amount when their authoritative date is before the Business Start Date. Do not treat this documentation update as proof that the runtime has been corrected. These are explicit implementation changes and regression gates for the consolidated architecture implementation PR.
 
 Add/retain explicit regression cases for:
 - An amount dated immediately before, exactly on, and immediately after the Business Start Date.
