@@ -1,7 +1,5 @@
 package `in`.samtravels.app
 import android.content.Intent
-import android.webkit.WebView
-import android.os.SystemClock
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -14,9 +12,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 @RunWith(AndroidJUnit4::class)
 class MaintenanceCorrectionCapacitorAcceptanceTest {
   @Test
@@ -35,18 +30,18 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
     val correctionPrefix = "historical-correction:"
     val now = Instant.now().toString()
-    val vehicle = envelope(vehicleId, now, JSONObject()
+    val vehicle = maintenanceEnvelope(vehicleId, now, JSONObject()
       .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
       .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
       .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
       .put("ownership", "Owned").put("lifecycleState", "active"))
     val otherExpenseId = expenseId.dropLast(36) + UUID.randomUUID()
-    val expense = envelope(expenseId, now, JSONObject()
+    val expense = maintenanceEnvelope(expenseId, now, JSONObject()
       .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
       .put("expenseDate", "2026-10-10").put("expenseName", "Accept tyre repair")
       .put("description", "Accept receipt").put("amountPaise", 10000L),
       JSONObject().put("personId", "person-driver-one").put("role", "driver"))
-    val otherExpense = envelope(otherExpenseId, now, JSONObject()
+    val otherExpense = maintenanceEnvelope(otherExpenseId, now, JSONObject()
       .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
       .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
       .put("description", "Other Driver receipt").put("amountPaise", 20000L),
@@ -69,16 +64,16 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
       ) as MainActivity
       assertTrue("Drive",
-          awaitJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-      assertTrue("Admin nav", awaitJavascript(activity,
+          awaitMaintenanceJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
+      assertTrue("Admin nav", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
           10_000))
-      evaluate(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
-      assertTrue("Admin", awaitJavascript(activity,
+      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
+      assertTrue("Admin", awaitMaintenanceJavascript(activity,
           "document.querySelector('.admin-replacement-shell') !== null", 15_000))
-      assertTrue("Name", awaitJavascript(activity,
+      assertTrue("Name", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Role", evaluate(activity, """
+      assertTrue("Role", evaluateMaintenanceWebView(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
             const input = label?.querySelector('input[type=checkbox]');
@@ -87,10 +82,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      awaitJavascript(activity,
+      awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
             "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
-      assertTrue("Fields", evaluate(activity, """
+      assertTrue("Fields", evaluateMaintenanceWebView(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -105,17 +100,17 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
           })()
       """))
-      assertTrue("Enroll", awaitJavascript(activity,
+      assertTrue("Enroll", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
-      evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
-      assertTrue("Enrolled", awaitJavascript(activity,
+      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
+      assertTrue("Enrolled", awaitMaintenanceJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Ready", awaitJavascript(activity, """
+      assertTrue("Ready", awaitMaintenanceJavascript(activity, """
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
             Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
           Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
       """, 15_000))
-      assertTrue("Activate", evaluate(activity, """
+      assertTrue("Activate", evaluateMaintenanceWebView(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
@@ -133,10 +128,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("PIN", awaitJavascript(activity,
+      assertTrue("PIN", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
           5_000))
-      assertTrue("PIN accept", evaluate(activity, """
+      assertTrue("PIN accept", evaluateMaintenanceWebView(activity, """
           (() => {
             const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
             const pin = label?.querySelector('input');
@@ -148,17 +143,17 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Active", awaitJavascript(activity,
+      assertTrue("Active", awaitMaintenanceJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
       val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
-        evaluate(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
-        assertTrue("$id", awaitJavascript(activity,
+        evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
+        assertTrue("$id", awaitMaintenanceJavascript(activity,
           "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
       }
-      assertTrue("Maintenance load", awaitJavascript(activity,
+      assertTrue("Maintenance load", awaitMaintenanceJavascript(activity,
           "document.body.textContent.includes('Accept tyre repair')", 15_000))
-      evaluate(activity, """
+      evaluateMaintenanceWebView(activity, """
           (() => {
             document.querySelector('details.loan-schedule')?.setAttribute('open','');
             const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
@@ -166,9 +161,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return Boolean(record);
           })()
       """)
-      assertTrue("Correction opens", awaitJavascript(activity,
+      assertTrue("Correction opens", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-      assertTrue("Inputs", evaluate(activity, """
+      assertTrue("Inputs", evaluateMaintenanceWebView(activity, """
           (() => {
             const set = (labelText, value) => {
               const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
@@ -182,7 +177,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return set('Corrected amount', '150.00') && set('Reason for correction', 'Receipt verified');
           })()
       """))
-      evaluate(activity, """
+      evaluateMaintenanceWebView(activity, """
           (() => {
             const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
             if (!button) return false;
@@ -191,10 +186,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """)
-      assertTrue("Saved", awaitJavascript(activity,
+      assertTrue("Saved", awaitMaintenanceJavascript(activity,
           "document.body.textContent.includes('appended')", 15_000))
       // The success message appears before the post-save history refresh clears busy.
-      assertTrue("Admin correction ready", awaitJavascript(activity,
+      assertTrue("Admin correction ready", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
           15_000))
       val original = JSONObject(database.records().get(expenseId)!!.json)
@@ -214,7 +209,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
       assertNotNull("Room stored",
           database.records().get(correctionRows.single().getString("id")))
-      assertTrue("Driver", evaluate(activity, """
+      assertTrue("Driver", evaluateMaintenanceWebView(activity, """
           (() => {
             const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
             const person = personLabel?.querySelector('select');
@@ -232,15 +227,15 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return Boolean(person.value);
           })()
       """))
-      evaluate(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
-      assertTrue("Driver activates", awaitJavascript(activity,
+      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
+      assertTrue("Driver activates", awaitMaintenanceJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
-      assertTrue("Own record appears", awaitJavascript(activity,
+      assertTrue("Own record appears", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept tyre repair'))", 10_000))
-      assertTrue("Driver correction ready", awaitJavascript(activity,
+      assertTrue("Driver correction ready", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
           15_000))
-      assertTrue("Driver button", evaluate(activity, """
+      assertTrue("Driver button", evaluateMaintenanceWebView(activity, """
           (() => {
             document.querySelector('details.loan-schedule')?.setAttribute('open','');
             const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
@@ -249,10 +244,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return Boolean(button);
           })()
       """))
-      assertTrue("Driver form", awaitJavascript(activity,
+      assertTrue("Driver form", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('label input') !== null",
           15_000))
-      assertTrue("Driver submits", evaluate(activity, """
+      assertTrue("Driver submits", evaluateMaintenanceWebView(activity, """
           (() => {
             const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
             const set = (labelText, value) => {
@@ -269,11 +264,11 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Driver correction committed", awaitJavascript(activity,
+      assertTrue("Driver correction committed", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Correction appended')", 15_000))
-      assertTrue("Other record", awaitJavascript(activity,
+      assertTrue("Other record", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
-      assertTrue("Other form button", evaluate(activity, """
+      assertTrue("Other form button", evaluateMaintenanceWebView(activity, """
           (() => {
             const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
             const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
@@ -281,10 +276,10 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return Boolean(button);
           })()
       """))
-      assertTrue("Other form opens", awaitJavascript(activity,
+      assertTrue("Other form opens", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.querySelector('label input') !== null",
           15_000))
-      assertTrue("Other input", evaluate(activity, """
+      assertTrue("Other input", evaluateMaintenanceWebView(activity, """
           (() => {
             const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
             const set = (labelText, value) => {
@@ -301,7 +296,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Other rejected", awaitJavascript(activity,
+      assertTrue("Other rejected", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
       val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
           .map { JSONObject(it.json).getJSONObject("data") }
@@ -351,47 +346,5 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       instrumentation.runOnMainSync { activity.finish() }
       database.close()
     }
-  }
-  private fun envelope(
-    id: String,
-    timestamp: String,
-    data: JSONObject,
-    createdBy: JSONObject? = null,
-  ): StoredRecord {
-    val record = JSONObject().put("id", id).put("schemaVersion", 1)
-      .put("createdAt", timestamp).put("updatedAt", timestamp).put("source", "android")
-      .put("revision", 1).put("data", data)
-    if (createdBy != null) record.put("createdBy", createdBy)
-    return StoredRecord(id, record.toString(), 1, timestamp)
-  }
-  private fun evaluate(activity: MainActivity, script: String): Boolean {
-    val instrumentation = InstrumentationRegistry.getInstrumentation()
-    val result = AtomicReference<String?>()
-    val latch = CountDownLatch(1)
-    instrumentation.runOnMainSync {
-      activity.getBridge().getWebView().evaluateJavascript(script) {
-          result.set(it)
-          latch.countDown()
-      }
-    }
-    return latch.await(5, TimeUnit.SECONDS) && result.get() == "true"
-  }
-  private fun awaitJavascript(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
-    val instrumentation = InstrumentationRegistry.getInstrumentation()
-    val webView: WebView = activity.getBridge().getWebView()
-    val deadline = SystemClock.uptimeMillis() + timeoutMs
-    while (SystemClock.uptimeMillis() < deadline) {
-      val result = AtomicReference<String?>()
-      val latch = CountDownLatch(1)
-      instrumentation.runOnMainSync {
-          webView.evaluateJavascript("Boolean($expression)") {
-              result.set(it)
-              latch.countDown()
-          }
-      }
-      if (latch.await(2, TimeUnit.SECONDS) && result.get() == "true") return true
-      SystemClock.sleep(100)
-    }
-    return false
   }
 }
