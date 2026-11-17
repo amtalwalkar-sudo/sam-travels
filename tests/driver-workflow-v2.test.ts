@@ -27,6 +27,23 @@ describe("version 2 Work trip lifecycle",()=>{
   expect(operationalDateAt("2026-11-08T22:30:00.000Z")).toBe("2026-11-09");
  });
  beforeEach(async()=>{await browserDatabase.delete();await browserDatabase.open();});
+ it("defers 04:00 rotation while a trip is active using the shared parity contract",async()=>{
+  expect(parity.activeTripRotation.allowed).toBe(false);
+  const startedAt="2026-11-08T20:00:00.000Z";
+  const boundaryAt="2026-11-08T22:30:00.000Z";
+  const snapshot={schemaVersion:1 as const,revision:4,state:"trip_active" as const,shiftId:"active-shift",
+   shiftStartedAt:startedAt,shiftStartOdometerKm:12000,lastConfirmedOdometerKm:12100,activeTripId:"active-trip"};
+  await browserDatabase.driverState.put({id:"driver-state",value:snapshot});
+  const command=createDriverCommandV2(snapshot,"shift_rotate","pwa","active-trip-rotation",
+   "2026-11-08T22:31:00.000Z",{schemaVersion:1,readingKm:12125,businessKm:125},
+   {schemaVersion:1,outgoingShiftId:"active-shift",outgoingShiftStartedAt:startedAt,outgoingStartOdometerKm:12000,boundaryAt});
+  const repository=new DexieDriverWorkflowRepository();
+  await expect(repository.queueIntent({command,status:"pending_location",createdAt:boundaryAt,updatedAt:boundaryAt}))
+   .rejects.toThrow("shift_rotation_during_active_trip");
+  expect(await repository.listPending()).toHaveLength(0);
+  expect(await repository.listEvents()).toHaveLength(0);
+  expect(await repository.getSnapshot()).toMatchObject({state:"trip_active",activeTripId:"active-trip",revision:4});
+ });
  it("captures Work Driver context at shift start and immutable trip context at trip creation",async()=>{
   await browserDatabase.records.bulkPut(records);
   const repository=new DexieDriverWorkflowRepository();
