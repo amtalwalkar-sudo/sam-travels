@@ -32,20 +32,20 @@ The earlier audit remains valid historical evidence for its own baseline; this r
 
 ## 3. Confirmed architecture and composition gaps
 
-### G-01 — Work workflow orchestration still crosses the React presentation boundary
-**Severity:** High.  
-**Evidence:** `apps/web/src/ui/use-driver-workspace.ts` obtains the Work runtime, repository, identity, Work service, selection service, Timeline projection/enrichment and Maintenance-related dependencies. The hook coordinates committed Work events with downstream Log Book/Timeline/Maintenance effects and owns substantial initialization/recovery orchestration.  
-**Required closure:** Move durable cross-feature coordination to an application-owned Work coordinator/use-case boundary. Keep the hook limited to transient view state, subscriptions and typed action invocation. Preserve the existing atomic Work transaction and outbox guarantees. Add tests proving React mount/unmount does not own or duplicate business effects.
+### G-01 — Work application ownership has improved; presentation hook remains broad
+**Severity:** Medium.  
+**Evidence:** The earlier concern that the React hook directly coordinates committed Work side effects is no longer accurate. `WorkApplicationRuntimeV1` constructs and delegates to `WorkApplicationCoordinatorV1`, which owns startup replay/reconciliation, Maintenance accrual and Log Book event dispatch. `use-driver-workspace.ts` now subscribes to the workflow, invokes typed workflow actions and refreshes transient presentation state. However, the hook still combines repository-backed driver selection, lifecycle listeners, Timeline enrichment queue scheduling, trip-financial workspace state and UI action handlers in one large presentation hook.  
+**Required closure:** Preserve the coordinator boundary. Further split the hook into focused presentation hooks/adapters, keeping durable event delivery and recovery in the coordinator. Add lifecycle/remount tests proving UI subscriptions cannot duplicate application side effects.
 
 ### G-02 — Primary screen composition remains centrally hard-coded
 **Severity:** Medium.  
 **Evidence:** `PrimaryScreenComposition.tsx` switches directly on Drive, Timeline, Performance and Admin and constructs each context inline. The feature host validates context identity/version, but adding or replacing a production screen still requires editing this central composition file.  
 **Required closure:** Register production screen contributions with typed context factories/owners and let the composition host resolve them. Preserve the four approved navigation destinations and fail-closed context validation. Demonstrate replacing each production screen without editing unrelated feature internals or persistence.
 
-### G-03 — Performance presentation still needs a complete controller/read-model boundary proof
-**Severity:** High.  
-**Evidence:** Primary composition constructs `PerformanceScreenControllerV1` and adapts calculation services into `loadPeriod`, which is an improvement over passing the raw calculation service. The actual Performance feature screen implementation and its full interaction/state path still need an end-to-end review to prove it receives display-ready projections and does not recreate calculation, source reconciliation or policy logic.  
-**Required closure:** Inspect Performance feature presentation, tests and all consumers. Keep formulas and source reconciliation in domain/application owners; expose a typed presentation read model and commands. Prove screen replacement and source-snapshot provenance through the actual production renderer.
+### G-03 — Performance presentation has a controller boundary; screen still owns substantial display derivation
+**Severity:** Medium.  
+**Evidence:** `PerformanceScreenControllerV1` now coordinates calculation and distance projections outside the React component, and the screen receives a typed `loadPeriod` capability rather than raw calculation services. The production `PerformanceScreen.tsx` still derives category totals, monthly totals, fuel cost/km, target achievement and other display metrics in the presentation layer. These may be acceptable display projections, but the audit has not proven that none duplicate normative business calculations or diverge from the domain result.  
+**Required closure:** Classify every screen-derived metric as display-only aggregation or business calculation. Move any reusable/business-significant calculation into the owning domain/application projection. Prove all production screen consumers use the same controller result and preserve provenance.
 
 ### G-04 — Application bootstrap remains a broad composition/dispatch surface
 **Severity:** Medium.  
@@ -62,10 +62,10 @@ The earlier audit remains valid historical evidence for its own baseline; this r
 **Evidence:** Application services and domain calculations remain concentrated in `packages/application/src` and `packages/domain/src`, with broad root barrel exports. This is a discoverability/ownership placement issue, not evidence that the existing calculations are wrong.  
 **Required closure:** Inventory service ownership and public API usage. Relocate only cohesive capability-owned code into existing feature sublayers in behaviour-preserving slices, retaining narrow public entry points and genuine shared coordinators. Do not perform a mass move or break platform parity.
 
-### G-07 — Trip Financial form/service construction is distributed across workspace hooks
-**Severity:** Medium.  
-**Evidence:** Fare/completed-trip and Cancellation Fee hooks consume the shared trip-financial form runtime, but the workspace hooks still coordinate draft queues, refresh, validation/presentation state and submit flows separately. The current state is less coupled than the earlier audit implied; a complete construction and lifecycle trace is still needed.  
-**Required closure:** Verify one application-owned runtime/service composition, then keep feature-specific draft state and presentation actions in their respective surfaces. Ensure no duplicate working-copy repositories or service instances are created on remount.
+### G-07 — Trip Financial runtime is composed centrally; separate presentation hooks remain
+**Severity:** Low.  
+**Evidence:** `App.tsx` constructs one `TripFinancialFormRuntimeV1` and provides it through `TripFinancialFormRuntimeProvider`. Completed-trip/Fare and Cancellation Fee hooks consume that shared runtime; they do not independently construct the form runtime or Trip Financial service. Each hook still owns its own transient drafts, serial write queue, refresh and submit feedback.  
+**Required closure:** Retain the single shared runtime. Verify provider lifetime/remount behaviour and keep feature-specific draft state isolated; no consolidation into one generic hook is required unless a real duplicated invariant is found.
 
 ### G-08 — Feature presentation context typing is not fully closed
 **Severity:** Medium.  
