@@ -99,7 +99,7 @@ internal object NativeBusinessExpenseCorrectionBackup {
                     data.optString("reason").isNotBlank() && data.optString("reason").length <= 1000 &&
                     validInstant(data.optString("recordedAt")) &&
                     (!data.has("businessEffectiveDate") || validDate(data.optString("businessEffectiveDate"))) &&
-                    (!envelope.has("businessDate") || data.optString("businessDate") == data.optString("businessEffectiveDate"))) {
+                    (!envelope.has("businessDate") || envelope.optString("businessDate") == data.optString("businessEffectiveDate"))) {
                     "business_expense_correction_record_invalid"
                 }
                 if (index == 0) {
