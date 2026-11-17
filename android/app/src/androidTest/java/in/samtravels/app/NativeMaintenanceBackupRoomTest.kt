@@ -75,7 +75,7 @@ class NativeMaintenanceBackupRoomTest {
                 .put("entries", JSONArray().put(JSONObject().put("shiftId", "shift-maintenance")
                     .put("businessKm", 10L).put("personalKm", 2L).put("allocationStatus", "allocated"))))
             .toString(),
-        1, timestamp,
+        4, timestamp,
     )
 
     private fun accrualRecord() = stored(
