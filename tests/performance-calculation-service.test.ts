@@ -86,16 +86,24 @@ describe("PerformanceCalculationServiceV1", () => {
 
   it("prepares and releases a shared source snapshot once for the full calculation", async () => {
     const base = sources();
+    const snapshotIdentity = "business-settings:3:2026-03-15";
     const fixed = {
       ...base.emi,
       ...base.compliance,
       prepareSnapshot: vi.fn(async (_from: string, _to: string) => {}),
+      getSnapshotIdentity: vi.fn(async () => snapshotIdentity),
       releaseSnapshot: vi.fn(),
     };
     const readModels: PerformanceCalculationReadModelsV1 = {
-      ...base, emi: fixed, compliance: fixed,
+      ...base,
+      businessSettings: {
+        ...base.businessSettings,
+        getSnapshotIdentity: vi.fn(async () => snapshotIdentity),
+      },
+      emi: fixed, compliance: fixed,
     };
-    await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
+    const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
+    expect(result.provenance.sourceSnapshotId).toBe(snapshotIdentity);
     expect(fixed.prepareSnapshot).toHaveBeenCalledTimes(1);
     expect(fixed.prepareSnapshot).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
     expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
