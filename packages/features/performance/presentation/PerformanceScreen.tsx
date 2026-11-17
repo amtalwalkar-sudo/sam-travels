@@ -168,7 +168,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
               <td>{signedMoney(row.actualDailySurplusPaise)}</td><td>{signedMoney(row.actualCumulativeSurplusPaise)}</td>
               <td className={row.positionPaise >= 0 ? "positive" : "negative"}>{signedMoney(row.positionPaise)}</td>
               <td>{money(row.remainingTargetPaise)}</td>
-              <td><details><summary>{row.sourceRefs.length} sources</summary>
+              <td><details><summary>{row.sourceRefs.length} source{row.sourceRefs.length === 1 ? "" : "s"}</summary>
                 <ul>{row.sourceRefs.map((ref, index) => <li key={ref.sourceId + ":" + ref.revision + ":" + index}>
                   {ref.sourceId} · revision {ref.revision}{ref.scheduleVersion === undefined ? "" : " · schedule " + ref.scheduleVersion}
                 </li>)}</ul>

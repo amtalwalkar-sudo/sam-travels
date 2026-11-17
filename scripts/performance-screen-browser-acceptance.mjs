@@ -282,7 +282,7 @@ try {
   const passbookText = await passbookTable.innerText();
   if (!passbookText.includes(moneyFromPaise(selectedTarget)) ||
       !passbookText.includes("Remaining") || !passbookText.includes("Source records") ||
-      !/\\b[1-9]\\d* sources\\b/.test(passbookText)) {
+      !/\b[1-9]\d* sources?\b/.test(passbookText)) {
     throw new Error("driver_passbook_cumulative_target_or_source_provenance_missing");
   }
   const sourceDetails = passbookTable.locator("tbody details summary").filter({ hasText: /[1-9]/ }).first();

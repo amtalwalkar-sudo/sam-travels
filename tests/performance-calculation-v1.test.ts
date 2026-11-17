@@ -212,12 +212,17 @@ describe("Performance Calculation Contract v1.0", () => {
       monthlyDriverTargetPaise: 3_100,
       revenue: [{ date: "2026-03-01", grossFarePaise: 5_000, cancellationFeePaise: 0,
         verified: true, sourceRefs: [{ sourceId: "trip:passbook-source", revision: 2 }] }],
-      costs: [{ date: "2026-03-01", kind: "fuel", amountPaise: 500, verified: true,
-        sourceRefs: [{ sourceId: "fuel:passbook-source", revision: 3 }] }],
+      costs: [
+        { date: "2026-03-01", kind: "fuel", amountPaise: 500, verified: true,
+          sourceRefs: [{ sourceId: "fuel:passbook-source", revision: 3 }] },
+        { date: "2026-03-01", kind: "emi", amountPaise: 100, verified: true,
+          sourceRefs: [{ sourceId: "loan:passbook-source", revision: 4, scheduleVersion: 2 }] },
+      ],
       preBusinessRecovery: [], completeness: [],
     });
     expect(result.passbook.daily[0].sourceRefs).toEqual([
       { sourceId: "fuel:passbook-source", revision: 3 },
+      { sourceId: "loan:passbook-source", revision: 4, scheduleVersion: 2 },
       { sourceId: "trip:passbook-source", revision: 2 },
     ]);
   });
