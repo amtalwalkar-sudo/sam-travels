@@ -2,6 +2,7 @@ import { useState, type ComponentType } from "react";
 import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { BackupPanel } from "./BackupPanel";
+import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
 import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
@@ -26,18 +27,21 @@ export function App({
   const { toggleNetwork } = workspace.actions;
 
   return (
-    <ShellRenderer shellDefinition={primaryShellDefinition} activeScreen={activeScreen} onNavigate={setActiveScreen}
-      settingsContent={<>
-        <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
-          <i />Internet {enabled ? "On" : "Off"}
-        </button>
-        <p>Connection is optional. Your workspace remains local-first.</p>
-        <BackupPanel />
-      </>}>
-      <PrimaryScreenComposition activeScreen={activeScreen} runtimeRegistry={runtimeRegistry} workspace={workspace}
-        fullCostBreakeven={fullCostBreakeven}
-        performanceCalculation={performanceCalculation} />
-      <FuelEntryPanel />
-    </ShellRenderer>
+    <>
+      <ShellRenderer shellDefinition={primaryShellDefinition} activeScreen={activeScreen} onNavigate={setActiveScreen}
+        settingsContent={<>
+          <button className={enabled ? "network enabled" : "network"} onClick={toggleNetwork} disabled={!repo} aria-pressed={enabled}>
+            <i />Internet {enabled ? "On" : "Off"}
+          </button>
+          <p>Connection is optional. Your workspace remains local-first.</p>
+          <BackupPanel />
+        </>}>
+        <PrimaryScreenComposition activeScreen={activeScreen} runtimeRegistry={runtimeRegistry} workspace={workspace}
+          fullCostBreakeven={fullCostBreakeven}
+          performanceCalculation={performanceCalculation} />
+        <FuelEntryPanel />
+      </ShellRenderer>
+      <DeviceReadinessPrompt />
+    </>
   );
 }
