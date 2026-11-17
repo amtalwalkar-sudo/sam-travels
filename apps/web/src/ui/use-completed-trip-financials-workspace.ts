@@ -69,6 +69,8 @@ export function useCompletedTripFinancialsWorkspace(
     const fieldId=field==="fare"?"farePaise":field==="toll"?"tollPaise":field==="tollPayer"?"tollPayer":field==="parking"?"parkingPaise":"parkingPayer";
     const previous=queues.current.get(tripId)??Promise.resolve();
     const next=previous.then(async()=>{
+      let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
+      if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
       await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,fieldId,value);
     });
     queues.current.set(tripId,next);await next;
@@ -86,6 +88,8 @@ export function useCompletedTripFinancialsWorkspace(
     setCompletedTripFinancialBusy(true);setDriverMessage("Submitting trip financials…");
     try{
       await queues.current.get(tripId);
+      let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
+      if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
       for(const [field,value] of Object.entries({farePaise:fare,tollPaise,tollPayer:tollPaise===undefined?undefined:draft.tollPayer||undefined,
         parkingPaise,parkingPayer:parkingPaise===undefined?undefined:draft.parkingPayer||undefined})){
         if(copy.values[field]!==value)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,field,value);
