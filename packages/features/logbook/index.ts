@@ -3,5 +3,3 @@ export type { TripDurationInput } from "./runtime";
 export { rebuildTripHistoryProjection, readTripHistoryProjection, subscribeTripHistoryProjection } from "./projection";
 export { buildTripHistory } from "../../domain/src/trip-history";
 export type { TripHistoryRecord, TripHistoryStatus } from "../../domain/src/trip-history";
-export { buildTripHistory } from "../../domain/src/trip-history";
-export type { TripHistoryRecord, TripHistoryStatus } from "../../domain/src/trip-history";
