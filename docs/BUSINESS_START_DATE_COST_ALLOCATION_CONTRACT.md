@@ -19,8 +19,8 @@ The authoritative date attached to an entered cost amount determines its treatme
 
 1. Preserve the original source record, source amount, source dates, schedule, and payment history unchanged.
 2. If the cost amount's authoritative date is **before** the Business Start Date, classify that amount as pre-business cost.
-3. Amortize the full pre-business amount in equal monthly portions over the 18-month period beginning on the Business Start Date. The 18-month period is not shortened or extended by a source validity end date, expiry date, schedule horizon, or other source end date.
-4. Include each monthly recovery portion in Full Cost Breakeven for its applicable month. The first and final calendar months follow the same 18-month period boundaries; calculate daily/monthly reporting from the versioned recovery schedule with deterministic paise residual handling.
+3. Amortize the full pre-business amount in **18 equal monthly instalments** over the 18-month period beginning on the Business Start Date. Each recovery month runs from the Business Start Date's monthly anniversary (with a month-end clamp anchored to the original Business Start Date) through the day before the next anniversary. The 18-month period is not shortened or extended by a source validity end date, expiry date, schedule horizon, or other source end date.
+4. Each of the 18 recovery months receives the same amount, with any indivisible paise remainder distributed deterministically across the 18 months. For daily Full Cost Breakeven, distribute that month's instalment evenly across the days in that recovery month, again using deterministic paise residual handling. Calendar-month reports sum the daily amounts that fall in each calendar month; a recovery month may cross a calendar-month boundary.
 5. If the amount's authoritative date is **on or after** the Business Start Date, use the normal calculation and recognition rules for that source category. Do not apply the special 18-month recovery.
 6. Recognize each source amount exactly once. The 18-month recovery is the breakeven treatment of the original pre-business amount, not a second expense added on top of it.
 
@@ -79,8 +79,8 @@ No principal/interest split is used in the reporting allocation or its daily/mon
 - A daily allocation is assigned to exactly one Asia/Kolkata business date.
 - No pre-Business-Start-Date allocation appears as an operating-day cost before the Business Start Date.
 - Every pre-business source amount is recovered only within the 18-month interval beginning on the Business Start Date, regardless of the source validity or schedule end date.
-- Use integer paise and deterministic residual distribution so the 18 monthly portions sum exactly to the original pre-business amount; never lose or create money through rounding.
-- Monthly and yearly breakeven summaries must be derived from the same versioned recovery schedule, not independently rounded calculations.
+- Use integer paise and deterministic residual distribution so the 18 equal recovery-month instalments sum exactly to the original pre-business amount; daily rows within each recovery month must sum exactly to that month's instalment.
+- Monthly and yearly breakeven summaries must be derived from the same versioned daily recovery schedule, not independently rounded calculations.
 - Normal post-start allocations continue to follow the owning source category's normal daily/monthly rules.
 
 A source whose validity or schedule ended before the Business Start Date is still eligible for 18-month recovery when its authoritative cost date is before the Business Start Date. Its source dates are not changed.
