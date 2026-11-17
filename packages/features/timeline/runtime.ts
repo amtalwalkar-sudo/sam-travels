@@ -1,7 +1,5 @@
 import { createElement } from "react";
 import type { FeatureExtensionDefinition, FeaturePresentationContext, FeaturePresentationScreen } from "../../core/src/index";
-import type { TimelineReadModel } from "./application/timeline-projection-service";
-import type { TimelineLocationMap } from "./application/timeline-reverse-geocoding";
 import { TimelineScreen } from "./presentation/TimelineScreen";
 import type { TimelineScreenContext as TimelineContext } from "./presentation/timeline-screen-model";
 
