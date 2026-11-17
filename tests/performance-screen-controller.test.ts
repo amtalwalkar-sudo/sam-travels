@@ -9,7 +9,7 @@ describe("PerformanceScreenControllerV1", () => {
     const calculateDistance = vi.fn(async () => distanceProjection);
     const controller = new PerformanceScreenControllerV1(
       { calculate } as never,
-      { calculate: calculateDistance } as never,
+      { calculateDistance } as never,
     );
 
     await expect(controller.loadPeriod("2026-11-01", "2026-11-17")).resolves.toEqual({
