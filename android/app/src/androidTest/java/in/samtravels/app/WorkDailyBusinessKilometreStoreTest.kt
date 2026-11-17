@@ -20,6 +20,10 @@ class WorkDailyBusinessKilometreStoreTest {
     @After fun closeDatabase() = db.close()
 
     @Test fun boundaryRotationIsRejectedWhileATripIsActive() {
+        val fixture = JSONObject(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            .context.assets.open("driver-workflow-parity-v1.json").bufferedReader().use { it.readText() })
+            .getJSONObject("activeTripRotation")
+        assertEquals(false, fixture.getBoolean("allowed"))
         val current = JSONObject().put("state", "trip_active").put("activeTripId", "trip-active")
         val failure = runCatching {
             WorkDailyBusinessKilometreStore.rotate(
