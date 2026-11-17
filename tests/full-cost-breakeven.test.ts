@@ -65,7 +65,8 @@ describe("Full-cost breakeven calculation v1", () => {
       dailyActivity: [
         { date: "2026-11-01", businessKm: 100, activeDrivingDay: false,
           fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "shift-only", distanceSourceRevision: 1 },
-        { date: "2026-11-02", businessKm: 20, distanceSourceId: "unmatched-ride", distanceSourceRevision: 1 },
+        { date: "2026-11-02", businessKm: 20, fuelCostPaise: 0, maintenanceCostPaise: 0,
+          distanceSourceId: "unmatched-ride", distanceSourceRevision: 1 },
       ],
     }));
     expect(result.activeDrivingDayCount).toBe(0);
