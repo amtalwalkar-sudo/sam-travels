@@ -270,7 +270,8 @@ if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !
 if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("useDriverWorkspace(runtime: RuntimeRegistry")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must receive the application-layer registry singleton");
 const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
 const screenComposition = await readFile(path.join(root, "apps/web/src/ui/PrimaryScreenComposition.tsx"), "utf8");
-const driveScreen = await readFile(path.join(root, "apps/web/src/ui/screens/DriveScreen.tsx"), "utf8");
+const driveScreen = await readFile(path.join(root, "packages/features/work/presentation/DriveScreen.tsx"), "utf8");
+const workScreenRuntime = await readFile(path.join(root, "packages/features/work/runtime.ts"), "utf8");
 const shellPresentation = await readFile(path.join(root, "apps/web/src/ui/ApplicationShell.tsx"), "utf8");
 const featureCatalogue = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
 if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellProps>") ||
@@ -284,13 +285,19 @@ if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition"
   failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
 }
 if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
-    !screenComposition.includes('mountPoint="Admin"') ||
-    !screenComposition.includes('contextContract={{ id: "admin.workspace", version: 1 }}')) {
+    !featureCatalogue.includes("WORK_FEATURE_EXTENSION") ||
+    !screenComposition.includes('mountPoint: "Admin"') ||
+    !screenComposition.includes('id: "admin.workspace", version: 1')) {
   failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through its versioned feature screen contract");
 }
-if (!driveScreen.includes("useDriverWorkspace") || !driveScreen.includes('mountPoint="Drive"') ||
-    screenComposition.includes("mountPoint=\"Drive\"")) {
-  failures.push("Drive workflow presentation must be isolated in its screen module, not embedded in the shell or central screen switch");
+if (!workScreenRuntime.includes('mountPoint: "WorkScreen"') ||
+    !workScreenRuntime.includes('id: "work.drive-screen.v1"') ||
+    !driveScreen.includes("DriverWorkflowPanel") ||
+    driveScreen.includes("useDriverWorkspace") ||
+    driveScreen.includes("FeatureScreenHost") ||
+    !screenComposition.includes('mountPoint: "WorkScreen"') ||
+    screenComposition.includes("DriveScreen")) {
+  failures.push("Work must own a registered, replaceable Drive screen; application composition supplies its typed context and extension slot");
 }
 
 const featureScreenHost = await readFile(path.join(root, "apps/web/src/ui/FeatureScreenHost.tsx"), "utf8");
