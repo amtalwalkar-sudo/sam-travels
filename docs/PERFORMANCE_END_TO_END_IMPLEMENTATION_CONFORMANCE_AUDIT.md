@@ -149,3 +149,26 @@ The Performance workstream may be called end-to-end complete only when all appli
 - This audit supersedes the *implementation-status conclusion only* of the pre-PR #93 `docs/BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md`. It does not erase that historical evidence or assert that every old finding has been closed.
 
 **Final status: calculation foundation and substantial dashboard implementation merged; Performance end-to-end product acceptance remains open.**
+
+
+## PR #97 architecture-wiring addendum — 2026-11-17
+
+This addendum updates the implementation evidence without changing the product-policy authority or claiming that the Performance workstream is fully accepted.
+
+### Cross-source snapshot coherence status
+
+PR #97 adds `PerformanceCalculationSnapshotBoundaryV1`, wired to the same application `RecordRepository` used by the Performance source adapters. The service captures the shared record revision vector before source preparation and after all read-model consumption, rejects detected drift, and includes the repository fingerprint plus source revision provenance in the result. A regression mutates a shared record during calculation and asserts rejection.
+
+**Finding status: materially addressed with a bounded optimistic fence; strict transactional snapshot isolation is not implemented.** This is stronger than the earlier per-adapter/source-identity checks, but it is not an MVCC or serializable transaction. The guarantee and limitation are recorded in `docs/PR_97_ARCHITECTURE_CONFORMANCE.md`. The remaining source-conformance audit still needs to verify every authoritative owner output and correction/effective-date path; this addendum does not close that broader gate.
+
+### Canonical fixed-cost recovery correction
+
+The current Performance service now consumes canonical daily EMI and Compliance allocations, including their pre-business carry-forward rows, and only manual pre-business entries enter the generic recovery schedule. The former separate EMI/Compliance pre-business recovery inputs were removed to avoid counting the same carry-forward twice. Focused adapter/service tests and the shared Android Performance fixture were updated for this ownership rule.
+
+### Driver Target implementation evidence
+
+The current calculation implementation uses calendar-day proration for the selected date range and carries the target settings revision into provenance. Unit fixtures and rendered-PWA Performance acceptance cover the current implementation. The governing product contract and the earlier target-semantics ambiguity remain the policy authority; this architecture addendum does not approve a new target rule or close the separate passbook/lifetime acceptance requirements.
+
+### Evidence boundary
+
+Exact-head CI for PR #97 head `7a11dd7221381d058b991346bb8d40cd1a625061` passed Architecture, Web, Android and Integrated regression (run #44052752021). Subsequent documentation-only changes require their own exact-head CI confirmation. Physical-device acceptance remains deferred. The outstanding passbook, distance-summary, product-owner UX and production-data source-reconciliation gates in this audit remain open.
