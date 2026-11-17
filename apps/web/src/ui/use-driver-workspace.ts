@@ -6,7 +6,7 @@ import type { FeatureRecordSource } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { createDriverCommand, createDriverCommandV2, DriverWorkflowService } from "../../../../packages/features/work";
+import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/features/work";
 import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
@@ -16,7 +16,6 @@ import { useAdminMaintenanceServices } from "./admin-services-context";
 
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
-import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
