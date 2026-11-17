@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
-import type { RuntimeRegistry } from "../../../../packages/application/src";
+import type { RuntimeRegistry } from "../../../../packages/core/src";
+import type { FeatureRecordSource } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
@@ -21,7 +22,8 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const workRuntime = useWorkApplicationRuntime();
-  const { recordSource } = useAdminMaintenanceServices();
+  if (!workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
+  const { recordSource: featureRecordSource } = useAdminMaintenanceServices();
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
@@ -189,7 +191,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       const link = await getDriverPersonLink(platformRepository, driverId);
       if (!link) throw new Error("Link this Driver profile to an enrolled person before starting work.");
       await getPersonIdentityService().activate(link.personId, "driver");
-      const selected = await selectionService.selectDriver(driverId, recordSource);
+      const selected = await selectionService.selectDriver(driverId, featureRecordSource);
       setSelectedDriverId(selected.driverId);
       setDriverMessage("Work Driver selected");
     } catch (cause) {
