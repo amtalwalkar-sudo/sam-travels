@@ -1,4 +1,4 @@
-import type { PerformanceCalculationPortV1, PerformanceDistanceProjectionPortV1 } from "./contracts";
+import type { PerformanceScreenServicesV1 } from "./contracts";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1 } from "../../../domain/src/performance-calculation-v1";
 
@@ -15,10 +15,7 @@ export type PerformanceScreenLoadResultV1 = Readonly<{
  * its existing independent failure behaviour.
  */
 export class PerformanceScreenControllerV1 {
-  constructor(
-    private readonly calculation: PerformanceCalculationPortV1,
-    private readonly fullCostBreakeven: PerformanceDistanceProjectionPortV1,
-  ) {}
+  constructor(private readonly services: PerformanceScreenServicesV1) {}
 
   async loadPeriod(from: string, to: string): Promise<PerformanceScreenLoadResultV1> {
     if (!from || !to || from > to) {
@@ -26,8 +23,8 @@ export class PerformanceScreenControllerV1 {
     }
 
     const [selectedPeriod, distance] = await Promise.allSettled([
-      this.calculation.calculate(from, to),
-      this.fullCostBreakeven.calculateDistance(from, to),
+      this.services.calculate(from, to),
+      this.services.calculateDistance(from, to),
     ]);
 
     if (selectedPeriod.status === "rejected") {
