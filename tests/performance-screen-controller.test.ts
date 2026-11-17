@@ -34,10 +34,7 @@ describe("PerformanceScreenControllerV1", () => {
   it("fails the screen load when the authoritative Performance calculation fails", async () => {
     const calculate = vi.fn(async () => { throw new Error("calculation unavailable"); });
     const calculateDistance = vi.fn(async () => ({ daily: [] }));
-    const controller = new PerformanceScreenControllerV1(
-      { calculate } as never,
-      { calculate: calculateDistance } as never,
-    );
+    const controller = new PerformanceScreenControllerV1({ calculate, calculateDistance } as never);
 
     await expect(controller.loadPeriod("2026-11-01", "2026-11-17")).rejects.toThrow("calculation unavailable");
   });
