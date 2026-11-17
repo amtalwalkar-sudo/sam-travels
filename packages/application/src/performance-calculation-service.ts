@@ -125,6 +125,7 @@ export class PerformanceCalculationServiceV1 {
       costs: [...operatingCosts, ...emiCosts, ...complianceCosts],
       preBusinessRecovery: [...manualRecovery, ...emiRecovery, ...complianceRecovery],
       completeness,
+      ...(identitySet.size === 1 ? { sourceSnapshotId: [...identitySet][0] } : {}),
     };
       return calculatePerformanceV1(input);
     } finally {
