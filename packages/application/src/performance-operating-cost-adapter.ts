@@ -24,7 +24,10 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
   async prepareSnapshot(from: string, to: string): Promise<void> {
     const value = this.fullCost.getSourceProjection(from, to);
     this.snapshot = { from, to, value };
-    await value;
+    const projection = await value;
+    if (projection.businessStartDate !== undefined && projection.businessStartDate !== from) {
+      throw new Error("performance_operating_snapshot_business_start_date_mismatch");
+    }
   }
 
   releaseSnapshot(): void {
