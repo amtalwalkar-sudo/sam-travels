@@ -1,4 +1,9 @@
 import type { PerformanceCalculationResultV1, PerformanceCostKindV1 } from "../../../domain/src/performance-calculation-v1";
+import type { PerformanceScreenLoadResultV1 } from "../application/performance-screen-controller";
+
+export type PerformanceScreenContextV1 = Readonly<{
+  loadPeriod: (from: string, to: string) => Promise<PerformanceScreenLoadResultV1>;
+}>;
 
 export const CATEGORY_LABELS: Readonly<Record<PerformanceCostKindV1, string>> = {
   fuel: "Fuel", maintenance: "Maintenance", emi: "Loan EMI", compliance: "Compliance",
