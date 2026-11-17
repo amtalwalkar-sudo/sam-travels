@@ -188,7 +188,7 @@ export function allocatePreBusinessRecoveryV1(
     amountPaise: number;
     sourceId: string;
     revision: number;
-    origin: "manual" | "emi" | "compliance";
+    origin: "manual";
     note: string;
   }>[];
 }> {
