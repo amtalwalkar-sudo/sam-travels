@@ -260,9 +260,10 @@ This section supersedes the pending exact-head CI and partially closed implement
 ### 13.2 Exact automated verification
 
 - PR #97 remains draft and unmerged.
-- Exact-head green baseline before the final contract-test additions: `0a2ccab04441dac54efb2ad4dd58e88c7c9ac447`, workflow run `44092755813`.
-- Architecture, Web, Android and Integrated regression jobs passed. Production geocoder verification was skipped by workflow configuration and is not claimed.
-- The final follow-up commit adds a leap-year/month-end recovery boundary and explicit per-day Passbook cumulative arithmetic assertions. Its exact-head workflow result is recorded in `docs/PR_97_ARCHITECTURE_CONFORMANCE.md` after completion.
+- Final exact PR head: `0f198be0d796a67521ea5d6763bac3d949f33718`, workflow run [`44095766482`](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482).
+- Architecture, Web, Android and Integrated regression jobs all passed on this exact SHA. Android emulator-backed Room/workflow/backup reliability, focused GPS lifecycle threading, and debug-signed phone-test APK publication also passed.
+- Production geocoder verification was skipped by workflow configuration and is not claimed. The merged-main update-compatible APK was skipped because this PR remains unmerged.
+- The final follow-up commit includes the leap-year/month-end recovery boundary and explicit per-day Passbook cumulative arithmetic assertions.
 
 ### 13.3 Remaining evidence boundaries
 

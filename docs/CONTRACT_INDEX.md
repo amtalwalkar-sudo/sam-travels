@@ -92,7 +92,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 - [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
-- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — exact upstream contract/code comparison for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; identifies blockers that must be closed before breakeven implementation.
+- [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — source-owner reconciliation and correction/effective-date provenance evidence for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; see the current PR #97 evidence section for implementation status and the remaining production-data boundary.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
@@ -112,7 +112,7 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 
 ## Current evidence discipline
 
-- PR #69 is the active integrated reliability and cross-platform workstream; use its current head SHA and CI run for current automated evidence.
+- PR #97 is the current architecture/performance conformance workstream; use its current head SHA and exact-head CI run for current automated evidence. As of 2026-11-17, head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482).
 - Green CI proves only the jobs and tests it ran. It does not prove physical-device acceptance, OS/OEM force-stop behaviour or live Dropbox account acceptance.
 - The [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) records form-specific evidence. It does not certify every possible form/surface/lifecycle combination.
 - Historical audit documents must not be rewritten to appear as if they were performed on the current commit.

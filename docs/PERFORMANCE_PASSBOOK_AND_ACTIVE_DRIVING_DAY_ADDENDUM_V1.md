@@ -57,3 +57,11 @@ The approved behaviours are implemented on draft PR #97 and have the following a
 - Maintenance correction-chain restore and immutable Work/accrual boundary: `tests/maintenance-correction-indexeddb.test.ts` and `android/app/src/androidTest/java/in/samtravels/app/NativeMaintenanceBackupRoomTest.kt`.
 
 These tests establish automated implementation evidence, not physical-device acceptance or final visual sign-off.
+
+## 6. Exact-head CI and acceptance status — 2026-11-17
+
+- Exact PR #97 head: `0f198be0d796a67521ea5d6763bac3d949f33718`.
+- [Workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482): Architecture, Web, Android and Integrated regression all passed.
+- Android emulator-backed Room/workflow/backup reliability and debug-signed phone-test APK publication passed. Physical phone acceptance is not claimed and remains deferred to the agreed final testing stage.
+- Production geocoder verification was skipped by workflow configuration; no live geocoder claim is made.
+- PR #97 remains draft and unmerged.

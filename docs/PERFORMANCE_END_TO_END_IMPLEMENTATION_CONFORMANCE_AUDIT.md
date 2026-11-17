@@ -190,9 +190,9 @@ Implementation added on PR #97:
 - Business Expenses backup validation now validates historical correction records, contiguous chain revisions, target revisions, projected source values and correction-chain heads. A browser backup/restore regression corrects a fuel amount, exports/restores the records and verifies the original remains immutable while the corrected projection is reproducible.
 - Maintenance backup validation now validates its append-only expense correction chains and chain heads. An IndexedDB records round-trip regression verifies the corrected projection and original source survive restoration.
 
-### Boundaries still requiring closure
+### Boundaries still requiring closure (historical snapshot; superseded by section 13.6)
 
-- The new code and regressions are awaiting exact-head CI. Do not mark these implementation slices CI-verified until Architecture, Web, Android and Integrated gates pass on the latest PR head.
+- The original snapshot recorded the code and regressions as awaiting exact-head CI. This status was superseded when Architecture, Web, Android and Integrated gates passed on the exact PR head in workflow run #44095766482.
 - The Maintenance expense correction UI targets visit/repair expense records, while the frozen Performance cost contract currently includes Maintenance accrual as confirmed business kilometres × effective per-km rate. It does not explicitly include visit/repair amounts as a second Performance cost. The correction chain is now backup-validated and reprojectable, but whether those visit/repair amounts themselves enter Full-cost breakeven remains a separate accounting decision; no second maintenance cost has been silently added.
 - Physical Android device acceptance remains separate from automated Room/emulator verification.
 
@@ -239,4 +239,4 @@ Business Expenses and Maintenance correction chains remain append-only. Their ba
 
 ### 13.6 Exact-head CI
 
-The implementation baseline `0a2ccab04441dac54efb2ad4dd58e88c7c9ac447` passed Architecture, Web, Android and Integrated regression in workflow run `44092755813`. The follow-up tests and this documentation reconciliation are committed after that baseline; update this subsection with their exact-head CI result before closing the PR.
+The final exact PR head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482). Android emulator-backed Room/workflow/backup reliability and the debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred.

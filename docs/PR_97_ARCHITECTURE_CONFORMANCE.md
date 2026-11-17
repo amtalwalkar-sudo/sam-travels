@@ -75,16 +75,17 @@ This is stronger than testing only a synthetic screen fixture, but it is not a c
 
 ## 7. CI evidence and remaining gates
 
-### Exact-head automated result
+### Exact-head automated result — 2026-11-17
 
 - PR: [#97](https://github.com/amtalwalkar-sudo/sam-travels/pull/97)
-- Head: `7a11dd7221381d058b991346bb8d40cd1a625061`
-- Workflow run: [#44052752021](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44052752021)
+- Exact head: `0f198be0d796a67521ea5d6763bac3d949f33718`
+- Workflow run: [#44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482)
 - Architecture: passed.
-- Web: passed, including full regression suite, production build and rendered-PWA acceptance.
-- Android: passed, including Gradle assembly, unit tests and required Room/workflow/backup reliability gate.
+- Web: passed, including full regression suite, production build, rendered-PWA Performance acceptance, Maintenance correction acceptance, Compliance browser acceptance, and Admin form/section acceptance.
+- Android: passed, including Gradle debug/release assembly, Android unit tests, emulator-backed Room/workflow/backup reliability gate, focused GPS lifecycle threading test, and Room schema publication.
 - Integrated regression gate: passed.
-- Production geocoder verification: skipped by workflow configuration for this PR run; no production geocoder verification is claimed.
+- Production geocoder verification: skipped by workflow configuration; no production geocoder verification is claimed.
+- Debug-signed APK for physical phone testing: successfully published by the Android job. Physical-device acceptance itself remains deferred.
 - Update-compatible signed APK from merged main: skipped because PR #97 remains unmerged.
 
 ### Explicitly not claimed complete
@@ -111,6 +112,6 @@ The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` i
 - Daily, ISO-week and calendar-month distance summaries and averages are rendered by the Performance screen. The shared PWA/Room fixture is exercised by the browser and Android Room-backed acceptance paths.
 - Maintenance visit/repair expense corrections are reprojected from the immutable original plus their full correction chain and validated through browser and native backup/restore. Their correction IDs/revisions remain traceable in the Maintenance owner projection. They are deliberately not added as a second Performance Maintenance cost: the frozen Performance cost remains the confirmed per-kilometre accrual unless a separate accounting decision changes that boundary.
 
-The previous exact-head green run `#44092755813` verified the then-current PR head `0a2ccab04441dac54efb2ad4dd58e88c7c9ac447` across Architecture, Web, Android and Integrated regression. A follow-up test commit adds the explicit leap-year recovery and per-day Passbook reconciliation assertions; the final exact-head CI run is recorded in the next evidence update.
+The follow-up test commit adds the explicit leap-year recovery and per-day Passbook reconciliation assertions. The final exact-head workflow run `#44095766482` passed Architecture, Web, Android and Integrated regression on `0f198be0d796a67521ea5d6763bac3d949f33718`; see section 7 for the complete job evidence.
 
 The remaining non-implementation gates are unchanged: a migrated production-data inventory/reconciliation is not available as a repository fixture, physical-phone acceptance is deferred to the agreed final testing stage, and final visual composition remains subject to product-owner approval. PR #97 remains draft and unmerged.
