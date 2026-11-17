@@ -1,0 +1,6 @@
+{
+  "manifestVersion": 1,
+  "id": "work-shift",
+  "entryPoint": "packages/features/work-shift/index.ts",
+  "extensionExport": "WORK_SHIFT_FEATURE_EXTENSION"
+}
