@@ -32,7 +32,7 @@ describe("version 2 Work trip lifecycle",()=>{
   const startedAt="2026-11-08T20:00:00.000Z";
   const boundaryAt="2026-11-08T22:30:00.000Z";
   const snapshot={schemaVersion:1 as const,revision:4,state:"trip_active" as const,shiftId:"active-shift",
-   shiftStartedAt:startedAt,shiftStartOdometerKm:12000,lastConfirmedOdometerKm:12100,activeTripId:"active-trip"};
+   shiftStartedAt:startedAt,shiftStartOdometerKm:12000,lastConfirmedOdometerKm:12000,activeTripId:"active-trip"};
   await browserDatabase.driverState.put({id:"driver-state",value:snapshot});
   const command=createDriverCommandV2(snapshot,"shift_rotate","pwa","active-trip-rotation",
    "2026-11-08T22:31:00.000Z",{schemaVersion:1,readingKm:12125,businessKm:125},
