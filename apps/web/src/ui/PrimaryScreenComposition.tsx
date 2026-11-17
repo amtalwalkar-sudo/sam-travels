@@ -9,6 +9,15 @@ import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import type { PrimaryScreen } from "./ApplicationShell";
 
+const WORK_SCREEN_CONTRACT = Object.freeze({
+  mountPoint: "WorkScreen",
+  contextContract: Object.freeze({ id: "work.drive-screen", version: 1 }),
+});
+const ADMIN_SCREEN_CONTRACT = Object.freeze({
+  mountPoint: "Admin",
+  contextContract: Object.freeze({ id: "admin.workspace", version: 1 }),
+});
+
 export type PrimaryScreenWorkspace = Readonly<DriveScreenWorkspaceV1 & {
   loadTimeline: TimelineScreenContext["loadTimeline"];
 }>;
