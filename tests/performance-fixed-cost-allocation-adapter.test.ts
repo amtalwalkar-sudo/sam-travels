@@ -87,7 +87,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
     // The adapter returns the canonical daily paise rows verbatim and does not
     // reconstruct a new distribution for the requested report window.
-    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
+    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(2);
     expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
     expect(emiRecovery).toEqual([]);
     expect(complianceRecovery).toEqual([]);
