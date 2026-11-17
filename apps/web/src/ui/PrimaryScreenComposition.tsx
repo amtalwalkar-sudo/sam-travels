@@ -59,8 +59,8 @@ export function PrimaryScreenComposition({
 
   switch (activeScreen) {
     case "Drive":
-      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="WorkScreen"
-        contextContract={{ id: "work.drive-screen", version: 1 }} context={workContext} />;
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint={WORK_SCREEN_CONTRACT.mountPoint}
+        contextContract={WORK_SCREEN_CONTRACT.contextContract} context={workContext} />;
     case "Timeline":
       return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline"
         contextContract={{ id: "timeline.main", version: 1 }} context={timelineContext} />;
@@ -68,7 +68,9 @@ export function PrimaryScreenComposition({
       return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
         contextContract={{ id: "performance.host", version: 1 }} context={performanceContext} />;
     case "Admin":
-      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin"
-        contextContract={{ id: "admin.workspace", version: 1 }} context={adminContext} />;
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint={ADMIN_SCREEN_CONTRACT.mountPoint}
+        contextContract={ADMIN_SCREEN_CONTRACT.contextContract} context={adminContext} />;
   }
+    default:
+      throw new Error("primary_screen_not_registered");
 }
