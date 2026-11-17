@@ -10,12 +10,10 @@ export class PerformanceScreenServicesAdapterV1
 implements PerformanceCalculationPortV1, PerformanceDistanceProjectionPortV1 {
   constructor(
     private readonly calculation: PerformanceCalculationPortV1,
-    private readonly distanceProjection: PerformanceDistanceProjectionPortV1,
+    private readonly distanceProjection: { calculate(from: string, to: string): Promise<BreakevenPeriodResultV1> },
   ) {}
 
-  calculate(from: string, to: string): Promise<PerformanceCalculationResultV1>;
-  calculate(from: string, to: string): Promise<BreakevenPeriodResultV1>;
-  calculate(from: string, to: string): Promise<PerformanceCalculationResultV1 | BreakevenPeriodResultV1> {
+  calculate(from: string, to: string): Promise<PerformanceCalculationResultV1> {
     return this.calculation.calculate(from, to);
   }
 
