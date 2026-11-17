@@ -15,7 +15,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [distanceError, setDistanceError] = useState("");
-  const [activeView, setActiveView] = useState<"daily" | "monthly" | "recovery">("daily");
+  const [activeView, setActiveView] = useState<"daily" | "monthly" | "passbook" | "recovery">("daily");
   const [selectedInsight, setSelectedInsight] = useState("lifetime-target-position");
 
   async function calculate(event?: FormEvent) {
@@ -124,6 +124,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <div className="performance-tabs" role="tablist" aria-label="Performance detail views">
           <button type="button" role="tab" aria-selected={activeView === "daily"} className={activeView === "daily" ? "active" : ""} onClick={() => setActiveView("daily")}>Daily details</button>
           <button type="button" role="tab" aria-selected={activeView === "monthly"} className={activeView === "monthly" ? "active" : ""} onClick={() => setActiveView("monthly")}>Monthly roll-up</button>
+          <button type="button" role="tab" aria-selected={activeView === "passbook"} className={activeView === "passbook" ? "active" : ""} onClick={() => setActiveView("passbook")}>Driver Passbook</button>
           <button type="button" role="tab" aria-selected={activeView === "recovery"} className={activeView === "recovery" ? "active" : ""} onClick={() => setActiveView("recovery")}>Pre-business recovery</button>
         </div>
         {activeView === "daily" && <div className="performance-table-wrap"><table className="performance-table">
@@ -136,7 +137,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
           </tr>)}</tbody>
         </table></div>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
-          <caption>Monthly Driver Passbook · full configured target is shown for each month, even when selected dates cover only part of it.</caption>
+          <caption>Monthly revenue, full-cost expense, net and calendar-day-prorated target for the dates included in each month.</caption>
           <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
           <tbody>{months.map(row => <tr key={row.month}><td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-net")}>{row.month}</button></td>
             <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-revenue")}>{money(row.revenue)}</button></td>
@@ -145,6 +146,24 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <td><button type="button" className="performance-table-number" onClick={() => setSelectedInsight("monthly-target")}>{money(row.target)}</button></td>
             <td><button type="button" className={"performance-table-number " + (row.targetPosition >= 0 ? "positive" : "negative")} onClick={() => setSelectedInsight("monthly-target-position")}>{signedMoney(row.targetPosition)}</button></td></tr>)}</tbody>
         </table></div>}
+        {activeView === "passbook" && <div className="performance-recovery">
+          <div className="performance-recovery-summary">
+            <span>Expected cumulative surplus <strong>{money(result.passbook.expectedCumulativeTargetPaise)}</strong></span>
+            <span>Actual cumulative surplus <strong>{money(result.passbook.actualEligibleSurplusPaise)}</strong></span>
+            <span>{result.passbook.positionPaise >= 0 ? "Ahead of target" : "Behind target"} <strong>{signedMoney(result.passbook.positionPaise)}</strong></span>
+            <span>Remaining to target <strong>{money(result.passbook.remainingTargetPaise)}</strong></span>
+          </div>
+          <p className="performance-explainer">Passbook progress runs from the Business Start Date. Daily actual surplus is gross completed-trip fares and cancellation fees minus the same verified full-cost expenses used by Performance. Earlier shortfalls carry forward and later surplus can recover them.</p>
+          <div className="performance-table-wrap"><table className="performance-table">
+            <thead><tr><th>Date</th><th>Expected cumulative</th><th>Actual daily surplus</th><th>Actual cumulative</th><th>Ahead / behind</th><th>Remaining</th></tr></thead>
+            <tbody>{result.passbook.daily.slice().reverse().map(row => <tr key={row.date}>
+              <td>{row.date}</td><td>{money(row.expectedCumulativeTargetPaise)}</td>
+              <td>{signedMoney(row.actualDailySurplusPaise)}</td><td>{signedMoney(row.actualCumulativeSurplusPaise)}</td>
+              <td className={row.positionPaise >= 0 ? "positive" : "negative"}>{signedMoney(row.positionPaise)}</td>
+              <td>{money(row.remainingTargetPaise)}</td>
+            </tr>)}</tbody>
+          </table></div>
+        </div>}
         {activeView === "recovery" && <div className="performance-recovery">
           <div className="performance-recovery-summary"><span>Recovery window <strong>{result.recovery.from} — {result.recovery.toExclusive} (exclusive)</strong></span>
             <span>Total eligible pre-business amounts <strong>{money(result.recovery.totalPaise)}</strong></span></div>
