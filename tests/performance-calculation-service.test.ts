@@ -141,6 +141,25 @@ describe("PerformanceCalculationServiceV1", () => {
       .rejects.toThrow("performance_source_snapshot_revision_mismatch");
   });
 
+  it("rejects a source snapshot identity that changes while the calculation is reading", async () => {
+    const base = sources();
+    let identityRead = 0;
+    const getSourceSnapshotIdentity = vi.fn(async () =>
+      ++identityRead === 1 ? "operating-cost-snapshot@1" : "operating-cost-snapshot@2");
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      operatingCosts: {
+        ...base.operatingCosts,
+        prepareSnapshot: vi.fn(async () => {}),
+        getSourceSnapshotIdentity,
+      },
+    };
+
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_snapshot_changed_during_calculation");
+    expect(getSourceSnapshotIdentity).toHaveBeenCalledTimes(2);
+  });
+
   it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {
     let record: RecordEnvelope<CompletedTripFinancialObligation> = {
       id: "work:trip-financial-obligation:corrected-trip", schemaVersion: 1,
