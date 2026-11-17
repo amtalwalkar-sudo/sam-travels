@@ -101,6 +101,24 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects fixed-cost and operating projections captured from different business-settings revisions", async () => {
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      businessSettings: {
+        ...base.businessSettings,
+        getSnapshotIdentity: async () => "business-settings:4:2026-03-15",
+      },
+      operatingCosts: {
+        ...base.operatingCosts,
+        prepareSnapshot: async () => {},
+        getSnapshotIdentity: async () => "business-settings:5:2026-03-15",
+      },
+    };
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_snapshot_revision_mismatch");
+  });
+
   it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {
     let record: RecordEnvelope<CompletedTripFinancialObligation> = {
       id: "work:trip-financial-obligation:corrected-trip", schemaVersion: 1,
