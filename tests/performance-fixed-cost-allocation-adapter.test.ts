@@ -73,7 +73,11 @@ describe("Performance fixed-cost allocation adapter v1", () => {
 
     expect(reads).toBe(1);
     expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(10_678);
+    expect(emi.every(row => row.verified && row.sourceRefs.length === 1 &&
+      row.sourceRefs[0].sourceId === "loan:emi:3" && row.sourceRefs[0].revision === 2)).toBe(true);
     expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(30_600);
+    expect(compliance.every(row => row.verified && row.sourceRefs.length === 1 &&
+      row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
     // Narrow report windows must take their original daily share, not re-spread
     // the whole installment or validity-period amount across the selected dates.
     expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(345);
