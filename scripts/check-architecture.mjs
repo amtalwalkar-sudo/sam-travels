@@ -24,16 +24,7 @@ async function walk(directory) {
 }
 
 function layer(file) {
-  const p = normalize(file);
-  if (p.startsWith("packages/core/src/")) return "core";
-  if (p.startsWith("packages/domain/src/")) return "domain";
-  if (p.startsWith("packages/application/src/")) return "application";
-  if (p.startsWith("packages/presentation/src/")) return "presentation";
-  if (p.startsWith("packages/storage-browser/src/") || p.startsWith("packages/storage-android/src/")) return "storage";
-  if (p.startsWith("packages/features/")) return "feature";
-  if (p.startsWith("apps/web/src/ui/") || p.startsWith("apps/web/src/components/")) return "ui";
-  if (p.startsWith("apps/web/src/")) return "web-app";
-  return "outer";
+  return targetLayer(normalize(file)) ?? "outer";
 }
 
 function featureName(file) {
@@ -128,7 +119,7 @@ for (const absolute of sourceFiles) {
       specifier.startsWith("@capacitor/") ||
       /^(?:androidx\.|android\.|java\.|javax\.|org\.json|com\.dropbox\.)/.test(specifier);
 
-    if (["core", "domain", "application", "presentation"].includes(from) && platformOrUiImport) {
+    if (["core", "domain", "application", "presentation", "feature-domain", "feature-ports", "feature-application"].includes(from) && platformOrUiImport) {
       failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
     }
     if (from === "storage" && (
