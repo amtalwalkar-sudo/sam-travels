@@ -75,6 +75,11 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     this.snapshot = undefined;
   }
 
+  async getSnapshotIdentity(): Promise<string> {
+    const report = await this.report();
+    return "business-settings:" + report.businessSettingsRevision + ":" + report.businessStartDate;
+  }
+
   private async report() {
     return this.snapshot ?? this.allocation.getReport();
   }
