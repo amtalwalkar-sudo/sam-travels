@@ -10,6 +10,31 @@ function indiaDateOffsetDays(offset) {
   const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
   return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
 }
+function proratedTargetPaise(monthlyTargetPaise, from, to) {
+  let total = 0;
+  let cursor = from;
+  while (cursor <= to) {
+    const [year, month] = cursor.split("-").map(Number);
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const end = monthEnd < to ? monthEnd : to;
+    const days = Math.round((Date.parse(end + "T00:00:00Z") - Date.parse(cursor + "T00:00:00Z")) / 86_400_000) + 1;
+    total += Math.floor((monthlyTargetPaise * days * 2 + daysInMonth) / (2 * daysInMonth));
+    cursor = new Date(Date.parse(end + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
+  }
+  return total;
+}
+function moneyFromPaise(paise) {
+  return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function monthTargetPaise(month, from, to, monthlyTargetPaise) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = month + "-01";
+  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+  const start = from > monthStart ? from : monthStart;
+  const end = to < monthEnd ? to : monthEnd;
+  return start > end ? 0 : proratedTargetPaise(monthlyTargetPaise, start, end);
+}
 function previousMonthDate(day) {
   const today = indiaDateOffsetDays(0);
   const [year, month] = today.split("-").map(Number);
@@ -173,12 +198,14 @@ try {
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
-  if (!(await targetCard.innerText()).includes("₹30,000.00")) {
-    throw new Error("monthly_driver_target_not_displayed_as_full_fixed_amount");
+  const configuredTargetPaise = Number(targetRupees) * 100;
+  const selectedTarget = proratedTargetPaise(configuredTargetPaise, businessStartDate, today);
+  if (!(await targetCard.innerText()).includes(moneyFromPaise(selectedTarget))) {
+    throw new Error("selected_period_target_does_not_match_calendar_day_proration:" + selectedTarget);
   }
   await page.getByRole("button", { name: "Explain Lifetime target position", exact: true }).waitFor();
   await page.getByText("Lifetime eligible costs", { exact: true }).waitFor();
-  console.log("Performance period, lifetime breakeven and fixed monthly target rendered.");
+  console.log("Performance period, lifetime breakeven and calendar-day prorated target rendered.");
 
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   const recovery = page.locator(".performance-recovery");
@@ -198,8 +225,12 @@ try {
   await page.getByText("Monthly target", { exact: true }).waitFor();
   const monthlyTable = page.locator(".performance-table").filter({ has: page.locator("caption", { hasText: "Monthly Driver Passbook" }) });
   const monthlyText = await monthlyTable.innerText();
-  if (!monthlyText.includes("₹30,000.00")) throw new Error("monthly_target_was_prorated_or_missing_in_monthly_rollup");
-  console.log("Monthly roll-up preserves the full configured target for partial calendar months.");
+  const monthKeys = [...new Set([businessStartDate.slice(0, 7), today.slice(0, 7)])];
+  for (const month of monthKeys) {
+    const expected = moneyFromPaise(monthTargetPaise(month, businessStartDate, today, configuredTargetPaise));
+    if (!monthlyText.includes(expected)) throw new Error("monthly_rollup_target_does_not_match_calendar_day_proration:" + month + ":" + expected);
+  }
+  console.log("Monthly roll-up target values reconcile to calendar-day proration for each partial month.");
 
   const provenance = page.locator("#performance-provenance");
   await provenance.locator("summary").first().click();
