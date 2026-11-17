@@ -168,12 +168,34 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
   }
 }
 
-/** Small adapter so the calculation service reads the authoritative business-wide start date. */
+/** Snapshot adapter for the authoritative business-wide start date and its revision. */
 export class PerformanceBusinessSettingsAdapterV1 implements PerformanceBusinessSettingsReadModel {
+  private snapshot?: ReturnType<BusinessSettingsService["get"]>;
+
   constructor(private readonly settings: Pick<BusinessSettingsService, "get">) {}
+
+  async prepareSnapshot(): Promise<void> {
+    this.snapshot = this.settings.get();
+    await this.snapshot;
+  }
+
+  releaseSnapshot(): void {
+    this.snapshot = undefined;
+  }
+
+  private async record() {
+    return this.snapshot ? await this.snapshot : await this.settings.get();
+  }
+
   async getBusinessStartDate(): Promise<string> {
-    const settings = await this.settings.get();
+    const settings = await this.record();
     if (!settings) throw new Error("business_start_date_not_configured");
     return settings.data.businessStartDate;
+  }
+
+  async getBusinessStartDateRevision(): Promise<number> {
+    const settings = await this.record();
+    if (!settings) throw new Error("business_start_date_not_configured");
+    return settings.revision;
   }
 }
