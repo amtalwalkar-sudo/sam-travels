@@ -67,8 +67,15 @@ export type PerformanceCalculationReadModelsV1 = Readonly<{
  * Compliance are intentionally separate ports: neither may be hidden inside
  * a combined cost-allocation dependency or silently substituted for the other.
  */
+export interface PerformanceCalculationSnapshotBoundaryPortV1 {
+  capture(): Promise<Readonly<{ identity: string; fingerprint: string }>>;
+}
+
 export class PerformanceCalculationServiceV1 {
-  constructor(private readonly sources: PerformanceCalculationReadModelsV1) {}
+  constructor(
+    private readonly sources: PerformanceCalculationReadModelsV1,
+    private readonly snapshotBoundary?: PerformanceCalculationSnapshotBoundaryPortV1,
+  ) {}
 
   async calculate(periodFrom: string, periodTo: string): Promise<PerformanceCalculationResultV1> {
     const snapshotSources = [...new Set([
@@ -79,6 +86,11 @@ export class PerformanceCalculationServiceV1 {
     const preparedSources = snapshotSources.filter(source =>
       typeof source.prepareSnapshot === "function");
     try {
+      // Fence the complete shared record repository before any independently
+      // owned source adapter captures its view. Per-source fingerprints alone
+      // cannot detect two different source sets read on opposite sides of a
+      // concurrent write.
+      const repositorySnapshotBefore = await this.snapshotBoundary?.capture();
       await this.sources.businessSettings.prepareSnapshot?.();
       const businessStartDate = await this.sources.businessSettings.getBusinessStartDate();
       if (periodTo < businessStartDate) throw new Error("performance_period_before_business_start");
@@ -113,6 +125,11 @@ export class PerformanceCalculationServiceV1 {
     if (sourceSnapshotIdentities.some((identity, index) =>
       identity !== sourceSnapshotIdentitiesAfter[index])) {
       throw new Error("performance_source_snapshot_changed_during_calculation");
+    }
+    const repositorySnapshotAfter = await this.snapshotBoundary?.capture();
+    if (repositorySnapshotBefore && repositorySnapshotAfter &&
+        repositorySnapshotBefore.identity !== repositorySnapshotAfter.identity) {
+      throw new Error("performance_global_source_snapshot_changed_during_calculation");
     }
 
     if (emiCosts.some(row => row.kind !== "emi")) throw new Error("performance_emi_read_model_kind_invalid");
@@ -159,6 +176,9 @@ export class PerformanceCalculationServiceV1 {
     const sourceSnapshotId = [
       ...(identitySet.size === 1 ? [...identitySet] : []),
       ...sourceSnapshotIdentitiesAfter.filter((value): value is string => Boolean(value)),
+      ...(repositorySnapshotBefore ? [
+        "performance-record-repository:" + repositorySnapshotBefore.fingerprint,
+      ] : []),
       "performance-source-revisions:" + sourceRevisionFingerprint,
     ].join(";");
     const input: PerformanceCalculationInputV1 = {
