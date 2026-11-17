@@ -11,11 +11,9 @@ import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, Work
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
-import { dispatchCommittedFeatureEvent, accrueMaintenanceForCompletedWorkDay } from "../../../../packages/application/src";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
-import { LOGBOOK_WORK_EVENT_INTEGRATION, rebuildTripHistoryProjection } from "../../../../packages/features/logbook";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
