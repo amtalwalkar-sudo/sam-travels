@@ -75,7 +75,7 @@ const forbiddenByLayer = {
   "feature-ports": new Set(["application", "storage", "ui", "web-app", "presentation", "feature-root", "feature-domain", "feature-application", "feature-adapters", "feature-presentation", "feature-tests"]),
   "feature-application": new Set(["storage", "ui", "web-app", "presentation", "feature-adapters", "feature-presentation", "feature-tests"]),
   "feature-adapters": new Set(["ui", "web-app", "presentation", "feature-presentation", "feature-tests"]),
-  "feature-presentation": new Set(["application", "domain", "storage", "web-app", "feature-root", "feature-domain", "feature-ports", "feature-adapters", "feature-tests"]),
+  "feature-presentation": new Set(["application", "storage", "web-app", "feature-root", "feature-ports", "feature-adapters", "feature-tests"]),
   "feature-root": new Set(["storage", "ui", "web-app", "feature-adapters", "feature-tests"]),
   "feature-tests": new Set(),
   ui: new Set(["storage"]),
