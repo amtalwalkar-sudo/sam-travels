@@ -2,7 +2,7 @@
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
 **Version:** 2.0  
-**Status:** Frozen and approved product baseline with Addenda A through I; changes require an explicit, versioned product-owner amendment  
+**Status:** Frozen and approved product baseline with Addenda A through J; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
 **Timezone:** Asia/Kolkata business dates  
@@ -439,5 +439,5 @@ The source-contract reconciliation is a prerequisite to breakeven implementation
    The Business Start Date is included in the numerator.
 4. Every subsequent calendar month uses the full configured monthly target, regardless of the number of business or operating days.
 5. Monthly and lifetime target totals sum the applicable first-month prorated amount and the full monthly amounts for subsequent months. Do not apply another proration merely because a driver has fewer operating days.
-6. This addendum supersedes older wording in this contract that prorates every arbitrary partial month or paces the target by business/operating days. Any separate selected-date-range presentation must not change the underlying monthly target obligation.
+6. This addendum supersedes older wording in this contract that prorates every arbitrary partial month or paces the target by business/operating days. A report period that intersects a later calendar month carries that month's full target obligation; selecting only part of that month does not prorate it. The first Business-Start-Date month always uses its one-time startup-prorated amount. Do not prorate again for custom date filters, business days, operating days or attendance.
 
