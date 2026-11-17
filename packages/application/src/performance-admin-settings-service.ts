@@ -105,7 +105,7 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     this.snapshot = undefined;
   }
 
-  async getSourceSnapshotIdentity(): Promise<string> {
+  async getSourceSnapshotIdentity(): Promise<string | undefined> {
     const records = this.snapshot ? await this.snapshot : await this.records.list();
     const settings = records.find(record => record.id === PERFORMANCE_ADMIN_SETTINGS_RECORD_ID);
     if (!settings || settings.data.kind !== "settings") {
