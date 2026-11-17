@@ -46,6 +46,14 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
     this.snapshot = undefined;
   }
 
+  async getSourceSnapshotIdentity(): Promise<string> {
+    const records = await this.records();
+    return "performance-trip-revenue-sources:" + records
+      .map(record => record.id + "@" + record.revision)
+      .sort()
+      .join("|");
+  }
+
   private async records(): Promise<readonly SubmittedTripFinancialRecord[]> {
     return this.snapshot ?? this.tripFinancials.submittedTripFinancialRecords();
   }
