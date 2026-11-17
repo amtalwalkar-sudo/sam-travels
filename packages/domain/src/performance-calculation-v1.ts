@@ -187,17 +187,19 @@ export function allocatePreBusinessRecoveryV1(
   // independently per source. Cumulative apportionment preserves every
   // source's provenance while ensuring each month exactly reconciles.
   const monthTotal = (monthIndex: number): number => {
-    const before = Math.floor((totalPaise * monthIndex) / PRE_BUSINESS_RECOVERY_MONTHS_V1);
-    const after = Math.floor((totalPaise * (monthIndex + 1)) / PRE_BUSINESS_RECOVERY_MONTHS_V1);
-    return after - before;
+    const total = BigInt(totalPaise);
+    const before = (total * BigInt(monthIndex)) / BigInt(PRE_BUSINESS_RECOVERY_MONTHS_V1);
+    const after = (total * BigInt(monthIndex + 1)) / BigInt(PRE_BUSINESS_RECOVERY_MONTHS_V1);
+    return Number(after - before);
   };
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
     let cumulative = 0;
     return sources.map(source => {
-      const before = Math.floor((monthlyAmount * cumulative) / totalPaise);
+      const total = BigInt(totalPaise);
+      const before = (BigInt(monthlyAmount) * BigInt(cumulative)) / total;
       cumulative = add(cumulative, source.amountPaise);
-      const after = Math.floor((monthlyAmount * cumulative) / totalPaise);
-      return after - before;
+      const after = (BigInt(monthlyAmount) * BigInt(cumulative)) / total;
+      return Number(after - before);
     });
   };
   for (let monthIndex = 0; monthIndex < PRE_BUSINESS_RECOVERY_MONTHS_V1; monthIndex++) {
