@@ -3,7 +3,7 @@ import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "
 import type { FeaturePresentationContextContract, RuntimeRegistry } from "../../../../packages/core/src";
 import type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "../../../../packages/features/work";
 import type { TimelineScreenContext } from "../../../../packages/features/timeline";
-import { PerformanceScreenControllerV1, type PerformanceScreenContextV1 } from "../../../../packages/features/performance";
+import { PerformanceScreenControllerV1, PerformanceScreenServicesAdapterV1, type PerformanceScreenContextV1 } from "../../../../packages/features/performance";
 import type { AdminPresentationContextV1 } from "../../../../packages/features/admin";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
@@ -33,7 +33,10 @@ export function PrimaryScreenComposition({
   performanceCalculation, fullCostBreakeven,
 }: PrimaryScreenCompositionProps) {
   const performanceController = useMemo(
-    () => new PerformanceScreenControllerV1(performanceCalculation, fullCostBreakeven),
+    () => new PerformanceScreenControllerV1(
+      new PerformanceScreenServicesAdapterV1(performanceCalculation, fullCostBreakeven),
+      new PerformanceScreenServicesAdapterV1(performanceCalculation, fullCostBreakeven),
+    ),
     [performanceCalculation, fullCostBreakeven],
   );
 
