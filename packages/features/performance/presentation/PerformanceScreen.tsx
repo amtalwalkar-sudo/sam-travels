@@ -43,8 +43,8 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
   const currentOperationalDate = operationalToday();
   const isMonthToDateSelected = !!result && from === currentOperationalDate.slice(0, 7) + "-01" && to === currentOperationalDate;
-  const monthToDateAchievementPercent = isMonthToDateSelected && result.period.monthlyDriverTargetPaise > 0
-    ? Math.round(result.period.profitPaise / result.period.monthlyDriverTargetPaise * 100)
+  const monthToDateAchievementPercent = isMonthToDateSelected && result.period.targetPaise > 0
+    ? Math.round(result.period.profitPaise / result.period.targetPaise * 100)
     : undefined;
   const insight = INSIGHT_DEFINITIONS[selectedInsight] ?? {
     label: selectedInsight.startsWith("cost-kind:") ? CATEGORY_LABELS[selectedInsight.slice(9) as PerformanceCostKindV1] ?? "Cost category" : "Performance figure",
@@ -94,7 +94,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period revenue" onClick={() => setSelectedInsight("period-revenue")}><small>Period revenue</small><strong>{money(result.period.revenuePaise)}</strong><span>Verified fares + cancellation fees</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Eligible period costs" onClick={() => setSelectedInsight("period-cost")}><small>Eligible period costs</small><strong>{money(result.period.costPaise)}</strong><span>Including recovery allocations</span></button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Period net position" onClick={() => setSelectedInsight("period-net")}><small>Period net position</small><strong className={result.period.profitPaise >= 0 ? "positive" : "negative"}>{signedMoney(result.period.profitPaise)}</strong><span>Revenue minus eligible costs</span></button>
-        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Monthly Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Monthly Driver Target</small><strong>{money(result.period.monthlyDriverTargetPaise)}</strong><span>Fixed monthly rupee target · not prorated</span>
+        <button type="button" className="performance-kpi performance-number-action" aria-label="Explain selected-period Driver Target" onClick={() => setSelectedInsight("monthly-target")}><small>Target for selected period</small><strong>{money(result.period.targetPaise)}</strong><span>Configured monthly surplus target, prorated by calendar days</span>
           {isMonthToDateSelected ? <span>Month-to-date net: {signedMoney(result.period.profitPaise)}{monthToDateAchievementPercent === undefined ? "" : " · " + monthToDateAchievementPercent + "% of target"}</span>
             : <span>Select This month to view month-to-date achievement.</span>}</button>
         <button type="button" className="performance-kpi performance-number-action" aria-label="Explain Business distance" onClick={() => setSelectedInsight("business-distance")}><small>Business distance</small><strong>{businessKm.toLocaleString("en-IN", { maximumFractionDigits: 1 })} km</strong><span>Confirmed allocated business kilometres</span></button>
