@@ -37,7 +37,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             throw new Error("performance_driver_target_invalid");
           }
           return performanceAdminSettings.setMonthlyDriverTargetPaise(
-            Math.round(rupees * 100), getApplicationRecordSource(),
+            Math.round(rupees * 100), recordSource,
           );
         }
         if (command.formId === PRE_BUSINESS_COST_FORM_V1.id) {
@@ -50,14 +50,14 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             commandId: command.instanceId,
             amountPaise: Math.round(rupees * 100),
             note,
-            source: getApplicationRecordSource(),
+            source: recordSource,
           });
         }
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
           const businessStartDate = command.values.businessStartDate;
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
           return getApplicationBusinessSettingsService().setBusinessStartDate(
-            businessStartDate, getApplicationRecordSource(),
+            businessStartDate, recordSource,
           );
         }
         if (command.formId === COMPLIANCE_FORM_V1.id) {
@@ -86,7 +86,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
               ...(documentRef ? { supportingDocumentRef: documentRef } : {}),
               ...(renewedFromRecordId ? { renewedFromRecordId } : {}),
             },
-            source: getApplicationRecordSource(),
+            source: recordSource,
             businessDate: validFrom,
           });
         }
@@ -99,7 +99,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (!Array.isArray(items)) throw new Error("maintenance_items_invalid");
           return getApplicationMaintenanceService().createVisit({
             uuid: command.instanceId,
-            source: getApplicationRecordSource(),
+            source: recordSource,
             data: {
               vehicleId: String(values.vehicleId ?? ""),
               maintenanceDate: String(values.maintenanceDate ?? ""),
@@ -121,7 +121,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           }
           return getApplicationMaintenanceService().createExpense({
             uuid: command.instanceId,
-            source: getApplicationRecordSource(),
+            source: recordSource,
             data: {
               vehicleId: String(values.vehicleId ?? ""),
               expenseDate: String(values.expenseDate ?? ""),
@@ -143,7 +143,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             vehicleId: String(values.vehicleId ?? ""),
             ratePaisePerKm,
             commandId: command.instanceId,
-            source: getApplicationRecordSource(),
+            source: recordSource,
           });
         }
         if (command.formId === LOAN_PAYMENT_FORM_V1.id) {
@@ -166,7 +166,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             allocations: allocations as readonly { installmentNumber: number; amountPaise: number }[],
             ...(typeof values.reference === "string" && values.reference.trim() ? { reference: values.reference.trim() } : {}),
             ...(typeof values.note === "string" && values.note.trim() ? { note: values.note.trim() } : {}),
-            source: getApplicationRecordSource(),
+            source: recordSource,
           });
         }
         if (command.formId === LOAN_PREPAYMENT_FORM_V1.id) {
@@ -177,7 +177,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (!preview || typeof preview !== "object") throw new Error("finance_loan_prepayment_preview_invalid");
           return getApplicationFinanceLoanPrepaymentService().commit({
             preview: preview as import("../../../packages/application/src").FinanceLoanPrepaymentPreviewV1,
-            source: getApplicationRecordSource(),
+            source: recordSource,
           });
         }
         if (command.formId === LOAN_SETTLEMENT_FORM_V1.id) {
@@ -191,7 +191,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             loanId: String(values.loanId ?? ""), businessDate: String(values.businessDate ?? ""),
             method: values.method as import("../../../packages/application/src").FinancePaymentMethodV1,
             ...(typeof values.reference === "string" && values.reference.trim() ? { reference: values.reference.trim() } : {}),
-            source: getApplicationRecordSource(),
+            source: recordSource,
             preview: preview as { amountPaise: number; scheduleVersion: number; paidThroughInstallment: number;
               loanRevision: number; paymentLedgerRevision: number | null },
           });
@@ -221,7 +221,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           // Legacy edit drafts carry record metadata; reject them instead of mutating or duplicating history.
           if (typeof values._recordRevision === "number") throw new Error("finance_loan_details_immutable");
           return getApplicationFinanceLoanService().create({
-            uuid: command.instanceId, details, source: getApplicationRecordSource(),
+            uuid: command.instanceId, details, source: recordSource,
           });
         }
         if (command.formId === DRIVER_FORM_V1.id) {
@@ -245,7 +245,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (typeof revision === "number") {
             return getApplicationDriverRecordsService().update({ driverId, expectedRevision: revision, data });
           }
-          return getApplicationDriverRecordsService().create(data, getApplicationRecordSource());
+          return getApplicationDriverRecordsService().create(data, recordSource);
         }
         if (command.formId === VEHICLE_FORM_V1.id) {
           const values = command.values;
@@ -266,7 +266,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
               id: command.instanceId, expectedRevision: revision, data,
             });
           }
-          return getApplicationVehicleService().create(data, getApplicationRecordSource());
+          return getApplicationVehicleService().create(data, recordSource);
         }
         throw new Error("unsupported_admin_form_operation");
       },
