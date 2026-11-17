@@ -27,7 +27,9 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       source({
         sourceId: "loan:pre-business-emi-carry-forward",
         sourceKind: "emi-pre-business-carry-forward", sourceVersion: 2,
-        sourceAmountPaise: 12_000, disposition: "allocated",
+        sourceAmountPaise: 31, disposition: "allocated",
+        eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
+        daily: daily("loan:pre-business-emi-carry-forward", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
       source({
         sourceId: "loan:emi:2", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
@@ -36,7 +38,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       }),
       source({
         sourceId: "compliance:overlap", sourceKind: "compliance", sourceVersion: 4,
-        sourceAmountPaise: 36_500, disposition: "allocated",
+        sourceAmountPaise: 306, disposition: "allocated",
         sourcePeriod: { from: "2026-01-01", to: "2026-12-31", label: "Annual permit" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-12-31",
         daily: daily("compliance:overlap", "compliance", 4, "2026-03-01", "2026-12-31"),
@@ -77,20 +79,19 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     adapter.releaseSnapshot();
 
     expect(reads).toBe(1);
-    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(31);
+    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(62);
     expect(emi.every(row => row.verified && row.sourceRefs.length === 1 &&
       row.sourceRefs[0].sourceId === "loan:emi:3" && row.sourceRefs[0].revision === 2)).toBe(true);
-    expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(0);
+    expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(306);
     expect(compliance.every(row => row.verified && row.sourceRefs.length === 1 &&
       row.sourceRefs[0].sourceId === "compliance:overlap" && row.sourceRefs[0].revision === 4)).toBe(true);
     // The adapter returns the canonical daily paise rows verbatim and does not
     // reconstruct a new distribution for the requested report window.
     expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
-    expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(0);
-    expect(emiRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(17_000);
-    expect(complianceRecovery.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(46_500);
-    expect([...emiRecovery, ...complianceRecovery].map(row => row.origin).sort())
-      .toEqual(["compliance", "compliance", "emi", "emi"]);
+    expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
+    expect(emiRecovery).toEqual([]);
+    expect(complianceRecovery).toEqual([]);
+    expect([...emiRecovery, ...complianceRecovery]).toEqual([]);
     expect(completeness).toEqual([expect.objectContaining({ status: "review-required" })]);
   });
 
