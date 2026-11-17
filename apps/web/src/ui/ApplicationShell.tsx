@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { defineApplicationShell } from "../../../../packages/presentation/src/shell-contracts";
-import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
+import { defineApplicationShell, type ApplicationShellDefinition } from "../../../../packages/presentation/src/shell-contracts";
 
 export const primaryShellDefinition = defineApplicationShell({
   id: "sam-travels.primary-shell",
@@ -14,9 +13,7 @@ export const primaryShellDefinition = defineApplicationShell({
   ] as const,
 });
 export type PrimaryScreen = typeof primaryShellDefinition.navigation[number]["screen"];
-type IconName = typeof primaryShellDefinition.navigation[number]["icon"];
-
-export function NavigationIcon({ name }: { name: IconName }) {
+export function NavigationIcon({ name }: { name: string }) {
   const shared = {
     width: 22, height: 22, viewBox: "0 0 24 24", fill: "none",
     stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const,
@@ -31,11 +28,13 @@ export function NavigationIcon({ name }: { name: IconName }) {
       return <svg {...shared}><path d="M4 19V5M4 19h17" /><path d="m7 15 4-4 3 2 5-6" /><path d="M16 7h3v3" /></svg>;
     case "admin":
       return <svg {...shared}><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /><path d="m9 12 2 2 4-4" /></svg>;
+    default:
+      return <span className="navigation-icon-fallback" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>;
   }
 }
 
 export type ApplicationShellProps = Readonly<{
-  shellDefinition: typeof primaryShellDefinition;
+  shellDefinition: ApplicationShellDefinition<PrimaryScreen, string>;
   activeScreen: PrimaryScreen;
   onNavigate: (screen: PrimaryScreen) => void;
   settingsContent: ReactNode;
@@ -46,7 +45,6 @@ export type ApplicationShellProps = Readonly<{
 export function ApplicationShell({ shellDefinition, activeScreen, onNavigate, settingsContent, children }: ApplicationShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   return <main className="shell">
-    <DeviceReadinessPrompt />
     <header className="topbar">
       <div className="brand">
         <div className="brand-mark">ST</div>
