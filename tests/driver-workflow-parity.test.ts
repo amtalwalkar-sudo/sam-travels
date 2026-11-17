@@ -7,6 +7,7 @@ import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { WorkDriverSelectionService } from "../packages/application/src/work-driver-selection-service";
 import { createDriverCommandV2, DriverWorkflowService } from "../packages/features/work";
 import type { GpsFix } from "../packages/core/src/types";
+import { NetworkGateway, NetworkAccessDisabledError } from "../packages/core/src/network";
 
 const gpsAt = (fixAt: string): GpsFix => ({
   latitude: 19.076,
@@ -110,6 +111,30 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(await repository.listEvents()).toHaveLength(parity.eventCount);
     expect(await browserDatabase.driverOutbox.count()).toBe(parity.outboxCount);
     expect(await repository.getIntent(parity.interruptedEventId)).toMatchObject({ status: "recorded" });
+  });
+
+  it("commits Work locally while explicit network access is disabled", async () => {
+    const records = new DexieRecordRepository();
+    await records.setNetworkEnabled(false);
+    const gateway = new NetworkGateway(records);
+    const remoteOperation = vi.fn(async () => "should-not-run");
+    await expect(gateway.run(remoteOperation)).rejects.toBeInstanceOf(NetworkAccessDisabledError);
+    expect(remoteOperation).not.toHaveBeenCalled();
+
+    const repository = new DexieDriverWorkflowRepository();
+    const at = "2026-11-17T10:00:00.000Z";
+    const command = createDriverCommandV2(
+      await repository.getSnapshot(), "shift_start", "pwa", "offline-shift-start", at,
+      { schemaVersion: 1, readingKm: 1200 },
+    );
+    const service = new DriverWorkflowService(repository, { capture: async transitionAt => gpsAt(transitionAt) });
+    const result = await service.dispatch(command);
+
+    expect(result.status).toBe("recorded");
+    expect(await repository.getSnapshot()).toMatchObject({ state: "shift_active", revision: 1 });
+    expect(await repository.listEvents()).toHaveLength(1);
+    expect(await browserDatabase.driverOutbox.count()).toBe(1);
+    expect(await records.getNetworkEnabled()).toBe(false);
   });
 
   it("keeps the 04:00 India operational-day boundary correct across a persisted shift restart", async () => {
