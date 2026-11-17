@@ -9,12 +9,6 @@ import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
 import type { PrimaryScreen } from "./ApplicationShell";
 
-type ScreenContextEntry = Readonly<{
-  mountPoint: string;
-  contextContract: FeaturePresentationContextContract;
-  context: unknown;
-}>;
-
 export type PrimaryScreenWorkspace = Readonly<DriveScreenWorkspaceV1 & {
   loadTimeline: TimelineScreenContext["loadTimeline"];
 }>;
@@ -54,36 +48,18 @@ export function PrimaryScreenComposition({
   };
   const adminContext: AdminPresentationContextV1 = <AdminWorkspace />;
 
-  const screenContexts: Record<PrimaryScreen, ScreenContextEntry> = {
-    Drive: {
-      mountPoint: "WorkScreen",
-      contextContract: { id: "work.drive-screen", version: 1 },
-      context: workContext,
-    },
-    Timeline: {
-      mountPoint: "Timeline",
-      contextContract: { id: "timeline.main", version: 1 },
-      context: timelineContext,
-    },
-    Performance: {
-      mountPoint: "Performance",
-      contextContract: { id: "performance.host", version: 1 },
-      context: performanceContext,
-    },
-    Admin: {
-      mountPoint: "Admin",
-      contextContract: { id: "admin.workspace", version: 1 },
-      context: adminContext,
-    },
-  };
-
-  const selected = screenContexts[activeScreen];
-  return (
-    <FeatureScreenHost
-      registry={runtimeRegistry}
-      mountPoint={selected.mountPoint}
-      contextContract={selected.contextContract}
-      context={selected.context}
-    />
-  );
+  switch (activeScreen) {
+    case "Drive":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="WorkScreen"
+        contextContract={{ id: "work.drive-screen", version: 1 }} context={workContext} />;
+    case "Timeline":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline"
+        contextContract={{ id: "timeline.main", version: 1 }} context={timelineContext} />;
+    case "Performance":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
+        contextContract={{ id: "performance.host", version: 1 }} context={performanceContext} />;
+    case "Admin":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin"
+        contextContract={{ id: "admin.workspace", version: 1 }} context={adminContext} />;
+  }
 }
