@@ -228,16 +228,17 @@ Add a regression that changes an allocation source between attempted reads and p
 
 **A. Pre-business cost recovery — owner decision approved and contract reconciled**
 
-The owner has confirmed the following simple date-based rule, now normative in the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md):
+The owner has confirmed the following two-stage aggregate-pool rule, now normative in the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md):
 
 - Use each source category's authoritative business/effective date, not record creation or edit time.
-- If that date is before the Business Start Date, recover the **full source amount in 18 equal monthly instalments** beginning on the Business Start Date and include those instalments in Full Cost Breakeven. For daily breakeven, spread each monthly instalment evenly across the days of its Business-Start-Date-anchored recovery month.
-- Source validity/end dates and schedule end dates do not shorten or extend the 18-month recovery period.
+- First add the full amount of every eligible source amount dated before the Business Start Date to one aggregate pre-business cost pool. Do not prorate qualifying amounts by validity days or remaining schedule days.
+- Divide that combined pool into **18 equal monthly instalments** beginning on the Business Start Date. For daily breakeven, spread each monthly instalment evenly across the days of its Business-Start-Date-anchored recovery month.
+- Source validity/end dates and schedule end dates do not shorten or extend the 18-month recovery period. The 18-month plan is created once for the aggregate pool, not separately for each source amount or category.
 - If the authoritative date is on or after the Business Start Date, use the source category's normal calculation rules.
 - Preserve source records and recognize each amount exactly once.
 - For Compliance, the classification date is `validFrom`; for each EMI, it is the scheduled due date; manual dated costs use their explicit business/effective date.
 
-This is the governing policy, not an optional Performance-only adjustment. The existing source-period carry-forward wording has been replaced in the Business Start Date allocation contract. Runtime conformance is not yet complete: the current Performance domain distributes recovery evenly by day across the full 18-month interval rather than in equal monthly instalments, and its Compliance adapter proportionally splits the source amount by validity days instead of classifying the full amount by `validFrom`. These are recorded implementation gaps for the consolidated implementation PR.
+This is the governing policy, not an optional Performance-only adjustment. Runtime conformance is not yet complete: the current Performance domain distributes recovery evenly by day across the full 18-month interval rather than building one aggregate pool, dividing it into 18 equal monthly instalments, and distributing each instalment across its recovery-month days. Its Compliance adapter proportionally splits amounts by validity days instead of adding each full qualifying record amount to the aggregate pool. The EMI and manual-cost adapters must also contribute their complete qualifying amounts to that same pool. These are recorded implementation gaps for the consolidated implementation PR.
 
 **B. Partial-month Driver Target**
 
