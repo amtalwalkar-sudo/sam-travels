@@ -105,6 +105,7 @@ class DriverWorkflowParityInterruptionTest {
 
     @Test fun operationalDayBoundarySurvivesRoomReopenAndUsesFourAmIndiaCutover() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        val assets = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context.assets
         val databaseName = "driver-workflow-04-boundary-reopen.db"
         context.deleteDatabase(databaseName)
         val builder = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName).allowMainThreadQueries()
