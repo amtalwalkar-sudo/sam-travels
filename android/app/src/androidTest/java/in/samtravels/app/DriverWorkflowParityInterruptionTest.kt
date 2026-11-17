@@ -157,6 +157,19 @@ class DriverWorkflowParityInterruptionTest {
             val ended = completeAt("boundary-shift-end", "shift_end", "shift_active", 4, "2026-11-08T22:30:03.000Z")
             assertEquals("idle", ended.getString("state"))
             assertEquals(5, ended.getInt("revision"))
+
+            val sharedFixture = JSONObject(assets.open("driver-workflow-parity-v1.json").bufferedReader().use { it.readText() })
+                .getJSONObject("boundaryDistance")
+            val vehicleId = "feature:vehicle:MH01EF9012"
+            val dailyId = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") +
+                ":" + sharedFixture.getString("operationalDate")
+            val dailyRow = durable.records().get(dailyId)
+            assertNotNull("Room must persist the same daily distance projection as the PWA fixture", dailyRow)
+            val daily = JSONObject(dailyRow!!.json).getJSONObject("data")
+            assertEquals(sharedFixture.getInt("totalBusinessKm"), daily.getInt("totalBusinessKm"))
+            assertEquals(sharedFixture.getInt("unallocatedBusinessKm"), daily.getInt("unallocatedBusinessKm"))
+            assertEquals(sharedFixture.getString("allocationStatus"),
+                daily.getJSONArray("entries").getJSONObject(0).getString("allocationStatus"))
         } finally {
             durable.close()
             context.deleteDatabase(databaseName)
