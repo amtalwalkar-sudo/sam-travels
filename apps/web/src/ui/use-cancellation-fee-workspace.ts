@@ -2,11 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
 import { getPlatformRecordSource } from "../native-store";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
-import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
 import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
-import { TRIP_CANCELLATION_FEE_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
 import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 export function useCancellationFeeWorkspace(
@@ -68,9 +65,7 @@ export function useCancellationFeeWorkspace(
     setCancellationFeeDrafts(current => ({...current,[tripId]:value}));
     const previous = draftQueue.current.get(tripId) ?? Promise.resolve();
     const next = previous.then(async () => {
-      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
       if (copy.values.tripId !== tripId) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
       }
       await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", parseRupeesToPaise(value) ?? "");
     });
@@ -89,9 +84,7 @@ export function useCancellationFeeWorkspace(
     setDriverMessage("Saving cancellation fee…");
     try {
       await draftQueue.current.get(tripId);
-      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
       if (copy.values.tripId !== tripId) {
-        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
       }
       if (copy.values.cancellationFeePaise !== amount) {
         copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amount);
