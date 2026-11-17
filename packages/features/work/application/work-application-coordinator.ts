@@ -43,6 +43,16 @@ export class WorkApplicationCoordinatorV1 {
     return Object.freeze({ snapshot: await service.snapshot(), pending });
   }
 
+  async resume(service: DriverWorkflowService): Promise<Readonly<{
+    snapshot: Awaited<ReturnType<DriverWorkflowService["snapshot"]>>;
+    pending: Awaited<ReturnType<DriverWorkflowService["reconcilePending"]>>;
+  }>> {
+    await service.replayCommittedEvents();
+    const snapshot = await service.snapshot();
+    const pending = await service.reconcilePending();
+    return Object.freeze({ snapshot, pending });
+  }
+
   private async publishCommittedEvent(event: DriverEvent, repository: DriverWorkflowRepository): Promise<void> {
     await accrueMaintenanceForCompletedWorkDay({
       event,
