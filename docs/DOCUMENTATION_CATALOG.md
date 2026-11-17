@@ -39,7 +39,8 @@
 | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Breakeven and fixed-rupee driver target calculation semantics |
 | [Finance Loan Calculation Contract](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI/amortization calculation authority |
 | [Finance and Performance Calculation Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approved calculation decisions and scope |
-| [Calculation Authority and Application Wiring Audit](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) | Calculation owner/consumer audit, policy conflicts and wiring findings |
+| [Calculation Authority and Application Wiring Audit](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) | Historical calculation owner/consumer baseline, policy conflicts and wiring findings |
+| [Repository-Wide Architecture Foundation Gap Register](REPOSITORY_WIDE_ARCHITECTURE_FOUNDATION_GAP_REGISTER.md) | Current-main reconciliation and open gaps across calculation, feature, shell, platform and recovery foundations |
 | [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) | Historical source-contract/code comparison evidence |
 | [Performance End-to-End Conformance Audit](PERFORMANCE_END_TO_END_IMPLEMENTATION_CONFORMANCE_AUDIT.md) | Performance implementation and acceptance evidence |
 | [Temporary Breakeven Sanity Check](TEMPORARY_BREAKEVEN_SANITY_CHECK.md) | Temporary diagnostic/reference; not normative policy |
