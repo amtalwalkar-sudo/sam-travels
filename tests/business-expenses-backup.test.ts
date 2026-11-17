@@ -150,7 +150,7 @@ describe("Business Expenses browser backup participant", () => {
     };
     const expenses = new BusinessExpensesService(
       restoredRecords, expenseDomain,
-      { getById: async id => restoredRecords.get(id) } as never,
+      { getById: async (id: string) => restoredRecords.get(id) } as never,
       () => timestamp, restoredCorrectionService,
     );
     const projectedPurchases = await expenses.listFuelPurchases();

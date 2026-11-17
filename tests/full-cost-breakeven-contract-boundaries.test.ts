@@ -43,14 +43,16 @@ describe("Full-cost contract boundary regressions", () => {
       from: fixture.operationalDate,
       to: fixture.followingOperationalDate,
       dailyDistanceRecords: [{
-        id: dailyId, revision: 4,
+        id: dailyId, schemaVersion: 1, createdAt: fixture.tripCreatedAt,
+        updatedAt: fixture.tripCompletedAt, source: "integration", revision: 4,
         data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId: fixture.vehicleId,
           operationalDate: fixture.operationalDate, totalBusinessKm: fixture.businessKm,
           unallocatedBusinessKm: 0, entries: [{ shiftId: fixture.shiftId, allocationStatus: "allocated",
             businessKm: fixture.businessKm, personalKm: fixture.personalKm }] },
       }],
       tripFinancialRecords: [{
-        id: tripId, revision: 2,
+        id: tripId, schemaVersion: 1, createdAt: fixture.tripCreatedAt,
+        updatedAt: fixture.tripCompletedAt, source: "integration", revision: 2,
         data: { kind: "completed_ride_financials", status: "submitted",
           createdAt: fixture.tripCreatedAt, completedAt: fixture.tripCompletedAt,
           tripContext: { schemaVersion: 1, shiftId: fixture.shiftId, driverId: fixture.driverId,
