@@ -2,7 +2,7 @@
 
 **Scope:** PR #97 architecture consolidation and calculation-wiring contract only.  
 **Evidence baseline:** PR head `7a11dd7221381d058b991346bb8d40cd1a625061`.  
-**Status:** Automated CI is green on this head. Architecture conformance is materially advanced; the matrix below deliberately distinguishes tested behaviour from claims that still need production-data or device evidence.
+**Status:** Historical PR-head conformance record. PR #97 has since merged; the current post-merge and final-quality-pass status is recorded in section 10. The matrix deliberately distinguishes tested behaviour from claims that still need production-data or device evidence.
 
 ## 1. Responsibility map
 
@@ -86,7 +86,7 @@ This is stronger than testing only a synthetic screen fixture, but it is not a c
 - Integrated regression gate: passed.
 - Production geocoder verification: skipped by workflow configuration; no production geocoder verification is claimed.
 - Debug-signed APK for physical phone testing: successfully published by the Android job. Physical-device acceptance itself remains deferred.
-- Update-compatible signed APK from merged main: skipped because PR #97 remains unmerged.
+- Update-compatible signed APK from merged main: skipped at the time of this pre-merge PR-head check. This is historical; see section 10 for post-merge release evidence.
 
 ### Explicitly not claimed complete
 
@@ -100,11 +100,11 @@ This is stronger than testing only a synthetic screen fixture, but it is not a c
 
 ## 8. PR disposition
 
-PR #97 remains **draft, open and unmerged**. Green CI establishes automated success on the exact head above; it does not authorize merging or waive the remaining acceptance gates.
+At the time of this historical PR-head check, PR #97 was **draft, open and unmerged**. It was subsequently merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`; this historical status is superseded by section 10. Green CI does not waive the remaining acceptance gates.
 
 ## 9. Passbook, distance and exact-head verification follow-up — 2026-11-17
 
-The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` is now implemented on this PR branch:
+The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` was implemented by PR #97:
 
 - The cumulative Passbook starts on the actual Business Start Date, includes every operational date through the selected end date, and exposes daily/cumulative surplus, prorated cumulative target, ahead/behind position, remaining target and source IDs/revisions. Its aggregate reconciles to the same calculation's lifetime profit and target.
 - Daily Passbook regression checks each row's cumulative arithmetic and calendar-day target against the shared target-proration function. Recovery coverage includes mid-month start, month-end clamping, leap day, the exclusive 18-month end and later-surplus recovery.
@@ -114,8 +114,37 @@ The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` i
 
 The follow-up test commit adds the explicit leap-year recovery and per-day Passbook reconciliation assertions. The final exact-head workflow run `#44095766482` passed Architecture, Web, Android and Integrated regression on `0f198be0d796a67521ea5d6763bac3d949f33718`; see section 7 for the complete job evidence.
 
-The remaining non-implementation gates are unchanged: a migrated production-data inventory/reconciliation is not available as a repository fixture, physical-phone acceptance is deferred to the agreed final testing stage, and final visual composition remains subject to product-owner approval. PR #97 remains draft and unmerged.
+The remaining non-implementation gates at that historical checkpoint were: a migrated production-data inventory/reconciliation was not available as a repository fixture, physical-phone acceptance was deferred to the agreed final testing stage, and final visual composition remained subject to product-owner approval. PR #97 later merged; see section 10 for the current state.
 
 ## Subsequent documentation-head verification — 2026-11-17
 
 The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` was independently verified by [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Architecture, Web, Android and Integrated regression all completed successfully. The Android Room/workflow/backup reliability gate and debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred. This commit contained documentation changes only; the code-bearing implementation and its full test evidence remain recorded separately above.
+
+
+## 10. Post-merge status and final software-quality pass — 2026-11-17
+
+### Merged delivery state
+
+- PR #96 (documentation baseline) is merged. Its merge commit is `b54181330e4e89d1f25b2e1e56a40b8264f19014`.
+- PR #97 (architecture and calculation-foundation implementation) is merged. Its merge commit is `a15acb791a2e452a3bb84e271ab7b0e27c73500c`.
+- The current `main` baseline at the start of this quality pass is `b54181330e4e89d1f25b2e1e56a40b8264f19014`. The PR #96 documentation merge is a child of the PR #97 merge; it does not change the code-bearing implementation.
+
+### Exact-main CI evidence
+
+- Main commit `a15acb791a2e452a3bb84e271ab7b0e27c73500c` passed Architecture, Web, Android, Production geocoder verification and Integrated regression in [workflow run #44107617073](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44107617073).
+- The subsequent documentation merge commit `b54181330e4e89d1f25b2e1e56a40b8264f19014` passed Architecture and Web but failed Android in [workflow run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218). The sole reported instrumentation failure was `MaintenanceCorrectionCapacitorAcceptanceTest` at the `Driver form` assertion. The Integrated regression gate failed downstream because Android was red. Production geocoder verification was skipped because its job depends on the Android job. The debug-signed APK artifact was published; update-compatible signed and unsigned release APK steps were skipped after the Android failure.
+- Investigation found a test synchronization gap: the UI writes the “Correction appended” status before awaiting the post-save history refresh and clearing its busy state. The test proceeded to the next role/action after observing the status, without first waiting for the correction control to become enabled. The final-quality branch now waits for the enabled control and scopes actions to the Maintenance history section. It preserves the driver-own-record, cross-driver rejection, correction-chain, and restore assertions. This is a test determinism correction, not a product-policy change. Draft PR #98 head `3df3a20babc9078eaa19696bedc6bc2f7a756096` passed Architecture, Web, Android and Integrated regression in [run #44114268889](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44114268889). Production geocoder and release APK publication are main-push gates and remain to be re-verified after merge.
+
+### Data and correction-chain evidence
+
+- Repository-level correction evidence includes the append-only `HistoricalCorrectionService`, atomic correction-plus-chain-head compare-and-set, immutable original records, browser IndexedDB correction/restore tests, and Android Room correction/backup acceptance tests. The failing main-run test reached and passed its Admin correction append and original-record immutability assertions, then failed before the Driver form, later driver-chain, cross-driver rejection and restore assertions in that same test could execute.
+- A deterministic fixture or CI result is not a record-by-record audit of a deployed production dataset. No deployed production-data export is present in this repository evidence or connected to this review; production-data reconciliation therefore remains **open / not evidenced**. Do not mark it complete from fixtures.
+- The Performance calculation snapshot boundary remains an optimistic revision-drift fence, not strict transactional/MVCC snapshot isolation. This limitation is explicit and is not upgraded by this quality pass.
+
+### Integration and release gates
+
+- Production geocoder: passed on the preceding merged-main commit in run #44107617073; skipped on `b541813` in run #44110381218 because Android failed. It must pass again on the final merged-main push before claiming final-main production verification.
+- Dropbox: automated tests use controlled/mock integration paths. Real app registration, OAuth/account authorization, upload/download/history, revocation and real restore remain owner-run acceptance in [Phase 6 Manual Acceptance](PHASE_6_MANUAL_ACCEPTANCE.md).
+- Android physical-device/OEM acceptance remains explicitly deferred by the owner. Emulator CI is not physical-phone acceptance.
+- Final Performance visual composition approval remains a separate product-owner milestone; no redesign is implied by this pass.
+- Final release APK/signing verification remains dependent on a successful post-merge main workflow. The current failed main run did not execute the release APK publication steps.

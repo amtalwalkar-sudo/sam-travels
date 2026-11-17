@@ -278,8 +278,8 @@ Delivered in this phase:
 3. The fixed monthly Driver Target policy and aggregate pre-business recovery policy are now explicitly resolved in their owner contracts and reconciled in the Calculation Authority audit.
 4. Historical plans and audits remain preserved; superseded source-allocation instructions are explicitly labelled so they cannot be mistaken for the current downstream recovery rule.
 5. Existing file paths are preserved. Catalog coverage is verified at 86/86.
-6. The final documentation CI/link-validation result remains a release gate and must pass on the exact final PR head before this phase is called CI-verified.
+6. The local Markdown-link validator is part of the Web CI job and passed on merged `main` commit `b54181330e4e89d1f25b2e1e56a40b8264f19014` in [run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218). The overall workflow still failed its separate Android gate; this does not invalidate the documentation check.
 
-PR #96 remains draft and unmerged pending review and explicit user authorization. This phase remains documentation-only: no application source, runtime behaviour, database schema, migrations, APK publication or physical-device testing is changed or claimed.
+At the time this historical Phase 3 record was written, PR #96 remained draft and unmerged pending review and explicit user authorization. PR #96 was subsequently merged as `b54181330e4e89d1f25b2e1e56a40b8264f19014`; the old draft/unmerged status is no longer current. The Phase 3 scope remains documentation-only: no application source, runtime behaviour, database schema, migrations, APK publication or physical-device testing was changed or claimed by that phase.
 
 **Scope confirmation:** This phase is documentation-only. Application source, runtime behaviour, database schema, migrations, APK publication and physical-device testing are not changed or claimed.

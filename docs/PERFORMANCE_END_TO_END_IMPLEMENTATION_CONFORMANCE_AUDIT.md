@@ -255,3 +255,16 @@ The final exact PR head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Archit
 ### 13.7 Subsequent documentation-head verification
 
 The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` passed Architecture, Web, Android and Integrated regression in [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Android Room/workflow/backup reliability and debug-signed phone-test APK publication passed. Production geocoder verification was skipped; physical-device acceptance remains deferred. The verified commit was documentation-only and did not change the implementation already tested on the code-bearing head above.
+
+
+## 14. Post-merge verification and release boundaries — 2026-11-17
+
+PR #97 has merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`; PR #96's documentation merge leaves `main` at `b54181330e4e89d1f25b2e1e56a40b8264f19014` at the start of this final-quality pass.
+
+- Main commit `a15acb7` passed Architecture, Web, Android, Production geocoder verification and Integrated regression in [run #44107617073](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44107617073).
+- The later documentation-only main commit `b541813` passed Architecture and Web but failed Android in [run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218). The reported failure was the Maintenance correction driver-form assertion; Integrated regression failed downstream and production geocoder was skipped because Android failed. Release APK publication steps were also skipped. The test's success-status wait did not ensure the post-save refresh had cleared the correction button's busy/disabled state. Draft PR #98 adds that readiness wait and extracts reusable WebView helpers; exact PR head `3df3a20babc9078eaa19696bedc6bc2f7a756096` passed Architecture, Web, Android and Integrated regression in [run #44114268889](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44114268889). Production geocoder and release artifacts remain post-merge main-push checks.
+- The merged implementation's Passbook and active-driving-day distance calculation/parity work remains covered by the owner-path fixtures and browser/Room acceptance described in section 13. This does not amount to final visual-composition approval.
+- A deployed production-data record-by-record reconciliation is not represented by repository fixtures and remains open until an authorized production dataset is audited. The correction/effective-date evidence matrix is recorded in [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md).
+- The shared snapshot check is an optimistic revision-drift fence, not strict transactional/MVCC isolation.
+- Live Dropbox account/OAuth acceptance and real backup/restore remain separate owner-run gates. Physical Android phone/OEM acceptance remains explicitly deferred. Neither is implied by CI or emulator results.
+- Final production geocoder and release APK verification must be confirmed by the successful main-branch workflow after the quality correction is merged.

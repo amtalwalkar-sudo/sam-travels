@@ -6,7 +6,7 @@ This guide is for the owner of the Sam Travels Dropbox app and the person valida
 
 The PR contains the encrypted backup format, consistent browser/Room snapshots, checkpointed restore and rollback, Dropbox OAuth 2.0 Authorization Code + PKCE, token refresh, Android Keystore storage, browser encrypted credential vault, network-policy gateway, upload/download/history, retry/backoff, and retention.
 
-The latest verified PR CI run is [#308](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41835374476) on head `b0e70d45db3becb8e53f8b756503e9da7fa25c25`; web and Android jobs passed, including Android emulator instrumentation and unsigned release assembly. CI uses mocked Dropbox endpoints; it does not validate a real Dropbox app or a physical phone.
+Historical Phase 6 implementation CI evidence: [run #308](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/41835374476) on head `b0e70d45db3becb8e53f8b756503e9da7fa25c25`; web and Android jobs passed, including Android emulator instrumentation and unsigned release assembly. This is not the latest repository CI run. CI uses mocked Dropbox endpoints; it does not validate a real Dropbox app or a physical phone. Current post-merge CI and release status is tracked in [PR #97 Architecture Conformance](PR_97_ARCHITECTURE_CONFORMANCE.md).
 
 **Phase 6 automated engineering gates are green; final acceptance remains open by user deferral.** Android WorkManager scheduling and the Keystore-protected recovery-key-only V2 worker are implemented, with a shared native-to-TypeScript interoperability fixture and automated retry/policy/reconciliation tests. These checks establish code-level compatibility and bounded retry behavior only. Real Dropbox and physical-device acceptance below are still outstanding.
 
@@ -100,3 +100,16 @@ This gate requires CI plus physical-device acceptance. The implementation is pre
 ## What to send back after each manual step
 
 Tell me only the step number and result, for example: `Part A, step 6 — app created; App key copied.` If an error occurs, send the exact non-secret error text. I will guide the next step based on the result.
+
+
+## Current post-merge acceptance status — 2026-11-17
+
+PR #96 and PR #97 have merged. The latest main workflow at the start of the final software-quality pass is [run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218) on `b54181330e4e89d1f25b2e1e56a40b8264f19014`; Architecture and Web passed, Android failed in the Maintenance correction driver-form acceptance, and the Integrated regression gate failed downstream. The preceding main run #44107617073 passed the production geocoder; the later run skipped geocoder because Android failed. Do not interpret the historical Phase 6 CI result above as current release verification.
+
+The following remain separate owner-run gates even after automated CI is green:
+
+- Real Dropbox app registration and account-backed OAuth, upload/download/history, revocation and restore acceptance.
+- Physical Android device/OEM acceptance, explicitly deferred by the owner to the final phone-testing stage.
+- User acceptance of the backup/restore experience with disposable data and a real restore/rollback run.
+
+Do not provide Dropbox app keys, OAuth tokens, recovery keys or backup passphrases in chat, source files, screenshots or GitHub issues. These gates are not waived by the final software-quality pass.

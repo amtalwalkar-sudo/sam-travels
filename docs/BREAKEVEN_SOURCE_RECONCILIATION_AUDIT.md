@@ -259,10 +259,10 @@ This section supersedes the pending exact-head CI and partially closed implement
 
 ### 13.2 Exact automated verification
 
-- PR #97 remains draft and unmerged.
+- At the time of this historical PR-head evidence section, PR #97 remained draft and unmerged. It was subsequently merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`; see section 14 for post-merge status.
 - Final exact PR head: `0f198be0d796a67521ea5d6763bac3d949f33718`, workflow run [`44095766482`](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482).
 - Architecture, Web, Android and Integrated regression jobs all passed on this exact SHA. Android emulator-backed Room/workflow/backup reliability, focused GPS lifecycle threading, and debug-signed phone-test APK publication also passed.
-- Production geocoder verification was skipped by workflow configuration and is not claimed. The merged-main update-compatible APK was skipped because this PR remains unmerged.
+- At the time of this historical PR-head check, production geocoder verification was skipped and the update-compatible APK was skipped because PR #97 had not yet merged. Subsequent main-branch evidence is recorded in section 14.
 - The final follow-up commit includes the leap-year/month-end recovery boundary and explicit per-day Passbook cumulative arithmetic assertions.
 
 ### 13.3 Remaining evidence boundaries
@@ -278,3 +278,32 @@ This section supersedes the pending exact-head CI and partially closed implement
 ## Subsequent documentation-head verification — 2026-11-17
 
 The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` was independently verified by [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Architecture, Web, Android and Integrated regression all completed successfully. The Android Room/workflow/backup reliability gate and debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred. This commit contained documentation changes only; the code-bearing implementation and its full test evidence remain recorded separately above.
+
+
+## 14. Post-merge source and correction evidence reconciliation — 2026-11-17
+
+### Repository and CI state
+
+- PR #96 and PR #97 are both merged. PR #97 merge commit: `a15acb791a2e452a3bb84e271ab7b0e27c73500c`. PR #96 documentation merge commit / main baseline at the start of this quality pass: `b54181330e4e89d1f25b2e1e56a40b8264f19014`.
+- The merged implementation passed Architecture, Web, Android, Production geocoder verification and Integrated regression on main commit `a15acb7` in [run #44107617073](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44107617073).
+- The subsequent documentation-only main commit `b541813` passed Architecture and Web but its Android instrumentation gate failed in `MaintenanceCorrectionCapacitorAcceptanceTest` at `Driver form` ([run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218)). The Integrated regression gate failed because Android was unsuccessful; production geocoder verification was skipped because it depends on Android. The failure occurred after the Admin correction had appended and the original record had been verified unchanged, but before this test reached the Driver correction, cross-driver rejection and Room restore assertions.
+
+### Correction-chain evidence status
+
+- **Browser/IndexedDB:** `HistoricalCorrectionService` appends immutable correction records and updates the per-target chain head through one compare-and-set batch. The Maintenance browser tests validate correction projection, original-record immutability, backup validation, restore and provenance reproduction. The rendered-PWA Maintenance correction acceptance is part of the passing Web job on `b541813`.
+- **Android/Room:** the Android acceptance test covers Admin correction, Driver correction of the driver's own record, rejection of another driver's record, append-only chain revisions and backup/restore. The failing `b541813` run did not complete the latter Driver/restore assertions in that test. Draft PR #98 corrects the test's readiness wait and extracts the shared WebView helpers without weakening assertions. Its exact head `3df3a20babc9078eaa19696bedc6bc2f7a756096` passed Architecture, Web, Android and Integrated regression in [run #44114268889](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44114268889); the Android full instrumentation gate passed, re-verifying the Driver correction, cross-driver authority, chain and Room restore path. Post-merge production geocoder/release verification remains pending.
+- **Source preservation:** the intended invariant remains that the original Maintenance expense, Work odometer/daily-distance facts and immutable Maintenance accrual snapshots are not rewritten by a correction. Correction projections are downstream views with chain-head/provenance validation.
+- **Performance cost boundary:** Maintenance visit/repair expense corrections are not silently added as a second Performance cost category. The approved Performance Maintenance cost remains confirmed business kilometres multiplied by the effective per-kilometre accrual rate.
+
+### Production-data boundary
+
+The source-owner and correction/effective-date implementation matrix is supported by deterministic repository fixtures and automated browser/Room paths. However, no deployed production database/export is included in the repository or connected evidence reviewed here. Consequently, a record-by-record reconciliation of historical production records, migrated source IDs/revisions, correction chains, effective dates and resulting Performance values remains **open / not evidenced**. This is a separate data-validation task and must not be inferred from CI or synthetic fixtures.
+
+### Other outstanding gates
+
+- The revision-vector snapshot boundary detects observed source drift but is not strict transactional/MVCC snapshot isolation; retain that limitation in release reporting.
+- The latest `b541813` run skipped production geocoder verification after Android failed. The preceding main push on `a15acb7` passed it; final-main verification must pass it again after the quality fix is merged.
+- Live Dropbox OAuth/account-backed upload, download, history, revocation and restore acceptance remains a separate owner-run gate; automated mocks do not establish it.
+- Physical Android phone/OEM acceptance remains explicitly deferred by the owner.
+- Final Performance visual composition approval remains separate from calculation and wiring completion.
+- Signed/update-compatible and unsigned release APK publication must be checked on the final successful main push; those release steps were skipped in the failed `b541813` run.

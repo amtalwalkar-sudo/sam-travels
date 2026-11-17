@@ -195,14 +195,43 @@ PR #97 is ready for owner review only when:
 
 **Owner approval is still required before merging. Green CI does not authorize merge.**
 
-## 9. Current starting point (2026-11-17)
+## 9. Historical starting point before PR merges (2026-11-17)
 
-This is a dated starting snapshot, not a permanent claim about later branch heads:
+This is a dated pre-merge starting snapshot, not a permanent claim about later branch heads. Section 10 records the subsequent merge state and final-quality-pass evidence.
 
-- PR #96 is open, draft and unmerged. Its inspected head was `f284d4e45eb36e15cbb84d96d180fff3312e691b`; CI run #2797 (`43999217115`) completed successfully. Its purpose remains documentation/decisions only.
-- PR #97 is open, draft and unmerged. Its inspected head was `1fede0691d42ac787ad31345af615e13120493cf`; CI run #2857 (`44008022959`) completed successfully.
+- At this historical checkpoint, PR #96 was open, draft and unmerged. Its inspected head was `f284d4e45eb36e15cbb84d96d180fff3312e691b`; CI run #2797 (`43999217115`) completed successfully. It was later merged as part of the documentation baseline.
+- At this historical checkpoint, PR #97 was open, draft and unmerged. Its inspected head was `1fede0691d42ac787ad31345af615e13120493cf`; CI run #2857 (`44008022959`) completed successfully. It was later merged as the consolidated implementation.
 - PR #97 already contains architecture enforcement improvements, Performance screen controller/service adaptation, Timeline service relocation and Work screen registration/composition improvements.
 - The audit still identifies Performance canonical allocation consumption, shared snapshot consistency, aggregate pre-business recovery and Driver Target runtime conformance, production shell/screen replacement proof, remaining application orchestration/feature ownership and cross-platform acceptance as work to verify/close.
 - These successful CI runs do not prove those findings are closed and do not establish physical-device acceptance.
 
-Before continuing implementation, refresh these facts from GitHub and update the ledger against the current exact PR head. This starting snapshot is not a substitute for live inspection.
+At that historical checkpoint, the next implementation step was to refresh the PR head and update the ledger. That pre-merge instruction is retained as stage history; section 10 is the post-merge status record.
+
+
+## 10. Post-merge status and final software-quality pass — 2026-11-17
+
+### Merge reconciliation
+
+- PR #97 (consolidated architecture and product-foundation implementation) is merged as `a15acb791a2e452a3bb84e271ab7b0e27c73500c`.
+- PR #96 (documentation and decision baseline) is merged as `b54181330e4e89d1f25b2e1e56a40b8264f19014`; this is the `main` SHA at the start of the final-quality pass.
+- There are no remaining open PRs from that delivery sequence. The PR #96/#97 draft/unmerged wording above is retained only as historical stage evidence and must not be read as current status.
+
+### Post-merge CI reconciliation
+
+- Main commit `a15acb7` passed Architecture, Web, Android, Production geocoder verification and Integrated regression in [workflow run #44107617073](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44107617073).
+- Main commit `b541813` passed Architecture and Web but failed Android in [workflow run #44110381218](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44110381218). The single reported instrumentation failure was `MaintenanceCorrectionCapacitorAcceptanceTest` at the `Driver form` assertion. Integrated regression failed downstream because Android failed; production geocoder was skipped because it depends on Android. The debug APK artifact was published, while the update-compatible and unsigned release APK steps were skipped.
+- The test investigation identified a synchronization gap: the success status appears before the asynchronous post-correction history refresh finishes and the action becomes enabled. Draft PR #98 waits for the enabled state, keeps the authorization/chain/idempotency/restore assertions, and extracts reusable WebView helpers to remain within architecture limits. Exact PR head `3df3a20babc9078eaa19696bedc6bc2f7a756096` passed Architecture, Web, Android and Integrated regression in [run #44114268889](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44114268889). The production geocoder and signed/unsigned release artifacts still require a successful push to `main`.
+
+### Evidence and release boundaries
+
+- Automated source/correction/effective-date fixtures and browser/Room tests are implementation evidence, not a substitute for a record-by-record reconciliation of deployed production data. No production dataset is present in the reviewed repository or connected sources; that reconciliation remains open until an authorized dataset is supplied and audited.
+- The Performance snapshot guard is an optimistic revision-drift fence, not strict transactional/MVCC isolation.
+- Production geocoder passed on the preceding main commit `a15acb7`, but was skipped on `b541813` after Android failed. It must pass on the final successful main push.
+- Real Dropbox app/account OAuth and backup/restore acceptance remains owner-run; mocked CI does not prove a live account integration.
+- Physical-phone/OEM acceptance remains explicitly deferred by the owner and is not a failed engineering task in this pass.
+- Final Performance visual composition approval remains separate from calculation/wiring completion.
+- Final signed/update-compatible and unsigned release APK artifacts remain to be confirmed by a successful post-merge main workflow.
+
+### Final-quality completion rule
+
+Do not mark the consolidated implementation fully release-ready until the Android correction acceptance and all required CI gates pass on the exact final main SHA, the production-data reconciliation is either completed against an authorized dataset or explicitly retained as an outstanding gate, and all live-account/device/visual approvals are reported separately. Green CI does not waive those owner-run gates.
