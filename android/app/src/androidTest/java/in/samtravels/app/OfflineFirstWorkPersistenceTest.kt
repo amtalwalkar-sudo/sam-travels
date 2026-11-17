@@ -58,6 +58,19 @@ class OfflineFirstWorkPersistenceTest {
             assertEquals(1, DriverWorkflowOutbox.listUndeliveredEvents(db).size)
             assertEquals(false, JSONObject(db.records().get("network-policy")!!.json)
                 .getJSONObject("data").getBoolean("enabled"))
+
+            val vehicleId = "feature:vehicle:MH01AB1234"
+            val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174099"
+            val fuelEnvelope = JSONObject().put("id", fuelId).put("schemaVersion", 1)
+                .put("createdAt", at.toString()).put("updatedAt", at.toString())
+                .put("source", "android").put("revision", 1)
+                .put("businessDate", "2026-11-17")
+                .put("data", JSONObject().put("schemaVersion", 1).put("kind", "fuel_purchase")
+                    .put("id", fuelId).put("revision", 1).put("businessDate", "2026-11-17")
+                    .put("occurredAt", at.toString()).put("vehicleId", vehicleId)
+                    .put("odometerKm", 45100).put("pricePaisePerKg", 9000)
+                    .put("amountPaise", 18000).put("partialRefill", false))
+            db.records().put(StoredRecord(fuelId, fuelEnvelope.toString(), 1, at.toString()))
             db.close()
 
             db = builder.build()
@@ -65,6 +78,8 @@ class OfflineFirstWorkPersistenceTest {
             assertEquals(1, DriverWorkflowStore.listEvents(db).size)
             assertEquals(1, DriverWorkflowOutbox.listUndeliveredEvents(db).size)
             assertNotNull(db.records().get("driver-intent:offline-shift-start"))
+            assertEquals(18_000, JSONObject(db.records().get(fuelId)!!.json)
+                .getJSONObject("data").getInt("amountPaise"))
         } finally {
             db.close()
             context.deleteDatabase(databaseName)
