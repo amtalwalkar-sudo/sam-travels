@@ -10,7 +10,7 @@
 
 ## 1. Purpose and authority
 
-This contract freezes the product decisions agreed for the Breakeven and Daily Driver Target workstream. It is the product-level owner for the rules stated here. It supplements, and does not replace, the repository's existing data, feature-extension, form, persistence, transaction/recovery, calculation-approval, business-start-date allocation, and presentation contracts.
+This contract freezes the product decisions agreed for the Breakeven and Monthly Driver Target workstream. It is the product-level owner for the rules stated here. It supplements, and does not replace, the repository's existing data, feature-extension, form, persistence, transaction/recovery, calculation-approval, business-start-date allocation, and presentation contracts.
 
 This document records approved scope, not proof of implementation. Runtime work must follow the existing technical contracts and pass the required regression and CI gates. Explicit exclusions and deferred add-ons in Section 13 must not be silently guessed or promoted into production behaviour.
 
