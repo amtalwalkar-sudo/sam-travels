@@ -262,8 +262,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
             return true;
           })()
       """))
-      assertTrue("Driver saved", awaitJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Append correction')", 15_000))
+      assertTrue("Driver correction committed", awaitJavascript(activity,
+          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Correction appended')", 15_000))
       assertTrue("Other record", awaitJavascript(activity,
           "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
       assertTrue("Other form button", evaluate(activity, """
