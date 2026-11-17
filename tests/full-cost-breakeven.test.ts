@@ -44,6 +44,22 @@ describe("Full-cost breakeven calculation v1", () => {
     expect(result.averageBusinessKmPerActiveDrivingDay).toBe(50);
   });
 
+  it("excludes distance from non-active dates in the active-day average numerator", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      to: "2026-11-03",
+      dailyActivity: [
+        { date: "2026-11-01", businessKm: 100, activeDrivingDay: false,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "non-active", distanceSourceRevision: 1 },
+        { date: "2026-11-02", businessKm: 0, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "active-zero", distanceSourceRevision: 1 },
+        { date: "2026-11-03", businessKm: 50, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "active-50", distanceSourceRevision: 1 },
+      ],
+    }));
+    expect(result.activeDrivingDayCount).toBe(2);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(25);
+  });
+
   it("does not count a shift-only day or a ride-only day as active without explicit qualification", () => {
     const result = calculateFullCostBreakevenV1(fixture({
       dailyActivity: [
