@@ -5,8 +5,11 @@ import { FeatureScreenHost } from "../apps/web/src/ui/FeatureScreenHost";
 import { DISCOVERED_FEATURE_EXTENSIONS } from "../apps/web/src/generated-feature-catalog";
 import { initializeRuntimeRegistry, registerFeatures, type RuntimeRegistry } from "../packages/core/src";
 
+const extensionFeatureIds = new Set(DISCOVERED_FEATURE_EXTENSIONS.flatMap(extension =>
+  extension.feature ? [extension.feature.id] : [],
+));
 const production = initializeRuntimeRegistry({
-  features: [...registerFeatures().values()],
+  features: [...registerFeatures().values()].filter(feature => !extensionFeatureIds.has(feature.id)),
   extensions: [...DISCOVERED_FEATURE_EXTENSIONS],
 });
 
