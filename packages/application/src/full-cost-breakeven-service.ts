@@ -85,7 +85,7 @@ export class FullCostBreakevenService {
       record.id.startsWith("work:daily-business-km:")) ?? [];
     const activeDaySourceIssues: string[] = [];
     for (const trip of tripFinancialRecords) {
-      if (trip.data.kind !== "completed_ride_financials") continue;
+      if (trip.data.kind !== "completed_ride_financials" && trip.data.kind !== "cancellation_fee") continue;
       const context = trip.data.tripContext;
       if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
           typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
@@ -95,7 +95,8 @@ export class FullCostBreakevenService {
         if (context || trip.data.status === "submitted") activeDaySourceIssues.push(trip.id);
         continue;
       }
-      // Work captures tripContext only while an Online shift is active. Its
+      // Work captures tripContext only while an Online shift is active. A submitted completed-ride
+      // or cancellation-fee closeout therefore records an assigned ride. Its
       // immutable shiftId + operationalDate therefore proves the shift side
       // of the active-day rule even before that shift has ended/rotated.
       const bucket = activityByDate.get(context.operationalDate) ?? {
