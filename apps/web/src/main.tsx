@@ -361,6 +361,7 @@ async function bootstrap(): Promise<void> {
     fullCost: fullCostBreakeven,
     allocation: costAllocation,
     tripFinancials,
+    recordRepository: repository,
   });
   const adminServices = Object.freeze({
     formRuntime,
