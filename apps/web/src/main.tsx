@@ -112,7 +112,7 @@ async function bootstrap(): Promise<void> {
   const tripFinancials = new TripFinancialService(repository, getApplicationRecordSource());
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
-    getApplicationBusinessExpensesService(), costAllocation, tripFinancials,
+    getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository,
   );
   const performanceCalculation = createPerformanceCalculationServiceV1({
     businessSettings: getApplicationBusinessSettingsService(),
