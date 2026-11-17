@@ -9,6 +9,7 @@ import {
 } from "../driver-workflow";
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, WorkApplicationCoordinatorV1 } from "../../../../packages/features/work";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
+import { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
@@ -20,6 +21,7 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 
 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+  if (runtime !== getApplicationRuntimeRegistry()) throw new Error("work_runtime_registry_not_application_singleton");
   const { maintenance, recordSource } = useAdminMaintenanceServices();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
