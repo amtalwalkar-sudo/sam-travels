@@ -5,7 +5,6 @@ import { BackupPanel } from "./BackupPanel";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
 import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
-import { DriveScreen } from "./screens/DriveScreen";
 import { PrimaryScreenComposition } from "./PrimaryScreenComposition";
 
 export type AppProps = Readonly<{
@@ -37,9 +36,7 @@ export function App({
       </>}>
       <PrimaryScreenComposition activeScreen={activeScreen} runtimeRegistry={runtimeRegistry} workspace={workspace}
         fullCostBreakeven={fullCostBreakeven}
-        performanceCalculation={performanceCalculation}>
-        <DriveScreen workspace={workspace} runtimeRegistry={runtimeRegistry} />
-      </PrimaryScreenComposition>
+        performanceCalculation={performanceCalculation} />
       <FuelEntryPanel />
     </ShellRenderer>
   );
