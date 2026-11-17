@@ -118,7 +118,7 @@ Add/retain explicit regression cases for:
 - Compliance renewals and individual EMI due dates classified independently.
 - Browser/Room parity, correction, retry and restore behaviour.
 
-### 3.5 Final Performance UX status — not yet approved
+### 3.5 Final Performance UX — intentionally deferred
 
 The v1.9 product contract's Addendum F describes the temporary sanity-check surface and explicitly defers the intended final Performance redesign until calculation and wiring validation is complete. PR #93 adds a substantial dashboard surface, but CI/browser acceptance does not itself amend that product presentation decision or constitute owner sign-off of the final screen composition.
 
