@@ -1,12 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
-import { getPlatformRecordSource } from "../native-store";
-import { getPersonIdentityService } from "../person-identity-runtime";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { type CancellationFeeObligation } from "../../../../packages/application/src/trip-financial-service";
-import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import type { TripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 export function useCancellationFeeWorkspace(
-  platformRepository: RecordRepository & AtomicRecordRepository,
+  tripFinancialForms: TripFinancialFormRuntimeV1,
   refreshKey: number | undefined,
   setDriverMessage: Dispatch<SetStateAction<string>>,
 ) {
@@ -14,13 +11,6 @@ export function useCancellationFeeWorkspace(
   const [cancellationFeeDrafts, setCancellationFeeDrafts] = useState<Record<string,string>>({});
   const [cancellationFeeBusy, setCancellationFeeBusy] = useState(false);
   const draftQueue = useRef(new Map<string,Promise<void>>());
-  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
-    platformRepository, getPlatformRecordSource(), async () => {
-      const actor = await getPersonIdentityService().currentActor();
-      return { personId: actor.actorId, role: actor.role };
-    },
-  ), [platformRepository]);
-
     const refresh = useCallback(async () => {
     const obligations = await tripFinancialForms.listPendingCancellationFees();
     const drafts: Record<string,string> = {};
