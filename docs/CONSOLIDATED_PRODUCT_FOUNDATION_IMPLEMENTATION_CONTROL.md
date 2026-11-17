@@ -205,7 +205,7 @@ This is a dated pre-merge starting snapshot, not a permanent claim about later b
 - The audit still identifies Performance canonical allocation consumption, shared snapshot consistency, aggregate pre-business recovery and Driver Target runtime conformance, production shell/screen replacement proof, remaining application orchestration/feature ownership and cross-platform acceptance as work to verify/close.
 - These successful CI runs do not prove those findings are closed and do not establish physical-device acceptance.
 
-Before continuing implementation, refresh these facts from GitHub and update the ledger against the current exact PR head. This starting snapshot is not a substitute for live inspection.
+At that historical checkpoint, the next implementation step was to refresh the PR head and update the ledger. That pre-merge instruction is retained as stage history; section 10 is the post-merge status record.
 
 
 ## 10. Post-merge status and final software-quality pass — 2026-11-17
