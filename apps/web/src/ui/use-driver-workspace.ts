@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
+import type { RuntimeRegistry } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { getDriverPersonLink } from "../person-identity-adapters";
 import { getPersonIdentityService } from "../person-identity-runtime";
@@ -18,7 +19,7 @@ import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../.
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(workRuntime: WorkApplicationRuntimeV1, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, workRuntime: WorkApplicationRuntimeV1) {
   const { recordSource } = useAdminMaintenanceServices();
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
