@@ -5,6 +5,7 @@ import { BackupPanel } from "./BackupPanel";
 import { getPlatformRecordSource } from "../native-store";
 import { getPersonIdentityService } from "../person-identity-runtime";
 import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src";
+import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { FuelEntryPanel } from "./FuelEntryPanel";
@@ -19,19 +20,25 @@ export type AppProps = Readonly<{
   performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
 }>;
 
-/** Application composition owns global services and shell injection, not feature screen internals. */
-export function App({
+/** Application composition owns shared services, dependency injection, and replaceable shell selection. */
+export function App(props: AppProps) {
+  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
+    props.platformRepository, getPlatformRecordSource(), async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { personId: actor.actorId, role: actor.role };
+    },
+  ), [props.platformRepository]);
+  return <TripFinancialFormRuntimeProvider value={tripFinancialForms}>
+    <AppWorkspace {...props} />
+  </TripFinancialFormRuntimeProvider>;
+}
+
+function AppWorkspace({
   ShellRenderer = ApplicationShell, runtimeRegistry, platformRepository,
   fullCostBreakeven, performanceCalculation,
 }: AppProps) {
   const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
-  const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
-    platformRepository, getPlatformRecordSource(), async () => {
-      const actor = await getPersonIdentityService().currentActor();
-      return { personId: actor.actorId, role: actor.role };
-    },
-  ), [platformRepository]);
-  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, tripFinancialForms);
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const { repo, enabled } = workspace;
   const { toggleNetwork } = workspace.actions;
 
