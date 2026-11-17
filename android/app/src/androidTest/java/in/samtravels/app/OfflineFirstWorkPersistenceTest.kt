@@ -38,11 +38,13 @@ class OfflineFirstWorkPersistenceTest {
                 .put("commandId", "offline-shift-start")
                 .put("eventId", "offline-shift-start")
                 .put("eventType", "shift_start")
+                .put("workflowVersion", 2)
                 .put("originSurface", "native_overlay")
                 .put("transitionAt", at.toString())
                 .put("expectedPriorState", "idle")
                 .put("expectedRevision", 0)
                 .put("idempotencyKey", "offline-shift-start")
+                .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 45100))
             DriverWorkflowStore.queue(db, command, at)
             val completed = DriverWorkflowStore.complete(
                 db,
@@ -53,6 +55,7 @@ class OfflineFirstWorkPersistenceTest {
                 at,
             )
             assertEquals("shift_active", completed.getString("state"))
+            assertEquals(45100, completed.getLong("shiftStartOdometerKm"))
             assertEquals(1, DriverWorkflowStore.listEvents(db).size)
             assertEquals(1, DriverWorkflowOutbox.listUndeliveredEvents(db).size)
             assertEquals(false, JSONObject(db.records().get("network-policy")!!.json)
@@ -74,6 +77,7 @@ class OfflineFirstWorkPersistenceTest {
 
             db = builder.build()
             assertEquals("shift_active", DriverWorkflowStore.snapshot(db).getString("state"))
+            assertEquals(45100, DriverWorkflowStore.snapshot(db).getLong("shiftStartOdometerKm"))
             assertEquals(1, DriverWorkflowStore.listEvents(db).size)
             assertEquals(1, DriverWorkflowOutbox.listUndeliveredEvents(db).size)
             assertNotNull(db.records().get("driver-intent:offline-shift-start"))
