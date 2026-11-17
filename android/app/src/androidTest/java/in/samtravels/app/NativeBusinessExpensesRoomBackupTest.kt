@@ -30,6 +30,9 @@ class NativeBusinessExpensesRoomBackupTest {
         try {
             db.records().put(record(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", "MH01AB1234").put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV").put("fuelType", "CNG").put("yearOfManufacture", 2022).put("ownership", "Owned").put("lifecycleState", "active"), at))
             val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000"
+            val correctionId = "historical-correction:android-fuel-amount-fix"
+            val chainId = "historical-correction-chain:" +
+                java.net.URLEncoder.encode(fuelId, "UTF-8").replace("+", "%20")
             db.records().put(record(fuelId, JSONObject().put("schemaVersion", 1).put("kind", "fuel_purchase").put("id", fuelId).put("revision", 1).put("businessDate", "2026-11-15").put("occurredAt", at).put("vehicleId", vehicleId).put("odometerKm", 45000).put("pricePaisePerKg", 9000).put("amountPaise", 18000).put("partialRefill", false), at))
             val actor = JSONObject().put("role", "admin").put("actorId", "admin-room")
                 .put("adminPinVerifiedAt", at)

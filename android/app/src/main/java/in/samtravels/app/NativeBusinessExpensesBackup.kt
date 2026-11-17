@@ -214,9 +214,9 @@ internal object NativeBusinessExpensesBackup {
                     original.optString("tripFinancialSourceId") == reversal.optString("tripFinancialSourceId") &&
                     original.optString("tripFinancialComponent") == reversal.optString("tripFinancialComponent")) {
                     "business_expense_reversal_link_invalid"
-                    NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
-    }
+                }
             }
+        NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
     }
 
     private fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(

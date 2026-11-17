@@ -52,7 +52,8 @@ internal object NativeBusinessExpenseCorrectionBackup {
             val targetRow = originals[targetId] ?: error("business_expense_correction_target_missing")
             val targetEnvelope = JSONObject(targetRow.getString("json"))
             RecordEnvelopeContract.validate(targetEnvelope)
-            require(targetEnvelope.optString("id") == targetId && !targetEnvelope.has("deletedAt")) {
+            require(targetEnvelope.optString("id") == targetId &&
+                (!targetEnvelope.has("deletedAt") || targetEnvelope.isNull("deletedAt"))) {
                 "business_expense_correction_target_missing"
             }
             val targetData = targetEnvelope.getJSONObject("data")
