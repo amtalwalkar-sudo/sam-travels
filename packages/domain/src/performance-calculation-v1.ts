@@ -130,6 +130,27 @@ function addMonthsClamped(value: string, months: number): string {
   const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
   return new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay))).toISOString().slice(0, 10);
 }
+function proratedTargetForRange(monthlyTargetPaise: number, from: string, to: string): number {
+  if (to < from) return 0;
+  let total = 0;
+  let cursor = from;
+  while (cursor <= to) {
+    const [year, month] = cursor.split("-").map(Number);
+    const monthDays = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+    const segmentEnd = monthEnd < to ? monthEnd : to;
+    const segmentDays = assertDate(segmentEnd) - assertDate(cursor) + 1;
+    const amount = Number(
+      (BigInt(monthlyTargetPaise) * BigInt(segmentDays) * 2n + BigInt(monthDays)) /
+      (2n * BigInt(monthDays)),
+    );
+    total = add(total, amount);
+    const nextDay = assertDate(segmentEnd) + 1;
+    cursor = dateAt(nextDay);
+  }
+  return total;
+}
+
 function safeAmount(value: number, code: string): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error(code);
 }
@@ -332,18 +353,17 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     const [ey, em] = input.periodTo.split("-").map(Number);
     return (ey - sy) * 12 + (em - sm) + 1;
   })();
-  const firstMonthDays = new Date(Date.UTC(
-    Number(input.businessStartDate.slice(0, 4)),
-    Number(input.businessStartDate.slice(5, 7)), 0,
-  )).getUTCDate();
-  const firstMonthRemainingDays = firstMonthDays - Number(input.businessStartDate.slice(8, 10)) + 1;
-  const firstMonthTargetPaise = Number(
-    (BigInt(input.monthlyDriverTargetPaise) * BigInt(firstMonthRemainingDays) * 2n +
-      BigInt(firstMonthDays)) / (2n * BigInt(firstMonthDays)),
+  const lifetimeTargetPaise = proratedTargetForRange(
+    input.monthlyDriverTargetPaise, input.businessStartDate, input.periodTo,
   );
-  const laterMonthsTargetPaise = input.monthlyDriverTargetPaise * (elapsedCalendarMonths - 1);
-  const lifetimeTargetPaise = add(firstMonthTargetPaise, laterMonthsTargetPaise);
+  const periodTargetPaise = proratedTargetForRange(
+    input.monthlyDriverTargetPaise,
+    input.periodFrom < input.businessStartDate ? input.businessStartDate : input.periodFrom,
+    input.periodTo,
+  );
   safeAmount(lifetimeTargetPaise, "performance_target_overflow");
+  safeAmount(periodTargetPaise, "performance_target_overflow");
+
   const lifetimeProfitPaise = lifetimeRevenuePaise - lifetimeCostPaise;
   const periodProfitPaise = periodRevenuePaise - periodCostPaise;
 
@@ -357,8 +377,8 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     period: Object.freeze({
       revenuePaise: periodRevenuePaise, costPaise: periodCostPaise,
       profitPaise: periodProfitPaise,
-      // Intentionally unchanged for daily/weekly/custom filters.
-      monthlyDriverTargetPaise: input.monthlyDriverTargetPaise,
+      // Calendar-day prorated over the selected period, summed month by month.
+      monthlyDriverTargetPaise: periodTargetPaise,
     }),
     lifetime: Object.freeze({
       revenuePaise: lifetimeRevenuePaise, costPaise: lifetimeCostPaise,
