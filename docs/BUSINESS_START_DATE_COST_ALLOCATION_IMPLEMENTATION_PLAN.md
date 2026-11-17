@@ -1,6 +1,8 @@
 # Business Start Date Cost Allocation — Implementation Plan
 
-**Status:** Draft implementation plan for PR review; runtime implementation is not yet complete.
+> **Historical / superseded implementation plan.** This document preserves the earlier Compliance/EMI source-allocation implementation design and PR #77 implementation notes. Its Section 3 pre-business carry-forward formulas and Section 4 recovery assumptions are **not** the current Full Cost Breakeven policy. The current downstream policy is owned by [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md): aggregate the full eligible pre-business amounts from all supported categories into one pool, divide that pool into 18 equal monthly instalments from the Business Start Date, then distribute each instalment over the days in its recovery month. Do not implement separate Compliance/EMI carry-forward schedules from this historical plan. Source-owned records, calculations and canonical allocation history remain unchanged by the downstream pool. Any new implementation plan must be based on the current owner contract and the current architecture/wiring audit.
+
+**Status:** Historical implementation plan; superseded for downstream Breakeven pre-business recovery semantics.
 **Policy authority:** [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md).
 **Base:** `main` after PR #76 merge.
 **Scope:** Versioned, deterministic reporting allocations for Compliance and whole scheduled EMI costs.

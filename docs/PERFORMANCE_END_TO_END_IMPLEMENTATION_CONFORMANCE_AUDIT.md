@@ -82,36 +82,47 @@ The screen displays confirmed business kilometres and selected-period fuel cost 
 
 Those additional reporting outputs are not demonstrated by the current screen implementation. Do not derive active days from distance alone: the approved business-day rule requires an Online shift and at least one ride assigned to that shift. Personal kilometres remain excluded.
 
-### 3.3 Target rule and documentation conflict — must be reconciled
+### 3.3 Fixed monthly Driver Target — owner policy decided; runtime conformance outstanding
 
-The current implementation displays the full configured monthly Driver Target for selected date filters and calculates lifetime target using inclusive calendar-month counting from the business-start month through the selected period-to month.
+The owner-approved rule is recorded in `docs/BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md` v2.0, Addendum J:
 
-The existing `docs/BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md` v1.9 says partial-month surplus targets and cumulative pacing are prorated by calendar days. Its older wording therefore conflicts with the later implementation/owner direction that period filters display the full monthly target.
+- Driver Target is a fixed monthly surplus amount above Full Cost Breakeven and does not vary with business/operating days, trips or days off.
+- Only the first calendar month is prorated when the Business Start Date falls mid-month. Count calendar days from and including the Business Start Date through month-end, divided by all calendar days in that month.
+- Every later calendar month uses the full configured monthly target.
+- Lifetime target accumulation sums the prorated first month and full subsequent months.
 
-Do not silently treat these as equivalent. The contract owner must keep one explicit rule for:
-1. The target value displayed for a selected partial-month report.
-2. The target amount used for a partial-month passbook achievement calculation.
-3. Lifetime target accumulation when the business starts mid-month or the selected period ends mid-month.
+The current implementation's full monthly display for selected partial-month filters is not, by itself, proof of conformance. Verify that the first business-start month is prorated exactly once, later months remain full, and passbook/lifetime totals reconcile without business-day-based adjustment.
 
-Until the governing contract/addendum is reconciled with the approved latest owner decision, this is a documentation and acceptance ambiguity. The implementation's full-month display must not be presented as proof that partial-month passbook pacing is complete.
+### 3.4 Pre-business recovery — policy approved; implementation conformance remains to be proven
 
-### 3.4 Pre-business recovery — targeted reconciliation required
+The owner-approved rule is a two-stage aggregate-pool calculation. First, collect the full amount of every eligible source amount whose authoritative business/effective date is before the Business Start Date into one pre-business cost pool. Do not prorate any qualifying source amount by validity days or remaining schedule days. Second, divide the aggregate pool into 18 equal monthly instalments beginning on the Business Start Date, then spread each monthly instalment evenly across the days in its Business-Start-Date-anchored recovery month for daily Full Cost Breakeven. Amounts dated on or after the Business Start Date stay out of this pool and follow their normal source-category rules. Source validity/schedule end dates do not cap the pool recovery period. Record creation/edit timestamps do not determine classification.
 
-The domain implementation allocates eligible manual, EMI and Compliance pre-business source amounts over the exact 18-month date interval beginning at the actual business start date, with the anniversary as an exclusive end. It distributes paise deterministically and reconciles allocated amounts to their source totals.
+The source-date mapping is Compliance `validFrom` (include the full record amount), each EMI's scheduled due date (include the full scheduled EMI amount), and the explicit business/effective date for manual dated costs. Aggregate all qualifying amounts across categories into one pool. Preserve source records and per-amount provenance, and ensure each amount is recognized exactly once.
+
+The current implementation is not yet conformant to the clarified contract in three important details:
+- `allocatePreBusinessRecoveryV1` distributes source amounts evenly by day across the entire 18-month interval. It must instead receive the single aggregate pre-business pool, create 18 equal monthly instalments, then distribute each instalment across the days in its own Business-Start-Date-anchored recovery month.
+- `PerformanceFixedCostAllocationAdapterV1` proportionally splits a Compliance amount by the pre-/post-Business-Start-Date share of its validity days. It must include the full amount of every eligible Compliance record whose `validFrom` is before the Business Start Date in the aggregate pool.
+- EMI and manual-cost adapters must contribute the full qualifying source amounts to the same aggregate pool. Do not create separate 18-month schedules per source or category.
+
+Do not treat this documentation update as proof that the runtime has been corrected. These are explicit implementation changes and regression gates for the consolidated architecture implementation PR.
 
 Add/retain explicit regression cases for:
-- A mid-month business start.
-- The partial first calendar month.
-- Leap-year dates and a month-end anniversary clamp.
-- The final eligible date and the first excluded anniversary date.
+- An amount dated immediately before, exactly on, and immediately after the Business Start Date.
+- Multiple pre-business amounts across Compliance, EMI and manual costs, proving they are summed into one pool before the 18-month plan is created.
+- A source validity/schedule end before the Business Start Date, proving the full pre-business amount still enters the aggregate pool.
+- A source validity/schedule end inside the 18-month recovery interval, proving it does not truncate recovery.
+- A mid-month Business Start Date and the exact first/final recovery-month boundaries.
+- Leap-year dates and month-end anniversary handling.
+- Integer-paise residual distribution and exact reconciliation from source-level pool ledger to aggregate pool, 18 monthly instalments and daily allocations.
 - Separate source provenance and no duplicate recovery of the same source.
-- EMI and Compliance pre-start portions reconciled to their authoritative source allocations.
+- Compliance renewals and individual EMI due dates classified independently.
+- Browser/Room parity, correction, retry and restore behaviour.
 
-### 3.5 Final Performance UX status — not yet approved
+### 3.5 Final Performance UX — intentionally deferred
 
 The v1.9 product contract's Addendum F describes the temporary sanity-check surface and explicitly defers the intended final Performance redesign until calculation and wiring validation is complete. PR #93 adds a substantial dashboard surface, but CI/browser acceptance does not itself amend that product presentation decision or constitute owner sign-off of the final screen composition.
 
-Record whether the current screen remains the temporary validation surface or is now the approved final Performance UX before declaring UI completion. No unrelated Admin redesign is implied.
+The final visual redesign is intentionally deferred to a separate presentation milestone. The current screen remains the surface for calculation validation; do not treat final visual approval as a prerequisite for the calculation/domain foundation or the consolidated architecture implementation. No unrelated Admin redesign is implied.
 
 ### 3.6 Source conformance and real-device acceptance — outstanding gates
 
@@ -123,7 +134,7 @@ The repository's physical phone acceptance is also a separate release gate and w
 
 The Performance workstream may be called end-to-end complete only when all applicable gates below are closed with evidence:
 
-1. **Contract reconciliation:** publish an explicit versioned addendum resolving the monthly target/partial-period/lifetime target semantics and the status of the final Performance UX. Do not change approved calculations implicitly.
+1. **Approved target policy conformance:** the fixed monthly Driver Target and first-calendar-month-only startup proration are resolved in Breakeven Contract v2.0 Addendum J. Verify runtime monthly display, passbook pacing and lifetime totals against that rule. Final visual UX approval remains a separate, intentionally deferred presentation milestone.
 2. **Passbook:** implement and test expected cumulative pacing, ahead/behind, remaining target, shortfall carry-forward and later recovery, including mid-month start and partial selected periods.
 3. **Distance summary:** implement and test active-driving-day counts and daily/weekly/monthly averages and trends, excluding personal distance and using the authoritative business-day definition.
 4. **Recovery:** prove exact 18-month allocation and all boundary/provenance cases listed above.

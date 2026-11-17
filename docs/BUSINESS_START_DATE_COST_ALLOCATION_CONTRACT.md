@@ -7,55 +7,45 @@
 
 ## 1. Purpose and authority
 
-This contract defines how Compliance costs and scheduled loan EMI costs are allocated into business operating-day, monthly, and yearly reporting when the Business Start Date falls after the underlying record or schedule has already begun.
+This contract defines the downstream Breakeven treatment of costs that occurred before the Business Start Date, alongside normal post-start source allocation. It does not rewrite source-owned allocations, source history, or operational records.
 
-The Business Start Date is **not** a lower-bound validation rule for historical records and is **not** a reason to discard, truncate, or shift their actual dates. It is the point from which the business begins receiving the allocated cost.
+The Business Start Date is **not** a lower-bound validation rule for historical records and is **not** a reason to discard, truncate, or shift their actual dates. Pre-business recovery is a derived Breakeven calculation: it must not mutate canonical source allocations or historical source facts. It is the point from which the business begins receiving the allocated cost.
 
-This contract owns the cross-feature carry-forward and allocation policy. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
+This contract owns the downstream Breakeven pre-business recovery policy and the boundary between that recovery and normal post-start source allocation. Compliance retains ownership of compliance records, actual validity dates, renewal relationships, overlap/gap review, and source cost. Finance retains ownership of loan records, EMI calculation, schedule, payment history, and source scheduled instalment amounts. Reporting consumes those owner-provided facts; Admin/UI must not implement competing calculations.
 
-## 2. Approved governing rule
+## 2. Approved governing rule — date-based 18-month recovery
 
-For an eligible cost record or schedule that starts before the Business Start Date:
+The authoritative date attached to an entered cost amount determines its treatment. Use the source owner's business/effective date, not the record's creation timestamp, edit timestamp, or the date on which an administrator happens to enter it.
 
-1. Preserve its actual start/end dates and source amount/scheduled amounts unchanged.
-2. Calculate the cost attributable to the full actual period, including days before the Business Start Date.
-3. Do not report those pre-business days as operating-day costs before the Business Start Date.
-4. Carry the pre-business accrued amount forward.
-5. Allocate the carried-forward amount evenly over the remaining eligible allocation days beginning on the Business Start Date and ending at the source record's/schedule's applicable end.
-6. Include the resulting daily allocations in the monthly and yearly totals for the months/years in which those business allocation days occur.
-7. The entire source cost must be allocated exactly once. Carry-forward is a redistribution of the same cost, not an additional charge.
+1. Preserve every original source record, source amount, source date, schedule, and payment history unchanged.
+2. Build one **pre-business cost pool** from all eligible cost amounts whose authoritative business/effective dates are **before** the Business Start Date. Include the full qualifying amount from each source; do not split an amount according to how many validity/schedule days fall before or after the Business Start Date.
+3. The pool is the sum of those unique eligible source amounts across the applicable cost categories. Keep a source-level ledger/provenance for every included amount so corrections, reversals, overlap decisions, and rebuilds can update the pool without duplicate inclusion.
+4. Recover the **aggregate pool**, not each source amount on a separate 18-month clock, in **18 equal monthly instalments** over the 18-month period beginning on the Business Start Date. Each recovery month runs from the Business Start Date's monthly anniversary (with a month-end clamp anchored to the original Business Start Date) through the day before the next anniversary. Source validity dates, expiry dates, loan schedule horizons, and other source end dates do not shorten or extend this recovery period.
+5. Divide the aggregate pool by 18 using integer paise. Distribute any indivisible paise remainder deterministically across the 18 monthly instalments so their sum equals the pool exactly.
+6. For daily Full Cost Breakeven, distribute each month's instalment evenly across the days in that recovery month, again using deterministic paise residual handling. Calendar-month reports sum the daily amounts that fall in each calendar month; a recovery month may cross a calendar-month boundary.
+7. If an amount's authoritative date is **on or after** the Business Start Date, keep it out of the pre-business pool and use the normal calculation and recognition rules for that source category.
+8. Recognize every source amount exactly once in Breakeven. For a qualifying pre-business amount, use its contribution to the aggregate recovery pool instead of also including that same amount through normal post-start source allocation. The pool recovery is the Breakeven treatment of the original pre-business costs, not a second expense added on top of them. This downstream substitution does not alter the source owner's records or canonical source-allocation history.
 
-If the source period begins on or after the Business Start Date, allocate across its full eligible period using the same source-period rules, without a carry-forward.
+The source-specific date used for classification is:
+- Compliance: the compliance cost's effective/valid-from business date.
+- Loan EMI: the scheduled due date of each complete EMI amount. Use the entire scheduled EMI amount; do not split principal and interest for breakeven.
+- Manual dated business cost: the explicit business/effective date on the cost entry.
+- Other categories: the authoritative business/effective date defined by that category's owner contract.
 
-The Business Start Date must never change a source validity date, EMI due date, payment date, loan start date, or historical event timestamp.
+The Business Start Date must never change a source validity date, EMI due date, payment date, loan start date, or historical event timestamp. Source validity and schedule facts remain relevant to their owning feature, but they do not cap the 18-month recovery of an amount classified as pre-business.
 
-## 3. Compliance allocation
+## 3. Compliance cost treatment
 
-A Compliance record's source period is its actual inclusive `validFrom` through `validTo` dates. Both dates remain exactly as entered/approved on the immutable record. The source cost is the record's total cost.
+A Compliance record's source period remains its actual inclusive `validFrom` through `validTo` dates. Both dates remain exactly as entered/approved on the immutable record. The source cost is the record's total cost.
 
-For a record whose validity begins before the Business Start Date and continues beyond it:
+- If `validFrom` is before the Business Start Date, include the **full recorded compliance amount** in the aggregate pre-business cost pool. Do not prorate it by validity days; the combined pool is recovered over the 18 months beginning on the Business Start Date. Do not stop recovery at `validTo`.
+- If `validFrom` is on or after the Business Start Date, use the normal Compliance cost allocation over its actual inclusive validity period.
+- A renewal is a separate source record with its own amount and effective date. Apply the date test independently to each renewal record.
+- Existing Compliance rules remain in force: early-renewal overlaps are not silently normalized; unresolved/rejected overlap cases continue to follow the Compliance overlap-review contract, including withholding affected combined totals where required. The 18-month treatment does not bypass overlap review or permit duplicate recognition.
 
-- Determine the full inclusive validity-day count and the source cost per validity day.
-- Accumulate the amount attributable to validity days before the Business Start Date as pre-business carry-forward.
-- Add that carry-forward to the amount otherwise attributable to the remaining validity days.
-- Allocate the record's entire total cost evenly across the remaining inclusive validity days from the Business Start Date through `validTo`.
-- Stop allocating at the actual `validTo`; do not extend the compliance period to accommodate the business start date.
+### Illustrative example
 
-### Approved example
-
-- Actual validity: 1 January through 31 December (365 inclusive days)
-- Total compliance cost: ₹12,000
-- Business Start Date: 1 March
-- Pre-business days: 1 January through 28 February (59 days)
-- Business allocation days: 1 March through 31 December (306 days)
-
-The full ₹12,000 is allocated across the 306 business days:
-
-`₹12,000 ÷ 306 = approximately ₹39.215686 per business day`
-
-The January and February portions are not shown as business operating costs in January or February. Their accrued value is carried forward and included in the daily allocation beginning 1 March. March through December monthly totals are the sums of their daily allocations; the yearly total reconciles to ₹12,000.
-
-Existing Compliance rules remain in force: early-renewal overlaps are not silently normalized; unresolved/rejected overlap cases continue to follow the Compliance overlap-review contract, including withholding affected combined totals where required. Carry-forward does not bypass overlap review or double-count overlapping records.
+A compliance record with a total cost of ₹12,000 and a `validFrom` date before the Business Start Date contributes the full ₹12,000 to the aggregate pre-business pool. The monthly recovery is calculated from the combined pool across all eligible sources, not from a separate 18-month schedule for this record. Its validity end date does not shorten the pool recovery period.
 
 ## 4. Loan EMI allocation
 
@@ -67,7 +57,7 @@ Option A is approved: each scheduled EMI is associated with its own monthly allo
 - For the final scheduled instalment, the period ends on the final day of that scheduled calendar month.
 - Use the complete scheduled instalment amount for the period, including any Finance-approved final-instalment adjustment.
 
-For a monthly EMI period that straddles the Business Start Date, the portion accrued before the Business Start Date is carried forward and the **whole EMI amount for that period** is allocated evenly over the remaining days of that EMI period from the Business Start Date.
+Classify each complete scheduled EMI amount by its scheduled due date. If the due date is before the Business Start Date, the **whole scheduled EMI amount** is added to the aggregate pre-business cost pool. If the due date is on or after the Business Start Date, use the normal EMI-period allocation rules. Do not split an EMI into principal and interest for breakeven.
 
 ### Prepayment and closure schedule boundaries
 
@@ -77,7 +67,7 @@ A prepayment may occur between scheduled EMI dates only after every instalment d
 
 The Finance Loan Settlement and Closure Contract is authoritative for closure. V1 settlement occurs only on a scheduled EMI due date, after all instalments due through that date are fully paid and allocated. The settlement amount is the closing principal after that date's EMI; the settlement entry and Loan closed state commit atomically. The closure date is the settlement business date. The closure-date EMI is the final scheduled instalment; its allocation period is truncated to the closure date (inclusive), and no EMI allocation may be emitted on a later date. Do not continue allocating later rows from the historical schedule merely because those rows remain in an immutable schedule snapshot.
 
-Scheduled EMI periods that have fully elapsed before the Business Start Date create a pre-business EMI carry-forward balance. That balance is allocated evenly over the remaining loan schedule days beginning on the Business Start Date and ending on the final scheduled EMI allocation-period end. Each later scheduled EMI continues to be allocated over its own monthly allocation period. This ensures that historic EMI costs are neither discarded nor shown as pre-business operating costs.
+All scheduled EMI amounts whose due dates are before the Business Start Date are included in the aggregate pre-business cost pool alongside qualifying Compliance and other pre-business costs. The combined pool is recovered over the 18 months beginning on the Business Start Date, regardless of the loan's final scheduled EMI date. Scheduled EMI amounts with due dates on or after the Business Start Date continue under their normal EMI-period allocation rules.
 
 The scheduled EMI amount is the allocation source. Actual payment amount/date/status remain separate facts and must not be fabricated or silently substituted for the scheduled allocation. A missed, partial, late, reversed, or adjusted payment does not by itself rewrite the scheduled EMI cost allocation. Prepayment and settlement are the explicit schedule-transition exceptions defined above and in their Finance owner contracts.
 
@@ -90,11 +80,12 @@ No principal/interest split is used in the reporting allocation or its daily/mon
 - Yearly totals are sums of the relevant monthly/daily allocations for that calendar year.
 - A daily allocation is assigned to exactly one Asia/Kolkata business date.
 - No pre-Business-Start-Date allocation appears as an operating-day cost before the Business Start Date.
-- The carried-forward amount is fully absorbed by the end of the applicable allocation horizon. Compliance ends at its actual `validTo`; EMI carry-forward ends at the final scheduled EMI allocation-period end.
-- Use integer paise and deterministic residual distribution so daily amounts sum exactly to the source amount. Where equal division leaves remainder paise, distribute those paise deterministically across allocation days; never lose or create money through rounding.
-- Monthly and yearly summaries must be derived from the same daily allocation results, not independently rounded calculations.
+- The aggregate pre-business cost pool is recovered only within the 18-month interval beginning on the Business Start Date, regardless of any included source's validity or schedule end date.
+- Use integer paise and deterministic residual distribution so the 18 equal recovery-month instalments sum exactly to the aggregate pre-business pool; daily rows within each recovery month must sum exactly to that month's instalment.
+- Monthly and yearly breakeven summaries must be derived from the same versioned daily recovery schedule, not independently rounded calculations.
+- Normal post-start amounts continue to follow the owning source category's canonical daily/monthly allocation rules. The Breakeven consumer must select either the aggregate-pool recovery for a qualifying pre-business amount or its normal allocation, never both.
 
-If the Business Start Date is after a source record's entire validity/schedule horizon, there are no remaining eligible allocation days for that source. Do not silently move its end date or create an unbounded allocation; report it as a pre-business historical item requiring an explicit policy decision before business-cost allocation.
+A source whose validity or schedule ended before the Business Start Date is still eligible for inclusion in the aggregate pool when its authoritative cost date is before the Business Start Date. Its source dates are not changed.
 
 ## 6. Record integrity and corrections
 
@@ -115,6 +106,6 @@ This contract does not authorize runtime implementation by itself. Before wiring
 - overlap-review interaction and historical correction interaction;
 - schedule changes after approved prepayments, settlement, closure, or corrections;
 - backup/restore participation and browser/Android parity;
-- regression fixtures for pre-start carry-forward, boundary dates, leap years, month/year boundaries, final EMI periods, paise residuals, source corrections, and idempotent rebuilds.
+- regression fixtures for pre-start 18-month recovery, source-date boundary cases, equal monthly instalments, daily paise residuals, leap years, month/year boundaries, EMI schedule transitions, source corrections, and idempotent rebuilds.
 
 The implementation must not add a competing Admin/UI calculation, mutate immutable source history, or bypass existing transaction, recovery, persistence, and calculation-version safeguards.

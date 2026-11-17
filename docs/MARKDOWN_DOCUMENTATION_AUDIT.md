@@ -1,12 +1,12 @@
 # Repository Markdown Documentation Audit and Reconciliation
 
-**Status:** Phase 1 inventory and authority audit complete; Phase 2 reconciliation complete. The original Phase 1 baseline covered 63 Markdown files; the current repository contains 65, including this audit and the Contract Index.  
-**Audit baseline:** PR #69 branch `reliability/stage-6-process-recovery-proof`, commit `1d4f5ddd08ad38591dba82b3537f353d8705ca30`.  
+**Status:** Phase 1 inventory and Phase 2 authority reconciliation are historical completed baselines. Phase 3 establishes the six-area documentation structure, System Blueprint and complete catalog; final link/CI evidence is recorded against the exact final PR head.  
+**Historical Phase 1 baseline:** 63 tracked Markdown files at PR #69 baseline `1d4f5ddd08ad38591dba82b3537f353d8705ca30`.  
+**Historical Phase 2 inventory:** 65 tracked Markdown files at the Phase 2 reconciliation head; its original counts and CI references remain historical and are not the current repository inventory.  
+**Phase 3 starting inventory:** 84 tracked Markdown files on PR #96 head `17183028a425b0c3dde7cb4137b78778d5385a78`.  
+**Phase 3 additions:** [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) and [Documentation Catalog](DOCUMENTATION_CATALOG.md), bringing the Markdown inventory to 86 before this audit update.  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
-**Phase 1 inventory:** 63 tracked Markdown files; the audit and Contract Index were added afterward, bringing the current total to 65.  
-**CI evidence at baseline:** Sam Travels CI run #42979514553 completed successfully on the exact Phase 1 baseline SHA. The subsequent current-head verification is recorded below. CI is repository verification evidence, not proof of physical-device acceptance.
-
-**Latest exact PR-head verification:** `fb68b569d5a40b409aba310077ede31711374d68`; CI run #42986058063 completed successfully. Architecture, web regression/build, Android reliability gate and integrated regression all passed. Production geocoder verification was skipped; merged-main APK publication was not run for this PR. Physical-device and live Dropbox acceptance remain separate.
+**Evidence discipline:** CI, emulator, physical-device and live third-party account acceptance are separate evidence classes. A green CI result proves only the jobs/tests run on the exact commit.
 
 ## 1. Purpose and method
 
@@ -255,3 +255,31 @@ Delivered in Phase 2:
 **Repository-wide link validation:** All 65 tracked Markdown files at the reconciliation head were inspected for relative Markdown links. No broken internal Markdown links were found. The original 63-file Phase 1 inventory remains the baseline count; the two additional files are this audit and the contract index.
 
 **Scope confirmation:** No application source, database schema, migration, runtime behavior, APK publication or phone testing was changed or performed in this documentation reconciliation.
+
+
+## 8. Phase 3 — six-area documentation foundation
+
+**Phase 3 scope:** Arrange documentation navigation and authority without changing application code, business behaviour, database schemas, migrations, APKs or device state.
+
+Delivered in this phase:
+- Added [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md), which describes product boundaries, the presentation/application/domain/calculation/persistence/platform layers, calculation authority, recovery, UI replacement and refactoring entry criteria.
+- Added [Documentation Catalog](DOCUMENTATION_CATALOG.md), grouping the repository's Markdown documentation into the six agreed areas: Product and Business Rules; Calculation Foundation; Application Architecture; UI/UX Architecture; Quality and Release; Historical Records and References.
+- Updated [Contract and Documentation Index](CONTRACT_INDEX.md) to distinguish six-area navigation from normative contract authority.
+- Updated the root README to route readers through the System Blueprint, Contract Index and Documentation Catalog.
+- Added `npm run check:docs` and a required CI step to validate local Markdown links across the repository; the validator excludes fenced code examples and external URLs.
+- Preserved existing document paths, detailed contracts, audits, plans, reference manifests and historical evidence. No mass file move or deletion was performed, avoiding unnecessary link churn and loss of historical context.
+- Clarified that the catalog is navigational: the Contract Index and named owner contracts continue to determine authority.
+
+**Inventory accounting and verification:** The PR #96 branch tree was checked recursively and is not truncated. It contains 86 Markdown files. The Documentation Catalog contains 86 unique Markdown links: every tracked Markdown file has exactly one primary catalog entry, with no missing entries or duplicate entries. The local Markdown-link validator is included in CI as `npm run check:docs`; its final result must be read from the workflow run for the exact final PR head.
+
+**Phase 3 completion status:**
+1. Six-area navigation and the end-to-end System Blueprint are delivered.
+2. The Contract Index identifies normative owners and precedence; the catalog is explicitly navigation-only.
+3. The fixed monthly Driver Target policy and aggregate pre-business recovery policy are now explicitly resolved in their owner contracts and reconciled in the Calculation Authority audit.
+4. Historical plans and audits remain preserved; superseded source-allocation instructions are explicitly labelled so they cannot be mistaken for the current downstream recovery rule.
+5. Existing file paths are preserved. Catalog coverage is verified at 86/86.
+6. The final documentation CI/link-validation result remains a release gate and must pass on the exact final PR head before this phase is called CI-verified.
+
+PR #96 remains draft and unmerged pending review and explicit user authorization. This phase remains documentation-only: no application source, runtime behaviour, database schema, migrations, APK publication or physical-device testing is changed or claimed.
+
+**Scope confirmation:** This phase is documentation-only. Application source, runtime behaviour, database schema, migrations, APK publication and physical-device testing are not changed or claimed.

@@ -4,6 +4,19 @@
 **Repository-wide inventory and reconciliation record:** [Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md).  
 **Authority rule:** Each document owns only the responsibility explicitly assigned below. Supporting documents link to the owner rather than redefining its rules.
 
+## Six-area documentation navigation
+
+The repository is organised into six logical areas. Existing contract paths remain stable; this is a navigation and authority structure, not a mass file move.
+
+1. **Product and business rules** — approved user-visible behaviour and workflow rules.
+2. **Calculation foundation** — calculation owners, inputs/outputs, effective dates, rounding and provenance.
+3. **Application architecture** — domain/application boundaries, feature contracts, persistence, lifecycle, platform and recovery.
+4. **UI/UX architecture** — shell, navigation, screens, forms, components and presentation boundaries.
+5. **Quality and release** — CI, architecture enforcement, testing, backup/restore, Android builds and acceptance.
+6. **Historical records and references** — audits, plans, completed phases, proposals and reference artifacts.
+
+Start with the [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) for the end-to-end system map, then use the [Documentation Catalog](DOCUMENTATION_CATALOG.md) for the complete six-area inventory and each document's role. This index remains the authority map for normative owners; the catalog does not create or override authority.
+
 ## Conflict and precedence rules
 
 1. Approved product specifications own user-facing product decisions within their scope.
@@ -16,6 +29,8 @@
 ## Project entry points
 
 - [Repository README](../README.md) — project overview and documentation entry point.
+- [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) — end-to-end product, calculation, application, persistence and presentation map.
+- [Documentation Catalog](DOCUMENTATION_CATALOG.md) — complete six-area Markdown inventory and document roles.
 - [Architecture overview](../ARCHITECTURE.md) — high-level system map; detailed rules remain in the owner contracts below.
 - [Development Plan](../DEVELOPMENT_PLAN.md) — staged delivery history and plan.
 
@@ -49,14 +64,14 @@
 | WebView-specific security/release compatibility | [WebView Security and Release Compatibility](WEBVIEW_SECURITY_AND_RELEASE_COMPATIBILITY_CONTRACT.md) | WebView/native trust boundary and version compatibility |
 | Backup, restore and reset behaviour | [Dropbox Backup](DROPBOX_BACKUP_CONTRACT.md) | User-facing backup destinations, package and restore/reset safeguards |
 | Finance loan calculation | [Loan Calculation](FINANCE_LOAN_CALCULATION_CONTRACT.md) | EMI and amortization mathematics |
-| Business Start Date cost allocation | [Business Start Date Cost Allocation](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Cross-feature pre-business carry-forward and daily/monthly/yearly allocation for Compliance and whole-EMI reporting |
+| Business Start Date cost allocation | [Business Start Date Cost Allocation](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md) | Downstream aggregate pre-business cost pool, 18 equal monthly recovery instalments and daily Full Cost Breakeven distribution; source records and source-owned allocation history remain unchanged |
 | Fuel Entry and business expense sources | [Fuel Entry and Business Expense Calculation](FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md) | Fuel purchase checkpoints/intervals, paid platform fees and challans, miscellaneous expense source dates, and no-double-counting boundaries |
 | Work/Shift odometer and daily business kilometres | [Work/Shift Odometer and Daily Business-Kilometre](WORK_SHIFT_ODOMETER_AND_DAILY_DISTANCE_CONTRACT.md) | Confirmed shift odometer facts, 04:00 rotation, fully allocated daily business distance, and explicit legacy/pending states |
 | Finance loan payment policy | [Loan Payment Workflow](FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md) | Proposal only until formally ratified; implementation does not approve this draft |
 | Finance loan prepayment | [Loan Prepayment](FINANCE_LOAN_PREPAYMENT_CONTRACT.md) | Prepayment eligibility, schedule effects and validation |
 | Finance settlement and closure | [Loan Settlement and Closure](FINANCE_LOAN_SETTLEMENT_AND_CLOSURE_CONTRACT.md) | Approved-for-implementation settlement/closure rules; implementation evidence is separate |
 | Performance calculation approval | [Finance and Performance Approval](FINANCE_PERFORMANCE_CALCULATION_APPROVAL.md) | Approval boundary; no unapproved metric/accounting policy |
-| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | Frozen v1.9 full-cost breakeven source, cost and earnings baseline; upstream date/attribution rules defer to Work/Trip, Compliance, Finance, Fuel/Business Expense and Business Start Date owner contracts; Driver Target remains last; Full-cost/Performance runtime calculations, cumulative Driver Target Passbook and active-driving-day distance summaries are implemented on draft PR #97; automated source-reconciliation evidence is recorded in the current audits, while migrated production-data and physical-device acceptance remain separate gates |
+| Breakeven and Driver Target product rules | [Breakeven and Driver Target Calculation Contract](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md) | v2.0 owner contract for full-cost breakeven and fixed monthly Driver Target; only the first Business-Start-Date month is prorated (Addendum J); runtime calculation, cumulative Passbook and active-driving-day distance summaries are implemented and verified on merged PR #97; production-data reconciliation, physical-device acceptance and final visual approval remain separate gates |
 | Admin product behaviour | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved six-section Admin product behaviour |
 | Admin capability technical design | [Admin Capability Contracts](ADMIN_CAPABILITY_CONTRACTS.md) | Historical Slice 1 design; product and shared technical owners prevail |
 | Presentation architecture and shell | [UI/UX Shell Foundation](UI_UX_SHELL_FOUNDATION_CONTRACT.md) | Replaceable presentation and interaction architecture |
@@ -77,6 +92,7 @@
 | [Intelligent Business Advisor Vision](INTELLIGENT_BUSINESS_ADVISOR_VISION.md) | Living product vision and future Performance workstream hand-off; proposals remain distinct from approved contracts and implementation authorization |
 | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved product rules; does not prove implementation |
 | [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Delivery slices and completion definition; follows product and technical owners |
+| [Consolidated Product Foundation Implementation Control](CONSOLIDATED_PRODUCT_FOUNDATION_IMPLEMENTATION_CONTROL.md) | Execution contract for PR #97: scope, internal stages, no-drift guardrails, evidence ledger and definition of done; does not override normative owner contracts |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guide for adding features/calculations; not a replacement contract |
 | [Dropbox Setup](DROPBOX_SETUP.md) | One-time OAuth and integration setup |
 | [Room Migration Runbook](ROOM_MIGRATION_RUNBOOK.md) | Operational procedure; schema policy remains in Persistence Schema |
@@ -89,10 +105,11 @@
 
 These records are evidence snapshots, not live policy. Their recorded base SHA, PR and CI run remain historical.
 
-- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — 63-file baseline inventory and reconciliation decisions; the audit and index brought the documented inventory to 65, and the new correction contract brings the current indexed total to 66.
+- [Repository-wide Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) — original Phase 1/Phase 2 baseline and subsequent documentation reconciliation history; see the current six-area inventory in the Documentation Catalog.
 - [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) — form implementation evidence and remaining gaps.
 - [Business-Event Reliability Audit](BUSINESS_EVENT_RELIABILITY_AUDIT.md) — current baseline and in-progress audit of PWA/Capacitor capture reliability, evidence provenance, corroboration, and intelligence eligibility; historical reliability audits remain historical.
 - [Breakeven Source Reconciliation Audit](BREAKEVEN_SOURCE_RECONCILIATION_AUDIT.md) — source-owner reconciliation and correction/effective-date provenance evidence for Compliance, EMI/prepayment/closure, trip and expense attribution, fuel intervals, and daily business kilometres; see the current PR #97 evidence section for implementation status and the remaining production-data boundary.
+- [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md) — PR #96 baseline audit of calculation ownership, source-to-consumer wiring, fixed-cost allocation authority, snapshot consistency, policy conflicts, UI/UX shell and screen independence, and consolidated correction priorities.
 
 - [Admin Baseline Audit](ADMIN_BASELINE_AUDIT.md) — pre-implementation Admin starting point.
 - [Admin Stage 0 Source and Test Inventory](ADMIN_STAGE_0_SOURCE_AND_TEST_INVENTORY.md) — exact-main source inventory, workflow-to-owner parity matrix, test/backup coverage and confirmed replacement gates.
@@ -112,7 +129,9 @@ These records are evidence snapshots, not live policy. Their recorded base SHA, 
 
 ## Current evidence discipline
 
-- PR #97 is the current architecture/performance conformance workstream. The code-bearing implementation head `0f198be0d796a67521ea5d6763bac3d949f33718` passed Architecture, Web, Android and Integrated regression in [workflow run #44095766482](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482). The subsequent documentation-only head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` also passed all four jobs in [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486).
+- PR #69 is a historical merged integrated reliability and cross-platform workstream; its recorded head and CI run are evidence for that baseline, not a live open workstream.
+- PR #97 is the merged architecture/performance implementation. Exact head `ffb26044fd9d9e4c2989f904eddecfed632122d0` passed Architecture, Web, Android and Integrated regression in [workflow run #44101565896](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44101565896). Production geocoder verification was skipped; physical-phone acceptance remains deferred.
+- For current Performance status, use the post-PR #93 [Performance End-to-End Conformance Audit](PERFORMANCE_END_TO_END_IMPLEMENTATION_CONFORMANCE_AUDIT.md); for cross-domain calculation ownership and wiring, use the [Calculation Authority and Application Wiring Audit v1](CALCULATION_AUTHORITY_AND_APPLICATION_WIRING_AUDIT_V1.md).
 - Green CI proves only the jobs and tests it ran. It does not prove physical-device acceptance, OS/OEM force-stop behaviour or live Dropbox account acceptance.
 - The [Form Conformance Audit](FORM_CONFORMANCE_AUDIT.md) records form-specific evidence. It does not certify every possible form/surface/lifecycle combination.
 - Historical audit documents must not be rewritten to appear as if they were performed on the current commit.

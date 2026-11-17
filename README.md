@@ -2,7 +2,7 @@
 
 ## Documentation authority
 
-Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, product specification, implementation guide, audit and historical record. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the 63-file baseline inventory and reconciliation decisions.
+Start with the [Sam Travels System Blueprint](docs/SAM_TRAVELS_SYSTEM_BLUEPRINT.md) for the complete system map. Use the [Contract and Documentation Index](docs/CONTRACT_INDEX.md) to find the authoritative owner for each rule, and the [Documentation Catalog](docs/DOCUMENTATION_CATALOG.md) to navigate all six documentation areas and every Markdown document. The [repository-wide Markdown audit](docs/MARKDOWN_DOCUMENTATION_AUDIT.md) records the audit baselines and reconciliation history.
 
 ## Permanent application architecture
 
@@ -30,7 +30,7 @@ Core foundation and shared driver workflow have been merged to main. The PWA/Cap
 - Android Studio and Android SDK for native builds
 - A supported Android device for overlay, background, and screen-off validation
 
-Install dependencies with `npm install`, run checks with `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 21.
+Install dependencies with `npm install`, run checks with `npm run check:docs`, `npm test` and `npm run build`, and start the PWA with `npm run dev`. Android builds require Android SDK tooling and Java 21.
 
 ## Architecture contracts
 
