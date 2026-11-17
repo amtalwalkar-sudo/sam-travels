@@ -1,4 +1,5 @@
 import type { VehicleService } from "./vehicle-service";
+import type { RecordRepository } from "../../core/src/repositories";
 import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
@@ -44,13 +45,16 @@ export class FullCostBreakevenService {
     private readonly expenses: Pick<BusinessExpensesService, "listExpenseEntries" | "listDailyExpenseOutputs" | "listFuelPurchases" | "listFuelCostRateHistory"> & Partial<Pick<BusinessExpensesService, "listCorrectionReferences">>,
     private readonly allocation: Pick<BusinessStartDateCostAllocationService, "getReport">,
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
+    /** Shared authoritative records repository used to verify Work daily shift projections. */
+    private readonly recordRepository?: Pick<RecordRepository, "list">,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
-    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords] = await Promise.all([
+    const [vehicles, expenses, dailyExpenseOutputs, fuelPurchases, fuelRates, allocationReport, tripFinancialRecords, authoritativeRecords] = await Promise.all([
       this.vehicles.list(), this.expenses.listExpenseEntries(), this.expenses.listDailyExpenseOutputs(),
       this.expenses.listFuelPurchases(), this.expenses.listFuelCostRateHistory(),
       this.allocation.getReport(), this.tripFinancials.submittedTripFinancialRecords(),
+      this.recordRepository ? this.recordRepository.list<unknown>() : Promise.resolve(undefined),
     ]);
     const correctionRefsBySourceId = new Map<string, readonly Readonly<{ sourceId: string; revision: number }>[]>();
     if (this.expenses.listCorrectionReferences) {
@@ -65,7 +69,7 @@ export class FullCostBreakevenService {
     }
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     const activityByDate = new Map<string, {
-      businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number;
+      businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number; activeDrivingDay: boolean;
       refs: { sourceId: string; revision: number }[];
       fuelRefs: { sourceId: string; revision: number }[];
       maintenanceRefs: { sourceId: string; revision: number }[];
@@ -76,6 +80,68 @@ export class FullCostBreakevenService {
       { source: "fuel-rate-history", status: "complete" },
       { source: "maintenance-accruals", status: "complete" },
     ];
+
+    if (!authoritativeRecords) {
+      completeness.push({ source: "active-driving-days", status: "unavailable",
+        detail: "The shared Work record repository was not supplied; active-driving-day qualification cannot be verified." });
+    } else {
+      const dailyDistanceRecords = authoritativeRecords.filter(record =>
+        record.id.startsWith("work:daily-business-km:"));
+      const hasShiftForTrip = (trip: typeof tripFinancialRecords[number]) => {
+        if (trip.data.kind !== "completed_ride_financials" || !trip.data.tripContext) return false;
+        const context = trip.data.tripContext;
+        return dailyDistanceRecords.some(daily => {
+          const data = daily.data as { vehicleId?: string; operationalDate?: string; entries?: Array<{ shiftId?: string }> };
+          return data.vehicleId === context.vehicleId && data.operationalDate === context.operationalDate &&
+            Array.isArray(data.entries) && data.entries.some(entry => entry.shiftId === context.shiftId);
+        });
+      };
+      for (const daily of dailyDistanceRecords) {
+        const data = daily.data as {
+          schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string;
+          entries?: Array<{ shiftId?: string; allocationStatus?: string }>;
+        };
+        if (!data.operationalDate || data.operationalDate < from || data.operationalDate > to) continue;
+        if (data.schemaVersion !== 1 || data.kind !== "daily_business_kilometres" ||
+            typeof data.vehicleId !== "string" || !Array.isArray(data.entries)) {
+          completeness.push({ source: "active-driving-days", status: "review-required",
+            detail: "Malformed Work daily-distance projection: " + daily.id });
+          continue;
+        }
+        for (const entry of data.entries) {
+          if (typeof entry.shiftId !== "string") continue;
+          const rides = tripFinancialRecords.filter(trip =>
+            trip.data.kind === "completed_ride_financials" &&
+            trip.data.tripContext?.shiftId === entry.shiftId &&
+            trip.data.tripContext?.vehicleId === data.vehicleId &&
+            trip.data.tripContext?.operationalDate === data.operationalDate);
+          if (!rides.length) continue;
+          const bucket = activityByDate.get(data.operationalDate) ?? {
+            businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
+            refs: [], fuelRefs: [], maintenanceRefs: [],
+          };
+          bucket.activeDrivingDay = true;
+          bucket.refs.push({ sourceId: daily.id, revision: daily.revision });
+          rides.forEach(ride => bucket.refs.push({ sourceId: ride.id, revision: ride.revision }));
+          activityByDate.set(data.operationalDate, bucket);
+        }
+      }
+      const unlinkedCompletedRides = tripFinancialRecords.filter(trip =>
+        trip.data.kind === "completed_ride_financials" && trip.data.tripContext &&
+        trip.data.tripContext.operationalDate >= from && trip.data.tripContext.operationalDate <= to &&
+        !hasShiftForTrip(trip));
+      if (unlinkedCompletedRides.length) completeness.push({
+        source: "active-driving-days", status: "review-required",
+        detail: unlinkedCompletedRides.length +
+          " completed ride record(s) have immutable shift context but no matching Work daily shift projection.",
+      });
+      if (!dailyDistanceRecords.length && tripFinancialRecords.some(trip =>
+        trip.data.kind === "completed_ride_financials" && trip.data.tripContext &&
+        trip.data.tripContext.operationalDate >= from && trip.data.tripContext.operationalDate <= to)) {
+        completeness.push({ source: "active-driving-days", status: "incomplete",
+          detail: "Completed rides exist but no Work daily shift projections are available for the selected period." });
+      }
+    }
 
     const histories = await Promise.all(vehicles.map(async vehicle => ({
       vehicle,
@@ -90,7 +156,7 @@ export class FullCostBreakevenService {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
         const bucket = activityByDate.get(date) ?? {
-          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0,
+          businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
           refs: [], fuelRefs: [], maintenanceRefs: [],
         };
         const km = accrual.data.businessKm;
@@ -141,8 +207,8 @@ export class FullCostBreakevenService {
     }
 
     const dailyActivity: FullCostBreakevenSourceActivityV1[] = [...activityByDate].map(([date, value]) => ({
-      date, businessKm: value.businessKm, fuelCostPaise: value.fuelCostPaise,
-      maintenanceCostPaise: value.maintenanceCostPaise,
+      date, businessKm: value.businessKm, activeDrivingDay: value.activeDrivingDay,
+      fuelCostPaise: value.fuelCostPaise, maintenanceCostPaise: value.maintenanceCostPaise,
       distanceSourceId: value.refs.map(ref => ref.sourceId).sort().join("|"),
       distanceSourceRevision: Math.max(1, ...value.refs.map(ref => ref.revision)),
       sourceRefs: value.refs,
