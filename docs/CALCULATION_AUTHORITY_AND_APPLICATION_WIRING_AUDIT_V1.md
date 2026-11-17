@@ -1,6 +1,6 @@
 # Sam Travels — Calculation Authority and Application Wiring Audit v1
 
-**Audit status:** Initial repository-backed audit complete; findings require owner review before implementation.  
+**Audit status:** Baseline audit complete; owner policy decisions have been reconciled in the current owner contracts. Implementation and wiring findings remain open pending code changes and exact-SHA verification.  
 **Repository:** `amtalwalkar-sudo/sam-travels`  
 **Audited baseline:** `main` at `2148f244ac20f1ab503002763b7cea856c4c41ec` (2026-11-16; includes merged PRs #93, #94 and #95).  
 **Audit date:** 2026-11-17  
@@ -26,7 +26,7 @@ The calculation work already present includes Work/Shift daily business-kilometr
 The audit found concrete areas that need correction or explicit reconciliation before further architectural cleanup:
 
 1. The Performance fixed-cost adapter reconstructs EMI/Compliance daily allocations from source amounts and dates instead of simply consuming the canonical daily amounts already published by the Business Start Date allocation owner.
-2. The pre-business recovery policy is now owner-approved and documented consistently: all full source amounts whose authoritative business/effective dates are before the Business Start Date are combined into one downstream Breakeven recovery pool, divided into 18 equal monthly instalments, then distributed across the days of each recovery month; amounts dated on or after that date follow their normal source-category rules. The older Breakeven/Driver Target v1.9 contract still specifies partial-month target proration, while the merged Performance implementation displays the full monthly target for a selected partial month.
+2. The pre-business recovery policy is owner-approved: all full qualifying pre-business source amounts are combined into one downstream Breakeven pool, divided into 18 equal monthly instalments, then distributed across each recovery month's days. The fixed monthly Driver Target policy is also resolved in Breakeven/Driver Target Contract v2.0, Addendum J: only the first Business-Start-Date month is prorated; every later month carries the full target independent of operating days or selected partial date ranges.
 3. Performance's operating-cost and fixed-cost adapters obtain their source projections independently. The operating-cost path reaches the allocation service through FullCostBreakevenService, while the fixed-cost path calls the allocation service separately. The current orchestration does not establish one shared cross-source snapshot boundary for those two reads.
 4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.\n5. The UI/UX architecture already defines replaceable shell and feature-screen contracts, but current composition still contains screen-specific wiring, and the available tests prove only selected replacement seams—not that every screen and its internal presentation components can be replaced independently end to end.
 
@@ -441,3 +441,20 @@ This audit is a baseline-specific findings and decision record. It does not repl
 - [Repository Markdown Documentation Audit](MARKDOWN_DOCUMENTATION_AUDIT.md) records documentation reconciliation and historical evidence.
 
 When this audit and a normative owner contract appear to disagree, the owner contract remains authoritative until an explicit product decision and reviewed contract update resolve the discrepancy. CA-10 and CA-11 remain implementation/wiring findings; CA-12's pre-business recovery and Driver Target policies are resolved, while runtime conformance remains open. This navigation update does not change those statuses.
+
+
+## 15. Owner decision reconciliation — 2026-11-17
+
+This dated addendum records product-owner decisions made after the audited 2026-11-16 baseline. It updates policy status only; it does not rewrite the historical baseline or claim runtime conformance.
+
+### 15.1 Pre-business cost recovery
+
+The owner-approved rule is the aggregate-pool model in the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md): include the full qualifying pre-business amount from each supported source category, combine all contributions into one pool, divide the pool into 18 equal monthly instalments anchored to Business Start Date, and distribute each instalment over the days of its recovery month. This is downstream Full Cost Breakeven treatment only. It does not mutate source records, source-owned calculations or canonical source-allocation history.
+
+### 15.2 Driver Target
+
+The owner-approved rule is in [Breakeven and Driver Target Calculation Contract v2.0, Addendum J](BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md): Driver Target is a fixed monthly surplus above Full Cost Breakeven, independent of business/operating days, trips and attendance. Only the first calendar month is prorated when Business Start Date is mid-month, counting calendar days from and including that date through month-end. Every subsequent calendar month carries the full configured target. Partial report filters do not create additional proration.
+
+### 15.3 Remaining status
+
+These policy questions are resolved. Runtime conformance is not. The Performance audit continues to own the implementation gaps for aggregate-pool recovery, target/passbook pacing, coherent calculation snapshots, distance summaries and end-to-end acceptance. UI shell/screen replacement remains an architecture implementation and test gate, not a reason to introduce a new presentation framework.
