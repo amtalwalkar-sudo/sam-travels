@@ -1,3 +1,5 @@
+export { PerformanceScreenControllerV1 } from "./application/performance-screen-controller";
+export type { PerformanceScreenLoadResultV1 } from "./application/performance-screen-controller";
 export { assertPerformanceRecordV1 } from "./records";
 export type {
   PerformanceAdminSettingsRecordV1,
