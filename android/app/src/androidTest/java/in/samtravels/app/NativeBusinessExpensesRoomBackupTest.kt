@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -29,7 +30,45 @@ class NativeBusinessExpensesRoomBackupTest {
         try {
             db.records().put(record(vehicleId, JSONObject().put("schemaVersion", 1).put("registrationNumber", "MH01AB1234").put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV").put("fuelType", "CNG").put("yearOfManufacture", 2022).put("ownership", "Owned").put("lifecycleState", "active"), at))
             val fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000"
+            val correctionId = "historical-correction:android-fuel-amount-fix"
+            val chainId = "historical-correction-chain:" +
+                java.net.URLEncoder.encode(fuelId, "UTF-8").replace("+", "%20")
             db.records().put(record(fuelId, JSONObject().put("schemaVersion", 1).put("kind", "fuel_purchase").put("id", fuelId).put("revision", 1).put("businessDate", "2026-11-15").put("occurredAt", at).put("vehicleId", vehicleId).put("odometerKm", 45000).put("pricePaisePerKg", 9000).put("amountPaise", 18000).put("partialRefill", false), at))
+            val actor = JSONObject().put("role", "admin").put("actorId", "admin-room")
+                .put("adminPinVerifiedAt", at)
+            val correctionData = JSONObject().put("schemaVersion", 1)
+                .put("correctionId", "android-fuel-amount-fix").put("targetRecordId", fuelId)
+                .put("targetRecordRevision", 1).put("featureId", "business-expenses")
+                .put("chainRevision", 1).put("fieldPath", "amountPaise")
+                .put("beforeValue", 18000).put("afterValue", 25000)
+                .put("reason", "Corrected against the original fuel receipt")
+                .put("actor", actor).put("recordedAt", at).put("businessEffectiveDate", "2026-11-15")
+            val correctionEnvelope = JSONObject().put("id", correctionId).put("schemaVersion", 1)
+                .put("createdAt", at).put("updatedAt", at).put("businessDate", "2026-11-15")
+                .put("source", "web").put("revision", 1)
+                .put("createdBy", JSONObject().put("personId", "admin-room").put("role", "admin"))
+                .put("data", correctionData)
+            db.records().put(StoredRecord(correctionId, correctionEnvelope.toString(), 1, at))
+            val secondCorrectionId = "historical-correction:android-fuel-amount-fix-2"
+            val secondCorrectionData = JSONObject().put("schemaVersion", 1)
+                .put("correctionId", "android-fuel-amount-fix-2").put("targetRecordId", fuelId)
+                .put("targetRecordRevision", 1).put("featureId", "business-expenses")
+                .put("chainRevision", 2).put("fieldPath", "amountPaise")
+                .put("beforeValue", 25000).put("afterValue", 27000)
+                .put("supersedesCorrectionId", "android-fuel-amount-fix")
+                .put("reason", "Second receipt verification").put("actor", actor)
+                .put("recordedAt", at).put("businessEffectiveDate", "2026-11-15")
+            val secondCorrectionEnvelope = JSONObject().put("id", secondCorrectionId).put("schemaVersion", 1)
+                .put("createdAt", at).put("updatedAt", at).put("businessDate", "2026-11-15")
+                .put("source", "web").put("revision", 1)
+                .put("createdBy", JSONObject().put("personId", "admin-room").put("role", "admin"))
+                .put("data", secondCorrectionData)
+            db.records().put(StoredRecord(secondCorrectionId, secondCorrectionEnvelope.toString(), 1, at))
+            val chainEnvelope = JSONObject().put("id", chainId).put("schemaVersion", 1)
+                .put("createdAt", at).put("updatedAt", at).put("source", "web").put("revision", 2)
+                .put("data", JSONObject().put("schemaVersion", 1).put("targetRecordId", fuelId)
+                    .put("chainRevision", 2).put("headCorrectionId", "android-fuel-amount-fix-2"))
+            db.records().put(StoredRecord(chainId, chainEnvelope.toString(), 1, at))
             fun expense(id: String, kind: String, extra: JSONObject) = record(id, JSONObject().put("schemaVersion", 1).put("kind", "business_expense").put("id", id).put("revision", 1).put("sourceKind", kind).put("businessDate", "2026-11-15").put("amountPaise", 1200).put("currencyCode", "INR").put("effect", "charge").put("vehicleId", vehicleId).put("description", "Backup acceptance").also { data -> extra.keys().asSequence().forEach { key -> data.put(key, extra.get(key)) } }, at)
             val platform = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174001"
             val misc = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174002"
@@ -43,6 +82,14 @@ class NativeBusinessExpensesRoomBackupTest {
             assertNull(db.records().get(fuelId)); assertNull(db.records().get(platform))
             NativeBackupCoverage.replaceBusinessRecords(db, snapshot)
             assertNotNull(db.records().get(fuelId)); assertNotNull(db.records().get(platform))
+            assertNotNull(db.records().get(correctionId)); assertNotNull(db.records().get(secondCorrectionId))
+            assertNotNull(db.records().get(chainId))
+            val restoredFuel = JSONObject(db.records().get(fuelId)!!.json).getJSONObject("data")
+            assertEquals(18000, restoredFuel.getInt("amountPaise"))
+            val restoredCorrection = JSONObject(db.records().get(correctionId)!!.json).getJSONObject("data")
+            assertEquals(25000, restoredCorrection.getInt("afterValue"))
+            val restoredSecondCorrection = JSONObject(db.records().get(secondCorrectionId)!!.json).getJSONObject("data")
+            assertEquals(27000, restoredSecondCorrection.getInt("afterValue"))
             assertNotNull(db.records().get(misc)); assertNotNull(db.records().get(challan))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(db) { false }, requireExplicitOwnerTags = true)
         } finally { db.close() }

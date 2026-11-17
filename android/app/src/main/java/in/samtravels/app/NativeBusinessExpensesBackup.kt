@@ -33,7 +33,7 @@ internal object NativeBusinessExpensesBackup {
     private fun validUuid(value: String): Boolean =
         runCatching { UUID.fromString(value).toString() == value.lowercase() }.getOrDefault(false)
 
-    private fun validateFuel(data: JSONObject, id: String) {
+    internal fun validateFuel(data: JSONObject, id: String) {
         val keys = setOf("schemaVersion", "kind", "id", "revision", "businessDate", "occurredAt",
             "vehicleId", "odometerKm", "pricePaisePerKg", "amountPaise", "partialRefill")
         val optional = setOf("locationEvidence")
@@ -63,7 +63,7 @@ internal object NativeBusinessExpensesBackup {
         }
     }
 
-    private fun validateExpense(data: JSONObject, id: String) {
+    internal fun validateExpense(data: JSONObject, id: String) {
         val required = setOf("schemaVersion", "kind", "id", "revision", "sourceKind", "businessDate",
             "amountPaise", "currencyCode", "effect")
         val optional = setOf("reversesSourceId", "vehicleId", "driverId", "category", "description",
@@ -108,7 +108,10 @@ internal object NativeBusinessExpensesBackup {
             "business_expense_entry_invalid"
         }
         when (data.optString("sourceKind")) {
-            "platform_fee" -> require(data.optString("reference").isNotBlank()) { "platform_fee_source_reference_required" }
+            "platform_fee" -> require(data.optString("reference").isNotBlank() &&
+                data.optString("vehicleId").startsWith("feature:vehicle:")) {
+                "platform_fee_source_reference_required"
+            }
             "traffic_challan" -> require(data.optString("vehicleId").isNotBlank() &&
                 (data.optString("description").isNotBlank() || data.optString("reference").isNotBlank())) { "traffic_challan_vehicle_required" }
             "miscellaneous" -> require(data.optString("category").isNotBlank()) { "miscellaneous_expense_category_required" }
@@ -130,6 +133,14 @@ internal object NativeBusinessExpensesBackup {
         }
         if (data.optString("sourceKind") == "traffic_challan") require(data.has("paymentStatus")) {
             "traffic_challan_payment_status_required"
+        }
+    }
+
+    internal fun validateCorrectedProjection(data: JSONObject, id: String) {
+        when (data.optString("kind")) {
+            "fuel_purchase" -> validateFuel(data, id)
+            "business_expense" -> validateExpense(data, id)
+            else -> error("business_expense_correction_backup_kind_invalid")
         }
     }
 
@@ -208,6 +219,7 @@ internal object NativeBusinessExpensesBackup {
                     "business_expense_reversal_link_invalid"
                 }
             }
+        NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
     }
 
     private fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(

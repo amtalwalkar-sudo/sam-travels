@@ -84,6 +84,16 @@ export class ComplianceAnalysisService {
     }));
   }
 
+  /** Exposes correction-chain provenance without changing the immutable Compliance source revision. */
+  async listCorrectionReferences(targetRecordId: string): Promise<readonly Readonly<{ sourceId: string; revision: number }>[]> {
+    if (!this.historicalCorrections) return Object.freeze([]);
+    const corrections = await this.historicalCorrections.listForTarget(targetRecordId);
+    return Object.freeze(corrections.map(correction => Object.freeze({
+      sourceId: "historical-correction:" + correction.correctionId,
+      revision: correction.chainRevision,
+    })));
+  }
+
   async getOverview(): Promise<ComplianceOverview> {
     const actor = await this.identity.currentActor();
     if (actor.role !== "admin") throw new Error("business_admin_authority_required");

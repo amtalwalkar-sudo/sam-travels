@@ -5,8 +5,9 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { WorkDriverSelectionService } from "../packages/application/src/work-driver-selection-service";
-import { createDriverCommandV2, DriverWorkflowService } from "../packages/features/work-shift";
+import { createDriverCommandV2, DriverWorkflowService } from "../packages/features/work";
 import type { GpsFix } from "../packages/core/src/types";
+import { NetworkGateway, NetworkAccessDisabledError } from "../packages/core/src/network";
 
 const gpsAt = (fixAt: string): GpsFix => ({
   latitude: 19.076,
@@ -112,6 +113,94 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(await repository.getIntent(parity.interruptedEventId)).toMatchObject({ status: "recorded" });
   });
 
+  it("commits Work locally while explicit network access is disabled", async () => {
+    const records = new DexieRecordRepository();
+    await records.setNetworkEnabled(false);
+    const gateway = new NetworkGateway(records);
+    const remoteOperation = vi.fn(async () => "should-not-run");
+    await expect(gateway.run(remoteOperation)).rejects.toBeInstanceOf(NetworkAccessDisabledError);
+    expect(remoteOperation).not.toHaveBeenCalled();
+
+    const repository = new DexieDriverWorkflowRepository();
+    const at = new Date().toISOString();
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:offline-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId: "offline-driver",
+          name: "Offline Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:offline-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId: "offline-driver", assignments: [{
+          assignmentId: "offline-assignment", vehicleId: "feature:vehicle:MH01XY1234", assignedAt: at,
+        }] } },
+      { id: "feature:vehicle:MH01XY1234", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, registrationNumber: "MH01XY1234",
+          make: "Make", model: "Model", vehicleType: "Sedan", fuelType: "Petrol",
+          yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    await new WorkDriverSelectionService(records, repository).selectDriver("offline-driver");
+    const command = createDriverCommandV2(
+      await repository.getSnapshot(), "shift_start", "pwa", "offline-shift-start", at,
+      { schemaVersion: 1, readingKm: 1200 },
+    );
+    const service = new DriverWorkflowService(repository, { capture: async transitionAt => gpsAt(transitionAt) });
+    const result = await service.dispatch(command);
+
+    expect(result.status).toBe("recorded");
+    expect(await repository.getSnapshot()).toMatchObject({ state: "shift_active", revision: 1 });
+    expect(await repository.listEvents()).toHaveLength(1);
+    expect(await browserDatabase.driverOutbox.count()).toBe(1);
+    expect(await records.getNetworkEnabled()).toBe(false);
+  });
+
+  it("allocates the inter-shift odometer gap to personal distance using the shared fixture", async () => {
+    const fixture = parity.personalDistance;
+    const firstDate = "2026-11-08";
+    const secondDate = "2026-11-09";
+    const at = (date: string, time: string) => date + "T" + time + ":00.000Z";
+    const records = new DexieRecordRepository();
+    const repository = new DexieDriverWorkflowRepository();
+    const driverId = "personal-distance-driver";
+    const vehicleId = "feature:vehicle:MH01PD1234";
+    const createdAt = at(firstDate, "00:00");
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:" + driverId, schemaVersion: 1, createdAt, updatedAt: createdAt,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId, name: "Distance Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:" + driverId, schemaVersion: 1, createdAt, updatedAt: createdAt,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId, assignments: [{
+          assignmentId: "personal-distance-assignment", vehicleId, assignedAt: createdAt,
+        }] } },
+      { id: vehicleId, schemaVersion: 1, createdAt, updatedAt: createdAt, source: "web", revision: 1,
+        data: { schemaVersion: 1, registrationNumber: "MH01PD1234", make: "Make", model: "Model",
+          vehicleType: "Sedan", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    await new WorkDriverSelectionService(records, repository).selectDriver(driverId);
+    const service = new DriverWorkflowService(repository, { capture: async fixAt => gpsAt(fixAt) });
+    const commit = async (type: "shift_start" | "shift_end", id: string, timestamp: string,
+      odometer: { schemaVersion: 1; readingKm: number; businessKm?: number; previousConfirmedKm?: number; personalKm?: number }) => {
+      const command = createDriverCommandV2(await repository.getSnapshot(), type, "pwa", id, timestamp, odometer);
+      const result = await service.dispatch(command);
+      expect(result.status).toBe("recorded");
+    };
+
+    await commit("shift_start", "personal-first-start", at(firstDate, "10:00"),
+      { schemaVersion: 1, readingKm: fixture.firstShiftStartOdometerKm });
+    await commit("shift_end", "personal-first-end", at(firstDate, "11:00"),
+      { schemaVersion: 1, readingKm: fixture.previousShiftEndOdometerKm, businessKm: fixture.currentShiftBusinessKm });
+    await commit("shift_start", "personal-second-start", at(secondDate, "10:00"),
+      { schemaVersion: 1, readingKm: fixture.nextShiftStartOdometerKm,
+        previousConfirmedKm: fixture.previousShiftEndOdometerKm, personalKm: fixture.personalKm });
+    await commit("shift_end", "personal-second-end", at(secondDate, "11:00"),
+      { schemaVersion: 1, readingKm: fixture.nextShiftStartOdometerKm, businessKm: fixture.secondShiftBusinessKm });
+
+    const rows = await browserDatabase.records.toArray();
+    const first = rows.find(row => row.id === "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + firstDate);
+    const second = rows.find(row => row.id === "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + secondDate);
+    expect(first?.data).toMatchObject({ totalBusinessKm: fixture.currentShiftBusinessKm, unallocatedBusinessKm: 0 });
+    expect(second?.data).toMatchObject({ totalBusinessKm: fixture.secondShiftBusinessKm, unallocatedBusinessKm: 0 });
+    const secondEntry = (second?.data as { entries: Array<{ personalKm: number; businessKm: number }> }).entries[0];
+    expect(secondEntry).toMatchObject({ personalKm: fixture.personalKm, businessKm: fixture.secondShiftBusinessKm });
+    expect(fixture.currentShiftBusinessKm + fixture.secondShiftBusinessKm).toBe(fixture.expectedTotalBusinessKm);
+  });
+
   it("keeps the 04:00 India operational-day boundary correct across a persisted shift restart", async () => {
     const beforeBoundary = "2026-11-08T22:29:59.000Z";
     const atBoundary = "2026-11-08T22:30:00.000Z";
@@ -151,8 +240,8 @@ describe("shared driver workflow parity and interruption contract", () => {
     expect(ended.state).toBe("idle");
     expect(ended.revision).toBe(5);
     const dailyDistance=(await browserDatabase.records.toArray()).find(row=>row.id.startsWith("work:daily-business-km:"));
-    expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:0,unallocatedBusinessKm:100});
-    expect((dailyDistance?.data as {entries:Array<{allocationStatus:string}>}).entries[0].allocationStatus).toBe("awaiting_operational_boundary");
+    expect(dailyDistance?.data).toMatchObject({kind:"daily_business_kilometres",totalBusinessKm:parity.boundaryDistance.totalBusinessKm,unallocatedBusinessKm:parity.boundaryDistance.unallocatedBusinessKm});
+    expect((dailyDistance?.data as {entries:Array<{allocationStatus:string}>}).entries[0].allocationStatus).toBe(parity.boundaryDistance.allocationStatus);
   });
 });
 

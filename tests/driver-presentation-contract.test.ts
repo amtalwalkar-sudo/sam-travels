@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { driverPresentationContract, driverPresentationCssVars } from "../apps/web/src/ui/driver-presentation";
+import { driverPresentationContract, driverPresentationCssVars } from "../packages/features/work";
 
 describe("shared driver visual presentation", () => {
   it("exposes the shared tokens to PWA components", () => {

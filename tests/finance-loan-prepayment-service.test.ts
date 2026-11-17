@@ -150,6 +150,30 @@ describe("FinanceLoanPrepaymentService", () => {
       businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi", source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_input_invalid");
   });
+  it("serializes competing prepayments against the same loan and payment-ledger revisions", async () => {
+    const { repository, service } = setup();
+    const first = await service.preview({
+      loanId, commandId: "prepay-concurrent-a", businessDate: "2026-01-15",
+      amountPaise: 1_000_000, mode: "reduce_tenure", source: "web",
+    });
+    const second = await service.preview({
+      loanId, commandId: "prepay-concurrent-b", businessDate: "2026-01-15",
+      amountPaise: 500_000, mode: "reduce_tenure", source: "web",
+    });
+    const outcomes = await Promise.allSettled([
+      service.commit({ preview: first, source: "web" }),
+      service.commit({ preview: second, source: "web" }),
+    ]);
+    expect(outcomes.filter(item => item.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter(item => item.status === "rejected")).toHaveLength(1);
+    const rejected = outcomes.find(item => item.status === "rejected") as PromiseRejectedResult;
+    expect(String(rejected.reason)).toContain("finance_loan_prepayment_preview_stale");
+    const state = await repository.get<{ revisions: readonly unknown[] }>(
+      FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX + loanId.slice("feature:finance:loan:".length),
+    );
+    expect(state?.data.revisions).toHaveLength(1);
+  });
+
   it("rejects prepayment previews after the Loan has been closed", async () => {
     const { repository, service } = setup();
     await repository.put({ ...loanEnvelope, revision: 2,

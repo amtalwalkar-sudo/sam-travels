@@ -57,6 +57,8 @@ internal object NativeMaintenanceBackup {
                 val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found")
                 validatePayload(id, data, kind, vehicle.second, allRows)
             }
+            validateEffectiveRateSnapshots(rows, vehicles)
+            NativeMaintenanceCorrectionBackup.validate(rows, allRows)
         },
     )
 
@@ -225,6 +227,45 @@ internal object NativeMaintenanceBackup {
                 }
             }
             else -> error("maintenance_record_kind_invalid")
+        }
+    }
+
+    private fun validateEffectiveRateSnapshots(rows: List<JSONObject>, vehicles: Map<String, Pair<JSONObject, String>>) {
+        val ratesByVehicle = rows.mapNotNull { row ->
+            val envelope = JSONObject(row.getString("json"))
+            val data = envelope.getJSONObject("data")
+            if (data.optString("kind") == "rate_history") data.optString("vehicleId") to data else null
+        }.toMap()
+        rows.forEach { row ->
+            val envelope = JSONObject(row.getString("json"))
+            val data = envelope.getJSONObject("data")
+            if (data.optString("kind") != "daily_accrual") return@forEach
+            val vehicleId = data.optString("vehicleId")
+            val vehicleCreatedAt = vehicles[vehicleId]?.second ?: error("maintenance_vehicle_not_found")
+            val operationalDate = data.getString("operationalDate")
+            val entries = ratesByVehicle[vehicleId]?.optJSONArray("entries")
+            var effective: JSONObject? = null
+            if (entries != null) {
+                for (index in 0 until entries.length()) {
+                    val candidate = entries.getJSONObject(index)
+                    val date = candidate.optString("effectiveFrom")
+                    val savedAt = candidate.optString("savedAt")
+                    val current = effective
+                    if (date <= operationalDate &&
+                        (current == null || date > current.optString("effectiveFrom") ||
+                            (date == current.optString("effectiveFrom") && savedAt > current.optString("savedAt")))) {
+                        effective = candidate
+                    }
+                }
+            }
+            val defaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+            val expectedEffectiveFrom = effective?.optString("effectiveFrom") ?: defaultDate
+            val expectedRate = effective?.optLong("ratePaisePerKm") ?: DEFAULT_RATE
+            require(expectedEffectiveFrom <= operationalDate &&
+                data.optString("rateEffectiveFrom") == expectedEffectiveFrom &&
+                data.optLong("ratePaisePerKm", -1L) == expectedRate) {
+                "maintenance_daily_accrual_effective_rate_mismatch"
+            }
         }
     }
 

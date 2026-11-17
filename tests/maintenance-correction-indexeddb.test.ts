@@ -4,12 +4,22 @@ import { HistoricalCorrectionService } from "../packages/application/src/histori
 import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { browserDatabase } from "../packages/storage-browser/src/database";
+import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
+import { maintenanceRateHistoryRecordId } from "../packages/features/maintenance";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
+import { validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
+import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../apps/web/src/maintenance-expense-correction-runtime";
 
 describe("Maintenance correction on the browser IndexedDB repository", () => {
   const records = new DexieRecordRepository();
   const touched: string[] = [];
+  let unregisterVehicle: (() => void) | undefined;
+  let unregisterMaintenance: (() => void) | undefined;
 
   afterEach(async () => {
+    unregisterMaintenance?.(); unregisterMaintenance = undefined;
+    unregisterVehicle?.(); unregisterVehicle = undefined;
     for (const id of touched.splice(0)) await records.remove(id);
   });
 
@@ -17,8 +27,13 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     const targetRecordId = "feature:maintenance:expense:" + crypto.randomUUID();
     const correctionId = "indexeddb-maintenance-" + crypto.randomUUID();
     const chainId = "historical-correction-chain:" + encodeURIComponent(targetRecordId);
-    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId);
-    const recordedAt = "2026-11-11T10:00:00.000Z";
+    const vehicleId = "feature:vehicle:MH01AB1234";
+    const workDailyId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":2026-10-10";
+    const accrualId = "feature:maintenance:daily-accrual:" + encodeURIComponent(vehicleId) + ":2026-10-10";
+    const rateHistoryId = maintenanceRateHistoryRecordId(vehicleId);
+    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId,
+      workDailyId, accrualId, vehicleId, rateHistoryId);
+    const recordedAt = "2026-10-10T00:00:00.000Z";
     const original = {
       id: targetRecordId, schemaVersion: 1 as const, createdAt: recordedAt,
       updatedAt: recordedAt, source: "web" as const, revision: 1,
@@ -29,7 +44,36 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
         description: "Original receipt", amountPaise: 10000,
       },
     };
+    await records.put({
+      id: vehicleId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1,
+      data: { schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace",
+        vehicleType: "LCV", fuelType: "CNG", yearOfManufacture: 2022, ownership: "Owned", lifecycleState: "active" },
+    });
+    await records.put({
+      id: rateHistoryId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "web", revision: 1, businessDate: "2026-10-10",
+      data: { schemaVersion: 1, kind: "rate_history", vehicleId,
+        entries: [{ effectiveFrom: "2026-10-10", ratePaisePerKm: 250, savedAt: recordedAt, isDefault: true }] },
+    });
     await records.put(original);
+    const workDaily = {
+      id: workDailyId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration" as const, revision: 4,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId,
+        operationalDate: "2026-10-10", totalBusinessKm: 10, unallocatedBusinessKm: 0,
+        entries: [{ shiftId: "shift-maintenance", businessKm: 10, personalKm: 2, allocationStatus: "allocated" }] },
+    };
+    const accrual = {
+      id: accrualId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration" as const, revision: 1, businessDate: "2026-10-10",
+      data: { schemaVersion: 1, kind: "daily_accrual", vehicleId,
+        operationalDate: "2026-10-10", dailyBusinessKmRecordId: workDailyId, dailyBusinessKmRevision: 4,
+        businessKm: 10, personalKm: 2, personalAmountPaise: 500,
+        rateEffectiveFrom: "2026-10-10", ratePaisePerKm: 250, amountPaise: 2500 },
+    };
+    await records.put(workDaily);
+    await records.put(accrual);
 
     const service = new HistoricalCorrectionService(
       records,
@@ -67,6 +111,16 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     const first = await service.submit(command);
     const replay = await service.submit(command);
     const unchanged = await records.get<typeof original.data>(targetRecordId);
+    const adapter = createMaintenanceExpenseCorrectionAdapter(records, "web", {
+      currentActor: async () => ({ role: "driver", actorId: "driver-indexeddb" }),
+    } as never);
+    const beforeRestoreProjection = await projectMaintenanceExpenseRecords([original as never], adapter);
+    expect(beforeRestoreProjection[0]).toMatchObject({
+      data: { amountPaise: 12500 }, correctionChainRevision: 1,
+      correctionRefs: [{ sourceId: "historical-correction:" + correctionId, revision: 1, chainRevision: 1 }],
+    });
+    const immutableWorkBefore = await records.get(workDailyId);
+    const immutableAccrualBefore = await records.get(accrualId);
     const history = await service.listForTarget(targetRecordId);
     const head = await records.get<{ chainRevision: number; headCorrectionId?: string }>(chainId);
 
@@ -82,6 +136,35 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     expect(projectHistoricalCorrectionsV1(unchanged!.data, history)).toMatchObject({
       status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
     });
+
+    // Exercise the real snapshot export/restore path. It validates the original
+    // expense, append-only correction rows, chain head, Vehicle and linked daily accrual.
+    unregisterVehicle = registerVehicleBrowserBackupParticipant();
+    unregisterMaintenance = registerMaintenanceBrowserBackupParticipant();
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.clear();
+    await restoreBrowserSnapshot({
+      data: snapshot.data, manifest: snapshot.manifest as never, confirmed: true,
+    });
+    const restoredRows = await records.list<unknown>();
+    expect(() => validateMaintenanceCorrectionSnapshot(restoredRows)).not.toThrow();
+    const restoredHistory = await service.listForTarget(targetRecordId);
+    const restoredOriginal = await records.get<typeof original.data>(targetRecordId);
+    expect(restoredOriginal?.data.amountPaise).toBe(10000);
+    expect(projectHistoricalCorrectionsV1(restoredOriginal!.data, restoredHistory)).toMatchObject({
+      status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
+    });
+    const afterRestoreProjection = await projectMaintenanceExpenseRecords([restoredOriginal as never], adapter);
+    expect(afterRestoreProjection[0].data.amountPaise).toBe(12500);
+    expect(afterRestoreProjection[0].correctionChainRevision).toBe(beforeRestoreProjection[0].correctionChainRevision);
+    expect(afterRestoreProjection[0].correctionRefs).toEqual(beforeRestoreProjection[0].correctionRefs);
+    expect(await records.get(workDailyId)).toEqual(immutableWorkBefore);
+    expect(await records.get(accrualId)).toEqual(immutableAccrualBefore);
+    await expect(service.submit({
+      correctionId: "maintenance-odometer-boundary", targetRecordId, expectedTargetRevision: 1,
+      expectedChainRevision: 1, fieldPath: "odometerKm", afterValue: 123,
+      reason: "Must not rewrite odometer facts", businessEffectiveDate: "2026-10-10",
+    })).rejects.toThrow("historical_correction_field_not_allowed");
     expect((await browserDatabase.records.get(targetRecordId))?.revision).toBe(1);
   });
 });

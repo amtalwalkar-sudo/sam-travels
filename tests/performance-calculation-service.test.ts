@@ -5,6 +5,7 @@ import type { CompletedTripFinancialObligation } from "../packages/application/s
 import type { RecordEnvelope } from "../packages/core/src/types";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import { PerformanceAdminSettingsServiceV1 } from "../packages/application/src/performance-admin-settings-service";
+import { PerformanceCalculationSnapshotBoundaryV1 } from "../packages/application/src/performance-calculation-snapshot-boundary";
 
 class MemoryRepository implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -37,17 +38,11 @@ function sources(): PerformanceCalculationReadModelsV1 {
         { date: "2026-03-16", kind: "emi" as const, amountPaise: 2_000, verified: true,
           sourceRefs: [{ sourceId: "emi", revision: 1 }] },
       ]),
-      listPreBusinessEmiPortions: vi.fn(async () => [
-        { sourceId: "emi-pre", revision: 1, amountPaise: 18_000, note: "Before business start", origin: "emi" as const },
-      ]),
     },
     compliance: {
       listDailyComplianceAllocations: vi.fn(async () => [
         { date: "2026-03-16", kind: "compliance" as const, amountPaise: 500, verified: true,
           sourceRefs: [{ sourceId: "compliance", revision: 1 }] },
-      ]),
-      listPreBusinessCompliancePortions: vi.fn(async () => [
-        { sourceId: "compliance-pre", revision: 1, amountPaise: 9_000, note: "Before business start", origin: "compliance" as const },
       ]),
     },
     manualPreBusinessCosts: { listEntries: vi.fn(async () => [
@@ -66,8 +61,7 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.daily[0].costs.emi).toBe(2_000);
     expect(result.daily[0].costs.compliance).toBe(500);
     expect(result.daily[0].costs["pre-business-manual-recovery"]).toBeGreaterThan(0);
-    expect(result.daily[0].costs["pre-business-emi-recovery"]).toBeGreaterThan(0);
-    expect(result.daily[0].costs["pre-business-compliance-recovery"]).toBeGreaterThan(0);
+    expect(result.recovery.daily.every(row => row.origin === "manual")).toBe(true);
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("emi");
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("compliance");
   });
@@ -86,19 +80,108 @@ describe("PerformanceCalculationServiceV1", () => {
 
   it("prepares and releases a shared source snapshot once for the full calculation", async () => {
     const base = sources();
+    const snapshotIdentity = "business-settings:3:2026-03-15";
     const fixed = {
       ...base.emi,
       ...base.compliance,
       prepareSnapshot: vi.fn(async (_from: string, _to: string) => {}),
+      getSnapshotIdentity: vi.fn(async () => snapshotIdentity),
       releaseSnapshot: vi.fn(),
     };
     const readModels: PerformanceCalculationReadModelsV1 = {
-      ...base, emi: fixed, compliance: fixed,
+      ...base,
+      businessSettings: {
+        ...base.businessSettings,
+        getSnapshotIdentity: vi.fn(async () => snapshotIdentity),
+      },
+      emi: fixed, compliance: fixed,
     };
-    await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
+    const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
+    expect(result.provenance.sourceSnapshotId).toContain(snapshotIdentity + ";performance-source-revisions:");
     expect(fixed.prepareSnapshot).toHaveBeenCalledTimes(1);
     expect(fixed.prepareSnapshot).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
     expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects one source appearing at two revisions inside a single calculation", async () => {
+    const readModels = sources();
+    vi.mocked(readModels.operatingCosts.listDailyCosts).mockResolvedValue([
+      { date: "2026-03-16", kind: "fuel", amountPaise: 1_000, verified: true,
+        sourceRefs: [{ sourceId: "shared-source", revision: 1 }] },
+    ]);
+    vi.mocked(readModels.revenue.listVerifiedDailyRevenue).mockResolvedValue([
+      { date: "2026-03-16", grossFarePaise: 10_000, cancellationFeePaise: 0, verified: true,
+        sourceRefs: [{ sourceId: "shared-source", revision: 2 }] },
+    ]);
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_revision_conflict");
+  });
+
+  it("rejects fixed-cost and operating projections captured from different business-settings revisions", async () => {
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      businessSettings: {
+        ...base.businessSettings,
+        getSnapshotIdentity: async () => "business-settings:4:2026-03-15",
+      },
+      operatingCosts: {
+        ...base.operatingCosts,
+        prepareSnapshot: async () => {},
+        getSnapshotIdentity: async () => "business-settings:5:2026-03-15",
+      },
+    };
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_snapshot_revision_mismatch");
+  });
+
+  it("rejects a source snapshot identity that changes while the calculation is reading", async () => {
+    const base = sources();
+    let identityRead = 0;
+    const getSourceSnapshotIdentity = vi.fn(async () =>
+      ++identityRead === 1 ? "operating-cost-snapshot@1" : "operating-cost-snapshot@2");
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      operatingCosts: {
+        ...base.operatingCosts,
+        prepareSnapshot: vi.fn(async () => {}),
+        getSourceSnapshotIdentity,
+      },
+    };
+
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_snapshot_changed_during_calculation");
+    expect(getSourceSnapshotIdentity).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects cross-source reads when the shared record repository changes mid-calculation", async () => {
+    const repository = new MemoryRepository();
+    const original: RecordEnvelope<{ value: string }> = {
+      id: "shared-source-record", schemaVersion: 1,
+      createdAt: "2026-03-16T00:00:00.000Z", updatedAt: "2026-03-16T00:00:00.000Z",
+      source: "web", revision: 1, data: { value: "before" },
+    };
+    await repository.put(original);
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base,
+      operatingCosts: {
+        listDailyCosts: async () => {
+          await repository.put({
+            ...original, revision: 2, updatedAt: "2026-03-16T00:01:00.000Z",
+            data: { value: "changed while other source reads are pending" },
+          });
+          return [{
+            date: "2026-03-16", kind: "fuel" as const, amountPaise: 1_000, verified: true,
+            sourceRefs: [{ sourceId: "shared-source-record", revision: 1 }],
+          }];
+        },
+      },
+    };
+    const boundary = new PerformanceCalculationSnapshotBoundaryV1(repository);
+    await expect(new PerformanceCalculationServiceV1(readModels, boundary)
+      .calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_global_source_snapshot_changed_during_calculation");
   });
 
   it("reconciles a corrected trip revenue revision on the next calculation snapshot", async () => {
@@ -122,8 +205,8 @@ describe("PerformanceCalculationServiceV1", () => {
       ...base,
       revenue,
       operatingCosts: { listDailyCosts: async () => [] },
-      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
-      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [] },
       manualPreBusinessCosts: { listEntries: async () => [] },
     };
     const service = new PerformanceCalculationServiceV1(readModels);
@@ -158,8 +241,8 @@ describe("PerformanceCalculationServiceV1", () => {
       ...base,
       revenue: { listVerifiedDailyRevenue: async () => [] },
       operatingCosts: { listDailyCosts: async () => [] },
-      emi: { listDailyEmiAllocations: async () => [], listPreBusinessEmiPortions: async () => [] },
-      compliance: { listDailyComplianceAllocations: async () => [], listPreBusinessCompliancePortions: async () => [] },
+      emi: { listDailyEmiAllocations: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [] },
       manualPreBusinessCosts: admin,
     };
     const result = await new PerformanceCalculationServiceV1(readModels)
@@ -172,6 +255,20 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.daily[0].date).toBe("2027-09-15");
     expect(result.daily[0].costs["pre-business-manual-recovery"]).toBe(0);
     expect(result.lifetime.costPaise).toBe(18_000);
+  });
+
+  it("binds Driver Target to the revisioned Admin settings snapshot", async () => {
+    const repository = new MemoryRepository();
+    const admin = new PerformanceAdminSettingsServiceV1(repository);
+    await admin.setMonthlyDriverTargetPaise(50_000, "web");
+    const base = sources();
+    const readModels: PerformanceCalculationReadModelsV1 = {
+      ...base, driverTarget: admin, manualPreBusinessCosts: admin,
+    };
+    const result = await new PerformanceCalculationServiceV1(readModels)
+      .calculate("2026-03-16", "2026-03-16");
+    expect(result.provenance.sourceSnapshotId)
+      .toContain("performance-driver-target:feature:performance:settings@1");
   });
 
   it("keeps the monthly target configuration read-only and unprorated for date filters", async () => {

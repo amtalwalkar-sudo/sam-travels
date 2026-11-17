@@ -11,6 +11,7 @@ const maxBytes = 24 * 1024;
 const failures = [];
 const sourceFiles = [];
 const importsByFeature = new Map();
+const retiredModuleImporters = [];
 
 const normalize = (value) => value.split(path.sep).join("/");
 
@@ -24,16 +25,7 @@ async function walk(directory) {
 }
 
 function layer(file) {
-  const p = normalize(file);
-  if (p.startsWith("packages/core/src/")) return "core";
-  if (p.startsWith("packages/domain/src/")) return "domain";
-  if (p.startsWith("packages/application/src/")) return "application";
-  if (p.startsWith("packages/presentation/src/")) return "presentation";
-  if (p.startsWith("packages/storage-browser/src/") || p.startsWith("packages/storage-android/src/")) return "storage";
-  if (p.startsWith("packages/features/")) return "feature";
-  if (p.startsWith("apps/web/src/ui/") || p.startsWith("apps/web/src/components/")) return "ui";
-  if (p.startsWith("apps/web/src/")) return "web-app";
-  return "outer";
+  return targetLayer(normalize(file)) ?? "outer";
 }
 
 function featureName(file) {
@@ -108,6 +100,10 @@ for (const absolute of sourceFiles) {
       failures.push(`${relative}:${reference.line}: browser persistence library "${specifier}" is private to the browser persistence adapter`);
     }
     const resolved = resolveImport(specifier, relative, resolveAlias);
+    const normalizedTarget = resolved?.replace(/\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "");
+    if (normalizedTarget === "src/domain/driver/workflow") {
+      retiredModuleImporters.push(`${relative}:${reference.line}`);
+    }
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
 
@@ -128,7 +124,7 @@ for (const absolute of sourceFiles) {
       specifier.startsWith("@capacitor/") ||
       /^(?:androidx\.|android\.|java\.|javax\.|org\.json|com\.dropbox\.)/.test(specifier);
 
-    if (["core", "domain", "application", "presentation"].includes(from) && platformOrUiImport) {
+    if (["core", "domain", "application", "presentation", "feature-domain", "feature-ports", "feature-application"].includes(from) && platformOrUiImport) {
       failures.push(`${relative}: ${from} layer must not depend on UI, persistence, or platform SDK "${specifier}"`);
     }
     if (from === "storage" && (
@@ -217,6 +213,10 @@ for (const absolute of kotlinSources) {
   }
 }
 
+if (retiredModuleImporters.length) {
+  failures.push(`retired legacy driver workflow is still imported by: ${retiredModuleImporters.join(", ")}`);
+}
+
 for (const cycle of detectCycles(featureGraph)) {
   failures.push(`feature dependency cycle detected: ${cycle}`);
 }
@@ -279,7 +279,8 @@ if (!applicationRegistry.includes("initializeRuntimeRegistry(definitions)") || !
 if (!workspaceConsumer.includes('from "../../../../packages/application/src"') || !workspaceConsumer.includes("useDriverWorkspace(runtime: RuntimeRegistry")) failures.push("apps/web/src/ui/use-driver-workspace.ts: runtime consumers must receive the application-layer registry singleton");
 const appPresentation = await readFile(path.join(root, "apps/web/src/ui/App.tsx"), "utf8");
 const screenComposition = await readFile(path.join(root, "apps/web/src/ui/PrimaryScreenComposition.tsx"), "utf8");
-const driveScreen = await readFile(path.join(root, "apps/web/src/ui/screens/DriveScreen.tsx"), "utf8");
+const driveScreen = await readFile(path.join(root, "packages/features/work/presentation/DriveScreen.tsx"), "utf8");
+const workScreenRuntime = await readFile(path.join(root, "packages/features/work/runtime.ts"), "utf8");
 const shellPresentation = await readFile(path.join(root, "apps/web/src/ui/ApplicationShell.tsx"), "utf8");
 const featureCatalogue = await readFile(path.join(root, "apps/web/src/generated-feature-catalog.ts"), "utf8");
 if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellProps>") ||
@@ -288,18 +289,26 @@ if (!appPresentation.includes("ShellRenderer?: ComponentType<ApplicationShellPro
     appPresentation.includes("FeatureScreenHost") || appPresentation.includes("AdminWorkspace")) {
   failures.push("apps/web/src/ui/App.tsx: keep App as a thin replaceable-shell composition root; screen internals belong in screen composition modules");
 }
-if (!shellPresentation.includes("shellDefinition: typeof primaryShellDefinition") ||
-    !shellPresentation.includes("shellDefinition.navigation.map")) {
-  failures.push("apps/web/src/ui/ApplicationShell.tsx: shell renderer must consume the application-supplied navigation definition");
+if (!shellPresentation.includes("ApplicationShellDefinition<PrimaryScreen, string>") ||
+    !shellPresentation.includes("shellDefinition.navigation.map") ||
+    shellPresentation.includes("DeviceReadinessPrompt") ||
+    !appPresentation.includes("DeviceReadinessPrompt")) {
+  failures.push("The replaceable shell must consume a stable shell contract while global readiness overlays remain application-owned");
 }
 if (!featureCatalogue.includes("ADMIN_FEATURE_EXTENSION") ||
-    !screenComposition.includes('mountPoint="Admin"') ||
-    !screenComposition.includes('contextContract={{ id: "admin.workspace", version: 1 }}')) {
+    !featureCatalogue.includes("WORK_FEATURE_EXTENSION") ||
+    !screenComposition.includes('mountPoint: "Admin"') ||
+    !screenComposition.includes('id: "admin.workspace", version: 1')) {
   failures.push("Admin workspace must be registered in the generated feature catalogue and mounted through its versioned feature screen contract");
 }
-if (!driveScreen.includes("useDriverWorkspace") || !driveScreen.includes('mountPoint="Drive"') ||
-    screenComposition.includes("mountPoint=\"Drive\"")) {
-  failures.push("Drive workflow presentation must be isolated in its screen module, not embedded in the shell or central screen switch");
+if (!workScreenRuntime.includes('mountPoint: "WorkScreen"') ||
+    !workScreenRuntime.includes('id: "work.drive-screen.v1"') ||
+    !driveScreen.includes("DriverWorkflowPanel") ||
+    driveScreen.includes("useDriverWorkspace") ||
+    driveScreen.includes("FeatureScreenHost") ||
+    !screenComposition.includes('mountPoint: "WorkScreen"') ||
+    /<DriveScreen(?:\\s|>)/.test(screenComposition) || screenComposition.includes('from "../../../../packages/features/work/presentation/DriveScreen"')) {
+  failures.push("Work must own a registered, replaceable Drive screen; application composition supplies its typed context and extension slot");
 }
 
 const featureScreenHost = await readFile(path.join(root, "apps/web/src/ui/FeatureScreenHost.tsx"), "utf8");

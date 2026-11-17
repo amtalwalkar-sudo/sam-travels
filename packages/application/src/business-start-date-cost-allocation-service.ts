@@ -43,6 +43,10 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
     id: string; fingerprint: string; businessStartDate: string;
     businessSettingsRevision: number; calculationVersion: number; createdAt: string;
   }>[];
+  sourceCorrectionRefs?: readonly Readonly<{
+    sourceId: string;
+    refs: readonly Readonly<{ sourceId: string; revision: number }>[];
+  }>[];
   result: BusinessStartDateAllocationResultV1;
 }>;
 
@@ -54,7 +58,8 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
 export class BusinessStartDateCostAllocationService {
   constructor(
     private readonly settings: Pick<BusinessSettingsService, "get">,
-    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview">,
+    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview"> &
+      Partial<Pick<ComplianceAnalysisService, "listCorrectionReferences">>,
     private readonly loans: Pick<FinanceLoanService, "list">,
     private readonly prepayments: Pick<FinanceLoanPrepaymentService, "getScheduleHistory">,
     private readonly payments: Pick<FinanceLoanPaymentService, "list">,
@@ -68,6 +73,7 @@ export class BusinessStartDateCostAllocationService {
     businessSettingsRevision: number,
     result: BusinessStartDateAllocationResultV1,
     generatedAt: string,
+    sourceCorrectionRefs: readonly Readonly<{ sourceId: string; refs: readonly Readonly<{ sourceId: string; revision: number }>[] }>[] = [],
   ): Promise<Readonly<{ id: string; fingerprint: string }> | undefined> {
     if (!this.provenanceRepository) return undefined;
     const canonicalInputs = JSON.stringify({
@@ -79,6 +85,10 @@ export class BusinessStartDateCostAllocationService {
         sourceId: source.sourceId, sourceKind: source.sourceKind, sourceVersion: source.sourceVersion,
         scheduleVersion: source.scheduleVersion, sourceAmountPaise: source.sourceAmountPaise,
         disposition: source.disposition, eligibleFrom: source.eligibleFrom, eligibleTo: source.eligibleTo,
+      })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
+      sourceCorrectionRefs: sourceCorrectionRefs.map(item => ({
+        sourceId: item.sourceId,
+        refs: item.refs.map(ref => ({ ...ref })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
       })).sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
     });
     const digest = fingerprint(canonicalInputs);
@@ -129,6 +139,12 @@ export class BusinessStartDateCostAllocationService {
     ]);
     if (!settings) throw new Error("business_start_date_not_configured");
     const businessStartDate = settings.data.businessStartDate;
+    const sourceCorrectionRefs = this.complianceAnalysis.listCorrectionReferences
+      ? (await Promise.all(overview.records.map(async record => ({
+          sourceId: record.id,
+          refs: await this.complianceAnalysis.listCorrectionReferences!(record.id),
+        })))).filter(item => item.refs.length > 0)
+      : [];
     const sources = [];
 
     for (const record of overview.records) {
@@ -219,7 +235,9 @@ export class BusinessStartDateCostAllocationService {
 
     const generatedAt = this.now();
     const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
-    const provenance = await this.retainProvenance(businessStartDate, settings.revision, result, generatedAt);
+    const provenance = await this.retainProvenance(
+      businessStartDate, settings.revision, result, generatedAt, sourceCorrectionRefs,
+    );
     const provenanceHistory = await this.getProvenanceHistory();
     return Object.freeze({
       businessStartDate,
@@ -227,6 +245,12 @@ export class BusinessStartDateCostAllocationService {
       generatedAt,
       ...(provenance ? { provenance } : {}),
       ...(provenanceHistory ? { provenanceHistory } : {}),
+      ...(sourceCorrectionRefs.length ? {
+        sourceCorrectionRefs: Object.freeze(sourceCorrectionRefs.map(item => Object.freeze({
+          sourceId: item.sourceId,
+          refs: Object.freeze(item.refs.map(ref => Object.freeze({ ...ref }))),
+        }))),
+      } : {}),
       result,
     });
   }

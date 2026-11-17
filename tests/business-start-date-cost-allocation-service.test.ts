@@ -41,7 +41,14 @@ function createService(options: { settlement?: boolean; overlap?: boolean; recor
   return new BusinessStartDateCostAllocationService(
     { async get() { return { id: "feature:business-settings:business", revision: 7,
       data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
-    { async getOverview() { return overview; } } as never,
+    {
+      async getOverview() { return overview; },
+      async listCorrectionReferences(targetRecordId: string) {
+        return targetRecordId === complianceRecord.id
+          ? [{ sourceId: "historical-correction:compliance-premium", revision: 1 }]
+          : [];
+      },
+    } as never,
     { async list() { return [loan]; } } as never,
     { async getScheduleHistory() { return {
       currentScheduleVersion: 2,
@@ -75,6 +82,25 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(report.result.sources.some(item => item.sourceKind === "emi" && item.scheduleVersion === 2)).toBe(true);
     expect(report.result.daily.every(item => item.date >= report.businessStartDate)).toBe(true);
     expect(report.result.monthly.reduce((sum,item)=>sum+item.amountPaise,0)).toBe(10_000);
+  });
+
+  it("carries Compliance correction-chain references into the allocation provenance", async () => {
+    const records = new Map<string, any>();
+    const repository = {
+      async get(id: string) { return records.get(id); },
+      async list() { return [...records.values()]; },
+      async compareAndSet(id: string, expectedRevision: number | null, next: any) {
+        if (expectedRevision === null ? records.has(id) : records.get(id)?.revision !== expectedRevision) return false;
+        records.set(id, next);
+        return true;
+      },
+    };
+    const report = await createService({}, repository).getReport();
+    expect(report.sourceCorrectionRefs).toContainEqual({
+      sourceId: complianceRecord.id,
+      refs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }],
+    });
+    expect([...records.values()][0].data.canonicalInputs).toContain("historical-correction:compliance-premium");
   });
 
   it("restates daily costs when a renewed Compliance record has a changed premium", async () => {

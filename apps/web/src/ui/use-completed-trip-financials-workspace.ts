@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { AtomicRecordRepository, RecordRepository } from "../../../../packages/core/src";
-import { getPlatformRecordSource } from "../native-store";
-import { getPersonIdentityService } from "../person-identity-runtime";
-import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
-import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
-import { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { calculateTripFinancialSummary, submitCompletedTripFinancials as submitCompletedFinancials, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";
+import { calculateTripFinancialSummary, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";
+import type { TripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 type Draft = { fare:string; toll:string; tollPayer:string; parking:string; parkingPayer:string };
 const emptyDraft=():Draft=>({fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""});
@@ -25,7 +20,7 @@ function fromValues(values:Record<string,unknown>):Draft {
 }
 
 export function useCompletedTripFinancialsWorkspace(
-  platformRepository:RecordRepository&AtomicRecordRepository,
+  tripFinancialForms:TripFinancialFormRuntimeV1,
   refreshKey:number|undefined,
   setDriverMessage:Dispatch<SetStateAction<string>>,
 ) {
@@ -33,33 +28,16 @@ export function useCompletedTripFinancialsWorkspace(
   const [completedTripFinancialDrafts,setCompletedTripFinancialDrafts]=useState<Record<string,Draft>>({});
   const [completedTripFinancialBusy,setCompletedTripFinancialBusy]=useState(false);
   const queues=useRef(new Map<string,Promise<void>>());
-  const forms=useMemo(()=>{
-    const copies=new RecordFormWorkingCopyRepository(platformRepository,getPlatformRecordSource());
-    return new SharedFormRuntime(copies,{
-      submit:async command=>{
-        if(command.formId!==TRIP_COMPLETED_FINANCIALS_FORM_V1.id||command.action!=="submit")throw new Error("unsupported_trip_financial_form");
-        const values=command.values as {farePaise:number;tollPaise?:number;tollPayer?:"driver"|"customer";parkingPaise?:number;parkingPayer?:"driver"|"customer"};
-        const actor = await getPersonIdentityService().currentActor();
-        return submitCompletedFinancials(platformRepository,getPlatformRecordSource(),command.instanceId,values,command.operationId,undefined,
-          { personId: actor.actorId, role: actor.role });
-      },
-    });
-  },[platformRepository]);
-
-  const refresh=useCallback(async()=>{
-    const rows=await platformRepository.list<CompletedTripFinancialObligation>();
-    const obligations=rows.filter(row=>row.id.startsWith("work:trip-financial-obligation:")&&!row.deletedAt&&
-      row.data?.kind==="completed_ride_financials"&&row.data.status==="pending");
+    const refresh=useCallback(async()=>{
+    const obligations=await tripFinancialForms.listPendingCompletedTripFinancials();
     const drafts:Record<string,Draft>={};
     for(const row of obligations){
       const tripId=row.data.tripId;
-      let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
-      if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
-      drafts[tripId]=fromValues(copy.values as Record<string,unknown>);
+      drafts[tripId]=fromValues(await tripFinancialForms.openCompletedTripFinancialDraft(tripId) as Record<string,unknown>);
     }
     setPendingCompletedTripFinancials(obligations.map(row=>({id:row.id,data:row.data})));
     setCompletedTripFinancialDrafts(drafts);
-  },[platformRepository,forms]);
+  },[tripFinancialForms]);
 
   useEffect(()=>{void refresh().catch(cause=>setDriverMessage(cause instanceof Error?cause.message:"Unable to restore Fare and trip financial forms"));},
     [refresh,refreshKey,setDriverMessage]);
@@ -76,9 +54,7 @@ export function useCompletedTripFinancialsWorkspace(
     const fieldId=field==="fare"?"farePaise":field==="toll"?"tollPaise":field==="tollPayer"?"tollPayer":field==="parking"?"parkingPaise":"parkingPayer";
     const previous=queues.current.get(tripId)??Promise.resolve();
     const next=previous.then(async()=>{
-      let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
-      if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
-      await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,fieldId,value);
+      await tripFinancialForms.updateCompletedTripFinancialDraft(tripId,fieldId,value);
     });
     queues.current.set(tripId,next);await next;
   }
@@ -95,13 +71,7 @@ export function useCompletedTripFinancialsWorkspace(
     setCompletedTripFinancialBusy(true);setDriverMessage("Submitting trip financials…");
     try{
       await queues.current.get(tripId);
-      let copy=await forms.open(TRIP_COMPLETED_FINANCIALS_FORM_V1,tripId);
-      if(copy.values.tripId!==tripId)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,"tripId",tripId);
-      for(const [field,value] of Object.entries({farePaise:fare,tollPaise,tollPayer:tollPaise===undefined?undefined:draft.tollPayer||undefined,
-        parkingPaise,parkingPayer:parkingPaise===undefined?undefined:draft.parkingPayer||undefined})){
-        if(copy.values[field]!==value)copy=await forms.update(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy,field,value);
-      }
-      await forms.submit(TRIP_COMPLETED_FINANCIALS_FORM_V1,copy);
+      await tripFinancialForms.submitCompletedTripFinancialDraft(tripId,{farePaise:fare,tollPaise,tollPayer:tollPaise===undefined?undefined:draft.tollPayer as "driver"|"customer"|undefined,parkingPaise,parkingPayer:parkingPaise===undefined?undefined:draft.parkingPayer as "driver"|"customer"|undefined});
       await refresh();setDriverMessage("Fare and trip financials submitted");
     }catch(cause){setDriverMessage(cause instanceof Error?cause.message:"Trip financials not submitted");}
     finally{setCompletedTripFinancialBusy(false);}

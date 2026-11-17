@@ -311,7 +311,7 @@ try {
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
   await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
-  await page.getByText("Monthly Driver Target", { exact: true }).first().waitFor({ state: "visible" });
+  await page.getByText("Target for selected period", { exact: true }).first().waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
   await page.getByRole("columnheader", { name: "Eligible costs", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();

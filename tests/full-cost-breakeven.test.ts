@@ -30,6 +30,55 @@ describe("Full-cost breakeven calculation v1", () => {
     expect(result.yearly).toEqual([{ year: "2026", totalCostPaise: 17_600 }]);
   });
 
+  it("counts only explicitly qualified active driving days and includes zero-km active days in the average", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      dailyActivity: [
+        { date: "2026-11-01", businessKm: 100, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "distance-1", distanceSourceRevision: 1 },
+        { date: "2026-11-02", businessKm: 0, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "distance-2", distanceSourceRevision: 1 },
+      ],
+    }));
+    expect(result.daily.map(row => row.activeDrivingDay)).toEqual([true, true]);
+    expect(result.activeDrivingDayCount).toBe(2);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(50);
+  });
+
+  it("includes all confirmed business distance and uses active driving days only as the average denominator", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      to: "2026-11-03",
+      dailyActivity: [
+        { date: "2026-11-01", businessKm: 100, activeDrivingDay: false,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "non-active", distanceSourceRevision: 1 },
+        { date: "2026-11-02", businessKm: 0, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "active-zero", distanceSourceRevision: 1 },
+        { date: "2026-11-03", businessKm: 50, activeDrivingDay: true,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "active-50", distanceSourceRevision: 1 },
+      ],
+    }));
+    expect(result.activeDrivingDayCount).toBe(2);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(75);
+    expect(result.distanceSummary.totalBusinessKm).toBe(150);
+    expect(result.distanceSummary.daily.map(row => row.businessKm)).toEqual([100, 0, 50]);
+    expect(result.distanceSummary.weekly.reduce((sum, row) => sum + row.businessKm, 0)).toBe(150);
+    expect(result.distanceSummary.monthly).toMatchObject([
+      { period: "2026-11", businessKm: 150, activeDrivingDayCount: 2, averageBusinessKmPerActiveDrivingDay: 75 },
+    ]);
+  });
+
+  it("does not count a shift-only day or a ride-only day as active without explicit qualification", () => {
+    const result = calculateFullCostBreakevenV1(fixture({
+      dailyActivity: [
+        { date: "2026-11-01", businessKm: 100, activeDrivingDay: false,
+          fuelCostPaise: 0, maintenanceCostPaise: 0, distanceSourceId: "shift-only", distanceSourceRevision: 1 },
+        { date: "2026-11-02", businessKm: 20, fuelCostPaise: 0, maintenanceCostPaise: 0,
+          distanceSourceId: "unmatched-ride", distanceSourceRevision: 1 },
+      ],
+    }));
+    expect(result.activeDrivingDayCount).toBe(0);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBeNull();
+  });
+
   it("reconciles arbitrary ranges by summing canonical daily rows", () => {
     const result = calculateFullCostBreakevenV1(fixture());
     expect(result.totalCostPaise).toBe(result.daily.reduce((sum, row) => sum + row.totalCostPaise, 0));

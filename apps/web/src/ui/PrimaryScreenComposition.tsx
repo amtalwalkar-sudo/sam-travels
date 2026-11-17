@@ -1,41 +1,76 @@
-import type { ReactNode } from "react";
+import { useMemo } from "react";
 import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "../../../../packages/application/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
+import type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "../../../../packages/features/work";
+import type { TimelineScreenContext } from "../../../../packages/features/timeline";
+import { PerformanceScreenControllerV1, PerformanceScreenServicesAdapterV1, type PerformanceScreenContextV1 } from "../../../../packages/features/performance";
+import type { AdminPresentationContextV1 } from "../../../../packages/features/admin";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
-import type { useDriverWorkspace } from "./use-driver-workspace";
+import type { PrimaryScreen } from "./ApplicationShell";
 
-export type PrimaryScreenCompositionProps = Readonly<{
-  activeScreen: "Drive" | "Timeline" | "Performance" | "Admin";
-  runtimeRegistry: RuntimeRegistry;
-  workspace: ReturnType<typeof useDriverWorkspace>;
-  performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
-  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-  children: ReactNode;
+const WORK_SCREEN_CONTRACT = Object.freeze({
+  mountPoint: "WorkScreen",
+  contextContract: Object.freeze({ id: "work.drive-screen", version: 1 }),
+});
+const ADMIN_SCREEN_CONTRACT = Object.freeze({
+  mountPoint: "Admin",
+  contextContract: Object.freeze({ id: "admin.workspace", version: 1 }),
+});
+
+export type PrimaryScreenWorkspace = Readonly<DriveScreenWorkspaceV1 & {
+  loadTimeline: TimelineScreenContext["loadTimeline"];
 }>;
 
-/** Replaceable screen composition; feature renderers remain opaque behind their typed host contracts. */
+export type PrimaryScreenCompositionProps = Readonly<{
+  activeScreen: PrimaryScreen;
+  runtimeRegistry: RuntimeRegistry;
+  workspace: PrimaryScreenWorkspace;
+  performanceCalculation: Pick<PerformanceCalculationServiceV1, "calculate">;
+  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
+}>;
+
+/** Generic primary-screen host. Feature renderers own their UI; this layer supplies typed contexts only. */
 export function PrimaryScreenComposition({
   activeScreen, runtimeRegistry, workspace,
-  performanceCalculation, fullCostBreakeven, children,
+  performanceCalculation, fullCostBreakeven,
 }: PrimaryScreenCompositionProps) {
-  return <>
-    <div hidden={activeScreen !== "Drive"}>{children}</div>
-    {activeScreen === "Timeline" && (
-      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline"
-        contextContract={{ id: "timeline.main", version: 1 }}
-        context={{ loadTimeline: workspace.loadTimeline }} />
-    )}
-    {activeScreen === "Performance" && (
-      <section className="screen-heading">
-        <small>YOUR WORKSPACE</small><h1>Performance</h1>
-        <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
-          contextContract={{ id: "performance.host", version: 1 }} context={{ calculation: performanceCalculation, fullCostBreakeven }} />
-      </section>
-    )}
-    {activeScreen === "Admin" && (
-      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Admin"
-        contextContract={{ id: "admin.workspace", version: 1 }} context={<AdminWorkspace />} />
-    )}
-  </>;
+  const performanceController = useMemo(
+    () => new PerformanceScreenControllerV1(
+      new PerformanceScreenServicesAdapterV1(performanceCalculation, fullCostBreakeven),
+    ),
+    [performanceCalculation, fullCostBreakeven],
+  );
+
+  const workContext: DriveScreenContextV1 = {
+    workspace,
+    extensions: (
+      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive"
+        contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
+    ),
+  };
+  const timelineContext: TimelineScreenContext = {
+    loadTimeline: workspace.loadTimeline,
+  };
+  const performanceContext: PerformanceScreenContextV1 = {
+    loadPeriod: (from, to) => performanceController.loadPeriod(from, to),
+  };
+  const adminContext: AdminPresentationContextV1 = <AdminWorkspace />;
+
+  switch (activeScreen) {
+    case "Drive":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint={WORK_SCREEN_CONTRACT.mountPoint}
+        contextContract={WORK_SCREEN_CONTRACT.contextContract} context={workContext} />;
+    case "Timeline":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Timeline"
+        contextContract={{ id: "timeline.main", version: 1 }} context={timelineContext} />;
+    case "Performance":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint="Performance"
+        contextContract={{ id: "performance.host", version: 1 }} context={performanceContext} />;
+    case "Admin":
+      return <FeatureScreenHost registry={runtimeRegistry} mountPoint={ADMIN_SCREEN_CONTRACT.mountPoint}
+        contextContract={ADMIN_SCREEN_CONTRACT.contextContract} context={adminContext} />;
+    default:
+      throw new Error("primary_screen_not_registered");
+  }
 }

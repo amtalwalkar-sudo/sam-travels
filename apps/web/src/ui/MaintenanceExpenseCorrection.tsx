@@ -41,6 +41,10 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
         businessEffectiveDate: expense.data.expenseDate,
       });
       setHistory(await service.listForTarget(expense.id));
+      // A committed correction is a new chain position. Keep the operation ID only
+      // across ambiguous failures; never reuse a successful submission on the next edit.
+      correctionId.current = null;
+      expectedChainRevision.current = null;
       setOpen(false);
       setMessage("Correction appended. The original expense record remains unchanged.");
       await onCorrected();

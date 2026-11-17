@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./work/work-screen.css";
+import "./work-screen.css";
 
 /**
  * Replaceable Work presentation host.

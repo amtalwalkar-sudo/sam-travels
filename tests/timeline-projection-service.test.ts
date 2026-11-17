@@ -7,7 +7,7 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified } from "../packages/storage-browser/src";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
-import { TimelineProjectionService } from "../packages/application/src/timeline-projection-service";
+import { TimelineProjectionService } from "../packages/features/timeline";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 import { buildTimelineProjection } from "../packages/domain/src/timeline";
 

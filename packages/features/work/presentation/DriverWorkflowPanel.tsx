@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { getDriverSwipeAction } from "../../../../../packages/features/work-shift/index";
-import { SwipeActionBar } from "../SwipeActionBar";
-import { driverPresentationCssVars } from "../driver-presentation";
-import type { DriverStateProjection, DriverTransitionCommand } from "../../../../../packages/features/work-shift";
+import { getDriverSwipeAction } from "./driver-swipe-action";
+import { SwipeActionBar } from "./SwipeActionBar";
+import { driverPresentationCssVars } from "./driver-presentation";
+import type { DriverStateProjection, DriverTransitionCommand } from "../../../core/src/commands";
 
 type CompletedTripFinancialDraft = {
   fare: string;
@@ -12,7 +12,7 @@ type CompletedTripFinancialDraft = {
   parkingPayer: string;
 };
 
-type DriverWorkflowWorkspace = Readonly<{
+export type DriverWorkflowWorkspace = Readonly<{
   driver: DriverStateProjection | null;
   pending: ReadonlyArray<{ command: DriverTransitionCommand; status: string; reason?: string }>;
   pendingBlocksWorkflow: boolean;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { NetworkAccessDisabledError } from "../packages/core/src/network";
-import { GeoapifyProxyReverseGeocoder, TimelineReverseGeocodingService } from "../packages/application/src/timeline-reverse-geocoding";
+import { GeoapifyProxyReverseGeocoder, TimelineReverseGeocodingService } from "../packages/features/timeline";
 import type { DriverEvent } from "../packages/domain/src/driver-workflow";
 
 function event(id: string, eventType = "shift_start", latitude = 19.076, longitude = 72.8777): DriverEvent {

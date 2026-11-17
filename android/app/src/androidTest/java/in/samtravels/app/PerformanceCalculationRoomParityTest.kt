@@ -68,9 +68,11 @@ class PerformanceCalculationRoomParityTest {
             // which runs the shared platform-neutral calculation against this
             // same fixture. Room must preserve the exact source records supplied
             // to that calculation, including source revisions.
-            assertEquals(30_000, expected.getInt("recoveryTotalPaise"))
+            assertEquals(18_000, expected.getInt("recoveryTotalPaise"))
             assertEquals("2027-09-15", expected.getString("recoveryToExclusive"))
-            assertEquals(-4_000, expected.getInt("lifetimeProfitPaise"))
+            assertEquals(8_000, expected.getInt("lifetimeProfitPaise"))
+            assertEquals(902_419, expected.getInt("lifetimeTargetPaise"))
+            assertEquals(-894_419, expected.getInt("lifetimeTargetPositionPaise"))
         } finally {
             db.close()
         }

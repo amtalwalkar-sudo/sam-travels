@@ -118,6 +118,85 @@ describe("BusinessExpensesService", () => {
     const [daily] = await service.listDailyExpenseOutputs();
     expect(daily.fuelPaise).toBe(25000);
     expect(daily.sourceIds).toContain(fuelId);
+    await expect(service.listCorrectionReferences(fuelId)).resolves.toEqual([
+      { sourceId: "historical-correction:fuel-amount-fix", revision: 1 },
+    ]);
+  });
+
+
+  it("recalculates paid expense outputs on the corrected effective business date", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const expenseId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174088";
+    const correction = {
+      async listForTarget(targetRecordId: string) {
+        return targetRecordId === expenseId ? [{
+          schemaVersion: 1 as const, correctionId: "platform-fee-date-fix",
+          targetRecordId: expenseId, targetRecordRevision: 1, featureId: "business-expenses",
+          chainRevision: 1, fieldPath: "businessDate", beforeValue: "2026-11-15",
+          afterValue: "2026-11-17", reason: "Corrected to the actual paid date",
+          actor: { role: "driver" as const, actorId: "driver-1" },
+          recordedAt: "2026-11-18T00:00:00.000Z", businessEffectiveDate: "2026-11-18",
+        }] : [];
+      },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-18T00:00:00.000Z", correction);
+    await service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174088", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 1_200,
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid pass" },
+    });
+    const outputs = await service.listDailyExpenseOutputs();
+    expect(outputs).toContainEqual(expect.objectContaining({
+      businessDate: "2026-11-17", platformFeesPaise: 1_200,
+      sourceIds: [expenseId], sourceRevisions: [1],
+    }));
+    expect(outputs.some(row => row.businessDate === "2026-11-15")).toBe(false);
+    await expect(service.listCorrectionReferences(expenseId)).resolves.toEqual([
+      { sourceId: "historical-correction:platform-fee-date-fix", revision: 1 },
+    ]);
+  });
+
+  it("rebuilds the prospective fuel cost/km timeline from corrected purchase amounts", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const correctedPurchaseId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174051";
+    const corrections = {
+      async listForTarget(targetRecordId: string) {
+        if (targetRecordId !== correctedPurchaseId) return [];
+        return [{
+          schemaVersion: 1 as const, correctionId: "fuel-interval-amount-fix",
+          targetRecordId: correctedPurchaseId, targetRecordRevision: 1,
+          featureId: "business-expenses", chainRevision: 1, fieldPath: "amountPaise",
+          beforeValue: 20_000, afterValue: 25_000,
+          reason: "Corrected against the original pump receipt",
+          actor: { role: "driver" as const, actorId: "driver-1" },
+          recordedAt: "2026-11-21T10:00:00.000Z",
+        }];
+      },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-21T10:00:00.000Z", corrections);
+    const purchases = [
+      ["123e4567-e89b-42d3-a456-426614174050", "2026-11-01T09:00:00.000Z", 100, false, 50_000],
+      ["123e4567-e89b-42d3-a456-426614174051", "2026-11-05T09:00:00.000Z", 110, true, 20_000],
+      ["123e4567-e89b-42d3-a456-426614174052", "2026-11-10T09:00:00.000Z", 120, false, 30_000],
+    ] as const;
+    for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of purchases) {
+      await service.createFuelPurchase({ uuid, source: "web", data: {
+        businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10),
+        occurredAt, vehicleId, odometerKm, pricePaisePerKg: 10_000, amountPaise, partialRefill,
+      }});
+    }
+    const history = await service.listFuelCostRateHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
+      cumulativeSpendPaise: 55_000, cumulativeDistanceKm: 20,
+      costPaisePerKm: { numerator: "55000", denominator: "20" },
+      sourcePurchaseIds: [correctedPurchaseId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052"],
+    });
   });
 
   it("keeps each Admin source distinct and applies the approved normal/full-cost treatment", async () => {

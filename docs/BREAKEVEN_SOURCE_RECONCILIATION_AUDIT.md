@@ -176,3 +176,105 @@ This audit does not authorize:
 **Upstream implementation corrections:** present in draft PR #82; Architecture, Web, Android and Integrated regression CI passed on exact head `90f68258d6be581a644512751090a87fd90b5f67` (run `43554173161`).  
 **Breakeven runtime implementation:** **blocked** until the source read models are re-audited, notwithstanding the green CI.  
 **Runtime code changed:** yes, only in upstream source owners and their regression tests. No breakeven engine, target calculation or presentation has been implemented.
+
+
+## 10. Post-PR #97 source read-model re-audit — 2026-11-17
+
+**Re-audit baseline:** PR #97 architecture branch after conformance cleanup; source evidence inspected against the current branch implementation. This section supplements the historical audit above; it does not rewrite its original baseline or silently approve product policy.
+
+### 10.1 Source-to-consumer trace
+
+| Source contract | Owning implementation → consumer | Evidence observed | Finding |
+|---|---|---|---|
+| Work/Shift odometer and daily distance | Work v2 shift/rotation → `work:daily-business-km` → Maintenance daily accrual → Full-cost source projection → Performance operating-cost adapter | PWA/Room parity fixture; `maintenance-daily-accrual-integration` fail-closed checks; `tests/performance-operating-cost-adapter.test.ts`; Android `WorkDailyBusinessKilometreStoreTest` | Confirmed business km only; unallocated boundary contribution blocks accrual; personal km remains separate. Automated coverage exists; physical-device acceptance remains deferred. |
+| Fuel purchase and weighted rate | `BusinessExpensesService.listFuelPurchases()` → append-only correction projection → full-to-full interval calculation → prospective weighted rate history → confirmed daily business km × effective rate → full-cost source projection | `tests/business-expenses-calculations.test.ts`; `tests/business-expenses-service.test.ts`; `tests/full-cost-breakeven-service.test.ts` | Purchase spend is not separately added to breakeven; missing effective rate for positive km marks fuel completeness incomplete. A new service regression was added to prove a corrected intervening purchase changes the next weighted rate; its exact-head CI is pending. |
+| Platform fees, challans and miscellaneous expenses | Business Expenses source records and daily projection → FullCostBreakevenService | `tests/business-expenses-service.test.ts`; `tests/business-expenses-calculations.test.ts`; `tests/full-cost-breakeven-service.test.ts` | Platform fee is a paid event; unpaid challan excluded; paid challan recognized; standalone reversals remain signed on reversal date. |
+| Trip gross fare and cancellation fee | Work immutable tripContext → TripFinancialService submitted read model → `PerformanceTripRevenueAdapterV1` | `tests/performance-trip-revenue-adapter.test.ts`; trip-financial service tests; browser/Android cancellation snapshot coverage | Current records use immutable operational date; missing/invalid legacy context is incomplete, not guessed from current selection. |
+| Driver-paid trip toll/parking | Submitted trip closeout payer fields → FullCostBreakevenService dated driver expense; linked duplicate expense records are shadowed | `tests/full-cost-breakeven-service.test.ts`; `tests/business-expenses-service.test.ts` | Trip obligation is counted once. Matching manual duplicate and its reversal do not cancel the trip obligation. Customer-paid amounts are not driver expenses. |
+| Compliance validity and overlap | Compliance analysis/review → BusinessStartDateCostAllocationService → canonical daily rows → fixed-cost adapter/full-cost projection | `tests/business-start-date-cost-allocation-service.test.ts`; `tests/performance-fixed-cost-allocation-adapter.test.ts` | Renewal restates from the renewed record; unresolved overlap withholds only intersecting dates and remains review-required. Canonical daily rows are consumed without re-spreading. |
+| EMI schedule, prepayment and settlement | Finance Loan schedule history/payment ledger → BusinessStartDateCostAllocationService → canonical daily EMI rows → fixed-cost adapter/full-cost projection | `tests/finance-loan-prepayment-service.test.ts`; `tests/business-start-date-cost-allocation-service.test.ts`; `tests/performance-fixed-cost-allocation-adapter.test.ts` | Fixed EMI / shorter tenure and schedule-history composition are implemented; settlement cutoff excludes future allocations. Commit compares loan, payment-ledger and prepayment-state revisions atomically. A competing-prepayment CAS regression was added; exact-head CI is pending. |
+| Maintenance rate and accrual | Maintenance rate history + fully allocated Work daily km → immutable daily accrual → full-cost projection | `tests/maintenance-correction-indexeddb.test.ts`; Work daily allocation tests; Maintenance service tests | Accrual snapshots the effective operational-date rate and is idempotent for the same daily-distance revision. A changed source snapshot conflicts rather than silently rewriting the accrual. |
+
+### 10.2 Findings that are now evidenced
+
+1. **Trip cancellation attribution:** the earlier audit's missing cancellation snapshot is corrected in the current branch. Browser and Android cancellation closeout copy immutable tripContext; the public submitted-trip-financial read model exposes both submitted record kinds and refuses to invent context for legacy records.
+2. **Fuel correction restatement:** the Business Expenses service projects append-only corrections before deriving fuel intervals and weighted rate history. A targeted regression now checks the corrected amount flows into the next completed interval's weighted rate. The test is not counted as passing until CI on the exact new head succeeds.
+3. **Prepayment concurrency boundary:** the Finance prepayment commit uses one compare-and-set batch over Loan revision, payment-ledger revision and prepayment-state revision. Competing previews therefore cannot both commit against the same stale state. A direct competing-command regression has been added and awaits exact-head CI.
+4. **Canonical fixed-cost consumption:** the Performance fixed-cost adapter consumes canonical daily EMI and Compliance rows verbatim. EMI/Compliance pre-business carry-forward is already present in those rows; only manual pre-business entries use the generic recovery schedule. This prevents duplicate recovery.
+
+### 10.3 Correction-chain source provenance — implementation added, CI pending
+
+The Business Expenses owner now exposes listCorrectionReferences(targetRecordId), returning the immutable correction record identity (historical-correction:<correctionId>) and chain revision separately from the original source record revision. FullCostBreakevenService carries those references into fuel activity and dated expense source references. The original purchase/expense envelope revision is not falsified or overwritten.
+
+Regression coverage now checks:
+- corrected fuel purchase values are applied before completed-interval weighted rate history is rebuilt;
+- the Business Expenses owner returns the correction-chain reference independently;
+- the full-cost calculation provenance contains the correction record reference for the affected fuel rate.
+
+**Disposition: implementation and focused tests added; exact-head CI has not yet confirmed them.** Maintenance correction-capable sources remain subject to a separate owner-path verification; do not infer they are covered by the Business Expenses change.
+
+### 10.4 Remaining verification boundaries
+
+- The current source adapter tests use deterministic fixtures; they do not constitute a complete reconciliation of every migrated production record.
+- The optimistic shared repository fence is not a database transaction or serializable snapshot.
+- Browser/Room shared fixtures and Android reliability tests are automated parity evidence, not physical-device acceptance.
+- The separate Performance product requirements for cumulative Driver Target Passbook, active-driving-day distance summaries and final UX approval remain open; this source audit does not close them.
+
+**Re-audit disposition:** The earlier upstream blockers are materially addressed in source implementations and their adapters. The source read-model review is **partially closed**, with explicit correction-chain provenance still open and the two newly added regressions awaiting exact-head CI. Do not treat the historical statement “breakeven runtime implementation blocked” as a current source-code fact; PR #97 contains the Performance/full-cost calculation paths. Do not mark overall Performance product acceptance complete.
+
+## 11. PR #97 follow-up — correction restore and active-driving-day source wiring (2026-11-17)
+
+- Business Expenses correction records are global append-only records, not records owned by the feature:business-expenses: prefix. The backup participant now explicitly validates corrections whose featureId is business-expenses: original target presence/revision, contiguous correction-chain revisions, projected source validity, and matching chain-head identity. Fuel correction backup/restore coverage verifies the original purchase remains unchanged and the corrected amount is reproduced after restore.
+- Maintenance expense corrections are separately owned by Maintenance. The Maintenance backup participant now validates Maintenance correction targets, contiguous chain revisions, projected amount validity and chain-head identity. The IndexedDB regression exercises correction replay after a records-table round trip.
+- The Full-cost source projection now derives active-driving-day qualification from submitted completed-ride or cancellation-fee closeout records with immutable Work trip context. tripContext.shiftId is only captured by Work when an Online shift is active; the operational date is captured at trip creation and remains authoritative across a 04:00 crossing. A matching finalized daily-distance projection is added to provenance when available. If that projection is not yet available, the active day is still classified from the immutable trip context, while the distance source is marked incomplete rather than represented as confirmed zero.
+- The full-cost result reports active-driving-day count and confirmed business kilometres per active day. Personal kilometres are not included in the numerator.
+- Fuel historical corrections already restate the source-owned weighted-rate history; Business Expenses correction IDs/revisions are now explicitly carried into the downstream Full-cost provenance. Loan schedule/prepayment and Compliance validity/renewal remain governed by their owner services and effective-date snapshots; this follow-up does not mutate historical schedule or validity records.
+- Maintenance per-kilometre accrual remains the only Maintenance cost currently included in the frozen Performance calculation contract. Whether visit/repair expense records are a separate eligible Full-cost item remains unresolved and must not be double-counted without explicit accounting approval.
+- These additions are awaiting exact-head CI and do not close the complete source-reconciliation matrix or physical-device acceptance.
+
+
+## 12. Effective-date provenance refinement — 2026-11-17
+
+- Compliance correction references now flow from ComplianceAnalysisService through BusinessStartDateCostAllocationService into Performance fixed-cost source rows. The allocation provenance fingerprint includes correction references; a corrected Compliance validity date or amount is recalculated by the owner service and its correction chain is traceable downstream.
+- EMI allocation rows now preserve scheduleVersion as well as the source loan revision. Performance fingerprints both, so prepayment schedule changes cannot be hidden behind an unchanged loan record identity.
+- The owner services continue to determine effective dates: Compliance uses corrected inclusive validity dates; EMI uses the composite immutable schedule history and settlement cutoff. Performance consumes the resulting canonical daily rows and does not rebuild either schedule.
+- Adapter and allocation tests now assert Compliance correction-chain references and EMI scheduleVersion. Exact-head CI is pending.
+
+## 13. PR #97 implementation closure and current evidence — 2026-11-17
+
+This section supersedes the pending exact-head CI and partially closed implementation dispositions in sections 10–12. It does not rewrite those historical baselines.
+
+### 13.1 Source reconciliation matrix
+
+| Source path | Current implementation and effective-date behaviour | Regression evidence | Implementation finding |
+|---|---|---|---|
+| Work/Shift and personal distance | Confirmed shift odometer facts feed the immutable daily business-kilometre projection; unallocated 04:00 boundary distance is withheld; inter-shift odometer gaps remain personal distance. Maintenance accrual requires fully allocated distance. | `tests/driver-workflow-v2.test.ts`, `tests/work-shift-contract.test.ts`, Android `WorkDailyBusinessKilometreStoreTest`, `MaintenanceCorrectionCapacitorAcceptanceTest` | Automated PWA/Room and recovery coverage passed; physical-device acceptance remains separate. |
+| Fuel purchase corrections and weighted rates | Append-only correction chains are projected before full-to-full interval calculations. Corrected intervening purchase amounts restate the next completed interval and prospective weighted rate; the effective rate starts the day after interval completion. | `tests/business-expenses-service.test.ts`, `tests/business-expenses-backup.test.ts`, `tests/full-cost-breakeven-service.test.ts` | Correction values, correction IDs/revisions, restore and downstream fuel provenance are covered. Purchase spend is not double-counted as consumption cost. |
+| Platform fees, challans and miscellaneous expenses | Corrections to business date/amount are projected by Business Expenses before dated outputs. Paid platform fees and challans are recognized on corrected effective dates; unpaid challans are excluded; reversals remain separate signed events on their own dates. | `tests/business-expenses-service.test.ts`, `tests/business-expenses-backup.test.ts`, `tests/full-cost-breakeven-contract-boundaries.test.ts` | Effective-date restatement and correction provenance are covered. |
+| Trip fare, cancellation and trip-linked toll/parking | Immutable Work trip context supplies shift, vehicle and operational date; submitted closeout records supply gross fare/cancellation. Driver-paid toll/parking is counted once; linked duplicate expense and its reversal do not erase the trip obligation. | `tests/performance-trip-revenue-adapter.test.ts`, `tests/full-cost-breakeven-service.test.ts`, browser/Android cancellation snapshot tests | Source attribution and duplicate/reversal boundaries are covered; legacy missing context remains incomplete, not guessed. |
+| Compliance | Compliance corrections are projected by the owner service. Corrected validity dates/amounts feed overlap review and canonical daily allocations; correction IDs/revisions flow through the Business Start Date allocation report into Performance provenance. | `tests/compliance-analysis-correction-projection.test.ts`, `tests/compliance-historical-correction.test.ts`, `tests/business-start-date-cost-allocation-service.test.ts`, `tests/performance-fixed-cost-allocation-adapter.test.ts` | Renewal/effective-date restatement, overlap withholding and downstream correction provenance are covered. |
+| Loan EMI, prepayment and settlement | Fixed contractual EMI is retained; prepayment reduces tenure and creates immutable schedule versions. Canonical daily allocations carry scheduleVersion and apply the inclusive settlement cutoff; Performance consumes canonical daily rows without re-spreading them. | `tests/finance-loan-prepayment-service.test.ts`, `tests/business-start-date-cost-allocation-service.test.ts`, `tests/performance-fixed-cost-allocation-adapter.test.ts` | Schedule restatement, effective-date provenance, stale-preview concurrency and settlement cutoff are covered. |
+| Maintenance correction and accrual | Maintenance expense corrections remain append-only and reproject from original plus full chain. Browser and Room backup validators check target, chain order/head and projected amount; restore reproduces projection/provenance. Work daily distance and immutable daily accrual snapshots remain unchanged. | `tests/maintenance-correction-indexeddb.test.ts`, Android `NativeMaintenanceBackupRoomTest`, `MaintenanceCorrectionCapacitorAcceptanceTest` | Correction/restore boundary is covered. Performance continues to include only confirmed per-km accrual; visit/repair expenses are not a second cost category without separate accounting approval. |
+| Performance Passbook and active-driving-day distance | Cumulative Passbook runs from Business Start Date through selected end date; active day requires an Online Work shift and a submitted ride/cancellation closeout on the same immutable shift/date. Daily/weekly/monthly distance uses confirmed allocated business km and excludes personal km. | `tests/performance-calculation-v1.test.ts`, `tests/full-cost-breakeven-contract-boundaries.test.ts`, `scripts/performance-screen-browser-acceptance.mjs`, Android `PerformanceActiveDrivingDayRoomParityTest` | Approved addendum implementation and automated parity/acceptance coverage are complete. |
+
+### 13.2 Exact automated verification
+
+- PR #97 remains draft and unmerged.
+- Final exact PR head: `0f198be0d796a67521ea5d6763bac3d949f33718`, workflow run [`44095766482`](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44095766482).
+- Architecture, Web, Android and Integrated regression jobs all passed on this exact SHA. Android emulator-backed Room/workflow/backup reliability, focused GPS lifecycle threading, and debug-signed phone-test APK publication also passed.
+- Production geocoder verification was skipped by workflow configuration and is not claimed. The merged-main update-compatible APK was skipped because this PR remains unmerged.
+- The final follow-up commit includes the leap-year/month-end recovery boundary and explicit per-day Passbook cumulative arithmetic assertions.
+
+### 13.3 Remaining evidence boundaries
+
+1. This closes the automated source-owner/correction/effective-date implementation matrix against deterministic fixtures. It does not prove a record-by-record audit of a deployed production dataset; no such dataset is present in this repository evidence.
+2. The cross-source snapshot guard remains an optimistic revision-vector fence, not a serializable database transaction.
+3. Maintenance visit/repair expenses remain outside Performance costs under the current approved accounting boundary; no duplicate Maintenance cost is introduced.
+4. Physical Android phone acceptance remains deferred to the agreed final testing stage.
+5. Final visual composition approval remains separate from the calculation and rendered-PWA implementation evidence.
+
+**Implementation disposition:** the requested source reconciliation, correction/restore provenance, Passbook and active-driving-day distance implementation gates are closed in PR #97 with automated regression coverage. The remaining items above are explicitly separate production-data, architecture-guarantee, accounting-policy or release-acceptance boundaries.
+
+## Subsequent documentation-head verification — 2026-11-17
+
+The documentation reconciliation at PR head `29e21174f682e8de1ef3a605f5b8cdc6fdd9d800` was independently verified by [workflow run #44098341486](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44098341486). Architecture, Web, Android and Integrated regression all completed successfully. The Android Room/workflow/backup reliability gate and debug-signed phone-test APK publication passed. Production geocoder verification was skipped by workflow configuration; physical-device acceptance remains deferred. This commit contained documentation changes only; the code-bearing implementation and its full test evidence remain recorded separately above.
