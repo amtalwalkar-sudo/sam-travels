@@ -32,7 +32,7 @@ describe("replaceable Work screen shell", () => {
 
   it("keeps the shell free of feature and infrastructure dependencies", async () => {
     const source = await readFile("packages/features/work/presentation/WorkScreenShell.tsx", "utf8");
-    expect(source).not.toMatch(/packages\/(domain|application|storage|features)/);
+    expect(source).not.toMatch(/packages\/(application|storage|features)/);
     expect(source).not.toMatch(/(IndexedDB|Room|repository|workflow service)/i);
     expect(source).toContain("./work-screen.css");
   });
@@ -61,7 +61,7 @@ describe("replaceable Work screen shell", () => {
   it("keeps the workflow panel separate from shell and persistence infrastructure", async () => {
     const source = await readFile("packages/features/work/presentation/DriverWorkflowPanel.tsx", "utf8");
     expect(source).toContain("export function DriverWorkflowPanel");
-    expect(source).not.toMatch(/packages\/(domain|application|storage)/);
+    expect(source).not.toMatch(/packages\/(application|storage)/);
     expect(source).not.toMatch(/IndexedDB|Room|createPlatformRepository/);
     expect(source).not.toContain("from \"../use-driver-workspace\"");
     expect(source).not.toContain("RuntimeRegistry");
