@@ -39,8 +39,10 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     if (!snapshot) throw new Error("performance_operating_snapshot_not_prepared");
     const projection = await snapshot.value;
     const refs = [
-      ...projection.dailyActivity.flatMap(activity => activity.sourceRefs),
-      ...projection.datedCosts.flatMap(cost => cost.sourceRefs ??
+      ...projection.dailyActivity.flatMap(activity =>
+        activity.sourceRefs.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined)),
+      ...projection.datedCosts.flatMap(cost =>
+        cost.sourceRefs?.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined) ??
         [{ sourceId: cost.sourceId, revision: cost.sourceRevision }]),
     ];
     return "performance-operating-sources:" + refs
