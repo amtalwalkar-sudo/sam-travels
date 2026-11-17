@@ -1,7 +1,7 @@
 # Breakeven and Driver Target Calculation Contract
 
 **Document ID:** ST-PERFORMANCE-BREAKEVEN-TARGET  
-**Version:** 1.9  
+**Version:** 2.0  
 **Status:** Frozen and approved product baseline with Addenda A through I; changes require an explicit, versioned product-owner amendment  
 **Implementation authorization:** The prior calculation-baseline authorization remains subject to the product owner's current direction; this amendment authorizes documentation only and does not start implementation  
 **Delivery:** Documentation-first foundation for PR 2  
@@ -93,7 +93,7 @@ This contract does not introduce a separate dated vehicle-expense allocation sys
 - Daily, weekly, monthly, annual, and custom-period target comparisons must be derived consistently from the configured monthly target and the same breakeven foundation.
 - The target must not silently change actual breakeven calculations.
 
-The target basis is approved as the single full-cost breakeven. The Admin-entered monthly Driver Target is the **additional surplus desired above full-cost breakeven**, not total net earnings. For a partial month, prorate the monthly surplus target by the number of calendar days in the applicable partial period divided by the total calendar days in that month. Expected cumulative progress is paced by the same calendar-day proportion. Shortfalls remain cumulative and may be recovered later.
+The target basis is the single full-cost breakeven. The Admin-entered monthly Driver Target is the **fixed additional surplus desired above full-cost breakeven**, not total net earnings. It is a fixed monthly amount and does not vary with business days, operating days, trips, attendance or days off. The only startup proration is for the first calendar month when the Business Start Date falls after the first day: prorate that month's target by the calendar days from and including the Business Start Date through month-end, divided by the total calendar days in that month. Every later calendar month uses the full configured monthly target. Shortfalls remain cumulative and may be recovered later. Addendum J is the governing versioned rule for this target treatment.
 
 ## 8. Driver Target Passbook
 
@@ -197,7 +197,7 @@ The product owner has confirmed that the current business workflow has no refund
 The following rules are resolved by this contract and its approved addenda or are delegated to existing authoritative contracts:
 
 1. Annual fixed-cost allocation uses actual calendar days/months, including leap years, with deterministic paise residual allocation.
-2. Monthly Driver Target means additional surplus above full-cost breakeven; partial months and cumulative pacing use calendar-day proration.
+2. Monthly Driver Target means a fixed additional surplus above full-cost breakeven, independent of business/operating days; only the first calendar month is prorated when the Business Start Date is mid-month, using remaining calendar days including the start date. Later months use the full monthly amount (Addendum J).
 3. Gross fares entered after completed rides and cancellation fees entered after cancellation are the authoritative trip-earnings sources. No payout-received gate, cash/platform split, separate received-earnings record, or trip-to-payout matching is used. Paid platform pass/commission amounts are separate costs recognized once on their actual paid business date. Addendum H.1 supersedes the older net-payout and payout-received wording in Addenda A, C and D.
 4. Business kilometres are odometer-derived only; personal kilometres are excluded and GPS displacement is not a substitute. Missing, corrected, or disputed source records follow the existing Driver Workflow, data-quality, and Forgiving Data Entry and Historical Correction contracts. Incomplete or disputed distance must not be silently treated as zero or complete.
 5. Maintenance-rate changes apply prospectively from their effective date; historical periods retain the applicable rate unless an explicit correction is made under the existing historical-correction contract.
@@ -422,3 +422,22 @@ Reliable actual full-cost breakeven is the priority. Driver Target, Target Passb
 Addendum H.8 now identifies the authoritative contracts for all five upstream areas and records the conformance audit. Where an older statement in this contract conflicts with the later approved source rules, Addendum H and the linked owner contracts prevail. In particular, Addenda A, C and D's net-payout and payout-received recognition rules are superseded for this workflow by H.1; the v1.0 operating-breakeven output is superseded by Addendum B; and old direct-fuel-purchase daily expense language is superseded by H.2.
 
 The source-contract reconciliation is a prerequisite to breakeven implementation. A green documentation commit does not close the runtime gaps identified in the audit. Do not start the breakeven calculation implementation until each blocking upstream mismatch has a fix in its owning feature, exact-SHA regression evidence, and updated audit status.
+
+
+## Addendum J — Fixed monthly Driver Target and first-month proration
+
+**Approval:** Explicit product-owner decision.  
+**Effective contract version:** 2.0  
+**Implementation effect:** Normative product rule; documentation does not itself claim runtime conformance or authorize unrelated implementation scope.
+
+1. Admin configures one fixed monthly Driver Target amount, representing additional surplus above Full Cost Breakeven.
+2. The target is independent of business days, operating days, trips, attendance and days off. Do not reduce or increase it based on how many days the driver works.
+3. If the Business Start Date is after the first day of its calendar month, prorate **that first month's target only**:
+
+   `FirstMonthTarget = MonthlyTarget × (CalendarDaysFromBusinessStartDateThroughMonthEnd ÷ CalendarDaysInFirstMonth)`
+
+   The Business Start Date is included in the numerator.
+4. Every subsequent calendar month uses the full configured monthly target, regardless of the number of business or operating days.
+5. Monthly and lifetime target totals sum the applicable first-month prorated amount and the full monthly amounts for subsequent months. Do not apply another proration merely because a driver has fewer operating days.
+6. This addendum supersedes older wording in this contract that prorates every arbitrary partial month or paces the target by business/operating days. Any separate selected-date-range presentation must not change the underlying monthly target obligation.
+
