@@ -11,6 +11,7 @@ const maxBytes = 24 * 1024;
 const failures = [];
 const sourceFiles = [];
 const importsByFeature = new Map();
+const retiredModuleImporters = [];
 
 const normalize = (value) => value.split(path.sep).join("/");
 
@@ -99,6 +100,10 @@ for (const absolute of sourceFiles) {
       failures.push(`${relative}:${reference.line}: browser persistence library "${specifier}" is private to the browser persistence adapter`);
     }
     const resolved = resolveImport(specifier, relative, resolveAlias);
+    const normalizedTarget = resolved?.replace(/\\.(?:ts|tsx|js|jsx|mjs|cjs)$/, "");
+    if (normalizedTarget === "src/domain/driver/workflow") {
+      retiredModuleImporters.push(`${relative}:${reference.line}`);
+    }
     const target = resolved ? targetLayer(resolved) : null;
     const toFeature = resolved ? featureTarget(resolved) : null;
 
@@ -206,6 +211,10 @@ for (const absolute of kotlinSources) {
        /\b(?:androidx\.room|android\.content\.|android\.location\.|com\.getcapacitor\.|java\.io\.)/.test(content))) {
     failures.push(relative + ": platform-neutral Kotlin may not reference Android, Room, Capacitor, or Java I/O");
   }
+}
+
+if (retiredModuleImporters.length) {
+  failures.push(`retired legacy driver workflow is still imported by: ${retiredModuleImporters.join(", ")}`);
 }
 
 for (const cycle of detectCycles(featureGraph)) {
