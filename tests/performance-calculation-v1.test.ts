@@ -66,6 +66,28 @@ describe("Performance Calculation Contract v1.0", () => {
   });
 
 
+  it("assigns indivisible recovery paise to the earliest monthly instalments", () => {
+    const result = allocatePreBusinessRecoveryV1("2026-01-31", [
+      { sourceId: "remainder", revision: 1, amountPaise: 19, note: "remainder", origin: "manual" },
+    ]);
+    const monthlyTotals = Array.from({ length: 18 }, (_, index) => {
+      const from = new Date(Date.UTC(2026, 0, 31));
+      const monthIndex = 2026 * 12 + from.getUTCMonth() + index;
+      const year = Math.floor(monthIndex / 12);
+      const month = monthIndex % 12;
+      const day = Math.min(31, new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
+      const start = new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+      const nextIndex = monthIndex + 1;
+      const nextYear = Math.floor(nextIndex / 12);
+      const nextMonth = nextIndex % 12;
+      const nextDay = Math.min(31, new Date(Date.UTC(nextYear, nextMonth + 1, 0)).getUTCDate());
+      const end = new Date(Date.UTC(nextYear, nextMonth, nextDay)).toISOString().slice(0, 10);
+      return result.daily.filter(row => row.date >= start && row.date < end)
+        .reduce((sum, row) => sum + row.amountPaise, 0);
+    });
+    expect(monthlyTotals).toEqual([2, ...Array(17).fill(1)]);
+  });
+
   it("allocates remainder paise deterministically and reconciles multiple independent entries", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "a", revision: 1, amountPaise: 1, note: "one paise", origin: "manual" },
