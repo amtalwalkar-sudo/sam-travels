@@ -37,7 +37,7 @@ class WorkDailyBusinessKilometreStoreTest {
             .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
                 .put("assignmentId", "assignment-1").put("vehicleId", vehicleId))
         val command = JSONObject().put("eventType", "shift_end").put("transitionAt", transitionAt)
-            .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", startOdometer + businessKm).put("businessKm", businessKm))
+            .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 600).put("businessKm", 100))
         WorkDailyBusinessKilometreStore.append(db, current, command, "shift-pending-end", transitionAt)
         val operationalDate = DriverWorkflowStore.operationalDateAt(startedAt)
         val id = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") + ":" + operationalDate
@@ -63,7 +63,8 @@ class WorkDailyBusinessKilometreStoreTest {
             .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "driver-1")
                 .put("assignmentId", "assignment-1").put("vehicleId", vehicleId))
         val command = JSONObject().put("eventType", "shift_end").put("transitionAt", now)
-            .put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 600).put("businessKm", 100))
+            .put("odometer", JSONObject().put("schemaVersion", 1)
+                .put("readingKm", startOdometer + businessKm).put("businessKm", businessKm))
         WorkDailyBusinessKilometreStore.append(db, current, command, "shift-personal-end", now)
         val operationalDate = DriverWorkflowStore.operationalDateAt(startedAt)
         val id = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleId, "UTF-8") + ":" + operationalDate
