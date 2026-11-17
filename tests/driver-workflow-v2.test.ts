@@ -10,6 +10,7 @@ import {TripFinancialService} from "../packages/application/src/trip-financial-s
 import {operationalDateAt} from "../packages/domain/src/work-driver-context";
 import {isOperationalBoundaryPending,nextOperationalBoundaryAt} from "../packages/domain/src/driver-workflow";
 import type {GpsFix} from "../packages/core/src/types";
+import parity from "./fixtures/driver-workflow-parity-v1.json";
 
 const base=Date.now()-20_000;
 const timestamp=new Date(base-60_000).toISOString();
@@ -131,25 +132,25 @@ describe("version 2 Work trip lifecycle",()=>{
    const command=createDriverCommandV2(snapshot,type,"pwa",id,fixAt,odometer);
    return service.dispatch(command);
   };
-  await send("shift_start","odo-shift-1-start",0,12000);
-  await send("shift_end","odo-shift-1-end",1000,12100);
-  await send("shift_start","odo-shift-2-start",2000,12125);
+  await send("shift_start","odo-shift-1-start",0,parity.personalDistance.firstShiftStartOdometerKm);
+  await send("shift_end","odo-shift-1-end",1000,parity.personalDistance.previousShiftEndOdometerKm);
+  await send("shift_start","odo-shift-2-start",2000,parity.personalDistance.nextShiftStartOdometerKm);
   const snapshot=await repository.getSnapshot();
   expect(snapshot).toMatchObject({shiftStartOdometerKm:12125,lastConfirmedOdometerKm:12125});
   const startEvent=(await repository.listEvents()).find(event=>event.eventId==="odo-shift-2-start");
-  expect(startEvent?.command.odometer).toMatchObject({readingKm:12125,previousConfirmedKm:12100,personalKm:25});
+  expect(startEvent?.command.odometer).toMatchObject({readingKm:parity.personalDistance.nextShiftStartOdometerKm,previousConfirmedKm:parity.personalDistance.previousShiftEndOdometerKm,personalKm:parity.personalDistance.personalKm});
   const invalid=createDriverCommandV2(snapshot,"shift_start","pwa","odo-invalid-lower",new Date(base+2500).toISOString(),
-   {schemaVersion:1,readingKm:12124,previousConfirmedKm:12125,personalKm:0});
+   {schemaVersion:1,readingKm:parity.personalDistance.nextShiftStartOdometerKm-1,previousConfirmedKm:parity.personalDistance.nextShiftStartOdometerKm,personalKm:0});
   await expect(repository.queueIntent({command:invalid,status:"pending_location",createdAt:fixAt,updatedAt:fixAt}))
    .rejects.toThrow("shift_start_odometer_invalid");
-  await send("shift_end","odo-shift-2-end",3000,12125);
+  await send("shift_end","odo-shift-2-end",3000,parity.personalDistance.nextShiftStartOdometerKm+parity.personalDistance.secondShiftBusinessKm);
   const daily=await recordsRepository.get<{entries:Array<{businessKm:number;personalKm?:number}>;totalBusinessKm:number}> (
    "work:daily-business-km:"+encodeURIComponent("feature:vehicle:MH01AB1234")+":"+operationalDateAt(new Date(base).toISOString()),
   );
   expect(daily?.data.entries).toHaveLength(2);
-  expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([100,0]);
-  expect(daily?.data.entries.map(entry=>entry.personalKm)).toEqual([0,25]);
-  expect(daily?.data.totalBusinessKm).toBe(100);
+  expect(daily?.data.entries.map(entry=>entry.businessKm)).toEqual([parity.personalDistance.currentShiftBusinessKm,parity.personalDistance.secondShiftBusinessKm]);
+  expect(daily?.data.entries.map(entry=>entry.personalKm)).toEqual([0,parity.personalDistance.personalKm]);
+  expect(daily?.data.totalBusinessKm).toBe(parity.personalDistance.expectedTotalBusinessKm);
  });
  it("does not advance a shift or write an event when Work Driver selection is missing",async()=>{
   await browserDatabase.records.bulkPut(records);
