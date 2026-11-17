@@ -136,7 +136,7 @@ describe("BusinessExpensesService", () => {
           featureId: "business-expenses", chainRevision: 1, fieldPath: "amountPaise",
           beforeValue: 20_000, afterValue: 25_000,
           reason: "Corrected against the original pump receipt",
-          actor: { role: "admin" as const, actorId: "admin-1" },
+          actor: { role: "driver" as const, actorId: "driver-1" },
           recordedAt: "2026-11-21T10:00:00.000Z",
         }];
       },
