@@ -126,10 +126,22 @@ try {
       schemaVersion: 1, shiftId: "performance-acceptance-shift",
       driverId: "performance-acceptance-driver",
       assignmentId: "performance-acceptance-assignment",
-      vehicleId: "performance-acceptance-vehicle",
+      vehicleId: "feature:vehicle:MH00PS0093",
       operationalDate,
     };
     const records = [
+      {
+        id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
+        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
+        source: "web", revision: 1,
+        data: {
+          schemaVersion: 1, kind: "daily_business_kilometres",
+          vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
+          totalBusinessKm: 42, unallocatedBusinessKm: 0,
+          entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
+            businessKm: 42, personalKm: 7 }],
+        },
+      },
       {
         id: "work:trip-financial-obligation:performance-screen-fare",
         schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
@@ -208,6 +220,34 @@ try {
   await page.getByRole("button", { name: "Explain Lifetime target position", exact: true }).waitFor();
   await page.getByText("Lifetime eligible costs", { exact: true }).waitFor();
   console.log("Performance period, lifetime breakeven and calendar-day prorated target rendered.");
+
+  await page.getByRole("tab", { name: "Distance history", exact: true }).click();
+  const distanceHistory = page.locator(".performance-distance-history");
+  await distanceHistory.getByText("Daily distance", { exact: true }).waitFor();
+  const distanceSummaryText = await distanceHistory.locator(".performance-recovery-summary").innerText();
+  if (!distanceSummaryText.includes("42 km") || !distanceSummaryText.includes("Qualifying active driving days") ||
+      !distanceSummaryText.includes("1") || !distanceSummaryText.includes("Complete")) {
+    throw new Error("confirmed_distance_summary_or_active_day_average_missing:" + distanceSummaryText);
+  }
+  const dailyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Daily distance from confirmed Work allocations" }),
+  });
+  const weeklyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Weekly confirmed business distance" }),
+  });
+  const monthlyDistance = distanceHistory.locator(".performance-table").filter({
+    has: page.locator("caption", { hasText: "Monthly confirmed business distance" }),
+  });
+  for (const table of [dailyDistance, weeklyDistance, monthlyDistance]) {
+    const tableText = await table.innerText();
+    if (!tableText.includes("42 km")) {
+      throw new Error("distance_period_rollup_missing_confirmed_business_km:" + tableText);
+    }
+  }
+  if ((await dailyDistance.innerText()).includes("49 km")) {
+    throw new Error("personal_kilometres_were_included_in_business_distance");
+  }
+  console.log("Daily, weekly and monthly confirmed business distance, active-day averages and personal-km exclusion rendered.");
 
   await page.getByRole("tab", { name: "Pre-business recovery", exact: true }).click();
   const recovery = page.locator(".performance-recovery");
