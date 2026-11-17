@@ -7,73 +7,53 @@ const DAY_MS = 86_400_000;
 function dayNumber(date: string): number {
   const value = Date.parse(date + "T00:00:00.000Z");
   if (!Number.isFinite(value) || new Date(value).toISOString().slice(0, 10) !== date) {
-    throw new Error("performance_compliance_source_date_invalid");
+    throw new Error("performance_allocation_source_date_invalid");
   }
   return value / DAY_MS;
 }
-function proportionalPaise(amountPaise: number, numerator: number, denominator: number): number {
-  if (!Number.isSafeInteger(amountPaise) || amountPaise < 0 || numerator < 0 ||
-      denominator <= 0 || numerator > denominator) {
-    throw new Error("performance_compliance_source_amount_invalid");
-  }
-  const result = (BigInt(amountPaise) * BigInt(numerator) * 2n + BigInt(denominator)) /
-    (2n * BigInt(denominator));
-  if (result > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("performance_compliance_source_amount_overflow");
-  return Number(result);
-}
-function postBusinessDailyRows(
-  source: CostAllocationSourceResultV1,
-  businessStartDate: string,
-  from: string,
-  to: string,
-  amountPaise: number,
-): readonly Readonly<{ date: string; amountPaise: number; sourceId: string; sourceVersion: number }>[] {
-  const period = source.sourcePeriod;
-  if (!period) return Object.freeze([]);
-  const eligibleFrom = period.from < businessStartDate ? businessStartDate : period.from;
-  const start = dayNumber(eligibleFrom), end = dayNumber(period.to);
-  const totalDays = end - start + 1;
-  if (totalDays <= 0) return Object.freeze([]);
-  const quotient = Math.floor(amountPaise / totalDays);
-  const remainder = amountPaise % totalDays;
-  return Object.freeze(source.daily.flatMap(row => {
-    if (row.date < from || row.date > to || row.date < eligibleFrom || row.date > period.to) return [];
-    const offset = dayNumber(row.date) - start;
-    return [Object.freeze({
-      date: row.date,
-      amountPaise: quotient + (offset < remainder ? 1 : 0),
-      sourceId: row.sourceId,
-      sourceVersion: row.sourceVersion,
-    })];
-  }));
-}
-
 function blockedComplianceBases(sources: readonly CostAllocationSourceResultV1[]): Set<string> {
   return new Set(sources.filter(source => source.disposition === "overlap_review_required")
     .map(source => source.sourceId.endsWith(":overlap-withheld")
       ? source.sourceId.slice(0, -":overlap-withheld".length) : source.sourceId));
 }
-function complianceSplit(source: CostAllocationSourceResultV1, businessStartDate: string) {
-  const period = source.sourcePeriod;
-  if (!period) return undefined;
-  const from = dayNumber(period.from), to = dayNumber(period.to), start = dayNumber(businessStartDate);
-  if (to < from) throw new Error("performance_compliance_source_period_invalid");
-  const totalDays = to - from + 1;
-  const preDays = Math.max(0, Math.min(totalDays, start - from));
-  const preBusinessPaise = proportionalPaise(source.sourceAmountPaise, preDays, totalDays);
+function canonicalDailyRows(
+  source: CostAllocationSourceResultV1,
+  from: string,
+  to: string,
+  kind: "emi" | "compliance",
+): readonly PerformanceDailyCostInputV1[] {
+  return Object.freeze(source.daily.flatMap(row => {
+    if (row.date < from || row.date > to) return [];
+    if (row.sourceId !== source.sourceId || row.sourceVersion !== source.sourceVersion ||
+        !Number.isSafeInteger(row.amountPaise) || row.amountPaise < 0) {
+      throw new Error("performance_canonical_allocation_row_invalid");
+    }
+    return [Object.freeze({
+      date: row.date, kind, amountPaise: row.amountPaise, verified: true,
+      sourceRefs: Object.freeze([Object.freeze({
+        sourceId: row.sourceId, revision: row.sourceVersion,
+      })]),
+    })];
+  }));
+}
+function recoverySource(
+  source: CostAllocationSourceResultV1,
+  origin: "emi" | "compliance",
+  note: string,
+): PreBusinessRecoverySourceV1 {
   return Object.freeze({
-    preBusinessPaise,
-    postBusinessPaise: source.sourceAmountPaise - preBusinessPaise,
+    sourceId: source.sourceId, revision: source.sourceVersion,
+    amountPaise: source.sourceAmountPaise, note, origin,
   });
 }
 
 /**
- * Projects immutable EMI/Compliance source allocations into the separate
- * Performance v1.0 ports. EMI carry-forward is recovered over the v1.0
- * 18-month window, not also counted as an ordinary daily EMI. Compliance
- * amounts are split by their original validity dates: the pre-business share
- * enters recovery and only the post-business share remains in the normal
- * validity schedule. Unreviewed overlap sources are withheld.
+ * Projects the canonical Business Start Date allocation rows into Performance.
+ * Daily amounts are consumed verbatim; this adapter must not reconstruct or
+ * re-spread an owning feature's allocation. Pre-business recovery eligibility
+ * is based on the authoritative source date: EMI due date or Compliance
+ * valid-from date. The full eligible source amount enters the shared recovery
+ * pool, while unresolved overlap sources remain withheld.
  */
 export class PerformanceFixedCostAllocationAdapterV1
 implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceCompletenessReadModel {
@@ -99,14 +79,9 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if (source.sourceKind !== "emi" || source.disposition !== "allocated") return [];
-      const split = complianceSplit(source, report.businessStartDate);
-      if (!split) return [];
-      return postBusinessDailyRows(source, report.businessStartDate, from, to, split.postBusinessPaise)
-        .map(row => Object.freeze({
-          date: row.date, kind: "emi" as const, amountPaise: row.amountPaise, verified: true,
-          sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
-        }));
+      if (source.sourceKind !== "emi" || source.disposition !== "allocated" ||
+          !source.sourcePeriod || source.sourcePeriod.from < report.businessStartDate) return [];
+      return canonicalDailyRows(source, from, to, "emi");
     }));
   }
 
@@ -115,14 +90,9 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const blocked = blockedComplianceBases(report.result.sources);
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.sourceKind !== "compliance" || source.disposition !== "allocated" ||
+          !source.sourcePeriod || source.sourcePeriod.from < report.businessStartDate ||
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
-      const split = complianceSplit(source, report.businessStartDate);
-      if (!split) return [];
-      return postBusinessDailyRows(source, report.businessStartDate, from, to, split.postBusinessPaise)
-        .map(row => Object.freeze({
-          date: row.date, kind: "compliance" as const, amountPaise: row.amountPaise, verified: true,
-          sourceRefs: Object.freeze([{ sourceId: row.sourceId, revision: row.sourceVersion }]),
-        }));
+      return canonicalDailyRows(source, from, to, "compliance");
     }));
   }
 
@@ -130,21 +100,13 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.disposition === "overlap_review_required" || source.sourceAmountPaise <= 0) return [];
-      if (source.sourceKind === "emi-pre-business-carry-forward") return [Object.freeze({
-        sourceId: source.sourceId, revision: source.sourceVersion,
-        amountPaise: source.sourceAmountPaise,
-        note: "Pre-business EMI carry-forward from " + source.sourceId,
-        origin: "emi" as const,
-      })];
-      if (source.sourceKind !== "emi") return [];
-      const split = complianceSplit(source, report.businessStartDate);
-      if (!split || split.preBusinessPaise === 0) return [];
-      return [Object.freeze({
-        sourceId: source.sourceId, revision: source.sourceVersion,
-        amountPaise: split.preBusinessPaise,
-        note: "Pre-business portion of " + (source.sourcePeriod?.label ?? source.sourceId),
-        origin: "emi" as const,
-      })];
+      if (source.sourceKind === "emi-pre-business-carry-forward") {
+        return [recoverySource(source, "emi", "Pre-business EMI carry-forward from " + source.sourceId)];
+      }
+      if (source.sourceKind !== "emi" || !source.sourcePeriod ||
+          source.sourcePeriod.from >= report.businessStartDate) return [];
+      return [recoverySource(source, "emi",
+        "Pre-business EMI instalment from " + (source.sourcePeriod.label ?? source.sourceId))];
     }));
   }
 
@@ -155,17 +117,10 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
       source.sourceKind === "compliance" &&
       (source.disposition === "pre_business_historical" || source.disposition === "allocated") &&
       !blocked.has(source.sourceId.replace(/:allocated$/, "")) &&
-      source.sourceAmountPaise > 0,
-    ).flatMap(source => {
-      const split = complianceSplit(source, report.businessStartDate);
-      if (!split || split.preBusinessPaise === 0) return [];
-      return [Object.freeze({
-        sourceId: source.sourceId, revision: source.sourceVersion,
-        amountPaise: split.preBusinessPaise,
-        note: "Pre-business compliance portion (" + (source.sourcePeriod?.label ?? source.sourceId) + ")",
-        origin: "compliance" as const,
-      })];
-    }));
+      source.sourceAmountPaise > 0 && source.sourcePeriod &&
+      source.sourcePeriod.from < report.businessStartDate,
+    ).map(source => recoverySource(source, "compliance",
+      "Pre-business compliance record (" + (source.sourcePeriod?.label ?? source.sourceId) + ")")));
   }
 
   async getCompleteness(_from: string, _to: string): Promise<readonly PerformanceCompletenessV1[]> {
