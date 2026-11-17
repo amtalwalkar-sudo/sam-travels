@@ -43,6 +43,10 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
     id: string; fingerprint: string; businessStartDate: string;
     businessSettingsRevision: number; calculationVersion: number; createdAt: string;
   }>[];
+  sourceCorrectionRefs?: readonly Readonly<{
+    sourceId: string;
+    refs: readonly Readonly<{ sourceId: string; revision: number }>[];
+  }>[];
   result: BusinessStartDateAllocationResultV1;
 }>;
 
@@ -54,7 +58,8 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
 export class BusinessStartDateCostAllocationService {
   constructor(
     private readonly settings: Pick<BusinessSettingsService, "get">,
-    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview">,
+    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview"> &
+      Partial<Pick<ComplianceAnalysisService, "listCorrectionReferences">>,
     private readonly loans: Pick<FinanceLoanService, "list">,
     private readonly prepayments: Pick<FinanceLoanPrepaymentService, "getScheduleHistory">,
     private readonly payments: Pick<FinanceLoanPaymentService, "list">,
@@ -129,6 +134,12 @@ export class BusinessStartDateCostAllocationService {
     ]);
     if (!settings) throw new Error("business_start_date_not_configured");
     const businessStartDate = settings.data.businessStartDate;
+    const sourceCorrectionRefs = this.complianceAnalysis.listCorrectionReferences
+      ? (await Promise.all(overview.records.map(async record => ({
+          sourceId: record.id,
+          refs: await this.complianceAnalysis.listCorrectionReferences!(record.id),
+        })))).filter(item => item.refs.length > 0)
+      : [];
     const sources = [];
 
     for (const record of overview.records) {
@@ -227,6 +238,12 @@ export class BusinessStartDateCostAllocationService {
       generatedAt,
       ...(provenance ? { provenance } : {}),
       ...(provenanceHistory ? { provenanceHistory } : {}),
+      ...(sourceCorrectionRefs.length ? {
+        sourceCorrectionRefs: Object.freeze(sourceCorrectionRefs.map(item => Object.freeze({
+          sourceId: item.sourceId,
+          refs: Object.freeze(item.refs.map(ref => Object.freeze({ ...ref }))),
+        }))),
+      } : {}),
       result,
     });
   }
