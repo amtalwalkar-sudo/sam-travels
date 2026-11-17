@@ -103,10 +103,24 @@ describe("PerformanceCalculationServiceV1", () => {
       emi: fixed, compliance: fixed,
     };
     const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16");
-    expect(result.provenance.sourceSnapshotId).toBe(snapshotIdentity);
+    expect(result.provenance.sourceSnapshotId).toContain(snapshotIdentity + ";performance-source-revisions:");
     expect(fixed.prepareSnapshot).toHaveBeenCalledTimes(1);
     expect(fixed.prepareSnapshot).toHaveBeenCalledWith("2026-03-15", "2026-03-16");
     expect(fixed.releaseSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects one source appearing at two revisions inside a single calculation", async () => {
+    const readModels = sources();
+    vi.mocked(readModels.operatingCosts.listDailyCosts).mockResolvedValue([
+      { date: "2026-03-16", kind: "fuel", amountPaise: 1_000, verified: true,
+        sourceRefs: [{ sourceId: "shared-source", revision: 1 }] },
+    ]);
+    vi.mocked(readModels.revenue.listVerifiedDailyRevenue).mockResolvedValue([
+      { date: "2026-03-16", grossFarePaise: 10_000, cancellationFeePaise: 0, verified: true,
+        sourceRefs: [{ sourceId: "shared-source", revision: 2 }] },
+    ]);
+    await expect(new PerformanceCalculationServiceV1(readModels).calculate("2026-03-16", "2026-03-16"))
+      .rejects.toThrow("performance_source_revision_conflict");
   });
 
   it("rejects fixed-cost and operating projections captured from different business-settings revisions", async () => {
