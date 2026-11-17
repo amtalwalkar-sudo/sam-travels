@@ -231,13 +231,13 @@ Add a regression that changes an allocation source between attempted reads and p
 The owner has confirmed the following simple date-based rule, now normative in the [Business Start Date Cost Allocation Contract](BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md):
 
 - Use each source category's authoritative business/effective date, not record creation or edit time.
-- If that date is before the Business Start Date, recover the full source amount evenly over the 18 months beginning on the Business Start Date and include those monthly portions in Full Cost Breakeven.
+- If that date is before the Business Start Date, recover the **full source amount in 18 equal monthly instalments** beginning on the Business Start Date and include those instalments in Full Cost Breakeven. For daily breakeven, spread each monthly instalment evenly across the days of its Business-Start-Date-anchored recovery month.
 - Source validity/end dates and schedule end dates do not shorten or extend the 18-month recovery period.
 - If the authoritative date is on or after the Business Start Date, use the source category's normal calculation rules.
 - Preserve source records and recognize each amount exactly once.
 - For Compliance, the classification date is `validFrom`; for each EMI, it is the scheduled due date; manual dated costs use their explicit business/effective date.
 
-This is the governing policy, not an optional Performance-only adjustment. The existing source-period carry-forward wording has been replaced in the Business Start Date allocation contract. The Performance adapter must still consume authoritative source amounts and preserve source provenance; implementation conformance remains to be verified.
+This is the governing policy, not an optional Performance-only adjustment. The existing source-period carry-forward wording has been replaced in the Business Start Date allocation contract. Runtime conformance is not yet complete: the current Performance domain distributes recovery evenly by day across the full 18-month interval rather than in equal monthly instalments, and its Compliance adapter proportionally splits the source amount by validity days instead of classifying the full amount by `validFrom`. These are recorded implementation gaps for the consolidated implementation PR.
 
 **B. Partial-month Driver Target**
 
