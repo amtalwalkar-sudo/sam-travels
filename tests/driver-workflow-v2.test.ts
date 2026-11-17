@@ -4,7 +4,7 @@ import {browserDatabase} from "../packages/storage-browser/src/database";
 import {DexieDriverWorkflowRepository} from "../packages/storage-browser/src/driver-workflow";
 import {DexieRecordRepository} from "../packages/storage-browser/src";
 import {WorkDriverSelectionService} from "../packages/application/src/work-driver-selection-service";
-import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/work-shift";
+import {createDriverCommandV2,DriverWorkflowService} from "../packages/features/work";
 import {buildTripHistory} from "../packages/domain/src/trip-history";
 import {TripFinancialService} from "../packages/application/src/trip-financial-service";
 import {operationalDateAt} from "../packages/domain/src/work-driver-context";
