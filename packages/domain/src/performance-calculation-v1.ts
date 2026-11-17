@@ -56,6 +56,8 @@ export type PerformanceCalculationInputV1 = Readonly<{
   costs: readonly PerformanceDailyCostInputV1[];
   preBusinessRecovery: readonly PreBusinessRecoverySourceV1[];
   completeness: readonly PerformanceCompletenessV1[];
+  /** Shared Business Start Date source revision identity captured for this calculation. */
+  sourceSnapshotId?: string;
 }>;
 
 export type PerformanceDailyResultV1 = Readonly<{
@@ -99,6 +101,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
     completeness: readonly PerformanceCompletenessV1[];
+    sourceSnapshotId?: string;
   }>;
 }>;
 
@@ -367,6 +370,7 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     provenance: Object.freeze({
       sourceRefs: Object.freeze(refs.sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision)),
       completeness: Object.freeze(completeness),
+      ...(input.sourceSnapshotId ? { sourceSnapshotId: input.sourceSnapshotId } : {}),
     }),
   });
 }
