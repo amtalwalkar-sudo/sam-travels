@@ -1,15 +1,9 @@
 import { useState, type FormEvent } from "react";
-import type { PerformanceCalculationServiceV1 } from "../../../application/src/performance-calculation-service";
-import type { FullCostBreakevenService } from "../../../application/src/full-cost-breakeven-service";
 import type { BreakevenPeriodResultV1 } from "../../../domain/src/full-cost-breakeven";
 import type { PerformanceCalculationResultV1, PerformanceCostKindV1 } from "../../../domain/src/performance-calculation-v1";
+import type { PerformanceScreenContextV1 } from "./performance-screen-model";
 import { aggregateCosts, CATEGORY_LABELS, INSIGHT_DEFINITIONS, money, monthlyTotals, offsetDate, operationalToday, signedMoney } from "./performance-screen-model";
 import "./performance-screen.css";
-
-type PerformanceScreenContext = Readonly<{
-  calculation: Pick<PerformanceCalculationServiceV1, "calculate">;
-  fullCostBreakeven: Pick<FullCostBreakevenService, "calculate">;
-}>;
 
 export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
   const today = operationalToday();
@@ -29,18 +23,10 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
     if (!from || !to || from > to) return;
     setLoading(true); setError(""); setDistanceError("");
     try {
-      const [selectedPeriod, distance] = await Promise.allSettled([
-        Promise.resolve().then(() => context.calculation.calculate(from, to)),
-        Promise.resolve().then(() => context.fullCostBreakeven.calculate(from, to)),
-      ]);
-      if (selectedPeriod.status === "rejected") throw selectedPeriod.reason;
-      setResult(selectedPeriod.value);
-      if (distance.status === "fulfilled") {
-        setDistanceProjection(distance.value);
-      } else {
-        setDistanceProjection(undefined);
-        setDistanceError(distance.reason instanceof Error ? distance.reason.message : "Confirmed distance projection is unavailable.");
-      }
+      const loaded = await context.loadPeriod(from, to);
+      setResult(loaded.result);
+      setDistanceProjection(loaded.distanceProjection);
+      setDistanceError(loaded.distanceError ?? "");
     }
     catch (reason) {
       setResult(undefined); setDistanceProjection(undefined);
