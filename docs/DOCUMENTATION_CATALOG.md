@@ -56,6 +56,7 @@
 | [Forgiving Data Entry and Historical Correction](FORGIVING_DATA_ENTRY_AND_HISTORICAL_CORRECTION_CONTRACT.md) | Cross-feature correction, history and restatement safeguards |
 | [Feature Module Contract](FEATURE_MODULE_CONTRACT.md) | Feature ownership, public interfaces and module boundaries |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guidance for feature contributions |
+| [Consolidated Product Foundation Implementation Control](CONSOLIDATED_PRODUCT_FOUNDATION_IMPLEMENTATION_CONTROL.md) | Assistant execution guardrails, internal stages, gap closure and evidence discipline for the single consolidated implementation PR |
 | [Feature Extension Lifecycle](FEATURE_EXTENSION_LIFECYCLE_CONTRACT.md) | Feature lifecycle and compatibility |
 | [Shared Foundation Enforcement](SHARED_FOUNDATION_ENFORCEMENT_CONTRACT.md) | Feature-onboarding checklist derived from owner contracts |
 | [Local Persistence Contract](LOCAL_PERSISTENCE_CONTRACT.md) | IndexedDB/Room authoritative-store ownership |
