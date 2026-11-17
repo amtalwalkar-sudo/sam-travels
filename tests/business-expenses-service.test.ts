@@ -120,6 +120,47 @@ describe("BusinessExpensesService", () => {
     expect(daily.sourceIds).toContain(fuelId);
   });
 
+  it("rebuilds the prospective fuel cost/km timeline from corrected purchase amounts", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const correctedPurchaseId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174051";
+    const corrections = {
+      async listForTarget(targetRecordId: string) {
+        if (targetRecordId !== correctedPurchaseId) return [];
+        return [{
+          schemaVersion: 1 as const, correctionId: "fuel-interval-amount-fix",
+          targetRecordId: correctedPurchaseId, targetRecordRevision: 1,
+          featureId: "business-expenses", chainRevision: 1, fieldPath: "amountPaise",
+          beforeValue: 20_000, afterValue: 25_000,
+          reason: "Corrected against the original pump receipt",
+          actor: { role: "admin" as const, actorId: "admin-1" },
+          recordedAt: "2026-11-21T10:00:00.000Z",
+        }];
+      },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-21T10:00:00.000Z", corrections);
+    const purchases = [
+      ["123e4567-e89b-42d3-a456-426614174050", "2026-11-01T09:00:00.000Z", 100, false, 50_000],
+      ["123e4567-e89b-42d3-a456-426614174051", "2026-11-05T09:00:00.000Z", 110, true, 20_000],
+      ["123e4567-e89b-42d3-a456-426614174052", "2026-11-10T09:00:00.000Z", 120, false, 30_000],
+    ] as const;
+    for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of purchases) {
+      await service.createFuelPurchase({ uuid, source: "web", data: {
+        businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10),
+        occurredAt, vehicleId, odometerKm, pricePaisePerKg: 10_000, amountPaise, partialRefill,
+      }});
+    }
+    const history = await service.listFuelCostRateHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      completionBusinessDate: "2026-11-10", effectiveFrom: "2026-11-11",
+      cumulativeSpendPaise: 55_000, cumulativeDistanceKm: 20,
+      costPaisePerKm: { numerator: "55000", denominator: "20" },
+      sourcePurchaseIds: [correctedPurchaseId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052"],
+    });
+  });
+
   it("keeps each Admin source distinct and applies the approved normal/full-cost treatment", async () => {
     const { service } = setup();
     await service.createExpenseEntry({ uuid: "123e4567-e89b-42d3-a456-426614174001", source: "web",
