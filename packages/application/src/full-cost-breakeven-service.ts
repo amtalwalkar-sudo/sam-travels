@@ -81,66 +81,51 @@ export class FullCostBreakevenService {
       { source: "maintenance-accruals", status: "complete" },
     ];
 
-    if (!authoritativeRecords) {
-      completeness.push({ source: "active-driving-days", status: "unavailable",
-        detail: "The shared Work record repository was not supplied; active-driving-day qualification cannot be verified." });
-    } else {
-      const dailyDistanceRecords = authoritativeRecords.filter(record =>
-        record.id.startsWith("work:daily-business-km:"));
-      const hasShiftForTrip = (trip: typeof tripFinancialRecords[number]) => {
-        if (trip.data.kind !== "completed_ride_financials" || !trip.data.tripContext) return false;
-        const context = trip.data.tripContext;
-        return dailyDistanceRecords.some(daily => {
-          const data = daily.data as { vehicleId?: string; operationalDate?: string; entries?: Array<{ shiftId?: string }> };
-          return data.vehicleId === context.vehicleId && data.operationalDate === context.operationalDate &&
-            Array.isArray(data.entries) && data.entries.some(entry => entry.shiftId === context.shiftId);
-        });
+    const dailyDistanceRecords = authoritativeRecords?.filter(record =>
+      record.id.startsWith("work:daily-business-km:")) ?? [];
+    const activeDaySourceIssues: string[] = [];
+    for (const trip of tripFinancialRecords) {
+      if (trip.data.kind !== "completed_ride_financials") continue;
+      const context = trip.data.tripContext;
+      if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
+          typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
+          typeof context.operationalDate !== "string" ||
+          !/^\\d{4}-\\d{2}-\\d{2}$/.test(context.operationalDate) ||
+          context.operationalDate < from || context.operationalDate > to) {
+        if (context || trip.data.status === "submitted") activeDaySourceIssues.push(trip.id);
+        continue;
+      }
+      // Work captures tripContext only while an Online shift is active. Its
+      // immutable shiftId + operationalDate therefore proves the shift side
+      // of the active-day rule even before that shift has ended/rotated.
+      const bucket = activityByDate.get(context.operationalDate) ?? {
+        businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
+        refs: [], fuelRefs: [], maintenanceRefs: [],
       };
-      for (const daily of dailyDistanceRecords) {
-        const data = daily.data as {
-          schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string;
-          entries?: Array<{ shiftId?: string; allocationStatus?: string }>;
-        };
-        if (!data.operationalDate || data.operationalDate < from || data.operationalDate > to) continue;
-        if (data.schemaVersion !== 1 || data.kind !== "daily_business_kilometres" ||
-            typeof data.vehicleId !== "string" || !Array.isArray(data.entries)) {
-          completeness.push({ source: "active-driving-days", status: "review-required",
-            detail: "Malformed Work daily-distance projection: " + daily.id });
-          continue;
-        }
-        for (const entry of data.entries) {
-          if (typeof entry.shiftId !== "string") continue;
-          const rides = tripFinancialRecords.filter(trip =>
-            trip.data.kind === "completed_ride_financials" &&
-            trip.data.tripContext?.shiftId === entry.shiftId &&
-            trip.data.tripContext?.vehicleId === data.vehicleId &&
-            trip.data.tripContext?.operationalDate === data.operationalDate);
-          if (!rides.length) continue;
-          const bucket = activityByDate.get(data.operationalDate) ?? {
-            businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
-            refs: [], fuelRefs: [], maintenanceRefs: [],
-          };
-          bucket.activeDrivingDay = true;
-          bucket.refs.push({ sourceId: daily.id, revision: daily.revision });
-          rides.forEach(ride => bucket.refs.push({ sourceId: ride.id, revision: ride.revision }));
-          activityByDate.set(data.operationalDate, bucket);
-        }
-      }
-      const unlinkedCompletedRides = tripFinancialRecords.filter(trip =>
-        trip.data.kind === "completed_ride_financials" && trip.data.tripContext &&
-        trip.data.tripContext.operationalDate >= from && trip.data.tripContext.operationalDate <= to &&
-        !hasShiftForTrip(trip));
-      if (unlinkedCompletedRides.length) completeness.push({
-        source: "active-driving-days", status: "review-required",
-        detail: unlinkedCompletedRides.length +
-          " completed ride record(s) have immutable shift context but no matching Work daily shift projection.",
+      bucket.activeDrivingDay = true;
+      bucket.refs.push({ sourceId: trip.id, revision: trip.revision });
+      const matchingDistance = dailyDistanceRecords.find(daily => {
+        const data = daily.data as { vehicleId?: string; operationalDate?: string; entries?: Array<{ shiftId?: string }> };
+        return data.vehicleId === context.vehicleId && data.operationalDate === context.operationalDate &&
+          Array.isArray(data.entries) && data.entries.some(entry => entry.shiftId === context.shiftId);
       });
-      if (!dailyDistanceRecords.length && tripFinancialRecords.some(trip =>
-        trip.data.kind === "completed_ride_financials" && trip.data.tripContext &&
-        trip.data.tripContext.operationalDate >= from && trip.data.tripContext.operationalDate <= to)) {
-        completeness.push({ source: "active-driving-days", status: "incomplete",
-          detail: "Completed rides exist but no Work daily shift projections are available for the selected period." });
+      if (matchingDistance) {
+        bucket.refs.push({ sourceId: matchingDistance.id, revision: matchingDistance.revision });
+      } else {
+        activeDaySourceIssues.push(trip.id);
       }
+      activityByDate.set(context.operationalDate, bucket);
+    }
+    if (activeDaySourceIssues.length) {
+      completeness.push({
+        source: "active-driving-day-distance", status: "incomplete",
+        detail: activeDaySourceIssues.length +
+          " completed ride(s) prove an active shift, but the matching Work daily-distance projection is not yet available or the ride context needs review. The active-day count is shown; the distance average remains provisional.",
+      });
+    }
+    if (!authoritativeRecords) {
+      completeness.push({ source: "active-driving-day-distance", status: "unavailable",
+        detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
     }
 
     const histories = await Promise.all(vehicles.map(async vehicle => ({
