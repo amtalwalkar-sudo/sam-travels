@@ -5,6 +5,7 @@ import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historica
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
+import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../apps/web/src/maintenance-expense-correction-runtime";
 
 describe("Maintenance correction on the browser IndexedDB repository", () => {
   const records = new DexieRecordRepository();
@@ -18,7 +19,9 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     const targetRecordId = "feature:maintenance:expense:" + crypto.randomUUID();
     const correctionId = "indexeddb-maintenance-" + crypto.randomUUID();
     const chainId = "historical-correction-chain:" + encodeURIComponent(targetRecordId);
-    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId);
+    const workDailyId = "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH01AB1234") + ":2026-10-10";
+    const accrualId = "feature:maintenance:daily-accrual:" + encodeURIComponent("feature:vehicle:MH01AB1234") + ":2026-10-10";
+    touched.push(targetRecordId, "historical-correction:" + correctionId, chainId, workDailyId, accrualId);
     const recordedAt = "2026-11-11T10:00:00.000Z";
     const original = {
       id: targetRecordId, schemaVersion: 1 as const, createdAt: recordedAt,
@@ -31,6 +34,23 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
       },
     };
     await records.put(original);
+    const workDaily = {
+      id: workDailyId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration" as const, revision: 4,
+      data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId: "feature:vehicle:MH01AB1234",
+        operationalDate: "2026-10-10", totalBusinessKm: 10, unallocatedBusinessKm: 0,
+        entries: [{ shiftId: "shift-maintenance", businessKm: 10, personalKm: 2, allocationStatus: "allocated" }] },
+    };
+    const accrual = {
+      id: accrualId, schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration" as const, revision: 1,
+      data: { schemaVersion: 1, kind: "daily_accrual", vehicleId: "feature:vehicle:MH01AB1234",
+        operationalDate: "2026-10-10", dailyBusinessKmRecordId: workDailyId, dailyBusinessKmRevision: 4,
+        businessKm: 10, personalKm: 2, personalAmountPaise: 500,
+        rateEffectiveFrom: "2026-10-10", ratePaisePerKm: 250, amountPaise: 2500 },
+    };
+    await records.put(workDaily);
+    await records.put(accrual);
 
     const service = new HistoricalCorrectionService(
       records,
@@ -68,6 +88,16 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     const first = await service.submit(command);
     const replay = await service.submit(command);
     const unchanged = await records.get<typeof original.data>(targetRecordId);
+    const adapter = createMaintenanceExpenseCorrectionAdapter(records, "web", {
+      currentActor: async () => ({ role: "driver", actorId: "driver-indexeddb" }),
+    } as never);
+    const beforeRestoreProjection = await projectMaintenanceExpenseRecords([original as never], adapter);
+    expect(beforeRestoreProjection[0]).toMatchObject({
+      data: { amountPaise: 12500 }, correctionChainRevision: 1,
+      correctionRefs: [{ sourceId: "historical-correction:" + correctionId, revision: 1, chainRevision: 1 }],
+    });
+    const immutableWorkBefore = await records.get(workDailyId);
+    const immutableAccrualBefore = await records.get(accrualId);
     const history = await service.listForTarget(targetRecordId);
     const head = await records.get<{ chainRevision: number; headCorrectionId?: string }>(chainId);
 
@@ -97,6 +127,17 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
     expect(projectHistoricalCorrectionsV1(restoredOriginal!.data, restoredHistory)).toMatchObject({
       status: "valid", data: { amountPaise: 12500 }, chainRevision: 1,
     });
+    const afterRestoreProjection = await projectMaintenanceExpenseRecords([restoredOriginal as never], adapter);
+    expect(afterRestoreProjection[0].data.amountPaise).toBe(12500);
+    expect(afterRestoreProjection[0].correctionChainRevision).toBe(beforeRestoreProjection[0].correctionChainRevision);
+    expect(afterRestoreProjection[0].correctionRefs).toEqual(beforeRestoreProjection[0].correctionRefs);
+    expect(await records.get(workDailyId)).toEqual(immutableWorkBefore);
+    expect(await records.get(accrualId)).toEqual(immutableAccrualBefore);
+    await expect(service.submit({
+      correctionId: "maintenance-odometer-boundary", targetRecordId, expectedTargetRevision: 1,
+      expectedChainRevision: 1, fieldPath: "odometerKm", afterValue: 123,
+      reason: "Must not rewrite odometer facts", businessEffectiveDate: "2026-10-10",
+    })).rejects.toThrow("historical_correction_field_not_allowed");
     expect((await browserDatabase.records.get(targetRecordId))?.revision).toBe(1);
   });
 });

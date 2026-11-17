@@ -38,7 +38,8 @@ export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEn
     const data = record.data as { featureId?: unknown; targetRecordId?: unknown } | undefined;
     if (data?.featureId !== "maintenance") continue;
     assertHistoricalCorrectionV1(record.data);
-    if (typeof data.targetRecordId !== "string" || !data.targetRecordId.startsWith(PREFIX + "expense:") ||
+    if (record.revision !== 1 ||
+        typeof data.targetRecordId !== "string" || !data.targetRecordId.startsWith(PREFIX + "expense:") ||
         record.id !== "historical-correction:" + (record.data as { correctionId: string }).correctionId) {
       throw new Error("maintenance_correction_backup_identity_invalid");
     }
@@ -66,7 +67,8 @@ export function validateMaintenanceCorrectionSnapshot(records: readonly RecordEn
     const chainHeadId = "historical-correction-chain:" + encodeURIComponent(targetId);
     const head = records.find(record => record.id === chainHeadId);
     const headData = head?.data as { schemaVersion?: number; targetRecordId?: string; chainRevision?: number; headCorrectionId?: string } | undefined;
-    if (!head || headData?.schemaVersion !== 1 || headData.targetRecordId !== targetId ||
+    if (!head || head.revision !== projection.chainRevision ||
+        headData?.schemaVersion !== 1 || headData.targetRecordId !== targetId ||
         headData.chainRevision !== projection.chainRevision ||
         headData.headCorrectionId !== projection.headCorrectionId) {
       throw new Error("maintenance_correction_backup_head_invalid");

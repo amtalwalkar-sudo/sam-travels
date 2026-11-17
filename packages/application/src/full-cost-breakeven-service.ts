@@ -81,57 +81,118 @@ export class FullCostBreakevenService {
       { source: "maintenance-accruals", status: "complete" },
     ];
 
+    const vehicleId = vehicles[0].id;
     const dailyDistanceRecords = authoritativeRecords?.filter(record =>
       record.id.startsWith("work:daily-business-km:")) ?? [];
+    const distanceByDate = new Map<string, {
+      record: { id: string; revision: number };
+      businessKm: number;
+      entries: Array<{ shiftId?: string; businessKm: number; personalKm?: number; allocationStatus: string }>;
+      complete: boolean;
+    }>();
     const activeDaySourceIssues: string[] = [];
+    for (const daily of dailyDistanceRecords) {
+      const data = daily.data as {
+        schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string;
+        entries?: Array<{ shiftId?: string; businessKm?: number; personalKm?: number; allocationStatus?: string }>;
+        totalBusinessKm?: number; unallocatedBusinessKm?: number;
+      };
+      if (data.vehicleId !== vehicleId) continue;
+      const date = data.operationalDate;
+      if (typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
+          !Number.isFinite(Date.parse(date + "T00:00:00Z")) ||
+          new Date(Date.parse(date + "T00:00:00Z")).toISOString().slice(0, 10) !== date) {
+        activeDaySourceIssues.push(daily.id + " has no valid operational date");
+        continue;
+      }
+      if (date < from || date > to) continue;
+      const entries = Array.isArray(data.entries) ? data.entries : [];
+      const shiftIds = new Set<string>();
+      let totalBusinessKm = 0;
+      let unallocatedBusinessKm = 0;
+      let validEntries = Array.isArray(data.entries);
+      for (const entry of entries) {
+        if (typeof entry.shiftId !== "string" || !entry.shiftId.trim() || shiftIds.has(entry.shiftId) ||
+            !Number.isSafeInteger(entry.businessKm) || (entry.businessKm ?? -1) < 0 ||
+            (entry.personalKm !== undefined && (!Number.isSafeInteger(entry.personalKm) || entry.personalKm < 0))) {
+          validEntries = false;
+          continue;
+        }
+        shiftIds.add(entry.shiftId);
+        totalBusinessKm += entry.businessKm!;
+        if (!Number.isSafeInteger(totalBusinessKm)) validEntries = false;
+        if (entry.allocationStatus === "awaiting_operational_boundary") {
+          unallocatedBusinessKm += entry.businessKm!;
+        } else if (entry.allocationStatus !== "allocated") {
+          validEntries = false;
+        }
+        if (!Number.isSafeInteger(unallocatedBusinessKm)) validEntries = false;
+      }
+      const canonicalId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + date;
+      const duplicateDate = distanceByDate.has(date);
+      const complete = !duplicateDate && data.schemaVersion === 1 &&
+        data.kind === "daily_business_kilometres" && daily.id === canonicalId &&
+        validEntries && entries.every(entry => entry.allocationStatus === "allocated") &&
+        data.unallocatedBusinessKm === 0 && unallocatedBusinessKm === 0 &&
+        data.totalBusinessKm === totalBusinessKm;
+      const businessKm = complete ? totalBusinessKm : 0;
+      const distance = { record: daily, businessKm, entries: entries as Array<{
+        shiftId?: string; businessKm: number; personalKm?: number; allocationStatus: string;
+      }>, complete };
+      distanceByDate.set(date, distance);
+      const bucket = activityByDate.get(date) ?? {
+        businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
+        refs: [], fuelRefs: [], maintenanceRefs: [],
+      };
+      bucket.businessKm = businessKm;
+      bucket.refs.push({ sourceId: daily.id, revision: daily.revision });
+      if (!complete) activeDaySourceIssues.push(daily.id + " has unallocated, duplicate or invalid distance contributions");
+      activityByDate.set(date, bucket);
+    }
+
     for (const trip of tripFinancialRecords) {
-      if (trip.data.kind !== "completed_ride_financials" && trip.data.kind !== "cancellation_fee") continue;
+      if ((trip.data.kind !== "completed_ride_financials" && trip.data.kind !== "cancellation_fee") ||
+          trip.data.status !== "submitted") continue;
       const context = trip.data.tripContext;
       if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
           typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
           typeof context.operationalDate !== "string" ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(context.operationalDate) ||
+          !/^\\d{4}-\\d{2}-\\d{2}$/.test(context.operationalDate) ||
+          !Number.isFinite(Date.parse(context.operationalDate + "T00:00:00Z")) ||
+          new Date(Date.parse(context.operationalDate + "T00:00:00Z")).toISOString().slice(0, 10) !== context.operationalDate ||
           context.operationalDate < from || context.operationalDate > to) {
         if (context || trip.data.status === "submitted") activeDaySourceIssues.push(trip.id);
         continue;
       }
-      // Work captures tripContext only while an Online shift is active. A submitted completed-ride
-      // or cancellation-fee closeout therefore records an assigned ride. Its
-      // immutable shiftId + operationalDate therefore proves the shift side
-      // of the active-day rule even before that shift has ended/rotated.
+      if (context.vehicleId !== vehicleId) {
+        activeDaySourceIssues.push(trip.id + " belongs to a different vehicle");
+        continue;
+      }
+      // Work captures immutable tripContext only while an Online shift is active.
+      // If a finalized, fully allocated daily projection exists, its exact shift
+      // entry must agree; a different shift is not a qualifying active day.
+      const distance = distanceByDate.get(context.operationalDate);
+      const matchingShift = distance?.entries.find(entry => entry.shiftId === context.shiftId);
       const bucket = activityByDate.get(context.operationalDate) ?? {
         businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
         refs: [], fuelRefs: [], maintenanceRefs: [],
       };
-      bucket.activeDrivingDay = true;
-      bucket.refs.push({ sourceId: trip.id, revision: trip.revision });
-      const matchingDistance = dailyDistanceRecords.find(daily => {
-        const data = daily.data as { vehicleId?: string; operationalDate?: string; entries?: Array<{ shiftId?: string }> };
-        return data.vehicleId === context.vehicleId && data.operationalDate === context.operationalDate &&
-          Array.isArray(data.entries) && data.entries.some(entry => entry.shiftId === context.shiftId);
-      });
-      if (matchingDistance) {
-        const distanceData = matchingDistance.data as {
-          unallocatedBusinessKm?: number;
-          entries?: Array<{ shiftId?: string; allocationStatus?: string }>;
-        };
-        const shiftEntry = distanceData.entries?.find(entry => entry.shiftId === context.shiftId);
-        if (distanceData.unallocatedBusinessKm === 0 && shiftEntry?.allocationStatus === "allocated" &&
-            distanceData.entries?.every(entry => entry.allocationStatus === "allocated")) {
-          bucket.refs.push({ sourceId: matchingDistance.id, revision: matchingDistance.revision });
-        } else {
-          activeDaySourceIssues.push(trip.id);
-        }
+      if (distance?.complete && !matchingShift) {
+        activeDaySourceIssues.push(trip.id + " does not match a shift in the finalized daily-distance record");
       } else {
-        activeDaySourceIssues.push(trip.id);
+        bucket.activeDrivingDay = true;
+        if (!distance?.complete || !matchingShift) {
+          activeDaySourceIssues.push(trip.id + " has immutable shift context but no matching finalized distance contribution");
+        }
       }
+      bucket.refs.push({ sourceId: trip.id, revision: trip.revision });
       activityByDate.set(context.operationalDate, bucket);
     }
     if (activeDaySourceIssues.length) {
       completeness.push({
         source: "active-driving-day-distance", status: "incomplete",
         detail: activeDaySourceIssues.length +
-          " completed ride(s) prove an active shift, but the matching Work daily-distance projection is not yet available or the ride context needs review. The active-day count is shown; the distance average remains provisional.",
+          " Work/Trip source record(s) need review. Active-day classification uses immutable trip context; unconfirmed distance is withheld.",
       });
     }
     if (!authoritativeRecords) {
@@ -149,32 +210,59 @@ export class FullCostBreakevenService {
       })),
     })));
     for (const { vehicle, records, rates } of histories) {
+      for (const [date, distance] of distanceByDate) {
+        if (!distance.complete || distance.businessKm === 0) continue;
+        const bucket = activityByDate.get(date)!;
+        const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
+        if (!rate) {
+          completeness[2] = { source: "fuel-rate-history", status: "incomplete",
+            detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
+          continue;
+        }
+        bucket.fuelCostPaise += ratioAmount(distance.businessKm, rate.costPaisePerKm);
+        const distanceRef = { sourceId: distance.record.id, revision: distance.record.revision };
+        bucket.fuelRefs.push(distanceRef);
+        rate.sourcePurchaseIds.forEach((sourceId, index) => {
+          const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
+          bucket.refs.push(ref);
+          bucket.fuelRefs.push(ref);
+          for (const correctionRef of correctionRefsBySourceId.get(sourceId) ?? []) {
+            bucket.refs.push(correctionRef);
+            bucket.fuelRefs.push(correctionRef);
+          }
+        });
+      }
+
       for (const accrual of records.accruals) {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
-        accruedOperationalDates.add(date);
+        const distance = distanceByDate.get(date);
         const bucket = activityByDate.get(date) ?? {
           businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
           refs: [], fuelRefs: [], maintenanceRefs: [],
         };
-        const km = accrual.data.businessKm;
-        const rate = rates.filter(item => item.effectiveFrom <= date).slice(-1)[0];
-        if (km > 0 && !rate) {
-          completeness[2] = { source: "fuel-rate-history", status: "incomplete",
-            detail: "No effective fuel cost rate for " + vehicle.id + " on " + date };
-        } else if (km > 0 && rate) {
-          bucket.fuelCostPaise += ratioAmount(km, rate.costPaisePerKm);
-          rate.sourcePurchaseIds.forEach((sourceId, index) => {
-            const ref = { sourceId, revision: rate.sourceRevisions[index] ?? 1 };
-            bucket.refs.push(ref);
-            bucket.fuelRefs.push(ref);
-            for (const correctionRef of correctionRefsBySourceId.get(sourceId) ?? []) {
-              bucket.refs.push(correctionRef);
-              bucket.fuelRefs.push(correctionRef);
-            }
-          });
+        const personalKm = distance?.entries.reduce((sum, entry) => sum + (entry.personalKm ?? 0), 0) ?? 0;
+        const effectiveRate = records.rateHistory.filter(item => item.effectiveFrom <= date).slice(-1)[0];
+        const expectedAmount = distance && distance.complete
+          ? distance.businessKm * accrual.data.ratePaisePerKm : -1;
+        const sourceMatches = !!distance && distance.complete &&
+          accrual.data.dailyBusinessKmRecordId === distance.record.id &&
+          accrual.data.dailyBusinessKmRevision === distance.record.revision &&
+          accrual.data.businessKm === distance.businessKm;
+        const rateMatches = !!effectiveRate &&
+          accrual.data.rateEffectiveFrom === effectiveRate.effectiveFrom &&
+          accrual.data.ratePaisePerKm === effectiveRate.ratePaisePerKm;
+        const amountMatches = Number.isSafeInteger(expectedAmount) &&
+          accrual.data.amountPaise === expectedAmount &&
+          (accrual.data.personalKm ?? 0) === personalKm &&
+          (accrual.data.personalAmountPaise ?? 0) === personalKm * accrual.data.ratePaisePerKm;
+        if (!sourceMatches || !rateMatches || !amountMatches) {
+          completeness.push({ source: "maintenance-accruals", status: "incomplete",
+            detail: "Maintenance accrual " + accrual.id +
+              " does not reconcile to the finalized Work distance and effective operational-date rate." });
+          continue;
         }
-        bucket.businessKm += km;
+        accruedOperationalDates.add(date);
         bucket.maintenanceCostPaise += accrual.data.amountPaise;
         const accrualRef = { sourceId: accrual.id, revision: accrual.revision };
         bucket.refs.push(accrualRef);
@@ -188,9 +276,7 @@ export class FullCostBreakevenService {
           bucket.refs.push(vehicleRef);
           bucket.maintenanceRefs.push(vehicleRef);
         }
-        const distanceRef = { sourceId: accrual.data.dailyBusinessKmRecordId,
-          revision: accrual.data.dailyBusinessKmRevision };
-        bucket.refs.push(distanceRef);
+        const distanceRef = { sourceId: distance!.record.id, revision: distance!.record.revision };
         bucket.maintenanceRefs.push(distanceRef);
         if (![bucket.businessKm, bucket.fuelCostPaise, bucket.maintenanceCostPaise].every(Number.isSafeInteger)) {
           throw new Error("breakeven_activity_total_overflow");
@@ -199,17 +285,16 @@ export class FullCostBreakevenService {
       }
     }
 
-    for (const [date, activity] of activityByDate) {
-      if (activity.activeDrivingDay && !accruedOperationalDates.has(date)) {
-        completeness.push({
-          source: "active-driving-day-distance", status: "incomplete",
-          detail: "Active driving day " + date +
-            " has no committed Maintenance daily accrual snapshot; confirmed distance average is provisional.",
-        });
+    for (const [date, distance] of distanceByDate) {
+      if (distance.complete && distance.businessKm > 0 && !accruedOperationalDates.has(date)) {
+        completeness.push({ source: "maintenance-accruals", status: "incomplete",
+          detail: "Confirmed business distance on " + date + " has no matching immutable Maintenance accrual." });
       }
     }
 
-    if (![...activityByDate.keys()].some(date => date >= from && date <= to)) {
+    if (![...accruedOperationalDates].some(date => date >= from && date <= to) &&
+        ![...distanceByDate.values()].some(distance => distance.complete && distance.businessKm > 0) &&
+        ![...activityByDate.values()].some(activity => activity.activeDrivingDay)) {
       completeness[3] = { source: "maintenance-accruals", status: "unavailable",
         detail: "No committed daily business-kilometre maintenance accruals exist in the selected period." };
     }

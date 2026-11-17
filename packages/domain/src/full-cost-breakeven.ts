@@ -58,6 +58,32 @@ export type BreakevenDailyResultV1 = Readonly<{
   complete: boolean;
 }>;
 
+export type BreakevenDistanceBucketV1 = Readonly<{
+  period: string;
+  from: string;
+  to: string;
+  businessKm: number;
+  activeDrivingDayCount: number;
+  averageBusinessKmPerActiveDrivingDay: number | null;
+  complete: boolean;
+}>;
+
+export type BreakevenDistanceSummaryV1 = Readonly<{
+  totalBusinessKm: number;
+  activeDrivingDayCount: number;
+  averageBusinessKmPerActiveDrivingDay: number | null;
+  complete: boolean;
+  daily: readonly Readonly<{
+    date: string;
+    businessKm: number;
+    activeDrivingDay: boolean;
+    averageBusinessKmPerActiveDrivingDay: number | null;
+    complete: boolean;
+  }>[];
+  weekly: readonly BreakevenDistanceBucketV1[];
+  monthly: readonly BreakevenDistanceBucketV1[];
+}>;
+
 export type BreakevenPeriodResultV1 = Readonly<{
   from: string;
   to: string;
@@ -65,6 +91,8 @@ export type BreakevenPeriodResultV1 = Readonly<{
   activeDrivingDayCount: number;
   /** Confirmed business kilometres divided by qualifying active driving days; null when none qualify. */
   averageBusinessKmPerActiveDrivingDay: number | null;
+  /** Canonical daily, ISO-week and calendar-month distance totals and active-day averages. */
+  distanceSummary: BreakevenDistanceSummaryV1;
   daily: readonly BreakevenDailyResultV1[];
   weekly: readonly Readonly<{ week: string; from: string; to: string; totalCostPaise: number }>[];
   monthly: readonly Readonly<{ month: string; totalCostPaise: number }>[];
@@ -202,15 +230,76 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
           ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) }]),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
   const activeDrivingDayCount = daily.filter(row => row.activeDrivingDay).length;
-  const confirmedBusinessKm = daily
-    .filter(row => row.activeDrivingDay)
-    .reduce((sum, row) => safeAdd(sum, row.businessKm), 0);
+  // Every confirmed allocated business kilometre is in the numerator. Active
+  // driving days are the denominator, not a filter that discards confirmed
+  // distance from an otherwise valid date without a submitted ride.
+  const confirmedBusinessKm = daily.reduce((sum, row) => safeAdd(sum, row.businessKm), 0);
+  const distanceComplete = input.completeness
+    .filter(item => item.source === "active-driving-day-distance")
+    .every(item => item.status === "complete");
+  const distanceWeekly = new Map<string, {
+    from: string; to: string; businessKm: number; activeDrivingDayCount: number;
+  }>();
+  const distanceMonthly = new Map<string, {
+    from: string; to: string; businessKm: number; activeDrivingDayCount: number;
+  }>();
+  const distanceDaily = daily.map(row => Object.freeze({
+    date: row.date, businessKm: row.businessKm, activeDrivingDay: row.activeDrivingDay,
+    averageBusinessKmPerActiveDrivingDay: row.activeDrivingDay ? row.businessKm : null,
+    complete: distanceComplete,
+  }));
+  for (const row of daily) {
+    const day = new Date(row.date + "T00:00:00Z");
+    const weekday = day.getUTCDay() || 7;
+    day.setUTCDate(day.getUTCDate() + 4 - weekday);
+    const weekYear = day.getUTCFullYear();
+    const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+    const weekNumber = Math.ceil((((day.getTime() - yearStart.getTime()) / DAY_MS) + 1) / 7);
+    const week = `${weekYear}-W${String(weekNumber).padStart(2, "0")}`;
+    const weeklyBucket = distanceWeekly.get(week) ?? {
+      from: row.date, to: row.date, businessKm: 0, activeDrivingDayCount: 0,
+    };
+    weeklyBucket.from = weeklyBucket.from < row.date ? weeklyBucket.from : row.date;
+    weeklyBucket.to = weeklyBucket.to > row.date ? weeklyBucket.to : row.date;
+    weeklyBucket.businessKm = safeAdd(weeklyBucket.businessKm, row.businessKm);
+    if (row.activeDrivingDay) weeklyBucket.activeDrivingDayCount++;
+    distanceWeekly.set(week, weeklyBucket);
+
+    const month = row.date.slice(0, 7);
+    const monthlyBucket = distanceMonthly.get(month) ?? {
+      from: row.date, to: row.date, businessKm: 0, activeDrivingDayCount: 0,
+    };
+    monthlyBucket.from = monthlyBucket.from < row.date ? monthlyBucket.from : row.date;
+    monthlyBucket.to = monthlyBucket.to > row.date ? monthlyBucket.to : row.date;
+    monthlyBucket.businessKm = safeAdd(monthlyBucket.businessKm, row.businessKm);
+    if (row.activeDrivingDay) monthlyBucket.activeDrivingDayCount++;
+    distanceMonthly.set(month, monthlyBucket);
+  }
+  const toDistanceBuckets = (values: Map<string, {
+    from: string; to: string; businessKm: number; activeDrivingDayCount: number;
+  }>) => [...values].sort(([left], [right]) => left.localeCompare(right)).map(([period, value]) =>
+    Object.freeze({
+      period, ...value,
+      averageBusinessKmPerActiveDrivingDay: value.activeDrivingDayCount > 0
+        ? value.businessKm / value.activeDrivingDayCount : null,
+      complete: distanceComplete,
+    }));
+  const distanceSummary: BreakevenDistanceSummaryV1 = Object.freeze({
+    totalBusinessKm: confirmedBusinessKm,
+    activeDrivingDayCount,
+    averageBusinessKmPerActiveDrivingDay: activeDrivingDayCount > 0
+      ? confirmedBusinessKm / activeDrivingDayCount : null,
+    complete: distanceComplete,
+    daily: Object.freeze(distanceDaily),
+    weekly: Object.freeze(toDistanceBuckets(distanceWeekly)),
+    monthly: Object.freeze(toDistanceBuckets(distanceMonthly)),
+  });
   return Object.freeze({
     from: input.from, to: input.to,
     totalCostPaise: daily.reduce((sum, row) => safeAdd(sum, row.totalCostPaise), 0),
     activeDrivingDayCount,
-    averageBusinessKmPerActiveDrivingDay: activeDrivingDayCount > 0
-      ? confirmedBusinessKm / activeDrivingDayCount : null,
+    averageBusinessKmPerActiveDrivingDay: distanceSummary.averageBusinessKmPerActiveDrivingDay,
+    distanceSummary,
     daily: Object.freeze(daily),
     weekly: Object.freeze([...weekly].sort(([a],[b]) => a.localeCompare(b)).map(([week,value]) => Object.freeze({week,...value}))),
     monthly: Object.freeze([...monthly].sort(([a],[b]) => a.localeCompare(b)).map(([month,totalCostPaise]) => Object.freeze({month,totalCostPaise}))),

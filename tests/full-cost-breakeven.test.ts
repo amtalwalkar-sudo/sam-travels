@@ -44,7 +44,7 @@ describe("Full-cost breakeven calculation v1", () => {
     expect(result.averageBusinessKmPerActiveDrivingDay).toBe(50);
   });
 
-  it("excludes distance from non-active dates in the active-day average numerator", () => {
+  it("includes all confirmed business distance and uses active driving days only as the average denominator", () => {
     const result = calculateFullCostBreakevenV1(fixture({
       to: "2026-11-03",
       dailyActivity: [
@@ -57,7 +57,13 @@ describe("Full-cost breakeven calculation v1", () => {
       ],
     }));
     expect(result.activeDrivingDayCount).toBe(2);
-    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(25);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(75);
+    expect(result.distanceSummary.totalBusinessKm).toBe(150);
+    expect(result.distanceSummary.daily.map(row => row.businessKm)).toEqual([100, 0, 50]);
+    expect(result.distanceSummary.weekly.reduce((sum, row) => sum + row.businessKm, 0)).toBe(150);
+    expect(result.distanceSummary.monthly).toMatchObject([
+      { period: "2026-11", businessKm: 150, activeDrivingDayCount: 2, averageBusinessKmPerActiveDrivingDay: 75 },
+    ]);
   });
 
   it("does not count a shift-only day or a ride-only day as active without explicit qualification", () => {
