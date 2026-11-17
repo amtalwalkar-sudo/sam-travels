@@ -8,5 +8,5 @@ export interface PerformanceCalculationPortV1 {
 
 /** Optional distance/cost projection; its failure must not hide Performance results. */
 export interface PerformanceDistanceProjectionPortV1 {
-  calculate(from: string, to: string): Promise<BreakevenPeriodResultV1>;
+  calculateDistance(from: string, to: string): Promise<BreakevenPeriodResultV1>;
 }
