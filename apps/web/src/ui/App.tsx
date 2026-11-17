@@ -9,6 +9,7 @@ import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context"
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
 import { WorkApplicationRuntimeV1 } from "../work-application-runtime";
+import { WorkApplicationRuntimeProvider } from "./work-application-runtime-context";
 import { useAdminMaintenanceServices } from "./admin-services-context";
 import { FuelEntryPanel } from "./FuelEntryPanel";
 import { ApplicationShell, primaryShellDefinition, type ApplicationShellProps, type PrimaryScreen } from "./ApplicationShell";
@@ -36,10 +37,8 @@ export function App(props: AppProps) {
 }
 
 function AppWorkspace({
-  ShellRenderer = ApplicationShell, runtimeRegistry, platformRepository,
-  fullCostBreakeven, performanceCalculation,
+  runtimeRegistry, platformRepository, fullCostBreakeven, performanceCalculation,
 }: AppProps) {
-  const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
   const { maintenance, recordSource } = useAdminMaintenanceServices();
   const workRuntime = useMemo(() => new WorkApplicationRuntimeV1({
     runtime: runtimeRegistry,
@@ -47,7 +46,20 @@ function AppWorkspace({
     maintenance,
     source: recordSource,
   }), [runtimeRegistry, platformRepository, maintenance, recordSource]);
-  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, workRuntime);
+
+  return <WorkApplicationRuntimeProvider value={workRuntime}>
+    <AppWorkspaceContent {...{
+      runtimeRegistry, platformRepository, fullCostBreakeven, performanceCalculation,
+    }} />
+  </WorkApplicationRuntimeProvider>;
+}
+
+function AppWorkspaceContent({
+  ShellRenderer = ApplicationShell, runtimeRegistry, platformRepository,
+  fullCostBreakeven, performanceCalculation,
+}: AppProps) {
+  const [activeScreen, setActiveScreen] = useState<PrimaryScreen>(primaryShellDefinition.initialScreen);
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository);
   const { repo, enabled } = workspace;
   const { toggleNetwork } = workspace.actions;
 
