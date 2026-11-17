@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDriverSwipeAction } from "../driver-swipe-action";
+import { getDriverSwipeAction } from "./driver-swipe-action";
 import { SwipeActionBar } from "./SwipeActionBar";
 import { driverPresentationCssVars } from "./driver-presentation";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../domain/src/driver-workflow";
