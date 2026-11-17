@@ -198,4 +198,10 @@ export class PerformanceBusinessSettingsAdapterV1 implements PerformanceBusiness
     if (!settings) throw new Error("business_start_date_not_configured");
     return settings.revision;
   }
+
+  async getSnapshotIdentity(): Promise<string> {
+    const settings = await this.record();
+    if (!settings) throw new Error("business_start_date_not_configured");
+    return "business-settings:" + settings.revision + ":" + settings.data.businessStartDate;
+  }
 }
