@@ -195,13 +195,14 @@ export function allocatePreBusinessRecoveryV1(
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
     cumulativePoolAllocated = add(cumulativePoolAllocated, monthlyAmount);
     let cumulativeSourceAmount = 0;
-    const nextShares = sources.map(source => {
+    const cumulativePrefixTargets = sources.map(source => {
       cumulativeSourceAmount = add(cumulativeSourceAmount, source.amountPaise);
-      const cumulativeTarget = Number(
+      return Number(
         (BigInt(cumulativePoolAllocated) * BigInt(cumulativeSourceAmount)) / BigInt(totalPaise),
       );
-      return cumulativeTarget;
     });
+    const nextShares = cumulativePrefixTargets.map((prefix, index) =>
+      prefix - (index > 0 ? cumulativePrefixTargets[index - 1] : 0));
     const monthlyShares = nextShares.map((target, index) => target - previousSourceShares[index]);
     previousSourceShares = nextShares;
     return monthlyShares;
