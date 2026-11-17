@@ -49,6 +49,10 @@ export class WorkApplicationRuntimeV1 {
     this.createWorkflowResources = dependencies.createWorkflowResources ?? createDriverWorkflow;
   }
 
+  usesRegistry(registry: RuntimeRegistry): boolean {
+    return this.dependencies.runtime === registry;
+  }
+
   async initialize(): Promise<InitializedWorkApplicationV1> {
     const resources = await this.createWorkflowResources();
     try {
