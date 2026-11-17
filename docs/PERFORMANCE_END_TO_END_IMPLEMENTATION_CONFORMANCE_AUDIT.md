@@ -172,3 +172,26 @@ The current calculation implementation uses calendar-day proration for the selec
 ### Evidence boundary
 
 Exact-head CI for PR #97 head `7a11dd7221381d058b991346bb8d40cd1a625061` passed Architecture, Web, Android and Integrated regression (run #44052752021). Subsequent documentation-only changes require their own exact-head CI confirmation. Physical-device acceptance remains deferred. The outstanding passbook, distance-summary, product-owner UX and production-data source-reconciliation gates in this audit remain open.
+
+## 9. Product-owner addendum implementation follow-up — 2026-11-17
+
+The product owner confirmed:
+- Driver Target Passbook must compare cumulative actual surplus against cumulative calendar-day-prorated target, carry earlier shortfalls forward, and show ahead/behind plus remaining target.
+- An active driving day requires an Online Work shift and at least one ride recorded against that exact shift and operational date.
+- Historical Maintenance expense corrections must preserve history and be reflected in any Performance projection that consumes the corrected source.
+
+Implementation added on PR #97:
+- PerformanceCalculationResultV1.passbook now contains a daily cumulative projection from Business Start Date through the selected end date: expected cumulative target, actual daily surplus, actual cumulative surplus, ahead/behind position and remaining target.
+- The Passbook aggregate reconciles to the same calculation's lifetime profit and lifetime target; remaining target is never negative.
+- Performance screen now has a dedicated Driver Passbook view, separate from the monthly roll-up. Rendered-PWA acceptance asserts the cumulative target and remaining-balance presentation.
+- Full-cost daily activity now exposes active-driving-day qualification, count and average confirmed business kilometres per active driving day.
+- Qualification uses submitted completed-ride records carrying immutable Work trip context (shiftId, vehicleId, operationalDate). Work only captures that context when a shift is active, so the context proves the Online-shift side without waiting for the shift to end. Where the matching finalized Work daily-distance projection is not yet available, the day remains counted but the distance source is marked incomplete; the average must be treated as provisional.
+- The Performance screen exposes active-day count and average business kilometres per active day. Browser acceptance checks both metrics.
+- Business Expenses backup validation now validates historical correction records, contiguous chain revisions, target revisions, projected source values and correction-chain heads. A browser backup/restore regression corrects a fuel amount, exports/restores the records and verifies the original remains immutable while the corrected projection is reproducible.
+- Maintenance backup validation now validates its append-only expense correction chains and chain heads. An IndexedDB records round-trip regression verifies the corrected projection and original source survive restoration.
+
+### Boundaries still requiring closure
+
+- The new code and regressions are awaiting exact-head CI. Do not mark these implementation slices CI-verified until Architecture, Web, Android and Integrated gates pass on the latest PR head.
+- The Maintenance expense correction UI targets visit/repair expense records, while the frozen Performance cost contract currently includes Maintenance accrual as confirmed business kilometres × effective per-km rate. It does not explicitly include visit/repair amounts as a second Performance cost. The correction chain is now backup-validated and reprojectable, but whether those visit/repair amounts themselves enter Full-cost breakeven remains a separate accounting decision; no second maintenance cost has been silently added.
+- Physical Android device acceptance remains separate from automated Room/emulator verification.
