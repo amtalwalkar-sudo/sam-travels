@@ -23,30 +23,30 @@ export interface PerformanceBusinessSettingsReadModel {
   releaseSnapshot?(): void;
   getBusinessStartDate(): Promise<string>;
 }
-export interface PerformanceDriverTargetReadModel {
+export interface PerformanceDriverTargetReadModel extends PerformanceSnapshotReadModel {
   getMonthlyTargetPaise(): Promise<number>;
 }
-export interface PerformanceRevenueReadModel {
+export interface PerformanceRevenueReadModel extends PerformanceSnapshotReadModel {
   listVerifiedDailyRevenue(from: string, to: string): Promise<readonly PerformanceDailyRevenueInputV1[]>;
 }
-export interface PerformanceOperatingCostReadModel {
+export interface PerformanceOperatingCostReadModel extends PerformanceSnapshotReadModel {
   listDailyCosts(from: string, to: string): Promise<readonly Readonly<{
     date: string; kind: PerformanceOperatingCostKindV1; amountPaise: number; verified: boolean;
     sourceRefs: PerformanceDailyCostInputV1["sourceRefs"];
   }>[]>;
 }
-export interface PerformanceEmiReadModel {
+export interface PerformanceEmiReadModel extends PerformanceSnapshotReadModel {
   listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
   listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
-export interface PerformanceComplianceReadModel {
+export interface PerformanceComplianceReadModel extends PerformanceSnapshotReadModel {
   listDailyComplianceAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
   listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
-export interface PerformanceManualPreBusinessCostReadModel {
+export interface PerformanceManualPreBusinessCostReadModel extends PerformanceSnapshotReadModel {
   listEntries(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
-export interface PerformanceCompletenessReadModel {
+export interface PerformanceCompletenessReadModel extends PerformanceSnapshotReadModel {
   getCompleteness(from: string, to: string): Promise<readonly PerformanceCompletenessV1[]>;
 }
 
