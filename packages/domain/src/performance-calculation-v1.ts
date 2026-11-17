@@ -15,7 +15,7 @@ export type PerformanceCostKindV1 =
   | "traffic-challan" | "toll-parking" | "miscellaneous"
   | "pre-business-manual-recovery";
 
-export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number }>;
+export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number; scheduleVersion?: number }>;
 
 export type PerformanceDailyRevenueInputV1 = Readonly<{
   date: string;
@@ -180,7 +180,8 @@ function add(a: number, b: number): number {
 }
 function validateRefs(refs: readonly PerformanceSourceRefV1[]): void {
   if (!Array.isArray(refs) || refs.some(ref =>
-    !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1)) {
+    !ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1 ||
+    (ref.scheduleVersion !== undefined && (!Number.isSafeInteger(ref.scheduleVersion) || ref.scheduleVersion < 1)))) {
     throw new Error("performance_source_provenance_invalid");
   }
 }
