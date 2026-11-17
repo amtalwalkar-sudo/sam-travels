@@ -96,7 +96,7 @@ describe("FullCostBreakevenService source integration", () => {
     expect(result.activeDrivingDayCount).toBe(1);
     expect(result.averageBusinessKmPerActiveDrivingDay).toBe(100);
     expect(result.daily[0].activeDrivingDay).toBe(true);
-    expect(result.provenance.sourceIds).toContain("work:daily-business-km:vehicle:2026-11-01");
+    expect(result.provenance.sourceIds).toContain(dailyId);
     expect(result.totalCostPaise).toBe(17_650);
     expect(result.daily[0].costs).toMatchObject({
       fuel: 15_000, maintenance: 2_000, "platform-fee": 100, emi: 500, miscellaneous: 50,
@@ -114,8 +114,6 @@ describe("FullCostBreakevenService source integration", () => {
       detail: expect.stringContaining("Legacy toll/parking expense legacy-parking-unclear"),
     }));
   });
-});
-
 
   it("uses immutable trip operational date and rejects a ride assigned to a different finalized shift", async () => {
     const vehicleId = "feature:vehicle:MH01AB1234";

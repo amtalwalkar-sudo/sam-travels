@@ -4,6 +4,7 @@ import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { TripFinancialService } from "./trip-financial-service";
+import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
 import {
   calculateFullCostBreakevenV1,
   type BreakevenDailyActivityV1,
@@ -68,12 +69,7 @@ export class FullCostBreakevenService {
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
     if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
-    const activityByDate = new Map<string, {
-      businessKm: number; fuelCostPaise: number; maintenanceCostPaise: number; activeDrivingDay: boolean;
-      refs: { sourceId: string; revision: number }[];
-      fuelRefs: { sourceId: string; revision: number }[];
-      maintenanceRefs: { sourceId: string; revision: number }[];
-    }>();
+
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
       { source: "business-expenses", status: "complete" },
@@ -82,112 +78,13 @@ export class FullCostBreakevenService {
     ];
 
     const vehicleId = vehicles[0].id;
-    const dailyDistanceRecords = authoritativeRecords?.filter(record =>
-      record.id.startsWith("work:daily-business-km:")) ?? [];
-    const distanceByDate = new Map<string, {
-      record: { id: string; revision: number };
-      businessKm: number;
-      entries: Array<{ shiftId?: string; businessKm: number; personalKm?: number; allocationStatus: string }>;
-      complete: boolean;
-    }>();
-    const activeDaySourceIssues: string[] = [];
-    for (const daily of dailyDistanceRecords) {
-      const data = daily.data as {
-        schemaVersion?: number; kind?: string; vehicleId?: string; operationalDate?: string;
-        entries?: Array<{ shiftId?: string; businessKm?: number; personalKm?: number; allocationStatus?: string }>;
-        totalBusinessKm?: number; unallocatedBusinessKm?: number;
-      };
-      if (data.vehicleId !== vehicleId) continue;
-      const date = data.operationalDate;
-      if (typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) ||
-          !Number.isFinite(Date.parse(date + "T00:00:00Z")) ||
-          new Date(Date.parse(date + "T00:00:00Z")).toISOString().slice(0, 10) !== date) {
-        activeDaySourceIssues.push(daily.id + " has no valid operational date");
-        continue;
-      }
-      if (date < from || date > to) continue;
-      const entries = Array.isArray(data.entries) ? data.entries : [];
-      const shiftIds = new Set<string>();
-      let totalBusinessKm = 0;
-      let unallocatedBusinessKm = 0;
-      let validEntries = Array.isArray(data.entries);
-      for (const entry of entries) {
-        if (typeof entry.shiftId !== "string" || !entry.shiftId.trim() || shiftIds.has(entry.shiftId) ||
-            !Number.isSafeInteger(entry.businessKm) || (entry.businessKm ?? -1) < 0 ||
-            (entry.personalKm !== undefined && (!Number.isSafeInteger(entry.personalKm) || entry.personalKm < 0))) {
-          validEntries = false;
-          continue;
-        }
-        shiftIds.add(entry.shiftId);
-        totalBusinessKm += entry.businessKm!;
-        if (!Number.isSafeInteger(totalBusinessKm)) validEntries = false;
-        if (entry.allocationStatus === "awaiting_operational_boundary") {
-          unallocatedBusinessKm += entry.businessKm!;
-        } else if (entry.allocationStatus !== "allocated") {
-          validEntries = false;
-        }
-        if (!Number.isSafeInteger(unallocatedBusinessKm)) validEntries = false;
-      }
-      const canonicalId = "work:daily-business-km:" + encodeURIComponent(vehicleId) + ":" + date;
-      const duplicateDate = distanceByDate.has(date);
-      const complete = !duplicateDate && data.schemaVersion === 1 &&
-        data.kind === "daily_business_kilometres" && daily.id === canonicalId &&
-        validEntries && entries.every(entry => entry.allocationStatus === "allocated") &&
-        data.unallocatedBusinessKm === 0 && unallocatedBusinessKm === 0 &&
-        data.totalBusinessKm === totalBusinessKm;
-      const businessKm = complete ? totalBusinessKm : 0;
-      const distance = { record: daily, businessKm, entries: entries as Array<{
-        shiftId?: string; businessKm: number; personalKm?: number; allocationStatus: string;
-      }>, complete };
-      distanceByDate.set(date, distance);
-      const bucket = activityByDate.get(date) ?? {
-        businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
-        refs: [], fuelRefs: [], maintenanceRefs: [],
-      };
-      bucket.businessKm = businessKm;
-      bucket.refs.push({ sourceId: daily.id, revision: daily.revision });
-      if (!complete) activeDaySourceIssues.push(daily.id + " has unallocated, duplicate or invalid distance contributions");
-      activityByDate.set(date, bucket);
-    }
-
-    for (const trip of tripFinancialRecords) {
-      if ((trip.data.kind !== "completed_ride_financials" && trip.data.kind !== "cancellation_fee") ||
-          trip.data.status !== "submitted") continue;
-      const context = trip.data.tripContext;
-      if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
-          typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
-          typeof context.operationalDate !== "string" ||
-          !/^\\d{4}-\\d{2}-\\d{2}$/.test(context.operationalDate) ||
-          !Number.isFinite(Date.parse(context.operationalDate + "T00:00:00Z")) ||
-          new Date(Date.parse(context.operationalDate + "T00:00:00Z")).toISOString().slice(0, 10) !== context.operationalDate ||
-          context.operationalDate < from || context.operationalDate > to) {
-        if (context || trip.data.status === "submitted") activeDaySourceIssues.push(trip.id);
-        continue;
-      }
-      if (context.vehicleId !== vehicleId) {
-        activeDaySourceIssues.push(trip.id + " belongs to a different vehicle");
-        continue;
-      }
-      // Work captures immutable tripContext only while an Online shift is active.
-      // If a finalized, fully allocated daily projection exists, its exact shift
-      // entry must agree; a different shift is not a qualifying active day.
-      const distance = distanceByDate.get(context.operationalDate);
-      const matchingShift = distance?.entries.find(entry => entry.shiftId === context.shiftId);
-      const bucket = activityByDate.get(context.operationalDate) ?? {
-        businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
-        refs: [], fuelRefs: [], maintenanceRefs: [],
-      };
-      if (distance?.complete && !matchingShift) {
-        activeDaySourceIssues.push(trip.id + " does not match a shift in the finalized daily-distance record");
-      } else {
-        bucket.activeDrivingDay = true;
-        if (!distance?.complete || !matchingShift) {
-          activeDaySourceIssues.push(trip.id + " has immutable shift context but no matching finalized distance contribution");
-        }
-      }
-      bucket.refs.push({ sourceId: trip.id, revision: trip.revision });
-      activityByDate.set(context.operationalDate, bucket);
-    }
+    const {
+      activityByDate, distanceByDate, activeDaySourceIssues,
+    } = buildFullCostWorkDistanceProjectionV1({
+      dailyDistanceRecords: authoritativeRecords?.filter(record =>
+        record.id.startsWith("work:daily-business-km:")) ?? [],
+      tripFinancialRecords, vehicleId, from, to,
+    });
     if (activeDaySourceIssues.length) {
       completeness.push({
         source: "active-driving-day-distance", status: "incomplete",
