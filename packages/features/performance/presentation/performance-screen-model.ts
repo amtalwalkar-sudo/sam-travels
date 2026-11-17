@@ -18,13 +18,13 @@ export const INSIGHT_DEFINITIONS: Readonly<Record<string, PerformanceInsightDefi
   "period-revenue": { label: "Period revenue", formula: "Verified gross completed fares + verified cancellation fees, summed over the selected operational dates. Unverified revenue is excluded." },
   "period-cost": { label: "Eligible period costs", formula: "Sum of verified operating costs, separately allocated EMI and Compliance, and applicable pre-business recovery amounts. Costs are not duplicated across source modules." },
   "period-net": { label: "Period net position", formula: "Selected-period revenue − selected-period full eligible costs." },
-  "monthly-target": { label: "Monthly Driver Target", formula: "A fixed rupee amount set in Admin. It is shown in full for selected date filters and is not prorated. Month-to-date achievement = month-to-date net profit ÷ monthly target, shown only for the current month-to-date range." },
+  "monthly-target": { label: "Driver Target for selected period", formula: "The fixed monthly rupee surplus configured in Admin, prorated by the selected calendar days in each month. Month-to-date achievement = selected-period net profit ÷ the prorated target for those dates." },
   "business-distance": { label: "Business distance", formula: "Sum of confirmed allocated daily business kilometres in the selected period. Unallocated distance is not included." },
   "fuel-per-km": { label: "Fuel cost per business km", formula: "Verified fuel cost in the selected period ÷ confirmed allocated business kilometres. It is unavailable when distance is zero or not confirmed." },
   "lifetime-revenue": { label: "Lifetime revenue", formula: "Verified revenue summed from the actual business start date through the selected period end." },
   "lifetime-cost": { label: "Lifetime eligible costs", formula: "Verified eligible costs and recovery allocations summed from actual business start date through selected period end." },
   "lifetime-net": { label: "Lifetime net", formula: "Lifetime verified revenue − lifetime eligible costs." },
-  "lifetime-target": { label: "Accumulated target", formula: "Configured monthly Driver Target × elapsed calendar months from business start through selected period-to month, counting both start and end months." },
+  "lifetime-target": { label: "Accumulated target", formula: "Configured monthly Driver Target prorated by calendar days from the Business Start Date through the selected period end, summing each calendar month independently." },
   "lifetime-target-position": { label: "Lifetime target position", formula: "Lifetime net profit − accumulated target. Positive means ahead of the accumulated target; negative means shortfall." },
   "target-month-count": { label: "Target months counted", formula: "Calendar month count from business start month through selected period-to month, inclusive." },
   "daily-revenue": { label: "Daily revenue", formula: "Verified completed-ride gross fare + verified cancellation fees for this operational date." },
@@ -34,8 +34,8 @@ export const INSIGHT_DEFINITIONS: Readonly<Record<string, PerformanceInsightDefi
   "monthly-revenue": { label: "Monthly revenue", formula: "Verified revenue aggregated for the dates included in the selected period for this calendar month." },
   "monthly-cost": { label: "Monthly eligible costs", formula: "Eligible costs aggregated for the dates included in the selected period for this calendar month." },
   "monthly-net": { label: "Monthly net position", formula: "Monthly aggregate revenue − monthly aggregate eligible costs." },
-  "monthly-target-position": { label: "Monthly target position", formula: "Net position for the included dates in the month − full configured monthly target. Target is not prorated for a partial month." },
-  "recovery-allocation": { label: "Pre-business recovery allocation", formula: "The source amount is allocated evenly over operational days in the exact 18-month recovery window, with partial first-month weighting based on operational days." },
+  "monthly-target-position": { label: "Monthly target position", formula: "Net position for the included dates in the month − the configured monthly Driver Target prorated by the included calendar days in that month." },
+  "recovery-allocation": { label: "Pre-business recovery allocation", formula: "Manual pre-business cost entries are allocated over the documented 18-month recovery schedule. EMI and Compliance carry-forward uses the canonical daily allocations from the Business Start Date allocation service." },
   "recovery-source-revision": { label: "Recovery source revision", formula: "The immutable revision identifier for the manual pre-business, pre-business EMI, or pre-business Compliance source record used in this recovery allocation." },
 };
 
@@ -83,8 +83,14 @@ export function monthlyTotals(result: PerformanceCalculationResultV1) {
     item.revenue += row.grossRevenuePaise; item.cost += row.totalCostPaise; item.profit += row.profitPaise;
     totals.set(month, item);
   }
-  return [...totals].map(([month, item]) => ({ month, ...item,
-    target: result.period.monthlyDriverTargetPaise,
-    targetPosition: item.profit - result.period.monthlyDriverTargetPaise,
-  }));
+  return [...totals].map(([month, item]) => {
+    const [year, monthNumber] = month.split("-").map(Number);
+    const monthDays = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+    const includedDays = result.daily.filter(row => row.date.startsWith(month + "-")).length;
+    const target = Number(
+      (BigInt(result.period.monthlyDriverTargetPaise) * BigInt(includedDays) * 2n + BigInt(monthDays)) /
+      (2n * BigInt(monthDays)),
+    );
+    return { month, ...item, target, targetPosition: item.profit - target };
+  });
 }
