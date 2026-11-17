@@ -23,7 +23,6 @@ export type PerformanceCostKindV1 =
   | "pre-business-manual-recovery";
 
 export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number; scheduleVersion?: number }>;
-
 export type PerformanceDailyRevenueInputV1 = Readonly<{
   date: string;
   grossFarePaise: number;
@@ -31,7 +30,6 @@ export type PerformanceDailyRevenueInputV1 = Readonly<{
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
 }>;
-
 export type PerformanceDailyCostInputV1 = Readonly<{
   date: string;
   kind: Exclude<PerformanceCostKindV1, "pre-business-manual-recovery">;
@@ -39,7 +37,6 @@ export type PerformanceDailyCostInputV1 = Readonly<{
   verified: boolean;
   sourceRefs: readonly PerformanceSourceRefV1[];
 }>;
-
 export type PreBusinessRecoverySourceV1 = Readonly<{
   sourceId: string;
   revision: number;
@@ -47,13 +44,11 @@ export type PreBusinessRecoverySourceV1 = Readonly<{
   note: string;
   origin: "manual";
 }>;
-
 export type PerformanceCompletenessV1 = Readonly<{
   source: string;
   status: "complete" | "incomplete" | "unavailable" | "review-required";
   detail?: string;
 }>;
-
 export type PerformanceCalculationInputV1 = Readonly<{
   businessStartDate: string;
   periodFrom: string;
@@ -75,7 +70,6 @@ export type PerformanceDailyResultV1 = Readonly<{
   profitPaise: number;
   complete: boolean;
 }>;
-
 export type PerformanceCalculationResultV1 = Readonly<{
   calculationId: typeof PERFORMANCE_CALCULATION_ID_V1;
   calculationVersion: typeof PERFORMANCE_CALCULATION_VERSION_V1;
