@@ -10,18 +10,19 @@ import {
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, WorkApplicationCoordinatorV1 } from "../../../../packages/features/work";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
-import type { TripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
 import type { RuntimeRegistry } from "../../../../packages/application/src";
+import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/domain/src/driver-workflow";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, tripFinancialForms: TripFinancialFormRuntimeV1) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const { maintenance, recordSource } = useAdminMaintenanceServices();
+  const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
   const [enabled, setEnabled] = useState(false);
