@@ -5,7 +5,9 @@ import { getPersonIdentityService } from "../person-identity-runtime";
 import { RecordFormWorkingCopyRepository } from "../../../../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime } from "../../../../packages/application/src/shared-form-runtime";
 import { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
-import { calculateTripFinancialSummary, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";\nimport { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";\nimport { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import { calculateTripFinancialSummary, type CompletedTripFinancialObligation } from "../../../../packages/application/src/trip-financial-service";
+import { TRIP_COMPLETED_FINANCIALS_FORM_V1 } from "../../../../packages/application/src/driver-form-definitions";
+import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 
 type Draft = { fare:string; toll:string; tollPayer:string; parking:string; parkingPayer:string };
 const emptyDraft=():Draft=>({fare:"",toll:"",tollPayer:"",parking:"",parkingPayer:""});
