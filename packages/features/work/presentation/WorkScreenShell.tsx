@@ -8,7 +8,7 @@ import "./work-screen.css";
  * owner; the shell does not inspect workflow state, feature data, form values,
  * persistence, or application services.
  */
-export export type WorkScreenShellProps = Readonly<{
+export type WorkScreenShellProps = Readonly<{
   heading: ReactNode;
   status?: ReactNode;
   workflow: ReactNode;
