@@ -17,5 +17,14 @@
     "totalBusinessKm": 0,
     "unallocatedBusinessKm": 100,
     "allocationStatus": "awaiting_operational_boundary"
+  },
+  "personalDistance": {
+    "firstShiftStartOdometerKm": 12000,
+    "previousShiftEndOdometerKm": 12100,
+    "nextShiftStartOdometerKm": 12125,
+    "personalKm": 25,
+    "currentShiftBusinessKm": 100,
+    "secondShiftBusinessKm": 0,
+    "expectedTotalBusinessKm": 100
   }
 }
