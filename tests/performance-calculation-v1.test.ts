@@ -88,14 +88,14 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(monthlyTotals).toEqual([2, ...Array(17).fill(1)]);
   });
 
-  it("allocates remainder paise deterministically and reconciles multiple independent entries", () => {
+  it("allocates remainder paise across the earliest monthly instalments", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "a", revision: 1, amountPaise: 1, note: "one paise", origin: "manual" },
       { sourceId: "b", revision: 1, amountPaise: 2, note: "two paise", origin: "manual" },
     ]);
     expect(result.totalPaise).toBe(3);
     expect(result.daily.filter(row => row.amountPaise > 0).map(row => [row.date, row.amountPaise]))
-      .toEqual([["2026-03-15", 1], ["2026-03-15", 1], ["2026-03-16", 1]]);
+      .toEqual([["2026-03-15", 1], ["2026-04-15", 1], ["2026-05-15", 1]]);
   });
 
   it("keeps EMI and compliance distinct from the pre-business recovery bucket", () => {
