@@ -82,18 +82,16 @@ The screen displays confirmed business kilometres and selected-period fuel cost 
 
 Those additional reporting outputs are not demonstrated by the current screen implementation. Do not derive active days from distance alone: the approved business-day rule requires an Online shift and at least one ride assigned to that shift. Personal kilometres remain excluded.
 
-### 3.3 Target rule and documentation conflict — must be reconciled
+### 3.3 Fixed monthly Driver Target — owner policy decided; runtime conformance outstanding
 
-The current implementation displays the full configured monthly Driver Target for selected date filters and calculates lifetime target using inclusive calendar-month counting from the business-start month through the selected period-to month.
+The owner-approved rule is recorded in `docs/BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md` v2.0, Addendum J:
 
-The existing `docs/BREAKEVEN_AND_DRIVER_TARGET_CALCULATION_CONTRACT.md` v1.9 says partial-month surplus targets and cumulative pacing are prorated by calendar days. Its older wording therefore conflicts with the later implementation/owner direction that period filters display the full monthly target.
+- Driver Target is a fixed monthly surplus amount above Full Cost Breakeven and does not vary with business/operating days, trips or days off.
+- Only the first calendar month is prorated when the Business Start Date falls mid-month. Count calendar days from and including the Business Start Date through month-end, divided by all calendar days in that month.
+- Every later calendar month uses the full configured monthly target.
+- Lifetime target accumulation sums the prorated first month and full subsequent months.
 
-Do not silently treat these as equivalent. The contract owner must keep one explicit rule for:
-1. The target value displayed for a selected partial-month report.
-2. The target amount used for a partial-month passbook achievement calculation.
-3. Lifetime target accumulation when the business starts mid-month or the selected period ends mid-month.
-
-Until the governing contract/addendum is reconciled with the approved latest owner decision, this is a documentation and acceptance ambiguity. The implementation's full-month display must not be presented as proof that partial-month passbook pacing is complete.
+The current implementation's full monthly display for selected partial-month filters is not, by itself, proof of conformance. Verify that the first business-start month is prorated exactly once, later months remain full, and passbook/lifetime totals reconcile without business-day-based adjustment.
 
 ### 3.4 Pre-business recovery — policy approved; implementation conformance remains to be proven
 
