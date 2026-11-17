@@ -24,6 +24,8 @@ export type BreakevenDailyCostV1 = Readonly<{
 export type BreakevenDailyActivityV1 = Readonly<{
   date: string;
   businessKm: number;
+  /** True only when an authoritative Online shift and a recorded completed ride share this date/shift. */
+  activeDrivingDay?: boolean;
   fuelCostPaisePerKm?: Readonly<{ numerator: string; denominator: string }>;
   maintenanceRatePaisePerKm?: number;
   fuelCostPaise?: number;
@@ -52,6 +54,7 @@ export type BreakevenDailyResultV1 = Readonly<{
   totalCostPaise: number;
   costs: Readonly<Record<BreakevenCostKindV1, number>>;
   businessKm: number;
+  activeDrivingDay: boolean;
   complete: boolean;
 }>;
 
@@ -59,6 +62,9 @@ export type BreakevenPeriodResultV1 = Readonly<{
   from: string;
   to: string;
   totalCostPaise: number;
+  activeDrivingDayCount: number;
+  /** Confirmed business kilometres divided by qualifying active driving days; null when none qualify. */
+  averageBusinessKmPerActiveDrivingDay: number | null;
   daily: readonly BreakevenDailyResultV1[];
   weekly: readonly Readonly<{ week: string; from: string; to: string; totalCostPaise: number }>[];
   monthly: readonly Readonly<{ month: string; totalCostPaise: number }>[];
@@ -164,7 +170,8 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
     for (const cost of costsByDate.get(date) ?? []) totals[cost.kind] = safeAdd(totals[cost.kind], cost.amountPaise);
     const totalCostPaise = KINDS.reduce((sum, kind) => safeAdd(sum, totals[kind]), 0);
     const complete = input.completeness.every(item => item.status === "complete");
-    return Object.freeze({ date, totalCostPaise, costs: Object.freeze(totals), businessKm, complete });
+    return Object.freeze({ date, totalCostPaise, costs: Object.freeze(totals), businessKm,
+      activeDrivingDay: activity?.activeDrivingDay === true, complete });
   });
   const weekly = new Map<string, { from: string; to: string; totalCostPaise: number }>();
   const monthly = new Map<string, number>(), yearly = new Map<string, number>();
@@ -194,9 +201,14 @@ export function calculateFullCostBreakevenV1(input: BreakevenInputV1): Breakeven
       : [{ sourceId: item.sourceId, revision: item.sourceRevision,
           ...(item.scheduleVersion !== undefined ? { scheduleVersion: item.scheduleVersion } : {}) }]),
   ].sort((a,b) => a.sourceId.localeCompare(b.sourceId) || a.revision - b.revision);
+  const activeDrivingDayCount = daily.filter(row => row.activeDrivingDay).length;
+  const confirmedBusinessKm = daily.reduce((sum, row) => safeAdd(sum, row.businessKm), 0);
   return Object.freeze({
     from: input.from, to: input.to,
     totalCostPaise: daily.reduce((sum, row) => safeAdd(sum, row.totalCostPaise), 0),
+    activeDrivingDayCount,
+    averageBusinessKmPerActiveDrivingDay: activeDrivingDayCount > 0
+      ? confirmedBusinessKm / activeDrivingDayCount : null,
     daily: Object.freeze(daily),
     weekly: Object.freeze([...weekly].sort(([a],[b]) => a.localeCompare(b)).map(([week,value]) => Object.freeze({week,...value}))),
     monthly: Object.freeze([...monthly].sort(([a],[b]) => a.localeCompare(b)).map(([month,totalCostPaise]) => Object.freeze({month,totalCostPaise}))),
