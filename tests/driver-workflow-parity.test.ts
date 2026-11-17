@@ -123,6 +123,20 @@ describe("shared driver workflow parity and interruption contract", () => {
 
     const repository = new DexieDriverWorkflowRepository();
     const at = new Date().toISOString();
+    await browserDatabase.records.bulkPut([
+      { id: "feature:driver-records:driver:offline-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId: "offline-driver",
+          name: "Offline Driver", lifecycleState: "active" } },
+      { id: "feature:driver-records:assignment:offline-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, driverId: "offline-driver", assignments: [{
+          assignmentId: "offline-assignment", vehicleId: "feature:vehicle:MH01XY1234", assignedAt: at,
+        }] } },
+      { id: "feature:vehicle:MH01XY1234", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web", revision: 1, data: { schemaVersion: 1, registrationNumber: "MH01XY1234",
+          make: "Make", model: "Model", vehicleType: "Sedan", fuelType: "Petrol",
+          yearOfManufacture: 2024, ownership: "Owned", lifecycleState: "active" } },
+    ]);
+    await new WorkDriverSelectionService(records, repository).selectDriver("offline-driver");
     const command = createDriverCommandV2(
       await repository.getSnapshot(), "shift_start", "pwa", "offline-shift-start", at,
       { schemaVersion: 1, readingKm: 1200 },
