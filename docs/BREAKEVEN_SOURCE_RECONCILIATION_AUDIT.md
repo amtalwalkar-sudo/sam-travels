@@ -202,11 +202,16 @@ This audit does not authorize:
 3. **Prepayment concurrency boundary:** the Finance prepayment commit uses one compare-and-set batch over Loan revision, payment-ledger revision and prepayment-state revision. Competing previews therefore cannot both commit against the same stale state. A direct competing-command regression has been added and awaits exact-head CI.
 4. **Canonical fixed-cost consumption:** the Performance fixed-cost adapter consumes canonical daily EMI and Compliance rows verbatim. EMI/Compliance pre-business carry-forward is already present in those rows; only manual pre-business entries use the generic recovery schedule. This prevents duplicate recovery.
 
-### 10.3 Remaining source-provenance gap
+### 10.3 Correction-chain source provenance — implementation added, CI pending
 
-The Business Expenses correction projection returns the corrected source data while retaining the original source record envelope revision. The repository-wide optimistic snapshot fence detects changes to correction records because those records are part of the shared repository revision vector, and the calculation provenance includes the resulting repository fingerprint. However, the category-level source references currently identify the original purchase/expense record revision, not the individual correction record IDs and chain revisions.
+The Business Expenses owner now exposes listCorrectionReferences(targetRecordId), returning the immutable correction record identity (historical-correction:<correctionId>) and chain revision separately from the original source record revision. FullCostBreakevenService carries those references into fuel activity and dated expense source references. The original purchase/expense envelope revision is not falsified or overwritten.
 
-**Disposition: not fully conformant for human-readable correction provenance.** The next source-wiring step is to expose correction-chain references from the owning Business Expenses read model and carry them into fuel-rate/expense source provenance, without falsifying the original record revision or changing immutable history. The same review must verify any Maintenance correction-capable source that can affect a reported amount. Do not mark correction provenance closed solely because the global fingerprint changes.
+Regression coverage now checks:
+- corrected fuel purchase values are applied before completed-interval weighted rate history is rebuilt;
+- the Business Expenses owner returns the correction-chain reference independently;
+- the full-cost calculation provenance contains the correction record reference for the affected fuel rate.
+
+**Disposition: implementation and focused tests added; exact-head CI has not yet confirmed them.** Maintenance correction-capable sources remain subject to a separate owner-path verification; do not infer they are covered by the Business Expenses change.
 
 ### 10.4 Remaining verification boundaries
 
