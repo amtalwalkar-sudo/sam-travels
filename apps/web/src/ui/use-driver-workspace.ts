@@ -10,6 +10,7 @@ import {
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, WorkApplicationCoordinatorV1 } from "../../../../packages/features/work";
 import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
+import type { TripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 import { useAdminMaintenanceServices } from "./admin-services-context";
@@ -19,7 +20,7 @@ import { isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../.
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
 
-export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
+export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository, tripFinancialForms: TripFinancialFormRuntimeV1) {
   const { maintenance, recordSource } = useAdminMaintenanceServices();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
@@ -282,8 +283,8 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const tripOn = driver?.state === "going_to_pickup" || driver?.state === "trip_active" || driver?.state === "approach_active";
   const boundaryAt = driver?.shiftStartedAt ? nextOperationalBoundaryAt(driver.shiftStartedAt) : undefined;
   const pendingBoundary = !!driver?.shiftContext && driver.state === "shift_active" && isOperationalBoundaryPending(driver.shiftStartedAt, now);
-  const cancellationFees = useCancellationFeeWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
-  const completedTripFinancials = useCompletedTripFinancialsWorkspace(platformRepository, workspaceRefreshKey, setDriverMessage);
+  const cancellationFees = useCancellationFeeWorkspace(tripFinancialForms, workspaceRefreshKey, setDriverMessage);
+  const completedTripFinancials = useCompletedTripFinancialsWorkspace(tripFinancialForms, workspaceRefreshKey, setDriverMessage);
   // A pending Fare does not block other actions: that product rule remains explicitly unresolved.
   const pendingBlocksWorkflow = pendingBoundary || pending.some((item) => item.reason !== "gps_recovery_window_expired") ||
     cancellationFees.pendingCancellationFees.length > 0 || cancellationFees.cancellationFeeBusy;
