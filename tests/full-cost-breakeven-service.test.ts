@@ -74,14 +74,25 @@ describe("FullCostBreakevenService source integration", () => {
       { submittedTripFinancialRecords: async () => [{
         id: "work:trip-financial-obligation:trip-1", revision: 2,
         data: { kind: "completed_ride_financials", status: "submitted",
-          tripContext: { operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
+          tripContext: { schemaVersion: 1, shiftId: "shift-1", driverId: "driver-1", assignmentId: "assignment-1", vehicleId, operationalDate: "2026-11-01" }, tollPaise: 50, tollPayer: "driver",
           parkingPaise: 40, parkingPayer: "customer" },
       }, {
         id: "legacy-trip-financial-2", revision: 1,
         data: { kind: "completed_ride_financials", status: "submitted", tollPaise: 25, tollPayer: "driver" },
       }] } as never,
+      { list: async () => [{
+        id: "work:daily-business-km:vehicle:2026-11-01", revision: 4,
+        data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId,
+          operationalDate: "2026-11-01", entries: [{
+            shiftId: "shift-1", allocationStatus: "allocated", businessKm: 100,
+          }] },
+      }] } as never,
     );
     const result = await service.calculate("2026-11-01", "2026-11-01");
+    expect(result.activeDrivingDayCount).toBe(1);
+    expect(result.averageBusinessKmPerActiveDrivingDay).toBe(100);
+    expect(result.daily[0].activeDrivingDay).toBe(true);
+    expect(result.provenance.sourceIds).toContain("work:daily-business-km:vehicle:2026-11-01");
     expect(result.totalCostPaise).toBe(17_650);
     expect(result.daily[0].costs).toMatchObject({
       fuel: 15_000, maintenance: 2_000, "platform-fee": 100, emi: 500, miscellaneous: 50,
