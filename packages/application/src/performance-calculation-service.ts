@@ -164,8 +164,8 @@ export class PerformanceCalculationServiceV1 {
       }
       sourceRevisionById.set(ref.sourceId, {
         revision: ref.revision,
-        ...(ref.scheduleVersion ?? previous?.scheduleVersion) !== undefined
-          ? { scheduleVersion: ref.scheduleVersion ?? previous?.scheduleVersion } : {},
+        ...((ref.scheduleVersion ?? previous?.scheduleVersion) !== undefined
+          ? { scheduleVersion: ref.scheduleVersion ?? previous?.scheduleVersion } : {}),
       });
     }
     const sourceRevisionFingerprint = [...sourceRevisionById]
