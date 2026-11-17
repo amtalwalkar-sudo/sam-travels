@@ -28,7 +28,8 @@ The audit found concrete areas that need correction or explicit reconciliation b
 1. The Performance fixed-cost adapter reconstructs EMI/Compliance daily allocations from source amounts and dates instead of simply consuming the canonical daily amounts already published by the Business Start Date allocation owner.
 2. The pre-business recovery policy is owner-approved: all full qualifying pre-business source amounts are combined into one downstream Breakeven pool, divided into 18 equal monthly instalments, then distributed across each recovery month's days. The fixed monthly Driver Target policy is also resolved in Breakeven/Driver Target Contract v2.0, Addendum J: only the first Business-Start-Date month is prorated; every later month carries the full target independent of operating days or selected partial date ranges.
 3. Performance's operating-cost and fixed-cost adapters obtain their source projections independently. The operating-cost path reaches the allocation service through FullCostBreakevenService, while the fixed-cost path calls the allocation service separately. The current orchestration does not establish one shared cross-source snapshot boundary for those two reads.
-4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.\n5. The UI/UX architecture already defines replaceable shell and feature-screen contracts, but current composition still contains screen-specific wiring, and the available tests prove only selected replacement seams—not that every screen and its internal presentation components can be replaced independently end to end.
+4. Some repository documentation still describes Full Cost Breakeven runtime work as blocked, even though the source engine and Performance integration have since been merged. The newer Performance conformance audit correctly records remaining acceptance gaps, but the older status language has not been reconciled.
+5. The UI/UX architecture already defines replaceable shell and feature-screen contracts, but current composition still contains screen-specific wiring, and the available tests prove only selected replacement seams—not that every screen and its internal presentation components can be replaced independently end to end.
 
 These are targeted ownership, policy and wiring problems. They do not justify creating a new central formula engine, replacing the persistence foundation, or moving every formula into one large module.
 
@@ -187,7 +188,7 @@ Status meanings:
 | CA-21 | Within-screen presentation independence | Not verified | The current audit has not established that each screen separates composition, presentation state, view model/projection, interaction adapter and visual components consistently. Performance is a priority inspection target because its host receives calculation service capabilities directly; verify that the screen consumes a presentation-ready model and approved application actions rather than owning calculation orchestration. |
 | CA-22 | Shared UI components and visual system | Contract intentionally permits independence; implementation inventory outstanding | `UI_UX_SHELL_FOUNDATION_CONTRACT.md` explicitly permits feature-specific visual systems and custom screens; shared components are optional. Verify there are no hidden global CSS/component assumptions that make a screen redesign cascade into unrelated screens. |
 | CA-23 | Web/Android presentation parity | Not verified | Existing platform contracts protect persistence/runtime authority, but this audit has not yet proven that shell and screen replacement boundaries behave consistently across browser PWA and installed Android/WebView/native surfaces. |
-| CA-17 | New central calculation framework | Not necessary currently | Existing versioned domain calculations, adapters and composition are sufficient. No new generic engine or global calculation registry is justified by current evidence. |
+| CA-17 | New central calculation framework | Not necessary currently | Existing versioned domain calculations, adapters and composition are sufficient. No new generic engine or global calculation registry is justified by current evidence. |\n| CA-18 | Current calculation status documentation | Reconciled in this documentation update | Finance/Performance Approval and the Contract Index now distinguish the merged Full Cost Breakeven/Performance implementation from the remaining end-to-end acceptance gaps. The pre-PR #93 source reconciliation audit remains historical evidence. |
 
 ## 7. Confirmed high-priority findings
 
@@ -253,11 +254,9 @@ The current Performance implementation and passbook/lifetime calculations still 
 
 ### CA-18 — Stale calculation status documentation
 
-The current Contract Index and Finance/Performance Approval Gate still contain wording that the Full Cost Breakeven runtime engine is blocked pending upstream source fixes. This is historical wording that conflicts with merged PR #83 and PR #93 implementation evidence and the post-PR #93 audit.
+The historical Breakeven Source Reconciliation Audit retains its pre-implementation baseline and findings. The current Contract Index and Finance/Performance Approval Gate have now been reconciled: the Full Cost Breakeven engine and Performance integration were subsequently merged in PR #83 and PR #93, while end-to-end acceptance remains open under the post-PR #93 Performance conformance audit. The historical audit must not be rewritten as if it were inspected on the current commit.
 
-The historical Breakeven Source Reconciliation Audit must retain its original baseline and findings. It should not be rewritten as if it were audited on the current commit. Instead, the current status should be linked to the post-PR #93 conformance audit and this new calculation-authority audit.
-
-**Required correction direction:** retain the 2026-11-16 v1.9 baseline as historical evidence. The owner has since explicitly amended the target rule through v2.0 Addendum J; do not infer any other policy change from that amendment.
+The 2026-11-16 v1.9 product-contract baseline is retained as historical evidence. The owner has since explicitly amended the Driver Target rule through v2.0 Addendum J; do not infer any other policy change from that amendment.
 
 ## 8. Performance status: implementation versus acceptance
 
@@ -280,7 +279,7 @@ These are Performance completion gates, not evidence that the entire application
 | Risk | Severity | Reason |
 |---|---|---|
 | Conflicting EMI/Compliance allocation paths | High | The same source costs may be interpreted under two different policies or source snapshots. |
-| Partial-month target policy conflict | High | Displayed target, passbook pacing and lifetime target can report different expected positions. |
+| Driver Target passbook/runtime conformance | High | The approved first-month-only proration and full subsequent monthly obligations still need exact runtime, passbook and lifetime regression proof. |
 | Historical source correction propagation | High | A corrected source must update all dependent projections without mutating immutable historical evidence or duplicating amounts. Full cross-consumer proof is incomplete. |
 | Missing/incomplete source attribution | High | Legacy trip context, unresolved distance, overlap review and ambiguous expense links must remain visibly incomplete, never silently zero. |
 | Duplicate downstream calculations | Medium–high | A full consumer inventory has not yet proved that every screen/report consumes owner outputs. |
