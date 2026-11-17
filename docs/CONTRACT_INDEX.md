@@ -92,6 +92,7 @@ Start with the [Sam Travels System Blueprint](SAM_TRAVELS_SYSTEM_BLUEPRINT.md) f
 | [Intelligent Business Advisor Vision](INTELLIGENT_BUSINESS_ADVISOR_VISION.md) | Living product vision and future Performance workstream hand-off; proposals remain distinct from approved contracts and implementation authorization |
 | [Admin Functional Specification](ADMIN_FUNCTIONAL_SPECIFICATION.md) | Approved product rules; does not prove implementation |
 | [Admin Implementation Plan](ADMIN_IMPLEMENTATION_PLAN.md) | Delivery slices and completion definition; follows product and technical owners |
+| [Consolidated Product Foundation Implementation Control](CONSOLIDATED_PRODUCT_FOUNDATION_IMPLEMENTATION_CONTROL.md) | Execution contract for PR #97: scope, internal stages, no-drift guardrails, evidence ledger and definition of done; does not override normative owner contracts |
 | [Feature Extension Architecture](FEATURE_EXTENSION_ARCHITECTURE.md) | Developer guide for adding features/calculations; not a replacement contract |
 | [Dropbox Setup](DROPBOX_SETUP.md) | One-time OAuth and integration setup |
 | [Room Migration Runbook](ROOM_MIGRATION_RUNBOOK.md) | Operational procedure; schema policy remains in Persistence Schema |
