@@ -180,6 +180,29 @@ describe("Performance Calculation Contract v1.0", () => {
     expect(result.daily.find(row => row.date === "2026-04-06")?.complete).toBe(true);
   });
 
+  it("builds a cumulative Passbook with recoverable shortfalls and remaining target", () => {
+    const result = calculatePerformanceV1(fixture({
+      periodFrom: "2026-03-15",
+      periodTo: "2026-04-30",
+      monthlyDriverTargetPaise: 31_000,
+    }));
+    expect(result.passbook.from).toBe("2026-03-15");
+    expect(result.passbook.to).toBe("2026-04-30");
+    expect(result.passbook.daily).toHaveLength(47);
+    expect(result.passbook.daily[0].date).toBe("2026-03-15");
+    expect(result.passbook.daily.at(-1)?.date).toBe("2026-04-30");
+    expect(result.passbook.expectedCumulativeTargetPaise).toBe(result.lifetime.targetPaise);
+    expect(result.passbook.actualEligibleSurplusPaise).toBe(result.lifetime.profitPaise);
+    expect(result.passbook.positionPaise).toBe(
+      result.passbook.actualEligibleSurplusPaise - result.passbook.expectedCumulativeTargetPaise,
+    );
+    expect(result.passbook.remainingTargetPaise).toBe(
+      Math.max(0, -result.passbook.positionPaise),
+    );
+    expect(result.passbook.daily.at(-1)?.positionPaise).toBe(result.passbook.positionPaise);
+    expect(result.passbook.daily.at(-1)?.remainingTargetPaise).toBe(result.passbook.remainingTargetPaise);
+  });
+
   it("rejects duplicate recovery source identities and invalid amounts", () => {
     expect(() => allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "same", revision: 1, amountPaise: 1, note: "a", origin: "manual" },
