@@ -171,7 +171,7 @@ try {
   if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
     throw new Error("verified_revenue_missing_from_lifetime_position");
   }
-  const targetCard = page.getByRole("button", { name: "Explain Monthly Driver Target", exact: true });
+  const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
   if (!(await targetCard.innerText()).includes("₹30,000.00")) {
     throw new Error("monthly_driver_target_not_displayed_as_full_fixed_amount");
