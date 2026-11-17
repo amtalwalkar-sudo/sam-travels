@@ -104,7 +104,7 @@ At the time of this historical PR-head check, PR #97 was **draft, open and unmer
 
 ## 9. Passbook, distance and exact-head verification follow-up — 2026-11-17
 
-The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` is now implemented on this PR branch:
+The approved `docs/PERFORMANCE_PASSBOOK_AND_ACTIVE_DRIVING_DAY_ADDENDUM_V1.md` was implemented by PR #97:
 
 - The cumulative Passbook starts on the actual Business Start Date, includes every operational date through the selected end date, and exposes daily/cumulative surplus, prorated cumulative target, ahead/behind position, remaining target and source IDs/revisions. Its aggregate reconciles to the same calculation's lifetime profit and target.
 - Daily Passbook regression checks each row's cumulative arithmetic and calendar-day target against the shared target-proration function. Recovery coverage includes mid-month start, month-end clamping, leap day, the exclusive 18-month end and later-surplus recovery.
