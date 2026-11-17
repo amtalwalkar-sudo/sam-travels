@@ -1,7 +1,6 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { FeatureScreenHost } from "../apps/web/src/ui/FeatureScreenHost";
 import { PrimaryScreenComposition } from "../apps/web/src/ui/PrimaryScreenComposition";
 import { AdminServicesProvider } from "../apps/web/src/ui/admin-services-context";
 import type { AdminPresentationServices } from "../packages/application/src";
