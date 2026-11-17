@@ -5,7 +5,7 @@ import type { PerformanceScreenContextV1 } from "./performance-screen-model";
 import { aggregateCosts, CATEGORY_LABELS, INSIGHT_DEFINITIONS, money, monthlyTotals, offsetDate, operationalToday, signedMoney } from "./performance-screen-model";
 import "./performance-screen.css";
 
-export function PerformanceScreen({ context }: { context: PerformanceScreenContext }) {
+export function PerformanceScreen({ context }: { context: PerformanceScreenContextV1 }) {
   const today = operationalToday();
   const [from, setFrom] = useState(today.slice(0, 7) + "-01");
   const [to, setTo] = useState(today);
