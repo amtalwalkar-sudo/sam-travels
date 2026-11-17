@@ -1,5 +1,5 @@
-import type { DriverEventType, DriverWorkflowState } from "../../core/src/commands";
-import swipePresentation from "../../../contracts/driver-swipe-presentation-v1.json";
+import type { DriverEventType, DriverWorkflowState } from "../../../core/src/commands";
+import swipePresentation from "../../../../contracts/driver-swipe-presentation-v1.json";
 
 export type DriverSwipeAction = Readonly<{
   label: "Going to pickup" | "Start trip" | "End trip";
