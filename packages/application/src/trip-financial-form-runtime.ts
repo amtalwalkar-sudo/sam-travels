@@ -44,6 +44,11 @@ export function createTripFinancialFormRuntimeV1(
     return copy;
   }
 
+  async function openCancellationFeeDraft(tripId: string) {
+    const copy = await openCopy(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
+    return copy.values;
+  }
+
   async function updateCancellationFeeDraft(tripId: string, amountPaise: number | ""): Promise<void> {
     const copy = await openCopy(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
     await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amountPaise);
@@ -87,6 +92,7 @@ export function createTripFinancialFormRuntimeV1(
     financials,
     listPendingCancellationFees: (): Promise<readonly RecordEnvelope<CancellationFeeObligation>[]> =>
       financials.pendingCancellationFees(),
+    openCancellationFeeDraft,
     updateCancellationFeeDraft,
     submitCancellationFeeDraft,
     listPendingCompletedTripFinancials,
