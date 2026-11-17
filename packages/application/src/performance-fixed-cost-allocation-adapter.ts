@@ -96,8 +96,8 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if (source.sourceKind !== "emi" || source.disposition !== "allocated" ||
-          !source.sourcePeriod || source.sourcePeriod.from < report.businessStartDate) return [];
+      if ((source.sourceKind !== "emi" && source.sourceKind !== "emi-pre-business-carry-forward") ||
+          source.disposition !== "allocated") return [];
       return canonicalDailyRows(source, from, to, "emi");
     }));
   }
@@ -116,28 +116,19 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
   async listPreBusinessEmiPortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if (source.disposition === "overlap_review_required" || source.sourceAmountPaise <= 0) return [];
-      if (source.sourceKind === "emi-pre-business-carry-forward") {
-        return [recoverySource(source, "emi", "Pre-business EMI carry-forward from " + source.sourceId)];
-      }
-      if (source.sourceKind !== "emi" || !source.sourcePeriod ||
-          source.sourcePeriod.from >= report.businessStartDate) return [];
-      return [recoverySource(source, "emi",
-        "Pre-business EMI instalment from " + (source.sourcePeriod.label ?? source.sourceId))];
+      if (source.disposition !== "allocated" || source.sourceAmountPaise <= 0) return [];
+      // EMI pre-business portions are already present in the canonical daily
+      // rows returned by listDailyEmiAllocations. Never feed them into the
+      // generic 18-month manual recovery schedule.
     }));
   }
 
   async listPreBusinessCompliancePortions(): Promise<readonly PreBusinessRecoverySourceV1[]> {
     const report = await this.report();
     const blocked = blockedComplianceBases(report.result.sources);
-    return Object.freeze(report.result.sources.filter(source =>
-      source.sourceKind === "compliance" &&
-      (source.disposition === "pre_business_historical" || source.disposition === "allocated") &&
-      !blocked.has(source.sourceId.replace(/:allocated$/, "")) &&
-      source.sourceAmountPaise > 0 && source.sourcePeriod &&
-      source.sourcePeriod.from < report.businessStartDate,
-    ).map(source => recoverySource(source, "compliance",
-      "Pre-business compliance record (" + (source.sourcePeriod?.label ?? source.sourceId) + ")")));
+    // Compliance pre-business portions are already represented by canonical
+    // daily rows from Business Start Date through the actual validTo date.
+    // Historical rows with no eligible dates are reported as incomplete.
   }
 
   async getCompleteness(_from: string, _to: string): Promise<readonly PerformanceCompletenessV1[]> {
@@ -148,7 +139,8 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
       (source.sourceKind === "compliance" || source.sourceKind === "emi") &&
       source.disposition === "allocated" && !source.sourcePeriod);
     const incompleteDaily = report.result.sources.filter(source => {
-      if ((source.sourceKind !== "compliance" && source.sourceKind !== "emi") ||
+      if ((source.sourceKind !== "compliance" && source.sourceKind !== "emi" &&
+           source.sourceKind !== "emi-pre-business-carry-forward") ||
           source.disposition !== "allocated" || !source.eligibleFrom || !source.eligibleTo) return false;
       const expectedDays = dayNumber(source.eligibleTo) - dayNumber(source.eligibleFrom) + 1;
       const dates = source.daily.map(row => row.date);
@@ -156,13 +148,18 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
         dates[0] !== source.eligibleFrom || dates[dates.length - 1] !== source.eligibleTo ||
         dates.some((date, index) => index > 0 && dayNumber(date) !== dayNumber(dates[index - 1]) + 1);
     });
-    if (blocked.length || missingPeriod.length || incompleteDaily.length) return Object.freeze([Object.freeze({
+    const historicalWithoutEligibleDays = report.result.sources.filter(source =>
+      (source.sourceKind === "compliance" || source.sourceKind === "emi" ||
+       source.sourceKind === "emi-pre-business-carry-forward") &&
+      source.disposition === "pre_business_historical");
+    if (blocked.length || missingPeriod.length || incompleteDaily.length || historicalWithoutEligibleDays.length) return Object.freeze([Object.freeze({
       source: "finance-and-compliance-allocation",
       status: "review-required" as const,
       detail: [
         ...blocked.map(source => source.sourceId + " has unresolved overlap"),
         ...missingPeriod.map(source => source.sourceId + " lacks its original validity window"),
         ...incompleteDaily.map(source => source.sourceId + " has incomplete daily allocation rows"),
+        ...historicalWithoutEligibleDays.map(source => source.sourceId + " ended before the Business Start Date and has no eligible allocation days"),
       ].sort().join("; "),
     })]);
     return Object.freeze([Object.freeze({
