@@ -47,7 +47,7 @@ function AppWorkspace({
     maintenance,
     source: recordSource,
   }), [runtimeRegistry, platformRepository, maintenance, recordSource]);
-  const workspace = useDriverWorkspace(workRuntime, platformRepository);
+  const workspace = useDriverWorkspace(runtimeRegistry, platformRepository, workRuntime);
   const { repo, enabled } = workspace;
   const { toggleNetwork } = workspace.actions;
 
