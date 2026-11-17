@@ -138,6 +138,7 @@ export class FullCostBreakevenService {
         detail: "The shared Work record repository was not supplied to verify finalized daily-distance provenance." });
     }
 
+    const accruedOperationalDates = new Set<string>();
     const histories = await Promise.all(vehicles.map(async vehicle => ({
       vehicle,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
@@ -150,6 +151,7 @@ export class FullCostBreakevenService {
       for (const accrual of records.accruals) {
         const date = accrual.data.operationalDate;
         if (date < from || date > to) continue;
+        accruedOperationalDates.add(date);
         const bucket = activityByDate.get(date) ?? {
           businessKm: 0, fuelCostPaise: 0, maintenanceCostPaise: 0, activeDrivingDay: false,
           refs: [], fuelRefs: [], maintenanceRefs: [],
@@ -193,6 +195,16 @@ export class FullCostBreakevenService {
           throw new Error("breakeven_activity_total_overflow");
         }
         activityByDate.set(date, bucket);
+      }
+    }
+
+    for (const [date, activity] of activityByDate) {
+      if (activity.activeDrivingDay && !accruedOperationalDates.has(date)) {
+        completeness.push({
+          source: "active-driving-day-distance", status: "incomplete",
+          detail: "Active driving day " + date +
+            " has no committed Maintenance daily accrual snapshot; confirmed distance average is provisional.",
+        });
       }
     }
 
