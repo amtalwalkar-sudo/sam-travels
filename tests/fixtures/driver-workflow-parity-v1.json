@@ -26,5 +26,8 @@
     "currentShiftBusinessKm": 100,
     "secondShiftBusinessKm": 0,
     "expectedTotalBusinessKm": 100
+  },
+  "activeTripRotation": {
+    "allowed": false
   }
 }
