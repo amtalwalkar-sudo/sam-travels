@@ -189,4 +189,55 @@ describe("Stage 4 recovery lifecycle", () => {
     expect(completed).toMatchObject({ state: "going_to_pickup", revision: 2, activeTripId: "restore-pending-trip" });
   });
 
+
+  it("restores a populated Vehicle/Driver graph, recovers after IndexedDB reopen, and re-exports the rollback baseline", async () => {
+    const at = "2026-11-17T08:00:00.000Z";
+    await browserDatabase.records.bulkPut([
+      { id: "feature:vehicle:MH01AB1234", schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1,
+        data: { schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace", vehicleType: "LCV",
+          fuelType: "Diesel", yearOfManufacture: 2022, ownership: "Owned", lifecycleState: "active" } },
+      { id: "feature:driver-records:driver:driver-restore", schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "driver-restore", name: "Driver Restore", lifecycleState: "active", selectedForWork: true } },
+      { id: "feature:driver-records:assignment:driver-restore", schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1,
+        data: { schemaVersion: 1, driverId: "driver-restore", assignments: [
+          { assignmentId: "assignment-restore", vehicleId: "feature:vehicle:MH01AB1234", assignedAt: at },
+        ] } },
+    ]);
+    const source = await exportBrowserSnapshot("0.1.0");
+    await browserDatabase.records.put({
+      id: "pre-restore-baseline", schemaVersion: 1, createdAt: at, updatedAt: at,
+      source: "web", revision: 2, data: { marker: "must-survive-recovery" },
+    });
+    const baseline = await exportBrowserSnapshot("0.1.0");
+
+    const restored = await restoreBrowserSnapshot({ data: source.data, manifest: source.manifest, confirmed: true });
+    browserDatabase.close();
+    await browserDatabase.open();
+    await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 1 });
+    const afterRecovery = await exportBrowserSnapshot("0.1.0");
+    const canonical = (data: typeof baseline.data) => Object.fromEntries(
+      Object.entries(data).map(([table, rows]) => [table, [...rows].sort((a, b) =>
+        JSON.stringify(a).localeCompare(JSON.stringify(b)))]),
+    );
+    expect(canonical(afterRecovery.data)).toEqual(canonical(baseline.data));
+    await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 0 });
+    const reexport = await exportBrowserSnapshot("0.1.0");
+    expect(canonical(reexport.data)).toEqual(canonical(baseline.data));
+    expect(await listBrowserRecoveryCheckpoints()).toEqual([
+      expect.objectContaining({ id: restored.checkpointId, status: "rollback_complete" }),
+    ]);
+  });
+
+  it("rejects a Driver assignment whose Vehicle is absent from the same snapshot", async () => {
+    const at = "2026-11-17T08:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "feature:driver-records:assignment:driver-dangling", schemaVersion: 1,
+      createdAt: at, updatedAt: at, source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId: "driver-dangling", assignments: [
+        { assignmentId: "assignment-dangling", vehicleId: "feature:vehicle:MISSING", assignedAt: at },
+      ] },
+    });
+    await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("driver_assignment_vehicle_reference_missing");
+  });
+
 });
