@@ -1,5 +1,11 @@
 export { TIMELINE_FEATURE_EXTENSION, TIMELINE_PRESENTATION_SCREEN } from "./runtime";
-export type { TimelineScreenContext } from "./runtime";
+export type { TimelineScreenContext } from "./presentation/timeline-screen-model";
+export { TimelineProjectionService } from "./application/timeline-projection-service";
+export type { TimelineReadModel, TimelineEventSource, TimelineEvidenceSource } from "./application/timeline-projection-service";
+export { GeoapifyProxyReverseGeocoder, TimelineReverseGeocodingService } from "./application/timeline-reverse-geocoding";
+export type { TimelineLocationStatus, TimelineLocationEnrichment, TimelineLocationMap, ReverseGeocoderAdapter } from "./application/timeline-reverse-geocoding";
+export { TimelineEnrichmentQueue, TIMELINE_ENRICHMENT_RECORD_PREFIX } from "./application/timeline-enrichment-queue";
+export type { TimelineEnrichmentRecord } from "./application/timeline-enrichment-queue";
 
 export { PeriodNavigation } from "./presentation/PeriodNavigation";
 export type { TimelinePeriodMode, TimelinePeriodNavigationProps } from "./presentation/PeriodNavigation";
