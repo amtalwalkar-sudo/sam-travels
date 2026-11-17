@@ -1,0 +1,47 @@
+import type { CSSProperties } from "react";
+import presentation from "../../../../contracts/driver-presentation-v1.json";
+
+/** Shared visual tokens. CSS consumes these variables; native Android reads the same JSON asset. */
+export const driverPresentationContract = presentation;
+
+export const driverPresentationCssVars = {
+  "--driver-surface": presentation.colors.surface,
+  "--driver-surface-raised": presentation.colors.surfaceRaised,
+  "--driver-border": presentation.colors.border,
+  "--driver-text": presentation.colors.text,
+  "--driver-text-strong": presentation.colors.textStrong,
+  "--driver-accent": presentation.colors.accent,
+  "--driver-accent-soft": presentation.colors.accentSoft,
+  "--driver-danger-surface": presentation.colors.dangerSurface,
+  "--driver-danger-border": presentation.colors.dangerBorder,
+  "--driver-danger-text": presentation.colors.dangerText,
+  "--driver-hint": presentation.colors.hint,
+  "--driver-disabled-opacity": String(presentation.colors.disabledOpacity),
+  "--driver-card-radius": presentation.shape.cardRadius + "px",
+  "--driver-field-radius": presentation.shape.fieldRadius + "px",
+  "--driver-button-radius": presentation.shape.buttonRadius + "px",
+  "--driver-web-card-padding": presentation.spacing.webCardPadding + "px",
+  "--driver-field-gap": presentation.spacing.fieldGap + "px",
+  "--driver-form-gap": presentation.spacing.formGap + "px",
+  "--driver-field-height": presentation.sizing.fieldHeight + "px",
+  "--driver-swipe-height": presentation.sizing.swipeHeight + "px",
+  "--driver-label-size": presentation.typography.labelSp + "px",
+  "--driver-strong-label-size": presentation.typography.strongLabelSp + "px",
+  "--driver-hint-size": presentation.typography.hintSp + "px",
+  "--driver-motion-duration": presentation.motion.transitionDurationMs + "ms",
+  "--driver-state-default-surface": presentation.visualStates.default.surface,
+  "--driver-state-default-border": presentation.visualStates.default.border,
+  "--driver-state-default-text": presentation.visualStates.default.text,
+  "--driver-state-pending-surface": presentation.visualStates.pending.surface,
+  "--driver-state-pending-border": presentation.visualStates.pending.border,
+  "--driver-state-pending-text": presentation.visualStates.pending.text,
+  "--driver-state-success-surface": presentation.visualStates.success.surface,
+  "--driver-state-success-border": presentation.visualStates.success.border,
+  "--driver-state-success-text": presentation.visualStates.success.text,
+  "--driver-state-error-surface": presentation.visualStates.error.surface,
+  "--driver-state-error-border": presentation.visualStates.error.border,
+  "--driver-state-error-text": presentation.visualStates.error.text,
+  "--driver-state-disabled-surface": presentation.visualStates.disabled.surface,
+  "--driver-state-disabled-border": presentation.visualStates.disabled.border,
+  "--driver-state-disabled-text": presentation.visualStates.disabled.text,
+} as CSSProperties;
