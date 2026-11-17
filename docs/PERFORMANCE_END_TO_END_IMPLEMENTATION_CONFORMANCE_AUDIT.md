@@ -122,7 +122,7 @@ Add/retain explicit regression cases for:
 
 The v1.9 product contract's Addendum F describes the temporary sanity-check surface and explicitly defers the intended final Performance redesign until calculation and wiring validation is complete. PR #93 adds a substantial dashboard surface, but CI/browser acceptance does not itself amend that product presentation decision or constitute owner sign-off of the final screen composition.
 
-Record whether the current screen remains the temporary validation surface or is now the approved final Performance UX before declaring UI completion. No unrelated Admin redesign is implied.
+The final visual redesign is intentionally deferred to a separate presentation milestone. The current screen remains the surface for calculation validation; do not treat final visual approval as a prerequisite for the calculation/domain foundation or the consolidated architecture implementation. No unrelated Admin redesign is implied.
 
 ### 3.6 Source conformance and real-device acceptance — outstanding gates
 
@@ -134,7 +134,7 @@ The repository's physical phone acceptance is also a separate release gate and w
 
 The Performance workstream may be called end-to-end complete only when all applicable gates below are closed with evidence:
 
-1. **Contract reconciliation:** publish an explicit versioned addendum resolving the monthly target/partial-period/lifetime target semantics and the status of the final Performance UX. Do not change approved calculations implicitly.
+1. **Approved target policy conformance:** the fixed monthly Driver Target and first-calendar-month-only startup proration are resolved in Breakeven Contract v2.0 Addendum J. Verify runtime monthly display, passbook pacing and lifetime totals against that rule. Final visual UX approval remains a separate, intentionally deferred presentation milestone.
 2. **Passbook:** implement and test expected cumulative pacing, ahead/behind, remaining target, shortfall carry-forward and later recovery, including mid-month start and partial selected periods.
 3. **Distance summary:** implement and test active-driving-day counts and daily/weekly/monthly averages and trends, excluding personal distance and using the authoritative business-day definition.
 4. **Recovery:** prove exact 18-month allocation and all boundary/provenance cases listed above.
