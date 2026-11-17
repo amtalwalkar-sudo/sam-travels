@@ -364,7 +364,8 @@ internal object NativeMaintenanceBackup {
                     "maintenance_correction_actor_invalid"
                 }
                 val createdBy = envelope.optJSONObject("createdBy")
-                require(createdBy?.optString("personId") == actorId && createdBy.optString("role") == role) {
+                require(createdBy != null && createdBy.optString("personId") == actorId &&
+                    createdBy.optString("role") == role) {
                     "maintenance_correction_actor_envelope_mismatch"
                 }
                 if (role == "admin") {
