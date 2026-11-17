@@ -26,13 +26,13 @@ describe("production screen replacement boundary", () => {
     );
     expect([...new Set(screens.map(screen => screen.ownerFeatureId))].sort()).toEqual(["admin", "performance", "timeline", "work"]);
 
-    const replacements = new Map([...production.presentationScreens].map(([id, screen]) => [
-      id,
-      Object.freeze({
+    const replacements = new Map(production.presentationScreens);
+    for (const [id, screen] of replacements) {
+      replacements.set(id, Object.freeze({
         ...screen,
         render: () => createElement("article", { "data-replacement-screen": id }, "replacement renderer"),
-      }),
-    ]));
+      }));
+    }
     const runtime = { ...production, presentationScreens: replacements } as RuntimeRegistry;
 
     for (const screen of screens) {
