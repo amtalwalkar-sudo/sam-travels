@@ -176,3 +176,43 @@ This audit does not authorize:
 **Upstream implementation corrections:** present in draft PR #82; Architecture, Web, Android and Integrated regression CI passed on exact head `90f68258d6be581a644512751090a87fd90b5f67` (run `43554173161`).  
 **Breakeven runtime implementation:** **blocked** until the source read models are re-audited, notwithstanding the green CI.  
 **Runtime code changed:** yes, only in upstream source owners and their regression tests. No breakeven engine, target calculation or presentation has been implemented.
+
+
+## 10. Post-PR #97 source read-model re-audit — 2026-11-17
+
+**Re-audit baseline:** PR #97 architecture branch after conformance cleanup; source evidence inspected against the current branch implementation. This section supplements the historical audit above; it does not rewrite its original baseline or silently approve product policy.
+
+### 10.1 Source-to-consumer trace
+
+| Source contract | Owning implementation → consumer | Evidence observed | Finding |
+|---|---|---|---|
+| Work/Shift odometer and daily distance | Work v2 shift/rotation → `work:daily-business-km` → Maintenance daily accrual → Full-cost source projection → Performance operating-cost adapter | PWA/Room parity fixture; `maintenance-daily-accrual-integration` fail-closed checks; `tests/performance-operating-cost-adapter.test.ts`; Android `WorkDailyBusinessKilometreStoreTest` | Confirmed business km only; unallocated boundary contribution blocks accrual; personal km remains separate. Automated coverage exists; physical-device acceptance remains deferred. |
+| Fuel purchase and weighted rate | `BusinessExpensesService.listFuelPurchases()` → append-only correction projection → full-to-full interval calculation → prospective weighted rate history → confirmed daily business km × effective rate → full-cost source projection | `tests/business-expenses-calculations.test.ts`; `tests/business-expenses-service.test.ts`; `tests/full-cost-breakeven-service.test.ts` | Purchase spend is not separately added to breakeven; missing effective rate for positive km marks fuel completeness incomplete. A new service regression was added to prove a corrected intervening purchase changes the next weighted rate; its exact-head CI is pending. |
+| Platform fees, challans and miscellaneous expenses | Business Expenses source records and daily projection → FullCostBreakevenService | `tests/business-expenses-service.test.ts`; `tests/business-expenses-calculations.test.ts`; `tests/full-cost-breakeven-service.test.ts` | Platform fee is a paid event; unpaid challan excluded; paid challan recognized; standalone reversals remain signed on reversal date. |
+| Trip gross fare and cancellation fee | Work immutable tripContext → TripFinancialService submitted read model → `PerformanceTripRevenueAdapterV1` | `tests/performance-trip-revenue-adapter.test.ts`; trip-financial service tests; browser/Android cancellation snapshot coverage | Current records use immutable operational date; missing/invalid legacy context is incomplete, not guessed from current selection. |
+| Driver-paid trip toll/parking | Submitted trip closeout payer fields → FullCostBreakevenService dated driver expense; linked duplicate expense records are shadowed | `tests/full-cost-breakeven-service.test.ts`; `tests/business-expenses-service.test.ts` | Trip obligation is counted once. Matching manual duplicate and its reversal do not cancel the trip obligation. Customer-paid amounts are not driver expenses. |
+| Compliance validity and overlap | Compliance analysis/review → BusinessStartDateCostAllocationService → canonical daily rows → fixed-cost adapter/full-cost projection | `tests/business-start-date-cost-allocation-service.test.ts`; `tests/performance-fixed-cost-allocation-adapter.test.ts` | Renewal restates from the renewed record; unresolved overlap withholds only intersecting dates and remains review-required. Canonical daily rows are consumed without re-spreading. |
+| EMI schedule, prepayment and settlement | Finance Loan schedule history/payment ledger → BusinessStartDateCostAllocationService → canonical daily EMI rows → fixed-cost adapter/full-cost projection | `tests/finance-loan-prepayment-service.test.ts`; `tests/business-start-date-cost-allocation-service.test.ts`; `tests/performance-fixed-cost-allocation-adapter.test.ts` | Fixed EMI / shorter tenure and schedule-history composition are implemented; settlement cutoff excludes future allocations. Commit compares loan, payment-ledger and prepayment-state revisions atomically. A competing-prepayment CAS regression was added; exact-head CI is pending. |
+| Maintenance rate and accrual | Maintenance rate history + fully allocated Work daily km → immutable daily accrual → full-cost projection | `tests/maintenance-correction-indexeddb.test.ts`; Work daily allocation tests; Maintenance service tests | Accrual snapshots the effective operational-date rate and is idempotent for the same daily-distance revision. A changed source snapshot conflicts rather than silently rewriting the accrual. |
+
+### 10.2 Findings that are now evidenced
+
+1. **Trip cancellation attribution:** the earlier audit's missing cancellation snapshot is corrected in the current branch. Browser and Android cancellation closeout copy immutable tripContext; the public submitted-trip-financial read model exposes both submitted record kinds and refuses to invent context for legacy records.
+2. **Fuel correction restatement:** the Business Expenses service projects append-only corrections before deriving fuel intervals and weighted rate history. A targeted regression now checks the corrected amount flows into the next completed interval's weighted rate. The test is not counted as passing until CI on the exact new head succeeds.
+3. **Prepayment concurrency boundary:** the Finance prepayment commit uses one compare-and-set batch over Loan revision, payment-ledger revision and prepayment-state revision. Competing previews therefore cannot both commit against the same stale state. A direct competing-command regression has been added and awaits exact-head CI.
+4. **Canonical fixed-cost consumption:** the Performance fixed-cost adapter consumes canonical daily EMI and Compliance rows verbatim. EMI/Compliance pre-business carry-forward is already present in those rows; only manual pre-business entries use the generic recovery schedule. This prevents duplicate recovery.
+
+### 10.3 Remaining source-provenance gap
+
+The Business Expenses correction projection returns the corrected source data while retaining the original source record envelope revision. The repository-wide optimistic snapshot fence detects changes to correction records because those records are part of the shared repository revision vector, and the calculation provenance includes the resulting repository fingerprint. However, the category-level source references currently identify the original purchase/expense record revision, not the individual correction record IDs and chain revisions.
+
+**Disposition: not fully conformant for human-readable correction provenance.** The next source-wiring step is to expose correction-chain references from the owning Business Expenses read model and carry them into fuel-rate/expense source provenance, without falsifying the original record revision or changing immutable history. The same review must verify any Maintenance correction-capable source that can affect a reported amount. Do not mark correction provenance closed solely because the global fingerprint changes.
+
+### 10.4 Remaining verification boundaries
+
+- The current source adapter tests use deterministic fixtures; they do not constitute a complete reconciliation of every migrated production record.
+- The optimistic shared repository fence is not a database transaction or serializable snapshot.
+- Browser/Room shared fixtures and Android reliability tests are automated parity evidence, not physical-device acceptance.
+- The separate Performance product requirements for cumulative Driver Target Passbook, active-driving-day distance summaries and final UX approval remain open; this source audit does not close them.
+
+**Re-audit disposition:** The earlier upstream blockers are materially addressed in source implementations and their adapters. The source read-model review is **partially closed**, with explicit correction-chain provenance still open and the two newly added regressions awaiting exact-head CI. Do not treat the historical statement “breakeven runtime implementation blocked” as a current source-code fact; PR #97 contains the Performance/full-cost calculation paths. Do not mark overall Performance product acceptance complete.
