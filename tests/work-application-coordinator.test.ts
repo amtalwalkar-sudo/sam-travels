@@ -6,7 +6,7 @@ function coordinator() {
   return new WorkApplicationCoordinatorV1({
     runtime: {} as never,
     records: { list: async () => [] },
-    maintenance: { accrueDailyBusinessKilometres: async () => undefined },
+    maintenance: { accrueDailyBusinessKilometres: async () => ({} as never) },
     source: "web",
   });
 }
