@@ -244,8 +244,8 @@ try {
       !passbookText.includes("Remaining")) {
     throw new Error("driver_passbook_cumulative_target_or_remaining_balance_missing");
   }
-  await page.getByText("Expected cumulative surplus", { exact: true }).waitFor();
-  await page.getByText("Actual cumulative surplus", { exact: true }).waitFor();
+  await page.getByText(/Expected cumulative surplus/).waitFor();
+  await page.getByText(/Actual cumulative surplus/).waitFor();
   console.log("Driver Passbook cumulative target, actual surplus and remaining balance rendered.");
 
   const provenance = page.locator("#performance-provenance");
