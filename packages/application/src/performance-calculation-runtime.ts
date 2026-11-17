@@ -3,6 +3,8 @@ import type { BusinessStartDateCostAllocationService } from "./business-start-da
 import type { FullCostBreakevenService } from "./full-cost-breakeven-service";
 import type { PerformanceAdminSettingsServiceV1 } from "./performance-admin-settings-service";
 import type { TripFinancialService } from "./trip-financial-service";
+import type { RecordRepository } from "../../core/src/repositories";
+import { PerformanceCalculationSnapshotBoundaryV1 } from "./performance-calculation-snapshot-boundary";
 import { PerformanceCalculationServiceV1 } from "./performance-calculation-service";
 import { PerformanceBusinessSettingsAdapterV1 } from "./performance-admin-settings-service";
 import { PerformanceFixedCostAllocationAdapterV1 } from "./performance-fixed-cost-allocation-adapter";
@@ -16,6 +18,8 @@ export type PerformanceCalculationRuntimeDependenciesV1 = Readonly<{
   fullCost: Pick<FullCostBreakevenService, "getSourceProjection">;
   allocation: Pick<BusinessStartDateCostAllocationService, "getReport">;
   tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">;
+  /** The same authoritative record repository used by all calculation sources. */
+  recordRepository: Pick<RecordRepository, "list">;
 }>;
 
 /**
@@ -41,5 +45,5 @@ export function createPerformanceCalculationServiceV1(
     compliance: fixedCosts,
     manualPreBusinessCosts: dependencies.adminSettings,
     completeness,
-  });
+  }, new PerformanceCalculationSnapshotBoundaryV1(dependencies.recordRepository));
 }
