@@ -247,3 +247,28 @@ Browser backup explicitly excludes recovery checkpoints, credential-vault materi
 ### 9.7 Backup audit conclusion
 
 Current source shows explicit persistent-feature participants and fail-closed table/record ownership checks on both platforms. The important remaining issue is not simply missing participant registration: it is proving that platform-specific participant manifests, serialized snapshot shapes, validators and restore outcomes are semantically equivalent. Finance participant divergence is a concrete incompatibility risk; full cross-platform encrypted restore has not been demonstrated. Do not claim complete backup parity until G-13 through G-16 are closed with integrated tests.
+
+
+### 9.15 — Integrated fixture execution-path assessment
+
+**Status:** Verification gap confirmed; no runtime code changed in this audit pass.
+
+The existing tests provide useful building blocks, but they do not yet execute the requested integrated transaction on both native stores:
+
+- **Browser:** `tests/recovery-lifecycle.test.ts` closes and reopens IndexedDB, then calls `recoverBrowserRestoreTransactions()` and proves rollback of a generic business record. It separately proves rebuilding a derived trip-history projection from restored Work events. Feature backup suites prove isolated owner export/restore. The inspected suite does not combine the complete populated owner graph, pending Work/outbox and Log Book history, correction heads, actual restore, close/reopen recovery, and re-export into one assertion.
+- **Android:** `NativeBackupStartupRecoveryTest` reopens a durable Room database and proves recovery of a manually seeded `restored_unverified` journal/checkpoint. `NativeMaintenanceBackupRoomTest` and `NativeBusinessExpensesRoomBackupTest` exercise participant export/validation/replacement directly. Those tests do not invoke the production `BackupPlugin.restoreSnapshot` transaction, because the transaction is embedded in the Capacitor plugin method and has no directly testable restore coordinator. The startup test therefore proves the recovery primitive, not that a populated production restore can be driven through restore → process/database reopen → recovery → re-export.
+- **Native package interoperability:** the existing TypeScript/Kotlin encryption-v2 tests prove cryptographic package interoperability for a minimal one-record payload. They do not prove populated feature snapshot interoperability; the Finance manifest and payload incompatibilities in G-13/G-17 remain.
+
+**Conclusion:** This is presently a missing integrated proof and testability seam, not evidence that the local restore transactions lose feature data. The browser production restore path is directly callable from tests. Android needs the validation/checkpoint/replace/read-back/rollback body extracted from `BackupPlugin.restoreSnapshot` into an internal Room-backed coordinator so instrumentation can exercise the same production implementation without mocking or duplicating it. Then both platforms can run the same semantic fixture (with explicit platform normalization or platform-bound package expectations), restart/recovery, and normalized re-export comparison.
+
+**Required fixture assertions:** participant inventory including empty owners; all source IDs and revisions; Vehicle/Driver/assignment references; Finance schedule/payment/prepayment/settlement lineage; Compliance renewal and overlap decision heads; Maintenance effective-date rate history, daily source revision, business/personal km split, accrual and correction head; Business Expense charge/reversal and correction head; Performance's explicitly classified durable/derived state; pending/retried/acknowledged Work intents and outbox; ordered Log Book events; rollback leaves pre-restore records unchanged; startup recovery is idempotent; post-recovery export is semantically stable.
+
+### 9.16 — Driver assignment Vehicle references are not resolved against the snapshot
+
+**Severity:** Medium–High for assignment integrity.  
+**Status:** Confirmed validation defect in both implementations.
+
+**Evidence:** Browser `apps/web/src/driver-records-backup.ts` validates assignment schema/identity and assignment ID uniqueness, but its snapshot validator does not resolve each assignment's `vehicleId` against a Vehicle record. Android `NativeDriverRecordsBackup` checks that `vehicleId` starts with `feature:vehicle:`, but does not resolve the ID against the complete participant snapshot. Therefore an assignment history can pass its owner validator while referring to a nonexistent Vehicle. The existing assignment tests validate schema and active-assignment count, not dangling Vehicle rejection. This is stronger than a missing round-trip test: the validators currently accept an unresolved cross-feature reference.
+
+**Required closure:** Make Driver assignment validation consume the complete snapshot on both platforms and resolve each assignment Vehicle ID to a valid Vehicle record with matching canonical identity. Add matching browser/Android positive and negative fixtures, including missing Vehicle, malformed Vehicle identity, valid reassignment history and Vehicle lifecycle policy. Do not silently delete or rewrite historical assignment references during restore.
+
