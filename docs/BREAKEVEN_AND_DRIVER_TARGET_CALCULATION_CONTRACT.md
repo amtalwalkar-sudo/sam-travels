@@ -84,7 +84,7 @@ Use existing Finance and Business Start Date allocation outputs where applicable
 
 This contract does not introduce a separate dated vehicle-expense allocation system or a new dated-expense calculation framework. Do not add a battery-specific, date-prorated expense subsystem under this workstream. Only costs explicitly included by the approved definitions and existing authoritative contracts may contribute.
 
-## 7. Daily Driver Target
+## 7. Monthly Driver Target
 
 - Admin configures a **monthly Driver Target**.
 - The target is evaluated against the single full-cost breakeven.
@@ -211,7 +211,7 @@ Product formula decisions for the approved baseline are recorded in Addenda A th
 
 ## 14. Approval and amendment history
 
-- **v1.9 / Addendum I — Upstream source-contract reconciliation:** Recovers the five previously discussed owner decisions into their normative source contracts, replaces the unresolved-check framing in Addendum H.8 with authoritative contract references, and records implementation conformance findings. Documentation only; breakeven runtime implementation remains blocked until upstream mismatches are fixed.
+- **v1.9 / Addendum I — Upstream source-contract reconciliation:** Recovers the five previously discussed owner decisions into their normative source contracts, replaces the unresolved-check framing in Addendum H.8 with authoritative contract references, and records implementation conformance findings. At that historical point, breakeven runtime implementation remained blocked; subsequent PR #83 and PR #93 merged substantial calculation and Performance integration work. Current end-to-end acceptance gaps are tracked in the Performance conformance audit.
 - **v1.7 / Addendum G — Business-day definition:** Defines a business day for breakeven as an Asia/Kolkata operational date with an Online shift and at least one ride assigned to that shift; preserves the existing 04:00 trip assignment rules and keeps time-based compliance/EMI allocations on calendar dates. This amendment documents the business-day classification only and does not start implementation.
 
 - **v1.6 / Addendum F — Temporary Performance sanity-check surface:** Authorizes a temporary, isolated driver/admin sanity-check presentation in the existing Performance space while calculations and wiring are validated; requires one documented, repeatable, non-destructive command to remove/replace it and restore the Performance entry point without affecting calculation logic, source data, provenance, audit detail, or tests; defers the intended Performance redesign until validation is complete. This amendment documents the presentation boundary only and does not start implementation.
