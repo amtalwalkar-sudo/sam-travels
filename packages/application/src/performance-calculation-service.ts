@@ -143,7 +143,7 @@ export class PerformanceCalculationServiceV1 {
     // Bind the result to the complete set of source revisions actually read,
     // not merely the shared Business Start Date settings revision. Reject a
     // mixed revision for the same source before publishing any calculation.
-    const sourceRevisionById = new Map<string, number>();
+    const sourceRevisionById = new Map<string, { revision: number; scheduleVersion?: number }>();
     const sourceRefs = [
       ...revenue.flatMap(row => row.sourceRefs),
       ...operatingCosts.flatMap(row => row.sourceRefs),
@@ -152,18 +152,26 @@ export class PerformanceCalculationServiceV1 {
       ...manualRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision })),
     ];
     for (const ref of sourceRefs) {
-      if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1) {
+      if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1 ||
+          (ref.scheduleVersion !== undefined && (!Number.isSafeInteger(ref.scheduleVersion) || ref.scheduleVersion < 1))) {
         throw new Error("performance_source_provenance_invalid");
       }
       const previous = sourceRevisionById.get(ref.sourceId);
-      if (previous !== undefined && previous !== ref.revision) {
+      if (previous && (previous.revision !== ref.revision ||
+          (previous.scheduleVersion !== undefined && ref.scheduleVersion !== undefined &&
+           previous.scheduleVersion !== ref.scheduleVersion))) {
         throw new Error("performance_source_revision_conflict");
       }
-      sourceRevisionById.set(ref.sourceId, ref.revision);
+      sourceRevisionById.set(ref.sourceId, {
+        revision: ref.revision,
+        ...(ref.scheduleVersion ?? previous?.scheduleVersion) !== undefined
+          ? { scheduleVersion: ref.scheduleVersion ?? previous?.scheduleVersion } : {},
+      });
     }
     const sourceRevisionFingerprint = [...sourceRevisionById]
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([sourceId, revision]) => sourceId + "@" + revision)
+      .map(([sourceId, value]) => sourceId + "@" + value.revision +
+        (value.scheduleVersion === undefined ? "" : "#schedule-" + value.scheduleVersion))
       .join("|");
     const sourceSnapshotId = [
       ...(identitySet.size === 1 ? [...identitySet] : []),
