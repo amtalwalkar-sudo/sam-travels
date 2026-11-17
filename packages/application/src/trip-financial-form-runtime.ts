@@ -101,3 +101,5 @@ export function createTripFinancialFormRuntimeV1(
     submitCompletedTripFinancialDraft,
   });
 }
+
+export type TripFinancialFormRuntimeV1 = ReturnType<typeof createTripFinancialFormRuntimeV1>;
