@@ -61,3 +61,4 @@ export * from "./performance-fixed-cost-allocation-adapter";
 export * from "./performance-admin-settings-service";
 export * from "./performance-operating-cost-adapter";
 export * from "./performance-calculation-runtime";
+\nexport * from "./trip-financial-form-runtime";\n
