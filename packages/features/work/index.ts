@@ -40,4 +40,6 @@ export type { DriveScreenContextV1, DriveScreenWorkspaceV1 } from "./presentatio
 export { WorkScreenShell } from "./presentation/WorkScreenShell";
 export type { WorkScreenShellProps } from "./presentation/WorkScreenShell";
 export { driverPresentationContract, driverPresentationCssVars } from "./presentation/driver-presentation";
-\nexport { WorkApplicationCoordinatorV1 } from "./application/work-application-coordinator";\nexport type { WorkApplicationCoordinatorDependenciesV1 } from "./application/work-application-coordinator";\n
+
+export { WorkApplicationCoordinatorV1 } from "./application/work-application-coordinator";
+export type { WorkApplicationCoordinatorDependenciesV1 } from "./application/work-application-coordinator";
