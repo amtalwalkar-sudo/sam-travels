@@ -112,12 +112,18 @@ export function buildFullCostWorkDistanceProjectionV1(input: {
   for (const trip of input.tripFinancialRecords) {
     const data = trip.data as {
       kind?: string; status?: string;
-      tripContext?: { shiftId?: string; vehicleId?: string; operationalDate?: string };
+      tripContext?: {
+        schemaVersion?: number; shiftId?: string; driverId?: string; assignmentId?: string;
+        vehicleId?: string; operationalDate?: string;
+      };
     };
     if ((data.kind !== "completed_ride_financials" && data.kind !== "cancellation_fee") ||
         data.status !== "submitted") continue;
     const context = data.tripContext;
-    if (!context || typeof context.shiftId !== "string" || !context.shiftId.trim() ||
+    if (!context || context.schemaVersion !== 1 ||
+        typeof context.shiftId !== "string" || !context.shiftId.trim() ||
+        typeof context.driverId !== "string" || !context.driverId.trim() ||
+        typeof context.assignmentId !== "string" || !context.assignmentId.trim() ||
         typeof context.vehicleId !== "string" || !context.vehicleId.trim() ||
         typeof context.operationalDate !== "string" ||
         !/^\d{4}-\d{2}-\d{2}$/.test(context.operationalDate) ||

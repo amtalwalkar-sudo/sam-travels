@@ -123,6 +123,41 @@ describe("BusinessExpensesService", () => {
     ]);
   });
 
+
+  it("recalculates paid expense outputs on the corrected effective business date", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const expenseId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174088";
+    const correction = {
+      async listForTarget(targetRecordId: string) {
+        return targetRecordId === expenseId ? [{
+          schemaVersion: 1 as const, correctionId: "platform-fee-date-fix",
+          targetRecordId: expenseId, targetRecordRevision: 1, featureId: "business-expenses",
+          chainRevision: 1, fieldPath: "businessDate", beforeValue: "2026-11-15",
+          afterValue: "2026-11-17", reason: "Corrected to the actual paid date",
+          actor: { role: "driver" as const, actorId: "driver-1" },
+          recordedAt: "2026-11-18T00:00:00.000Z", businessEffectiveDate: "2026-11-18",
+        }] : [];
+      },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-18T00:00:00.000Z", correction);
+    await service.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174088", source: "web",
+      data: { sourceKind: "platform_fee", businessDate: "2026-11-15", amountPaise: 1_200,
+        currencyCode: "INR", effect: "charge", vehicleId, reference: "paid pass" },
+    });
+    const outputs = await service.listDailyExpenseOutputs();
+    expect(outputs).toContainEqual(expect.objectContaining({
+      businessDate: "2026-11-17", platformFeesPaise: 1_200,
+      sourceIds: [expenseId], sourceRevisions: [1],
+    }));
+    expect(outputs.some(row => row.businessDate === "2026-11-15")).toBe(false);
+    await expect(service.listCorrectionReferences(expenseId)).resolves.toEqual([
+      { sourceId: "historical-correction:platform-fee-date-fix", revision: 1 },
+    ]);
+  });
+
   it("rebuilds the prospective fuel cost/km timeline from corrected purchase amounts", async () => {
     const repository = new MemoryRepository();
     const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allocatePreBusinessRecoveryV1,
+  buildPerformancePassbookV1,
   calculatePerformanceV1,
   type PerformanceCalculationInputV1,
 } from "../packages/domain/src/performance-calculation-v1";
@@ -201,6 +202,33 @@ describe("Performance Calculation Contract v1.0", () => {
     );
     expect(result.passbook.daily.at(-1)?.positionPaise).toBe(result.passbook.positionPaise);
     expect(result.passbook.daily.at(-1)?.remainingTargetPaise).toBe(result.passbook.remainingTargetPaise);
+  });
+
+
+  it("recovers an earlier Passbook shortfall with later eligible surplus", () => {
+    const passbook = buildPerformancePassbookV1({
+      businessStartDate: "2026-03-01",
+      periodTo: "2026-03-03",
+      monthlyDriverTargetPaise: 3_100,
+      daily: [
+        { date: "2026-03-01", profitPaise: 0 },
+        { date: "2026-03-02", profitPaise: 250 },
+        { date: "2026-03-03", profitPaise: -50 },
+      ],
+    });
+    expect(passbook.daily[0]).toMatchObject({
+      expectedCumulativeTargetPaise: 100, actualCumulativeSurplusPaise: 0,
+      positionPaise: -100, remainingTargetPaise: 100,
+    });
+    expect(passbook.daily[1]).toMatchObject({
+      expectedCumulativeTargetPaise: 200, actualCumulativeSurplusPaise: 250,
+      positionPaise: 50, remainingTargetPaise: 0,
+    });
+    expect(passbook.daily[2]).toMatchObject({
+      expectedCumulativeTargetPaise: 300, actualCumulativeSurplusPaise: 200,
+      positionPaise: -100, remainingTargetPaise: 100,
+    });
+    expect(passbook.positionPaise).toBe(passbook.daily[2].positionPaise);
   });
 
   it("rejects duplicate recovery source identities and invalid amounts", () => {
