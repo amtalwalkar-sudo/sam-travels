@@ -83,7 +83,7 @@ describe("FullCostBreakevenService source integration", () => {
       { list: async () => [{
         id: "work:daily-business-km:vehicle:2026-11-01", revision: 4,
         data: { schemaVersion: 1, kind: "daily_business_kilometres", vehicleId,
-          operationalDate: "2026-11-01", entries: [{
+          operationalDate: "2026-11-01", unallocatedBusinessKm: 0, entries: [{
             shiftId: "shift-1", allocationStatus: "allocated", businessKm: 100,
           }] },
       }] } as never,
