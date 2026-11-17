@@ -38,7 +38,7 @@ export function useDriverWorkspace(workRuntime: WorkApplicationRuntimeV1, platfo
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [workRuntime, platformRepository]);
+  }, []);
 
   const gateway = useMemo(() => repo ? new NetworkGateway(repo) : null, [repo]);
 
@@ -151,7 +151,7 @@ export function useDriverWorkspace(workRuntime: WorkApplicationRuntimeV1, platfo
       live = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [workRuntime, platformRepository]);
 
   async function retry(eventId: string) {
     if (!workflow || driverBusy) return;
