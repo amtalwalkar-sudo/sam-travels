@@ -40,7 +40,7 @@ export class PerformanceOperatingCostAdapterV1 implements PerformanceOperatingCo
     const projection = await snapshot.value;
     const refs = [
       ...projection.dailyActivity.flatMap(activity =>
-        activity.sourceRefs.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined)),
+        activity.sourceRefs?.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined) ?? []),
       ...projection.datedCosts.flatMap(cost =>
         cost.sourceRefs?.filter((ref): ref is NonNullable<typeof ref> => ref !== undefined) ??
         [{ sourceId: cost.sourceId, revision: cost.sourceRevision }]),
