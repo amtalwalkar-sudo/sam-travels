@@ -65,7 +65,9 @@ export function useCancellationFeeWorkspace(
     setCancellationFeeDrafts(current => ({...current,[tripId]:value}));
     const previous = draftQueue.current.get(tripId) ?? Promise.resolve();
     const next = previous.then(async () => {
+      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
       if (copy.values.tripId !== tripId) {
+        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
       }
       await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", parseRupeesToPaise(value) ?? "");
     });
@@ -84,7 +86,9 @@ export function useCancellationFeeWorkspace(
     setDriverMessage("Saving cancellation fee…");
     try {
       await draftQueue.current.get(tripId);
+      let copy = await forms.open(TRIP_CANCELLATION_FEE_FORM_V1, tripId);
       if (copy.values.tripId !== tripId) {
+        copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "tripId", tripId);
       }
       if (copy.values.cancellationFeePaise !== amount) {
         copy = await forms.update(TRIP_CANCELLATION_FEE_FORM_V1, copy, "cancellationFeePaise", amount);
