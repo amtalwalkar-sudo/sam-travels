@@ -226,7 +226,7 @@ The owner decisions recorded in this contract are resolved. No further clarifica
 4. A partial refill contributes its actual quantity and spend to the interval between full-tank checkpoints. The full refill that closes the interval is included; the baseline full refill that opens the interval is not counted as consumption within that interval.
 5. If no valid completed interval exists, the rate is pending—not zero and not an invented estimate. Do not present a complete actual breakeven result that silently treats the missing rate as zero.
 6. A newly completed interval updates the weighted-average rate prospectively from the calendar day after interval completion. The prior rate remains effective on the completion date and all earlier dates. No retroactive rate application is permitted.
-7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven Contract v1.9 is authoritative for the final aggregation semantics.
+7. The phrase in Section 3.2 that all fuel purchases enter business expense totals remains true for source-record/accounting visibility, but it must not be interpreted as a second fuel expense in the full-cost breakeven calculation. The Breakeven and Driver Target Contract v2.0 is authoritative for the final aggregation semantics.
 
 
 ## Source-date and attribution reconciliation amendment
@@ -242,5 +242,5 @@ The owner decisions recorded in this contract are resolved. No further clarifica
 7. **Fuel purchase:** business date is the Asia/Kolkata calendar date derived from the actual purchase timestamp; it is source/measurement history, not the daily breakeven recognition date for fuel consumption.
 8. Vehicle and driver attribution must come from the source record or immutable Work/Trip context. Do not infer historical attribution from the currently selected Admin vehicle/driver.
 
-The older PR 1/PR 2 language in this document that describes fuel purchases as direct daily breakeven expenses, challans as an operating/full-cost split, or net-payout/contribution-margin treatment is superseded by this amendment and Breakeven Contract v1.9 Addendum H.
+The older PR 1/PR 2 language in this document that describes fuel purchases as direct daily breakeven expenses, challans as an operating/full-cost split, or net-payout/contribution-margin treatment is superseded by this amendment and Breakeven and Driver Target Contract v2.0 Addendum H.
 
