@@ -67,9 +67,14 @@ export function validateBusinessExpenseCorrectionSnapshot(records: readonly Reco
     }
     const ordered = rows.map(row => row.data as import("../../../packages/domain/src/historical-correction").HistoricalCorrectionV1)
       .sort((a, b) => a.chainRevision - b.chainRevision);
+    const allowedFields = target.data && typeof target.data === "object" &&
+      (target.data as { kind?: string }).kind === "fuel_purchase"
+      ? new Set(["odometerKm", "pricePaisePerKg", "amountPaise", "partialRefill"])
+      : new Set(["businessDate", "amountPaise", "category", "description", "reference",
+        "alreadyNettedFromIncome", "paymentStatus"]);
     if (ordered.some((row, index) => row.chainRevision !== index + 1 ||
         row.targetRecordId !== targetId || row.targetRecordRevision !== target.revision ||
-        row.featureId !== "business-expenses")) {
+        row.featureId !== "business-expenses" || !allowedFields.has(row.fieldPath))) {
       throw new Error("business_expense_correction_backup_chain_invalid");
     }
     const projection = projectHistoricalCorrectionsV1(target.data, ordered);
