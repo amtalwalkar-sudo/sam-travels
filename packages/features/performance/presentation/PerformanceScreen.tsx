@@ -15,7 +15,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [distanceError, setDistanceError] = useState("");
-  const [activeView, setActiveView] = useState<"daily" | "monthly" | "passbook" | "recovery">("daily");
+  const [activeView, setActiveView] = useState<"daily" | "distance" | "monthly" | "passbook" | "recovery">("daily");
   const [selectedInsight, setSelectedInsight] = useState("lifetime-target-position");
 
   async function calculate(event?: FormEvent) {
@@ -38,7 +38,11 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
   const categories = result ? aggregateCosts(result) : [];
   const months = result ? monthlyTotals(result) : [];
   const incomplete = result?.provenance.completeness.filter(item => item.status !== "complete") ?? [];
-  const businessKm = distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
+  const distanceSummary = distanceProjection?.distanceSummary;
+  const businessKm = distanceSummary?.totalBusinessKm ??
+    distanceProjection?.daily.reduce((sum, row) => sum + row.businessKm, 0) ?? 0;
+  const formatKm = (value: number | null) => value === null
+    ? "—" : value.toLocaleString("en-IN", { maximumFractionDigits: 2 }) + " km";
   const fuelCostPaise = categories.find(item => item.key === "fuel")?.amount ?? 0;
   const fuelCostPerBusinessKmPaise = businessKm > 0 ? fuelCostPaise / businessKm : undefined;
   const currentOperationalDate = operationalToday();
@@ -125,6 +129,7 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
         <h3 id="performance-cost-breakdown-title">Explore performance by period</h3>
         <div className="performance-tabs" role="tablist" aria-label="Performance detail views">
           <button type="button" role="tab" aria-selected={activeView === "daily"} className={activeView === "daily" ? "active" : ""} onClick={() => setActiveView("daily")}>Daily details</button>
+          <button type="button" role="tab" aria-selected={activeView === "distance"} className={activeView === "distance" ? "active" : ""} onClick={() => setActiveView("distance")}>Distance history</button>
           <button type="button" role="tab" aria-selected={activeView === "monthly"} className={activeView === "monthly" ? "active" : ""} onClick={() => setActiveView("monthly")}>Monthly roll-up</button>
           <button type="button" role="tab" aria-selected={activeView === "passbook"} className={activeView === "passbook" ? "active" : ""} onClick={() => setActiveView("passbook")}>Driver Passbook</button>
           <button type="button" role="tab" aria-selected={activeView === "recovery"} className={activeView === "recovery" ? "active" : ""} onClick={() => setActiveView("recovery")}>Pre-business recovery</button>
@@ -138,6 +143,47 @@ export function PerformanceScreen({ context }: { context: PerformanceScreenConte
             <td><button type="button" className={"performance-table-number " + (row.complete ? "positive" : "negative")} onClick={() => setSelectedInsight("daily-completeness")}><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></button></td>
           </tr>)}</tbody>
         </table></div>}
+        {activeView === "distance" && <div className="performance-distance-history">
+          {distanceSummary ? <>
+            <div className="performance-recovery-summary">
+              <span>Confirmed business distance <strong>{formatKm(distanceSummary.totalBusinessKm)}</strong></span>
+              <span>Qualifying active driving days <strong>{distanceSummary.activeDrivingDayCount}</strong></span>
+              <span>Average per active day <strong>{formatKm(distanceSummary.averageBusinessKmPerActiveDrivingDay)}</strong></span>
+              <span>Distance source <strong>{distanceSummary.complete ? "Complete" : "Review required"}</strong></span>
+            </div>
+            <p className="performance-explainer">Totals include every confirmed allocated business kilometre in the selected period. Personal kilometres are excluded. Averages divide confirmed business kilometres by qualifying active driving days; zero-kilometre active days remain in the denominator. Unallocated boundary distance is withheld and marked for review.</p>
+            <h4>Daily distance</h4>
+            <div className="performance-table-wrap"><table className="performance-table">
+              <caption>Daily distance from confirmed Work allocations</caption>
+              <thead><tr><th>Operational date</th><th>Business km</th><th>Active driving day</th><th>Average km / active day</th><th>Status</th></tr></thead>
+              <tbody>{distanceSummary.daily.slice().reverse().map(row => <tr key={row.date}>
+                <td>{row.date}</td><td>{formatKm(row.businessKm)}</td><td>{row.activeDrivingDay ? "Yes" : "No"}</td>
+                <td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
+                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
+              </tr>)}</tbody>
+            </table></div>
+            <h4>Weekly distance</h4>
+            <div className="performance-table-wrap"><table className="performance-table">
+              <caption>Weekly confirmed business distance and active-day average</caption>
+              <thead><tr><th>ISO week</th><th>Dates</th><th>Business km</th><th>Active days</th><th>Average km / active day</th><th>Status</th></tr></thead>
+              <tbody>{distanceSummary.weekly.slice().reverse().map(row => <tr key={row.period}>
+                <td>{row.period}</td><td>{row.from} — {row.to}</td><td>{formatKm(row.businessKm)}</td>
+                <td>{row.activeDrivingDayCount}</td><td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
+                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
+              </tr>)}</tbody>
+            </table></div>
+            <h4>Monthly distance</h4>
+            <div className="performance-table-wrap"><table className="performance-table">
+              <caption>Monthly confirmed business distance and active-day average</caption>
+              <thead><tr><th>Month</th><th>Dates</th><th>Business km</th><th>Active days</th><th>Average km / active day</th><th>Status</th></tr></thead>
+              <tbody>{distanceSummary.monthly.slice().reverse().map(row => <tr key={row.period}>
+                <td>{row.period}</td><td>{row.from} — {row.to}</td><td>{formatKm(row.businessKm)}</td>
+                <td>{row.activeDrivingDayCount}</td><td>{formatKm(row.averageBusinessKmPerActiveDrivingDay)}</td>
+                <td><span className={row.complete ? "performance-status complete" : "performance-status review"}>{row.complete ? "Complete" : "Review"}</span></td>
+              </tr>)}</tbody>
+            </table></div>
+          </> : <p>Confirmed distance history is unavailable for this period.</p>}
+        </div>}
         {activeView === "monthly" && <div className="performance-table-wrap"><table className="performance-table">
           <caption>Monthly revenue, full-cost expense, net and calendar-day-prorated target for the dates included in each month.</caption>
           <thead><tr><th>Month</th><th>Revenue</th><th>Eligible costs</th><th>Net</th><th>Monthly target</th><th>Target position</th></tr></thead>
