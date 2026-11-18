@@ -302,6 +302,22 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         window.clearTimeout(retryTimer);
         retryTimer = undefined;
       }
+      try {
+        const fuelRows = (await repo!.list<unknown>())
+          .filter(row => row.id.startsWith("feature:business-expenses:fuel:") &&
+            !!row.data && typeof row.data === "object" &&
+            (row.data as { kind?: unknown }).kind === "fuel_purchase")
+          .map(row => ({
+            id: row.id,
+            locationEvidence: (row.data as { locationEvidence?: {
+              latitude: number; longitude: number; accuracyMeters: number; capturedAt: string;
+              provider: "device"; captureTiming?: "submission_event" | "late";
+            } }).locationEvidence,
+          }));
+        await enrichmentQueue.reconcileFuelLocationCaptures(fuelRows);
+      } catch {
+        // Source evidence remains authoritative; a later resume retries reconciliation.
+      }
       if (draining || document.visibilityState === "hidden" || !navigator.onLine || !enabled) return;
       if (isNativeTimelineEnrichmentPlatform()) {
         await scheduleNativeTimelineEnrichment().catch(() => undefined);
@@ -336,7 +352,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       document.removeEventListener("visibilitychange", resume);
       void nativeListener.then(handle => handle?.remove());
     };
-  }, [enrichmentQueue, enabled]);
+  }, [enrichmentQueue, enabled, repo]);
 
   const loadTimeline = useCallback(async (fromDate: string, toDate: string, allowLocationLookup: boolean, signal?: AbortSignal) => {
     if (!workflow) throw new Error("Work history is still loading");
