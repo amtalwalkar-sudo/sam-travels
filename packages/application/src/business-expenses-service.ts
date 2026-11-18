@@ -8,7 +8,7 @@ export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1; kind: "fuel_purchase"; id: string; revision: number;
   businessDate: string; occurredAt: string; vehicleId: string; odometerKm: number;
   pricePaisePerKg: number; amountPaise: number; partialRefill: boolean;
-  locationEvidence?: Readonly<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device" }>;
+  locationEvidence?: Readonly<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device"; captureTiming: "submission_event" | "late" }>;
 }>;
 export type BusinessExpenseEntryV1 = Readonly<{
   schemaVersion: 1; kind: "business_expense"; id: string; revision: number;
