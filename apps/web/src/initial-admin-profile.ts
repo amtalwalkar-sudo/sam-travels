@@ -52,7 +52,7 @@ export async function seedInitialAdminProfile(input: Readonly<{
     await input.drivers.create({
       schemaVersion: 1,
       ...profile.driver,
-    }, input.source);
+    }, "import");
   }
 
   for (const item of profile.compliance) {
