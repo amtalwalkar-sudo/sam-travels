@@ -54,7 +54,7 @@ If this contract conflicts with a domain rule or a higher-level technical safegu
 5. Service recreation is idempotent. Replayed commands and deliveries cannot duplicate an event, business effect, projection contribution or revision.
 6. Both surfaces submit versioned commands with expected prior state/revision. Stale or competing writes are rejected or explicitly resolved by the ordered coordinator; neither surface may overwrite newer state with a stale snapshot.
 7. Backup reads the Room authoritative store, including the workflow records and Log Book events registered for backup. Restore/recovery returns the same committed state and recoverable pending work.
-10. The overlay service and Capacitor plugins must not create independent Room database names, divergent workflow stores or a second Android business database.
+8. The overlay service and Capacitor plugins must not create independent Room database names, divergent workflow stores or a second Android business database.
 
 ### 3.3 Shared workflow commit semantics
 
@@ -136,6 +136,11 @@ In addition to feature entry paths, map existing evidence and remaining gaps for
 - **Platform parity:** browser IndexedDB versus Android Room normalized business semantics; Android PWA/WebView and overlay share the same Room authority; no independent writable store or divergent projection.
 - **Privacy and security:** secrets, keys, tokens and sensitive business data are not emitted into logs or test artifacts; backup protection follows the owner contract; restore inputs are treated as untrusted data. Verify the intentional backup exclusions on both runtimes: credential-vault material, local recovery checkpoints/journals and diagnostics must not leak into the business snapshot; credentials and diagnostics retain their separately defined secure handling.
 - **Scale and operational resilience:** representative larger snapshots, bounded memory/time, snapshot consistency while writes occur, storage-full/transaction-abort behaviour where testable, and actionable failure reporting without exposing sensitive payloads.
+- **Form architecture and presentation conformance:** one discoverable inventory of Admin, Performance, Fuel and Work forms; every definition's ID/version/owner/fields/requiredness/primary action; invalid-definition negative fixtures; actual PWA/Android entry boundaries; mobile viewport, keyboard/IME, focus/scroll, touch-target and accessibility behaviour. Generic form-runtime tests do not substitute for feature-specific component state or field mapping.
+- **Network Access UI and policy parity:** actual Internet On/Off control, default-disabled state, persisted setting across reload/restart, propagation between Android WebView and overlay without network, no external requests while disabled, and safe deferral of Dropbox/geocoding work.
+- **End-user backup operation:** rendered BackupPanel connect/session, manual backup, recovery-key handling, history selection, restore confirmation and visible failure/recovery states. Keep real Dropbox OAuth/remote account delivery as a separate manual/external gate.
+- **Event-specific GPS matrix:** each supported Work transition (shift start/end, trip creation, Start ride, End ride, cancellation) must have its own fresh fix and original event timestamp; prove no fix reuse, no continuous tracking, rapid-event ordering and recoverable permission/timeout failures.
+- **Backup bounds and consistency:** prove byte-size and record-count limits at the boundary, consistent snapshot semantics during concurrent writes, quota/transaction-abort handling, and documented supported device/storage limits.
 
 For every item record the owning contract, existing test/assertion, platform, CI/manual status and gap. If an item is intentionally out of scope for PR #99, point to its owner contract and evidence rather than silently omitting it.
 
@@ -350,27 +355,29 @@ For every record, use current production schemas and validators. Add matching va
 
 **B1 exit:** the shared fixture is populated; positive and negative records/snapshots pass the browser and Android production validators with matching semantic outcomes; zero-record participants are accounted for; no fixture-only schema or validator relaxation.
 
-#### B2. Browser lifecycle using existing Track A path
+#### B2. Browser lifecycle and canonical package adapter
 
 - Add the browser fixture loader/runner for the shared populated fixture.
 - Load through the browser persistence/application boundary and production validators/backup participants.
+- Implement the browser adapter to export/import the canonical platform-neutral versioned wire contract from Section 4B; retain current local Track A checkpoint/rollback/recovery guarantees.
 - Capture pre-backup normalized source state and run the relevant production calculations, including source provenance.
-- Execute the already-existing production IndexedDB export → restore → close/reopen → startup recovery → re-export path.
-- Capture post-recovery state and recompute calculations.
-- Compare against the pre-backup expected semantic baseline.
+- Execute browser canonical export → encrypted package creation → same-platform restore → close/reopen → startup recovery → re-export.
+- Capture post-recovery state and recompute calculations; compare against the pre-backup expected semantic baseline.
 
-**B2 exit:** browser lifecycle proves the populated dataset survives the production path with identical business semantics and calculation results.
+**B2 exit:** browser adapter reads/writes the canonical package contract and the populated browser lifecycle preserves business semantics and calculation results. Cross-platform acceptance remains pending B3.
 
-#### B3. Android Room lifecycle using existing Track A path
+#### B3. Android Room lifecycle and cross-platform portability
 
 - Add the Room fixture loader/runner for the exact same fixture asset and IDs.
 - Load through Room production participants and validators.
+- Implement the Room adapter to export/import the same canonical package contract; preserve the existing Room production restore coordinator and Track A rollback/recovery guarantees.
 - Capture pre-backup state and run the production calculations.
-- Execute the existing Room export → production restore coordinator → Room close/reopen → startup recovery → re-export path.
+- Execute Android canonical export → encrypted package creation → same-platform restore → Room close/reopen → startup recovery → re-export.
+- Restore a populated browser-exported encrypted package into Room, and restore a populated Android-exported encrypted package into browser IndexedDB. Test both clean and pre-populated destinations, plus fail-closed and rollback cases.
 - Capture post-recovery state and recompute calculations.
 - Verify Driver Workflow state remains shared between the PWA/native bridge and overlay service through the existing authoritative Room store.
 
-**B3 exit:** Android lifecycle proves the populated dataset survives with identical business semantics and calculation results; no second Android workflow/business store is introduced.
+**B3 exit:** Android lifecycle preserves business semantics and calculations; populated encrypted backup portability passes in both directions; no second Android workflow/business store is introduced.
 
 #### B4. Cross-runtime semantic and calculation comparison
 
