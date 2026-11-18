@@ -111,6 +111,6 @@
       ]
     }
   },
-  "status": "contract_and_plan_defined_fixture_population_pending",
+  "status": "contract_seed_only",
   "note": "Shared contract seed consumed by browser and Android tests. Populate with schema-valid synthetic feature records and run the production export/restore/reopen/recovery/re-export lifecycle before claiming parity."
 }
