@@ -4,7 +4,6 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import {
   exportBrowserSnapshot,
   listBrowserRecoveryCheckpoints,
-  registerBrowserFeatureBackupParticipant,
   restoreBrowserSnapshot,
 } from "../packages/storage-browser/src";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
