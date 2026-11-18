@@ -181,10 +181,13 @@ try {
       transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
     });
     db.close();
+    const purchaseId = expectedEventId.slice("fuel:".length);
     return rows.some(row =>
-      row.id === "timeline-enrichment:" + expectedEventId &&
-      row.data?.captureStatus === "captured" &&
-      row.data?.captureTiming === "late"
+      row.id === purchaseId &&
+      row.data?.locationEvidence?.provider === "device" &&
+      row.data?.locationEvidence?.captureTiming === "late" &&
+      row.data?.locationEvidence?.latitude === 19.076 &&
+      row.data?.locationEvidence?.longitude === 72.8777
     );
   }, "fuel:" + purchases[0].id, { timeout: 10000 });
   await context.setOffline(false);
@@ -217,8 +220,8 @@ try {
   }, vehicleId);
 
   await toggle.click();
-  const firstFuelEvidenceId = "timeline-enrichment:fuel:" + purchases[0].id;
-  const verifyFirstEvidence = async stage => { const state=await page.evaluate(async id=>{const request=indexedDB.open("sam-travels-browser");const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const tx=db.transaction(["records","backupCheckpoints"],"readonly");const row=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const purchase=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").get(id.slice("timeline-enrichment:fuel:".length));read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const all=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").getAll();read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const checkpoints=await new Promise((resolve,reject)=>{const read=tx.objectStore("backupCheckpoints").getAll();read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});db.close();return {value:row?.data?.captureStatus+":"+row?.data?.captureTiming,purchaseExists:!!purchase,recordCount:all.length,checkpoints:checkpoints.map(item=>({id:item.id,status:item.status})),trace:JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]")};},firstFuelEvidenceId);assert.equal(state.value,"captured:late","first GPS evidence lost during "+stage+"; state="+JSON.stringify(state)); };
+  const firstFuelPurchaseId = purchases[0].id;
+  const verifyFirstEvidence = async stage => { const state=await page.evaluate(async id=>{const request=indexedDB.open("sam-travels-browser");const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const tx=db.transaction(["records","backupCheckpoints"],"readonly");const purchase=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const queue=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").get("timeline-enrichment:fuel:"+id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const all=await new Promise((resolve,reject)=>{const read=tx.objectStore("records").getAll();read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});const checkpoints=await new Promise((resolve,reject)=>{const read=tx.objectStore("backupCheckpoints").getAll();read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});db.close();return {value:purchase?.data?.locationEvidence?.captureTiming,latitude:purchase?.data?.locationEvidence?.latitude,longitude:purchase?.data?.locationEvidence?.longitude,queuePresent:!!queue,recordCount:all.length,checkpoints:checkpoints.map(item=>({id:item.id,status:item.status})),trace:JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]")};},firstFuelPurchaseId);assert.equal(state.value,"late","authoritative Fuel GPS evidence lost during "+stage+"; state="+JSON.stringify(state));assert.equal(state.latitude,19.076);assert.equal(state.longitude,72.8777); };
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(async expectedId => {
     const request = indexedDB.open("sam-travels-browser");
@@ -228,8 +231,10 @@ try {
       read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
     });
     db.close();
-    return row?.data?.captureStatus === "captured" && row?.data?.captureTiming === "late";
-  }, firstFuelEvidenceId, { timeout: 10000 });
+    return row?.data?.locationEvidence?.captureTiming === "late" &&
+      row?.data?.locationEvidence?.latitude === 19.076 &&
+      row?.data?.locationEvidence?.longitude === 72.8777;
+  }, firstFuelPurchaseId, { timeout: 10000 });
   await verifyFirstEvidence("immediately after reload wait");
   await page.waitForTimeout(500);
   await verifyFirstEvidence("500ms after reload");
