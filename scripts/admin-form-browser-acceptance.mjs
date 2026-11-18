@@ -39,6 +39,12 @@ try {
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition(_success, error) { error?.({ code: 1, message: "Permission denied" }); } },
+    });
+  });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
@@ -95,6 +101,83 @@ try {
     return matches[0].id;
   }, registration);
   console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
+
+  // Exercise the actual Fuel form from the Work surface without starting a
+  // shift. The active vehicle was created through the Admin UI above.
+  await page.getByRole("button", { name: "Work", exact: true }).click();
+  const fuelToggle = page.locator(".fuel-entry-toggle");
+  await fuelToggle.waitFor({ state: "visible" });
+  await fuelToggle.click();
+  const fuelPanel = page.locator(".fuel-entry-panel");
+  await fuelPanel.getByLabel("Vehicle").selectOption(vehicleId);
+  await fuelPanel.getByLabel("Odometer (km)").fill("12345");
+  await fuelPanel.getByLabel("Price per kg (₹)").fill("82.50");
+  await fuelPanel.getByLabel("Amount paid (₹)").fill("825");
+  assert.equal(await fuelPanel.getByLabel("Partial refill").isChecked(), false);
+  assert.match(await fuelPanel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
+
+  await page.waitForFunction(async vehicleRecordId => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows.some(row =>
+      row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
+      row.data?.values?.vehicleId === vehicleRecordId &&
+      row.data?.values?.odometerKm === 12345 &&
+      row.data?.values?.priceRupeesPerKg === 82.5 &&
+      row.data?.values?.amountRupees === 825 &&
+      row.data?.values?.partialRefill === false
+    );
+  }, vehicleId);
+
+  await fuelToggle.click();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Work", exact: true }).click();
+  await page.locator(".fuel-entry-toggle").click();
+  const resumedFuel = page.locator(".fuel-entry-panel");
+  assert.equal(await resumedFuel.getByLabel("Vehicle").inputValue(), vehicleId);
+  assert.equal(await resumedFuel.getByLabel("Odometer (km)").inputValue(), "12345");
+  assert.equal(await resumedFuel.getByLabel("Price per kg (₹)").inputValue(), "82.5");
+  assert.equal(await resumedFuel.getByLabel("Amount paid (₹)").inputValue(), "825");
+  assert.equal(await resumedFuel.getByLabel("Partial refill").isChecked(), false);
+  await page.context().setOffline(true);
+  await resumedFuel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
+  await resumedFuel.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+
+  const fuelReadback = await page.evaluate(async vehicleRecordId => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows.filter(row =>
+      row.id.startsWith("feature:business-expenses:fuel:") &&
+      row.data?.vehicleId === vehicleRecordId &&
+      row.data?.odometerKm === 12345
+    );
+  }, vehicleId);
+  assert.equal(fuelReadback.length, 1, "one Fuel purchase must be committed from the rendered form");
+  assert.equal(fuelReadback[0].data.pricePaisePerKg, 8250);
+  assert.equal(fuelReadback[0].data.amountPaise, 82500);
+  assert.equal(fuelReadback[0].data.partialRefill, false);
+  assert.equal(typeof fuelReadback[0].data.occurredAt, "string");
+  assert.equal(typeof fuelReadback[0].data.businessDate, "string");
+  await page.context().setOffline(false);
+  console.log("Fuel Entry PWA acceptance passed: full-tank purchase submitted offline from Work without an active shift; record read back once after GPS permission denial.");
 
 
   const driverName = "Admin Form Acceptance Driver";
