@@ -315,6 +315,13 @@ try {
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "draft resume must not request GPS again");
+  const firstEvidenceBeforeSecondSubmit = await page.evaluate(async id => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    const row = await new Promise((resolve, reject) => { const read = db.transaction("records", "readonly").objectStore("records").get(id); read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error); });
+    db.close(); return row ? { id: row.id, data: row.data } : null;
+  }, firstFuelEvidenceId);
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify(firstEvidenceBeforeSecondSubmit));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
