@@ -184,7 +184,7 @@ try {
       row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
       row.data?.captureStatus === "permission_denied"
     ).length === 2;
-  }, { timeout: 10000 });
+  }, undefined, { timeout: 10000 });
   const readback = await readBrowserRecords(page);
   purchases = readback.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
