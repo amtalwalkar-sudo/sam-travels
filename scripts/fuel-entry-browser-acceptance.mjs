@@ -103,6 +103,12 @@ try {
   await page.getByLabel("Mobile number").fill("9990001122");
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
+  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
+  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
+  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
 
   // Switch from the Admin setup actor to a real Driver identity before Fuel
   // capture, so the purchase envelope records the driver who submits it.
