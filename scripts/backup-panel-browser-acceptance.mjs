@@ -116,6 +116,8 @@ try {
   });
 
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator(".settings-panel").waitFor({ state: "visible" });
   const networkToggle = page.locator("button.network");
   await networkToggle.waitFor({ state: "visible" });
   const connect = page.getByRole("button", { name: "Connect Dropbox", exact: true });
@@ -123,18 +125,20 @@ try {
 
   if ((await networkToggle.innerText()).includes("Off")) {
     await connect.click();
-    await page.getByText("network_access_disabled", { exact: true }).waitFor({ state: "visible" });
+    await page.getByText("Internet Access is disabled in Sam Travels.", { exact: true }).waitFor({ state: "visible" });
     assert.equal(await page.locator(".backup-heading .pill").innerText(), "NOT CONNECTED");
     assert.equal(await page.getByRole("button", { name: "Back up now", exact: true }).count(), 0);
     await networkToggle.click();
     await page.getByText("Internet On", { exact: false }).waitFor({ state: "visible" });
     await page.reload({ waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.locator("button.network").waitFor({ state: "visible" });
     assert.match(await page.locator("button.network").innerText(), /Internet On/);
   }
 
   await page.getByRole("button", { name: "Connect Dropbox", exact: true }).click();
-  await page.waitForURL((url) => url.searchParams.has("code") && url.searchParams.has("state"));
+  await page.waitForFunction(() => !window.location.search.includes("code="));
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.locator(".backup-heading .pill.good").getByText("CONNECTED").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
   await page.locator(".backup-select option").first().waitFor({ state: "attached" });
