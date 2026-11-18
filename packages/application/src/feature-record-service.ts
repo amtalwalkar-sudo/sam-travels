@@ -22,7 +22,7 @@ type FeatureRecordAuthorResolver = () => Promise<RecordAuthorV1>;
  */
 export class FeatureRecordService<Data> {
   private static authorResolver?: FeatureRecordAuthorResolver;
-  static setAuthorResolver(resolver: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
+  static setAuthorResolver(resolver?: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
   constructor(
     private readonly repository: AtomicRecordRepository,
     private readonly definition: FeatureRecordDefinition<Data>,
@@ -60,8 +60,14 @@ export class FeatureRecordService<Data> {
     this.assertOwnedId(input.id);
     this.definition.validate(input.data);
     const timestamp = input.now ?? this.now();
-    const createdBy = input.createdBy ?? (FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
-    if (FeatureRecordService.authorResolver && !createdBy) throw new Error("business_actor_not_active");
+    // Trusted data imports run before a person session exists and retain import provenance.
+    // All interactive web/Android/integration writes still require the configured actor.
+    const createdBy = input.createdBy ?? (input.source === "import"
+      ? undefined
+      : FeatureRecordService.authorResolver ? await FeatureRecordService.authorResolver() : undefined);
+    if (input.source !== "import" && FeatureRecordService.authorResolver && !createdBy) {
+      throw new Error("business_actor_not_active");
+    }
     const record: RecordEnvelope<Data> = {
       id: input.id,
       schemaVersion: RECORD_ENVELOPE_SCHEMA_VERSION,
