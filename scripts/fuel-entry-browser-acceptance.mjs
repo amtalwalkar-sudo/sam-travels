@@ -224,15 +224,7 @@ try {
 
   await toggle.click();
   const firstFuelEvidenceId = "timeline-enrichment:fuel:" + purchases[0].id;
-  const verifyFirstEvidence = async stage => {
-    const value = await page.evaluate(async id => {
-      const request=indexedDB.open("sam-travels-browser");
-      const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
-      const row=await new Promise((resolve,reject)=>{const read=db.transaction("records","readonly").objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});
-      db.close();return row?.data?.captureStatus+":"+row?.data?.captureTiming;
-    },firstFuelEvidenceId);
-    assert.equal(value,"captured:late","first GPS evidence lost during "+stage);
-  };
+  const verifyFirstEvidence = async stage => { const value=await page.evaluate(async id=>{const request=indexedDB.open("sam-travels-browser");const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const read=db.transaction("records","readonly").objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});db.close();return row?.data?.captureStatus+":"+row?.data?.captureTiming;},firstFuelEvidenceId);assert.equal(value,"captured:late","first GPS evidence lost during "+stage); };
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(async expectedId => {
     const request = indexedDB.open("sam-travels-browser");
@@ -313,8 +305,7 @@ try {
     db.close(); return row ? { id: row.id, data: row.data } : null;
   }, firstFuelEvidenceId);
   const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));
-  const instrumentationActive = await page.evaluate(() => localStorage.getItem("__fuel_instrumentation_active"));
-  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, instrumentationActive }));
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace }));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
