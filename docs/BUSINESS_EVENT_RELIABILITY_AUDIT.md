@@ -359,3 +359,12 @@ Do not weaken existing transaction, persistence, privacy, GPS, form, or platform
 | 1.7 | 2026-11-11 | Add Room-reopen startup recovery test for a durable restored_unverified backup checkpoint; keep force-stop-at-each-phase acceptance as an open gap. |
 
 **Current conclusion:** Sam Travels has a substantial local-first capture foundation. Authorised driver/admin entries are authoritative by business policy; the audit must verify technical integrity, actor attribution, the permitted driver-entry correction path, platform parity and recovery. Separate customer collection and fuel records are intentionally absent and excluded from this audit. Independent third-party corroboration is optional, not a condition for business acceptance. The full reliability audit remains in progress.
+
+
+## Current supersession note — 2026-11-18
+
+This document's original source baseline is dated 2026-11-11. Its statements in Section 4.11, Section 5 and the remaining-work table that Fuel records/service/schema do not exist and Fuel is out of scope were accurate only for that historical baseline. Since then, the repository has added a dedicated Fuel entry feature, FUEL_ENTRY_FORM_V1, Fuel purchase persistence/calculation, Fuel-scoped location evidence and asynchronous locality enrichment, with the owner contract in FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md. Those old statements must not be used as the current feature inventory or as evidence that Fuel collection is not required.
+
+The current Fuel entry-path and test coverage audit is in PR #99's PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md Section 0D and the repository architecture gap register Sections 9.21–9.23. That audit records a remaining actual form-to-command/persistence gap and the Fuel draft visible-state rehydration issue; it does not claim Fuel is fully proven. Retain the original 2026-11-11 findings as historical evidence, but use the current owner contract and PR #99 audit for present-day implementation/acceptance.
+
+The Finance Loan Payment Workflow Contract remains explicitly proposed/not ratified unless the owner separately approves it. Existing code/tests do not ratify the payment-allocation business policy. Actor attribution and generic historical deletion enforcement also remain open audit items as recorded in PR #99's architecture gap register.
