@@ -31,9 +31,14 @@ async function readBrowserRecords(page) {
       request.onerror = () => reject(request.error);
     });
     const rows = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").getAll();
-      read.onsuccess = () => resolve(read.result);
+      const transaction = db.transaction("records", "readonly");
+      const read = transaction.objectStore("records").getAll();
+      let result;
+      read.onsuccess = () => { result = read.result; };
       read.onerror = () => reject(read.error);
+      transaction.oncomplete = () => resolve(result ?? []);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
     });
     db.close();
     return rows;
@@ -294,24 +299,15 @@ try {
     row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
   );
   assert(evidenceBeforeCompletion.length < 2, "the latest GPS callback must still be pending when the purchase save completes");
-  await page.waitForFunction(async () => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").getAll();
-      read.onsuccess = () => resolve(read.result);
-      read.onerror = () => reject(read.error);
-    });
-    db.close();
-    return rows.filter(row =>
-      row.id.startsWith("timeline-enrichment:fuel:") &&
-      row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
-    ).length === 2;
-  }, undefined, { timeout: 10000 });
-  const readback = await readBrowserRecords(page);
+  let readback = await readBrowserRecords(page);
+  const evidenceDeadline = Date.now() + 10000;
+  while (readback.filter(row =>
+    row.id.startsWith("timeline-enrichment:fuel:") &&
+    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
+  ).length !== 2 && Date.now() < evidenceDeadline) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    readback = await readBrowserRecords(page);
+  }
   purchases = readback.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
