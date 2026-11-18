@@ -3,7 +3,7 @@ import fixture from "../fixtures/native-backup-v2.json";
 import { decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
 
 describe("native backup-encryption-v2 interoperability", () => {
-  it("restores the shared Android-generated package through the TypeScript restore path", async () => {
+  it("decrypts and validates the Android-generated v2 package in TypeScript (without restoring a snapshot)", async () => {
     const serialized = new TextEncoder().encode(JSON.stringify(fixture.backup));
     const parsed = parseBackupPackage(serialized);
     const plaintext = await decryptBackupWithRecoveryKey(parsed, fixture.recoveryKey);
