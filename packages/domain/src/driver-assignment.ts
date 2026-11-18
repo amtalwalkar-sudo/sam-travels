@@ -28,6 +28,7 @@ export function assertDriverAssignmentHistoryV1(value: unknown): asserts value i
   const ids = new Set<string>();
   let activeCount = 0;
   let previousAssignedAt = -Infinity;
+  let previousUnassignedAt = -Infinity;
   for (const item of row.assignments) {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("driver_assignment_invalid");
     const assignment = item as Record<string, unknown>;
@@ -41,12 +42,17 @@ export function assertDriverAssignmentHistoryV1(value: unknown): asserts value i
     ids.add(assignment.assignmentId);
     const assignedAt = Date.parse(assignment.assignedAt);
     if (assignedAt < previousAssignedAt) throw new Error("driver_assignment_history_order_invalid");
+    if (assignedAt < previousUnassignedAt) throw new Error("driver_assignment_period_overlap");
     previousAssignedAt = assignedAt;
     if (assignment.unassignedAt !== undefined) {
       if (!validInstant(assignment.unassignedAt) || Date.parse(assignment.unassignedAt) < assignedAt) {
         throw new Error("driver_assignment_period_invalid");
       }
-    } else activeCount++;
+      previousUnassignedAt = Date.parse(assignment.unassignedAt);
+    } else {
+      activeCount++;
+      previousUnassignedAt = Number.POSITIVE_INFINITY;
+    }
   }
   if (activeCount > 1) throw new Error("driver_multiple_active_assignments");
 }
