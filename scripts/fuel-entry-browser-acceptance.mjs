@@ -48,7 +48,7 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(_success, error) { error?.({ code: 1, message: "Permission denied" }); } },
+      value: { getCurrentPosition(_success, error) { setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -167,6 +167,12 @@ try {
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   );
   assert.equal(purchases.length, 2, "both full and partial purchases must commit before optional GPS enrichment completes");
+  const evidenceBeforeCompletion = committedBeforeEnrichment.filter(row =>
+    row.id.startsWith("timeline-enrichment:fuel:") &&
+    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
+    row.data?.captureStatus === "permission_denied"
+  );
+  assert(evidenceBeforeCompletion.length < 2, "the latest GPS callback must still be pending when the purchase save completes");
   await page.waitForFunction(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
