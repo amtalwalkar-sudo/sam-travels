@@ -8,7 +8,7 @@
 export type ExpenseSourceKindV1 = "fuel" | "platform_fee" | "traffic_challan" | "miscellaneous";
 
 export type FuelLocationEvidenceV1 = Readonly<{
-  latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device";
+  latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device"; captureTiming: "submission_event" | "late";
 }>;
 
 export type FuelPurchaseV1 = Readonly<{
@@ -128,11 +128,11 @@ export function deriveFuelQuantityMilliKg(amountPaise: number, pricePaisePerKg: 
 function validFuelLocationEvidence(value: unknown): value is FuelLocationEvidenceV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
-  return Object.keys(row).sort().join("|") === ["latitude", "longitude", "accuracyMeters", "capturedAt", "provider"].sort().join("|") &&
+  return (Object.keys(row).sort().join("|") === ["latitude", "longitude", "accuracyMeters", "capturedAt", "provider"].sort().join("|") || Object.keys(row).sort().join("|") === ["latitude", "longitude", "accuracyMeters", "capturedAt", "provider", "captureTiming"].sort().join("|")) &&
     typeof row.latitude === "number" && Number.isFinite(row.latitude) && row.latitude >= -90 && row.latitude <= 90 &&
     typeof row.longitude === "number" && Number.isFinite(row.longitude) && row.longitude >= -180 && row.longitude <= 180 &&
     typeof row.accuracyMeters === "number" && Number.isFinite(row.accuracyMeters) && row.accuracyMeters > 0 &&
-    validInstant(row.capturedAt) && row.provider === "device";
+    validInstant(row.capturedAt) && row.provider === "device" && (row.captureTiming === undefined || row.captureTiming === "submission_event" || row.captureTiming === "late");
 }
 
 export function assertFuelPurchaseV1(value: unknown): asserts value is FuelPurchaseV1 {
