@@ -144,6 +144,16 @@ In addition to feature entry paths, map existing evidence and remaining gaps for
 
 For every item record the owning contract, existing test/assertion, platform, CI/manual status and gap. If an item is intentionally out of scope for PR #99, point to its owner contract and evidence rather than silently omitting it.
 
+### B0.4.1 Current CI blocker correction
+
+The first B0b CI run after the Fuel PWA submit path was added failed before the new Fuel acceptance could execute:
+
+- The Admin acceptance script exceeded the architecture gate's 400-line / 24,576-byte limit after the Fuel flow was appended. Extract the Fuel flow into a focused standalone acceptance script; do not relax the gate.
+- The Admin acceptance script attempted to navigate using accessible button name `Work`, but the actual primary navigation label is `Drive`. Correct the test selector to the shipped accessible label; do not change the product navigation just to satisfy the test.
+- The Admin browser acceptance passed identity enrollment/activation, Business Setup and Vehicle creation before timing out. The Fuel submit acceptance is therefore **not yet executed or proven**. Android was skipped because architecture/web failed.
+
+These blockers are recorded in PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md and gap register item 9.36. B0b must close them and demonstrate the standalone Fuel acceptance passing before its evidence row can be upgraded.
+
 ### B0.5 B0 exit
 
 Every supported entry path and cross-cutting architecture concern is classified as **already proven**, **partially proven**, **not proven**, or **not applicable**, with exact source/test evidence and a named gap. B0 has two required sub-stages: (a) source/test audit and gap inventory; (b) implement only the missing targeted tests and update this evidence matrix/gap register with results. All critical data paths must have automated proof through the real form/action-to-production-command boundary and authoritative commit, or an explicitly documented physical/manual gate where automation is not feasible. The canonical cross-platform portability decision in Section 4B is binding; B0 must record the current implementation gaps against it. B1 may begin only after the B0 audit is complete, missing in-scope tests are added, their focused checks pass, and the updated evidence matrix identifies any remaining implementation (not test-inventory) work. Prefer records produced by these entry-path tests as fixture inputs where deterministic and practical; otherwise use the shared fixture loader through the same production validators and record why direct entry is unsuitable.
