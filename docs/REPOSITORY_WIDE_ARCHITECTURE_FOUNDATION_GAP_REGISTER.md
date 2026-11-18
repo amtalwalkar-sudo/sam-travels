@@ -436,3 +436,11 @@ The shared form contract requires every implemented form to be discoverable and 
 Existing GPS tests prove the generic 50m/30s validator and browser provider's fresh-fix, expiry and transient-error behaviour. DriverWorkflowService tests exercise a generic capture provider mainly through shift_start; v2 tests cover the operational-day/odometer paths; Android overlay acceptance exercises trip_create. The required six-event matrix is not demonstrated: shift_start, shift_end, trip_create, start_ride, end_ride and cancel_ride must each acquire their own fresh GPS fix, preserve event ID and transition/fix timestamps, and never reuse another event's fix.
 
 **Required closure:** Add a focused table-driven application/service test for the six event types and the missing native overlay event paths where the overlay exposes them. Include rapid successive events to prove ordering and per-event fix identity, plus a no-continuous-GPS assertion. Do not repeat generic GPS validator/provider tests or existing outbox/recovery suites.
+
+### 9.26 — Network Access control UI and cross-surface policy propagation
+
+**Status:** Source-confirmed partial coverage against NETWORK_ACCESS_CONTRACT.md.
+
+NetworkGateway and tests/network.test.ts prove service-level policy gating. App.tsx renders the Internet On/Off control. Android TimelineEnrichmentStoreTest verifies the Room worker defers derived work when the persisted policy is disabled. No rendered test was identified for toggling the actual control, verifying the PWA and Android clients observe the same persisted value without internet, or proving the setting survives reload/process restart and pauses eligible work without losing local records.
+
+**Required closure:** Add a rendered PWA/Android WebView policy-control test and a Room cross-surface propagation assertion. Verify default-disabled state, off→on→off persistence, no external request while disabled, offline deferral, Dropbox scheduling/restore confirmation and optional geocoding consent. Reuse NetworkGateway and worker tests; do not duplicate them.
