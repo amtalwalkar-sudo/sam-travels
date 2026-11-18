@@ -80,6 +80,22 @@ describe("atomic feature-owned record service", () => {
     })).rejects.toThrow("feature_record_already_exists");
   });
 
+  it("allows trusted imports before an interactive person session exists", async () => {
+    const { service } = setup();
+    FeatureRecordService.setAuthorResolver(async () => { throw new Error("business_actor_not_active"); });
+    try {
+      const imported = await service.create({
+        id: "feature:sample:imported",
+        data: { label: "Imported setup", amountPaise: 100 },
+        source: "import",
+      });
+      expect(imported.source).toBe("import");
+      expect(imported.createdBy).toBeUndefined();
+    } finally {
+      FeatureRecordService.setAuthorResolver(undefined);
+    }
+  });
+
   it("stores stable person ID and action role as immutable creation provenance", async () => {
     const { service } = setup();
     const created = await service.create({
