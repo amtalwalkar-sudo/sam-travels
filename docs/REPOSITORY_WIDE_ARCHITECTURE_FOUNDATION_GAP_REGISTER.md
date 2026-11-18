@@ -415,3 +415,16 @@ The first pass identified the following missing or partial boundaries requiring 
 - Device timezone is explicitly pinned to Asia/Kolkata for business dates and 04:00 logic, and process restart tests exist. A test for OS timezone change and a manual/device acceptance for wall-clock change while powered off are not evident. Exact elapsed time cannot be promised if the device clock is manually changed while off; surface uncertainty rather than fabricate it.
 - Dropbox contract requires size/checksum/attachment completeness validation. Current code has package/record bounds and plaintext checksum; no binary attachment feature was found in the inspected source. Confirm current attachment ownership is empty or add its participant/manifest inventory before declaring backup completeness.
 - The native v2 interop test comment overstates that the TypeScript test restores a snapshot; it only decrypts/checks plaintext. Correct the evidence wording and add the real two-way production restore tests under the canonical format.
+
+### 9.24 — Shared form registry/conformance and presentation test coverage
+
+**Status:** Source-confirmed gap in the B0a first pass.
+
+The shared form contract requires every implemented form to be discoverable and validated, with one declared primary action, versioned fields, lifecycle rules, business-boundary validation, interruption/recovery, and applicable PWA/native presentation conformance. Current tests cover only subsets:
+- `shared-form-runtime.test.ts` validates the 14 Admin definitions in ADMIN_FORM_DEFINITIONS and generic working-copy semantics.
+- Performance Driver Target and Pre-Business Cost form definitions are exported separately and are not part of that Admin list.
+- Fuel Entry, completed-trip financials and cancellation-fee definitions are exported from driver-form-definitions.ts; its test currently exercises cancellation fee only, not Fuel or completed-trip financials.
+- `presentation-accessibility-responsive.test.tsx` verifies application-shell responsiveness/accessibility, not form controls. Android overlay presentation tests cover selected overlay panels, but PWA form keyboard/IME, viewport, focus/scroll, touch-target and form-level accessibility are not shown.
+- Android DriverTripFinancialPanelPresentationTest proves the native overlay Fare/Toll/Parking submit boundary; it does not prove the PWA DriverWorkflowPanel equivalent.
+
+**Required closure:** add a single authoritative discoverable form-definition inventory or equivalent conformance map spanning Admin, Performance, Fuel and Work. Add contract tests for every definition (unique ID/version/owner, declared fields, requiredness, exactly one Save/Submit, and field schema), negative fixtures for malformed definitions, and shared PWA form-control responsive/keyboard/focus/accessibility acceptance. Keep feature-specific validation in the owning application services; do not duplicate it in the registry. Add PWA Work trip-financial submission coverage as part of the rendered Work acceptance.
