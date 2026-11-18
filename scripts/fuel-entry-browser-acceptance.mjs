@@ -51,13 +51,11 @@ try {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.addInitScript(() => {
-    const trace = (key, stack) => { const entries = JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"); entries.push({ key, stack }); localStorage.setItem("__fuel_record_deletes", JSON.stringify(entries)); };
-    const remove = IDBObjectStore.prototype.delete;
-    IDBObjectStore.prototype.delete = function (key) { if (this.name === "records" && typeof key === "string" && key.startsWith("timeline-enrichment:")) trace("delete " + key, new Error("record_delete_trace").stack); return remove.call(this, key); };
-    const clear = IDBObjectStore.prototype.clear;
-    IDBObjectStore.prototype.clear = function () { if (this.name === "records") trace("<clear records>", new Error("record_clear_trace").stack); return clear.call(this); };
-    const put = IDBObjectStore.prototype.put;
-    IDBObjectStore.prototype.put = function (value, key) { const id = value?.id ?? key; if (this.name === "records" && typeof id === "string" && id.startsWith("timeline-enrichment:")) trace("put " + id + " " + JSON.stringify(value?.data), new Error("record_put_trace").stack); return put.call(this, value, key); };
+    const trace=(key,stack)=>{const a=JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]");a.push({key,stack});localStorage.setItem("__fuel_record_deletes",JSON.stringify(a));};
+    const remove=IDBObjectStore.prototype.delete;IDBObjectStore.prototype.delete=function(key){if(this.name==="records"&&String(key).startsWith("timeline-enrichment:"))trace("delete "+key,new Error().stack);return remove.call(this,key);};
+    const clear=IDBObjectStore.prototype.clear;IDBObjectStore.prototype.clear=function(){if(this.name==="records")trace("clear records",new Error().stack);return clear.call(this);};
+    const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,k){const id=v?.id??k;if(this.name==="records"&&String(id).startsWith("timeline-enrichment:"))trace("put "+id+" "+JSON.stringify(v?.data),new Error().stack);return put.call(this,v,k);};
+    const drop=IDBFactory.prototype.deleteDatabase;IDBFactory.prototype.deleteDatabase=function(name){trace("deleteDatabase "+name,new Error().stack);return drop.call(this,name);};
     Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 1000); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } } });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -182,9 +180,6 @@ try {
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
-  // A browser reload destroys an outstanding device geolocation callback.
-  // Let the first, deliberately delayed GPS fix finish and persist before
-  // reloading for draft recovery; the purchase itself has already committed.
   await page.waitForFunction(async expectedEventId => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -210,8 +205,6 @@ try {
   }, "fuel:" + purchases[0].id, { timeout: 10000 });
   await context.setOffline(false);
 
-  // The successful submit starts a new draft. Exercise partial refill,
-  // durable draft recovery after reload, then submit that second purchase offline.
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12346");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
@@ -252,9 +245,6 @@ try {
     db.close();
     return row?.data?.captureStatus === "captured" && row?.data?.captureTiming === "late";
   }, firstFuelEvidenceId, { timeout: 10000 });
-  // Actor authority is intentionally held in the in-memory identity service;
-  // a page reload ends that session. Re-authenticate the same Driver before
-  // exercising the recovered draft and its offline submission.
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
@@ -266,9 +256,6 @@ try {
   await page.locator(".fuel-entry-toggle").click();
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
-  // The panel heading renders before its asynchronous IndexedDB draft
-  // recovery finishes. Wait for the restored values rather than asserting
-  // against the initial blank form during that legitimate loading interval.
   try {
     await page.waitForFunction(expected => {
       const panel = document.querySelector(".fuel-entry-panel");
