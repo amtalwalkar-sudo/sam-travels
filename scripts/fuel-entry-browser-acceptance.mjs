@@ -53,9 +53,11 @@ try {
   await page.addInitScript(() => {
     const trace = (key, stack) => { const entries = JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"); entries.push({ key, stack }); localStorage.setItem("__fuel_record_deletes", JSON.stringify(entries)); };
     const remove = IDBObjectStore.prototype.delete;
-    IDBObjectStore.prototype.delete = function (key) { if (this.name === "records" && typeof key === "string" && key.startsWith("timeline-enrichment:")) trace(key, new Error("record_delete_trace").stack); return remove.call(this, key); };
+    IDBObjectStore.prototype.delete = function (key) { if (this.name === "records" && typeof key === "string" && key.startsWith("timeline-enrichment:")) trace("delete " + key, new Error("record_delete_trace").stack); return remove.call(this, key); };
     const clear = IDBObjectStore.prototype.clear;
     IDBObjectStore.prototype.clear = function () { if (this.name === "records") trace("<clear records>", new Error("record_clear_trace").stack); return clear.call(this); };
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, key) { const id = value?.id ?? key; if (this.name === "records" && typeof id === "string" && id.startsWith("timeline-enrichment:")) trace("put " + id + " " + JSON.stringify(value?.data), new Error("record_put_trace").stack); return put.call(this, value, key); };
     Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 1000); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } } });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
