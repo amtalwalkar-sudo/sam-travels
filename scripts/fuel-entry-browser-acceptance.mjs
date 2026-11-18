@@ -220,7 +220,13 @@ try {
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
-  await resumed.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+  await page.waitForFunction(() => {
+    const panel = document.querySelector(".fuel-entry-panel");
+    const status = panel?.querySelector('[role="status"]');
+    return Boolean(status?.textContent?.trim());
+  }, undefined, { timeout: 30000 });
+  const secondSubmitStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
+  assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 2, "one additional GPS request is made for the second Submit");
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
