@@ -91,6 +91,14 @@ class NativeBackupCoverageTest {
         return StoredRecord(id, envelope.toString(), 1, timestamp)
     }
 
+    @Test fun backupRecordCountLimitIsInclusiveAndRejectsTheFirstRecordOver() {
+        requireBackupRecordCountWithinLimit(MAX_BACKUP_RECORD_COUNT)
+        val failure = runCatching {
+            requireBackupRecordCountWithinLimit(MAX_BACKUP_RECORD_COUNT + 1)
+        }.exceptionOrNull()
+        assertEquals("backup_record_count_limit", failure?.message)
+    }
+
     @Test fun discoversFeatureTables() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
