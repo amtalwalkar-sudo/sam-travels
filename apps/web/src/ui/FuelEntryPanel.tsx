@@ -45,7 +45,7 @@ export function FuelEntryPanel() {
     const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
     if (next.values.partialRefill === undefined) next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
-    copyRef.current = next; setCopy(next);
+    copyRef.current = next; setCopy(next); setValues({ ...next.values });
     // GPS is intentionally not requested when the form opens. A fresh,
     // event-scoped request begins only inside the Submit handler.
   }, [services]);
