@@ -56,6 +56,13 @@ export interface BackupPackage {
   };
 }
 
+export const MAX_BACKUP_PACKAGE_BYTES = 512 * 1024 * 1024;
+
+export function assertBackupPackageByteLength(byteLength: number): void {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 0) throw new Error("backup_invalid_package_size");
+  if (byteLength > MAX_BACKUP_PACKAGE_BYTES) throw new Error("backup_package_too_large");
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const bytes = (value: Uint8Array) => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
@@ -240,11 +247,13 @@ export async function decryptBackupWithRecoveryKey(
 
 export function serializeBackupPackage(pkg: BackupPackage): Uint8Array {
   validatePackageShape(pkg);
-  return encoder.encode(JSON.stringify(pkg));
+  const serialized = encoder.encode(JSON.stringify(pkg));
+  assertBackupPackageByteLength(serialized.byteLength);
+  return serialized;
 }
 
 export function parseBackupPackage(serialized: Uint8Array): BackupPackage {
-  if (serialized.byteLength > 512 * 1024 * 1024) throw new Error("backup_package_too_large");
+  assertBackupPackageByteLength(serialized.byteLength);
   const parsed = JSON.parse(decoder.decode(serialized)) as BackupPackage;
   validatePackageShape(parsed);
   return parsed;
