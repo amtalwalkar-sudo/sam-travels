@@ -343,3 +343,23 @@ Current source shows explicit persistent-feature participants and fail-closed ta
 
 **No-duplicate rule:** this is an evidence audit, not permission to duplicate existing form, service, validation, persistence or workflow tests. A new test requires a specific uncovered assertion.
 
+
+
+### 9.20 — Existing G-13 through G-24 findings reconciled into PR #99 execution plan
+
+**Status:** Added to the PR #99 contract and evidence matrix; implementation/test closure remains outstanding where noted below.
+
+The PR #99 plan must not stop at a populated fixture and generic parity comparison. It must explicitly disposition each existing architecture finding:
+
+- **G-13/G-14/G-17:** decide whether encrypted backup packages are platform-portable. The current Finance participant manifests and serialized snapshot shapes differ. If portability is required, implement and test a canonical versioned wire format and populated cross-platform restore in both directions. If not required, preserve platform-bound packages and test early rejection in both directions with populated Finance history, proving the destination database is unchanged. This is a product/contract decision; do not assume portability.
+- **G-15:** matching valid and invalid feature records and whole snapshots must produce equivalent browser/Android validator outcomes and stable error categories.
+- **G-16/G-18:** integrated fixture must include all persistent owners, zero-record participants, cross-feature references, pending Work/outbox state, Log Book events and historical correction chains.
+- **G-19:** assert Maintenance rate/effective date, daily-km source ID/revision, businessKm/personalKm, accrual amount, correction IDs/revisions and chain head.
+- **G-20:** assert fuel and ordinary Business Expenses, Vehicle/Driver/trip-financial references, charge/reversal pairs, multiple correction revisions and dangling/mismatched-reference rejection.
+- **G-21:** assert multiple Compliance renewal generations, early-overlap review/supersession, corrections and heads.
+- **G-22:** assert Driver assignment reassignment, temporal intervals, Vehicle lifecycle references and missing Vehicle rejection.
+- **G-23:** classify Performance recovery/provenance as durable or derived/transient; prove deterministic reconstruction if derived. Do not invent a persisted provenance record.
+- **G-24:** assert pending, acknowledged, retried and failed Work intents/outbox, duplicate/replay boundaries, 04:00 transition and linked Log Book ordering through restore/recovery/re-export.
+- **Backup exclusions:** prove credential-vault material, local restore checkpoints/journals and diagnostics remain excluded from business backup on both runtimes and retain their separate security/operational handling.
+
+These are mapped to B0 (policy/evidence audit), B1 (fixture and validator parity), B2/B3 (runtime lifecycles), and B4 (semantic/calculation comparison). Reuse existing feature and transaction tests; add only the missing integrated assertions. No broad repeat of Track A is authorized.
