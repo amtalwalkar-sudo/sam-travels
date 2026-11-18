@@ -24,30 +24,45 @@ export function FuelEntryPanel() {
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const copyRef = useRef<typeof copy>(undefined);
   const queue = useRef<Promise<void>>(Promise.resolve());
+  const startInFlight = useRef<Promise<void> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   const start = useCallback(async () => {
-    const [availableVehicles, drafts, fuelPurchases] = await Promise.all([
-      services.vehicles.list(),
-      services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
-      services.businessExpenses.listFuelPurchases(),
-    ]);
-    const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
-    for (const purchase of fuelPurchases) {
-      const previous = latest.get(purchase.data.vehicleId);
-      if (!previous || purchase.data.occurredAt > previous.occurredAt) {
-        latest.set(purchase.data.vehicleId, { occurredAt: purchase.data.occurredAt, odometerKm: purchase.data.odometerKm });
+    // Opening can be retriggered by provider updates while the async load is
+    // still running. Share that load so two empty working copies cannot race
+    // and leave the populated draft hidden behind a newer blank one.
+    if (startInFlight.current) return startInFlight.current;
+    const pending = (async () => {
+      const [availableVehicles, drafts, fuelPurchases] = await Promise.all([
+        services.vehicles.list(),
+        services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
+        services.businessExpenses.listFuelPurchases(),
+      ]);
+      const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
+      for (const purchase of fuelPurchases) {
+        const previous = latest.get(purchase.data.vehicleId);
+        if (!previous || purchase.data.occurredAt > previous.occurredAt) {
+          latest.set(purchase.data.vehicleId, { occurredAt: purchase.data.occurredAt, odometerKm: purchase.data.odometerKm });
+        }
       }
+      setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
+      setVehicles(availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active"));
+      const resumable = [...drafts].sort((a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt) || b.revision - a.revision || b.instanceId.localeCompare(a.instanceId)
+      )[0];
+      let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      if (next.values.partialRefill === undefined) next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
+      copyRef.current = next; setCopy(next); setValues({ ...next.values });
+      // GPS is intentionally not requested when the form opens. A fresh,
+      // event-scoped request begins only inside the Submit handler.
+    })();
+    startInFlight.current = pending;
+    try {
+      await pending;
+    } finally {
+      if (startInFlight.current === pending) startInFlight.current = null;
     }
-    setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
-    setVehicles(availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active"));
-    const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
-    if (next.values.partialRefill === undefined) next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
-    copyRef.current = next; setCopy(next); setValues({ ...next.values });
-    // GPS is intentionally not requested when the form opens. A fresh,
-    // event-scoped request begins only inside the Submit handler.
   }, [services]);
 
   useEffect(() => {
