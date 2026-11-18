@@ -57,7 +57,7 @@ android {
         }
         androidTest {
             assets.srcDirs += [
-                new File(rootProject.projectDir, '../fixtures'),
+                new File(projectDir, '../../fixtures'),
                 new File(projectDir, 'schemas')
             ]
         }
