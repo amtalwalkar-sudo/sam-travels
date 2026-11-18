@@ -123,7 +123,23 @@ Where full UI automation is unavailable or brittle, use the narrowest production
 
 The audit must explicitly check, where applicable: app close during entry; duplicate tap/retry; network loss; permission denial; malformed date/amount/odometer; invalid chronology; overlapping validity; stale revision; missing referenced entity; device clock/time-zone changes; operational-day boundary at 04:00; active-trip boundary deferral; and process/service restart with pending work. Use the owner contract's expected behaviour; do not invent new policy.
 
-### B0.4 B0 exit
+### B0.4 Cross-cutting architecture and reliability test audit
+
+In addition to feature entry paths, map existing evidence and remaining gaps for these foundation-wide concerns. These checks may be owned by other contracts or CI suites; reuse those tests and do not duplicate them in PR #99.
+
+- **Schema and upgrade safety:** database/schema version migrations from supported prior versions; data preservation and referential integrity after upgrade; unsupported future schema fails closed; no silent destructive fallback. Downgrade behaviour must be explicit (normally unsupported rather than destructive).
+- **Data integrity:** unique/stable identities, required references, revision monotonicity, immutable history, correction/reversal chain integrity, deterministic ordering, and no partial writes after validation or transaction failure.
+- **Concurrency and idempotency:** competing writers, stale revisions, duplicate commands/events, retry after timeout/process death, receiver deduplication and one authoritative commit.
+- **Offline and lifecycle:** no network dependency for promised local entry/commit; browser reload; Android WebView/service/process recreation; boot/restart; pending work recovery; no duplicate side effects. Distinguish deterministic CI proof from physical-device/OEM gates.
+- **Time and device evidence:** UTC/local timestamp semantics, timezone and clock changes, daylight-saving where applicable, operational-day 04:00 boundary, active-trip deferral, GPS permission denied/unavailable/stale results and immutable capture snapshots.
+- **Backup package and restore safety:** encryption/decryption interoperability, wrong-key/tamper/corrupt/truncated/incompatible package rejection, manifest/participant completeness, schema compatibility, path/ownership validation, atomic replacement, checkpoint rollback and no loss of pre-restore data. Dropbox authentication, account connectivity and real cloud delivery are separate external-account gates if not deterministically covered in CI.
+- **Platform parity:** browser IndexedDB versus Android Room normalized business semantics; Android PWA/WebView and overlay share the same Room authority; no independent writable store or divergent projection.
+- **Privacy and security:** secrets, keys, tokens and sensitive business data are not emitted into logs or test artifacts; backup protection follows the owner contract; restore inputs are treated as untrusted data.
+- **Scale and operational resilience:** representative larger snapshots, bounded memory/time, snapshot consistency while writes occur, storage-full/transaction-abort behaviour where testable, and actionable failure reporting without exposing sensitive payloads.
+
+For every item record the owning contract, existing test/assertion, platform, CI/manual status and gap. If an item is intentionally out of scope for PR #99, point to its owner contract and evidence rather than silently omitting it.
+
+### B0.5 B0 exit
 
 Every supported entry path is classified as **already proven**, **partially proven**, **not proven**, or **not applicable**, with exact source/test evidence and a named gap. All critical data paths must have automated proof through the real form/action-to-production-command boundary and authoritative commit, or an explicitly documented physical/manual gate where automation is not feasible. Only after this audit may B1 populate the shared fixture. Prefer records produced by these entry-path tests as fixture inputs where deterministic and practical; otherwise use the shared fixture loader through the same production validators and record why direct entry is unsuitable.
 
@@ -237,16 +253,19 @@ If a required test exposes a production defect, make the smallest change strictl
 PR #99 is complete only when all gates pass:
 
 1. This contract and implementation plan are committed and internally consistent with the owner contracts.
-2. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above.
-3. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
-4. Room fixture loader uses production validators/participants and exercises the production Room backup/restore lifecycle.
-5. Both runtimes complete export → restore → reopen → startup recovery → re-export.
-6. Normalized semantic comparison passes across the two runtimes.
-7. Calculations are recomputed before and after restore with identical values and provenance.
-8. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
-9. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
-10. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
-11. PR remains draft and unmerged pending user review; physical-device/manual gates are clearly reported and not falsely marked complete.
+2. B0 inventories every currently supported entry path and classifies it as already proven, partially proven, not proven or not applicable.
+3. Every critical entry path has evidence through the real form/action-to-production-command/validator-to-authoritative-commit boundary, or an explicit manual/device acceptance gate.
+4. Cross-cutting architecture tests (schema migration, data integrity, offline/retry, concurrency, time boundaries, backup package security/compatibility, restore rollback, and platform lifecycle) are mapped to existing tests or named gaps without duplication.
+5. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above.
+6. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
+7. Room fixture loader uses production validators/participants and exercises the production Room backup/restore lifecycle.
+8. Both runtimes complete export → restore → reopen → startup recovery → re-export.
+9. Normalized semantic comparison passes across the two runtimes.
+10. Calculations are recomputed before and after restore with identical values and provenance.
+11. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
+12. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
+13. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
+14. PR remains draft and unmerged pending user review; physical-device/manual and external-account gates are clearly reported and not falsely marked complete.
 
 ## 12. Two-track implementation plan
 
