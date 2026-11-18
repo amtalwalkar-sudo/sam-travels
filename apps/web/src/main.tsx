@@ -104,7 +104,6 @@ async function bootstrap(): Promise<void> {
     drivers: driverRecords,
     compliance: getApplicationComplianceService(),
     financeLoans,
-    source: getApplicationRecordSource(),
   });
   const formRuntime = createAdminFormRuntimeV1({
     repository,
