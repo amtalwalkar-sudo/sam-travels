@@ -104,7 +104,7 @@ try {
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
   await panel.getByLabel("Partial refill").check();
-  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\\.000 kg/);
+  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
 
   await page.waitForFunction(async expectedVehicleId => {
     const request = indexedDB.open("sam-travels-browser");
