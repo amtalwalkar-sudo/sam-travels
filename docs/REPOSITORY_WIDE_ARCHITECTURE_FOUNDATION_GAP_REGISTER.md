@@ -407,7 +407,7 @@ The first pass identified the following missing or partial boundaries requiring 
 
 7. **Backup exclusion and empty owners:** Browser code explicitly excludes checkpoints, credential vault, credential-vault metadata and diagnostics; Android filters local recovery checkpoint/journal records and stores keys/diagnostics outside business tables. Add direct paired export assertions. Native manifest test includes 13 participants with one Log Book row; add explicit zero-record owner count assertions and browser counterpart.
 
-8. **Interop test scope:** the TypeScript test for Android-generated v2 package only decrypts and checks plaintext; it does not restore the snapshot. The native test creates/self-decrypts a package. Add TypeScript-generated package→Android and Android-generated package→browser production restore tests with the canonical dataset; update misleading test comments.
+8. **Interop test scope:** the TypeScript test for Android-generated v2 package only decrypts and checks plaintext; it does not restore the snapshot. The native test creates/self-decrypts a package. Add TypeScript-generated package→Android and Android-generated package→browser production restore tests with the canonical dataset. The misleading TypeScript/native test title/comments have now been corrected; keep the evidence clear that those tests cover decryption/self-decryption only.
 
 9. **Dexie schema upgrade:** add historical v1/v4 IndexedDB fixtures and reopen assertions to match the level of migration preservation already proven for Room; future-version behaviour must be tested or explicitly defined from Dexie semantics.
 
