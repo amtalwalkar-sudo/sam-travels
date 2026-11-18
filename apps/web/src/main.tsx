@@ -36,6 +36,7 @@ import { createBusinessExpenseHistoricalCorrections } from "./business-expense-c
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
 import { createAdminFormRuntimeV1 } from "./admin-form-runtime";
+import { seedInitialAdminProfile } from "./initial-admin-profile";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
 import "./ui/styles.css";
@@ -98,6 +99,13 @@ async function bootstrap(): Promise<void> {
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
   );
   initializeApplicationFeatureLifecycle(repository);
+  await seedInitialAdminProfile({
+    vehicles,
+    drivers: driverRecords,
+    compliance: getApplicationComplianceService(),
+    financeLoans,
+    source: getApplicationRecordSource(),
+  });
   const formRuntime = createAdminFormRuntimeV1({
     repository,
     recordSource: getApplicationRecordSource(),
