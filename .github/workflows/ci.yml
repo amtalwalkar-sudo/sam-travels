@@ -128,8 +128,8 @@ jobs:
           java-version: 21
       - run: npm install
       - run: npm run cap:sync
-      - name: Stage shared semantic backup lifecycle fixture for Android instrumentation
-        run: mkdir -p android/app/src/androidTest/assets && cp fixtures/semantic-backup-lifecycle-v1.json android/app/src/androidTest/assets/semantic-backup-lifecycle-v1.json
+      - name: Stage repository persistence fixtures for Android instrumentation
+        run: mkdir -p android/app/src/androidTest/assets && cp -R fixtures/. android/app/src/androidTest/assets/
       - name: Build the shared headless Timeline projection for Android parity tests
         run: npm run build:timeline-parity
       - name: Build the shared Full-cost Work-distance projection for Android parity tests
