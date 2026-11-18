@@ -30,19 +30,37 @@
 | Domain calculations | Existing Finance, Compliance, Maintenance, Business Expense and Performance calculation/service tests | Individual calculation rules are tested independently | Recompute the same fixture's calculations before and after restore on each runtime; compare output and source provenance |
 | Cross-runtime semantic fixture | `tests/semantic-backup-lifecycle-fixture.test.ts`; `SharedSemanticBackupFixtureTest.sharedSemanticLifecycleFixtureDeclaresAllParityDomains` | Both platforms load the same JSON contract seed and assert domains/lifecycle/comparison keys | Fixture is not populated; loaders, production lifecycle execution and semantic equality are still absent |
 
-## 3. Initial gap decisions
+## 3. Track A / Track B status and execution boundary
 
-Do not rebuild the existing transaction, idempotency, pending-intent, process-death or backup rollback mechanisms merely to create new tests.
+### Track A — Restore/recovery foundation
 
-The next implementation work is limited to:
+**Status: implemented; reuse existing evidence.**
 
-1. Populate the shared fixture with valid synthetic domain records and actual lineage supported by current schemas.
-2. Add browser and Room fixture loaders/runners that use production validators/participants and the production restore path.
-3. Run full export → restore → close/reopen → startup recovery → re-export on each platform.
-4. Recompute production calculations before and after restore; compare exact values, effective-date inputs and source provenance.
-5. Add the missing direct Android PWA/overlay Driver Workflow visibility and stale-write interleaving test.
-6. Add only the specifically uncovered Android outbox process-restart replay assertion if the existing test runner does not already prove it.
-7. Determine whether full OS reboot can be deterministically exercised in CI; do not label process death as reboot proof.
+The existing browser IndexedDB and Android Room production restore paths, reopen/startup recovery, rollback/failure injection, dangling-reference validation, and shared fixture contract seed form the Track A foundation. The workflow atomicity, idempotency, pending-intent, process-death, outbox and stale-revision tests listed above are also existing evidence.
+
+Do not reimplement these mechanisms or add equivalent tests. Do not schedule isolated retesting of these cases. They will naturally execute in the final required CI run. If a Track B integration test exposes a concrete failure, investigate only that failing boundary.
+
+### Track B — Populated fixture and end-to-end semantic parity
+
+**Status: outstanding; this is the only active implementation track.**
+
+1. Populate the shared fixture with schema-valid synthetic records for Vehicle/Driver dependencies, Finance, Compliance, Maintenance, Business Expenses, Performance, Work/Driver Workflow and Log Book.
+2. Add the browser fixture loader/runner and execute the populated data through the existing production IndexedDB export → restore → reopen → startup recovery → re-export path.
+3. Add the Room fixture loader/runner for the exact same fixture asset and execute it through the existing production Room restore coordinator and recovery path.
+4. Recompute production calculations before and after restore on both runtimes; compare exact normalized outputs, effective-date inputs and source provenance.
+5. Compare IDs, schema versions, revisions, references, event order, pending-intent/outbox identity and status, Log Book linkage, and correction-chain heads across browser and Room.
+6. Add only missing direct integration assertions after confirming they are not already covered: PWA↔overlay Driver Workflow event/state visibility; actual surface-level stale-write interleaving; undelivered Android outbox retry after process death only if current assertions do not prove it.
+7. Treat full OS reboot separately from process death. If not already covered and not deterministic in CI, record it as a physical-device gate; do not add a flaky duplicate test.
+8. Run focused new tests, then the required CI once on the final PR head; update the evidence matrix and gap register.
+
+**Track B exit:** one populated fixture passes through both existing production lifecycles, normalized semantic and calculation/provenance parity passes, genuinely missing integration assertions are covered or explicitly gated, and required CI is green.
+
+## 4. No-duplicate-testing rule
+
+- Existing passing Track A tests are evidence to reuse, not work to repeat.
+- Do not create another test for atomicity, duplicate completion, pending-intent recovery, process death, service recreation, generic outbox durability, restore rollback or dangling references when the existing assertion already proves that behaviour.
+- A new test requires a named acceptance assertion not already exercised by an existing test.
+- Final CI naturally reruns the repository's required suite; that is the only broad rerun. Implementation work should use targeted new/changed tests first.
 
 ## 4. Scope guard
 
