@@ -71,22 +71,26 @@ export function BackupPanel() {
 
   async function openSession(): Promise<DropboxBackupSession> {
     const next = await createDropboxBackupSession();
-    setSession(next);
     if (next.native) await configureNativeBackgroundBackup(DROPBOX_CLIENT_ID, "samtravels://oauth");
     return next;
   }
 
   async function connect() {
     setBusy(true);
+    let next: DropboxBackupSession | null = null;
     try {
-      const next = await openSession();
+      next = await openSession();
       if (await next.client.isConnected()) {
+        setSession(next);
         await refreshHistory(next);
         return;
       }
       const url = await next.client.beginAuthorization();
+      setSession(next);
       window.location.assign(url);
     } catch (error) {
+      next?.lock();
+      setSession(null);
       setMessage(error instanceof Error ? error.message : "Could not start Dropbox authorization");
       setBusy(false);
     }
@@ -95,13 +99,17 @@ export function BackupPanel() {
   async function completeConnection() {
     if (!callback) return;
     setBusy(true);
+    let next: DropboxBackupSession | null = null;
     try {
-      const next = await openSession();
+      next = await openSession();
       await next.client.completeAuthorization(callback.code, callback.state);
+      setSession(next);
       setCallback(null);
       setMessage("Dropbox connected.");
       await refreshHistory(next);
     } catch (error) {
+      next?.lock();
+      setSession(null);
       setCallback(null);
       setMessage(error instanceof Error ? error.message : "Dropbox authorization failed");
     } finally {
