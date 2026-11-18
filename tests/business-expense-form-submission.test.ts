@@ -198,10 +198,11 @@ describe("Fuel Entry form submission mapping", () => {
     vi.stubGlobal("navigator", { geolocation });
 
     const createFuelPurchase = vi.fn(async (input: unknown) => ({ id: "purchase-1", input }));
+    const recordFuelLocationEvidence = vi.fn(async (_input: unknown) => undefined);
     const recordFuelLocationCapture = vi.fn(async (_input: unknown) => undefined);
     const source = { platform: "browser-test" };
     const submit = createBusinessExpenseFormSubmissionHandler(
-      { createFuelPurchase } as never,
+      { createFuelPurchase, recordFuelLocationEvidence } as never,
       source as never,
       { recordFuelLocationCapture } as never,
     );
@@ -244,6 +245,13 @@ describe("Fuel Entry form submission mapping", () => {
       timestamp: Date.parse("2026-11-18T00:00:02.000Z"),
     } as GeolocationPosition);
 
+    await vi.waitFor(() => expect(recordFuelLocationEvidence).toHaveBeenCalledWith({
+      fuelPurchaseId: "purchase-1",
+      evidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 8,
+        capturedAt: "2026-11-18T00:00:02.000Z", provider: "device", captureTiming: "late",
+      },
+    }));
     await vi.waitFor(() => expect(recordFuelLocationCapture).toHaveBeenCalledWith({
       eventId: "fuel:purchase-1",
       outcome: {
