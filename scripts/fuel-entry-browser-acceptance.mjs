@@ -313,7 +313,9 @@ try {
     db.close(); return row ? { id: row.id, data: row.data } : null;
   }, firstFuelEvidenceId);
   const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));
-  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace }));
+  const timelineRowsAtFailure = (await readBrowserRecords(page)).filter(row => row.id.startsWith("timeline-enrichment:")).map(row => ({ id: row.id, data: row.data }));
+  const instrumentationActive = await page.evaluate(() => localStorage.getItem("__fuel_instrumentation_active"));
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, timelineRowsAtFailure, instrumentationActive }));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
