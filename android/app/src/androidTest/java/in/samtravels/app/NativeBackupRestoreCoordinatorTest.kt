@@ -21,7 +21,7 @@ class NativeBackupRestoreCoordinatorTest {
     )
 
     private fun snapshot(database: LocalDatabase) =
-        NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternal, "test")
+        NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "test")
 
     @Test fun productionRestoreReopenRecoveryAndReexportPreservePreRestoreGraph() {
         val context = ApplicationProvider.getApplicationContext<Context>()
