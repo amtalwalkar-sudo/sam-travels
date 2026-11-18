@@ -48,7 +48,7 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(_success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
+      value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 500); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -205,8 +205,7 @@ try {
   assert.equal(purchases.length, 2, "both full and partial purchases must commit before optional GPS enrichment completes");
   const evidenceBeforeCompletion = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("timeline-enrichment:fuel:") &&
-    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
-    row.data?.captureStatus === "permission_denied"
+    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
   );
   assert(evidenceBeforeCompletion.length < 2, "the latest GPS callback must still be pending when the purchase save completes");
   await page.waitForFunction(async () => {
@@ -223,8 +222,7 @@ try {
     db.close();
     return rows.filter(row =>
       row.id.startsWith("timeline-enrichment:fuel:") &&
-      row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
-      row.data?.captureStatus === "permission_denied"
+      row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
     ).length === 2;
   }, undefined, { timeout: 10000 });
   const readback = await readBrowserRecords(page);
@@ -233,8 +231,7 @@ try {
   ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
   const evidence = readback.filter(row =>
     row.id.startsWith("timeline-enrichment:fuel:") &&
-    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
-    row.data?.captureStatus === "permission_denied"
+    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
   );
   assert.equal(purchases.length, 2);
   assert.equal(purchases[0].data.odometerKm, 12345);
@@ -247,8 +244,18 @@ try {
     assert.equal(typeof purchase.data.occurredAt, "string");
     assert.equal(typeof purchase.data.businessDate, "string");
   }
-  assert.equal(evidence.length, 2, "GPS denial must be retained separately for both purchases");
-  assert(evidence.every(row => row.data.captureStatus === "permission_denied" && row.data.captureReason === "permission_denied"));
+  assert.equal(evidence.length, 2, "each Fuel purchase must retain its separate GPS outcome");
+  const capturedEvidence = evidence.find(row => row.data.captureStatus === "captured");
+  const deniedEvidence = evidence.find(row => row.data.captureStatus === "permission_denied");
+  assert(capturedEvidence, "a successful GPS fix must be stored");
+  assert.equal(capturedEvidence.data.latitude, 19.076);
+  assert.equal(capturedEvidence.data.longitude, 72.8777);
+  assert.equal(capturedEvidence.data.accuracyMeters, 12.5);
+  assert.equal(typeof capturedEvidence.data.fixAt, "string");
+  assert.equal(capturedEvidence.data.gpsProvider, "device");
+  assert.equal(capturedEvidence.data.captureTiming, "late");
+  assert(deniedEvidence, "permission denial must be stored as separate evidence");
+  assert.equal(deniedEvidence.data.captureReason, "permission_denied");
   await context.setOffline(false);
 
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, offline purchase committed once, derived quantity preview and GPS denial evidence verified.");
