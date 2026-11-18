@@ -93,13 +93,25 @@ try {
   assert.equal(typeof vehicles[0].createdBy?.personId, "string");
   const vehicleId = vehicles[0].id;
 
+  // Create a real Driver profile, then link its person identity before
+  // activating Driver authority for the Fuel submission.
+  const driverName = "Fuel Entry Browser Driver";
+  await page.getByRole("button", { name: "Driver", exact: true }).click();
+  await page.getByRole("button", { name: "Add driver", exact: true }).click();
+  await page.getByLabel("Driver name").fill(driverName);
+  await page.getByLabel("Driving licence number").fill("ACCEPTANCE-FUEL-LIC-1");
+  await page.getByLabel("Mobile number").fill("9990001122");
+  await page.getByRole("button", { name: "Save driver", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
+
   // Switch from the Admin setup actor to a real Driver identity before Fuel
   // capture, so the purchase envelope records the driver who submits it.
-  const driverName = "Fuel Entry Browser Driver";
   await page.getByLabel("Person name").fill(driverName);
   await page.getByLabel("Driver role").check();
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor({ state: "visible" });
+  await page.getByLabel("Link " + driverName + " to person").selectOption({ label: driverName });
+  await page.getByRole("status").filter({ hasText: "Driver profile link saved." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
   await page.getByLabel("Active role").selectOption("driver");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
