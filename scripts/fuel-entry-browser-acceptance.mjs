@@ -231,6 +231,9 @@ try {
     db.close();
     return row?.data?.captureStatus === "captured" && row?.data?.captureTiming === "late";
   }, firstFuelEvidenceId, { timeout: 10000 });
+  await verifyFirstEvidence("immediately after reload wait");
+  await page.waitForTimeout(500);
+  await verifyFirstEvidence("500ms after reload");
   await verifyFirstEvidence("immediately before Admin navigation");
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await verifyFirstEvidence("opening Admin");
