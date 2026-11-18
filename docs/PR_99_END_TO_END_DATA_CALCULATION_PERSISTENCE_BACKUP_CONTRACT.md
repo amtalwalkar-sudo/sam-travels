@@ -285,7 +285,7 @@ PR #99 is complete only when all gates pass:
 1. This contract and implementation plan are committed and internally consistent with the owner contracts.
 2. B0 inventories every currently supported entry path and classifies it as already proven, partially proven, not proven or not applicable.
 3. Every critical entry path has evidence through the real form/action-to-production-command/validator-to-authoritative-commit boundary, or an explicit manual/device acceptance gate.
-4. Cross-cutting architecture tests (schema migration, data integrity, offline/retry, concurrency, time boundaries, backup package security/compatibility, restore rollback, privacy and platform lifecycle) are mapped to existing tests or named gaps without duplication.
+4. Cross-cutting architecture tests (schema migration, data integrity, offline/retry, concurrency, time boundaries, canonical encrypted cross-platform backup compatibility, restore rollback, privacy and platform lifecycle) are mapped to existing tests or named gaps without duplication.
 5. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above, including zero-record participants.
 6. Matching valid/invalid feature records and whole snapshots produce equivalent browser/Android validator outcomes and stable error categories.
 7. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
@@ -293,7 +293,7 @@ PR #99 is complete only when all gates pass:
 9. Both runtimes complete export → restore → reopen → startup recovery → re-export.
 10. Normalized semantic comparison passes across the two runtimes.
 11. Calculations are recomputed before and after restore with identical values and provenance.
-12. Backup portability policy is explicit: either populated encrypted cross-platform restore is proven in both directions, or platform-bound packages are rejected before mutation in both directions. Backup exclusions are consistent across runtimes.
+12. Encrypted business backup is proven portable in both directions using the canonical versioned wire format; platform-bound-only packages are not accepted as final architecture. Backup exclusions are consistent across runtimes.
 13. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
 14. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
 15. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
@@ -324,11 +324,15 @@ If Track B exposes a concrete integration failure in a Track A component, inspec
 
 **Status: not yet implemented. This is the active work track.**
 
-#### B0. Audit and close data-collection entry paths
+#### B0. Audit and close data-collection entry paths and foundation tests
 
-Execute the B0 inventory and assertions in Section 4A before fixture population. Do not treat schema-valid fixture loading as a substitute for testing the real app's form/action-to-command path. Reuse exact existing evidence and add only missing tests. Every supported entry path must be classified, including user-entered, device-captured, imported and derived inputs.
+**B0a — Audit:** Execute the source-and-test inventory in Sections 4A and B0.4. Inspect every supported screen/form/action/device/import path, production validator, command/service, authoritative store, backup adapter and existing test assertion. Classify each item as already proven, partially proven, not proven or not applicable. Map the existing G-13 through G-24 architecture findings and all cross-cutting concerns to exact owner contracts and test evidence. Record exact missing assertions; do not infer coverage from filenames or broad test names.
 
-**B0 exit:** all supported critical entry paths have evidence through validation, production command/service and authoritative commit, or a clearly named manual/device gate; there are no unclassified entry paths.
+**B0b — Close test gaps and update evidence:** Add only the targeted tests that B0a proves are missing. Run their focused test suites, then update this contract's evidence matrix and the architecture gap register with exact test names/assertions, platform, result and remaining manual/device gates. If a gap requires production implementation (including the canonical portable backup format), record its dependency and implementation phase; do not mark it as test-proven. Do not begin fixture population while the entry-path/test inventory remains incomplete.
+
+Do not repeat Track A tests that already prove the same assertions. Existing tests may be cited as evidence and will run naturally in required CI.
+
+**B0 exit:** no supported entry path or cross-cutting foundation concern remains unclassified; every critical collection path has automated evidence through real form/action-to-command/validator-to-authoritative-commit or an explicit manual/device gate; every test gap identified in B0a has either been covered by a focused passing test or is explicitly documented with its implementation dependency and acceptance gate; evidence documents are updated. The mandatory portability architecture decision is recorded as a production implementation gap until the canonical wire format and cross-platform tests are actually implemented. Only then may B1 begin.
 
 #### B1. Populate the shared synthetic fixture
 
