@@ -121,9 +121,21 @@ export function createBusinessExpenseFormSubmissionHandler(
     // a stable fuel-scoped record. A post-commit fix is explicitly marked late.
     if (captureOutcome && locationEnrichment) {
       void captureOutcome
-        .then(({ outcome, captureTiming }) => locationEnrichment.recordFuelLocationCapture({
-          eventId: "fuel:" + created.id, outcome, captureTiming,
-        }))
+        .then(async ({ outcome, captureTiming }) => {
+          if (outcome.status === "captured") {
+            await service.recordFuelLocationEvidence({
+              fuelPurchaseId: created.id,
+              evidence: {
+                latitude: outcome.latitude, longitude: outcome.longitude,
+                accuracyMeters: outcome.accuracyMeters, capturedAt: outcome.fixAt,
+                provider: "device", captureTiming,
+              },
+            });
+          }
+          await locationEnrichment.recordFuelLocationCapture({
+            eventId: "fuel:" + created.id, outcome, captureTiming,
+          });
+        })
         .then(() => {
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("timeline-enrichment-queue-updated"));
