@@ -310,7 +310,14 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
-  await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  try {
+    await page.getByRole("heading", { name: "Lifetime breakeven & target position", exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  } catch (error) {
+    console.log("Performance dashboard visible alerts:", await page.locator("[role=alert]").allTextContents());
+    console.log("Performance dashboard visible statuses:", await page.locator("[role=status]").allTextContents());
+    console.log("Performance dashboard text:", (await page.locator("main").innerText()).slice(-12000));
+    throw new Error("performance_dashboard_results_not_rendered:" + (error instanceof Error ? error.message : String(error)));
+  }
   await page.getByText("Target for selected period", { exact: true }).first().waitFor({ state: "visible" });
   await page.getByRole("tab", { name: "Monthly roll-up", exact: true }).click();
   await page.getByRole("columnheader", { name: "Eligible costs", exact: true }).waitFor({ state: "visible" });
