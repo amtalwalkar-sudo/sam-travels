@@ -68,6 +68,8 @@ jobs:
         run: node scripts/admin-form-browser-acceptance.mjs
       - name: Verify Fuel Entry draft recovery through the rendered PWA
         run: node scripts/fuel-entry-browser-acceptance.mjs
+      - name: Verify BackupPanel OAuth, encrypted backup and restore through the rendered PWA
+        run: node scripts/backup-panel-browser-acceptance.mjs
       - name: Verify Performance calculations and dashboard end to end through the rendered PWA
         run: node scripts/performance-screen-browser-acceptance.mjs
   geocoder-production:
