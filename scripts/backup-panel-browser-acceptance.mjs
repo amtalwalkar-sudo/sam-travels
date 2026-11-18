@@ -137,6 +137,7 @@ try {
   }
 
   await page.getByRole("button", { name: "Connect Dropbox", exact: true }).click();
+  await page.waitForURL((url) => url.searchParams.has("code") && url.searchParams.has("state"));
   await page.waitForFunction(() => !window.location.search.includes("code="));
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.locator(".backup-heading .pill.good").getByText("CONNECTED").waitFor({ state: "visible" });
