@@ -20,5 +20,21 @@ class SamTravelsDatabase extends Dexie{
  credentialVaultMeta!:Table<CredentialVaultMetaRow,string>;
  diagnostics!:Table<DiagnosticRow,string>;
  constructor(){super("sam-travels-browser");this.version(1).stores({records:"id,updatedAt,schemaVersion,deletedAt"});this.version(2).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt"});this.version(3).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status"});this.version(4).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id"});this.version(BROWSER_DATABASE_SCHEMA_VERSION).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id",diagnostics:"&id,timestamp"})}
+
+ async open():Promise<this>{
+  await super.open();
+  const actualVersion=this.backendDB().version;
+  if(actualVersion>BROWSER_DATABASE_SCHEMA_VERSION){
+   this.close();
+   throw new UnsupportedBrowserDatabaseVersionError(actualVersion);
+  }
+  return this;
+ }
+}
+export class UnsupportedBrowserDatabaseVersionError extends Error{
+ constructor(actualVersion:number){
+  super("IndexedDB schema v"+actualVersion+" is newer than this app supports (v"+BROWSER_DATABASE_SCHEMA_VERSION+").");
+  this.name="UnsupportedBrowserDatabaseVersionError";
+ }
 }
 export const browserDatabase=new SamTravelsDatabase();
