@@ -51,7 +51,7 @@ try {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.addInitScript(() => {
-    const trace=(key,stack)=>{const a=JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]");a.push({key,stack});localStorage.setItem("__fuel_record_deletes",JSON.stringify(a));};
+    localStorage.setItem("__fuel_instrumentation_active","yes");const trace=(key,stack)=>{const a=JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]");a.push({key,stack});localStorage.setItem("__fuel_record_deletes",JSON.stringify(a));};
     const remove=IDBObjectStore.prototype.delete;IDBObjectStore.prototype.delete=function(key){if(this.name==="records"&&String(key).startsWith("timeline-enrichment:"))trace("delete "+key,new Error().stack);return remove.call(this,key);};
     const clear=IDBObjectStore.prototype.clear;IDBObjectStore.prototype.clear=function(){if(this.name==="records")trace("clear records",new Error().stack);return clear.call(this);};
     const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,k){const id=v?.id??k;if(this.name==="records"&&String(id).startsWith("timeline-enrichment:"))trace("put "+id+" "+JSON.stringify(v?.data),new Error().stack);return put.call(this,v,k);};
