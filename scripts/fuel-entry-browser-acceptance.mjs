@@ -236,7 +236,18 @@ try {
   }, vehicleId);
 
   await toggle.click();
+  const firstFuelEvidenceId = "timeline-enrichment:fuel:" + purchases[0].id;
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(async expectedId => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    const row = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").get(expectedId);
+      read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return row?.data?.captureStatus === "captured" && row?.data?.captureTiming === "late";
+  }, firstFuelEvidenceId, { timeout: 10000 });
   // Actor authority is intentionally held in the in-memory identity service;
   // a page reload ends that session. Re-authenticate the same Driver before
   // exercising the recovered draft and its offline submission.
