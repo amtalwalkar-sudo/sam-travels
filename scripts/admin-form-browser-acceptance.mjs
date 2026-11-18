@@ -320,6 +320,51 @@ try {
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
   console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
 
+
+  // Fuel drafts are a feature-specific use of the shared working-copy runtime.
+  // Verify the rendered component rehydrates its visible fields after a full
+  // browser reload, not merely that the generic repository retained a draft.
+  const fuelToggle = page.locator(".fuel-entry-toggle");
+  await fuelToggle.waitFor({ state: "visible" });
+  await fuelToggle.click();
+  const fuelPanel = page.locator(".fuel-entry-panel");
+  await fuelPanel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  await fuelPanel.getByLabel("Vehicle").selectOption(vehicleId);
+  await fuelPanel.getByLabel("Price per kg (₹)").fill("82.50");
+  await fuelPanel.getByLabel("Amount paid (₹)").fill("825");
+  await fuelPanel.getByLabel("Partial refill").check();
+  await page.waitForFunction(async (expectedVehicleId) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows.some((row) => row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
+      row.data?.values?.vehicleId === expectedVehicleId &&
+      row.data?.values?.priceRupeesPerKg === 82.5 &&
+      row.data?.values?.amountRupees === 825 &&
+      row.data?.values?.partialRefill === true);
+  }, vehicleId);
+  await fuelToggle.click();
+  await page.reload();
+  await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
+  await page.locator(".fuel-entry-toggle").click();
+  const resumedFuelPanel = page.locator(".fuel-entry-panel");
+  await resumedFuelPanel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  if (await resumedFuelPanel.getByLabel("Vehicle").inputValue() !== vehicleId ||
+      await resumedFuelPanel.getByLabel("Price per kg (₹)").inputValue() !== "82.5" ||
+      await resumedFuelPanel.getByLabel("Amount paid (₹)").inputValue() !== "825" ||
+      !(await resumedFuelPanel.getByLabel("Partial refill").isChecked())) {
+    throw new Error("fuel_entry_draft_fields_not_rehydrated_after_reload");
+  }
+  console.log("Fuel Entry draft acceptance passed: vehicle, price, amount and partial-refill choice rehydrated after browser reload.");
+
 } finally {
   if (browser) await browser.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch {}
