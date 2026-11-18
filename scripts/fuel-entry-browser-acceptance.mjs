@@ -131,6 +131,7 @@ try {
   await toggle.click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
   await page.locator(".fuel-entry-toggle").click();
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
