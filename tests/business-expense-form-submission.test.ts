@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
+
 import {
   FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
@@ -251,7 +256,5 @@ describe("Fuel Entry form submission mapping", () => {
       },
       captureTiming: "late",
     }));
-    vi.unstubAllGlobals();
-    vi.useRealTimers();
   });
 });
