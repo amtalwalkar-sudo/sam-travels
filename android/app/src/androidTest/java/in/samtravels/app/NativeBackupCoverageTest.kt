@@ -119,6 +119,18 @@ class NativeBackupCoverageTest {
             database.records().put(StoredRecord("driver-state", """{"value":{"schemaVersion":1,"revision":1,"state":"shift_active"}}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-intent:event-1", """{"status":"recorded","eventId":"event-1","command":{"schemaVersion":1,"commandId":"command-1","eventId":"event-1","eventType":"shift_end","originSurface":"pwa","transitionAt":"2026-11-04T00:00:00.000Z","expectedPriorState":"shift_active","expectedRevision":1,"idempotencyKey":"idem-1"},"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
             database.records().put(StoredRecord("driver-outbox:2", """{"id":"driver-state:2","eventId":"event-1","revision":2,"integrationId":"logbook.work-driver-events.v1","contractVersion":1,"eventName":"work.driver-event-committed","payloadVersion":1,"delivered":false,"createdAt":"2026-11-04T00:00:00.000Z"}""", 1, "2026-11-04T00:00:00.000Z"))
+            database.records().put(StoredRecord(
+                "__sam_travels_recovery_checkpoint__:local",
+                """{"id":"__sam_travels_recovery_checkpoint__:local","status":"checkpoint","snapshot":{}}""",
+                1,
+                "2026-11-04T00:00:00.000Z",
+            ))
+            database.records().put(StoredRecord(
+                "__sam_travels_recovery_journal__:local",
+                """{"id":"__sam_travels_recovery_journal__:local","status":"restored_unverified"}""",
+                1,
+                "2026-11-04T00:00:00.000Z",
+            ))
             database.records().put(featureRecord(
                 "timeline-enrichment:event-1",
                 JSONObject().put("eventId", "event-1").put("latitude", 19.076).put("longitude", 72.8777)
@@ -141,6 +153,9 @@ class NativeBackupCoverageTest {
             assertEquals(7, exported.length())
             assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"),
                 (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
+            assertTrue((0 until exported.length()).none { index ->
+                exported.getJSONObject(index).getString("id").startsWith("__sam_travels_recovery_")
+            })
             NativeBackupCoverage.validateBusinessRecords(exported)
 
             NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
@@ -149,6 +164,8 @@ class NativeBackupCoverageTest {
             assertTrue(database.records().get("driver-intent:event-1") == null)
             assertTrue(database.records().get("driver-outbox:2") == null)
             assertTrue(database.records().get("timeline-enrichment:event-1") == null)
+            assertTrue(database.records().get("__sam_travels_recovery_checkpoint__:local") != null)
+            assertTrue(database.records().get("__sam_travels_recovery_journal__:local") != null)
             assertTrue(database.records().get("timeline-enrichment:fuel:feature:business-expenses:fuel:purchase-1") == null)
             assertTrue(database.logBookEvents().list().isEmpty())
             NativeBackupCoverage.replaceBusinessRecords(database, exported)
