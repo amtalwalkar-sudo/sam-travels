@@ -244,7 +244,7 @@ internal object NativeBackupRestoreCoordinator {
         require(manifest.optJSONObject("recordCounts")?.optInt("records", -1) == records.length()) {
             "backup_record_count_mismatch"
         }
-        require(records.length() <= 1_000_000) { "backup_record_count_limit" }
+        requireBackupRecordCountWithinLimit(records.length())
 
         val ids = HashSet<String>()
         for (index in 0 until records.length()) {
