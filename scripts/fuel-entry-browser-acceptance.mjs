@@ -254,7 +254,9 @@ try {
   assert.equal(typeof capturedEvidence.data.fixAt, "string");
   assert.equal(capturedEvidence.data.gpsProvider, "device");
   assert.equal(capturedEvidence.data.captureTiming, "late");
+  assert.equal(capturedEvidence.data.eventId, "fuel:" + purchases[0].id);
   assert(deniedEvidence, "permission denial must be stored as separate evidence");
+  assert.equal(deniedEvidence.data.eventId, "fuel:" + purchases[1].id);
   assert.equal(deniedEvidence.data.captureReason, "permission_denied");
   await context.setOffline(false);
 
