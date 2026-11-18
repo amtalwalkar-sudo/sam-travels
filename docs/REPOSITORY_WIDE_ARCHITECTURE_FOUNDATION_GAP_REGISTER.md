@@ -547,3 +547,12 @@ The approved `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` Sections 4–5 define
 - Fuel uses `action: "submit"` and creates a Fuel purchase, which matches the written distinction.
 
 **Required closure:** the owner must ratify one of two coherent models: (A) preserve Save=draft-only and Submit=business operation, then change the affected form definitions, visible primary labels, runtime action routing and tests; or (B) explicitly amend the owner contract to permit Save-as-business-record for named forms, with the resulting lifecycle state and editing policy declared per form. Do not assume all Admin forms share one exception. Once ratified, add tests proving draft Save never creates a business record, Submit does, and each form's post-save/post-submit editing policy is enforced.
+
+
+### 9.35 — Dependency vulnerability report is present but unclassified
+
+**Status:** CI source evidence; impact not yet determined.
+
+The `npm install` step in CI reported **3 vulnerabilities: 1 moderate and 2 critical**. The install summary did not include package names, dependency paths, fixed versions, or production-versus-development reachability. This is not enough evidence to claim the app has three exploitable runtime vulnerabilities, but it is also not acceptable to ignore the finding for a reliability/security foundation.
+
+**Required closure:** capture `npm audit --json` (or the repository's equivalent supported advisory report), identify direct/transitive package paths and whether each is bundled into production or only used in development/test tooling, remediate critical production dependencies, and record a time-bounded owner-approved exception for any unavoidable dev-only advisory. Add a repeatable CI check/report so newly introduced critical advisories are visible and cannot be silently treated as a green security posture.
