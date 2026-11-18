@@ -89,6 +89,8 @@ try {
     row.id.startsWith("feature:vehicle:") && row.data?.registrationNumber === registration
   );
   assert.equal(vehicles.length, 1, "Vehicle must be committed through the Admin UI");
+  assert.equal(vehicles[0].createdBy?.role, "admin", "Admin actor attribution must be persisted on the Vehicle record");
+  assert.equal(typeof vehicles[0].createdBy?.personId, "string");
   const vehicleId = vehicles[0].id;
 
   // Fuel is available on Drive without starting a shift.
@@ -117,6 +119,7 @@ try {
   assert.equal(purchases.length, 1, "the default full-tank purchase must commit once");
   assert.equal(purchases[0].data.odometerKm, 12345);
   assert.equal(purchases[0].data.partialRefill, false);
+  assert.equal(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId, "Fuel purchase must retain the active actor");
   await context.setOffline(false);
 
   // The successful submit starts a new draft. Exercise partial refill,
