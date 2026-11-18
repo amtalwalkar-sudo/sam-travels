@@ -202,66 +202,120 @@ PR #99 is complete only when all gates pass:
 10. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
 11. PR remains draft and unmerged pending user review; physical-device/manual gates are clearly reported and not falsely marked complete.
 
-## 12. Implementation plan (execute in order)
+## 12. Two-track implementation plan
 
-### Phase 0 — Baseline and evidence inventory
-- Record PR head, CI run and current branch state.
-- Map every acceptance item to production implementation, existing test, or explicit gap.
-- Classify each as implemented-and-proven, implemented-but-under-tested, or genuine defect.
-- Reuse existing cross-surface, restart, idempotency, stale-revision and participant tests. Add no test until its unique uncovered assertion is named.
+The agreed PR #99 work is divided into two tracks. **Track A is the completed restore/recovery foundation. Track B is the remaining populated-fixture and end-to-end semantic-parity work.** Track B must reuse Track A; it must not reimplement or duplicate its tests.
 
-**Exit:** evidence matrix approved; no assumed gaps and no duplicate test scope.
+### Track A — Restore/recovery foundation (implemented; reuse, do not repeat)
 
-### Phase 1 — Shared fixture schema and valid synthetic data
-- Correct the fixture contract to match actual persisted record schemas, especially Performance.
-- Build deterministic synthetic Vehicle/Driver dependencies and domain records in dependency order.
-- Validate each domain record with the production validator before running lifecycle tests.
-- Add explicit expected normalized identities, references, revisions, event order, correction heads, calculation inputs/outputs and provenance.
+**Status: foundation implemented and covered by existing tests.** This track is not a new execution backlog.
 
-**Exit:** same fixture asset loads and validates on both platforms; no fixture-only record kinds or weakened validators.
+Existing implementation/evidence includes:
 
-### Phase 2 — Browser/IndexedDB lifecycle runner
-- Load the shared fixture through the browser adapter.
-- Assert committed records and run production calculations.
-- Export, clear test database, restore, close/reopen, startup-recover and re-export.
-- Recompute calculations and compare all normalized semantic expectations.
-- Keep browser-only tests independent of Android/Capacitor.
+- Browser production IndexedDB export/restore lifecycle, close/reopen and recovery.
+- Android production Room restore coordinator, transaction/checkpoint/read-back/rollback and startup recovery path.
+- Shared fixture contract seed and platform loaders that verify the seed's contract metadata.
+- Referential-integrity checks, including dangling-reference rejection.
+- Interrupted restore/failure-injection rollback coverage.
+- Existing workflow atomicity, idempotency, pending-intent recovery, process-death recovery, outbox durability/replay and revision-conflict tests, as mapped in the [Implementation Evidence Matrix](PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md).
 
-**Exit:** browser lifecycle passes with evidence for every required domain.
+**Track A execution rule:** do not rebuild these paths, add equivalent tests, or rerun their isolated test suites just to reconfirm known behaviour. Their existing test names and assertions are the evidence baseline. They will run naturally as dependencies of required CI, but no separate retest task is created.
 
-### Phase 3 — Android/Room lifecycle runner
-- Load the same fixture through Room using production participants and validators.
-- Verify workflow state is shared by the PWA bridge and overlay boundaries.
-- Exercise export, production restore coordinator, Room close/reopen, startup recovery and re-export.
-- Recompute calculations using the production application services and compare normalized output.
-- Verify no parallel Android IndexedDB business copy or second Room workflow database is created.
+If Track B exposes a concrete integration failure in a Track A component, inspect that exact failing boundary and make only the smallest in-scope correction. Do not reopen Track A wholesale.
 
-**Exit:** Android Room lifecycle passes; PWA and overlay observe the same state/revision.
+### Track B — Populated shared fixture and end-to-end semantic parity (remaining)
 
-### Phase 4 — Failure and concurrency closure
-- Map current tests to each row of the failure/concurrency matrix.
-- Add only missing cases: both-surface stale-write race, reboot-level recovery if not already proven, and any uncovered interrupted-restore/replay boundary.
-- Assert pending intent/outbox stable identity and event non-duplication after each recovery.
-- Verify rollback preserves exact prior data and checkpoint/journal state.
+**Status: not yet implemented. This is the active work track.**
 
-**Exit:** every matrix item has an explicit passing test or a documented external/manual gate.
+#### B1. Populate the shared synthetic fixture
 
-### Phase 5 — Cross-runtime semantic parity and calculation proof
-- Compare pre-restore and post-restore state within each runtime.
-- Compare normalized browser and Room semantics across runtimes.
-- Compare calculation values, effective-date inputs, source revisions and provenance.
-- Ensure normalization does not hide business differences.
+Use one deterministic fixture asset for both platforms, with schema-valid synthetic records and dependencies in valid creation order:
 
-**Exit:** identical semantic outputs for the shared fixture and all required lineage.
+1. Vehicle and Driver identity dependencies.
+2. Finance: loan schedule, payment ledger, prepayment schedule revision and settlement lineage/cutoff where the current schema supports them.
+3. Compliance: validity records, renewals, overlap decision/head and correction history.
+4. Maintenance: effective-dated rate history, fully allocated daily-kilometre source, immutable accrual and supported correction history.
+5. Business Expenses: charges, reversals and correction-chain head.
+6. Performance: only persisted `settings` and `pre_business_cost` records; calculation provenance must be asserted from the production calculation result, not persisted as a fabricated record kind.
+7. Work/Driver Workflow and Log Book: stable ordered event IDs, committed state/revisions, pending intent, outbox entry/delivery state and linked Log Book history.
 
-### Phase 6 — CI, documentation and PR closeout
-- Run targeted tests first, then full required CI.
-- Inspect failures and logs; fix only in-scope causes.
-- Update the gap register with evidence, exact test names, CI run and remaining manual gates.
-- Verify PR scope/diff contains only the agreed documentation and test/production changes necessary for this contract.
-- Keep PR draft and unmerged until the user reviews and explicitly requests merge.
+For every record, use current production schemas and validators. Capture expected stable IDs, revisions, references, effective dates, correction heads and calculation inputs. Do not use the user's actual personal/vehicle/loan/compliance/financial data.
 
-**Exit:** green required CI, documented evidence matrix, no open in-scope gaps, and truthful statement of remaining physical-device/external gates.
+**B1 exit:** the shared fixture is populated and accepted by the existing production validators on both platforms. No fixture-only schema or validator relaxation.
+
+#### B2. Browser lifecycle using existing Track A path
+
+- Add the browser fixture loader/runner for the shared populated fixture.
+- Load through the browser persistence/application boundary and production validators/backup participants.
+- Capture pre-backup normalized source state and run the relevant production calculations, including source provenance.
+- Execute the already-existing production IndexedDB export → restore → close/reopen → startup recovery → re-export path.
+- Capture post-recovery state and recompute calculations.
+- Compare against the pre-backup expected semantic baseline.
+
+**B2 exit:** browser lifecycle proves the populated dataset survives the production path with identical business semantics and calculation results.
+
+#### B3. Android Room lifecycle using existing Track A path
+
+- Add the Room fixture loader/runner for the exact same fixture asset and IDs.
+- Load through Room production participants and validators.
+- Capture pre-backup state and run the production calculations.
+- Execute the existing Room export → production restore coordinator → Room close/reopen → startup recovery → re-export path.
+- Capture post-recovery state and recompute calculations.
+- Verify Driver Workflow state remains shared between the PWA/native bridge and overlay service through the existing authoritative Room store.
+
+**B3 exit:** Android lifecycle proves the populated dataset survives with identical business semantics and calculation results; no second Android workflow/business store is introduced.
+
+#### B4. Cross-runtime semantic and calculation comparison
+
+Compare browser and Room normalized results for:
+
+- Participant inventory and ownership.
+- Record IDs, schema versions and revisions.
+- Cross-feature references and referential integrity.
+- Event IDs/order, pending intent identity/status and outbox identity/delivery state.
+- Log Book event linkage/order.
+- Correction-chain heads and revision lineage.
+- Finance payment/prepayment/settlement lineage.
+- Compliance renewal/overlap decision lineage.
+- Maintenance accrual source, allocated distance and effective-rate snapshot.
+- Business Expense charge/reversal lineage.
+- Performance calculation outputs, inputs and generated source provenance.
+
+Recompute calculations before and after restore on each runtime using the production services. Compare deterministic outputs and provenance, not merely serialized snapshots.
+
+**B4 exit:** browser pre/post, Room pre/post, and cross-runtime semantic comparisons all pass.
+
+#### B5. Only the genuinely missing integration assertions
+
+Start from the evidence matrix. Existing atomicity, idempotency, pending-intent, process-death, outbox and stale-revision tests are not to be duplicated.
+
+Add a test only if source/assertion inspection confirms a real uncovered acceptance item. The initial audit identified these candidates:
+
+- Direct Android PWA-to-overlay and overlay-to-PWA Driver Workflow event/state/revision visibility (not merely shared database use or another feature's bridge refresh).
+- Actual surface-level stale-write interleaving: PWA reads revision N, overlay commits N+1, PWA submits stale N and is rejected; both surfaces converge to N+1.
+- Android undelivered outbox retry after process death only if existing process-restart assertions do not already prove stable-ID retry and receiver deduplication.
+
+Do not add another generic service recreation, process restart, duplicate completion, atomic rollback or pending-intent test where existing tests already prove the same assertion.
+
+A full OS reboot is not to be conflated with process death. First inspect existing boot/restart evidence. If reboot persistence is not already covered and cannot be deterministic in CI, record it as a physical-device acceptance item rather than creating a flaky duplicate emulator test.
+
+**B5 exit:** each identified missing assertion is either covered by one focused test or explicitly recorded as an external/manual gate; no duplicate coverage.
+
+#### B6. CI and evidence closeout
+
+- Run targeted tests for the new fixture loaders/runners, semantic comparison and any newly added B5 tests.
+- Then run the repository's required CI once on the final PR head; existing tests execute as part of CI, not as a separate repeat-testing workstream.
+- Update the evidence matrix and gap register with exact test names/assertions, commit SHA, CI run and remaining manual gates.
+- Confirm the diff contains only this contract's documentation, fixture/test implementation and the smallest necessary in-scope fixes.
+- Keep PR #99 draft and unmerged until user review and explicit merge instruction.
+
+**B6 exit:** populated fixture, both runtime lifecycle runners, semantic/calculation parity, focused missing assertions, green required CI and accurate evidence ledger.
+
+### Execution order and stop conditions
+
+Execute strictly in this order: **Track B1 → B2 → B3 → B4 → B5 → B6.** Track A is the prerequisite already supplied by the current implementation; do not repeat it.
+
+Stop and report before changing production behaviour, public schemas, domain calculation policy, UI or unrelated PR scope. If a current feature schema cannot express a fixture lineage, document the exact schema limitation and seek a contract decision instead of inventing fields.
 
 ## 13. Evidence reporting format
 
