@@ -1,7 +1,6 @@
 package `in`.samtravels.app
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,7 +10,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 @RunWith(AndroidJUnit4::class)
 class SharedSemanticBackupFixtureTest {
     @Test fun sharedSemanticLifecycleFixtureDeclaresAllParityDomains() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
+        // Instrumentation assets are packaged in the test APK, not the target app APK.
+        val context = InstrumentationRegistry.getInstrumentation().context
         val fixture = context.assets.open("semantic-backup-lifecycle-v1.json")
             .bufferedReader().use { JSONObject(it.readText()) }
         assertEquals(1, fixture.getInt("schemaVersion"))
