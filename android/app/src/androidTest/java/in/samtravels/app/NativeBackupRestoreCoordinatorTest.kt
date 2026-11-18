@@ -55,8 +55,8 @@ class NativeBackupRestoreCoordinatorTest {
             db.records().put(envelope("pre-restore-record", JSONObject().put("value", "keep"), at, 2))
             val beforeRestore = snapshot(db)
             val result = NativeBackupRestoreCoordinator.restore(
-                db, source.snapshot, source.manifest,
-            ) { snapshot(db) }
+                db, source.snapshot, source.manifest, { snapshot(db) },
+            )
             assertEquals(source.snapshot.getJSONArray("records").length(), result.restoredCount)
             db.close()
 
