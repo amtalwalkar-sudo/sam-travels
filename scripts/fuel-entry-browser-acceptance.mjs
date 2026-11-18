@@ -60,6 +60,7 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await verifyFirstEvidence("opening Admin");
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Fuel Entry Browser Admin");
   await page.getByLabel("Admin role").check();
@@ -71,6 +72,7 @@ try {
   await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  await verifyFirstEvidence("Driver role activation");
 
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
@@ -117,6 +119,7 @@ try {
   await page.getByRole("status").filter({ hasText: "Driver profile link saved." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
   await page.getByLabel("Active role").selectOption("driver");
+  await verifyFirstEvidence("selecting Driver role");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
 
@@ -136,6 +139,7 @@ try {
   });
   assert.equal(initialShiftState, "idle", "the Fuel entry test starts with no active shift");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await verifyFirstEvidence("opening Drive");
   const toggle = page.locator(".fuel-entry-toggle");
   await toggle.waitFor({ state: "visible" });
   await toggle.click();
@@ -220,6 +224,15 @@ try {
 
   await toggle.click();
   const firstFuelEvidenceId = "timeline-enrichment:fuel:" + purchases[0].id;
+  const verifyFirstEvidence = async stage => {
+    const value = await page.evaluate(async id => {
+      const request=indexedDB.open("sam-travels-browser");
+      const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+      const row=await new Promise((resolve,reject)=>{const read=db.transaction("records","readonly").objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});
+      db.close();return row?.data?.captureStatus+":"+row?.data?.captureTiming;
+    },firstFuelEvidenceId);
+    assert.equal(value,"captured:late","first GPS evidence lost during "+stage);
+  };
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(async expectedId => {
     const request = indexedDB.open("sam-travels-browser");
@@ -240,6 +253,7 @@ try {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
   await page.locator(".fuel-entry-toggle").click();
+  await verifyFirstEvidence("opening Fuel Entry");
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
   try {
@@ -299,10 +313,8 @@ try {
     db.close(); return row ? { id: row.id, data: row.data } : null;
   }, firstFuelEvidenceId);
   const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));
-  const timelineRowsAtFailure = (await readBrowserRecords(page)).filter(row => row.id.startsWith("timeline-enrichment:")).map(row => ({ id: row.id, data: row.data }));
-  const databaseShapeAtFailure = await page.evaluate(async () => { const request=indexedDB.open("sam-travels-browser"); const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);}); const shape={version:db.version,stores:[...db.objectStoreNames]}; db.close(); return shape; });
   const instrumentationActive = await page.evaluate(() => localStorage.getItem("__fuel_instrumentation_active"));
-  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, timelineRowsAtFailure, databaseShapeAtFailure, instrumentationActive }));
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, instrumentationActive }));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
