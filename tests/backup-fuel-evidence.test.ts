@@ -54,7 +54,15 @@ describe("Fuel location evidence backup ownership", () => {
       id: "credential-vault", salt: "local-salt", checkNonce: "local-check-nonce", checkCiphertext: "local-check-ciphertext",
     });
     await browserDatabase.diagnostics.put({
-      id: "local-diagnostic", timestamp, level: "info", message: "device-local diagnostic",
+      id: "local-diagnostic",
+      timestamp,
+      subsystem: "backup-test",
+      operation: "fuel-evidence-roundtrip",
+      outcome: "success",
+      failureCategory: "none",
+      recoveryResult: "not_applicable",
+      appVersion: "0.1.0",
+      schemaVersion: 6,
     });
     await browserDatabase.backupCheckpoints.put({
       id: "local-checkpoint", createdAt: timestamp, status: "checkpoint",
@@ -87,7 +95,8 @@ describe("Fuel location evidence backup ownership", () => {
       salt: "local-salt",
     });
     expect(await browserDatabase.diagnostics.get("local-diagnostic")).toMatchObject({
-      message: "device-local diagnostic",
+      subsystem: "backup-test",
+      operation: "fuel-evidence-roundtrip",
     });
     expect(await browserDatabase.backupCheckpoints.get("local-checkpoint")).toMatchObject({
       status: "checkpoint",
