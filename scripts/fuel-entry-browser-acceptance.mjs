@@ -59,7 +59,6 @@ try {
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
-  await verifyFirstEvidence("opening Admin");
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Fuel Entry Browser Admin");
   await page.getByLabel("Admin role").check();
@@ -71,7 +70,6 @@ try {
   await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-  await verifyFirstEvidence("Driver role activation");
 
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
@@ -118,7 +116,6 @@ try {
   await page.getByRole("status").filter({ hasText: "Driver profile link saved." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
   await page.getByLabel("Active role").selectOption("driver");
-  await verifyFirstEvidence("selecting Driver role");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
 
@@ -138,7 +135,6 @@ try {
   });
   assert.equal(initialShiftState, "idle", "the Fuel entry test starts with no active shift");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
-  await verifyFirstEvidence("opening Drive");
   const toggle = page.locator(".fuel-entry-toggle");
   await toggle.waitFor({ state: "visible" });
   await toggle.click();
@@ -236,12 +232,16 @@ try {
     return row?.data?.captureStatus === "captured" && row?.data?.captureTiming === "late";
   }, firstFuelEvidenceId, { timeout: 10000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await verifyFirstEvidence("opening Admin");
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
   await page.getByLabel("Active role").selectOption("driver");
+  await verifyFirstEvidence("selecting Driver role");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  await verifyFirstEvidence("Driver role activation");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await verifyFirstEvidence("opening Drive");
   await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
   await page.locator(".fuel-entry-toggle").click();
   await verifyFirstEvidence("opening Fuel Entry");
