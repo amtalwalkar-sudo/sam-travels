@@ -48,7 +48,7 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 500); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
+      value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 1000); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
