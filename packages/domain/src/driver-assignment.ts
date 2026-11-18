@@ -42,6 +42,7 @@ export function assertDriverAssignmentHistoryV1(value: unknown): asserts value i
     ids.add(assignment.assignmentId);
     const assignedAt = Date.parse(assignment.assignedAt);
     if (assignedAt < previousAssignedAt) throw new Error("driver_assignment_history_order_invalid");
+    if (previousUnassignedAt === Number.POSITIVE_INFINITY) throw new Error("driver_multiple_active_assignments");
     if (assignedAt < previousUnassignedAt) throw new Error("driver_assignment_period_overlap");
     previousAssignedAt = assignedAt;
     if (assignment.unassignedAt !== undefined) {
