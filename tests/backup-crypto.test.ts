@@ -7,6 +7,8 @@ import {
   decryptBackupWithRecoveryKey,
   parseBackupPackage,
   serializeBackupPackage,
+  assertBackupPackageByteLength,
+  MAX_BACKUP_PACKAGE_BYTES,
   type Argon2idProvider,
   HashWasmArgon2idProvider,
 } from "../packages/features/backup";
@@ -83,5 +85,15 @@ describe("backup-encryption-v1", () => {
     const tampered = structuredClone(backup);
     tampered.manifest.snapshotRevision += 1;
     await expect(decryptBackupWithPassphrase(tampered, "correct horse battery", testKdf)).rejects.toBeTruthy();
+  });
+});
+
+
+describe("backup package size limits", () => {
+  it("accepts the inclusive byte limit and rejects the first byte over it", () => {
+    expect(MAX_BACKUP_PACKAGE_BYTES).toBe(512 * 1024 * 1024);
+    expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES)).not.toThrow();
+    expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES + 1)).toThrow("backup_package_too_large");
+    expect(() => assertBackupPackageByteLength(-1)).toThrow("backup_invalid_package_size");
   });
 });
