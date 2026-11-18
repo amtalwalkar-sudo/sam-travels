@@ -514,3 +514,21 @@ The 19-entry `ALL_FORM_DEFINITIONS` inventory covers the ordinary Admin, Perform
 - `AdminComplianceOverview.tsx` collects a reason and submits overlap-review decisions. Domain/service tests exist; the exact rendered reason→decision→persisted review path must be classified and evidenced.
 
 These workflows may legitimately need specialized UX and must not be forced into an ordinary Save/Submit form if that would weaken security or correction semantics. However, the Form Architecture Contract requires every implemented form to be discoverable through the shared registry or an equivalent authoritative contract. B0 must record a narrow exception/owner contract for each specialized flow, covering field schema, actor/role, stable operation identity, validation, interruption/retry, immutable history and supported surfaces. PWA rendered acceptance already exercises Person Identity enrollment/activation, Compliance overlap review/correction and Maintenance correction; Android acceptance exercises Person Identity and Maintenance correction. Add only missing Android Compliance correction/overlap-review acceptance where supported; preserve the existing green PWA and Maintenance correction evidence.
+
+
+### 9.33 — Shared form submission is not crash-safe after the domain commit
+
+**Status:** Source-confirmed high-priority B0b gap; applies to shared Admin/Performance/Fuel forms unless a handler has a separate durable idempotency mechanism.
+
+`SharedFormRuntime.complete()` currently validates the working copy, keeps an in-memory `submissions` Promise map for same-process duplicate taps, calls `submissionPort.submit(...)`, and only after that Promise resolves writes the working copy with `status: "submitted"`. The `FormWorkingCopy` type and repository allow `status: "pending"`, but `complete()` does not persist a pending intent before invoking the handler. Therefore a process death after the business record commits but before the working-copy status write leaves the persisted copy in `in_progress`/`saved`.
+
+On reopen, `SharedFormRuntime.open()` returns that same operationId and copy. `FeatureRecordService.create()` uses `compareAndSet(id, null, record)` and throws `feature_record_already_exists:<id>` on replay rather than returning the original result. The in-memory Promise map is lost on process death. In the Fuel handler, `occurredAt` and the derived businessDate are regenerated from `new Date()` on each invocation, and the handler uses `command.instanceId` as the record UUID; an ambiguous retry can therefore conflict even when the driver has not changed any entered values.
+
+**Required closure:** introduce a durable form submission operation protocol. Persist stable operationId, immutable submitted-payload identity and the first-submit timestamp before dispatch. Commit the domain record plus a durable submission receipt/working-copy completion atomically where the platform store allows it; otherwise make the handler/service replay-safe through a durable idempotency ledger keyed by operationId. A replay with the same operation and payload must return the original record/receipt and original timestamp exactly once; a different payload under the same operation must fail closed. Do not weaken generic duplicate-ID protection or rely on an in-memory cache.
+
+**Required focused tests:**
+- Handler fails before domain commit; retry commits once.
+- Domain record commits but the response/working-copy completion is interrupted; simulate process death, reopen the same working copy and retry; return the same record ID, original timestamp/businessDate and receipt, with one persisted business record.
+- Two concurrent submit taps with the same operation share one durable result.
+- Same operationId with changed payload is rejected and does not mutate the original.
+- Run the same commit/restart/retry contract against browser IndexedDB and Android Room, using representative Admin and Fuel handlers. Existing Track A Driver Workflow idempotency tests and generic SharedFormRuntime active-Promise tests are not substitutes for this form-specific proof.
