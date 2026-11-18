@@ -52,12 +52,12 @@ try {
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Admin Form Browser Admin");
   await page.getByLabel("Admin role").check();
-  await page.getByLabel("Set initial Admin PIN").fill("adminPin");
+  await page.getByLabel("Set initial Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: "Admin Form Browser Admin" });
   await page.getByLabel("Active role").selectOption("admin");
-  await page.getByLabel("Admin PIN").fill("adminPin");
+  await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
   console.log("Admin identity enrolled and PIN-verified actor activated.");
