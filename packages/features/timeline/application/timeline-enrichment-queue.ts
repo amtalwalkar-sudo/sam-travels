@@ -140,6 +140,28 @@ export class TimelineEnrichmentQueue {
     });
   }
 
+  async reconcileFuelLocationCaptures(purchases: readonly Readonly<{
+    id: string;
+    locationEvidence?: Readonly<{
+      latitude: number; longitude: number; accuracyMeters: number; capturedAt: string;
+      provider: "device"; captureTiming?: "submission_event" | "late";
+    }>;
+  }>[]): Promise<void> {
+    for (const purchase of purchases) {
+      const evidence = purchase.locationEvidence;
+      if (!evidence) continue;
+      await this.recordFuelLocationCapture({
+        eventId: "fuel:" + purchase.id,
+        outcome: {
+          status: "captured", latitude: evidence.latitude, longitude: evidence.longitude,
+          accuracyMeters: evidence.accuracyMeters, fixAt: evidence.capturedAt,
+          gpsProvider: evidence.provider,
+        },
+        captureTiming: evidence.captureTiming ?? "late",
+      });
+    }
+  }
+
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
     if (this.draining) return Object.freeze({});
     this.draining = true;
