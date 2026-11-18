@@ -320,3 +320,26 @@ Current source shows explicit persistent-feature participants and fail-closed ta
 **Initial evidence inventory:** [PR #99 Implementation Evidence Matrix](PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md) records existing test coverage and the specific direct cross-surface/reboot gaps found by source inspection. It deliberately classifies many workflow guarantees as already implemented and tested.
 
 **Execution order:** baseline evidence inventory → valid shared fixture → browser lifecycle → Android Room lifecycle → failure/concurrency closure → cross-runtime calculation/semantic parity → CI and evidence closeout. PR remains draft and unmerged until user instruction.
+
+
+### 9.19 — Data-collection entry paths are not yet proven as part of the PR #99 lifecycle
+
+**Severity:** High — a restore proof is incomplete if source facts are only inserted through fixtures/repositories and the real app collection path is unverified.  
+**Status:** Newly formalized required audit; coverage must be established from actual source and assertions, not inferred from feature-level tests.
+
+**Gap:** The end-to-end contract previously described the data-collection stage generically, while Track B began with a populated fixture. That left a possible evidence gap between the real user/device entry path and the authoritative committed records. A schema-valid fixture proves record shape and validator acceptance, not that the screen/form/overlay correctly maps user input into the production command and persists the intended business fact.
+
+**Required closure (Track B0, before B1):**
+- Inventory every currently supported entry path by feature, surface, UI/action, command, validator, service/repository and authoritative owner.
+- Classify each input as user-entered, device-captured, imported, or derived; do not assume every record kind has a UI.
+- Audit Vehicle/Driver, Finance, Compliance, Maintenance, Fuel/CNG, Business Expenses, Work/Shift/odometer, Log Book, Performance settings/pre-business costs and relevant GPS/time/notification/service callbacks.
+- Reuse exact existing tests where they prove the real boundary. Otherwise add targeted tests for field mapping, validation/rejection without partial writes, production command/service invocation, stable IDs/revisions/references, read-after-write and persistence after reload/reopen.
+- Exercise offline, partial-draft/resume, cancellation, duplicate/retry, process interruption, GPS permission/location failure, timestamps/time-zone changes and 04:00/active-trip cases only where the owning feature contract promises or requires that behaviour.
+- Verify calculations/projections consume committed source facts and retain source IDs/revisions/effective dates. Verify cross-surface visibility only where the workflow is exposed on both Android surfaces.
+- Prefer data produced by entry-path tests as the semantic fixture input where deterministic; otherwise load the shared fixture through production validators and explain why direct UI entry is unsuitable.
+- Report UI automation limitations as explicit manual/device acceptance gates. A repository-only test must not be described as UI proof.
+
+**B0 exit:** every supported entry path is classified as already proven, partially proven, not proven or not applicable; every critical path has automated evidence through the real form/action-to-command-to-authoritative-commit boundary or a named manual/device gate. Only then proceed to populated fixture B1.
+
+**No-duplicate rule:** this is an evidence audit, not permission to duplicate existing form, service, validation, persistence or workflow tests. A new test requires a specific uncovered assertion.
+
