@@ -363,8 +363,9 @@ For every record, use current production schemas and validators. Add matching va
 - Capture pre-backup normalized source state and run the relevant production calculations, including source provenance.
 - Execute browser canonical export → encrypted package creation → same-platform restore → close/reopen → startup recovery → re-export.
 - Capture post-recovery state and recompute calculations; compare against the pre-backup expected semantic baseline.
+- Run a compact **same-record golden journey** using records created by the rendered PWA entry-path acceptance (not direct fixture insertion): create representative Admin/Fuel/Work records, calculate dependent outputs, export through the production encrypted canonical adapter, restore into clean and pre-populated IndexedDB destinations, close/reopen, recover, re-export and compare the same record IDs, revisions, references, correction lineage and calculation provenance. The full synthetic fixture remains the exhaustive all-domain parity dataset; this golden journey specifically bridges real UI collection to backup/restore.
 
-**B2 exit:** browser adapter reads/writes the canonical package contract and the populated browser lifecycle preserves business semantics and calculation results. Cross-platform acceptance remains pending B3.
+**B2 exit:** browser adapter reads/writes the canonical package contract; both the populated synthetic lifecycle and the UI-originated golden journey preserve business semantics and calculation results. Cross-platform acceptance remains pending B3.
 
 #### B3. Android Room lifecycle and cross-platform portability
 
@@ -376,8 +377,9 @@ For every record, use current production schemas and validators. Add matching va
 - Restore a populated browser-exported encrypted package into Room, and restore a populated Android-exported encrypted package into browser IndexedDB. Test both clean and pre-populated destinations, plus fail-closed and rollback cases.
 - Capture post-recovery state and recompute calculations.
 - Verify Driver Workflow state remains shared between the PWA/native bridge and overlay service through the existing authoritative Room store.
+- Run the matching compact **same-record Android golden journey**: create representative records through the actual Room-backed Capacitor WebView and native overlay entry boundaries, calculate dependent outputs, export using the production encrypted canonical adapter, restore into clean and pre-populated Room destinations, close/reopen, recover, re-export and compare the same IDs, revisions, relationships, event order, correction lineage and calculation provenance. Do not substitute raw `NativeBackupCoverage` record replacement for this encrypted production path.
 
-**B3 exit:** Android lifecycle preserves business semantics and calculations; populated encrypted backup portability passes in both directions; no second Android workflow/business store is introduced.
+**B3 exit:** Android lifecycle preserves business semantics and calculations; both the synthetic all-domain lifecycle and UI-originated golden journey pass; populated encrypted backup portability passes in both directions; no second Android workflow/business store is introduced.
 
 #### B4. Cross-runtime semantic and calculation comparison
 
