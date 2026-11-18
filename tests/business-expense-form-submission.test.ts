@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
-
 import {
   FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
 } from "../packages/application/src";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("Fuel Entry submit-time GPS acquisition", () => {
   it("requests a fresh device fix and resolves with its actual timestamp and accuracy", async () => {
