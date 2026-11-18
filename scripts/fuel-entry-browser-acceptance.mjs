@@ -206,6 +206,15 @@ try {
 
   await toggle.click();
   await page.reload({ waitUntil: "domcontentloaded" });
+  // Actor authority is intentionally held in the in-memory identity service;
+  // a page reload ends that session. Re-authenticate the same Driver before
+  // exercising the recovered draft and its offline submission.
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+  await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
+  await page.getByLabel("Active role").selectOption("driver");
+  await page.getByRole("button", { name: "Activate role", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
   await page.locator(".fuel-entry-toggle").click();
