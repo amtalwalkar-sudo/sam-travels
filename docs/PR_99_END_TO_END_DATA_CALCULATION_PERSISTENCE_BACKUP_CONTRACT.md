@@ -188,7 +188,7 @@ Required domains:
 - **Finance:** loan schedule, payment ledger entries, prepayment schedule revision and settlement lineage/cutoff where supported by current schemas and validators.
 - **Compliance:** validity records, renewal links, overlap-review decision/head and historical correction chain.
 - **Maintenance:** effective-dated rate history, fully allocated daily-kilometre source link, immutable daily accrual, and correction chain where supported.
-- **Business Expenses:** source charges, reversals, correction chain/head and resulting source projection.
+- **Business Expenses and Fuel:** source charges, reversals, correction chain/head and resulting source projection. Fuel must include a baseline full-tank checkpoint, a later full-tank checkpoint that closes the interval, and any intervening partial refill(s); assert that the opening baseline is excluded from interval consumption, intervening partials and closing full refill contribute kg/spend, and the resulting km/kg, effective cost/kg, cost/km and weighted rate history survive backup/restore. Include a second completed interval where supported to prove prospective weighted-rate history.
 - **Performance:** actual supported persisted records (currently settings and pre-business-cost records). Calculation provenance is generated from source references by the Performance calculation service and must be asserted as calculation output; do not invent a persisted `source_provenance` record kind.
 - **Work/Driver Workflow:** selected synthetic driver/vehicle, committed ordered events, durable pending intent(s), outbox message(s), stable IDs, revisions, delivery state and recovery status.
 - **Log Book:** event history with stable event IDs and ordering/occurrence timestamps, reconciled to the corresponding Work events where applicable.
@@ -393,6 +393,7 @@ Compare browser and Room normalized results for (in addition to all fixture IDs 
 - Event IDs/order, pending intent identity/status and outbox identity/delivery state for pending, acknowledged, retried and failed cases.
 - Log Book event linkage/order.
 - Correction-chain heads and revision lineage.
+- Fuel full-to-full interval checkpoint IDs, included source purchase IDs, quantity/spend, km/kg, effective interval cost/kg, cost/km and weighted rate history.
 - Finance payment/prepayment/settlement lineage.
 - Compliance multi-generation renewal/early-overlap review supersession and correction lineage.
 - Maintenance accrual source/revision, business and personal allocated distance, effective-rate snapshot and correction-chain head.
