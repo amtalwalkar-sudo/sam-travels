@@ -81,6 +81,52 @@ Every tested business flow must be traceable through the following stages. A sta
 
 The same logical fixture must be exercised on both runtime adapters. Platform-specific serialized representations may differ only where explicitly normalized; business meaning and lineage may not.
 
+## 4A. Data-collection entry-path proof (Track B0)
+
+A populated fixture loaded directly into a repository is not evidence that the application can collect the data correctly. Before fixture population, audit every currently supported user/device entry path and prove that valid input reaches the authoritative store through the real application boundary.
+
+### B0.1 Entry-path inventory
+
+Build an inventory from the current screens, forms, overlay actions, application commands, services and existing tests. Do not infer a form exists merely because a record type exists. For every supported entry path, record: feature/domain, surface (browser PWA, Android PWA/WebView, native overlay or background/device callback), UI/component or command, production validator, application service/repository, authoritative table/record owner, existing test and exact assertion, and any untested boundary.
+
+The inventory must inspect at least these existing data families and confirm which are user-entered, device-captured, imported, or derived:
+
+- Vehicle and Driver identity/profile/assignment.
+- Finance loan setup, EMI/payment entries, prepayment and settlement/correction actions.
+- Compliance validity setup, renewal, overlap review and corrections.
+- Maintenance records and admin-configured effective-dated maintenance rates.
+- Fuel/CNG amount and price-per-kg entry, derived quantity, full/partial refill choice, entry timestamp and GPS snapshot, and later locality enrichment when supported.
+- Business Expenses including platform fees, traffic challans and miscellaneous charges, plus reversals/corrections.
+- Work/Shift actions and odometer evidence, including start, completion, operational-day/04:00 boundary, active-trip deferral, and daily distance allocation.
+- Log Book event creation/linkage and Performance settings/pre-business-cost entry where those are actual persisted inputs.
+- Device/background-produced evidence and state transitions (GPS, timestamps, notifications, service/boot callbacks) where the product currently relies on them.
+
+For each inventory row, distinguish a real user-facing path from a test-only fixture loader or internal service. A fixture loader may populate test data, but it cannot replace proof of the real entry path.
+
+### B0.2 Required assertions for each applicable entry path
+
+Reuse existing tests when their assertions reach the required boundary. Add only the missing test at the highest reliable level that exercises the actual path:
+
+1. **Input and UI contract:** the real screen/form/action accepts the intended fields, defaults and choices; field-to-command mapping is correct; cancel/close does not accidentally commit; partial/incomplete input follows the documented save/resume/discard rule.
+2. **Validation:** valid data is accepted; required, malformed, out-of-range, inconsistent, duplicate and stale inputs are rejected with no partial business write; domain-specific cross-field and effective-date rules are enforced by production validators.
+3. **Command and commit:** the actual production command/service is invoked; stable IDs, actor/source metadata, timestamps, revisions and relationships are preserved; all records that must be atomic commit together.
+4. **Read-after-write:** the saved record is read back through the normal application query/projection and remains present after page reload or database close/reopen; UI success is not treated as proof of persistence.
+5. **Offline and interruption:** where the feature promises offline-first operation, entry and commit work offline; pending work survives app/WebView/service/process termination and resumes without duplicate records or side effects. Test partial drafts only where the feature contract promises draft persistence/resume.
+6. **Device evidence:** where applicable, verify timestamp and GPS snapshots are captured at the defined event boundary, remain stable, and optional reverse-geocoding/enrichment does not rewrite the original evidence or block the driver's workflow. Permission denied/unavailable/stale location behaviour must fail safely according to the owning contract.
+7. **Correction and replay:** edits, renewals, reversals, retries and duplicate submissions preserve immutable history/lineage and idempotency; a correction cannot silently rewrite its source or create duplicate downstream effects.
+8. **Surface parity:** where the same workflow is exposed on multiple Android surfaces, enter/commit through each surface and assert the other reads the same committed state/event/revision from Room. Do not require a surface that does not expose that workflow.
+9. **Derived effects:** calculations and projections are generated from committed source facts, not unsaved UI state; source IDs/revisions/effective dates and provenance are traceable.
+
+Where full UI automation is unavailable or brittle, use the narrowest production boundary that still exercises the real form-to-command mapping and validator/service path, and explicitly label the untested visual interaction as a manual acceptance gate. Do not claim a repository-only unit test proves the UI.
+
+### B0.3 Entry-path negative and resilience scenarios
+
+The audit must explicitly check, where applicable: app close during entry; duplicate tap/retry; network loss; permission denial; malformed date/amount/odometer; invalid chronology; overlapping validity; stale revision; missing referenced entity; device clock/time-zone changes; operational-day boundary at 04:00; active-trip boundary deferral; and process/service restart with pending work. Use the owner contract's expected behaviour; do not invent new policy.
+
+### B0.4 B0 exit
+
+Every supported entry path is classified as **already proven**, **partially proven**, **not proven**, or **not applicable**, with exact source/test evidence and a named gap. All critical data paths must have automated proof through the real form/action-to-production-command boundary and authoritative commit, or an explicitly documented physical/manual gate where automation is not feasible. Only after this audit may B1 populate the shared fixture. Prefer records produced by these entry-path tests as fixture inputs where deterministic and practical; otherwise use the shared fixture loader through the same production validators and record why direct entry is unsuitable.
+
 ## 5. Domain coverage and fixture rules
 
 The shared deterministic fixture must contain valid synthetic records, not the user's real vehicle, loan, compliance or financial data.
@@ -223,9 +269,15 @@ Existing implementation/evidence includes:
 
 If Track B exposes a concrete integration failure in a Track A component, inspect that exact failing boundary and make only the smallest in-scope correction. Do not reopen Track A wholesale.
 
-### Track B — Populated shared fixture and end-to-end semantic parity (remaining)
+### Track B — Data collection, populated fixture and end-to-end semantic parity (remaining)
 
 **Status: not yet implemented. This is the active work track.**
+
+#### B0. Audit and close data-collection entry paths
+
+Execute the B0 inventory and assertions in Section 4A before fixture population. Do not treat schema-valid fixture loading as a substitute for testing the real app's form/action-to-command path. Reuse exact existing evidence and add only missing tests. Every supported entry path must be classified, including user-entered, device-captured, imported and derived inputs.
+
+**B0 exit:** all supported critical entry paths have evidence through validation, production command/service and authoritative commit, or a clearly named manual/device gate; there are no unclassified entry paths.
 
 #### B1. Populate the shared synthetic fixture
 
@@ -313,7 +365,7 @@ A full OS reboot is not to be conflated with process death. First inspect existi
 
 ### Execution order and stop conditions
 
-Execute strictly in this order: **Track B1 → B2 → B3 → B4 → B5 → B6.** Track A is the prerequisite already supplied by the current implementation; do not repeat it.
+Execute strictly in this order: **Track B0 → B1 → B2 → B3 → B4 → B5 → B6.** Track A is the prerequisite already supplied by the current implementation; do not repeat it.
 
 Stop and report before changing production behaviour, public schemas, domain calculation policy, UI or unrelated PR scope. If a current feature schema cannot express a fixture lineage, document the exact schema limitation and seek a contract decision instead of inventing fields.
 
