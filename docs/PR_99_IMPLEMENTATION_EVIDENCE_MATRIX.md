@@ -41,7 +41,7 @@ For each row, record the actual UI/action/component, surface, production command
 | Concurrency/idempotency | Competing writers, stale revisions, duplicate command/event replay, retries and receiver deduplication | Reuse Track A evidence; add only missing cross-surface boundary |
 | Offline/lifecycle | Offline entry/commit where promised, reload, WebView/service/process recreation, pending work recovery, boot/reboot | Separate automated process proof from physical-device/OEM gates |
 | Time/device evidence | Clock/time-zone changes, UTC/local semantics, 04:00 operational day, active-trip deferral, GPS permission/unavailable/stale cases and immutable capture snapshots | Use owner contracts; do not invent expected policy |
-| Backup package/restore safety | Encryption interoperability, wrong key, tampering/corruption/truncation, incompatible schema, participant completeness including zero-record owners, atomic replacement and rollback | Map to backup contract and current browser/Android tests; decide cross-platform portability. If platform-bound, test populated Finance package rejection in both directions before mutation. Dropbox account/cloud delivery may be an external gate |
+| Backup package/restore safety | One canonical encrypted versioned wire format; browser→Room and Room→browser restore; Finance/Work/Log Book normalization; supported package migrations; zero-record participants; wrong-key/tamper/corrupt/truncated rejection; atomic replacement and rollback | Portability is mandatory. Audit current incompatibilities, add canonical format/adapters and prove populated encrypted restore in both directions. Dropbox account/cloud delivery may be an external gate |
 | Platform parity | Dexie/IndexedDB versus Room business semantics; Android PWA and overlay share one Room authority | Assert normalized business facts, not storage-wrapper equality |
 | Privacy/security | No secrets, tokens, keys or sensitive payloads in logs/artifacts; untrusted restore input validation; credential vault, local recovery journal/checkpoints and diagnostics remain outside business backup on both platforms | Reuse security/backup owner contract tests; report gaps explicitly |
 | Scale/operational resilience | Representative large snapshots, bounded memory/time, snapshot consistency during writes, storage-full/abort behaviour and safe failure reporting | Test deterministically where practical; document unsupported physical/device conditions |
@@ -54,7 +54,7 @@ The repository-wide gap register already identifies these concrete cross-platfor
 
 | Existing gap | Required test/evidence in PR #99 |
 |---|---|
-| G-13 / G-14 / G-17: Finance participant and manifest/snapshot formats differ | Decide platform-portable versus platform-bound backups. If portable, canonicalize/version the wire format and test encrypted export/restore both directions with populated Finance history. If platform-bound, test explicit early rejection both directions and prove destination data is unchanged. |
+| G-13 / G-14 / G-17: Finance participant and manifest/snapshot formats differ | Mandatory resolution: canonical platform-neutral versioned manifest/payload and Finance participant model; keep adapter IDs internal; normalize Work/Log Book shapes; test populated encrypted export/restore both directions with semantic parity and pre-mutation rejection/rollback cases. |
 | G-15: duplicated browser/Android validators | Matching valid/invalid records and whole-snapshot fixtures run through both production validators; compare accept/reject and stable error categories. |
 | G-16 / G-18: isolated restore versus complete dataset | One populated all-owner fixture, including zero-record participants, cross-feature references, pending work and corrections; export/restore/rollback/re-export and compare normalized semantics. |
 | G-19: Maintenance provenance | Preserve effective rate, rate effective date, daily-km record ID/revision, businessKm/personalKm, amount, correction IDs/revisions and chain head. |
@@ -64,6 +64,14 @@ The repository-wide gap register already identifies these concrete cross-platfor
 | G-23: Performance durability boundary | Explicitly classify recovery/provenance as durable or derived/transient; if derived, prove deterministic reconstruction from restored authoritative owners. |
 | G-24: Work/Log Book integrated recovery | Include pending, acknowledged, retried and failed intents/outbox, duplicate/replay boundaries, 04:00 transition and linked ordered Log Book events; restore/recover/re-export without duplicate effects. |
 | Backup exclusions | Verify both runtimes exclude credential-vault data, local recovery checkpoints/journals and diagnostics from business backup, with separately defined secure handling. |
+
+### 0C. Binding architecture decision — cross-platform encrypted backup portability
+
+**Decision: REQUIRED.** A business backup exported from either supported runtime must restore on the other. Do not implement a platform-bound-only policy as the final solution.
+
+The canonical package is an interchange contract, not a third database. Dexie/IndexedDB remains the browser authority and Room remains the installed-Android authority. Each runtime adapter maps its local schema to/from the same versioned platform-neutral envelope, manifest and canonical domain records. Platform adapter IDs and local table/entity names must not leak into required wire identity. The format must preserve stable IDs, revisions, relationships, event ordering, correction lineage, pending recoverable workflow state and calculation source provenance.
+
+B0 must audit current source against the decision and identify exact work for: canonical Finance participant identity and payment/prepayment representation; Work/Driver Workflow and Log Book payload normalization; package-format versus feature-schema versioning; supported deterministic migrations; authenticated encryption-envelope interoperability; complete pre-mutation validation/staging; zero-record participants; unknown required data rejection; and rollback/recovery. B1–B4 must prove encrypted export/restore in both directions using the populated shared fixture. Include clean and pre-populated destinations and compare normalized post-restore semantics and calculations. Wrong-key, tamper, corruption, truncation, unsupported future version, missing required participant, dangling reference and interrupted-restore cases must leave destination data unchanged or restore it exactly to its prior state.
 
 ## 1. Driver Workflow persistence and lifecycle
 
@@ -105,7 +113,8 @@ Do not reimplement these mechanisms or add equivalent tests. Do not schedule iso
 
 **Status: outstanding; this is the only active implementation track.**
 
-0. Complete the B0 entry-path inventory above; classify every supported user/device/imported input path and verify the real form/action-to-command-to-authoritative-commit boundary. Add only missing assertions.
+0. Complete B0a source/test audit for every supported user/device/imported entry path and cross-cutting architecture concern; classify each and identify exact missing assertions against the binding portable-backup decision.
+0.1 Complete B0b by adding only those missing targeted tests, running focused checks, and updating this matrix/gap register with results before B1.
 1. Populate the shared fixture with schema-valid synthetic records for Vehicle/Driver dependencies, Finance, Compliance, Maintenance, Business Expenses, Performance, Work/Driver Workflow and Log Book.
 2. Add the browser fixture loader/runner and execute the populated data through the existing production IndexedDB export → restore → reopen → startup recovery → re-export path.
 3. Add the Room fixture loader/runner for the exact same fixture asset and execute it through the existing production Room restore coordinator and recovery path.
@@ -115,7 +124,7 @@ Do not reimplement these mechanisms or add equivalent tests. Do not schedule iso
 7. Treat full OS reboot separately from process death. If not already covered and not deterministic in CI, record it as a physical-device gate; do not add a flaky duplicate test.
 8. Run focused new tests, then the required CI once on the final PR head; update the evidence matrix and gap register.
 
-**Track B exit:** all critical supported entry paths are evidenced or explicitly gated; one populated fixture passes through both existing production lifecycles, normalized semantic and calculation/provenance parity passes, genuinely missing integration assertions are covered or explicitly gated, and required CI is green.
+**Track B exit:** all critical supported entry paths are evidenced or explicitly gated; canonical encrypted backups restore successfully in both directions; one populated fixture passes through both production lifecycles, normalized semantic and calculation/provenance parity passes, genuinely missing integration assertions are covered or explicitly gated, and required CI is green.
 
 ## 4. No-duplicate-testing rule
 
