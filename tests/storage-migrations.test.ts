@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { browserDatabase, BROWSER_DATABASE_SCHEMA_VERSION } from "../packages/storage-browser/src/database";
+import { browserDatabase, BROWSER_DATABASE_SCHEMA_VERSION, UnsupportedBrowserDatabaseVersionError } from "../packages/storage-browser/src/database";
 
 const DATABASE_NAME = "sam-travels-browser";
 const now = "2026-11-18T00:00:00.000Z";
@@ -187,7 +187,7 @@ describe("browser IndexedDB schema upgrades", () => {
     await future.table("futureOnly").put({ id: "future-row" });
     future.close();
 
-    await expect(browserDatabase.open()).rejects.toMatchObject({ name: "VersionError" });
+    await expect(browserDatabase.open()).rejects.toBeInstanceOf(UnsupportedBrowserDatabaseVersionError);
 
     await future.open();
     expect(await future.table("records").get("future:record")).toMatchObject({
