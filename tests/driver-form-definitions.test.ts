@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  FUEL_ENTRY_FORM_V1,
   TRIP_CANCELLATION_FEE_FORM_V1,
   validateCancellationFeeSubmission,
 } from "../packages/application/src/driver-form-definitions";
@@ -48,6 +49,14 @@ describe("Fuel Entry form definition v1", () => {
     });
     const ids = FUEL_ENTRY_FORM_V1.fields.map((field) => field.id);
     expect(new Set(ids).size).toBe(ids.length);
+    expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "vehicleId")).toMatchObject({
+      type: "text",
+      required: true,
+    });
+    expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "odometerKm")).toMatchObject({
+      type: "number",
+      required: true,
+    });
     expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "amountRupees")).toMatchObject({
       type: "number",
       required: true,
