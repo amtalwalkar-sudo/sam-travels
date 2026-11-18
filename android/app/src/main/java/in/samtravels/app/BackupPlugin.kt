@@ -223,6 +223,7 @@ internal object NativeBackupRestoreCoordinator {
         snapshot: JSONObject,
         manifest: JSONObject,
         makeSnapshot: () -> NativeSnapshotBundle,
+        afterReplacement: () -> Unit = {},
     ): RestoreResult {
         BackupSnapshotContract.validateSnapshot(snapshot)
         BackupSnapshotContract.validateManifest(manifest)
@@ -289,6 +290,10 @@ internal object NativeBackupRestoreCoordinator {
                 ))
             }
 
+            // Test seam at the real post-commit/pre-read-back boundary. Production
+            // callers use the no-op default; instrumentation can force rollback
+            // after the replacement transaction has committed.
+            afterReplacement()
             val restored = makeSnapshot().snapshot.getJSONArray("records")
             require(restored.length() == records.length()) { "backup_post_restore_count_mismatch" }
             val restoredById = (0 until restored.length()).associate {
