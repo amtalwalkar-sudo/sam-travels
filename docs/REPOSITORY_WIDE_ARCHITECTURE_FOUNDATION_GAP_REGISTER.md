@@ -409,7 +409,7 @@ The first pass identified the following missing or partial boundaries requiring 
 
 8. **Interop test scope:** the TypeScript test for Android-generated v2 package only decrypts and checks plaintext; it does not restore the snapshot. The native test creates/self-decrypts a package. Add TypeScript-generated package→Android and Android-generated package→browser production restore tests with the canonical dataset. The misleading TypeScript/native test title/comments have now been corrected; keep the evidence clear that those tests cover decryption/self-decryption only.
 
-9. **Dexie schema upgrade:** add historical v1/v4 IndexedDB fixtures and reopen assertions to match the level of migration preservation already proven for Room; future-version behaviour must be tested or explicitly defined from Dexie semantics.
+9. **Dexie schema upgrade:** `browser-database-migrations.test.ts` already adds historical v1/v4 fixtures, upgrade/preservation/reopen assertions and future v7 fail-closed coverage. The first CI run exposed a guard bug because `backendDB().version` is native IDB v60 while the app schema constant is logical Dexie v6. PR #99 corrected the guard to compare `backendDB().version / 10`; reuse the existing tests and verify CI rather than adding duplicates.
 
 10. **Scale/concurrent snapshot:** existing export transaction boundaries and injected rollback tests are useful but do not establish practical maximum snapshot size, storage exhaustion behaviour or consistency during concurrent writes. Determine supported bounds from the backup contract, then add deterministic boundary tests or explicitly documented operational gates.
 
