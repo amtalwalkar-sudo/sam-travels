@@ -417,7 +417,7 @@ The first pass identified the following missing or partial boundaries requiring 
 
 **Status:** Source-confirmed additional B0a items; B0a remains in progress.
 
-- TypeScript package parser limit is 512 MiB and Android restore limit is 1,000,000 records; neither has dedicated boundary tests or a documented cross-runtime aligned limit. Add boundary tests and align canonical package limits.
+- TypeScript encrypted-package parser limit is 512 MiB; `backup-crypto.test.ts` proves inclusive-limit acceptance and first-byte-over rejection. The 1,000,000-record limit is boundary-tested in `backup-limits.test.ts` and Android `BackupPackageLimitsTest`. No equivalent Android encrypted-package byte-size guard/test was found. Align byte and record bounds under the canonical package contract and reject oversize packages before any restore mutation.
 - Browser Dexie and Android Room snapshot exports are transactional, but there is no deterministic concurrent-writer test proving the exported package represents one consistent revision while a write races snapshot creation.
 - Fuel GPS/enrichment tests cover the Dexie queue, including late fix, denial, offline, retry and reopen. Android Room worker tests cover generic queue scheduling/policy/backoff, but do not run the actual Fuel submit/evidence record through the Room-backed queue and background worker. Add that adapter integration proof.
 - Device timezone is explicitly pinned to Asia/Kolkata for business dates and 04:00 logic, and process restart tests exist. A test for OS timezone change and a manual/device acceptance for wall-clock change while powered off are not evident. Exact elapsed time cannot be promised if the device clock is manually changed while off; surface uncertainty rather than fabricate it.
