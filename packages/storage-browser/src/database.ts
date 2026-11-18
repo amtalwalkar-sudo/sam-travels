@@ -9,7 +9,7 @@ type CredentialVaultRow={name:string;nonce:string;ciphertext:string;updatedAt:st
 type CredentialVaultMetaRow={id:"credential-vault";salt:string;checkNonce:string;checkCiphertext:string};
 type DiagnosticRow={id:string;timestamp:string;subsystem:string;operation:string;outcome:"success"|"blocked"|"failure"|"invalid";failureCategory:string;recoveryResult:string;appVersion:string;schemaVersion:number;traceId?:string;stage?:string;code?:string;ownerFeatureId?:string;contributionId?:string;contractVersion?:number;durationMs?:number};
 export const BROWSER_DATABASE_SCHEMA_VERSION = 6 as const;
-class SamTravelsDatabase extends Dexie{
+export class SamTravelsDatabase extends Dexie{
  records!:Table<RecordEnvelope<unknown>,string>;
  driverState!:Table<SnapshotRow,string>;
  driverIntents!:Table<DriverIntent,string>;
