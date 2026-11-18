@@ -2,7 +2,6 @@ import initialProfileJson from "./data/initial-admin-profile-v1.json";
 import type {
   ComplianceService,
   DriverRecordsService,
-  FeatureRecordSource,
   FinanceLoanService,
   VehicleService,
 } from "../../../packages/application/src";
@@ -38,7 +37,6 @@ export async function seedInitialAdminProfile(input: Readonly<{
   drivers: DriverRecordsService;
   compliance: ComplianceService;
   financeLoans: FinanceLoanService;
-  source: FeatureRecordSource;
 }>): Promise<void> {
   const vehicleId = "feature:vehicle:" + profile.vehicle.registrationNumber;
   const vehicle = await input.vehicles.getByRegistrationNumber(profile.vehicle.registrationNumber);
@@ -46,7 +44,7 @@ export async function seedInitialAdminProfile(input: Readonly<{
     await input.vehicles.create({
       schemaVersion: 1,
       ...profile.vehicle,
-    }, input.source);
+    }, "import");
   }
 
   const driver = await input.drivers.get(profile.driver.driverId);
@@ -70,7 +68,7 @@ export async function seedInitialAdminProfile(input: Readonly<{
           validTo: item.validTo,
           totalCostPaise: item.totalCostPaise,
         },
-        source: input.source,
+        source: "import",
         businessDate: item.validFrom,
       });
     }
@@ -90,7 +88,7 @@ export async function seedInitialAdminProfile(input: Readonly<{
         tenureMonths: profile.loan.tenureMonths,
         firstEmiDate: profile.loan.firstEmiDate,
       },
-      source: input.source,
+      source: "import",
     });
   }
 }
