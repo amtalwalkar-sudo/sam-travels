@@ -567,3 +567,11 @@ The `npm install` step in CI reported **3 vulnerabilities: 1 moderate and 2 crit
 - Android was skipped by the integrated gate because architecture and web failed. Do not infer an Android regression or pass.
 
 **Required closure:** extract the Fuel entry path into a separate rendered PWA acceptance script, keep the real vehicle prerequisite created through the Admin UI, correct the navigation selector to `Drive`, and add the focused script to CI. Run the new script and the full required CI; only then update the entry-path evidence status.
+
+### 9.37 — Android record-count limit helper is not wired into production backup/restore
+
+**Status:** Source-confirmed production enforcement gap.
+
+TypeScript defines a 1,000,000-record limit and applies it during browser snapshot creation/restore; `backup-limits.test.ts` verifies the inclusive boundary and first-record-over rejection before restore mutation. Android added `BackupPackageLimits.kt` and `BackupPackageLimitsTest`, but source inspection shows the helper is not invoked by `NativeSnapshotBuilder`, `BackupSnapshotContract` or `NativeBackupRestoreCoordinator`. `BackupSnapshotContract.validateManifest()` only requires a non-negative count, `NativeBackupCoverage.validateBusinessRecords()` validates each row without a total cap, and `NativeBackupRestoreCoordinator` checks manifest count equals actual records but does not enforce the maximum. The standalone helper test therefore does not establish a production limit.
+
+**Required closure:** call the shared 1,000,000-record policy at Android export snapshot construction and before any restore mutation, validating both manifest count and actual record array length. Add production-path tests at the inclusive limit and first record over, asserting over-limit rejection occurs before checkpoint creation or destination modification. Keep the existing helper test only if it remains useful; do not claim the boundary is covered until the real snapshot/restore coordinator invokes it.
