@@ -41,12 +41,29 @@ For each row, record the actual UI/action/component, surface, production command
 | Concurrency/idempotency | Competing writers, stale revisions, duplicate command/event replay, retries and receiver deduplication | Reuse Track A evidence; add only missing cross-surface boundary |
 | Offline/lifecycle | Offline entry/commit where promised, reload, WebView/service/process recreation, pending work recovery, boot/reboot | Separate automated process proof from physical-device/OEM gates |
 | Time/device evidence | Clock/time-zone changes, UTC/local semantics, 04:00 operational day, active-trip deferral, GPS permission/unavailable/stale cases and immutable capture snapshots | Use owner contracts; do not invent expected policy |
-| Backup package/restore safety | Encryption interoperability, wrong key, tampering/corruption/truncation, incompatible schema, participant completeness, atomic replacement and rollback | Map to backup contract and current browser/Android tests; Dropbox account/cloud delivery may be an external gate |
+| Backup package/restore safety | Encryption interoperability, wrong key, tampering/corruption/truncation, incompatible schema, participant completeness including zero-record owners, atomic replacement and rollback | Map to backup contract and current browser/Android tests; decide cross-platform portability. If platform-bound, test populated Finance package rejection in both directions before mutation. Dropbox account/cloud delivery may be an external gate |
 | Platform parity | Dexie/IndexedDB versus Room business semantics; Android PWA and overlay share one Room authority | Assert normalized business facts, not storage-wrapper equality |
-| Privacy/security | No secrets, tokens, keys or sensitive payloads in logs/artifacts; untrusted restore input validation | Reuse security/backup owner contract tests; report gaps explicitly |
+| Privacy/security | No secrets, tokens, keys or sensitive payloads in logs/artifacts; untrusted restore input validation; credential vault, local recovery journal/checkpoints and diagnostics remain outside business backup on both platforms | Reuse security/backup owner contract tests; report gaps explicitly |
 | Scale/operational resilience | Representative large snapshots, bounded memory/time, snapshot consistency during writes, storage-full/abort behaviour and safe failure reporting | Test deterministically where practical; document unsupported physical/device conditions |
 
 Every row must point to the owner contract, exact existing test/assertion, platform and result, or a named gap. Items owned elsewhere are not silently excluded; they are cross-referenced and not reimplemented in PR #99.
+
+### 0B. Existing architecture-gap register items that must be closed or explicitly dispositioned
+
+The repository-wide gap register already identifies these concrete cross-platform test obligations. They are not optional new scope; B0/B1/B3/B4 must map them to exact tests and close them or record an explicit contract decision.
+
+| Existing gap | Required test/evidence in PR #99 |
+|---|---|
+| G-13 / G-14 / G-17: Finance participant and manifest/snapshot formats differ | Decide platform-portable versus platform-bound backups. If portable, canonicalize/version the wire format and test encrypted export/restore both directions with populated Finance history. If platform-bound, test explicit early rejection both directions and prove destination data is unchanged. |
+| G-15: duplicated browser/Android validators | Matching valid/invalid records and whole-snapshot fixtures run through both production validators; compare accept/reject and stable error categories. |
+| G-16 / G-18: isolated restore versus complete dataset | One populated all-owner fixture, including zero-record participants, cross-feature references, pending work and corrections; export/restore/rollback/re-export and compare normalized semantics. |
+| G-19: Maintenance provenance | Preserve effective rate, rate effective date, daily-km record ID/revision, businessKm/personalKm, amount, correction IDs/revisions and chain head. |
+| G-20: Business Expense dependency closure | Include fuel and ordinary expenses, Vehicle/Driver/trip-financial references, charge/reversal pairs, multiple corrections and dangling/mismatched-reference rejection. |
+| G-21: Compliance history | Include multiple renewal generations, early renewal overlap, review-decision supersession, corrections and chain heads. |
+| G-22: Driver assignment history | Include reassignment, open/closed temporal intervals, Vehicle lifecycle references and missing Vehicle rejection. |
+| G-23: Performance durability boundary | Explicitly classify recovery/provenance as durable or derived/transient; if derived, prove deterministic reconstruction from restored authoritative owners. |
+| G-24: Work/Log Book integrated recovery | Include pending, acknowledged, retried and failed intents/outbox, duplicate/replay boundaries, 04:00 transition and linked ordered Log Book events; restore/recover/re-export without duplicate effects. |
+| Backup exclusions | Verify both runtimes exclude credential-vault data, local recovery checkpoints/journals and diagnostics from business backup, with separately defined secure handling. |
 
 ## 1. Driver Workflow persistence and lifecycle
 
