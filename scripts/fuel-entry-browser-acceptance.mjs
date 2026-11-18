@@ -178,6 +178,36 @@ try {
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
+  // A browser reload destroys an outstanding device geolocation callback.
+  // Let the first, deliberately delayed GPS fix finish and persist before
+  // reloading for draft recovery; the purchase itself has already committed.
+  await page.waitForFunction(async expectedEventId => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const transaction = db.transaction("records", "readonly");
+      const read = transaction.objectStore("records").getAll();
+      let result;
+      read.onsuccess = () => { result = read.result; };
+      read.onerror = () => reject(read.error);
+      transaction.oncomplete = () => resolve(result ?? []);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
+    });
+    db.close();
+    return rows.some(row =>
+      row.id === "timeline-enrichment:" + expectedEventId &&
+      row.data?.captureStatus === "captured"
+    );
+  }, "fuel:" + purchases[0].id, { timeout: 10000 });
+  let firstGpsEvidence = (await readBrowserRecords(page)).find(row =>
+    row.id === "timeline-enrichment:fuel:" + purchases[0].id
+  );
+  assert.equal(firstGpsEvidence?.data?.captureStatus, "captured", "the first delayed GPS fix must persist before test reload");
+  assert.equal(firstGpsEvidence?.data?.captureTiming, "late", "GPS finishing after purchase commit is marked late");
   await context.setOffline(false);
 
   // The successful submit starts a new draft. Exercise partial refill,
