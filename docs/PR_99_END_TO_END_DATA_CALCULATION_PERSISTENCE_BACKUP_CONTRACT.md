@@ -7,6 +7,8 @@
 
 ## 1. Purpose and outcome
 
+The initial source/test inventory is recorded in [PR #99 Implementation Evidence Matrix](PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md). It is a static inspection baseline, not a CI pass claim; update it as each phase executes.
+
 Prove, with deterministic automated evidence, that business facts collected by the application remain authoritative, internally consistent and reproducible through persistence, domain calculations, backup, restore, database reopen and startup recovery.
 
 The proof must cover both supported runtime configurations independently:
