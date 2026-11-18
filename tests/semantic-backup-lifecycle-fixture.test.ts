@@ -11,7 +11,7 @@ type Fixture = {
 };
 
 const fixture = JSON.parse(readFileSync(
-  new URL("./fixtures/semantic-backup-lifecycle-v1.json", import.meta.url),
+  new URL("../fixtures/semantic-backup-lifecycle-v1.json", import.meta.url),
   "utf8",
 )) as Fixture;
 
