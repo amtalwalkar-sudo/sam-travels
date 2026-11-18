@@ -76,7 +76,7 @@ B0 must audit current source against the decision and identify exact work for: c
 
 ### 0D. B0a source/test audit findings — first pass
 
-**Audit status: in progress.** This is a source-backed first pass against main SHA `a99ea6f48b05d3df1e35a72266acdaa127c010d7`, not the B0 exit declaration. Existing browser Playwright scripts and Android instrumentation are part of CI and are counted as real UI evidence only for the exact interactions they perform.
+**Audit status: first-pass source/test/owner-contract inventory completed and reconciled on 2026-11-18; B0 overall remains open until B0b closes the missing assertions.** Baseline: main SHA `a99ea6f48b05d3df1e35a72266acdaa127c010d7`. Existing browser Playwright scripts and Android instrumentation are counted as UI evidence only for the exact interactions they perform.
 
 | Entry path / concern | Existing source and exact evidence | First-pass assessment | Missing assertion / next action |
 |---|---|---|---|
@@ -185,17 +185,17 @@ Scanned all 55 production TypeScript files under packages/application/src at mai
 
 **Status: next execution stage; no claim that these tests have been added yet.**
 
-1. Fuel: test the Fuel form definition and production handler mapping; fix/test visible draft rehydration; add rendered PWA entry and Android WebView/Room entry, offline submit, read-after-write and Fuel-scoped GPS enrichment through Room. Resolve the Fuel odometer/field-contract discrepancy before freezing UI assertions.
+1. Fuel: the 19-form inventory and basic Fuel definition test already exist; `FuelEntryPanel.start()` already hydrates visible draft values. Add the missing Fuel production handler mapping/idempotency test, a focused component test for visible resume, rendered PWA and Android WebView/Room submit, offline read-after-write, and Fuel-scoped GPS enrichment through Room. Use the detailed owner contract: odometer + partial-refill + amount + price/kg; quantity is calculated, not entered.
 2. Work PWA: add rendered PWA transition action→production command→authoritative commit acceptance for shift/trip/odometer/GPS; preserve the existing Fare/Toll/Parking/cancellation-fee form parity tests.
 3. PWA↔overlay Work state: add direct two-way committed Driver Workflow event/state/revision visibility and stale UI interleaving; reuse the existing shared Room store and financial draft bridge tests.
 4. Android Admin WebView: add only missing submissions/readbacks for Driver assignment, Compliance renewal, Traffic Challan, Finance payment/reversal/prepayment/settlement, and Performance target/pre-business costs; do not duplicate PWA browser acceptance.
-5. Form conformance: extend the existing Admin/Work form inventory to Performance and Fuel; test definition fields/versions/primary action and shared PWA keyboard/IME, narrow viewport, focus/scroll, touch target and accessibility behaviour.
+5. Form conformance: reuse the existing 19-form `ALL_FORM_DEFINITIONS` inventory and basic conformance test. Add negative malformed-definition fixtures and any missing requiredness/type/option assertions for separately registered Performance/Work forms; add shared PWA keyboard/IME, narrow viewport, focus/scroll, touch-target and form-control accessibility acceptance.
 6. Dexie: test supported historical schema upgrades and record preservation/reopen; reuse existing Room migration coverage.
-7. Backup: add BackupPanel deterministic fake-session UI acceptance; explicit paired backup exclusion and zero-record participant count tests; byte/record-limit boundaries; concurrent-write snapshot consistency; canonical validator parity fixtures; Fuel-scoped GPS evidence roundtrip on browser and Room (reuse NativeBackupCoverageTest's generic timeline-enrichment proof). Full canonical cross-platform restore tests are implemented with B2/B3, not faked in B0.
+7. Backup: add BackupPanel deterministic fake-session UI acceptance; explicit paired backup exclusion and zero-record participant count tests; native encrypted-package byte-size guard/boundary test (TypeScript 512 MiB and TypeScript/Android 1,000,000-record boundaries already pass); concurrent-write snapshot consistency; canonical validator parity fixtures; Fuel-scoped GPS evidence roundtrip on browser and Room (reuse NativeBackupCoverageTest's generic timeline-enrichment proof). Full canonical cross-platform restore tests are implemented with B2/B3, not faked in B0.
 8. Network policy: test rendered PWA/Android WebView control persistence, cross-surface propagation and external-work deferral; reuse NetworkGateway and Room worker tests.
 9. GPS: add the six-transition fresh-fix matrix (shift start/end, trip creation, Start ride, End ride, cancellation) and rapid-event/no-reuse assertions; reuse generic GPS policy/provider tests.
 10. Deletion/provenance: constrain generic Room/Dexie deletion and extension migration delete IDs; add tests that historical business records cannot be deleted. Complete actor attribution and deletedAt compatibility mapping.
-11. Backup limits and resilience: align 512 MiB package and 1,000,000-record limits, test boundary/over-limit, quota/abort recovery and concurrent snapshot consistency; add timezone-independence tests. Full OS reboot and branch protection remain physical/admin gates.
+11. Backup limits and resilience: preserve the existing TypeScript 512 MiB byte-boundary and TypeScript/Android 1,000,000-record boundary tests; add equivalent native encrypted-package byte-size enforcement before restore mutation, quota/abort recovery and concurrent snapshot consistency; add timezone-independence tests. Full OS reboot and branch protection remain physical/admin gates.
 12. Policy gates: do not mark Finance payment allocation as business-correct until its proposed contract is ratified; do not lock Fuel form fields until the current owner-approved field set is reconciled.
 ## 1. Driver Workflow persistence and lifecycle
 
