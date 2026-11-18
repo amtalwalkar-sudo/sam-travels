@@ -9,20 +9,20 @@
 
 ## 0. Data-collection entry-path audit — required before fixture population
 
-**Status: not yet audited to completion.** Existing feature/service tests and backup participant tests do not automatically prove that the actual app entry paths collect and commit data correctly. B0 in the owner contract is now a required phase, before B1.
+**Status: B0a first-pass audit completed; B0b targeted gap closure remains.** Existing feature/service tests and backup participant tests do not automatically prove that actual app entry paths collect and commit data correctly. The source-backed findings and exact remaining assertions are recorded in Section 0D; the no-duplicate targeted backlog is Section 0E. B1 fixture population remains blocked until B0b is closed or explicitly gated.
 
 | Entry family / source | Required audit boundary | Required evidence (reuse existing tests where sufficient) | Initial status |
 |---|---|---|---|
-| Vehicle / Driver identity and assignment | Existing profile/admin form or command → validator → repository → authoritative record | Field mapping, required/invalid values, duplicate identity, assignment references, read-after-write and reopen | Audit required |
-| Finance: loan, EMI/payment, prepayment, settlement | Actual supported entry/action → finance service → ledger/schedule lineage | Date/amount validation, payment identity/idempotency, schedule revision, prepayment cutoff and correction history | Audit required |
-| Compliance: validity, renewal, overlap review, correction | Actual admin entry/action → compliance validator/service → history records | Validity/effective dates, renewal links, overlap decisions, corrections and immutable history | Audit required |
-| Maintenance: record and effective-dated rate | Actual maintenance/admin entry → service → rate/accrual source | Rate effective-date selection, immutable historical accrual, confirmed allocated-km dependency, correction lineage | Audit required |
-| Fuel / CNG | Work-screen fuel form → validation/calculation → persistence | Amount and price/kg mapping, derived kg, full/partial refill, entry timestamp/GPS snapshot, offline entry, partial draft/resume only if promised, enrichment does not block or rewrite source evidence | Audit required |
-| Business Expenses | Existing admin form/action → expense service → charge/reversal/correction | Platform fee, challan and miscellaneous expense mapping, amount/date validation, reversal and correction lineage | Audit required |
-| Work / Shift / odometer | PWA or overlay action/device evidence → workflow command → atomic Room/Dexie commit | Start/complete, odometer chronology, active-trip and 04:00 boundary, deferral, retry, GPS/time evidence, daily allocation and cross-surface visibility | Partially evidenced; exact entry-boundary audit required |
-| Log Book | Workflow event or supported direct event entry → event persistence/projection | Event ID, ordering, occurredAt, linkage to Work event, no duplicates after replay | Audit required |
-| Performance settings / pre-business costs | Actual Admin entry/action → persisted settings/cost record | Field mapping, validation, source revision and deterministic calculation provenance | Audit required |
-| Device/background evidence | GPS, timestamps, notification/service/boot callbacks where used | Permission denied/unavailable/stale evidence, stable capture timestamp, restart and non-blocking failure behaviour | Audit required |
+| Vehicle / Driver identity and assignment | Existing profile/admin form or command → validator → repository → authoritative record | Field mapping, required/invalid values, duplicate identity, assignment references, read-after-write and reopen | PWA proven; Android assignment/selection and full persisted readback remain |
+| Finance: loan, EMI/payment, prepayment, settlement | Actual supported entry/action → finance service → ledger/schedule lineage | Date/amount validation, payment identity/idempotency, schedule revision, prepayment cutoff and correction history | PWA and service proven; Android transaction submits/readback remain |
+| Compliance: validity, renewal, overlap review, correction | Actual admin entry/action → compliance validator/service → history records | Validity/effective dates, renewal links, overlap decisions, corrections and immutable history | Initial create proven; renewal UI and rendered correction submit/readback remain |
+| Maintenance: record and effective-dated rate | Actual maintenance/admin entry → service → rate/accrual source | Rate effective-date selection, immutable historical accrual, confirmed allocated-km dependency, correction lineage | Entry and correction paths substantially proven; reuse evidence |
+| Fuel / CNG | Work-screen fuel form → validation/calculation → persistence | Amount and price/kg mapping, derived kg, full/partial refill, entry timestamp/GPS snapshot, offline entry, durable draft resume, enrichment does not block or rewrite source evidence | Production wiring and lower layers proven; rendered submit/resume and handler mapping missing |
+| Business Expenses | Existing admin form/action → expense service → charge/reversal/correction | Platform fee, challan and miscellaneous expense mapping, amount/date validation, reversal and correction lineage | PWA/Android Platform Fee and Misc entry proven; Android Challan submit/readback missing |
+| Work / Shift / odometer | PWA or overlay action/device evidence → workflow command → atomic Room/Dexie commit | Start/complete, odometer chronology, active-trip and 04:00 boundary, deferral, retry, GPS/time evidence, daily allocation and cross-surface visibility | Service/overlay and Track A proven; rendered PWA and two-way surface parity missing |
+| Log Book | Workflow event or supported direct event entry → event persistence/projection | Event ID, ordering, occurredAt, linkage to Work event, no duplicates after replay | Work→Log Book service integration proven; all-domain fixture parity remains |
+| Performance settings / pre-business costs | Actual Admin entry/action → persisted settings/cost record | Field mapping, validation, source revision and deterministic calculation provenance | PWA entry and calculation/service tests proven; Android WebView entry/readback missing |
+| Device/background evidence | GPS, timestamps, notification/service/boot callbacks where used | Permission denied/unavailable/stale evidence, stable capture timestamp, restart and non-blocking failure behaviour | Generic GPS/provider, Room worker and process recovery proven; six-event matrix and Fuel Room queue integration missing |
 
 For each row, record the actual UI/action/component, surface, production command, validator, service/repository, owner table/participant, existing test and exact assertion. Mark each applicable path **already proven / partially proven / not proven / not applicable**. Do not assume every domain has a user-facing form; confirm from source.
 
@@ -33,7 +33,7 @@ For each row, record the actual UI/action/component, surface, production command
 
 ### 0A. Cross-cutting architecture and reliability audit
 
-**Status: evidence mapping required in B0; this is not a claim that each item is currently uncovered.**
+**Status: B0a first-pass evidence mapping completed; specific gaps and implementation dependencies are recorded in Sections 0D–0E.**
 
 | Foundation concern | What must be proven | Audit treatment |
 |---|---|---|
