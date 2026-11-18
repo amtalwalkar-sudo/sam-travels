@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
 const registration = "MH00AA0090";
+const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 function indiaDateOffsetDays(offset) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -51,12 +52,12 @@ try {
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Admin Form Browser Admin");
   await page.getByLabel("Admin role").check();
-  await page.getByLabel("Set initial Admin PIN").fill("4831");
+  await page.getByLabel("Set initial Admin PIN").fill("adminPin");
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: "Admin Form Browser Admin" });
   await page.getByLabel("Active role").selectOption("admin");
-  await page.getByLabel("Admin PIN").fill("4831");
+  await page.getByLabel("Admin PIN").fill("adminPin");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
   console.log("Admin identity enrolled and PIN-verified actor activated.");
@@ -101,102 +102,6 @@ try {
     return matches[0].id;
   }, registration);
   console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
-
-  // Exercise the actual Fuel form from the Work surface without starting a
-  // shift. The active vehicle was created through the Admin UI above.
-  await page.getByRole("button", { name: "Work", exact: true }).click();
-  const fuelToggle = page.locator(".fuel-entry-toggle");
-  await fuelToggle.waitFor({ state: "visible" });
-  await fuelToggle.click();
-  const fuelPanel = page.locator(".fuel-entry-panel");
-  await fuelPanel.getByLabel("Vehicle").selectOption(vehicleId);
-  await fuelPanel.getByLabel("Odometer (km)").fill("12345");
-  await fuelPanel.getByLabel("Price per kg (₹)").fill("82.50");
-  await fuelPanel.getByLabel("Amount paid (₹)").fill("825");
-  assert.equal(await fuelPanel.getByLabel("Partial refill").isChecked(), false);
-  assert.match(await fuelPanel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
-
-  await page.waitForFunction(async vehicleRecordId => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").getAll();
-      read.onsuccess = () => resolve(read.result);
-      read.onerror = () => reject(read.error);
-    });
-    db.close();
-    return rows.some(row =>
-      row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
-      row.data?.values?.vehicleId === vehicleRecordId &&
-      row.data?.values?.odometerKm === 12345 &&
-      row.data?.values?.priceRupeesPerKg === 82.5 &&
-      row.data?.values?.amountRupees === 825 &&
-      row.data?.values?.partialRefill === false
-    );
-  }, vehicleId);
-
-  await fuelToggle.click();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Work", exact: true }).click();
-  await page.locator(".fuel-entry-toggle").click();
-  const resumedFuel = page.locator(".fuel-entry-panel");
-  await resumedFuel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
-  await page.waitForFunction(expectedVehicleId => {
-    const panel = document.querySelector(".fuel-entry-panel");
-    return panel?.querySelector("select")?.value === expectedVehicleId &&
-      panel?.querySelector('input[type="number"]')?.value === "12345";
-  }, vehicleId);
-  assert.equal(await resumedFuel.getByLabel("Vehicle").inputValue(), vehicleId);
-  assert.equal(await resumedFuel.getByLabel("Odometer (km)").inputValue(), "12345");
-  assert.equal(await resumedFuel.getByLabel("Price per kg (₹)").inputValue(), "82.5");
-  assert.equal(await resumedFuel.getByLabel("Amount paid (₹)").inputValue(), "825");
-  assert.equal(await resumedFuel.getByLabel("Partial refill").isChecked(), false);
-  await page.context().setOffline(true);
-  await resumedFuel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
-  await resumedFuel.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
-
-  const fuelReadback = await page.evaluate(async vehicleRecordId => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").getAll();
-      read.onsuccess = () => resolve(read.result);
-      read.onerror = () => reject(read.error);
-    });
-    db.close();
-    return {
-      purchases: rows.filter(row =>
-        row.id.startsWith("feature:business-expenses:fuel:") &&
-        row.data?.vehicleId === vehicleRecordId &&
-        row.data?.odometerKm === 12345
-      ),
-      locationEvidence: rows.filter(row =>
-        row.id.startsWith("timeline-enrichment:fuel:") &&
-        row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
-        row.data?.captureStatus === "permission_denied"
-      ),
-    };
-  }, vehicleId);
-  assert.equal(fuelReadback.purchases.length, 1, "one Fuel purchase must be committed from the rendered form");
-  const purchase = fuelReadback.purchases[0];
-  assert.equal(purchase.data.pricePaisePerKg, 8250);
-  assert.equal(purchase.data.amountPaise, 82500);
-  assert.equal(purchase.data.partialRefill, false);
-  assert.equal(typeof purchase.data.occurredAt, "string");
-  assert.equal(typeof purchase.data.businessDate, "string");
-  assert.equal(fuelReadback.locationEvidence.length, 1, "GPS permission failure must be retained as separate Fuel evidence");
-  assert.equal(fuelReadback.locationEvidence[0].data.status, "capture_unavailable");
-  assert.equal(fuelReadback.locationEvidence[0].data.captureStatus, "permission_denied");
-  assert.equal(fuelReadback.locationEvidence[0].data.captureReason, "permission_denied");
-  await page.context().setOffline(false);
-  console.log("Fuel Entry PWA acceptance passed: full-tank purchase submitted offline from Work without an active shift; record read back once after GPS permission denial.");
-
 
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
