@@ -156,7 +156,13 @@ try {
 
   // First commit the default full-tank purchase through the rendered form.
   await panel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
-  await panel.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+  await page.waitForFunction(() => {
+    const panel = document.querySelector(".fuel-entry-panel");
+    const status = panel?.querySelector('[role="status"]');
+    return Boolean(status?.textContent?.trim());
+  }, undefined, { timeout: 30000 });
+  const firstSubmitStatus = (await panel.getByRole("status").textContent())?.trim() ?? "";
+  assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "one GPS request is made for the first Submit");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
