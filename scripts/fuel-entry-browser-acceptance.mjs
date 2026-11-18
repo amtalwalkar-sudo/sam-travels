@@ -49,6 +49,7 @@ try {
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext();
   const page = await context.newPage();
+  page.on("pageerror", error => console.error("BROWSER PAGE ERROR", error.stack ?? error.message));
   await page.addInitScript(() => {
     localStorage.setItem("__fuel_instrumentation_active","yes");const trace=(key,stack)=>{const a=JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]");a.push({key,stack});localStorage.setItem("__fuel_record_deletes",JSON.stringify(a));};
     const objectStore=IDBTransaction.prototype.objectStore;IDBTransaction.prototype.objectStore=function(name){const store=objectStore.call(this,name);if(name==="records"&&!store.__fuelTrace){store.__fuelTrace=true;const remove=store.delete.bind(store);store.delete=key=>{trace("delete "+String(key),new Error().stack);return remove(key);};const clear=store.clear.bind(store);store.clear=()=>{trace("clear records",new Error().stack);return clear();};}return store;};
