@@ -428,3 +428,11 @@ The shared form contract requires every implemented form to be discoverable and 
 - Android DriverTripFinancialPanelPresentationTest proves the native overlay Fare/Toll/Parking submit boundary; it does not prove the PWA DriverWorkflowPanel equivalent.
 
 **Required closure:** add a single authoritative discoverable form-definition inventory or equivalent conformance map spanning Admin, Performance, Fuel and Work. Add contract tests for every definition (unique ID/version/owner, declared fields, requiredness, exactly one Save/Submit, and field schema), negative fixtures for malformed definitions, and shared PWA form-control responsive/keyboard/focus/accessibility acceptance. Keep feature-specific validation in the owning application services; do not duplicate it in the registry. Add PWA Work trip-financial submission coverage as part of the rendered Work acceptance.
+
+### 9.25 — Event-specific GPS acquisition is not proven for every Work transition
+
+**Status:** Source-confirmed gap against LOCATION_AND_STATE_TIMING_CONTRACT.md.
+
+Existing GPS tests prove the generic 50m/30s validator and browser provider's fresh-fix, expiry and transient-error behaviour. DriverWorkflowService tests exercise a generic capture provider mainly through shift_start; v2 tests cover the operational-day/odometer paths; Android overlay acceptance exercises trip_create. The required six-event matrix is not demonstrated: shift_start, shift_end, trip_create, start_ride, end_ride and cancel_ride must each acquire their own fresh GPS fix, preserve event ID and transition/fix timestamps, and never reuse another event's fix.
+
+**Required closure:** Add a focused table-driven application/service test for the six event types and the missing native overlay event paths where the overlay exposes them. Include rapid successive events to prove ordering and per-event fix identity, plus a no-continuous-GPS assertion. Do not repeat generic GPS validator/provider tests or existing outbox/recovery suites.
