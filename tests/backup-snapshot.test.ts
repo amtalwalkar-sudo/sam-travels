@@ -481,4 +481,23 @@ describe("browser consistent backup snapshots and recovery checkpoints", () => {
     } finally { unregister(); }
   });
 
+
+  it("enforces the inclusive total record-count limit before restore mutation", async () => {
+    const { assertBackupRecordCount, MAX_BACKUP_RECORD_COUNT } = await import("../packages/core/src/persistence-contract");
+    expect(MAX_BACKUP_RECORD_COUNT).toBe(1_000_000);
+    expect(() => assertBackupRecordCount(MAX_BACKUP_RECORD_COUNT)).not.toThrow();
+    expect(() => assertBackupRecordCount(MAX_BACKUP_RECORD_COUNT + 1)).toThrow("backup_record_count_limit");
+    await expect(restoreBrowserSnapshot({
+      data: { records: [], driverState: [], driverIntents: [], driverEvents: [], driverOutbox: [] },
+      manifest: {
+        applicationVersion: "0.1.0", schemaVersion: 1,
+        createdAt: "2026-11-18T00:00:00.000Z", businessTimezone: "Asia/Kolkata",
+        snapshotRevision: 0,
+        recordCounts: { records: 1_000_001, driverState: 0, driverIntents: 0, driverEvents: 0, driverOutbox: 0 },
+      },
+      confirmed: true,
+    })).rejects.toThrow("backup_record_count_limit");
+    expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
+  });
+
 });
