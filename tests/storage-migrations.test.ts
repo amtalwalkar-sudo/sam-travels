@@ -1,9 +1,10 @@
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { browserDatabase, BROWSER_DATABASE_SCHEMA_VERSION, UnsupportedBrowserDatabaseVersionError } from "../packages/storage-browser/src/database";
+import { createBrowserDatabase, BROWSER_DATABASE_SCHEMA_VERSION, UnsupportedBrowserDatabaseVersionError } from "../packages/storage-browser/src/database";
 
-const DATABASE_NAME = "sam-travels-browser";
+const DATABASE_NAME = "sam-travels-browser-migration-tests";
+const migrationDatabase = createBrowserDatabase(DATABASE_NAME);
 const now = "2026-11-18T00:00:00.000Z";
 
 async function createVersionOneDatabase() {
@@ -87,26 +88,26 @@ async function createVersionFourDatabase() {
 
 describe("browser IndexedDB schema upgrades", () => {
   beforeEach(async () => {
-    browserDatabase.close();
-    await browserDatabase.delete();
+    migrationDatabase.close();
+    await migrationDatabase.delete();
   });
 
   afterEach(async () => {
-    browserDatabase.close();
-    await browserDatabase.delete();
+    migrationDatabase.close();
+    await migrationDatabase.delete();
   });
 
   it("upgrades a v1 records-only database to the current schema without losing records", async () => {
     await createVersionOneDatabase();
 
-    await browserDatabase.open();
+    await migrationDatabase.open();
 
-    expect(browserDatabase.verno).toBe(BROWSER_DATABASE_SCHEMA_VERSION);
-    expect(await browserDatabase.records.get("vehicle:legacy-v1")).toMatchObject({
+    expect(migrationDatabase.verno).toBe(BROWSER_DATABASE_SCHEMA_VERSION);
+    expect(await migrationDatabase.records.get("vehicle:legacy-v1")).toMatchObject({
       revision: 4,
       data: { registrationNumber: "MH00AA0001", label: "legacy-v1" },
     });
-    expect(browserDatabase.tables.map((table) => table.name)).toEqual(
+    expect(migrationDatabase.tables.map((table) => table.name)).toEqual(
       expect.arrayContaining([
         "records",
         "driverState",
@@ -120,9 +121,9 @@ describe("browser IndexedDB schema upgrades", () => {
       ]),
     );
 
-    browserDatabase.close();
-    await browserDatabase.open();
-    expect(await browserDatabase.records.get("vehicle:legacy-v1")).toMatchObject({
+    migrationDatabase.close();
+    await migrationDatabase.open();
+    expect(await migrationDatabase.records.get("vehicle:legacy-v1")).toMatchObject({
       revision: 4,
       data: { label: "legacy-v1" },
     });
@@ -131,39 +132,39 @@ describe("browser IndexedDB schema upgrades", () => {
   it("upgrades a v4 database and preserves workflow, checkpoint and vault rows", async () => {
     await createVersionFourDatabase();
 
-    await browserDatabase.open();
+    await migrationDatabase.open();
 
-    expect(browserDatabase.verno).toBe(BROWSER_DATABASE_SCHEMA_VERSION);
-    expect(await browserDatabase.records.get("finance:loan:legacy-v4")).toMatchObject({
+    expect(migrationDatabase.verno).toBe(BROWSER_DATABASE_SCHEMA_VERSION);
+    expect(await migrationDatabase.records.get("finance:loan:legacy-v4")).toMatchObject({
       revision: 7,
       data: { principalPaise: 25000000 },
     });
-    expect(await browserDatabase.driverState.get("driver-state")).toMatchObject({
+    expect(await migrationDatabase.driverState.get("driver-state")).toMatchObject({
       value: { revision: 12 },
     });
-    expect(await browserDatabase.driverIntents.get("intent-legacy-v4")).toMatchObject({
+    expect(await migrationDatabase.driverIntents.get("intent-legacy-v4")).toMatchObject({
       status: "pending",
     });
-    expect(await browserDatabase.driverEvents.get("event-legacy-v4")).toMatchObject({
+    expect(await migrationDatabase.driverEvents.get("event-legacy-v4")).toMatchObject({
       revision: 12,
     });
-    expect(await browserDatabase.driverOutbox.get("outbox-legacy-v4")).toMatchObject({
+    expect(await migrationDatabase.driverOutbox.get("outbox-legacy-v4")).toMatchObject({
       delivered: false,
       revision: 12,
     });
-    expect(await browserDatabase.backupCheckpoints.get("checkpoint-legacy-v4")).toMatchObject({
+    expect(await migrationDatabase.backupCheckpoints.get("checkpoint-legacy-v4")).toMatchObject({
       status: "checkpoint",
     });
-    expect(await browserDatabase.credentialVault.get("dropbox")).toMatchObject({
+    expect(await migrationDatabase.credentialVault.get("dropbox")).toMatchObject({
       ciphertext: "ciphertext",
     });
-    expect(await browserDatabase.credentialVaultMeta.get("credential-vault")).toMatchObject({
+    expect(await migrationDatabase.credentialVaultMeta.get("credential-vault")).toMatchObject({
       salt: "salt",
     });
 
-    browserDatabase.close();
-    await browserDatabase.open();
-    expect(await browserDatabase.driverOutbox.get("outbox-legacy-v4")).toMatchObject({
+    migrationDatabase.close();
+    await migrationDatabase.open();
+    expect(await migrationDatabase.driverOutbox.get("outbox-legacy-v4")).toMatchObject({
       delivered: false,
     });
   });
@@ -187,7 +188,7 @@ describe("browser IndexedDB schema upgrades", () => {
     await future.table("futureOnly").put({ id: "future-row" });
     future.close();
 
-    await expect(browserDatabase.open()).rejects.toBeInstanceOf(UnsupportedBrowserDatabaseVersionError);
+    await expect(migrationDatabase.open()).rejects.toBeInstanceOf(UnsupportedBrowserDatabaseVersionError);
 
     await future.open();
     expect(await future.table("records").get("future:record")).toMatchObject({
