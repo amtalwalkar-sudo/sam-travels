@@ -330,7 +330,7 @@ try {
     assert.equal(typeof purchase.data.occurredAt, "string");
     assert.equal(typeof purchase.data.businessDate, "string");
   }
-  assert.equal(evidence.length, 2, "each Fuel purchase must retain its separate GPS outcome");
+  assert.equal(evidence.length, 2, "each Fuel purchase must retain its separate GPS outcome; observed=" + JSON.stringify({ rowCount: readback.length, matchingIds: readback.filter(row => String(row.id).startsWith("timeline-enrichment:")).map(row => ({ id: row.id, eventId: row.data?.eventId, captureStatus: row.data?.captureStatus })), purchaseIds: purchases.map(row => row.id) }));
   const capturedEvidence = evidence.find(row => row.data.captureStatus === "captured");
   const deniedEvidence = evidence.find(row => row.data.captureStatus === "permission_denied");
   assert(capturedEvidence, "a successful GPS fix must be stored");
