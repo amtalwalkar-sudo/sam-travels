@@ -23,7 +23,9 @@ export class SamTravelsDatabase extends Dexie{
 
  async open():Promise<this>{
   await super.open();
-  const actualVersion=this.backendDB().version;
+  // Dexie stores its logical version(6) as native IndexedDB version 60.
+  // Compare like-for-like so the current database is not mistaken for v60.
+  const actualVersion=this.backendDB().version/10;
   if(actualVersion>BROWSER_DATABASE_SCHEMA_VERSION){
    this.close();
    throw new UnsupportedBrowserDatabaseVersionError(actualVersion);
