@@ -211,6 +211,21 @@ try {
   await page.locator(".fuel-entry-toggle").click();
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  // The panel heading renders before its asynchronous IndexedDB draft
+  // recovery finishes. Wait for the restored values rather than asserting
+  // against the initial blank form during that legitimate loading interval.
+  await page.waitForFunction(expected => {
+    const panel = document.querySelector(".fuel-entry-panel");
+    const fields = [...(panel?.querySelectorAll("select, input") ?? [])];
+    const vehicle = fields.find(field => field.tagName === "SELECT" && field.closest("label")?.textContent?.includes("Vehicle"));
+    const odometer = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Odometer"));
+    const price = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Price per kg"));
+    const amount = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Amount paid"));
+    const partial = fields.find(field => field.type === "checkbox");
+    return vehicle?.value === expected.vehicleId &&
+      odometer?.value === "12346" && price?.value === "82.5" &&
+      amount?.value === "825" && partial?.checked === true;
+  }, { vehicleId });
   assert.equal(await resumed.getByLabel("Vehicle").inputValue(), vehicleId);
   assert.equal(await resumed.getByLabel("Odometer (km)").inputValue(), "12346");
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
