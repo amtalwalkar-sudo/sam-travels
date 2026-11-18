@@ -534,3 +534,16 @@ On reopen, `SharedFormRuntime.open()` returns that same operationId and copy. `F
 - After a successful save, a subsequent edit/save gets a new operation identity; replaying the previous operation returns its prior receipt and does not apply a second mutation.
 - Update replay after the first revision commit returns the same resulting revision/receipt rather than a stale-revision error.
 - Run the same commit/restart/retry contract against browser IndexedDB and Android Room, using representative Admin and Fuel handlers. Existing Track A Driver Workflow idempotency tests and generic SharedFormRuntime active-Promise tests are not substitutes for this form-specific proof.
+
+
+### 9.34 — Save/Submit lifecycle contract conflicts with Admin form runtime
+
+**Status:** Source-confirmed owner decision required; do not resolve by silently changing labels or code.
+
+The approved `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` Sections 4–5 define **Save** as storing an editable draft only, without submitting/finalizing the business operation, and **Submit** as performing the intended business operation. The current implementation does something different:
+- `SharedFormRuntime.save()` calls the same `complete(copy, "save")` path as Submit; that path invokes `submissionPort.submit(...)` and only then writes the working copy status as `saved`.
+- `createAdminFormRuntimeV1` routes Admin `action: "save"` to handlers that create/update authoritative business records (Finance, Compliance, Maintenance, Platform Fee, Miscellaneous Expense, Traffic Challan and Performance settings).
+- `shared-form-runtime.test.ts` currently codifies Save calling the submission handler, so the tests reflect implementation, not the written owner contract.
+- Fuel uses `action: "submit"` and creates a Fuel purchase, which matches the written distinction.
+
+**Required closure:** the owner must ratify one of two coherent models: (A) preserve Save=draft-only and Submit=business operation, then change the affected form definitions, visible primary labels, runtime action routing and tests; or (B) explicitly amend the owner contract to permit Save-as-business-record for named forms, with the resulting lifecycle state and editing policy declared per form. Do not assume all Admin forms share one exception. Once ratified, add tests proving draft Save never creates a business record, Submit does, and each form's post-save/post-submit editing policy is enforced.
