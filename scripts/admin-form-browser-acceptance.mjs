@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
-const registration = "MH00AA0090";
+const registration = "MH01EM7360";
 function indiaDateOffsetDays(offset) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -62,21 +62,7 @@ try {
   console.log("Business Setup form saved and authoritative setting rendered.");
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
-  await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
-  await page.getByLabel("Registration number").fill(registration);
-  await page.getByLabel("Make").fill("Acceptance");
-  await page.getByLabel("Model").fill("Vehicle");
-  await page.getByLabel("Vehicle type").fill("Car");
-  await page.getByLabel("Fuel type").selectOption("CNG");
-  await page.getByLabel("Year of manufacture").fill("2024");
-  await page.getByRole("button", { name: "Create vehicle", exact: true }).click();
-  const vehiclePanel = page.locator("#admin-section-panel-vehicle");
-  try {
-    await page.getByText(registration, { exact: true }).waitFor({ state: "visible", timeout: 15000 });
-  } catch (error) {
-    console.log("Vehicle panel after create attempt:", await vehiclePanel.innerHTML());
-    throw new Error("vehicle_record_not_rendered_after_create:" + (error instanceof Error ? error.message : String(error)));
-  }
+  await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
   vehicleId = await page.evaluate(async registrationNumber => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -90,11 +76,19 @@ try {
       get.onerror = () => reject(get.error);
     });
     db.close();
-    const matches = rows.filter(row => row.data?.registrationNumber === registrationNumber && row.id.startsWith("feature:vehicle:"));
-    if (matches.length !== 1) throw new Error("canonical_vehicle_id_lookup_failed:" + matches.length);
-    return matches[0].id;
+    const matches = rows.filter(row => row.id.startsWith("feature:vehicle:"));
+    if (matches.length !== 1) throw new Error("initial_profile_vehicle_count_invalid:" + matches.length);
+    const vehicle = matches.find(row => row.data?.registrationNumber === registrationNumber);
+    if (!vehicle) throw new Error("initial_profile_vehicle_not_found:" + registrationNumber);
+    for (const [field, expected] of Object.entries({
+      make: "MARUTI SUZUKI", model: "WAGON R TOUR H3", fuelType: "CNG",
+      yearOfManufacture: 2024, ownership: "Financed",
+    })) {
+      if (vehicle.data[field] !== expected) throw new Error("initial_profile_vehicle_field_invalid:" + field);
+    }
+    return vehicle.id;
   }, registration);
-  console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
+  console.log("Initial Admin vehicle profile rendered and verified:", vehicleId);
 
 
   const driverName = "Admin Form Acceptance Driver";
