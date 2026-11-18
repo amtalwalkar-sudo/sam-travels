@@ -92,6 +92,21 @@ try {
   assert.equal(vehicles[0].createdBy?.role, "admin", "Admin actor attribution must be persisted on the Vehicle record");
   assert.equal(typeof vehicles[0].createdBy?.personId, "string");
   const vehicleId = vehicles[0].id;
+  const initialShiftState = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const row = await new Promise((resolve, reject) => {
+      const read = db.transaction("driverState", "readonly").objectStore("driverState").get("driver-state");
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return row?.value?.state ?? "idle";
+  });
+  assert.equal(initialShiftState, "idle", "the Fuel entry test starts with no active shift");
 
   // Fuel is available on Drive without starting a shift.
   await page.getByRole("button", { name: "Drive", exact: true }).click();
