@@ -107,6 +107,33 @@ export class BusinessExpensesService {
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
 
+  async recordFuelLocationEvidence(input: {
+    fuelPurchaseId: string;
+    evidence: NonNullable<FuelPurchaseV1["locationEvidence"]>;
+  }): Promise<RecordEnvelope<FuelPurchaseV1>> {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const current = await this.records.get(input.fuelPurchaseId);
+      if (!current || current.data.kind !== "fuel_purchase") throw new Error("fuel_location_purchase_not_found");
+      if (current.data.locationEvidence) {
+        if (JSON.stringify(current.data.locationEvidence) !== JSON.stringify(input.evidence)) {
+          throw new Error("fuel_location_evidence_already_recorded");
+        }
+        return current as RecordEnvelope<FuelPurchaseV1>;
+      }
+      try {
+        return await this.records.update({
+          id: current.id,
+          expectedRevision: current.revision,
+          data: { ...current.data, locationEvidence: input.evidence },
+        }) as RecordEnvelope<FuelPurchaseV1>;
+      } catch (error) {
+        if (attempt === 2 || !(error instanceof Error) ||
+            !error.message.includes("stale_revision")) throw error;
+      }
+    }
+    throw new Error("fuel_location_evidence_commit_failed");
+  }
+
   async createExpenseEntry(input: {
     uuid: string; data: BusinessExpenseEntryInputV1; source: FeatureRecordSource;
   }): Promise<RecordEnvelope<BusinessExpenseEntryV1>> {
