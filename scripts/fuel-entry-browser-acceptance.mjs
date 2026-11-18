@@ -323,7 +323,8 @@ try {
     const row = await new Promise((resolve, reject) => { const read = db.transaction("records", "readonly").objectStore("records").get(id); read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error); });
     db.close(); return row ? { id: row.id, data: row.data } : null;
   }, firstFuelEvidenceId);
-  const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));\n  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace }));
+  const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace }));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
