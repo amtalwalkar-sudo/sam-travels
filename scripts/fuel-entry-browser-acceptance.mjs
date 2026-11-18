@@ -55,7 +55,7 @@ try {
     const remove=IDBObjectStore.prototype.delete;IDBObjectStore.prototype.delete=function(key){if(this.name==="records"&&String(key).startsWith("timeline-enrichment:"))trace("delete "+key,new Error().stack);return remove.call(this,key);};
     const clear=IDBObjectStore.prototype.clear;IDBObjectStore.prototype.clear=function(){if(this.name==="records")trace("clear records",new Error().stack);return clear.call(this);};
     const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,k){const id=v?.id??k;if(this.name==="records"&&String(id).startsWith("timeline-enrichment:"))trace("put "+id+" "+JSON.stringify(v?.data),new Error().stack);return put.call(this,v,k);};
-    const cursorDelete=IDBCursor.prototype.delete;IDBCursor.prototype.delete=function(){if(this.source?.name==="records")trace("cursor.delete "+this.primaryKey,new Error().stack);return cursorDelete.call(this);};const drop=IDBFactory.prototype.deleteDatabase;IDBFactory.prototype.deleteDatabase=function(name){trace("deleteDatabase "+name,new Error().stack);return drop.call(this,name);};
+    const cursorDelete=IDBCursor.prototype.delete;IDBCursor.prototype.delete=function(){if(this.source?.name==="records")trace("cursor.delete "+this.primaryKey,new Error().stack);return cursorDelete.call(this);};const dropStore=IDBDatabase.prototype.deleteObjectStore;IDBDatabase.prototype.deleteObjectStore=function(name){trace("deleteObjectStore "+this.name+"."+name,new Error().stack);return dropStore.call(this,name);};const drop=IDBFactory.prototype.deleteDatabase;IDBFactory.prototype.deleteDatabase=function(name){trace("deleteDatabase "+name,new Error().stack);return drop.call(this,name);};
     Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 1000); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } } });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -314,8 +314,9 @@ try {
   }, firstFuelEvidenceId);
   const deletionTrace = await page.evaluate(() => JSON.parse(localStorage.getItem("__fuel_record_deletes") || "[]"));
   const timelineRowsAtFailure = (await readBrowserRecords(page)).filter(row => row.id.startsWith("timeline-enrichment:")).map(row => ({ id: row.id, data: row.data }));
+  const databaseShapeAtFailure = await page.evaluate(async () => { const request=indexedDB.open("sam-travels-browser"); const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);}); const shape={version:db.version,stores:[...db.objectStoreNames]}; db.close(); return shape; });
   const instrumentationActive = await page.evaluate(() => localStorage.getItem("__fuel_instrumentation_active"));
-  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, timelineRowsAtFailure, instrumentationActive }));
+  assert.equal(firstEvidenceBeforeSecondSubmit?.data?.captureStatus, "captured", "first GPS evidence must survive Driver re-authentication and draft restoration; observed=" + JSON.stringify({ evidence:firstEvidenceBeforeSecondSubmit, deletionTrace, timelineRowsAtFailure, databaseShapeAtFailure, instrumentationActive }));
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
