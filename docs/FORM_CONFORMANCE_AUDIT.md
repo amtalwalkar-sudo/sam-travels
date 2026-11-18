@@ -97,3 +97,8 @@ A paired-client Room integration test now opens two independent Room clients aga
 ## Completion rule
 
 Do not mark the shared-form gap closed until every in-scope implemented form has a versioned definition and uses the shared runtime, Work/Trip forms work on both surfaces, and the required automated conformance tests pass. A passing build or the presence of the runtime/port alone is insufficient.
+
+
+## Current scope note — 2026-11-18
+
+This audit's form inventory predates the dedicated Fuel Entry UI. Its Admin and Work/Trip form findings remain evidence only for the forms and assertions it names; it does not establish Fuel Entry form-definition, draft rehydration, submission-handler, offline, GPS-enrichment or IndexedDB/Room persistence coverage. The current Fuel form and owner contract are tracked in FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md. PR #99's B0 source/test audit (Implementation Evidence Matrix Section 0D) is the current place to establish Fuel coverage and identify missing tests. Do not infer Fuel conformance from the generic SharedFormRuntime or from Business Expense service tests.
