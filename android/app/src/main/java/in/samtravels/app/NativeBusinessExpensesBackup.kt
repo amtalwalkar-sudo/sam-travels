@@ -222,7 +222,7 @@ internal object NativeBusinessExpensesBackup {
         NativeBusinessExpenseCorrectionBackup.validate(rows, allRows)
     }
 
-    private fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
+    internal fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
         id = PARTICIPANT_ID,
         featureId = FEATURE_ID,
         snapshotVersion = 1,
