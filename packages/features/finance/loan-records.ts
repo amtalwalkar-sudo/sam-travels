@@ -95,7 +95,7 @@ function assertDetails(value: unknown): asserts value is LoanDetailsV1 {
       !validDate(d.loanStartDate) || !validDate(d.firstEmiDate)) {
     throw new Error("finance_loan_details_invalid");
   }
-  if (d.firstEmiDate < d.loanStartDate || !d.firstEmiDate.endsWith("-01")) {
+  if (d.firstEmiDate < d.loanStartDate) {
     throw new Error("finance_loan_dates_invalid");
   }
 }
