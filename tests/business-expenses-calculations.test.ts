@@ -45,6 +45,20 @@ describe("Business expense source contracts", () => {
         capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
       },
     })).toThrow("fuel_purchase_invalid");
+    expect(() => assertFuelPurchaseV1({
+      ...purchase,
+      locationEvidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
+        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device", captureTiming: "late",
+      },
+    })).not.toThrow();
+    expect(() => assertFuelPurchaseV1({
+      ...purchase,
+      locationEvidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
+        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device", captureTiming: "background",
+      },
+    })).toThrow("fuel_purchase_invalid");
   });
 
   it("derives fuel quantity to the nearest gram without changing source money", () => {
