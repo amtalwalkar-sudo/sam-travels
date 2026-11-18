@@ -21,16 +21,17 @@ export class SamTravelsDatabase extends Dexie{
  diagnostics!:Table<DiagnosticRow,string>;
  constructor(name="sam-travels-browser"){super(name);this.version(1).stores({records:"id,updatedAt,schemaVersion,deletedAt"});this.version(2).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt"});this.version(3).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status"});this.version(4).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id"});this.version(BROWSER_DATABASE_SCHEMA_VERSION).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id",diagnostics:"&id,timestamp"})}
 
- async open():Promise<this>{
-  await super.open();
-  // Dexie stores its logical version(6) as native IndexedDB version 60.
-  // Compare like-for-like so the current database is not mistaken for v60.
-  const actualVersion=this.backendDB().version/10;
-  if(actualVersion>BROWSER_DATABASE_SCHEMA_VERSION){
-   this.close();
-   throw new UnsupportedBrowserDatabaseVersionError(actualVersion);
-  }
-  return this;
+ open():ReturnType<Dexie["open"]>{
+  return super.open().then(()=>{
+   // Dexie stores its logical version(6) as native IndexedDB version 60.
+   // Compare like-for-like so the current database is not mistaken for v60.
+   const actualVersion=this.backendDB().version/10;
+   if(actualVersion>BROWSER_DATABASE_SCHEMA_VERSION){
+    this.close();
+    throw new UnsupportedBrowserDatabaseVersionError(actualVersion);
+   }
+   return this;
+  }) as ReturnType<Dexie["open"]>;
  }
 }
 export class UnsupportedBrowserDatabaseVersionError extends Error{
