@@ -113,6 +113,43 @@ class NativeBackupRestoreCoordinatorTest {
         }
     }
 
+
+    @Test fun injectedPostReplacementFailureUsesProductionRollbackAndPreservesBaseline() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val vehicle = NativeVehicleBackup.register()
+        val drivers = NativeDriverRecordsBackup.register()
+        val at = "2026-11-18T08:00:00.000Z"
+        try {
+            db.records().put(envelope("fixture-source", JSONObject().put("value", "backup"), at))
+            val source = snapshot(db)
+            db.records().put(envelope("fixture-source", JSONObject().put("value", "current"), at, 2))
+            db.records().put(envelope("baseline-only", JSONObject().put("value", "must-survive"), at, 3))
+            val baseline = snapshot(db)
+
+            val failure = assertThrows(IllegalStateException::class.java) {
+                NativeBackupRestoreCoordinator.restore(
+                    db, source.snapshot, source.manifest, { snapshot(db) },
+                ) { throw IllegalStateException("injected_after_replacement_before_readback") }
+            }
+            assertEquals("injected_after_replacement_before_readback", failure.message)
+            val recovered = snapshot(db)
+            assertEquals(
+                canonical(baseline.snapshot.getJSONArray("records")),
+                canonical(recovered.snapshot.getJSONArray("records")),
+            )
+            val journals = db.records().list()
+                .filter { it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX) }
+            assertEquals(1, journals.size)
+            assertEquals("rollback_complete", JSONObject(journals.single().json).getString("status"))
+        } finally {
+            drivers.close()
+            vehicle.close()
+            db.close()
+        }
+    }
+
     private fun canonical(records: org.json.JSONArray): List<String> =
         (0 until records.length()).map { index ->
             val row = records.getJSONObject(index)
