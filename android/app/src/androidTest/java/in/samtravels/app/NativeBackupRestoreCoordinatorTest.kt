@@ -114,6 +114,62 @@ class NativeBackupRestoreCoordinatorTest {
     }
 
 
+
+    @Test fun rejectsDanglingVehicleReferencesAcrossComplianceMaintenanceAndBusinessExpenses() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        val vehicle = NativeVehicleBackup.register()
+        val compliance = NativeComplianceBackup.register()
+        val maintenance = NativeMaintenanceBackup.register()
+        val expenses = NativeBusinessExpensesBackup.register()
+        val at = "2026-11-17T08:00:00.000Z"
+        val missingVehicleId = "feature:vehicle:MISSING"
+        fun row(id: String, participant: String, data: JSONObject) = JSONObject()
+            .put("id", id)
+            .put("json", JSONObject().put("id", id).put("schemaVersion", 1)
+                .put("createdAt", at).put("updatedAt", at).put("source", "android")
+                .put("revision", 1).put("data", data).toString())
+            .put("schemaVersion", 1).put("updatedAt", at).put("participantId", participant)
+        try {
+            val complianceId = "feature:compliance:123e4567-e89b-42d3-a456-426614174099"
+            val complianceRow = row(complianceId, "compliance-records", JSONObject()
+                .put("schemaVersion", 1).put("vehicleId", missingVehicleId)
+                .put("complianceName", "Insurance").put("validFrom", "2026-01-01")
+                .put("validTo", "2026-12-31").put("totalCostPaise", 1000))
+            assertEquals("compliance_vehicle_not_found", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(org.json.JSONArray().put(complianceRow), true)
+            }.exceptionOrNull()?.message)
+
+            val maintenanceId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174098"
+            val maintenanceRow = row(maintenanceId, "maintenance-records", JSONObject()
+                .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", missingVehicleId)
+                .put("expenseDate", "2026-11-01").put("expenseName", "Towing")
+                .put("description", "Roadside assistance").put("amountPaise", 1000))
+            assertEquals("maintenance_vehicle_not_found", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(org.json.JSONArray().put(maintenanceRow), true)
+            }.exceptionOrNull()?.message)
+
+            val expenseId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174097"
+            val expenseRow = row(expenseId, "business-expenses-records", JSONObject()
+                .put("schemaVersion", 1).put("kind", "business_expense").put("id", expenseId)
+                .put("revision", 1).put("sourceKind", "traffic_challan")
+                .put("businessDate", "2026-11-01").put("amountPaise", 1000)
+                .put("currencyCode", "INR").put("effect", "charge")
+                .put("vehicleId", missingVehicleId).put("description", "Traffic challan")
+                .put("paymentStatus", "unpaid"))
+            assertEquals("business_expense_vehicle_not_found", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(org.json.JSONArray().put(expenseRow), true)
+            }.exceptionOrNull()?.message)
+        } finally {
+            expenses.close()
+            maintenance.close()
+            compliance.close()
+            vehicle.close()
+            db.close()
+        }
+    }
+
     @Test fun injectedPostReplacementFailureUsesProductionRollbackAndPreservesBaseline() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
