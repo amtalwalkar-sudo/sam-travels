@@ -556,3 +556,14 @@ The approved `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` Sections 4–5 define
 The `npm install` step in CI reported **3 vulnerabilities: 1 moderate and 2 critical**. The install summary did not include package names, dependency paths, fixed versions, or production-versus-development reachability. This is not enough evidence to claim the app has three exploitable runtime vulnerabilities, but it is also not acceptable to ignore the finding for a reliability/security foundation.
 
 **Required closure:** capture `npm audit --json` (or the repository's equivalent supported advisory report), identify direct/transitive package paths and whether each is bundled into production or only used in development/test tooling, remediate critical production dependencies, and record a time-bounded owner-approved exception for any unavoidable dev-only advisory. Add a repeatable CI check/report so newly introduced critical advisories are visible and cannot be silently treated as a green security posture.
+
+### 9.36 — Current PR CI failure: Admin acceptance script size and incorrect navigation selector
+
+**Status:** Confirmed from PR #99 CI run `44359614885` (merge commit `b15749ba40dd94241791c2ad327edcc948aafcc7`); not yet fixed.
+
+- Architecture job failed because `scripts/admin-form-browser-acceptance.mjs` is 428 lines / 28,684 bytes, exceeding the enforced 400-line / 24,576-byte limit. The Fuel UI acceptance block was added to this already-large Admin acceptance script. Split Fuel acceptance into its own focused script rather than weakening the architecture gate.
+- Web job failed in `scripts/admin-form-browser-acceptance.mjs:107`: it waits for a button named `Work`, but `ApplicationShell.tsx` defines the primary navigation label as `Drive` (screen identity `Drive`). The test should navigate using the actual accessible label `Drive`; do not rename the app navigation merely to satisfy the test.
+- The Admin acceptance passed identity enrollment/activation, Business Setup and Vehicle creation before the selector timeout. The Fuel submit portion did not execute, and the separate Fuel script did not run because the workflow stops at the failed Admin script.
+- Android was skipped by the integrated gate because architecture and web failed. Do not infer an Android regression or pass.
+
+**Required closure:** extract the Fuel entry path into a separate rendered PWA acceptance script, keep the real vehicle prerequisite created through the Admin UI, correct the navigation selector to `Drive`, and add the focused script to CI. Run the new script and the full required CI; only then update the entry-path evidence status.
