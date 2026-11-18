@@ -255,13 +255,15 @@ PR #99 is complete only when all gates pass:
 1. This contract and implementation plan are committed and internally consistent with the owner contracts.
 2. B0 inventories every currently supported entry path and classifies it as already proven, partially proven, not proven or not applicable.
 3. Every critical entry path has evidence through the real form/action-to-production-command/validator-to-authoritative-commit boundary, or an explicit manual/device acceptance gate.
-4. Cross-cutting architecture tests (schema migration, data integrity, offline/retry, concurrency, time boundaries, backup package security/compatibility, restore rollback, and platform lifecycle) are mapped to existing tests or named gaps without duplication.
-5. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above.
-6. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
-7. Room fixture loader uses production validators/participants and exercises the production Room backup/restore lifecycle.
-10. Both runtimes complete export → restore → reopen → startup recovery → re-export.
-11. Normalized semantic comparison passes across the two runtimes.
-12. Calculations are recomputed before and after restore with identical values and provenance.
+4. Cross-cutting architecture tests (schema migration, data integrity, offline/retry, concurrency, time boundaries, backup package security/compatibility, restore rollback, privacy and platform lifecycle) are mapped to existing tests or named gaps without duplication.
+5. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above, including zero-record participants.
+6. Matching valid/invalid feature records and whole snapshots produce equivalent browser/Android validator outcomes and stable error categories.
+7. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
+8. Room fixture loader uses production validators/participants and exercises the production Room backup/restore lifecycle.
+9. Both runtimes complete export → restore → reopen → startup recovery → re-export.
+10. Normalized semantic comparison passes across the two runtimes.
+11. Calculations are recomputed before and after restore with identical values and provenance.
+12. Backup portability policy is explicit: either populated encrypted cross-platform restore is proven in both directions, or platform-bound packages are rejected before mutation in both directions. Backup exclusions are consistent across runtimes.
 13. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
 14. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
 15. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
