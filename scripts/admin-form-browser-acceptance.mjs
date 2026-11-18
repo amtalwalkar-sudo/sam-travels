@@ -143,6 +143,12 @@ try {
   await page.getByRole("button", { name: "Work", exact: true }).click();
   await page.locator(".fuel-entry-toggle").click();
   const resumedFuel = page.locator(".fuel-entry-panel");
+  await resumedFuel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  await page.waitForFunction(expectedVehicleId => {
+    const panel = document.querySelector(".fuel-entry-panel");
+    return panel?.querySelector("select")?.value === expectedVehicleId &&
+      panel?.querySelector('input[type="number"]')?.value === "12345";
+  }, vehicleId);
   assert.equal(await resumedFuel.getByLabel("Vehicle").inputValue(), vehicleId);
   assert.equal(await resumedFuel.getByLabel("Odometer (km)").inputValue(), "12345");
   assert.equal(await resumedFuel.getByLabel("Price per kg (₹)").inputValue(), "82.5");
@@ -164,18 +170,30 @@ try {
       read.onerror = () => reject(read.error);
     });
     db.close();
-    return rows.filter(row =>
-      row.id.startsWith("feature:business-expenses:fuel:") &&
-      row.data?.vehicleId === vehicleRecordId &&
-      row.data?.odometerKm === 12345
-    );
+    return {
+      purchases: rows.filter(row =>
+        row.id.startsWith("feature:business-expenses:fuel:") &&
+        row.data?.vehicleId === vehicleRecordId &&
+        row.data?.odometerKm === 12345
+      ),
+      locationEvidence: rows.filter(row =>
+        row.id.startsWith("timeline-enrichment:fuel:") &&
+        row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
+        row.data?.eventType === "fuel_purchase"
+      ),
+    };
   }, vehicleId);
-  assert.equal(fuelReadback.length, 1, "one Fuel purchase must be committed from the rendered form");
-  assert.equal(fuelReadback[0].data.pricePaisePerKg, 8250);
-  assert.equal(fuelReadback[0].data.amountPaise, 82500);
-  assert.equal(fuelReadback[0].data.partialRefill, false);
-  assert.equal(typeof fuelReadback[0].data.occurredAt, "string");
-  assert.equal(typeof fuelReadback[0].data.businessDate, "string");
+  assert.equal(fuelReadback.purchases.length, 1, "one Fuel purchase must be committed from the rendered form");
+  const purchase = fuelReadback.purchases[0];
+  assert.equal(purchase.data.pricePaisePerKg, 8250);
+  assert.equal(purchase.data.amountPaise, 82500);
+  assert.equal(purchase.data.partialRefill, false);
+  assert.equal(typeof purchase.data.occurredAt, "string");
+  assert.equal(typeof purchase.data.businessDate, "string");
+  assert.equal(fuelReadback.locationEvidence.length, 1, "GPS permission failure must be retained as separate Fuel evidence");
+  assert.equal(fuelReadback.locationEvidence[0].data.status, "capture_unavailable");
+  assert.equal(fuelReadback.locationEvidence[0].data.captureStatus, "permission_denied");
+  assert.equal(fuelReadback.locationEvidence[0].data.captureReason, "permission_denied");
   await page.context().setOffline(false);
   console.log("Fuel Entry PWA acceptance passed: full-tank purchase submitted offline from Work without an active shift; record read back once after GPS permission denial.");
 
