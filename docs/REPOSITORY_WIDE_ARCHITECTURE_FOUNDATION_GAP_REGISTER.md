@@ -478,3 +478,16 @@ FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md explicitly labels v1 allocation policy
 BUSINESS_EVENT_RELIABILITY_AUDIT.md section 4.11 and section 5 state that no Fuel feature/service/schema exists and Fuel is out of scope. That statement was accurate at its 2026-11-11 baseline but is superseded by the current FuelEntryPanel, FUEL_ENTRY_FORM_V1, Fuel purchase service/schema, Fuel enrichment queue and FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md. It must not be used as the current feature inventory.
 
 **Required closure:** add a dated supersession note to the historical audit pointing to the current Fuel contract and PR #99 B0 evidence matrix; retain the old baseline as history, but update the current reliability conclusion and test inventory to include Fuel capture and enrichment.
+
+### 9.31 — Generic Room/Dexie deletion capability is not namespace-scoped
+
+**Status:** Source-confirmed capability gap; no current feature service deletion call was found in the scanned application/feature code, but the underlying plugin/upgrade boundary remains unrestricted.
+
+Source scan of all 55 packages/application/src files and all 72 apps/web/src plus 76 packages/features production TypeScript/TSX files found direct RecordRepository.remove usage only for form working-copy cleanup and initial Admin bootstrap rollback. PersonIdentityAdapters uses the same generic remove for the newly created initial Admin person if PIN setup fails. No feature service exposes a delete operation; FeatureRecordService itself has no delete method. However:
+- RecordRepository still exposes generic remove(id).
+- RoomRecordRepository forwards it to the public RoomStorePlugin.remove method, which accepts any nonblank record ID and deletes it from Room.
+- DexieRecordRepository exposes equivalent unrestricted remove.
+- FeatureExtensionUpgradeTransaction passes a generic RecordRepository to migration handlers; RoomFeatureExtensionUpgradeTransaction stages arbitrary remove IDs and sends them to commitFeatureUpgradeBatch, whose native transaction validates revisions but does not validate feature ownership/namespace of delete IDs.
+- No current production migration handler was found deleting business records, but the migration capability would permit it.
+
+**Required closure:** replace generic deletion with capability-scoped operations (e.g. remove a form working copy by form/instance identity; rollback a newly bootstrapped identity by exact expected revision; delete only records in an explicitly declared feature migration namespace). Enforce ownership in both Dexie and Room, not only in UI/application callers. Add tests proving Finance, Compliance, Maintenance, Work/Driver Workflow, Log Book, historical correction and backup checkpoint records cannot be deleted by an unrelated feature migration or generic plugin call. Preserve atomic rollback and migration semantics.
