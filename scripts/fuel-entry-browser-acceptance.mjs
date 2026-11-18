@@ -214,18 +214,50 @@ try {
   // The panel heading renders before its asynchronous IndexedDB draft
   // recovery finishes. Wait for the restored values rather than asserting
   // against the initial blank form during that legitimate loading interval.
-  await page.waitForFunction(expected => {
-    const panel = document.querySelector(".fuel-entry-panel");
-    const fields = [...(panel?.querySelectorAll("select, input") ?? [])];
-    const vehicle = fields.find(field => field.tagName === "SELECT" && field.closest("label")?.textContent?.includes("Vehicle"));
-    const odometer = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Odometer"));
-    const price = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Price per kg"));
-    const amount = fields.find(field => field.type === "number" && field.closest("label")?.textContent?.includes("Amount paid"));
-    const partial = fields.find(field => field.type === "checkbox");
-    return vehicle?.value === expected.vehicleId &&
-      odometer?.value === "12346" && price?.value === "82.5" &&
-      amount?.value === "825" && partial?.checked === true;
-  }, { vehicleId });
+  try {
+    await page.waitForFunction(expected => {
+      const panel = document.querySelector(".fuel-entry-panel");
+      const labels = [...(panel?.querySelectorAll("label") ?? [])];
+      const control = name => labels.find(label => label.textContent?.trim().startsWith(name))?.querySelector("input, select");
+      const vehicle = control("Vehicle");
+      const odometer = control("Odometer (km)");
+      const price = control("Price per kg");
+      const amount = control("Amount paid");
+      const partial = control("Partial refill");
+      return vehicle?.value === expected.vehicleId &&
+        odometer?.value === "12346" && price?.value === "82.5" &&
+        amount?.value === "825" && partial?.checked === true;
+    }, { vehicleId }, { timeout: 15000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(async () => {
+      const panel = document.querySelector(".fuel-entry-panel");
+      const labels = [...(panel?.querySelectorAll("label") ?? [])].map(label => ({
+        text: label.textContent?.trim(),
+        control: label.querySelector("input, select")?.outerHTML,
+        value: label.querySelector("input, select")?.value,
+        checked: label.querySelector("input")?.checked,
+      }));
+      const request = indexedDB.open("sam-travels-browser");
+      const db = await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const rows = await new Promise((resolve, reject) => {
+        const read = db.transaction("records", "readonly").objectStore("records").getAll();
+        read.onsuccess = () => resolve(read.result);
+        read.onerror = () => reject(read.error);
+      });
+      db.close();
+      return {
+        labels,
+        fuelDrafts: rows.filter(row => row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:")).map(row => ({
+          id: row.id, status: row.data?.status, revision: row.data?.revision,
+          updatedAt: row.data?.updatedAt, values: row.data?.values,
+        })),
+      };
+    });
+    throw new Error("Fuel draft did not visibly recover: " + JSON.stringify(diagnostic) + "; " + error.message);
+  }
   assert.equal(await resumed.getByLabel("Vehicle").inputValue(), vehicleId);
   assert.equal(await resumed.getByLabel("Odometer (km)").inputValue(), "12346");
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
