@@ -103,9 +103,27 @@ try {
   await panel.getByLabel("Odometer (km)").fill("12345");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
-  await panel.getByLabel("Partial refill").check();
   assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
 
+  // First commit the default full-tank purchase through the rendered form.
+  await panel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
+  await panel.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+  let committedRows = await readBrowserRecords(page);
+  let purchases = committedRows.filter(row =>
+    row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
+  );
+  assert.equal(purchases.length, 1, "the default full-tank purchase must commit once");
+  assert.equal(purchases[0].data.odometerKm, 12345);
+  assert.equal(purchases[0].data.partialRefill, false);
+  await context.setOffline(false);
+
+  // The successful submit starts a new draft. Exercise partial refill,
+  // durable draft recovery after reload, then submit that second purchase offline.
+  await panel.getByLabel("Vehicle").selectOption(vehicleId);
+  await panel.getByLabel("Odometer (km)").fill("12346");
+  await panel.getByLabel("Price per kg (₹)").fill("82.50");
+  await panel.getByLabel("Amount paid (₹)").fill("825");
+  await panel.getByLabel("Partial refill").check();
   await page.waitForFunction(async expectedVehicleId => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -121,7 +139,7 @@ try {
     return rows.some(row =>
       row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
       row.data?.values?.vehicleId === expectedVehicleId &&
-      row.data?.values?.odometerKm === 12345 &&
+      row.data?.values?.odometerKm === 12346 &&
       row.data?.values?.priceRupeesPerKg === 82.5 &&
       row.data?.values?.amountRupees === 825 &&
       row.data?.values?.partialRefill === true
@@ -136,7 +154,7 @@ try {
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
   assert.equal(await resumed.getByLabel("Vehicle").inputValue(), vehicleId);
-  assert.equal(await resumed.getByLabel("Odometer (km)").inputValue(), "12345");
+  assert.equal(await resumed.getByLabel("Odometer (km)").inputValue(), "12346");
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
@@ -144,14 +162,11 @@ try {
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await resumed.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
-
-  const committedRows = await readBrowserRecords(page);
-  const purchases = committedRows.filter(row =>
-    row.id.startsWith("feature:business-expenses:fuel:") &&
-    row.data?.vehicleId === vehicleId &&
-    row.data?.odometerKm === 12345
+  const committedBeforeEnrichment = await readBrowserRecords(page);
+  purchases = committedBeforeEnrichment.filter(row =>
+    row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   );
-  assert.equal(purchases.length, 1, "exactly one Fuel purchase must be committed before optional GPS enrichment completes");
+  assert.equal(purchases.length, 2, "both full and partial purchases must commit before optional GPS enrichment completes");
   await page.waitForFunction(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -164,26 +179,34 @@ try {
       read.onerror = () => reject(read.error);
     });
     db.close();
-    return rows.some(row =>
+    return rows.filter(row =>
       row.id.startsWith("timeline-enrichment:fuel:") &&
       row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
       row.data?.captureStatus === "permission_denied"
-    );
+    ).length === 2;
   }, { timeout: 10000 });
   const readback = await readBrowserRecords(page);
+  purchases = readback.filter(row =>
+    row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
+  ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
   const evidence = readback.filter(row =>
     row.id.startsWith("timeline-enrichment:fuel:") &&
     row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
     row.data?.captureStatus === "permission_denied"
   );
-  assert.equal(purchases[0].data.pricePaisePerKg, 8250);
-  assert.equal(purchases[0].data.amountPaise, 82500);
-  assert.equal(purchases[0].data.partialRefill, true);
-  assert.equal(typeof purchases[0].data.occurredAt, "string");
-  assert.equal(typeof purchases[0].data.businessDate, "string");
-  assert.equal(evidence.length, 1, "GPS denial must be retained as separate evidence");
-  assert.equal(evidence[0].data.captureStatus, "permission_denied");
-  assert.equal(evidence[0].data.captureReason, "permission_denied");
+  assert.equal(purchases.length, 2);
+  assert.equal(purchases[0].data.odometerKm, 12345);
+  assert.equal(purchases[0].data.partialRefill, false);
+  assert.equal(purchases[1].data.odometerKm, 12346);
+  assert.equal(purchases[1].data.partialRefill, true);
+  for (const purchase of purchases) {
+    assert.equal(purchase.data.pricePaisePerKg, 8250);
+    assert.equal(purchase.data.amountPaise, 82500);
+    assert.equal(typeof purchase.data.occurredAt, "string");
+    assert.equal(typeof purchase.data.businessDate, "string");
+  }
+  assert.equal(evidence.length, 2, "GPS denial must be retained separately for both purchases");
+  assert(evidence.every(row => row.data.captureStatus === "permission_denied" && row.data.captureReason === "permission_denied"));
   await context.setOffline(false);
 
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, offline purchase committed once, derived quantity preview and GPS denial evidence verified.");
