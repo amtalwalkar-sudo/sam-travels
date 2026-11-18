@@ -16,7 +16,6 @@ async function waitForServer() {
       const response = await fetch(baseUrl);
       if (response.ok) return;
     } catch {
-      // Vite is still starting.
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -60,9 +59,6 @@ try {
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
-
-  // Create the active Admin identity and Vehicle through the real PWA entry
-  // paths so the Fuel journey exercises its actual dependency mapping.
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Fuel Entry Browser Admin");
@@ -99,9 +95,6 @@ try {
   assert.equal(vehicles[0].createdBy?.role, "admin", "Admin actor attribution must be persisted on the Vehicle record");
   assert.equal(typeof vehicles[0].createdBy?.personId, "string");
   const vehicleId = vehicles[0].id;
-
-  // Create a real Driver profile, then link its person identity before
-  // activating Driver authority for the Fuel submission.
   const driverName = "Fuel Entry Browser Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
@@ -116,9 +109,6 @@ try {
   await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
   await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-
-  // Switch from the Admin setup actor to a real Driver identity before Fuel
-  // capture, so the purchase envelope records the driver who submits it.
   await page.getByLabel("Person name").fill(driverName);
   await page.getByLabel("Driver role").check();
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
@@ -145,8 +135,6 @@ try {
     return row?.value?.state ?? "idle";
   });
   assert.equal(initialShiftState, "idle", "the Fuel entry test starts with no active shift");
-
-  // Fuel is available on Drive without starting a shift.
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   const toggle = page.locator(".fuel-entry-toggle");
   await toggle.waitFor({ state: "visible" });
@@ -160,8 +148,6 @@ try {
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
   assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
-
-  // First commit the default full-tank purchase through the rendered form.
   await panel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await page.waitForFunction(() => {
     const panel = document.querySelector(".fuel-entry-panel");
