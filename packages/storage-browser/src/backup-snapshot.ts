@@ -1,5 +1,5 @@
 import { assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../../domain/src/driver-workflow";
-import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
+import { assertBackupRecordCount, assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
@@ -275,6 +275,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
 }> {
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
+  assertBackupRecordCount(Object.values(data).reduce((total, rows) => total + rows.length, 0));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
   validateCustomFeatureBackupRecords(data.records);
