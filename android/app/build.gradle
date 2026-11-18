@@ -56,10 +56,13 @@ android {
             assets.srcDirs += [new File(rootProject.projectDir, '../contracts')]
         }
         androidTest {
-            // Shared cross-platform fixtures are staged into the standard Android
-            // instrumentation assets directory by CI. Keep the repository-wide
-            // fixtures directory out of this source set to avoid duplicate assets.
-            assets.srcDirs += [new File(projectDir, 'schemas')]
+            // Explicitly include staged repository fixtures and Room schemas.
+            // Assigning the complete source set avoids AGP configurations where
+            // the implicit src/androidTest/assets directory is not retained.
+            assets.srcDirs = [
+                new File(projectDir, 'src/androidTest/assets'),
+                new File(projectDir, 'schemas')
+            ]
         }
     }
 }
