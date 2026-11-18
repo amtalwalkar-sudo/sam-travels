@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "sam-travels-cross-platform-semantic-restore-v1",
+  "capturedAt": "2026-11-18T00:00:00.000Z",
+  "purpose": "Shared canonical identity and lineage expectations consumed by browser and Android restore lifecycle tests.",
+  "lifecycle": [
+    "export",
+    "restore",
+    "database_reopen",
+    "startup_recovery",
+    "re_export"
+  ],
+  "comparison": [
+    "record_ids",
+    "revisions",
+    "references",
+    "event_ordering",
+    "correction_chain_heads"
+  ],
+  "domains": {
+    "finance": {
+      "requiredKinds": [
+        "loan_schedule",
+        "payment_ledger",
+        "prepayment",
+        "settlement"
+      ],
+      "lineage": [
+        "loanId",
+        "scheduleVersion",
+        "paymentLedgerRevision",
+        "prepaymentRevision",
+        "settlementCutoff"
+      ]
+    },
+    "compliance": {
+      "requiredKinds": [
+        "validity_period",
+        "renewal",
+        "overlap_decision",
+        "correction"
+      ],
+      "lineage": [
+        "vehicleId",
+        "renewedFromRecordId",
+        "overlapReviewId",
+        "correctionChainHead"
+      ]
+    },
+    "maintenance": {
+      "requiredKinds": [
+        "rate_history",
+        "daily_accrual",
+        "correction"
+      ],
+      "lineage": [
+        "vehicleId",
+        "dailyBusinessKmRecordId",
+        "dailyBusinessKmRevision",
+        "rateEffectiveFrom",
+        "correctionChainHead"
+      ]
+    },
+    "businessExpenses": {
+      "requiredKinds": [
+        "expense",
+        "reversal",
+        "correction"
+      ],
+      "lineage": [
+        "sourceId",
+        "reversesSourceId",
+        "correctionChainHead"
+      ]
+    },
+    "performance": {
+      "requiredKinds": [
+        "source_provenance"
+      ],
+      "lineage": [
+        "sourceRecordId",
+        "sourceRevision",
+        "sourceKind"
+      ]
+    },
+    "work": {
+      "requiredKinds": [
+        "intent",
+        "outbox",
+        "driver_event"
+      ],
+      "lineage": [
+        "commandId",
+        "eventId",
+        "revision",
+        "outboxId",
+        "delivered"
+      ]
+    },
+    "logBook": {
+      "requiredKinds": [
+        "event"
+      ],
+      "lineage": [
+        "eventId",
+        "sequence",
+        "occurredAt"
+      ]
+    }
+  },
+  "status": "contract_seed_only",
+  "note": "The shared contract is not yet a populated fixture and does not prove restore lifecycle parity. Platform-neutral seed records and lifecycle runners remain implementation work."
+}
