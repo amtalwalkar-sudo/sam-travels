@@ -368,7 +368,7 @@ These are mapped to B0a (source/test audit), B0b (missing targeted tests and evi
 ### 9.21 — B0a first-pass entry-path and foundation test audit findings
 
 **Source baseline:** `main` at `a99ea6f48b05d3df1e35a72266acdaa127c010d7` (2026-11-17).  
-**Status:** First source/test pass recorded in PR #99 Implementation Evidence Matrix Section 0D. B0a remains in progress; this section is not a claim of exhaustive closure.
+**Status:** B0a source/test/owner-contract inventory completed 2026-11-18 against main SHA a99ea6f48b05d3df1e35a72266acdaa127c010d7. The remaining tests and implementation dependencies are enumerated in PR #99 Implementation Evidence Matrix Sections 0D–0E. B0b is next.
 
 The current repository has real rendered PWA Admin acceptance (`scripts/admin-form-browser-acceptance.mjs`), Android Room-backed WebView Admin acceptance (`AdminFormsCapacitorAcceptanceTest`), rendered Compliance and Maintenance correction acceptance, Performance browser acceptance, and a real Android overlay swipe/GPS/Room workflow acceptance. These are useful and must be reused, not duplicated.
 
