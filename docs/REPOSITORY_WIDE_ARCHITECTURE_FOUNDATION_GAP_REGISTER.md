@@ -452,3 +452,29 @@ NetworkGateway and tests/network.test.ts prove service-level policy gating. App.
 The Architecture Foundation Contract requires architecture, web and Android checks to be required for main, with ordinary merge bypass disabled. The workflow file defines the jobs, but a green workflow alone does not prove repository rules enforce them.
 
 **Required closure:** Repository owner/admin must inspect main branch protection/rulesets and confirm the architecture, web and android checks are required, stale/failed checks block merge, and ordinary bypass is disabled. Record the actual settings in the PR #99 evidence closeout. Do not claim this is verified from workflow YAML.
+
+### 9.28 — Actor provenance, historical deletion enforcement and correction coverage
+
+**Status:** Existing Business Event Reliability Audit findings remain open and must be reconciled in B0.
+
+- **Actor provenance:** generic RecordEnvelope stores source channel but not a human actor. HistoricalCorrectionService requires actor identity and role for correction, while ordinary Admin create/update paths do not currently establish a generic actor identity. The forgiving-entry contract says not to invent an actor. Decide what authenticated/local Admin identity is actually available before enabling actor-attributed correction permissions; do not fabricate attribution.
+- **Generic deletion:** RecordRepository exposes remove(id). RecordFormWorkingCopyRepository uses it for draft cleanup, while FeatureRecordService exposes create/update only. The complete production call-site audit for remove(id), deletedAt writes/reads and legacy soft-delete compatibility remains unfinished. Trace all call sites and prove historical business events cannot be removed by generic infrastructure; add a static/architecture guard or capability-scoped deletion API if needed.
+- **Correction coverage:** HistoricalCorrectionService is append-only and tested for actor rules, stale chains, idempotency and Maintenance Expense pilot. Compliance correction and Finance reversal have domain paths. Do not assume this proves every domain's correction workflow. Work/Shift odometer correction/restatement rules remain subject to the Work contract's open questions; do not enable a generic path without owner policy and recalculation/provenance tests.
+
+**Required closure:** complete the remove/deletedAt call-site and data compatibility audit; map actor provenance per entry path; keep unavailable actor identity explicit; and list domain-specific correction/reversal owner contracts and tests. Historical deletion prevention and correction original-retention must be proven before end-to-end acceptance.
+
+### 9.29 — Finance payment allocation policy is implemented but its owner contract remains unratified
+
+**Status:** Contract governance blocker identified in B0a.
+
+FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md explicitly labels v1 allocation policy as proposed/not ratified. It proposes oldest-due-first, manual override, partial EMI allocations, unallocated credit treatment, schedule-version binding and reversal rules. The Finance service and UI have implementation/tests, but code and tests do not ratify a business policy. The Finance Loan Calculation Contract, Reduce Tenure Prepayment Contract and Settlement/Closure Contract are approved; the payment allocation proposal is not.
+
+**Required closure:** obtain explicit owner ratification or revise the payment contract to the owner's approved policy before claiming the complete Finance payment path is contractually proven. Existing mechanical invariants (stable IDs, atomicity, idempotency, bounds, reversal integrity and backup lineage) should remain tested regardless. Do not silently change payment allocation behaviour or infer approval from implementation.
+
+### 9.30 — Historical Business Event Reliability Audit has stale Fuel scope
+
+**Status:** Documentation reconciliation required.
+
+BUSINESS_EVENT_RELIABILITY_AUDIT.md section 4.11 and section 5 state that no Fuel feature/service/schema exists and Fuel is out of scope. That statement was accurate at its 2026-11-11 baseline but is superseded by the current FuelEntryPanel, FUEL_ENTRY_FORM_V1, Fuel purchase service/schema, Fuel enrichment queue and FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md. It must not be used as the current feature inventory.
+
+**Required closure:** add a dated supersession note to the historical audit pointing to the current Fuel contract and PR #99 B0 evidence matrix; retain the old baseline as history, but update the current reliability conclusion and test inventory to include Fuel capture and enrichment.
