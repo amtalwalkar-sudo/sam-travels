@@ -444,3 +444,11 @@ Existing GPS tests prove the generic 50m/30s validator and browser provider's fr
 NetworkGateway and tests/network.test.ts prove service-level policy gating. App.tsx renders the Internet On/Off control. Android TimelineEnrichmentStoreTest verifies the Room worker defers derived work when the persisted policy is disabled. No rendered test was identified for toggling the actual control, verifying the PWA and Android clients observe the same persisted value without internet, or proving the setting survives reload/process restart and pauses eligible work without losing local records.
 
 **Required closure:** Add a rendered PWA/Android WebView policy-control test and a Room cross-surface propagation assertion. Verify default-disabled state, off→on→off persistence, no external request while disabled, offline deferral, Dropbox scheduling/restore confirmation and optional geocoding consent. Reuse NetworkGateway and worker tests; do not duplicate them.
+
+### 9.27 — Required branch protection/ruleset state is not verifiable through current integration
+
+**Status:** Not verified; GitHub API access to branch protection returned 403 Resource not accessible by integration. This does not prove that protection is absent.
+
+The Architecture Foundation Contract requires architecture, web and Android checks to be required for main, with ordinary merge bypass disabled. The workflow file defines the jobs, but a green workflow alone does not prove repository rules enforce them.
+
+**Required closure:** Repository owner/admin must inspect main branch protection/rulesets and confirm the architecture, web and android checks are required, stale/failed checks block merge, and ordinary bypass is disabled. Record the actual settings in the PR #99 evidence closeout. Do not claim this is verified from workflow YAML.
