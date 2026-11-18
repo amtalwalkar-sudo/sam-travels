@@ -48,7 +48,7 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(_success, error) { setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
+      value: { getCurrentPosition(_success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -98,6 +98,7 @@ try {
   await toggle.click();
   const panel = page.locator(".fuel-entry-panel");
   await panel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 0, "opening the form must not request GPS");
   assert.equal(await panel.getByLabel("Partial refill").isChecked(), false, "full tank is the default");
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12345");
@@ -108,6 +109,7 @@ try {
   // First commit the default full-tank purchase through the rendered form.
   await panel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await panel.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "one GPS request is made for the first Submit");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -158,10 +160,12 @@ try {
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "draft resume must not request GPS again");
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await resumed.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 2, "one additional GPS request is made for the second Submit");
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
