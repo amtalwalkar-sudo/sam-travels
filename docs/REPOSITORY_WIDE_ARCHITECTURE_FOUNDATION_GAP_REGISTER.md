@@ -271,3 +271,14 @@ Current source shows explicit persistent-feature participants and fail-closed ta
 
 **Remaining closure:** Confirm canonical Vehicle identity validation is applied before reference acceptance, and define/test assignment interval consistency with Vehicle lifecycle and reassignment history. Do not silently delete or rewrite historical assignment references during restore.
 
+
+
+### 9.17 — Shared semantic fixture contract seed
+
+**Status:** Initial implementation committed; populated fixture and lifecycle execution remain open.
+
+**Evidence:** `fixtures/semantic-backup-lifecycle-v1.json` is the single shared contract asset. Android instrumentation already includes the repository `fixtures/` directory as an androidTest asset source; `NativeBackupCoverageTest.sharedSemanticLifecycleFixtureDeclaresAllParityDomains` reads this file through the Android asset manager. The browser test `tests/semantic-backup-lifecycle-fixture.test.ts` reads the same file from the repository path. Both assert the seven requested domains, lifecycle stages (export, restore, database reopen, startup recovery, re-export) and normalized comparison dimensions (IDs, revisions, references, event ordering and correction-chain heads).
+
+**Explicit limitation:** The current JSON is a contract seed, not yet a populated set of valid feature records. These tests prove both platforms consume the same contract file; they do not exercise feature validators, restore transactions, startup recovery or semantic equality for the requested Finance, Compliance, Maintenance, Business Expense, Performance, Work and Log Book records.
+
+**Required next closure:** Populate the shared asset with valid records and lineage for every required domain; add browser and Room fixture loaders; execute the same semantic data through each production restore lifecycle; compare normalized exports and correction/event heads. Keep G-13 through G-18 open until those tests pass.
