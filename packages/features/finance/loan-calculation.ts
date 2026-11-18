@@ -65,9 +65,7 @@ function assertInput(input: LoanCalculationInput): void {
   if (Number(input.firstEmiDate.replaceAll("-", "")) < Number(input.loanStartDate.replaceAll("-", ""))) {
     throw new Error("First EMI date cannot precede loan start date");
   }
-  if (!input.firstEmiDate.endsWith("-01")) {
-    throw new Error("First EMI date must be the first day of a calendar month");
-  }
+  // The lender may collect EMIs on any fixed monthly date, including month-end.
 }
 
 function roundHalfUp(numerator: bigint, denominator: bigint): bigint {
@@ -143,11 +141,16 @@ export function calculateLoanEmiQuote(input: LoanCalculationInput): LoanEmiQuote
 }
 
 function dueDateAt(firstEmiDate: string, installmentIndex: number): string {
-  const [year, month] = firstEmiDate.split("-").map(Number);
+  const [year, month, day] = firstEmiDate.split("-").map(Number);
   const absoluteMonth = year * 12 + (month - 1) + installmentIndex;
   const dueYear = Math.floor(absoluteMonth / 12);
   const dueMonth = absoluteMonth % 12 + 1;
-  return String(dueYear).padStart(4, "0") + "-" + String(dueMonth).padStart(2, "0") + "-01";
+  const firstMonthLastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const targetMonthLastDay = new Date(Date.UTC(dueYear, dueMonth, 0)).getUTCDate();
+  const isMonthEndAnchor = day === firstMonthLastDay;
+  const dueDay = isMonthEndAnchor ? targetMonthLastDay : Math.min(day, targetMonthLastDay);
+  return String(dueYear).padStart(4, "0") + "-" + String(dueMonth).padStart(2, "0") +
+    "-" + String(dueDay).padStart(2, "0");
 }
 
 /** Build the original fixed-rate monthly schedule; actual payments are separate records. */
