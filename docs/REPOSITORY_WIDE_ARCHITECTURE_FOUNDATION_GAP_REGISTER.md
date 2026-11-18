@@ -501,3 +501,16 @@ Source scan of all 55 packages/application/src files and all 72 apps/web/src plu
 - No current production migration handler was found deleting business records, but the migration capability would permit it.
 
 **Required closure:** replace generic deletion with capability-scoped operations (e.g. remove a form working copy by form/instance identity; rollback a newly bootstrapped identity by exact expected revision; delete only records in an explicitly declared feature migration namespace). Enforce ownership in both Dexie and Room, not only in UI/application callers. Add tests proving Finance, Compliance, Maintenance, Work/Driver Workflow, Log Book, historical correction and backup checkpoint records cannot be deleted by an unrelated feature migration or generic plugin call. Preserve atomic rollback and migration semantics.
+
+
+### 9.32 — Specialized identity/correction/review entry flows sit outside the 19-form inventory
+
+**Status:** Source-confirmed scope gap from the rendered-component inventory.
+
+The 19-entry `ALL_FORM_DEFINITIONS` inventory covers the ordinary Admin, Performance and Work/Fuel forms. A source scan also found persisted entry/decision workflows outside that registry:
+- `PersonIdentityPanel.tsx` has separate person enrollment and role-activation forms, plus driver↔person linking. These are security/identity workflows with `PersonIdentityService` and identity adapter tests; Android Admin WebView acceptance exercises enrollment and activation.
+- `MaintenanceExpenseCorrection.tsx` is a specialized append-only correction form. The Maintenance correction pilot has strong PWA and Android WebView/Room acceptance; reuse that evidence and do not duplicate it.
+- `ComplianceHistoricalCorrection.tsx` is a specialized field/reason correction editor with stable correction ID and chain-revision guards. Service-level correction tests and a presentation test for the entry point exist, but no rendered submit/readback acceptance was found.
+- `AdminComplianceOverview.tsx` collects a reason and submits overlap-review decisions. Domain/service tests exist; the exact rendered reason→decision→persisted review path must be classified and evidenced.
+
+These workflows may legitimately need specialized UX and must not be forced into an ordinary Save/Submit form if that would weaken security or correction semantics. However, the Form Architecture Contract requires every implemented form to be discoverable through the shared registry or an equivalent authoritative contract. B0 must record a narrow exception/owner contract for each specialized flow, covering field schema, actor/role, stable operation identity, validation, interruption/retry, immutable history and supported surfaces. Add only missing rendered acceptance (especially Compliance correction submit/readback); preserve the already-verified Maintenance correction pilot.
