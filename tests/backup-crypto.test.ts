@@ -94,6 +94,7 @@ describe("backup package size limits", () => {
     expect(MAX_BACKUP_PACKAGE_BYTES).toBe(512 * 1024 * 1024);
     expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES)).not.toThrow();
     expect(() => assertBackupPackageByteLength(MAX_BACKUP_PACKAGE_BYTES + 1)).toThrow("backup_package_too_large");
+    expect(() => parseBackupPackage({ byteLength: MAX_BACKUP_PACKAGE_BYTES + 1 } as Uint8Array)).toThrow("backup_package_too_large");
     expect(() => assertBackupPackageByteLength(-1)).toThrow("backup_invalid_package_size");
   });
 });
