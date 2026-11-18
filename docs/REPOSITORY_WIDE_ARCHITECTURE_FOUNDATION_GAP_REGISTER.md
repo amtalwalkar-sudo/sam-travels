@@ -391,19 +391,27 @@ The first pass identified the following missing or partial boundaries requiring 
 
 ### 9.22 — Additional B0a findings: Fuel draft, rendered Work/Backup UI and platform entry parity
 
-**Status:** Source-confirmed; add to B0b targeted test/fix backlog after final B0a owner-contract review.
+**Status:** Source-confirmed; retain the entry-path and UI test gaps below. Two earlier findings in this section were corrected after re-reading the current PR branch source.
 
-1. **Fuel form state defect:** `FuelEntryPanel.start()` opens the latest persisted Fuel working copy but does not hydrate the visible `values` state from that copy. The generic form runtime's draft tests do not cover this UI-specific defect. Add a component/browser test that enters a partial draft, reloads/reopens, checks every field including partial-refill choice is restored visibly, then submits once without duplicate expense creation. Fix the component state hydration.
-2. **Fuel entry contract discrepancy:** the current UI requires manual Vehicle and odometer inputs. The approved driver-entry contract is amount paid and price per kg only, with quantity calculated. Do not treat the current odometer field as approved merely because it exists in source. Reconcile Vehicle context and odometer provenance with the existing Work authoritative reading contract before writing acceptance assertions; do not silently change mileage/accounting policy.
+1. **Fuel visible draft rehydration:** current `FuelEntryPanel.start()` calls `setValues({ ...next.values })`, so the previously claimed missing hydration line is not a current source defect. There is still no component-level test proving the persisted values, including partial-refill choice, visibly reappear after close/reopen/process restart. Add the focused regression test.
+
+2. **Fuel entry contract:** detailed Section 2.2 of `FUEL_ENTRY_AND_BUSINESS_EXPENSE_CALCULATION_CONTRACT.md` lists odometer, partial-refill choice, price/kg and amount as driver-entered fields; pump quantity is not entered and is calculated. Current UI/form definition matches that detailed contract. Do not remove odometer or partial-refill based on the amount/price quantity derivation decision.
+
 3. **Rendered Work PWA path:** DriverWorkflowPanel/useDriverWorkspace are the real PWA presentation/action path; service tests do not prove rendered controls invoke it correctly. Add one browser acceptance path for driver selection, odometer entry, shift/trip action, GPS evidence, committed event and read-after-reload. Reuse all existing service and Track A tests.
-4. **PWA/overlay surface parity:** current bridge test proves financial working-copy invalidation only; overlay acceptance proves an overlay-originated workflow event. Add direct two-way committed event/state/revision visibility and a stale UI command interleaving. Existing shared Room store atomicity/idempotency tests are not to be repeated.
-5. **Android Admin form gaps:** extend only the existing live WebView acceptance for paths not currently submitted on Android: assignment/selection, Compliance renewal, Traffic Challan, Finance payment/reversal/prepayment/settlement, Performance target/pre-business cost, and Fuel. Verify owner records after closing/reopening Room. PWA acceptance already covers most of these; do not duplicate browser coverage.
-6. **Rendered BackupPanel path:** no UI acceptance currently proves Dropbox connect/session, backup creation/upload request, recovery-key display/entry, history selection, restore confirmation and post-restore checkpoint state. Add deterministic fake-session/UI coverage for the app interaction; real Dropbox OAuth and remote delivery remain external acceptance.
-7. **Backup exclusion and empty owners:** Browser code explicitly excludes checkpoints, credential vault, credential-vault metadata and diagnostics; Android filters local recovery checkpoint/journal records and stores keys/diagnostics outside business tables. Add direct paired export assertions. Native manifest test includes 13 participants with one Log Book row; add explicit zero-record owner count assertions and browser counterpart.
-8. **Interop test scope:** the TypeScript test for Android-generated v2 package only decrypts and checks plaintext; it does not restore the snapshot. The native test creates/self-decrypts a package. Add TypeScript-generated package→Android and Android-generated package→browser production restore tests with the canonical dataset; update misleading test comments.
-9. **Dexie schema upgrade:** add historical v1/v4 IndexedDB fixtures and reopen assertions to match the level of migration preservation already proven for Room; future-version behaviour must be tested or explicitly defined from Dexie semantics.
-10. **Scale/concurrent snapshot:** existing export transaction boundaries and injected rollback tests are useful but do not establish practical maximum snapshot size, storage exhaustion behaviour or consistency during concurrent writes. Determine supported bounds from the backup contract, then add deterministic boundary tests or explicitly documented operational gates.
 
+4. **PWA/overlay surface parity:** current bridge test proves financial working-copy invalidation only; overlay acceptance proves an overlay-originated workflow event. Add direct two-way committed event/state/revision visibility and a stale UI command interleaving. Existing shared Room store atomicity/idempotency tests are not to be repeated.
+
+5. **Android Admin form gaps:** extend only the existing live WebView acceptance for paths not currently submitted on Android: assignment/selection, Compliance renewal, Traffic Challan, Finance payment/reversal/prepayment/settlement, Performance target/pre-business cost, and Fuel. Verify owner records after closing/reopening Room. PWA acceptance already covers most of these; do not duplicate browser coverage.
+
+6. **Rendered BackupPanel path:** no UI acceptance currently proves Dropbox connect/session, backup creation/upload request, recovery-key display/entry, history selection, restore confirmation and post-restore checkpoint state. Add deterministic fake-session/UI coverage for the app interaction; real Dropbox OAuth and remote delivery remain external acceptance.
+
+7. **Backup exclusion and empty owners:** Browser code explicitly excludes checkpoints, credential vault, credential-vault metadata and diagnostics; Android filters local recovery checkpoint/journal records and stores keys/diagnostics outside business tables. Add direct paired export assertions. Native manifest test includes 13 participants with one Log Book row; add explicit zero-record owner count assertions and browser counterpart.
+
+8. **Interop test scope:** the TypeScript test for Android-generated v2 package only decrypts and checks plaintext; it does not restore the snapshot. The native test creates/self-decrypts a package. Add TypeScript-generated package→Android and Android-generated package→browser production restore tests with the canonical dataset; update misleading test comments.
+
+9. **Dexie schema upgrade:** add historical v1/v4 IndexedDB fixtures and reopen assertions to match the level of migration preservation already proven for Room; future-version behaviour must be tested or explicitly defined from Dexie semantics.
+
+10. **Scale/concurrent snapshot:** existing export transaction boundaries and injected rollback tests are useful but do not establish practical maximum snapshot size, storage exhaustion behaviour or consistency during concurrent writes. Determine supported bounds from the backup contract, then add deterministic boundary tests or explicitly documented operational gates.
 
 ### 9.23 — Backup boundary, Fuel Room enrichment and device-clock acceptance gaps
 
@@ -416,18 +424,20 @@ The first pass identified the following missing or partial boundaries requiring 
 - Dropbox contract requires size/checksum/attachment completeness validation. Current code has package/record bounds and plaintext checksum; no binary attachment feature was found in the inspected source. Confirm current attachment ownership is empty or add its participant/manifest inventory before declaring backup completeness.
 - The native v2 interop test comment overstates that the TypeScript test restores a snapshot; it only decrypts/checks plaintext. Correct the evidence wording and add the real two-way production restore tests under the canonical format.
 
-### 9.24 — Shared form registry/conformance and presentation test coverage
+### 9.24 — Form registry exists; deeper conformance and component coverage remain
 
-**Status:** Source-confirmed gap in the B0a first pass.
+**Status:** Corrected against the current PR branch source on 2026-11-18.
 
-The shared form contract requires every implemented form to be discoverable and validated, with one declared primary action, versioned fields, lifecycle rules, business-boundary validation, interruption/recovery, and applicable PWA/native presentation conformance. Current tests cover only subsets:
-- `shared-form-runtime.test.ts` validates the 14 Admin definitions in ADMIN_FORM_DEFINITIONS and generic working-copy semantics.
-- Performance Driver Target and Pre-Business Cost form definitions are exported separately and are not part of that Admin list.
-- Fuel Entry, completed-trip financials and cancellation-fee definitions are exported from driver-form-definitions.ts; its test currently exercises cancellation fee only, not Fuel or completed-trip financials.
-- `presentation-accessibility-responsive.test.tsx` verifies application-shell responsiveness/accessibility, not form controls. Android overlay presentation tests cover selected overlay panels, but PWA form keyboard/IME, viewport, focus/scroll, touch-target and form-level accessibility are not shown.
-- Android DriverTripFinancialPanelPresentationTest proves the native overlay Fare/Toll/Parking submit boundary; it does not prove the PWA DriverWorkflowPanel equivalent.
+`packages/application/src/form-definition-inventory.ts` defines `ALL_FORM_DEFINITIONS` with 19 forms: 14 Admin forms, two separately registered Performance forms, and three Work/Fuel forms. `tests/form-definition-inventory.test.ts` verifies unique IDs, positive versions, owner/purpose, one declared primary action, non-empty fields, unique field IDs, basic field types, and inclusion of the Performance/Work definitions. `shared-form-runtime.test.ts` contains detailed Admin requiredness/type/option and generic working-copy lifecycle assertions. `driver-form-definitions.test.ts` directly checks Fuel field shape and cancellation-fee validation. The Form Conformance Audit records existing PWA/Android overlay Work/Trip financial-form parity.
 
-**Required closure:** add a single authoritative discoverable form-definition inventory or equivalent conformance map spanning Admin, Performance, Fuel and Work. Add contract tests for every definition (unique ID/version/owner, declared fields, requiredness, exactly one Save/Submit, and field schema), negative fixtures for malformed definitions, and shared PWA form-control responsive/keyboard/focus/accessibility acceptance. Keep feature-specific validation in the owning application services; do not duplicate it in the registry. Add PWA Work trip-financial submission coverage as part of the rendered Work acceptance.
+**Remaining gaps:**
+- The registry test does not include malformed-definition negative fixtures or exhaustive requiredness/type/option assertions for separately registered Performance/Work definitions.
+- A registry entry does not prove the actual screen uses it or that rendered values map correctly to the submission handler and authoritative service. Fuel has no direct Fuel branch test for `createBusinessExpenseFormSubmissionHandler` and no rendered PWA or Android WebView form-submit/resume acceptance.
+- `FuelEntryPanel.start()` already hydrates visible state from the persisted working copy in current source; a component-level test is missing, not the source assignment itself.
+- `presentation-accessibility-responsive.test.tsx` verifies application-shell responsiveness/accessibility, not form controls. No PWA form-specific keyboard/IME, narrow viewport, focus/scroll, touch-target and form-level accessibility acceptance was found.
+- Existing Work/Trip Fare/Toll/Parking PWA/overlay form parity is documented and must be reused; do not duplicate it. The missing Work UI path is the separate shift/trip action-to-commit acceptance.
+
+**Required closure:** add only the negative/field-conformance assertions that are not already covered; test Fuel form-to-handler-to-service and rendered resume/submit; add shared PWA form-control responsive/keyboard/focus/accessibility acceptance. Keep feature-specific validation in owning application services. Do not rebuild the form registry or repeat existing Work/Trip financial parity.
 
 ### 9.25 — Event-specific GPS acquisition is not proven for every Work transition
 
