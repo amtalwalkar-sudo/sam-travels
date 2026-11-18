@@ -181,7 +181,7 @@ try {
   // A browser reload destroys an outstanding device geolocation callback.
   // Let the first, deliberately delayed GPS fix finish and persist before
   // reloading for draft recovery; the purchase itself has already committed.
-  await page.waitForFunction(async expectedEventId => {
+  const firstGpsEvidenceHandle = await page.waitForFunction(async expectedEventId => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -198,14 +198,16 @@ try {
       transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
     });
     db.close();
-    return rows.some(row =>
+    return rows.find(row =>
       row.id === "timeline-enrichment:" + expectedEventId &&
       row.data?.captureStatus === "captured"
-    );
+    ) ?? false;
   }, "fuel:" + purchases[0].id, { timeout: 10000 });
-  let firstGpsEvidence = (await readBrowserRecords(page)).find(row =>
-    row.id === "timeline-enrichment:fuel:" + purchases[0].id
-  );
+  // Assert against the exact committed row returned by the successful
+  // IndexedDB poll, rather than issuing a second read that can race a
+  // subsequent queue status update.
+  const firstGpsEvidence = await firstGpsEvidenceHandle.jsonValue();
+  await firstGpsEvidenceHandle.dispose();
   assert.equal(firstGpsEvidence?.data?.captureStatus, "captured", "the first delayed GPS fix must persist before test reload");
   assert.equal(firstGpsEvidence?.data?.captureTiming, "late", "GPS finishing after purchase commit is marked late");
   await context.setOffline(false);
