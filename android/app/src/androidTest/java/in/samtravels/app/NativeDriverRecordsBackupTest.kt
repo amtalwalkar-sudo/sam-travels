@@ -99,6 +99,45 @@ class NativeDriverRecordsBackupTest {
         }
     }
 
+
+    @Test fun rejectsAssignmentWithMissingVehicleReference() {
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
+        try {
+            assertEquals("driver_assignment_vehicle_reference_missing", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(
+                    JSONArray().put(assignmentRow("driver-001")), requireExplicitOwnerTags = true,
+                )
+            }.exceptionOrNull()?.message)
+        } finally {
+            vehicleRegistration.close()
+            driverRegistration.close()
+        }
+    }
+
+    @Test fun rejectsOverlappingHistoricalAssignmentPeriods() {
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
+        try {
+            val fixture = assignmentFixture(activeTwice = false)
+            val assignment = fixture.getJSONObject(2)
+            val envelope = JSONObject(assignment.getString("json"))
+            val assignments = envelope.getJSONObject("data").getJSONArray("assignments")
+            assignments.getJSONObject(0).put("unassignedAt", "2026-11-10T00:00:00.000Z")
+            assignments.put(JSONObject().put("assignmentId", "assignment-2")
+                .put("vehicleId", "feature:vehicle:MH02CD5678")
+                .put("assignedAt", "2026-11-09T00:00:00.000Z")
+                .put("unassignedAt", "2026-11-11T00:00:00.000Z"))
+            assignment.put("json", envelope.toString())
+            assertEquals("driver_assignment_period_overlap", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(fixture, requireExplicitOwnerTags = true)
+            }.exceptionOrNull()?.message)
+        } finally {
+            vehicleRegistration.close()
+            driverRegistration.close()
+        }
+    }
+
     @Test fun acceptsLegacyManifestOnlyWhenNoDriverRecordsExist() {
         val registration = NativeDriverRecordsBackup.register()
         try {
