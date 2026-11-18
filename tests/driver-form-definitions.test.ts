@@ -36,3 +36,30 @@ describe("Work cancellation-fee form contract", () => {
       .toContain("trip_id_invalid");
   });
 });
+
+
+describe("Fuel Entry form definition v1", () => {
+  it("is a versioned submit form with amount and price inputs and no pump-quantity input", () => {
+    expect(FUEL_ENTRY_FORM_V1).toMatchObject({
+      id: "work.fuel-entry",
+      version: 1,
+      owner: "business-expenses",
+      primaryAction: "submit",
+    });
+    const ids = FUEL_ENTRY_FORM_V1.fields.map((field) => field.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "amountRupees")).toMatchObject({
+      type: "number",
+      required: true,
+    });
+    expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "priceRupeesPerKg")).toMatchObject({
+      type: "number",
+      required: true,
+    });
+    expect(FUEL_ENTRY_FORM_V1.fields.some((field) => /quantity|kilograms|fuelKg/i.test(field.id))).toBe(false);
+    expect(FUEL_ENTRY_FORM_V1.fields.find((field) => field.id === "partialRefill")).toMatchObject({
+      type: "checkbox",
+      required: true,
+    });
+  });
+});
