@@ -126,9 +126,19 @@ class NativeBackupCoverageTest {
                     .put("createdAt", "2026-11-04T00:00:00.000Z"),
                 "2026-11-04T00:00:00.000Z",
             ))
+            database.records().put(featureRecord(
+                "timeline-enrichment:fuel:feature:business-expenses:fuel:purchase-1",
+                JSONObject().put("eventId", "feature:business-expenses:fuel:purchase-1")
+                    .put("eventType", "fuel_purchase").put("latitude", 19.076).put("longitude", 72.8777)
+                    .put("accuracyMeters", 12).put("fixAt", "2026-11-04T00:00:00.000Z")
+                    .put("capturedAt", "2026-11-04T00:00:00.000Z").put("captureTiming", "at_entry")
+                    .put("status", "pending").put("provider", "geoapify").put("attempts", 0)
+                    .put("createdAt", "2026-11-04T00:00:00.000Z"),
+                "2026-11-04T00:00:00.000Z",
+            ))
             database.logBookEvents().put(LogBookEventRecord("event-1", """{"eventId":"event-1","kind":"trip_completed"}""", 1, "2026-11-04T00:00:01.000Z"))
             val exported = NativeBackupCoverage.exportBusinessRecords(database) { false }
-            assertEquals(6, exported.length())
+            assertEquals(7, exported.length())
             assertEquals(setOf("platform-records", "work-driver-state", "logbook-events"),
                 (0 until exported.length()).map { exported.getJSONObject(it).getString("participantId") }.toSet())
             NativeBackupCoverage.validateBusinessRecords(exported)
@@ -139,6 +149,7 @@ class NativeBackupCoverageTest {
             assertTrue(database.records().get("driver-intent:event-1") == null)
             assertTrue(database.records().get("driver-outbox:2") == null)
             assertTrue(database.records().get("timeline-enrichment:event-1") == null)
+            assertTrue(database.records().get("timeline-enrichment:fuel:feature:business-expenses:fuel:purchase-1") == null)
             assertTrue(database.logBookEvents().list().isEmpty())
             NativeBackupCoverage.replaceBusinessRecords(database, exported)
             assertEquals("sample", JSONObject(database.records().get("platform-1")!!.json).getJSONObject("data").getString("value"))
@@ -147,6 +158,10 @@ class NativeBackupCoverageTest {
             assertEquals("event-1", JSONObject(database.records().get("driver-outbox:2")!!.json).getString("eventId"))
             assertEquals("pending", JSONObject(database.records().get("timeline-enrichment:event-1")!!.json)
                 .getJSONObject("data").getString("status"))
+            val restoredFuelLocation = JSONObject(database.records().get("timeline-enrichment:fuel:feature:business-expenses:fuel:purchase-1")!!.json)
+                .getJSONObject("data")
+            assertEquals("fuel_purchase", restoredFuelLocation.getString("eventType"))
+            assertEquals("at_entry", restoredFuelLocation.getString("captureTiming"))
             assertEquals("event-1", JSONObject(database.logBookEvents().list().single().json).getString("eventId"))
             NativeBackupCoverage.validateBusinessRecords(NativeBackupCoverage.exportBusinessRecords(database) { false })
         } finally { database.close() }
