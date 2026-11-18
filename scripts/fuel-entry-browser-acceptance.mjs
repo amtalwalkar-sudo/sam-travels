@@ -145,18 +145,37 @@ try {
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await resumed.getByRole("status").filter({ hasText: "Fuel purchase saved." }).waitFor({ state: "visible" });
 
-  const readback = await readBrowserRecords(page);
-  const purchases = readback.filter(row =>
+  const committedRows = await readBrowserRecords(page);
+  const purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") &&
     row.data?.vehicleId === vehicleId &&
     row.data?.odometerKm === 12345
   );
+  assert.equal(purchases.length, 1, "exactly one Fuel purchase must be committed before optional GPS enrichment completes");
+  await page.waitForFunction(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows.some(row =>
+      row.id.startsWith("timeline-enrichment:fuel:") &&
+      row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
+      row.data?.captureStatus === "permission_denied"
+    );
+  }, { timeout: 10000 });
+  const readback = await readBrowserRecords(page);
   const evidence = readback.filter(row =>
     row.id.startsWith("timeline-enrichment:fuel:") &&
     row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
     row.data?.captureStatus === "permission_denied"
   );
-  assert.equal(purchases.length, 1, "exactly one Fuel purchase must be committed");
   assert.equal(purchases[0].data.pricePaisePerKg, 8250);
   assert.equal(purchases[0].data.amountPaise, 82500);
   assert.equal(purchases[0].data.partialRefill, true);
