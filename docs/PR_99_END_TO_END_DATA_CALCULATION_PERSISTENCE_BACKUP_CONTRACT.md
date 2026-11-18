@@ -54,7 +54,7 @@ If this contract conflicts with a domain rule or a higher-level technical safegu
 5. Service recreation is idempotent. Replayed commands and deliveries cannot duplicate an event, business effect, projection contribution or revision.
 6. Both surfaces submit versioned commands with expected prior state/revision. Stale or competing writes are rejected or explicitly resolved by the ordered coordinator; neither surface may overwrite newer state with a stale snapshot.
 7. Backup reads the Room authoritative store, including the workflow records and Log Book events registered for backup. Restore/recovery returns the same committed state and recoverable pending work.
-8. The overlay service and Capacitor plugins must not create independent Room database names, divergent workflow stores or a second Android business database.
+10. The overlay service and Capacitor plugins must not create independent Room database names, divergent workflow stores or a second Android business database.
 
 ### 3.3 Shared workflow commit semantics
 
@@ -114,8 +114,8 @@ Reuse existing tests when their assertions reach the required boundary. Add only
 5. **Offline and interruption:** where the feature promises offline-first operation, entry and commit work offline; pending work survives app/WebView/service/process termination and resumes without duplicate records or side effects. Test partial drafts only where the feature contract promises draft persistence/resume.
 6. **Device evidence:** where applicable, verify timestamp and GPS snapshots are captured at the defined event boundary, remain stable, and optional reverse-geocoding/enrichment does not rewrite the original evidence or block the driver's workflow. Permission denied/unavailable/stale location behaviour must fail safely according to the owning contract.
 7. **Correction and replay:** edits, renewals, reversals, retries and duplicate submissions preserve immutable history/lineage and idempotency; a correction cannot silently rewrite its source or create duplicate downstream effects.
-8. **Surface parity:** where the same workflow is exposed on multiple Android surfaces, enter/commit through each surface and assert the other reads the same committed state/event/revision from Room. Do not require a surface that does not expose that workflow.
-9. **Derived effects:** calculations and projections are generated from committed source facts, not unsaved UI state; source IDs/revisions/effective dates and provenance are traceable.
+10. **Surface parity:** where the same workflow is exposed on multiple Android surfaces, enter/commit through each surface and assert the other reads the same committed state/event/revision from Room. Do not require a surface that does not expose that workflow.
+11. **Derived effects:** calculations and projections are generated from committed source facts, not unsaved UI state; source IDs/revisions/effective dates and provenance are traceable.
 
 Where full UI automation is unavailable or brittle, use the narrowest production boundary that still exercises the real form-to-command mapping and validator/service path, and explicitly label the untested visual interaction as a manual acceptance gate. Do not claim a repository-only unit test proves the UI.
 
@@ -132,9 +132,9 @@ In addition to feature entry paths, map existing evidence and remaining gaps for
 - **Concurrency and idempotency:** competing writers, stale revisions, duplicate commands/events, retry after timeout/process death, receiver deduplication and one authoritative commit.
 - **Offline and lifecycle:** no network dependency for promised local entry/commit; browser reload; Android WebView/service/process recreation; boot/restart; pending work recovery; no duplicate side effects. Distinguish deterministic CI proof from physical-device/OEM gates.
 - **Time and device evidence:** UTC/local timestamp semantics, timezone and clock changes, daylight-saving where applicable, operational-day 04:00 boundary, active-trip deferral, GPS permission denied/unavailable/stale results and immutable capture snapshots.
-- **Backup package and restore safety:** encryption/decryption interoperability, wrong-key/tamper/corrupt/truncated/incompatible package rejection, manifest/participant completeness, schema compatibility, path/ownership validation, atomic replacement, checkpoint rollback and no loss of pre-restore data. Dropbox authentication, account connectivity and real cloud delivery are separate external-account gates if not deterministically covered in CI.
+- **Backup package and restore safety:** encryption/decryption interoperability, wrong-key/tamper/corrupt/truncated/incompatible package rejection, manifest/participant completeness (including registered participants with zero records), schema compatibility, path/ownership validation, atomic replacement, checkpoint rollback and no loss of pre-restore data. Explicitly decide whether packages are platform-portable. The current browser/Room Finance manifests and snapshot shapes differ; until a canonical wire format is approved, require platform-bound packages to fail closed before mutation and test both directions with populated Finance history. Do not silently claim cross-platform restore. Dropbox authentication, account connectivity and real cloud delivery are separate external-account gates if not deterministically covered in CI.
 - **Platform parity:** browser IndexedDB versus Android Room normalized business semantics; Android PWA/WebView and overlay share the same Room authority; no independent writable store or divergent projection.
-- **Privacy and security:** secrets, keys, tokens and sensitive business data are not emitted into logs or test artifacts; backup protection follows the owner contract; restore inputs are treated as untrusted data.
+- **Privacy and security:** secrets, keys, tokens and sensitive business data are not emitted into logs or test artifacts; backup protection follows the owner contract; restore inputs are treated as untrusted data. Verify the intentional backup exclusions on both runtimes: credential-vault material, local recovery checkpoints/journals and diagnostics must not leak into the business snapshot; credentials and diagnostics retain their separately defined secure handling.
 - **Scale and operational resilience:** representative larger snapshots, bounded memory/time, snapshot consistency while writes occur, storage-full/transaction-abort behaviour where testable, and actionable failure reporting without exposing sensitive payloads.
 
 For every item record the owning contract, existing test/assertion, platform, CI/manual status and gap. If an item is intentionally out of scope for PR #99, point to its owner contract and evidence rather than silently omitting it.
@@ -186,9 +186,9 @@ Run the same lifecycle on browser and Android:
 5. Validate participant inventory, ownership, counts, schema versions, snapshot revision and cross-record references.
 6. Clear/replace only within the test database, then restore using the production restore path.
 7. Close/reopen the database (browser IndexedDB and Android Room).
-8. Execute the real startup recovery coordinator. On Android, include the production Room restore coordinator and startup recovery gate.
-9. Re-export after recovery.
-10. Re-run calculations and compare normalized semantic state, calculation outputs and provenance with the pre-export baseline.
+10. Execute the real startup recovery coordinator. On Android, include the production Room restore coordinator and startup recovery gate.
+11. Re-export after recovery.
+12. Re-run calculations and compare normalized semantic state, calculation outputs and provenance with the pre-export baseline.
 
 For Android, additionally exercise the Room-backed workflow through both PWA/native bridge and overlay service boundaries. For browser, exercise the IndexedDB-backed PWA lifecycle without Android dependencies.
 
@@ -259,13 +259,13 @@ PR #99 is complete only when all gates pass:
 5. Shared fixture is populated with valid synthetic data for every supported domain and lineage listed above.
 6. Browser fixture loader uses production validators/participants and exercises the production IndexedDB backup/restore lifecycle.
 7. Room fixture loader uses production validators/participants and exercises the production Room backup/restore lifecycle.
-8. Both runtimes complete export → restore → reopen → startup recovery → re-export.
-9. Normalized semantic comparison passes across the two runtimes.
-10. Calculations are recomputed before and after restore with identical values and provenance.
-11. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
-12. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
-13. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
-14. PR remains draft and unmerged pending user review; physical-device/manual and external-account gates are clearly reported and not falsely marked complete.
+10. Both runtimes complete export → restore → reopen → startup recovery → re-export.
+11. Normalized semantic comparison passes across the two runtimes.
+12. Calculations are recomputed before and after restore with identical values and provenance.
+13. Cross-surface workflow guarantees are mapped to existing tests or receive only the specific missing tests; no duplicate coverage for already-proven behaviour.
+14. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
+15. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
+16. PR remains draft and unmerged pending user review; physical-device/manual and external-account gates are clearly reported and not falsely marked complete.
 
 ## 12. Two-track implementation plan
 
@@ -300,7 +300,7 @@ Execute the B0 inventory and assertions in Section 4A before fixture population.
 
 #### B1. Populate the shared synthetic fixture
 
-Use one deterministic fixture asset for both platforms, with schema-valid synthetic records and dependencies in valid creation order:
+Use one deterministic fixture asset for both platforms, with schema-valid synthetic records and dependencies in valid creation order. Include registered participants with zero records so participant inventory and empty-owner semantics are tested, not inferred:
 
 1. Vehicle and Driver identity dependencies.
 2. Finance: loan schedule, payment ledger, prepayment schedule revision and settlement lineage/cutoff where the current schema supports them.
@@ -310,9 +310,9 @@ Use one deterministic fixture asset for both platforms, with schema-valid synthe
 6. Performance: only persisted `settings` and `pre_business_cost` records; calculation provenance must be asserted from the production calculation result, not persisted as a fabricated record kind.
 7. Work/Driver Workflow and Log Book: stable ordered event IDs, committed state/revisions, pending intent, outbox entry/delivery state and linked Log Book history.
 
-For every record, use current production schemas and validators. Capture expected stable IDs, revisions, references, effective dates, correction heads and calculation inputs. Do not use the user's actual personal/vehicle/loan/compliance/financial data.
+For every record, use current production schemas and validators. Add matching valid and invalid record/snapshot cases to a validator-parity matrix and compare browser/Android accept-or-reject outcomes plus stable error categories. Capture expected stable IDs, revisions, references, effective dates, correction heads and calculation inputs. Include Compliance renewal generations/early-overlap review supersession; Maintenance rate, allocated business/personal km, source revision and correction heads; Business Expense fuel and ordinary charges, Vehicle/Driver/trip-financial references and reversal/correction chains; Driver assignment interval/reassignment history; and Work intents/outbox in pending, acknowledged, retried and failed states linked to ordered Log Book events. Classify Performance recovery/provenance data as durable or derived/transient from the actual owner contract; if derived, prove deterministic reconstruction rather than inventing persisted record kinds. Do not use the user's actual personal/vehicle/loan/compliance/financial data.
 
-**B1 exit:** the shared fixture is populated and accepted by the existing production validators on both platforms. No fixture-only schema or validator relaxation.
+**B1 exit:** the shared fixture is populated; positive and negative records/snapshots pass the browser and Android production validators with matching semantic outcomes; zero-record participants are accounted for; no fixture-only schema or validator relaxation.
 
 #### B2. Browser lifecycle using existing Track A path
 
@@ -338,18 +338,20 @@ For every record, use current production schemas and validators. Capture expecte
 
 #### B4. Cross-runtime semantic and calculation comparison
 
-Compare browser and Room normalized results for:
+Compare browser and Room normalized results for (in addition to all fixture IDs and values):
 
-- Participant inventory and ownership.
+- Participant inventory and ownership, including participants with zero records.
+- Validator parity for matching valid/invalid feature records and whole snapshots, including stable error categories.
+- Driver assignment temporal intervals, reassignment and Vehicle lifecycle references.
 - Record IDs, schema versions and revisions.
 - Cross-feature references and referential integrity.
-- Event IDs/order, pending intent identity/status and outbox identity/delivery state.
+- Event IDs/order, pending intent identity/status and outbox identity/delivery state for pending, acknowledged, retried and failed cases.
 - Log Book event linkage/order.
 - Correction-chain heads and revision lineage.
 - Finance payment/prepayment/settlement lineage.
-- Compliance renewal/overlap decision lineage.
-- Maintenance accrual source, allocated distance and effective-rate snapshot.
-- Business Expense charge/reversal lineage.
+- Compliance multi-generation renewal/early-overlap review supersession and correction lineage.
+- Maintenance accrual source/revision, business and personal allocated distance, effective-rate snapshot and correction-chain head.
+- Business Expense fuel and ordinary charge references (Vehicle/Driver/trip-financial), reversals and correction-chain heads.
 - Performance calculation outputs, inputs and generated source provenance.
 
 Recompute calculations before and after restore on each runtime using the production services. Compare deterministic outputs and provenance, not merely serialized snapshots.
