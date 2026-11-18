@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
 import {
+  FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
-} from "../packages/application/src/admin-form-definitions";
+} from "../packages/application/src";
 
 describe("Fuel Entry submit-time GPS acquisition", () => {
   it("requests a fresh device fix and resolves with its actual timestamp and accuracy", async () => {
@@ -175,5 +176,82 @@ describe("Admin business expense form submission mapping", () => {
     await expect(submit(command(TRAFFIC_CHALLAN_FORM_V1.id, {
       businessDate: "2026-11-14", amountRupees: 10, description: "Violation", paymentStatus: "unpaid",
     }))).rejects.toThrow("traffic_challan_vehicle_required");
+  });
+});
+
+
+describe("Fuel Entry form submission mapping", () => {
+  it("commits the purchase fields before a delayed GPS fix and records late evidence separately", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-18T00:00:00.000Z"));
+    let success: ((position: GeolocationPosition) => void) | undefined;
+    const geolocation = {
+      getCurrentPosition(callback: (position: GeolocationPosition) => void) {
+        success = callback;
+      },
+    };
+    vi.stubGlobal("navigator", { geolocation });
+
+    const createFuelPurchase = vi.fn(async (input: unknown) => ({ id: "purchase-1", input }));
+    const recordFuelLocationCapture = vi.fn(async (_input: unknown) => undefined);
+    const source = { platform: "browser-test" };
+    const submit = createBusinessExpenseFormSubmissionHandler(
+      { createFuelPurchase } as never,
+      source as never,
+      { recordFuelLocationCapture } as never,
+    );
+
+    const result = await submit({
+      formId: FUEL_ENTRY_FORM_V1.id,
+      action: "submit",
+      instanceId: "fuel-entry-instance-1",
+      operationId: "fuel-entry-operation-1",
+      values: {
+        vehicleId: "vehicle-1",
+        odometerKm: 12345,
+        priceRupeesPerKg: 95.5,
+        amountRupees: 477.25,
+        partialRefill: true,
+      },
+    } as never);
+
+    expect(createFuelPurchase).toHaveBeenCalledWith({
+      uuid: "fuel-entry-instance-1",
+      source,
+      data: {
+        vehicleId: "vehicle-1",
+        odometerKm: 12345,
+        pricePaisePerKg: 9550,
+        amountPaise: 47725,
+        partialRefill: true,
+        occurredAt: "2026-11-18T00:00:00.000Z",
+        businessDate: "2026-11-18",
+      },
+    });
+    expect(result).toMatchObject({ id: "purchase-1" });
+    expect(recordFuelLocationCapture).not.toHaveBeenCalled();
+
+    success!({
+      coords: {
+        latitude: 19.076, longitude: 72.8777, accuracy: 8,
+        altitude: null, altitudeAccuracy: null, heading: null, speed: null,
+      },
+      timestamp: Date.parse("2026-11-18T00:00:02.000Z"),
+    } as GeolocationPosition);
+
+    await vi.waitFor(() => expect(recordFuelLocationCapture).toHaveBeenCalledWith({
+      eventId: "fuel:purchase-1",
+      outcome: {
+        status: "captured",
+        latitude: 19.076,
+        longitude: 72.8777,
+        accuracyMeters: 8,
+        fixAt: "2026-11-18T00:00:02.000Z",
+        gpsProvider: "device",
+      },
+      captureTiming: "late",
+    }));
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });
