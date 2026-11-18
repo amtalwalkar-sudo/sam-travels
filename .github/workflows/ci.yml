@@ -134,8 +134,6 @@ jobs:
         run: npm run build:full-cost-distance-parity
       - name: Stage the shared workflow parity contract for Android tests
         run: mkdir -p android/app/src/androidTest/assets && cp tests/fixtures/driver-workflow-parity-v1.json android/app/src/androidTest/assets/driver-workflow-parity-v1.json
-      - name: Stage the shared semantic backup lifecycle fixture for Android tests
-        run: cp fixtures/semantic-backup-lifecycle-v1.json android/app/src/androidTest/assets/semantic-backup-lifecycle-v1.json
       - name: Download the exact Dexie projection oracle for Android comparison
         uses: actions/download-artifact@v4
         with:
