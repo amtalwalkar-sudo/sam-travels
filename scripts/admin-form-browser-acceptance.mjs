@@ -179,7 +179,7 @@ try {
       locationEvidence: rows.filter(row =>
         row.id.startsWith("timeline-enrichment:fuel:") &&
         row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:") &&
-        row.data?.eventType === "fuel_purchase"
+        row.data?.captureStatus === "permission_denied"
       ),
     };
   }, vehicleId);
