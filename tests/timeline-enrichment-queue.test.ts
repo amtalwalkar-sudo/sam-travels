@@ -168,6 +168,39 @@ describe("durable Timeline enrichment queue", () => {
     expect(reverse).toHaveBeenCalledTimes(1);
   });
 
+  it("reconstructs missing Fuel queue work from authoritative purchase GPS evidence", async () => {
+    const records = new DexieRecordRepository();
+    const reverse = vi.fn(async () => "Andheri, Mumbai");
+    const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
+    const purchaseId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174052";
+    await records.put({
+      id: purchaseId, schemaVersion: 1, createdAt: "2026-11-14T20:00:00.000Z",
+      updatedAt: "2026-11-14T20:00:02.000Z", source: "web", revision: 2,
+      data: { locationEvidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 12.5,
+        capturedAt: "2026-11-14T20:00:02.000Z", provider: "device", captureTiming: "late",
+      } },
+    });
+    await queue.reconcileFuelLocationCaptures([{
+      id: purchaseId,
+      locationEvidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 12.5,
+        capturedAt: "2026-11-14T20:00:02.000Z", provider: "device", captureTiming: "late",
+      },
+    }]);
+    await queue.reconcileFuelLocationCaptures([{
+      id: purchaseId,
+      locationEvidence: {
+        latitude: 19.076, longitude: 72.8777, accuracyMeters: 12.5,
+        capturedAt: "2026-11-14T20:00:02.000Z", provider: "device", captureTiming: "late",
+      },
+    }]);
+    expect(await records.get("timeline-enrichment:fuel:" + purchaseId)).toMatchObject({
+      data: { captureStatus: "captured", captureTiming: "late", latitude: 19.076, longitude: 72.8777 },
+    });
+    expect(reverse).not.toHaveBeenCalled();
+  });
+
   it("records denied or timed-out Fuel GPS capture without creating geocoder work", async () => {
     const records = new DexieRecordRepository();
     const reverse = vi.fn(async () => "must not run");
