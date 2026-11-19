@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1 } from "./feature-record-service";
 
 export type BusinessSettingsRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -42,16 +42,18 @@ export class BusinessSettingsService {
   async setBusinessStartDate(
     businessStartDate: string,
     source: "web" | "android" | "import" | "integration",
+    operation?: FeatureRecordOperationIdentityV1,
+    now?: string,
   ): Promise<RecordEnvelope<BusinessSettingsRecordV1>> {
     const data: BusinessSettingsRecordV1 = { schemaVersion: 1, businessStartDate };
     const current = await this.get();
     if (!current) {
-      return this.records.create({ id: BUSINESS_SETTINGS_RECORD_ID, data, source });
+      return this.records.create({ id: BUSINESS_SETTINGS_RECORD_ID, data, source, operation, now });
     }
     return this.records.update({
       id: BUSINESS_SETTINGS_RECORD_ID,
       expectedRevision: current.revision,
-      data,
+      data, operation, now,
     });
   }
 }
