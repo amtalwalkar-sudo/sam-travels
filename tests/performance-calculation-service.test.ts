@@ -86,6 +86,15 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.daily.reduce((sum, row) => sum + row.costs.emi, 0)).toBeGreaterThan(0);
     expect(result.daily.reduce((sum, row) => sum + row.costs.compliance, 0)).toBeGreaterThan(0);
     expect(result.daily.reduce((sum, row) => sum + row.costs["pre-business-manual-recovery"], 0)).toBeGreaterThan(0);
+    const reversedModels = sources();
+    reversedModels.emi.listPreBusinessRecoveryEntries = vi.fn(async () => [
+      { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
+        note: "Pre-start insurance", origin: "compliance" as const },
+      { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
+        note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
+    ]);
+    const replay = await new PerformanceCalculationServiceV1(reversedModels).calculate("2026-03-15", "2026-04-14");
+    expect(replay.recovery.daily).toEqual(result.recovery.daily);
   });
 
   it("rejects cross-category source leakage instead of silently double counting", async () => {
