@@ -154,7 +154,7 @@ describe("shared form recovery against the production Dexie adapter", () => {
         return result;
       },
     }, () => "2026-11-19T08:30:00.000Z", () => "dexie-fuel-operation");
-    let copy = await makeRuntime().open(FUEL_ENTRY_FORM_V1, "fuel-dexie-instance");
+    let copy = await makeRuntime().open(FUEL_ENTRY_FORM_V1, "123e4567-e89b-42d3-a456-426614174010");
     for (const [field, value] of Object.entries({
       vehicleId, odometerKm: 1200, priceRupeesPerKg: 95, amountRupees: 475, partialRefill: false,
     })) copy = await makeRuntime().update(FUEL_ENTRY_FORM_V1, copy, field, value);
