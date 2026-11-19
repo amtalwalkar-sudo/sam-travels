@@ -97,9 +97,9 @@ A source whose validity or schedule ended before the Business Start Date is stil
 - Allocation results must identify the source record/instalment, source revision or schedule version, Business Start Date used, allocation period, calculation version, and currency/paise result.
 - Replays and rebuilds must be deterministic and idempotent across browser PWA and installed Android/Room.
 
-## 7. Explicit exclusions and implementation gate
+## 7. Implementation boundaries and verification requirements
 
-This contract does not authorize runtime implementation by itself. Before wiring, the implementation plan must identify:
+The reporting allocation implementation must use the owner services and versioned projections below. Before declaring this rule complete, verify:
 - the owning Compliance and Finance application services and public read contracts;
 - the reporting projection/registry and versioned allocation calculation;
 - how Business Start Date changes trigger safe derived-allocation restatement;
