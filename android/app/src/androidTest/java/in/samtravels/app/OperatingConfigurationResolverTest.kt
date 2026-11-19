@@ -98,7 +98,7 @@ class OperatingConfigurationResolverTest {
             put(missing, "feature:driver-records:driver:driver-1", driver())
             put(missing, "feature:vehicle:MH01AB1234", vehicle())
             put(missing, "feature:driver-records:assignment:driver-1", assignment())
-            failure(missing, "operating_driver_selection_missing_or_ambiguous")
+            failure(missing, "work_driver_not_selected")
         } finally { missing.close() }
     }
 
