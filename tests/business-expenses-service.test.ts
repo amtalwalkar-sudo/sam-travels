@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
@@ -7,11 +7,23 @@ import {
 } from "../packages/features/business-expenses";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
   async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    if (!mutations.length || new Set(mutations.map(item => item.id)).size !== mutations.length) {
+      throw new Error("atomic_record_batch_invalid");
+    }
+    for (const item of mutations) {
+      const current = this.rows.get(item.id);
+      if (item.expectedRevision === null ? current !== undefined : current?.revision !== item.expectedRevision) return false;
+      if (item.next.revision !== (item.expectedRevision ?? 0) + 1) throw new Error("atomic_record_batch_revision_invalid");
+    }
+    mutations.forEach(item => this.rows.set(item.id, item.next as RecordEnvelope<unknown>));
+    return true;
+  }
   async remove(id: string) { this.rows.delete(id); }
   async compareAndSet<T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) {
     const current = this.rows.get(id);
@@ -68,6 +80,32 @@ describe("BusinessExpensesService", () => {
       },
     })).rejects.toThrow("feature_record_already_exists");
   });
+
+
+  it("replays a committed Fuel purchase with its original timestamp and rejects changed payload reuse", async () => {
+    const { service, repository } = setup();
+    const input = {
+      uuid: "123e4567-e89b-42d3-a456-426614174099", source: "web" as const,
+      now: "2026-11-19T04:00:00.000Z",
+      operation: { operationId: "fuel-form-operation-1", payloadFingerprint: '{"amountRupees":825,"priceRupeesPerKg":82.5}' },
+      data: {
+        businessDate: "2026-11-19", occurredAt: "2026-11-19T04:00:00.000Z",
+        vehicleId, odometerKm: 45000, pricePaisePerKg: 8250, amountPaise: 82500,
+        partialRefill: false,
+      },
+    };
+    const first = await service.createFuelPurchase(input);
+    const replay = await service.createFuelPurchase({ ...input, now: "2026-11-19T05:00:00.000Z" });
+    expect(replay).toEqual(first);
+    expect(first.createdAt).toBe("2026-11-19T04:00:00.000Z");
+    expect(first.data.occurredAt).toBe("2026-11-19T04:00:00.000Z");
+    expect(first.data.businessDate).toBe("2026-11-19");
+    expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
+    await expect(service.createFuelPurchase({
+      ...input, data: { ...input.data, amountPaise: 90000 },
+    })).rejects.toThrow("feature_record_operation_payload_conflict");
+  });
+
 
   it("exposes a derived historical rate timeline from completed intervals", async () => {
     const { service } = setup();
