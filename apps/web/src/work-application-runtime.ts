@@ -37,6 +37,8 @@ export type InitializedWorkApplicationV1 = Readonly<{
 export class WorkApplicationRuntimeV1 {
   private readonly coordinator: WorkApplicationCoordinatorV1;
   private readonly createWorkflowResources: WorkWorkflowFactoryV1;
+  private activeService?: DriverWorkflowService;
+  private activeRepository?: WorkWorkflowResourcesV1["repository"];
 
   constructor(private readonly dependencies: WorkApplicationRuntimeDependenciesV1) {
     const coordinatorDependencies: WorkApplicationCoordinatorDependenciesV1 = {
@@ -60,6 +62,8 @@ export class WorkApplicationRuntimeV1 {
       const selectedDriver = await selection.getSelectedDriver();
       const service = this.coordinator.createWorkflow(resources.repository, resources.location);
       const restored = await this.coordinator.initialize(service);
+      this.activeService = service;
+      this.activeRepository = resources.repository;
       return Object.freeze({
         repository: resources.repository,
         service,
@@ -73,11 +77,20 @@ export class WorkApplicationRuntimeV1 {
     }
   }
 
+  async snapshot() {
+    if (!this.activeService) throw new Error("work_workflow_not_initialized");
+    return this.activeService.snapshot();
+  }
+
   resume(service: DriverWorkflowService) {
     return this.coordinator.resume(service);
   }
 
   dispose(repository: WorkWorkflowResourcesV1["repository"]): void {
+    if (this.activeRepository === repository) {
+      this.activeRepository = undefined;
+      this.activeService = undefined;
+    }
     (repository as typeof repository & { dispose?: () => void }).dispose?.();
   }
 }
