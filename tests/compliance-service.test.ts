@@ -57,7 +57,7 @@ function setup(repository = new MemoryRepository()) {
 }
 
 describe("ComplianceService", () => {
-  it("creates immutable historical records and links renewal as a new record", async () => {
+  it("creates immutable Vehicle-owned records without requiring Work Driver context", async () => {
     const { service } = setup();
     const previous = await service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174000",
