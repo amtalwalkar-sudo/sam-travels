@@ -2,13 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
-import type { FeatureRecordSource } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
-import { getDriverPersonLink } from "../person-identity-adapters";
-import { getPersonIdentityService } from "../person-identity-runtime";
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/features/work";
 import { useWorkApplicationRuntime } from "./work-application-runtime-context";
-import { WorkDriverSelectionService } from "../../../../packages/application/src/work-driver-selection-service";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
@@ -22,7 +18,6 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const workRuntime = useWorkApplicationRuntime();
   if (!workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
-  const featureRecordSource: FeatureRecordSource = useAdminMaintenanceServices().recordSource;
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
@@ -34,9 +29,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [pending, setPending] = useState<{ command: DriverTransitionCommand; status: string; reason?: string }[]>([]);
   const [driverBusy, setDriverBusy] = useState(false);
   const [driverMessage, setDriverMessage] = useState("Restoring driver state…");
-  const [driverChoices, setDriverChoices] = useState<Array<{driverId:string;name:string}>>([]);
-  const [selectedDriverId, setSelectedDriverId] = useState("");
-  const [selectionService, setSelectionService] = useState<WorkDriverSelectionService | null>(null);
+  const [hasWorkDriverSelection, setHasWorkDriverSelection] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -70,20 +63,13 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     let unsubscribe: (() => void) | undefined;
 
     workRuntime.initialize()
-      .then(async ({ repository, service, selection, selectedDriver: selected, restored }) => {
+      .then(async ({ repository, service, selectedDriver: selected, restored }) => {
         if (!live) {
           workRuntime.dispose(repository);
           return;
         }
 
-        const platformRecords = platformRepository;
-        const allRecords = await platformRecords.list<unknown>();
-        setDriverChoices(allRecords.filter(row => typeof row.id === "string" && row.id.startsWith("feature:driver-records:driver:") && !!row.data && typeof row.data === "object")
-          .map(row => row.data as {driverId?:string;name?:string;lifecycleState?:string})
-          .filter(row => typeof row.driverId === "string" && typeof row.name === "string" && row.lifecycleState === "active")
-          .map(row => ({driverId:row.driverId!,name:row.name!})));
-        setSelectedDriverId(selected?.driverId ?? "");
-        setSelectionService(selection);
+        setHasWorkDriverSelection(!!selected?.driverId);
         setWorkflow(service);
         setDriver(restored.snapshot);
         const pendingItems = restored.pending;
@@ -181,20 +167,6 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
       setDriverMessage(cause instanceof Error ? cause.message : "Unable to retry pending action");
     } finally {
       setDriverBusy(false);
-    }
-  }
-
-  async function selectDriver(driverId:string) {
-    if (!selectionService || !driverId) return;
-    try {
-      const link = await getDriverPersonLink(platformRepository, driverId);
-      if (!link) throw new Error("Link this Driver profile to an enrolled person before starting work.");
-      await getPersonIdentityService().activate(link.personId, "driver");
-      const selected = await selectionService.selectDriver(driverId, featureRecordSource);
-      setSelectedDriverId(selected.driverId);
-      setDriverMessage("Work Driver selected");
-    } catch (cause) {
-      setDriverMessage(cause instanceof Error ? cause.message : "Unable to select Work Driver");
     }
   }
 
@@ -365,11 +337,11 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     ...cancellationFees,
     ...completedTripFinancials,
     shiftOn, tripOn, localClock, elapsed,
-    actions: { retry, toggleNetwork, dispatch, selectDriver,
+    actions: { retry, toggleNetwork, dispatch,
       updateCancellationFeeDraft: cancellationFees.updateCancellationFeeDraft,
       submitCancellationFee: cancellationFees.submitCancellationFee,
       updateCompletedTripFinancialDraft: completedTripFinancials.updateCompletedTripFinancialDraft,
       submitCompletedTripFinancials: completedTripFinancials.submitCompletedTripFinancials },
-    driverChoices, selectedDriverId, loadTimeline,
+    hasWorkDriverSelection, loadTimeline,
   };
 }
