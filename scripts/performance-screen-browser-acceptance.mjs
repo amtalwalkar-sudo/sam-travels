@@ -74,11 +74,42 @@ try {
   await page.getByLabel("Driver name").fill(driverName);
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor();
-  await page.getByLabel("Vehicle for " + driverName).selectOption({ label: "MH00PS0093 · Acceptance Performance" });
-  await page.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor();
-  await page.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor();
+  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await driverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: driverName + " is configured with MH00PS0093 for Work.",
+  }).waitFor();
+  const configuredRecords = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows;
+  });
+  const selectedWorkDriver = configuredRecords.find(row => row.id === "work:selected-driver");
+  if (!selectedWorkDriver?.data?.driverId) {
+    throw new Error("Admin configuration did not persist the canonical Work Driver selection");
+  }
+  const configuredDriver = configuredRecords.find(row =>
+    row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName
+  );
+  if (selectedWorkDriver.data.driverId !== configuredDriver?.data?.driverId) {
+    throw new Error("Canonical Work Driver selection does not match the created Driver profile");
+  }
+  const assignmentHistory = configuredRecords.find(row =>
+    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver.data.driverId)
+  );
+  const currentAssignments = assignmentHistory?.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
+  if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== "feature:vehicle:MH00PS0093") {
+    throw new Error("Admin configuration did not create exactly one current Driver–Vehicle assignment");
+  }
 
   // Refresh the identity panel so it discovers the newly-created Driver profile.
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -104,10 +135,10 @@ try {
 
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Drive", exact: true }).click();
-  const workDriver = page.getByLabel("Work Driver");
-  await workDriver.locator("option").filter({ hasText: driverName }).waitFor({ state: "attached" });
-  await workDriver.selectOption({ label: driverName });
-  await page.locator(".driver-message").filter({ hasText: "Work Driver selected" }).waitFor();
+  if (await page.getByLabel("Work Driver").count()) {
+    throw new Error("Work must use the Admin-configured Driver; a routine Work Driver selector must not render");
+  }
+  await page.locator(".driver-message").filter({ hasText: driverName }).waitFor();
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
