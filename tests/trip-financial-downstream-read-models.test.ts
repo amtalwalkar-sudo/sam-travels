@@ -47,7 +47,9 @@ describe("completed trip financial end-to-end read models", () => {
       "trip-downstream-submit", () => at,
     );
     expect(submitted.revision).toBe(2);
-    expect(calculateTripFinancialSummary({ farePaise: submitted.data.farePaise!, tollPaise: submitted.data.tollPaise,\n      tollPayer: submitted.data.tollPayer, parkingPaise: submitted.data.parkingPaise,\n      parkingPayer: submitted.data.parkingPayer })).toEqual({
+    expect(calculateTripFinancialSummary({ farePaise: submitted.data.farePaise!, tollPaise: submitted.data.tollPaise,
+      tollPayer: submitted.data.tollPayer, parkingPaise: submitted.data.parkingPaise,
+      parkingPayer: submitted.data.parkingPayer })).toEqual({
       customerChargePaise: 252_000, driverExpensesPaise: 57_000,
       netTripEarningsBeforeFuelPaise: 195_000,
     });
