@@ -32,7 +32,8 @@ describe("Business Start Date Compliance allocation", () => {
     expect(pool.eligibleTo).toBe("2027-07-05");
     expect(pool.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
     expect(pool.daily.every(row => row.date >= "2026-01-06" && row.date <= "2027-07-05")).toBe(true);
-    expect(pooled.find(item => item.sourceId === result.sourceId)?.disposition).toBe("pre_business_pool_member");
+    expect(pooled.find(item => item.sourceId === result.sourceId)?.disposition).toBe("allocated");
+    expect(pooled.find(item => item.sourceId === result.sourceId)?.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
   });
 
   it("allocates a record effective on the Business Start Date normally over its full validity period", () => {
