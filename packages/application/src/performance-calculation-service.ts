@@ -39,6 +39,7 @@ export interface PerformanceOperatingCostReadModel extends PerformanceSnapshotRe
 }
 export interface PerformanceEmiReadModel extends PerformanceSnapshotReadModel {
   listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
+  listPreBusinessRecoveryEntries?(): Promise<readonly PreBusinessRecoverySourceV1[]>;
 }
 export interface PerformanceComplianceReadModel extends PerformanceSnapshotReadModel {
   listDailyComplianceAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]>;
