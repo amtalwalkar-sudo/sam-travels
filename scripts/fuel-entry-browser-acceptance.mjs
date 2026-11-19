@@ -144,11 +144,13 @@ try {
   const panel = page.locator(".fuel-entry-panel");
   await panel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
   assert.equal(await panel.getByLabel("Partial refill").isChecked(), false, "full tank is the default");
-  await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12345");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
-  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
+  await panel.getByLabel("Vehicle").selectOption(vehicleId);
+  assert.equal(await panel.getByLabel("Vehicle").inputValue(), vehicleId,
+    "selected vehicle must remain the controlled form value before submission");
+  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\\.000 kg/);
   const firstFormState = await panel.locator("form").evaluate(form => ({
     valid: form.checkValidity(),
     invalid: [...form.querySelectorAll(":invalid")].map(control => ({
