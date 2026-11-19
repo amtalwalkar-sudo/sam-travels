@@ -122,7 +122,7 @@ try {
   const configuredDriverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
   await configuredDriverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
   await page.getByRole("status").filter({ hasText: driverName + " is configured with " + registration + " for Work." }).waitFor({ state: "visible" });
-  const operatingConfiguration = await page.evaluate(async () => {
+  const configuredPairMatches = await page.evaluate(async driverName => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -135,17 +135,11 @@ try {
       get.onerror = () => reject(get.error);
     });
     db.close();
-    return rows.find(row => row.id === "work:selected-driver")?.data;
-  });
-  if (operatingConfiguration?.driverId !== "configured-driver") {
-    const selectedDriver = await page.evaluate(async () => {
-      const request = indexedDB.open("sam-travels-browser");
-      const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
-      const rows = await new Promise((resolve, reject) => { const tx=db.transaction("records","readonly"); const get=tx.objectStore("records").getAll(); get.onsuccess=()=>resolve(get.result); get.onerror=()=>reject(get.error); });
-      db.close(); return rows.find(row=>row.id==="work:selected-driver")?.data?.driverId;
-    });
-    if (typeof selectedDriver !== "string" || !selectedDriver) throw new Error("authoritative_work_driver_selection_not_persisted");
-  }
+    const driver = rows.find(row => row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName);
+    const selected = rows.find(row => row.id === "work:selected-driver");
+    return !!driver && selected?.data?.driverId === driver.data.driverId;
+  }, driverName);
+  if (!configuredPairMatches) throw new Error("authoritative_work_driver_selection_not_persisted");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
   if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
