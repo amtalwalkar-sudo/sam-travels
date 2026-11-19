@@ -208,7 +208,7 @@ export class FinanceLoanPaymentService {
   }
   async record(input: { id: string; commandId: string; loanId: string; businessDate: string; amountPaise: number;
     method: FinancePaymentMethodV1; reference?: string; note?: string; scheduleVersion: number;
-    allocations: readonly { installmentNumber: number; amountPaise: number }[]; source: RecordEnvelope<unknown>["source"] }) {
+    allocations: readonly { installmentNumber: number; amountPaise: number }[]; source: RecordEnvelope<unknown>["source"]; now?: string }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 || !METHODS.has(input.method)) {
       throw new Error("finance_payment_input_invalid");
