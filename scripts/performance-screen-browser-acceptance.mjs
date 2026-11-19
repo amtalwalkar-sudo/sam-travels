@@ -200,6 +200,16 @@ try {
 
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+
+  // Work Driver selection changes the active actor. Restore Admin authority
+  // before writing business settings and requesting privileged calculations.
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
+  await identityPanel.getByLabel("Active role").selectOption("admin");
+  await identityPanel.getByLabel("Admin PIN").fill(testPin);
+  await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
+
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
