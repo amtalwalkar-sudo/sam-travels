@@ -15,7 +15,7 @@ export type DailyCostAllocationV1 = Readonly<{
   sourceVersion: number;
   scheduleVersion?: number;
 }>;
-export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "pre_business_pool_member" | "overlap_review_required";
+export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "pre_business_pool_member" | "pre_business_pool_summary" | "overlap_review_required";
 export type CostAllocationSourceResultV1 = Readonly<{
   sourceId: string;
   sourceKind: "compliance" | "emi" | "pre-business-pool";
@@ -222,22 +222,64 @@ export function allocatePreBusinessCostPoolV1(
   const sourceId = "reporting:business-start-date:pre-business-pool";
   const monthlyBase = Math.floor(totalPaise / 18);
   const monthlyRemainder = totalPaise % 18;
-  const daily: DailyCostAllocationV1[] = [];
+  const aggregateDaily: DailyCostAllocationV1[] = [];
   for (let index = 0; index < 18; index++) {
     const from = addAnchoredMonths(businessStartDate, index);
     const to = addDays(addAnchoredMonths(businessStartDate, index + 1), -1);
-    daily.push(...distribute({
+    aggregateDaily.push(...distribute({
       sourceId, sourceKind: "pre-business-pool", sourceVersion: 1,
       amountPaise: monthlyBase + (index < monthlyRemainder ? 1 : 0), from, to,
     }));
   }
+
+  // Split each aggregate daily amount back across its original source records.
+  // Row totals remain the aggregate pool's daily schedule, while each source
+  // column reconciles exactly to its immutable original amount and category.
+  const remaining = members.map(member => member.sourceAmountPaise);
+  const memberDaily = members.map((): DailyCostAllocationV1[] => []);
+  let remainingTotal = totalPaise;
+  for (const aggregateRow of aggregateDaily) {
+    const denominator = BigInt(remainingTotal || 1);
+    const numerators = remaining.map(amount => BigInt(aggregateRow.amountPaise) * BigInt(amount));
+    const shares = numerators.map(value => remainingTotal === 0 ? 0 : Number(value / denominator));
+    const fractions = numerators.map(value => remainingTotal === 0 ? 0n : value % denominator);
+    let residual = aggregateRow.amountPaise - shares.reduce((sum, value) => sum + value, 0);
+    const order = members.map((member, index) => index).sort((left, right) =>
+      fractions[left] === fractions[right]
+        ? members[left].sourceId.localeCompare(members[right].sourceId)
+        : fractions[left] > fractions[right] ? -1 : 1);
+    for (const index of order) {
+      if (residual === 0) break;
+      if (shares[index] < remaining[index]) { shares[index]++; residual--; }
+    }
+    if (residual !== 0) throw new Error("business_start_date_pool_apportionment_failed");
+    members.forEach((member, index) => {
+      const amountPaise = shares[index];
+      remaining[index] -= amountPaise;
+      memberDaily[index].push(Object.freeze({
+        date: aggregateRow.date, amountPaise, sourceId: member.sourceId,
+        sourceKind: member.sourceKind, sourceVersion: member.sourceVersion,
+        ...(member.scheduleVersion !== undefined ? { scheduleVersion: member.scheduleVersion } : {}),
+      }));
+    });
+    remainingTotal -= aggregateRow.amountPaise;
+  }
+  if (remaining.some(amount => amount !== 0) || remainingTotal !== 0) {
+    throw new Error("business_start_date_pool_source_reconciliation_failed");
+  }
+  const poolMembers = members.map((source, index) => Object.freeze({
+    ...source, disposition: "allocated" as const,
+    eligibleFrom: businessStartDate,
+    eligibleTo: addDays(addAnchoredMonths(businessStartDate, 18), -1),
+    daily: Object.freeze(memberDaily[index]),
+  }));
   return Object.freeze([
     ...retained, ...poolMembers,
     Object.freeze({
       sourceId, sourceKind: "pre-business-pool" as const, sourceVersion: 1,
-      sourceAmountPaise: totalPaise, disposition: "allocated" as const,
+      sourceAmountPaise: totalPaise, disposition: "pre_business_pool_summary" as const,
       eligibleFrom: businessStartDate, eligibleTo: addDays(addAnchoredMonths(businessStartDate, 18), -1),
-      daily: Object.freeze(daily),
+      daily: Object.freeze(aggregateDaily),
     }),
   ]);
 }
@@ -251,8 +293,11 @@ export function buildBusinessStartDateAllocationResultV1(
   let allocatedAmountPaise = 0, historicalAmountPaise = 0, withheldAmountPaise = 0;
   for (const source of sources) {
     const sourceDailyTotal = source.daily.reduce((sum, row) => sum + row.amountPaise, 0);
-    if (source.disposition === "allocated" && sourceDailyTotal !== source.sourceAmountPaise) throw new Error("business_start_date_allocation_source_reconciliation_failed");
-    if (source.disposition !== "allocated" && sourceDailyTotal !== 0) throw new Error("business_start_date_allocation_nonallocated_source_has_daily_rows");
+    if ((source.disposition === "allocated" || source.disposition === "pre_business_pool_summary") &&
+        sourceDailyTotal !== source.sourceAmountPaise) throw new Error("business_start_date_allocation_source_reconciliation_failed");
+    if (source.disposition !== "allocated" && source.disposition !== "pre_business_pool_summary" && sourceDailyTotal !== 0) {
+      throw new Error("business_start_date_allocation_nonallocated_source_has_daily_rows");
+    }
     if (source.disposition === "pre_business_historical") historicalAmountPaise += source.sourceAmountPaise;
     else if (source.disposition === "overlap_review_required") withheldAmountPaise += source.sourceAmountPaise;
     for (const row of source.daily) {
@@ -260,8 +305,10 @@ export function buildBusinessStartDateAllocationResultV1(
       if (row.date < businessStartDate || !Number.isSafeInteger(row.sourceVersion) || row.sourceVersion < 1) {
         throw new Error("business_start_date_allocation_row_invalid");
       }
-      dailyTotals.set(row.date, (dailyTotals.get(row.date) ?? 0) + row.amountPaise);
-      allocatedAmountPaise += row.amountPaise;
+      if (source.disposition !== "pre_business_pool_summary") {
+        dailyTotals.set(row.date, (dailyTotals.get(row.date) ?? 0) + row.amountPaise);
+        if (source.disposition === "allocated") allocatedAmountPaise += row.amountPaise;
+      }
     }
   }
   const daily = [...dailyTotals].sort(([a],[b]) => a.localeCompare(b))
