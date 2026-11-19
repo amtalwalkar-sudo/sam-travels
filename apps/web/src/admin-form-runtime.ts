@@ -1,5 +1,6 @@
 import {
-  SharedFormRuntime, RecordFormWorkingCopyRepository,\n  type FormWorkingCopyRepository,
+  SharedFormRuntime, RecordFormWorkingCopyRepository,
+  type FormWorkingCopyRepository,
   getApplicationBusinessSettingsService, getApplicationComplianceService,
   getApplicationMaintenanceService, getApplicationFinanceLoanService, getApplicationFinanceLoanPaymentService,
   getApplicationFinanceLoanPrepaymentService, getApplicationFinanceLoanSettlementService,
