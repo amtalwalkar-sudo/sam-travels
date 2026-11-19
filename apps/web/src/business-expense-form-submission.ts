@@ -68,6 +68,8 @@ export function createBusinessExpenseFormSubmissionHandler(
   if (command.formId === PLATFORM_FEE_FORM_V1.id) {
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         sourceKind: "platform_fee", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
         vehicleId: requiredString(values.vehicleId, "platform_fee_vehicle_required"),
