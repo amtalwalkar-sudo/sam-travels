@@ -114,7 +114,7 @@ try {
   await page.getByLabel("Driver name").fill(driverName);
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor();
-  await page.getByLabel("Vehicle for " + driverName).selectOption({ label: /MH00PS0093/ });
+  await page.getByLabel("Vehicle for " + driverName).selectOption({ label: "MH00PS0093 · Acceptance Performance" });
   await page.getByRole("button", { name: "Assign / reassign", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor();
   await page.getByRole("button", { name: "Select for Work", exact: true }).click();
@@ -190,7 +190,6 @@ try {
 
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
-  const adminSections = page.getByRole("navigation", { name: "Admin sections" });
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
