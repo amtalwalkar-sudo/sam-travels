@@ -62,7 +62,15 @@ describe("FinanceLoanPaymentService", () => {
     expect(proposeFinancePaymentAllocationV1(loanData, [], 1, "2026-11-08", 25000))
       .toEqual([{ installmentNumber: 1, amountPaise: 10000 }]);
   });
-  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
+  it("persists the original form submission timestamp on payment entries", async () => {
+    const { service } = setup();
+    const payment = await service.record({
+      ...base, id: "payment-submit-time", commandId: "payment-submit-time",
+      allocations: [], now: "2026-11-19T09:30:00.000Z",
+    });
+    expect(payment.createdAt).toBe("2026-11-19T09:30:00.000Z");
+  });
+  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
     const repo = new MemoryRepository();
     void repo.put(loanEnvelope);
     const service = new FinanceLoanPaymentService(repo,
