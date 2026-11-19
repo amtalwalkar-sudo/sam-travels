@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import type { SubmitHistoricalCorrectionV1 } from "./historical-correction-service";
 
@@ -97,12 +97,13 @@ export class BusinessExpensesService {
 
   async createFuelPurchase(input: {
     uuid: string; data: FuelPurchaseInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
   }): Promise<RecordEnvelope<FuelPurchaseV1>> {
     await this.requireVehicle(input.data.vehicleId);
     const id = sourceId(FUEL_PREFIX, input.uuid);
     const data: FuelPurchaseV1 = { ...input.data, schemaVersion: 1, kind: "fuel_purchase", id, revision: 1 };
     this.domain.validateFuelPurchase(data);
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation }) as
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
 
