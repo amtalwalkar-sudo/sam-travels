@@ -51,7 +51,14 @@ describe("shared driver workflow parity and interruption contract", () => {
 
     let repository = new DexieDriverWorkflowRepository();
     const selection = new WorkDriverSelectionService(new DexieRecordRepository(), repository);
+    const configuredVehicles = await new DexieRecordRepository().list();
+    expect(configuredVehicles.filter(record => record.id.startsWith("feature:vehicle:"))).toHaveLength(1);
+    expect(configuredVehicles.filter(record =>
+      record.id.startsWith("feature:driver-records:driver:") &&
+      (record.data as { selectedForWork?: boolean }).selectedForWork === true,
+    )).toHaveLength(0);
     await selection.selectDriver("parity-driver");
+    expect(await selection.getSelectedDriver()).toEqual({ schemaVersion: 1, driverId: "parity-driver" });
     let service = new DriverWorkflowService(repository, {
       capture: async () => gpsAt(new Date().toISOString()),
     });
