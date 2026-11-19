@@ -156,7 +156,7 @@ try {
   await page.getByLabel("Document reference (optional)").fill("INS-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
-  const complianceVehicleMatches = await page.evaluate(async () => {
+  const complianceVehicleMatches = await page.evaluate(async expectedVehicleId => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -171,8 +171,8 @@ try {
     db.close();
     const record = rows.find(row => row.id.startsWith("feature:compliance:") &&
       row.data?.complianceName === "Acceptance Insurance");
-    return record?.data?.vehicleId === "feature:vehicle:MH00AA0090";
-  });
+    return record?.data?.vehicleId === expectedVehicleId;
+  }, vehicleId);
   if (!complianceVehicleMatches) throw new Error("compliance_record_did_not_persist_configured_operating_vehicle");
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Issue date").fill(today);
