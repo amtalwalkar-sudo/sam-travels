@@ -68,8 +68,7 @@ export class TimelineEnrichmentQueue {
     }
     for (const event of events) {
       const gps = event.gps;
-      if (event.eventId.startsWith("fuel:feature:business-expenses:fuel:") ||
-          !eligibleEvents.has(event.command.eventType) || !gps ||
+      if (!eligibleEvents.has(event.command.eventType) || !gps ||
           !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude) ||
           gps.latitude < -90 || gps.latitude > 90 || gps.longitude < -180 || gps.longitude > 180) continue;
       const id = recordId(event.eventId);
@@ -102,9 +101,6 @@ export class TimelineEnrichmentQueue {
     const nowMs = this.now();
     const all = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
-      // Older releases could enqueue Fuel GPS rows. Preserve those records for backup compatibility,
-      // but never reverse-geocode them after Fuel location capture was retired.
-      .filter(row => !row.data.eventId.startsWith("fuel:feature:business-expenses:fuel:"))
       .filter(row => typeof row.data.latitude === "number" && typeof row.data.longitude === "number")
       .filter(row => (row.data.status === "pending" || row.data.status === "network_disabled") ||
         (row.data.status === "retry_wait" && (!row.data.nextAttemptAt || Date.parse(row.data.nextAttemptAt) <= nowMs)))
@@ -170,7 +166,6 @@ export class TimelineEnrichmentQueue {
   async nextWakeAt(): Promise<number | undefined> {
     const rows = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
-      .filter(row => !row.data.eventId.startsWith("fuel:feature:business-expenses:fuel:"))
       .filter(row => row.data.status === "pending" || row.data.status === "retry_wait");
     if (!rows.length) return undefined;
     const times = rows.map(row => row.data.status === "retry_wait" && row.data.nextAttemptAt
