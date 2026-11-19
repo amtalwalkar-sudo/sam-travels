@@ -276,7 +276,7 @@ describe("shared form runtime", () => {
     const result = await runtime.submit(definition, copy);
     expect(result).toEqual({ operationId: "operation-2" });
     expect(submissions).toBe(1);
-    expect(await copies.get(definition.id, "trip-456")).toMatchObject({ status: "submitted", revision: 3 });
+    expect(await copies.get(definition.id, "trip-456")).toMatchObject({ status: "submitted", revision: 4 });
     await expect(runtime.submit(definition, copy)).rejects.toThrow("form_copy_revision_conflict");
     expect(submissions).toBe(1);
   });
@@ -285,17 +285,83 @@ describe("shared form runtime", () => {
     const copies = new MemoryCopies();
     const actions: string[] = [];
     const saveDefinition = { ...definition, id: "admin.vehicle", primaryAction: "save" as const };
+    let operationSequence = 0;
     const runtime = new SharedFormRuntime(copies, { submit: async command => { actions.push(command.action); return "saved"; } },
-      () => "2026-11-10T00:00:00.000Z", () => "operation-save");
+      () => "2026-11-10T00:00:00.000Z", () => "operation-save-" + (++operationSequence));
     let copy = await runtime.open(saveDefinition, "vehicle-1");
+    const firstOperationId = copy.operationId;
     await runtime.save(saveDefinition, copy);
     copy = (await copies.get(saveDefinition.id, "vehicle-1"))!;
-    expect(copy).toMatchObject({ status: "saved", revision: 1, values: {} });
+    expect(copy).toMatchObject({ status: "saved", revision: 2, values: {} });
     copy = await runtime.update(saveDefinition, copy, "farePaise", 0);
     expect(copy.status).toBe("in_progress");
+    expect(copy.operationId).not.toBe(firstOperationId);
     await runtime.save(saveDefinition, copy);
     expect(actions).toEqual(["save", "save"]);
-    expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 3 });
+    expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 5 });
+  });
+
+  it("persists pending intent before dispatch and retries it after runtime recreation", async () => {
+    const copies = new MemoryCopies();
+    const commands: unknown[] = [];
+    const firstRuntime = new SharedFormRuntime(copies, {
+      submit: async command => { commands.push(command); throw new Error("failure_before_domain_commit"); },
+    }, () => "2026-11-10T09:00:00.000Z", () => "durable-operation-1");
+    let copy = await firstRuntime.open(definition, "trip-retry");
+    copy = await firstRuntime.update(definition, copy, "farePaise", 2500);
+    copy = await firstRuntime.update(definition, copy, "tripDate", "2026-11-10");
+    await expect(firstRuntime.submit(definition, copy)).rejects.toThrow("failure_before_domain_commit");
+    const pending = await copies.get(definition.id, "trip-retry");
+    expect(pending).toMatchObject({ status: "pending", revision: 3, operationId: "durable-operation-1" });
+    expect(pending?.submission).toMatchObject({ action: "submit", submittedAt: "2026-11-10T09:00:00.000Z" });
+
+    const retryRuntime = new SharedFormRuntime(copies, {
+      submit: async command => { commands.push(command); return { recordId: "record-1" }; },
+    }, () => "2026-11-10T10:00:00.000Z", () => "must-not-replace-pending-operation");
+    const reopened = await retryRuntime.open(definition, "trip-retry");
+    const result = await retryRuntime.submit(definition, reopened);
+    expect(result).toEqual({ recordId: "record-1" });
+    expect(commands[1]).toEqual(commands[0]);
+    expect(await copies.get(definition.id, "trip-retry")).toMatchObject({ status: "submitted", revision: 4 });
+  });
+
+  it("shares one in-flight durable submission result across concurrent taps", async () => {
+    const copies = new MemoryCopies();
+    let calls = 0;
+    let release!: (value: unknown) => void;
+    const runtime = new SharedFormRuntime(copies, {
+      submit: async () => { calls += 1; return new Promise(resolve => { release = resolve; }); },
+    }, () => "2026-11-10T09:00:00.000Z", () => "concurrent-operation");
+    let copy = await runtime.open(definition, "trip-concurrent");
+    copy = await runtime.update(definition, copy, "farePaise", 2500);
+    copy = await runtime.update(definition, copy, "tripDate", "2026-11-10");
+    const first = runtime.submit(definition, copy);
+    const second = runtime.submit(definition, copy);
+    await Promise.resolve();
+    expect(calls).toBe(1);
+    release({ recordId: "same-record" });
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { recordId: "same-record" }, { recordId: "same-record" },
+    ]);
+  });
+
+  it("fails closed if a pending operation payload is changed under the same identity", async () => {
+    const copies = new MemoryCopies();
+    const runtime = new SharedFormRuntime(copies, {
+      submit: async () => { throw new Error("simulated_interruption"); },
+    }, () => "2026-11-10T09:00:00.000Z", () => "immutable-operation");
+    let copy = await runtime.open(definition, "trip-payload-change");
+    copy = await runtime.update(definition, copy, "farePaise", 2500);
+    copy = await runtime.update(definition, copy, "tripDate", "2026-11-10");
+    await expect(runtime.submit(definition, copy)).rejects.toThrow("simulated_interruption");
+    const pending = (await copies.get(definition.id, "trip-payload-change"))!;
+    await copies.put({
+      ...pending, revision: pending.revision + 1,
+      submission: { ...pending.submission!, values: { ...pending.submission!.values, farePaise: 9999 } },
+    }, pending.revision);
+    const reopened = await runtime.open(definition, "trip-payload-change");
+    const retry = new SharedFormRuntime(copies, { submit: async () => ({}) });
+    await expect(retry.submit(definition, reopened)).rejects.toThrow("form_submission_payload_identity_invalid");
   });
 
   it("does not submit invalid data or permit Submit on Save-only forms", async () => {
