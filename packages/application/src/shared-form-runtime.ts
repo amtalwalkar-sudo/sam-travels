@@ -81,7 +81,7 @@ export class SharedFormRuntime {
     this.assertDefinition(definition);
     const copies = await this.workingCopies.list(definition.id);
     return Object.freeze(copies.filter(copy =>
-      copy.formId === definition.id && copy.formVersion === definition.version && copy.status === "in_progress"
+      copy.formId === definition.id && copy.formVersion === definition.version && ["in_progress", "pending"].includes(copy.status)
     ));
   }
 
