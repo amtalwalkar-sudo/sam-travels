@@ -20,8 +20,8 @@ import {
 
 const databases: SamTravelsDatabase[] = [];
 
-async function openStore() {
-  const database = new SamTravelsDatabase("form-recovery-" + crypto.randomUUID());
+async function openStore(name = "form-recovery-" + crypto.randomUUID()) {
+  const database = new SamTravelsDatabase(name);
   databases.push(database);
   await database.open();
   const repository = new DexieRecordRepository(database);
@@ -63,7 +63,7 @@ afterEach(async () => {
 
 describe("shared form recovery against the production Dexie adapter", () => {
   it("reopens and replays an Admin Vehicle create after the feature commit", async () => {
-    const { repository } = await openStore();
+    const { database, repository } = await openStore();
     const vehicleService = new VehicleService(repository, assertVehicleRecordV1);
     const workingCopies = new InterruptCompletionOnce(new RecordFormWorkingCopyRepository(repository, "web"));
     const runtime = createAdminFormRuntimeV1({
@@ -82,19 +82,25 @@ describe("shared form recovery against the production Dexie adapter", () => {
     const committed = await vehicleService.getByRegistrationNumber(registrationNumber);
     expect(committed).toMatchObject({ revision: 1, data: { make: "Recovery" } });
 
+    database.close();
+    const reopenedStore = await openStore(database.name);
+    const reopenedVehicleService = new VehicleService(reopenedStore.repository, assertVehicleRecordV1);
+    const reopenedCopies = new RecordFormWorkingCopyRepository(reopenedStore.repository, "web");
     const retryRuntime = createAdminFormRuntimeV1({
-      repository, recordSource: "web", performanceAdminSettings: new PerformanceAdminSettingsServiceV1(repository),
-      handleBusinessExpenseSubmission: async () => undefined, vehicleService, workingCopyRepository: workingCopies,
+      repository: reopenedStore.repository, recordSource: "web",
+      performanceAdminSettings: new PerformanceAdminSettingsServiceV1(reopenedStore.repository),
+      handleBusinessExpenseSubmission: async () => undefined, vehicleService: reopenedVehicleService,
+      workingCopyRepository: reopenedCopies,
     });
     const reopened = await retryRuntime.open(VEHICLE_FORM_V1, copy.instanceId);
     const replay = await retryRuntime.save(VEHICLE_FORM_V1, reopened);
     expect(replay).toEqual(committed);
-    expect(await vehicleService.list()).toHaveLength(1);
-    expect((await repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(1);
+    expect(await reopenedVehicleService.list()).toHaveLength(1);
+    expect((await reopenedStore.repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(1);
   });
 
   it("reopens and replays a real Admin Vehicle update without applying revision twice", async () => {
-    const { repository } = await openStore();
+    const { database, repository } = await openStore();
     const vehicleService = new VehicleService(repository, assertVehicleRecordV1);
     const original = await vehicleService.create(vehicleData("DXEUP001"), "web", undefined, "2026-11-19T08:00:00.000Z");
     const inner = new RecordFormWorkingCopyRepository(repository, "web");
@@ -121,19 +127,25 @@ describe("shared form recovery against the production Dexie adapter", () => {
     const committed = await vehicleService.getById(original.id);
     expect(committed).toMatchObject({ revision: 2, data: { make: "Updated make" } });
 
+    database.close();
+    const reopenedStore = await openStore(database.name);
+    const reopenedVehicleService = new VehicleService(reopenedStore.repository, assertVehicleRecordV1);
+    const reopenedCopies = new RecordFormWorkingCopyRepository(reopenedStore.repository, "web");
     const retryRuntime = createAdminFormRuntimeV1({
-      repository, recordSource: "web", performanceAdminSettings: new PerformanceAdminSettingsServiceV1(repository),
-      handleBusinessExpenseSubmission: async () => undefined, vehicleService, workingCopyRepository: workingCopies,
+      repository: reopenedStore.repository, recordSource: "web",
+      performanceAdminSettings: new PerformanceAdminSettingsServiceV1(reopenedStore.repository),
+      handleBusinessExpenseSubmission: async () => undefined, vehicleService: reopenedVehicleService,
+      workingCopyRepository: reopenedCopies,
     });
     const reopened = await retryRuntime.open(VEHICLE_FORM_V1, instanceId);
     const replay = await retryRuntime.save(VEHICLE_FORM_V1, reopened);
     expect(replay).toEqual(committed);
-    expect((await vehicleService.getById(original.id))?.revision).toBe(2);
-    expect((await repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(1);
+    expect((await reopenedVehicleService.getById(original.id))?.revision).toBe(2);
+    expect((await reopenedStore.repository.list()).filter(row => row.id.startsWith("__sam_travels_feature_operation__:"))).toHaveLength(1);
   });
 
   it("reopens and replays Fuel purchase submission using the same Dexie operation receipt", async () => {
-    const { repository } = await openStore();
+    const { database, repository } = await openStore();
     const vehicleId = "feature:vehicle:DXEFUEL01";
     await repository.put({
       id: vehicleId, schemaVersion: 1, createdAt: "2026-11-19T08:00:00.000Z",
@@ -162,9 +174,25 @@ describe("shared form recovery against the production Dexie adapter", () => {
     await expect(makeRuntime().submit(FUEL_ENTRY_FORM_V1, copy)).rejects.toThrow("simulated_process_death_after_domain_commit");
     const beforeRetry = (await service.listAll()).filter(row => row.id.includes(fuelInstanceId));
     expect(beforeRetry).toHaveLength(1);
-    const reopened = await makeRuntime().open(FUEL_ENTRY_FORM_V1, fuelInstanceId);
-    const replay = await makeRuntime().submit(FUEL_ENTRY_FORM_V1, reopened);
+    database.close();
+    const reopenedStore = await openStore(database.name);
+    const reopenedService = new BusinessExpensesService(reopenedStore.repository, {
+      validateRecord: assertBusinessExpenseRecordV1, validateFuelPurchase: assertFuelPurchaseV1,
+      validateExpenseEntry: assertBusinessExpenseEntryV1, calculateDailyExpenses: calculateDailyBusinessExpenses,
+      calculateFuelIntervals, calculateFuelCostRateHistory,
+    }, { async getById(id) { return id === vehicleId ? await reopenedStore.repository.get(id) as RecordEnvelope<{ lifecycleState: string }> : undefined; } });
+    const reopenedHandler = createBusinessExpenseFormSubmissionHandler(reopenedService, "web");
+    const reopenedRuntime = new SharedFormRuntime(
+      new RecordFormWorkingCopyRepository(reopenedStore.repository, "web"),
+      { submit: async command => {
+        const result = await reopenedHandler(command);
+        if (result === undefined) throw new Error("fuel_handler_not_found");
+        return result;
+      } },
+    );
+    const reopened = await reopenedRuntime.open(FUEL_ENTRY_FORM_V1, fuelInstanceId);
+    const replay = await reopenedRuntime.submit(FUEL_ENTRY_FORM_V1, reopened);
     expect(replay).toEqual(beforeRetry[0]);
-    expect((await service.listAll()).filter(row => row.id.includes("fuel-dexie-instance"))).toEqual(beforeRetry);
+    expect((await reopenedService.listAll()).filter(row => row.id.includes(fuelInstanceId))).toEqual(beforeRetry);
   });
 });
