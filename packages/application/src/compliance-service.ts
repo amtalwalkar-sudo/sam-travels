@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { resolveOperatingVehicle } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
@@ -65,6 +65,8 @@ export class ComplianceService {
     data: ComplianceRecordV1;
     source: FeatureRecordSource;
     businessDate?: string;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
     const operatingVehicleId = await this.getOperatingVehicleId();
     if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
@@ -84,6 +86,7 @@ export class ComplianceService {
     }
     return this.records.create({
       id, data: input.data, source: input.source, businessDate: input.businessDate,
+      operation: input.operation, now: input.now,
     });
   }
 
