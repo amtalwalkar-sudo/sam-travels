@@ -39,10 +39,14 @@ export function VehicleSection() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   async function beginForm(vehicle?: Vehicle) {
-    const instanceId = vehicle?.id ?? "new:" + crypto.randomUUID();
+    const drafts = vehicle ? [] : await services.formRuntime.listDrafts(VEHICLE_FORM_V1);
+    const resumable = [...drafts].sort((a, b) =>
+      b.updatedAt.localeCompare(a.updatedAt) || b.revision - a.revision || b.instanceId.localeCompare(a.instanceId)
+    )[0];
+    const instanceId = vehicle?.id ?? resumable?.instanceId ?? "new:" + crypto.randomUUID();
     instanceIdRef.current = instanceId;
     updateQueue.current = Promise.resolve();
-    let workingCopy = await services.formRuntime.open(VEHICLE_FORM_V1, instanceId);
+    let workingCopy = resumable ?? await services.formRuntime.open(VEHICLE_FORM_V1, instanceId);
     const initial: Record<string, unknown> = vehicle ? {
       registrationNumber: vehicle.data.registrationNumber, make: vehicle.data.make,
       model: vehicle.data.model, vehicleType: vehicle.data.vehicleType, fuelType: vehicle.data.fuelType,
@@ -52,21 +56,25 @@ export function VehicleSection() {
       registrationNumber: "", make: "", model: "", vehicleType: "Car",
       fuelType: "Diesel", yearOfManufacture: undefined, ownership: "Owned", lifecycleState: "active",
     };
-    for (const [field, value] of Object.entries(initial)) {
-      if (workingCopy.values[field] === undefined && value !== undefined) {
-        workingCopy = await services.formRuntime.update(VEHICLE_FORM_V1, workingCopy, field, value);
+    if (workingCopy.status !== "pending") {
+      for (const [field, value] of Object.entries(initial)) {
+        if (workingCopy.values[field] === undefined && value !== undefined) {
+          workingCopy = await services.formRuntime.update(VEHICLE_FORM_V1, workingCopy, field, value);
+        }
       }
     }
+    const restoredValues = workingCopy.submission?.values ?? workingCopy.values;
+    const display = { ...initial, ...restoredValues };
     copyRef.current = workingCopy;
     setCopy(workingCopy);
     setEditing(vehicle ?? null);
     setForm({
-      registrationNumber: String(initial.registrationNumber ?? ""),
-      make: String(initial.make ?? ""), model: String(initial.model ?? ""),
-      vehicleType: String(initial.vehicleType ?? "Car"), fuelType: String(initial.fuelType ?? "Diesel"),
-      yearOfManufacture: initial.yearOfManufacture === undefined ? "" : String(initial.yearOfManufacture),
-      ownership: String(initial.ownership ?? "Owned"),
-      lifecycleState: (initial.lifecycleState ?? "active") as VehicleRecordV1["lifecycleState"],
+      registrationNumber: String(display.registrationNumber ?? ""),
+      make: String(display.make ?? ""), model: String(display.model ?? ""),
+      vehicleType: String(display.vehicleType ?? "Car"), fuelType: String(display.fuelType ?? "Diesel"),
+      yearOfManufacture: display.yearOfManufacture === undefined ? "" : String(display.yearOfManufacture),
+      ownership: String(display.ownership ?? "Owned"),
+      lifecycleState: (display.lifecycleState ?? "active") as VehicleRecordV1["lifecycleState"],
     });
     setFormOpen(true);
     setMessage("");
@@ -112,16 +120,16 @@ export function VehicleSection() {
     {!formOpen && <button className="admin-primary" type="button" onClick={() => { void beginForm(); }}>Add vehicle</button>}
     {formOpen && <form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
-        <label>Registration number<input required disabled={!!editing} value={form.registrationNumber} onChange={event => updateField("registrationNumber", event.target.value)} /></label>
-        <label>Make<input required value={form.make} onChange={event => updateField("make", event.target.value)} /></label>
-        <label>Model<input required value={form.model} onChange={event => updateField("model", event.target.value)} /></label>
-        <label>Vehicle type<input required value={form.vehicleType} onChange={event => updateField("vehicleType", event.target.value)} /></label>
-        <label>Fuel type<select value={form.fuelType} onChange={event => updateField("fuelType", event.target.value)}><option>Diesel</option><option>Petrol</option><option>CNG</option><option>Electric</option><option>Hybrid</option><option>Other</option></select></label>
-        <label>Year of manufacture<input required type="number" min="1" step="1" value={form.yearOfManufacture} onChange={event => updateField("yearOfManufacture", event.target.value)} /></label>
-        <label>Ownership<select value={form.ownership} onChange={event => updateField("ownership", event.target.value)}><option>Owned</option><option>Financed</option><option>Leased</option><option>Attached</option><option>Other</option></select></label>
-        <label>Lifecycle status<select value={form.lifecycleState} onChange={event => updateField("lifecycleState", event.target.value as VehicleRecordV1["lifecycleState"])}><option value="active">Active</option><option value="inactive">Inactive</option><option value="sold">Sold</option></select></label>
+        <label>Registration number<input required disabled={!!editing || copy?.status === "pending"} value={form.registrationNumber} onChange={event => updateField("registrationNumber", event.target.value)} /></label>
+        <label>Make<input required disabled={copy?.status === "pending"} value={form.make} onChange={event => updateField("make", event.target.value)} /></label>
+        <label>Model<input required disabled={copy?.status === "pending"} value={form.model} onChange={event => updateField("model", event.target.value)} /></label>
+        <label>Vehicle type<input required disabled={copy?.status === "pending"} value={form.vehicleType} onChange={event => updateField("vehicleType", event.target.value)} /></label>
+        <label>Fuel type<select disabled={copy?.status === "pending"} value={form.fuelType} onChange={event => updateField("fuelType", event.target.value)}><option>Diesel</option><option>Petrol</option><option>CNG</option><option>Electric</option><option>Hybrid</option><option>Other</option></select></label>
+        <label>Year of manufacture<input required disabled={copy?.status === "pending"} type="number" min="1" step="1" value={form.yearOfManufacture} onChange={event => updateField("yearOfManufacture", event.target.value)} /></label>
+        <label>Ownership<select disabled={copy?.status === "pending"} value={form.ownership} onChange={event => updateField("ownership", event.target.value)}><option>Owned</option><option>Financed</option><option>Leased</option><option>Attached</option><option>Other</option></select></label>
+        <label>Lifecycle status<select disabled={copy?.status === "pending"} value={form.lifecycleState} onChange={event => updateField("lifecycleState", event.target.value as VehicleRecordV1["lifecycleState"])}><option value="active">Active</option><option value="inactive">Inactive</option><option value="sold">Sold</option></select></label>
       </div>
-      <div className="loan-form-actions"><button className="admin-primary" type="submit" disabled={saving || !copy}>{saving ? "Saving…" : editing ? "Save vehicle" : "Create vehicle"}</button><button className="admin-secondary" type="button" disabled={saving} onClick={closeForm}>Cancel</button></div>
+      <div className="loan-form-actions"><button className="admin-primary" type="submit" disabled={saving || !copy}>{saving ? "Saving…" : copy?.status === "pending" ? "Retry save" : editing ? "Save vehicle" : "Create vehicle"}</button><button className="admin-secondary" type="button" disabled={saving} onClick={closeForm}>Cancel</button></div>
       {copy && <small className="admin-hint">Draft status · {copy.status.replaceAll("_", " ")} · revision {copy.revision}</small>}
     </form>}
     {loading ? <p className="admin-hint">Loading vehicles…</p> : vehicles.length === 0
