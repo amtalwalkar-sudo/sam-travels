@@ -264,9 +264,12 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (typeof revision === "number") {
             return getApplicationVehicleService().update({
               id: command.instanceId, expectedRevision: revision, data,
+              operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
             });
           }
-          return getApplicationVehicleService().create(data, recordSource);
+          return getApplicationVehicleService().create(data, recordSource, {
+            operationId: command.operationId, payloadFingerprint: command.payloadFingerprint,
+          });
         }
         throw new Error("unsupported_admin_form_operation");
       },
