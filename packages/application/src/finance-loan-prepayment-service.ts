@@ -210,7 +210,7 @@ export class FinanceLoanPrepaymentService {
     return this.previewFrom(await this.load(input.loanId), input);
   }
 
-  async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"] }) {
+  async commit(input: { preview: FinanceLoanPrepaymentPreviewV1; source: RecordEnvelope<unknown>["source"]; now?: string }) {
     const requested = input.preview;
     if (requested.source !== requested.revision.source || input.source !== requested.source) {
       throw new Error("finance_loan_prepayment_source_provenance_invalid");
@@ -241,7 +241,7 @@ export class FinanceLoanPrepaymentService {
         schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
         baseScheduleVersion: snapshot.state?.data.baseScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
         currentScheduleVersion: fresh.nextScheduleVersion,
-        revisions: [...(snapshot.state?.data.revisions ?? []), fresh.revision],
+        revisions: [...(snapshot.state?.data.revisions ?? []), committedRevision],
       };
       this.validateState(stateData, snapshot.loan.data, requested.loanId);
       const stateId = prepaymentRecordId(requested.loanId);
@@ -265,7 +265,7 @@ export class FinanceLoanPrepaymentService {
         { id: snapshot.loan.id, expectedRevision: snapshot.loan.revision, next: loanNext },
         { id: ledgerId, expectedRevision: snapshot.ledger?.revision ?? null, next: ledgerNext },
         { id: stateId, expectedRevision: snapshot.state?.revision ?? null, next: nextState },
-      ])) return fresh.revision;
+      ])) return committedRevision;
     }
     throw new Error("finance_loan_prepayment_concurrent_write_retry_exhausted");
   }
