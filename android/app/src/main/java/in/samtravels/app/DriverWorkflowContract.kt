@@ -51,10 +51,16 @@ internal object DriverWorkflowContract {
         if (command.has("driverContext")) {
             require((eventType=="trip_start"&&workflowVersion==1L)||(eventType=="shift_start"&&workflowVersion==2L)) { "invalid_driver_context" }
             val driver=command.optJSONObject("driverContext")?:error("invalid_driver_context")
-            require(driver.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&
+            val baseFields=setOf("schemaVersion","driverId","assignmentId","vehicleId")
+            val revisionFields=setOf("selectionRevision","driverRevision","vehicleRevision","assignmentRevision")
+            val fields=driver.keys().asSequence().toSet()
+            require((fields==baseFields||fields==baseFields+revisionFields)&&
                 driver.optInt("schemaVersion",-1)==1&&driver.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
                 driver.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
-                driver.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_context" }
+                driver.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))&&
+                (revisionFields.isEmpty()||revisionFields.all { field ->
+                    if (!driver.has(field)) true else integer(driver,field)>=0L
+                })) { "invalid_driver_context" }
         }
         if(command.has("tripContext")) {
             require(eventType=="trip_create"&&workflowVersion==2L) { "invalid_trip_context" }
