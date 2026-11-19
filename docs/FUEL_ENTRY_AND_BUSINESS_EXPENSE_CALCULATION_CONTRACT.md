@@ -1,7 +1,7 @@
 # Fuel Entry and Business Expense Calculation Contract
 
 **Version:** 1.2  
-**Status:** Owner-approved Fuel GPS removal. Fuel is an offline-first purchase record and does not request, store, enqueue, or reverse-geocode device location. Legacy location fields/queue rows, if present in older backups, are compatibility data only and are not produced by current Fuel workflows.
+**Status:** Owner-approved Fuel GPS removal. Fuel is an offline-first purchase record and has no GPS, location-evidence, location-queue, or reverse-geocoding capability. No legacy Fuel location data exists or requires preservation.
 **Base:** `main` after merged PR #77 (`6f92fe759e753e93e17f86efc11df94a00e0c1e8`).
 **Scope:** PR 1 expense-source foundation and Fuel Entry; PR 2 full-cost breakeven. Driver Target remains a later, separately sequenced phase after reliable breakeven.
 **Authorities:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`, `LOCATION_AND_STATE_TIMING_CONTRACT.md`, `NETWORK_ACCESS_CONTRACT.md`, `BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md`, and the existing architecture, persistence, backup, recovery, and feature-extension contracts.
@@ -63,7 +63,7 @@ Validation must follow the shared form contract:
 - Fuel Entry must never request device geolocation, access GPS coordinates, persist Fuel-scoped location evidence, create Fuel-scoped Timeline enrichment events, or initiate reverse geocoding.
 - Fuel submission must not depend on location permission, location services, GPS availability, network connectivity, or geocoding.
 - This is an intentional product boundary, not a temporary fallback or an unimplemented feature. Future development must not reintroduce Fuel GPS capture or locality enrichment without a new explicit owner decision and a separately versioned contract amendment.
-- Historical Fuel records or backup packages may contain legacy `locationEvidence` fields or Fuel-scoped `timeline-enrichment:` rows created by earlier versions. They are compatibility data only: preserve them during ordinary backup/restore where the generic record contract requires it, but do not create, update, interpret, or enrich them as part of current Fuel workflows.
+- There is no legacy Fuel location data to migrate or preserve. Do not add Fuel-specific backup fields, migration branches, validators, queue exclusions, or compatibility code for GPS/location data.
 
 ### 2.4 Offline operation
 
