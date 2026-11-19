@@ -4,11 +4,6 @@ import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPa
 
 const baseUrl = "http://127.0.0.1:4173";
 const today = indiaDateOffsetDays(0);
-  const [year, month] = today.split("-").map(Number);
-  const previous = new Date(Date.UTC(year, month - 2, 1));
-  return previous.toISOString().slice(0, 7) + "-" + String(day).padStart(2, "0");
-}
-const today = indiaDateOffsetDays(0);
 const businessStartDate = previousMonthDate(15);
 const recoveryToExclusive = (() => {
   const [year, month, day] = businessStartDate.split("-").map(Number);
