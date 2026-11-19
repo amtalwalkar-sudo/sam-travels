@@ -76,7 +76,7 @@ export class SharedFormRuntime {
     return copy;
   }
 
-  /** Lists resumable drafts for one definition without exposing completed records. */
+  /** Lists resumable drafts and pending submissions without exposing completed records. */
   async listDrafts(definition: FormDefinition): Promise<readonly FormWorkingCopy[]> {
     this.assertDefinition(definition);
     const copies = await this.workingCopies.list(definition.id);
