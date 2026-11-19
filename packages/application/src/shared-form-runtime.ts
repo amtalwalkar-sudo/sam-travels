@@ -2,7 +2,13 @@ import type { FormSubmissionPort } from "./form-submission-port";
 
 export type FormFieldDefinition = Readonly<{ id: string; label: string; type: "text" | "number" | "date" | "time" | "select" | "checkbox"; required?: boolean; maxLength?: number; options?: readonly string[] }>;
 export type FormDefinition = Readonly<{ id: string; version: number; owner: string; purpose: string; primaryAction: "save" | "submit"; fields: readonly FormFieldDefinition[] }>;
-export type FormWorkingCopy = Readonly<{ formId: string; formVersion: number; instanceId: string; revision: number; status: "in_progress" | "pending" | "saved" | "submitted"; values: Readonly<Record<string, unknown>>; operationId: string; updatedAt: string }>;
+export type FormSubmissionIntentV1 = Readonly<{
+  action: "save" | "submit";
+  payloadFingerprint: string;
+  submittedAt: string;
+  values: Readonly<Record<string, unknown>>;
+}>;
+export type FormWorkingCopy = Readonly<{ formId: string; formVersion: number; instanceId: string; revision: number; status: "in_progress" | "pending" | "saved" | "submitted"; values: Readonly<Record<string, unknown>>; operationId: string; submission?: FormSubmissionIntentV1; updatedAt: string }>;
 export interface FormWorkingCopyRepository {
   get(formId: string, instanceId: string): Promise<FormWorkingCopy | undefined>;
   list(formId: string): Promise<readonly FormWorkingCopy[]>;
@@ -32,6 +38,21 @@ export function validateFormValues(definition: FormDefinition, values: Readonly<
     else if (field.type === "checkbox" && typeof value !== "boolean") issues.push({ fieldId: field.id, code: "type", message: field.label + " must be selected or cleared." });
   }
   return issues;
+}
+
+/** Canonical JSON identity for a submitted form payload. */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("form_submission_payload_invalid");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right));
+    return "{" + entries.map(([key, entry]) => JSON.stringify(key) + ":" + canonicalJson(entry)).join(",") + "}";
+  }
+  throw new Error("form_submission_payload_invalid");
 }
 
 /** Surface-neutral working-copy and submission mechanics; feature services retain business authority. */
@@ -69,7 +90,12 @@ export class SharedFormRuntime {
     if (!definition.fields.some(field => field.id === fieldId)) throw new Error("unknown_form_field");
     const current = await this.workingCopies.get(definition.id, copy.instanceId);
     if (!current || current.revision !== copy.revision || !["in_progress", "saved"].includes(current.status)) throw new Error("form_copy_revision_conflict");
-    const next: FormWorkingCopy = { ...copy, revision: copy.revision + 1, status: "in_progress", values: { ...copy.values, [fieldId]: value }, updatedAt: this.now() };
+    const next: FormWorkingCopy = {
+      ...copy, revision: copy.revision + 1, status: "in_progress",
+      operationId: copy.status === "saved" ? this.createOperationId() : copy.operationId,
+      submission: undefined,
+      values: { ...copy.values, [fieldId]: value }, updatedAt: this.now(),
+    };
     await this.workingCopies.put(next, copy.revision);
     return next;
   }
@@ -84,26 +110,73 @@ export class SharedFormRuntime {
     return this.complete(definition, copy, "submit", true, "submitted");
   }
 
-  private async complete(definition: FormDefinition, copy: FormWorkingCopy, action: "save" | "submit",
+  private complete(definition: FormDefinition, copy: FormWorkingCopy, action: "save" | "submit",
     includeRequired: boolean, completedStatus: "saved" | "submitted"): Promise<unknown> {
     this.assertDefinition(definition);
-    if (copy.formId !== definition.id || copy.formVersion !== definition.version || !["in_progress", "saved"].includes(copy.status)) throw new Error("form_copy_not_submittable");
-    const current = await this.workingCopies.get(definition.id, copy.instanceId);
-    if (!current || current.revision !== copy.revision || !["in_progress", "saved"].includes(current.status)) throw new Error("form_copy_revision_conflict");
-    const issues = validateFormValues(definition, current.values, includeRequired);
-    if (issues.length) { const error = new Error("form_validation_failed"); Object.assign(error, { issues }); throw error; }
-    const key = definition.id + ":" + copy.instanceId + ":" + copy.operationId + ":" + action;
+    if (copy.formId !== definition.id || copy.formVersion !== definition.version ||
+        !["in_progress", "saved", "pending"].includes(copy.status)) {
+      return Promise.reject(new Error("form_copy_not_submittable"));
+    }
+    const key = definition.id + ":" + copy.instanceId + ":" + copy.operationId;
     const active = this.submissions.get(key);
     if (active) return active;
-    const operation = this.submissionPort.submit({ formId: definition.id, formVersion: definition.version, instanceId: copy.instanceId,
-      operationId: copy.operationId, action, values: current.values });
+    const operation = this.performComplete(definition, copy, action, includeRequired, completedStatus);
     this.submissions.set(key, operation);
-    try {
-      const result = await operation;
-      const completed: FormWorkingCopy = { ...current, revision: current.revision + 1, status: completedStatus, updatedAt: this.now() };
-      await this.workingCopies.put(completed, current.revision);
-      return result;
-    } finally { this.submissions.delete(key); }
+    void operation.finally(() => this.submissions.delete(key)).catch(() => undefined);
+    return operation;
+  }
+
+  private async performComplete(definition: FormDefinition, copy: FormWorkingCopy, action: "save" | "submit",
+    includeRequired: boolean, completedStatus: "saved" | "submitted"): Promise<unknown> {
+    const current = await this.workingCopies.get(definition.id, copy.instanceId);
+    if (!current || current.revision !== copy.revision || current.operationId !== copy.operationId) {
+      throw new Error("form_copy_revision_conflict");
+    }
+
+    let intent: FormSubmissionIntentV1;
+    let pending: FormWorkingCopy;
+    if (current.status === "pending") {
+      if (!current.submission || current.submission.action !== action) {
+        throw new Error("form_submission_pending_conflict");
+      }
+      const fingerprint = canonicalJson({
+        formId: current.formId, formVersion: current.formVersion, instanceId: current.instanceId,
+        action: current.submission.action, values: current.submission.values,
+      });
+      if (fingerprint !== current.submission.payloadFingerprint) {
+        throw new Error("form_submission_payload_identity_invalid");
+      }
+      intent = current.submission;
+      pending = current;
+    } else {
+      if (!["in_progress", "saved"].includes(current.status)) throw new Error("form_copy_not_submittable");
+      const issues = validateFormValues(definition, current.values, includeRequired);
+      if (issues.length) { const error = new Error("form_validation_failed"); Object.assign(error, { issues }); throw error; }
+      const submittedAt = this.now();
+      const values = Object.freeze({ ...current.values });
+      const payloadFingerprint = canonicalJson({
+        formId: definition.id, formVersion: definition.version, instanceId: current.instanceId, action, values,
+      });
+      intent = Object.freeze({ action, payloadFingerprint, submittedAt, values });
+      pending = {
+        ...current, revision: current.revision + 1, status: "pending",
+        submission: intent, updatedAt: submittedAt,
+      };
+      // Durable intent precedes the feature handler. A crash after this write is replayable.
+      await this.workingCopies.put(pending, current.revision);
+    }
+
+    const result = await this.submissionPort.submit({
+      formId: definition.id, formVersion: definition.version, instanceId: current.instanceId,
+      operationId: current.operationId, action: intent.action, values: intent.values,
+      submittedAt: intent.submittedAt, payloadFingerprint: intent.payloadFingerprint,
+    });
+    const completed: FormWorkingCopy = {
+      ...pending, revision: pending.revision + 1, status: completedStatus, updatedAt: this.now(),
+    };
+    // If this write is interrupted, the durable pending intent is replayed and the feature receipt is returned.
+    await this.workingCopies.put(completed, pending.revision);
+    return result;
   }
 
   private assertDefinition(definition: FormDefinition) {
