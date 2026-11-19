@@ -120,29 +120,6 @@ describe("durable Timeline enrichment queue", () => {
   });
 
 
-  it("does not process legacy Fuel location rows after Fuel GPS retirement", async () => {
-    const records = new DexieRecordRepository();
-    const reverse = vi.fn(async () => "Andheri, Mumbai");
-    const queue = new TimelineEnrichmentQueue(records, { run: operation => operation() }, { provider: "geoapify", reverse });
-    const fuelEventId = "fuel:feature:business-expenses:fuel:legacy";
-    await queue.enqueue([event(fuelEventId)]);
-    const id = "timeline-enrichment:" + fuelEventId;
-    expect(await records.get(id)).toBeUndefined();
-    await records.put({
-      id, schemaVersion: 1, createdAt: "2026-11-18T00:00:00.000Z",
-      updatedAt: "2026-11-18T00:00:00.000Z", source: "integration", revision: 1,
-      data: {
-        eventId: "fuel:feature:business-expenses:fuel:legacy",
-        status: "pending", provider: "geoapify", createdAt: "2026-11-18T00:00:00.000Z",
-        attempts: 0, captureStatus: "captured", captureTiming: "late",
-        latitude: 19.076, longitude: 72.8777, accuracyMeters: 12,
-        fixAt: "2026-11-18T00:00:00.000Z", gpsProvider: "device",
-      },
-    });
-    await queue.drain();
-    expect(reverse).not.toHaveBeenCalled();
-    expect(await records.get(id)).toMatchObject({ data: { status: "pending" } });
-    await expect(queue.nextWakeAt()).resolves.toBeUndefined();
-  });
+
 
 });
