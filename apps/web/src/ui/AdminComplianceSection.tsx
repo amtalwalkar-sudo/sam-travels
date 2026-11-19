@@ -87,7 +87,7 @@ export function ComplianceSection() {
   return <div className="admin-capability-panel">
     <AdminComplianceOverview />
     <p className="admin-hint">Expiry warning is 15 calendar days: Valid (&gt;15 days), Expiring soon (1–15 days), Expired (past valid-to date). This is an operational warning only, not a legal grace period. Renewals create a new immutable record linked to the previous coverage.</p>
-    <div className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicleId ? vehicleId.replace("feature:vehicle:", "") : "Configuration unavailable"}</span></div>
+    <div className="admin-vehicle-context admin-operating-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicleId ? vehicleId.replace("feature:vehicle:", "") : "Configuration unavailable"}</span></div>
     {vehicleId&&!formOpen&&<button className="admin-primary" type="button" onClick={()=>void beginForm()}>Add compliance / renewal</button>}
     {formOpen&&<form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
