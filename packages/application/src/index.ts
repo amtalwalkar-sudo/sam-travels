@@ -65,3 +65,5 @@ export * from "./performance-calculation-runtime";
 export * from "./performance-calculation-snapshot-boundary";
 
 export * from "./trip-financial-form-runtime";
+
+export * from "./work-driver-selection-service";
