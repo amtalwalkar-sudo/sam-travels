@@ -30,7 +30,6 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceAmountPaise: 31, disposition: "allocated",
         sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "EMI installment 2" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
-        eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
         daily: daily("loan:emi:pre-business", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
       source({
