@@ -45,8 +45,8 @@ describe("authoritative single operating configuration resolver", () => {
 
   it("requires one Work selection naming the sole active Driver and rejects locked shifts", () => {
     const rows = valid();
-    fails(rows.filter(item => item.id !== "work:selected-driver"), "operating_driver_selection_missing_or_ambiguous");
-    fails([...rows, selection()], "operating_driver_selection_missing_or_ambiguous");
+    fails(rows.filter(item => item.id !== "work:selected-driver"), "work_driver_not_selected");
+    fails([...rows, selection()], "operating_driver_selection_ambiguous");
     fails([...rows.filter(item => item.id !== "work:selected-driver"), selection("driver-2")], "operating_driver_selection_mismatch");
     fails([...rows.filter(item => item.id !== "work:selected-driver"), selection("driver-1", "shift-1")], "operating_driver_selection_locked");
   });
