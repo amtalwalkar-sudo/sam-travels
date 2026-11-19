@@ -119,6 +119,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
               ...(typeof values.nextServiceDate === "string" && values.nextServiceDate ? { nextServiceDate: values.nextServiceDate } : {}),
               ...(typeof values.nextServiceKm === "number" ? { nextServiceKm: values.nextServiceKm } : {}),
             },
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === MAINTENANCE_EXPENSE_FORM_V1.id) {
@@ -139,6 +141,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
               ...(typeof values.odometerKm === "number" ? { odometerKm: values.odometerKm } : {}),
               ...(typeof values.provider === "string" && values.provider.trim() ? { provider: values.provider.trim() } : {}),
             },
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === MAINTENANCE_RATE_FORM_V1.id) {
