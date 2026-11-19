@@ -27,6 +27,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val previousSelectedDriver = database.records().get("work:selected-driver")
     val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
     val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
+    val previousMaintenanceRecords = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
     val vehicleId = "feature:vehicle:MH01AB1234"
     val expenseId = "feature:maintenance:expense:$suffix"
     val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
@@ -51,6 +52,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     lateinit var activity: MainActivity
     try {
       previousAssignmentRecords.forEach { database.records().remove(it.id) }
+      previousMaintenanceRecords.forEach { database.records().remove(it.id) }
       previousVehicleRecords.forEach { database.records().remove(it.id) }
       database.records().put(vehicle)
       database.records().put(expense)
@@ -333,6 +335,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       database.records().remove(otherExpenseId)
       database.records().remove(vehicleId)
       previousVehicleRecords.forEach { database.records().put(it) }
+      previousMaintenanceRecords.forEach { database.records().put(it) }
       previousAssignmentRecords.forEach { database.records().put(it) }
       database.records().remove(chainId)
       listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
