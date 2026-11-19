@@ -92,6 +92,8 @@ export class FeatureRecordService<Data> {
     targetRecordId: string,
     expectedData: Data,
   ): Promise<RecordEnvelope<Data> | undefined> {
+    this.assertOwnedId(targetRecordId);
+    this.definition.validate(expectedData);
     if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
     const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
     if (!receipt) return undefined;
@@ -103,7 +105,7 @@ export class FeatureRecordService<Data> {
         !data.result || canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
       throw new Error("feature_record_operation_payload_conflict");
     }
-    assertRecordEnvelope(data.result);
+    this.assertOwnedRecord(data.result);
     if (data.result.id !== targetRecordId) throw new Error("feature_record_operation_receipt_invalid");
     return data.result;
   }
