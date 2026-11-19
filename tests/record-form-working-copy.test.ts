@@ -5,6 +5,7 @@ import { DexieRecordRepository } from "../packages/storage-browser/src";
 import { RecordFormWorkingCopyRepository } from "../packages/application/src/record-form-working-copy-repository";
 import { SharedFormRuntime, type FormDefinition } from "../packages/application/src/shared-form-runtime";
 import { FeatureRecordService } from "../packages/application/src/feature-record-service";
+import type { FormSubmissionCommand } from "../packages/application/src/form-submission-port";
 import type { FormWorkingCopy } from "../packages/application/src/shared-form-runtime";
 
 describe("authoritative record-backed form working copies", () => {
@@ -77,7 +78,7 @@ describe("authoritative record-backed form working copies", () => {
       ],
     };
     let loseFirstResponse = true;
-    const submit = async (command: any) => {
+    const submit = async (command: FormSubmissionCommand) => {
       const result = await feature.create({
         id: "feature:form-submission-test:" + command.instanceId,
         data: { label: String(command.values.label), amountPaise: Number(command.values.amountPaise) },
