@@ -138,7 +138,11 @@ try {
   if (await page.getByLabel("Work Driver").count()) {
     throw new Error("unexpected_work_driver_selector");
   }
-  await page.locator(".driver-message").filter({ hasText: driverName }).waitFor();
+  const shiftStartOdometer = page.getByLabel("Shift-start odometer (km)");
+  await shiftStartOdometer.waitFor({ state: "visible" });
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button =>
+    button.textContent?.trim() === "Start shift" && !button.disabled
+  ), { timeout: 30000 });
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
