@@ -25,10 +25,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       .build()
     val suffix = UUID.randomUUID().toString()
     val previousSelectedDriver = database.records().get("work:selected-driver")
-    // This acceptance test needs one unambiguous operating Vehicle. Preserve and
-    // temporarily isolate any vehicle fixtures left by other instrumentation tests.
     val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
-    // Assignment history references Vehicles, so isolate and restore it with the Vehicle fixtures.
     val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
     val vehicleId = "feature:vehicle:MH01AB1234"
     val expenseId = "feature:maintenance:expense:$suffix"
@@ -195,7 +192,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """)
       assertTrue("Saved", awaitMaintenanceJavascript(activity,
           "document.body.textContent.includes('appended')", 15_000))
-      // The success message appears before the post-save history refresh clears busy.
       assertTrue("Admin correction ready", awaitMaintenanceJavascript(activity,
           "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
           15_000))
