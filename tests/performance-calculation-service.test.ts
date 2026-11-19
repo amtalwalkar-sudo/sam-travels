@@ -66,6 +66,28 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(result.provenance.sourceRefs.map(row => row.sourceId)).toContain("compliance");
   });
 
+  it("combines manual, pre-start EMI and pre-start Compliance amounts into one 18-month Performance recovery pool", async () => {
+    const readModels = sources();
+    readModels.emi.listPreBusinessRecoveryEntries = vi.fn(async () => [
+      { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
+        note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
+      { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
+        note: "Pre-start insurance", origin: "compliance" as const },
+    ]);
+    const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-15", "2026-04-14");
+    expect(result.recovery.totalPaise).toBe(8_400);
+    expect(result.recovery.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(8_400);
+    expect(new Set(result.recovery.daily.map(row => row.origin)))
+      .toEqual(new Set(["manual", "emi", "compliance"]));
+    expect(result.recovery.daily.find(row => row.sourceId === "emi-before-start")?.scheduleVersion).toBe(3);
+    expect(result.provenance.sourceRefs).toContainEqual(expect.objectContaining({
+      sourceId: "emi-before-start", revision: 2, scheduleVersion: 3,
+    }));
+    expect(result.daily.reduce((sum, row) => sum + row.costs.emi, 0)).toBeGreaterThan(0);
+    expect(result.daily.reduce((sum, row) => sum + row.costs.compliance, 0)).toBeGreaterThan(0);
+    expect(result.daily.reduce((sum, row) => sum + row.costs["pre-business-manual-recovery"], 0)).toBeGreaterThan(0);
+  });
+
   it("rejects cross-category source leakage instead of silently double counting", async () => {
     const readModels = sources();
     vi.mocked(readModels.operatingCosts.listDailyCosts).mockResolvedValue([
