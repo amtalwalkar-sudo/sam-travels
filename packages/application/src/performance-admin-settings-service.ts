@@ -2,7 +2,7 @@ import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import type { PreBusinessRecoverySourceV1 } from "../../domain/src/performance-calculation-v1";
 import type { BusinessSettingsService } from "./business-settings-service";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import type {
   PerformanceBusinessSettingsReadModel,
   PerformanceDriverTargetReadModel,
@@ -78,6 +78,8 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
   async setMonthlyDriverTargetPaise(
     monthlyDriverTargetPaise: number,
     source: FeatureRecordSource,
+    operation?: FeatureRecordOperationIdentityV1,
+    now?: string,
   ): Promise<RecordEnvelope<PerformanceAdminSettingsRecordV1>> {
     if (!Number.isSafeInteger(monthlyDriverTargetPaise) || monthlyDriverTargetPaise < 0) {
       throw new Error("performance_driver_target_invalid");
@@ -88,11 +90,11 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     const current = await this.getSettings();
     if (!current) {
       return this.records.create({
-        id: PERFORMANCE_ADMIN_SETTINGS_RECORD_ID, data, source,
+        id: PERFORMANCE_ADMIN_SETTINGS_RECORD_ID, data, source, operation, now,
       }) as Promise<RecordEnvelope<PerformanceAdminSettingsRecordV1>>;
     }
     return this.records.update({
-      id: PERFORMANCE_ADMIN_SETTINGS_RECORD_ID, expectedRevision: current.revision, data,
+      id: PERFORMANCE_ADMIN_SETTINGS_RECORD_ID, expectedRevision: current.revision, data, operation, now,
     }) as Promise<RecordEnvelope<PerformanceAdminSettingsRecordV1>>;
   }
 
@@ -127,6 +129,8 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     amountPaise: number;
     note: string;
     source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<PerformancePreBusinessCostRecordV1>> {
     if (!UUID.test(input.commandId) || !Number.isSafeInteger(input.amountPaise) ||
         input.amountPaise <= 0 || typeof input.note !== "string" || !input.note.trim()) {
@@ -148,7 +152,9 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
       amountPaise: input.amountPaise, note: input.note.trim(), commandId,
     };
     try {
-      return await this.records.create({ id, data, source: input.source }) as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
+      return await this.records.create({
+        id, data, source: input.source, operation: input.operation, now: input.now,
+      }) as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
     } catch (error) {
       // Concurrent retries may race after both observe the identity as absent.
       // Re-read the CAS winner and accept only an exact idempotent replay.
