@@ -143,7 +143,7 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Drive", exact: true }).click();
   const workDriver = page.getByLabel("Work Driver");
-  await workDriver.locator("option").filter({ hasText: driverName }).waitFor();
+  await workDriver.locator("option").filter({ hasText: driverName }).waitFor({ state: "attached" });
   await workDriver.selectOption({ label: driverName });
   await page.locator(".driver-message").filter({ hasText: "Work Driver selected" }).waitFor();
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
