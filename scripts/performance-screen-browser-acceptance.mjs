@@ -128,7 +128,7 @@ try {
   // Reload clears the in-memory Admin actor; authenticate again before enrollment.
   const identityPanel = page.locator(".admin-capability-panel");
   const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
-  await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor();
+  await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor({ state: "attached" });
   await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
   await identityPanel.getByLabel("Active role").selectOption("admin");
   await identityPanel.getByLabel("Admin PIN").fill(testPin); await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
