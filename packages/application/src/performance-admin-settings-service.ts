@@ -87,6 +87,10 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     const data: PerformanceAdminSettingsRecordV1 = {
       schemaVersion: 1, kind: "settings", monthlyDriverTargetPaise,
     };
+    if (operation) {
+      const replay = await this.records.replayOperation(operation, PERFORMANCE_ADMIN_SETTINGS_RECORD_ID, data);
+      if (replay) return replay as RecordEnvelope<PerformanceAdminSettingsRecordV1>;
+    }
     const current = await this.getSettings();
     if (!current) {
       return this.records.create({
@@ -138,6 +142,14 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
     }
     const commandId = input.commandId.toLowerCase();
     const id = PRE_BUSINESS_COST_PREFIX + commandId;
+    const data: PerformancePreBusinessCostRecordV1 = {
+      schemaVersion: 1, kind: "pre_business_cost",
+      amountPaise: input.amountPaise, note: input.note.trim(), commandId,
+    };
+    if (input.operation) {
+      const replay = await this.records.replayOperation(input.operation, id, data);
+      if (replay) return replay as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
+    }
     const existing = await this.records.get(id);
     if (existing) {
       if (existing.data.kind !== "pre_business_cost" ||
@@ -147,10 +159,6 @@ implements PerformanceDriverTargetReadModel, PerformanceManualPreBusinessCostRea
       }
       return existing as RecordEnvelope<PerformancePreBusinessCostRecordV1>;
     }
-    const data: PerformancePreBusinessCostRecordV1 = {
-      schemaVersion: 1, kind: "pre_business_cost",
-      amountPaise: input.amountPaise, note: input.note.trim(), commandId,
-    };
     try {
       return await this.records.create({
         id, data, source: input.source, operation: input.operation, now: input.now,
