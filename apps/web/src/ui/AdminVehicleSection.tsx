@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { VEHICLE_FORM_V1, type AdminPresentationServices, type VehicleRecordV1 } from "../../../../packages/application/src";
 import { useAdminVehicleServices } from "./admin-services-context";
+import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import "./AdminFormControls.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
@@ -15,6 +16,7 @@ const EMPTY_VEHICLE: VehicleForm = {
 
 export function VehicleSection() {
   const services = useAdminVehicleServices();
+  const workRuntime = useWorkApplicationRuntime();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [form, setForm] = useState<VehicleForm>(EMPTY_VEHICLE);
   const [editing, setEditing] = useState<Vehicle | null>(null);
@@ -104,6 +106,9 @@ export function VehicleSection() {
     setSaving(true); setMessage("");
     try {
       await updateQueue.current;
+      if ((!editing || form.lifecycleState !== editing.data.lifecycleState) && (await workRuntime.snapshot()).state !== "idle") {
+        throw new Error("operating_configuration_locked_during_shift");
+      }
       const current = copyRef.current;
       if (!current) throw new Error("vehicle_form_not_ready");
       if (form.lifecycleState === "active") {
