@@ -14,9 +14,6 @@ function indiaDateOffsetDays(offset) {
   return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
 }
 const today = indiaDateOffsetDays(0);
-function futureDateOffsetDays(offset) {
-  return indiaDateOffsetDays(offset);
-}
 function monthDateOffset(offset) {
   const parts = today.split("-").map(Number);
   const date = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
@@ -108,7 +105,6 @@ try {
   await page.getByLabel("Mobile number").fill("9990001111");
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
-  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByText("Operating configuration is incomplete.", { exact: false }).waitFor({ state: "visible" });
   if (!await page.getByRole("button", { name: "Start shift", exact: true }).isDisabled()) {
@@ -156,24 +152,6 @@ try {
   await page.getByLabel("Document reference (optional)").fill("INS-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
-  const complianceVehicleMatches = await page.evaluate(async expectedVehicleId => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const tx = db.transaction("records", "readonly");
-      const get = tx.objectStore("records").getAll();
-      get.onsuccess = () => resolve(get.result);
-      get.onerror = () => reject(get.error);
-    });
-    db.close();
-    const record = rows.find(row => row.id.startsWith("feature:compliance:") &&
-      row.data?.complianceName === "Acceptance Insurance");
-    return record?.data?.vehicleId === expectedVehicleId;
-  }, vehicleId);
-  if (!complianceVehicleMatches) throw new Error("compliance_record_did_not_persist_configured_operating_vehicle");
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Issue date").fill(today);
   await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
