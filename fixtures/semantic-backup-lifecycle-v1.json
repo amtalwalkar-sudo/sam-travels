@@ -69,6 +69,8 @@
       ],
       "lineage": [
         "sourceId",
+        "vehicleId",
+        "driverId",
         "reversesSourceId",
         "correctionChainHead"
       ]
@@ -97,7 +99,9 @@
         "eventId",
         "revision",
         "outboxId",
-        "delivered"
+        "delivered",
+        "configuredDriverId",
+        "configuredVehicleId"
       ]
     },
     "logBook": {
@@ -112,5 +116,20 @@
     }
   },
   "status": "contract_seed_only",
-  "note": "Shared contract seed consumed by browser and Android tests. Populate with schema-valid synthetic feature records and run the production export/restore/reopen/recovery/re-export lifecycle before claiming parity."
+  "note": "Shared contract seed consumed by browser and Android tests. Populate with schema-valid synthetic feature records and run the production export/restore/reopen/recovery/re-export lifecycle before claiming parity.",
+  "operatingConfiguration": {
+    "mode": "single_vehicle_single_driver",
+    "vehicle": {
+      "cardinality": "exactly_one_active",
+      "recordId": "feature:vehicle:MH01AB1234"
+    },
+    "driver": {
+      "cardinality": "exactly_one_active_selected_for_work",
+      "recordId": "feature:driver-records:driver:driver-001"
+    },
+    "currentPairing": "one stable configured driver-to-vehicle relationship",
+    "referencePolicy": "Every vehicle-bound record and calculation uses the configured vehicle ID; every Work/driver-attributed event and calculation uses the configured driver ID.",
+    "fleetExpansion": "deferred_until_separately_approved",
+    "compatibility": "Stable IDs and legacy assignment-history readers remain supported; current fixtures do not create reassignment histories or additional entities."
+  }
 }
