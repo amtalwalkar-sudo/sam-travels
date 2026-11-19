@@ -9,6 +9,8 @@ export type FormSubmissionCommand = Readonly<{
   operationId: string;
   action: "save" | "submit";
   values: Readonly<Record<string, unknown>>;
+  submittedAt: string;
+  payloadFingerprint: string;
 }>;
 
 export type FormSubmissionPort<Result = unknown> = {
