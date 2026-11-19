@@ -80,6 +80,30 @@ class NativeMaintenanceBackupTest {
     }
 
     @Test
+    fun ignoresOtherFeaturesHistoricalCorrectionRecords() {
+        val expense = row(
+            "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003",
+            "maintenance-records",
+            JSONObject().put("featureId", "maintenance").put("kind", "expense")
+                .put("amountPaise", 400000L),
+        )
+        val otherTarget = "feature:platform-fees:expense:other-1"
+        val correction = row(
+            "historical-correction:platform-fee-fix-1",
+            "platform-fees",
+            JSONObject().put("featureId", "platform-fees").put("targetRecordId", otherTarget),
+        )
+        val headId = "historical-correction-chain:" +
+            java.net.URLEncoder.encode(otherTarget, "UTF-8")
+        val head = row(
+            headId,
+            "platform-fees",
+            JSONObject().put("featureId", "platform-fees").put("targetRecordId", otherTarget),
+        )
+        NativeMaintenanceCorrectionBackup.validate(listOf(expense), listOf(expense, correction, head))
+    }
+
+    @Test
     fun rejectsMaintenanceRecordWithoutVehicle() = withParticipants {
         val records = JSONArray().put(visitRow())
         val failure = assertThrows(IllegalStateException::class.java) {
