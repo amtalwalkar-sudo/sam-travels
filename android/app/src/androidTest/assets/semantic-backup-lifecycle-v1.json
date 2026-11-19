@@ -69,6 +69,8 @@
       ],
       "lineage": [
         "sourceId",
+        "vehicleId",
+        "driverId",
         "reversesSourceId",
         "correctionChainHead"
       ]
@@ -94,7 +96,9 @@
         "eventId",
         "revision",
         "outboxId",
-        "delivered"
+        "delivered",
+        "configuredDriverId",
+        "configuredVehicleId"
       ]
     },
     "logBook": {
@@ -109,5 +113,26 @@
     }
   },
   "status": "contract_seed_only",
-  "note": "The shared contract is not yet a populated fixture and does not prove restore lifecycle parity. Platform-neutral seed records and lifecycle runners remain implementation work."
+  "note": "The shared contract is not yet a populated fixture and does not prove restore lifecycle parity. Platform-neutral seed records and lifecycle runners remain implementation work.",
+  "operatingConfiguration": {
+    "mode": "single_vehicle_single_driver",
+    "vehicle": {
+      "cardinality": "exactly_one_active",
+      "recordId": "feature:vehicle:MH01AB1234"
+    },
+    "driver": {
+      "cardinality": "exactly_one_active",
+      "profileRecordId": "feature:driver-records:driver:driver-001",
+      "selectionRecordId": "work:selected-driver"
+    },
+    "currentPairing": {
+      "cardinality": "exactly_one_current_assignment",
+      "assignmentHistoryRecordId": "feature:driver-records:assignment:driver-001",
+      "vehicleId": "feature:vehicle:MH01AB1234",
+      "driverId": "driver-001"
+    },
+    "referencePolicy": "Every vehicle-bound record and calculation uses the configured vehicle ID; every Work/driver-attributed event and calculation uses the configured driver ID.",
+    "fleetExpansion": "deferred_until_separately_approved",
+    "compatibility": "Stable IDs and legacy assignment-history readers remain supported; current fixtures do not create reassignment histories or additional entities."
+  }
 }
