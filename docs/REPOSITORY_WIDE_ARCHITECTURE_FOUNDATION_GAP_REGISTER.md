@@ -119,7 +119,7 @@ The following remain separate owner/environment acceptance gates and are not to 
 - Live Dropbox account authentication, upload/download, scheduled backup and restore against the owner's account.
 - Final owner visual/usability approval on the actual phone.
 - Any external GitHub branch protection/ruleset configuration; the audited `main` branch metadata reports `protected: false`, so required-check enforcement is not established by the green run. This is repository administration, not an application code defect.
-- Future multi-driver/multi-car scope and Finance payment/settlement workflow expansion where the current product contract explicitly defers those capabilities.
+- Multi-vehicle, multi-driver and fleet-management workflows are explicitly deferred by the approved PR #99 single-vehicle/single-driver operating contract; Finance payment/settlement expansion remains governed by its owning contract.
 
 ## 8. Current audit disposition
 
@@ -591,3 +591,28 @@ NativeBackupRestoreCoordinator.restore() calls requireBackupRecordCountWithinLim
 MAX_BACKUP_PACKAGE_BYTES (512 MiB) is checked by serializeBackupPackage() after createEncryptedBackup() has already hashed and encrypted the plaintext. parseBackupPackage() rejects oversized serialized input before JSON parsing, but the creation path has no corresponding plaintext-size preflight. The Android runtime first builds a full Room snapshot and serializes it with JSON.stringify/TextEncoder; the browser snapshot path also materializes plaintext before encryption. A large plaintext can therefore consume substantial memory and crypto work before the final encrypted package is rejected, and base64/AES envelope overhead means a plaintext below 512 MiB can still create an over-limit package.
 
 **Required closure:** establish a measured canonical plaintext cap that leaves room for encryption/base64/manifest overhead under the 512 MiB serialized-package cap and fits the supported Android memory budget. Enforce it before digest/encryption and as early as practical before full snapshot byte materialization. Add exact boundary and first-over rejection tests for both package creation and parse, plus representative peak-memory/time acceptance on browser and Android. Do not pick a lower mobile cap without documenting the supported device/storage target and benchmark evidence.
+
+### 9.40 — Approved current operating scope: one configured vehicle and one configured driver
+
+**Status:** Product-scope decision approved by the user; contract and shared-fixture assertions added. Production UI/runtime simplification and rendered end-to-end proof remain open.
+
+The PR #99 end-to-end contract now defines the current operating configuration as exactly one active business Vehicle and exactly one active Driver selected for Work. The current application must resolve that pair automatically across Work, Fuel, Compliance, Maintenance, Finance, Business Expenses and Performance. Routine flows must not ask the user to select a vehicle or driver, manage assignments, or reassign a driver to another vehicle.
+
+**Preserve:** stable Vehicle/Driver record IDs, feature ownership, revisions, explicit foreign references, backup validation and migration compatibility. Existing assignment-history schemas/readers may remain so older data is not discarded. They are not current workflow requirements and multi-entity assignment/reassignment scenarios are not required in the current semantic fixture.
+
+**Contract/test changes committed:**
+- PR #99 end-to-end contract Section 3.0 defines the one-vehicle/one-driver runtime rule, missing/ambiguous configuration behaviour, stable-reference policy and future fleet expansion boundary.
+- The shared semantic fixture declares one configured Vehicle ID and one configured selected Driver ID; Work and Business Expense lineage explicitly carries those configured references.
+- Browser fixture contract tests assert the exact cardinality, stable IDs, consistent reference requirements and deferred fleet status.
+- Android shared-fixture instrumentation asserts the same configuration metadata.
+- Browser Driver Records backup coverage proves a single active selected Work Driver is exported and retains the negative case rejecting multiple selected Work Drivers.
+
+**Production corrections still required:**
+1. Add one authoritative operating-configuration resolver for browser IndexedDB and Android Room. It must return the one active Vehicle and one active selected Work Driver, and fail closed with stable error categories for missing, inactive or ambiguous configuration. Do not select the first row returned by an unordered list.
+2. Remove routine Vehicle/Driver selectors and assignment/reassignment UI from Work, Fuel, Compliance, Maintenance, Finance and Business Expense workflows. Inject the configured IDs through application services; do not make presentation components guess them.
+3. Ensure all newly created and corrected vehicle-bound records, Work events, allocations and calculations reference the same configured IDs. Preserve existing historical references and never rewrite them to the current configuration.
+4. Update browser rendered acceptance and Android WebView acceptance to create one Vehicle and one Driver, then exercise the dependent forms and Work workflow without changing selectors. Assert read-after-write/reopen identity consistency and no extra active configuration records.
+5. Add missing/ambiguous-configuration negative tests and browser/Room parity tests. Keep the legacy assignment validator/backup tests only as compatibility coverage; do not treat their multi-entity reassignment cases as current product acceptance.
+
+**Acceptance status:** Not closed by the fixture metadata tests alone. The live runtime/UI path and rendered PWA/Android assertions must pass before this requirement is marked implemented. Do not claim multi-fleet support; it requires a separate reviewed contract, explicit migration and dedicated acceptance.
+
