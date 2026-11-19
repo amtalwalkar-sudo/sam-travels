@@ -152,14 +152,7 @@ function validateRefs(refs: readonly PerformanceSourceRefV1[]): void {
   }
 }
 
-/**
- * Recovers the aggregate eligible pre-business pool in 18 equal monthly
- * instalments. The first instalment starts on the Business Start Date and the
- * final instalment is due in the month containing its 18-month anniversary.
- * Each month's instalment is spread over that calendar month's remaining
- * operational dates; paise remainders go to the earliest dates. Source shares
- * are retained for audit provenance without changing the aggregate schedule.
- */
+/** Recovers the aggregate eligible pre-business pool in 18 monthly instalments with source-level provenance. */
 export function allocatePreBusinessRecoveryV1(
   businessStartDate: string,
   sources: readonly PreBusinessRecoverySourceV1[],
@@ -196,9 +189,7 @@ export function allocatePreBusinessRecoveryV1(
   const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }[] = [];
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
-  // Equal monthly instalments are calculated from the aggregate pool, not
-  // independently per source. Cumulative apportionment preserves every
-  // source's provenance while ensuring each month exactly reconciles.
+  // Cumulative source apportionment preserves provenance while each monthly pool instalment reconciles exactly.
   const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1);
   const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
   const monthTotal = (monthIndex: number): number =>
