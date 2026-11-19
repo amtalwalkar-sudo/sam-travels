@@ -1,7 +1,7 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
-import { resolveOperatingConfiguration } from "../../domain/src/work-driver-context";
+import { resolveOperatingVehicle } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -56,7 +56,7 @@ export class ComplianceService {
   }
 
   async getOperatingVehicleId(): Promise<string> {
-    const configuration = resolveOperatingConfiguration(await this.repository.list(), this.now());
+    const configuration = resolveOperatingVehicle(await this.repository.list());
     return configuration.vehicleId;
   }
 
