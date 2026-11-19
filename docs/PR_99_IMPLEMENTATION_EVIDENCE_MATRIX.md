@@ -274,3 +274,19 @@ Do not reimplement these mechanisms or add equivalent tests. Do not schedule iso
 ## 5. Scope guard
 
 This matrix is an initial static audit. Test presence is not a CI result. Before marking any row complete, inspect the relevant assertion and confirm the test ran on the latest PR head. No new production architecture or feature behavior is authorized by this matrix.
+
+## 6. Approved single-vehicle/single-driver scope correction
+
+The PR #99 contract now defines the current operating configuration as one active Vehicle, one active Driver selected through the Work-owned `work:selected-driver` record, and one current Driver–Vehicle assignment. Multi-vehicle, multi-driver and fleet-management workflows are deferred. Stable feature IDs, assignment-history compatibility and explicit foreign references remain intact.
+
+| Evidence | Test/assertion | Current result |
+|---|---|---|
+| Shared fixture contract | `tests/semantic-backup-lifecycle-fixture.test.ts` — exact Vehicle profile ID, Driver profile ID, Work selection record ID, one current assignment ID and deferred fleet status | Added; run on latest PR head pending |
+| Android fixture parity | `SharedSemanticBackupFixtureTest.sharedSemanticLifecycleFixtureDeclaresAllParityDomains` — same cardinality and stable IDs read from the shared JSON asset | Added; run on latest PR head pending |
+| Browser Work configuration | `driver-workflow-parity.test.ts` — one Vehicle record, one Driver profile, one current assignment, selected Work Driver resolves to the same configured ID | Added; run on latest PR head pending |
+| Android Admin setup | `AdminFormsCapacitorAcceptanceTest.replacementAdminFormsUseRoomBackedWebView` — created test Vehicle and Driver are each read back as exactly one active configuration record | Added; run on latest PR head pending |
+| Legacy assignment compatibility | Existing assignment validator/service and backup reference tests remain compatibility coverage only; multi-entity reassignment is not a current product acceptance requirement | Retained; do not interpret as fleet support |
+| Rendered single-config workflow | Browser and Android forms must stop requesting routine Vehicle/Driver selection and resolve the configured pair automatically; missing/ambiguous configuration must fail closed | **Open production correction**; tracked in gap register §9.40 |
+
+The fixture metadata and focused service assertions do not prove the rendered UI has been simplified. Do not mark the operating-scope change complete until the resolver, selector removal, missing/ambiguous configuration handling, and browser/Android rendered acceptance all pass.
+
