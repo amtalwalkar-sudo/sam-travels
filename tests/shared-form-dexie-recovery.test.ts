@@ -9,7 +9,7 @@ import {
   type FormWorkingCopy, type FormWorkingCopyRepository,
 } from "../packages/application/src";
 import { VehicleService } from "../packages/application/src/vehicle-service";
-import { assertVehicleRecordV1 } from "../packages/features/vehicle/records";
+import { assertVehicleRecordV1 } from "../packages/features/vehicle";
 import { createAdminFormRuntimeV1 } from "../apps/web/src/admin-form-runtime";
 import { createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
