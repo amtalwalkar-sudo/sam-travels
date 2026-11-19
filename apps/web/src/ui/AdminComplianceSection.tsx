@@ -39,7 +39,7 @@ export function ComplianceSection() {
     try{
       const [operatingVehicleId,overview]=await Promise.all([services.compliance.getOperatingVehicleId(),services.complianceAnalysis.getOverview()]);
       setRecords([...overview.records]);setVehicleId(operatingVehicleId);
-    }catch(e){setMessage(e instanceof Error?e.message:"Could not load compliance records.");}
+    }catch(e){setVehicleId("");setMessage(e instanceof Error?e.message:"Could not load compliance records.");}
   },[services]);
   useEffect(()=>{void refresh();},[refresh]);
   const vehicleRecords=useMemo(()=>records.filter(r=>r.data.vehicleId===vehicleId).sort((a,b)=>b.data.validTo.localeCompare(a.data.validTo)),[records,vehicleId]);
