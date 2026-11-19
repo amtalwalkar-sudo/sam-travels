@@ -24,8 +24,11 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
   recordSource: FeatureRecordSource;
   performanceAdminSettings: PerformanceAdminSettingsServiceV1;
   handleBusinessExpenseSubmission: BusinessExpenseSubmissionV1;
+  vehicleService?: VehicleAdminServiceV1;
+  workingCopyRepository?: FormWorkingCopyRepository;
 }>): SharedFormRuntime {
   const { repository, recordSource, performanceAdminSettings, handleBusinessExpenseSubmission } = dependencies;
+  const vehicleService = dependencies.vehicleService ?? getApplicationVehicleService();
   return new SharedFormRuntime(
     dependencies.workingCopyRepository ?? new RecordFormWorkingCopyRepository(repository, recordSource),
     {
