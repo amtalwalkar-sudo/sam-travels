@@ -72,6 +72,13 @@ describe("Admin operating Driver configuration", () => {
   });
 });
 
+describe("Admin operating Driver selection repair", () => {
+  beforeEach(async () => {
+    await browserDatabase.close();
+    await browserDatabase.delete();
+    await browserDatabase.open();
+  });
+
   it("repairs an invalid but unlocked selection only through explicit Admin configuration", async () => {
     const records = new DexieRecordRepository();
     await browserDatabase.records.bulkPut([
@@ -105,3 +112,5 @@ describe("Admin operating Driver configuration", () => {
     await expect(service.selectDriver("configured-driver")).rejects.toThrow("work_driver_selection_locked_during_shift");
     expect((await records.get("work:selected-driver"))?.revision).toBe(4);
   });
+
+});
