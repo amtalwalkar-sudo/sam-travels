@@ -61,12 +61,12 @@ describe("authoritative record-backed form working copies", () => {
     const records = new DexieRecordRepository();
     const copies = new RecordFormWorkingCopyRepository(records, "web", () => "2026-11-19T04:00:00.000Z");
     type Data = { label: string; amountPaise: number };
-    const validate = (value: unknown): asserts value is Data => {
+    function validate(value: unknown): asserts value is Data {
       const data = value as Data;
       if (!data || typeof data.label !== "string" || !Number.isSafeInteger(data.amountPaise)) {
         throw new Error("form_test_record_invalid");
       }
-    };
+    }
     const feature = new FeatureRecordService<Data>(records, {
       featureId: "form-submission-test", recordIdPrefix: "feature:form-submission-test:", validate,
     }, () => "2026-11-19T04:00:00.000Z");
