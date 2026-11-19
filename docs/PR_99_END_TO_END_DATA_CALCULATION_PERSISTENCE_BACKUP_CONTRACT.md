@@ -444,7 +444,7 @@ Compare browser and Room normalized results for (in addition to all fixture IDs 
 
 - Participant inventory and ownership, including participants with zero records.
 - Validator parity for matching valid/invalid feature records and whole snapshots, including stable error categories.
-- Exactly one current Driver–Vehicle pairing and consistent use of the same configured IDs across Work, expenses, compliance, maintenance and calculations. Historical assignment compatibility is validated only when legacy records are present; reassignment scenarios are deferred.
+- Exactly one current Driver–Vehicle pairing for Work and other pair-dependent workflows, with consistent Vehicle identity across Vehicle-owned records. Compliance references the configured Vehicle only and is independent of Driver selection/assignment. Historical assignment compatibility is validated only when legacy records are present; reassignment scenarios are deferred.
 - Record IDs, schema versions and revisions.
 - Cross-feature references and referential integrity.
 - Event IDs/order, pending intent identity/status and outbox identity/delivery state for pending, acknowledged, retried and failed cases.
