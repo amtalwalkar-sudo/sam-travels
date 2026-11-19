@@ -120,8 +120,9 @@ describe("BusinessStartDateCostAllocationService", () => {
     const oldSource = report.result.sources.find(item => item.sourceId === complianceRecord.id)!;
     const renewedSource = report.result.sources.find(item => item.sourceId === renewal.id)!;
     expect(oldSource.sourceAmountPaise).toBe(1_000);
-    expect(oldSource.disposition).toBe("pre_business_pool_member");
-    expect(oldSource.daily).toEqual([]);
+    expect(oldSource.disposition).toBe("allocated");
+    expect(oldSource.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
+    expect(oldSource.daily[0].date).toBe("2026-02-15");
     expect(oldSource.sourcePeriod?.to).toBe("2026-02-28");
     expect(renewedSource.sourceAmountPaise).toBe(3_100);
     expect(renewedSource.eligibleFrom).toBe("2026-03-01");
@@ -138,11 +139,12 @@ describe("BusinessStartDateCostAllocationService", () => {
 
   it("stops EMI allocation at the settlement date and retains only historical paid-through cost", async () => {
     const report = await createService({ settlement: true }).getReport();
-    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" &&
+      item.disposition === "allocated" && (item.sourcePeriod?.from ?? "9999-12-31") >= "2026-02-15");
     expect(emiSources).toHaveLength(0);
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
     expect(pool?.sourceAmountPaise).toBe(6_900);
-    expect(pool?.disposition).toBe("allocated");
+    expect(pool?.disposition).toBe("pre_business_pool_summary");
     expect(report.result.daily.find(item => item.date === "2026-02-15")?.amountPaise).toBeGreaterThan(0);
     expect(report.result.allocatedAmountPaise).toBe(6_900);
     expect(report.result.historicalAmountPaise).toBe(0);
@@ -153,7 +155,8 @@ describe("BusinessStartDateCostAllocationService", () => {
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
     const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
     expect(pool?.sourceAmountPaise).toBe(6_900);
-    expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "pre_business_pool_member")
+    expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
+      (item.sourcePeriod?.from ?? "9999-12-31") < "2026-02-15")
       .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
     expect(current.map(item => item.scheduleVersion)).toEqual([2]);
     expect(current.map(item => item.sourceAmountPaise)).toEqual([3_100]);
