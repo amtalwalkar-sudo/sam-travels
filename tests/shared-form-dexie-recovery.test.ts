@@ -66,10 +66,6 @@ describe("shared form recovery against the production Dexie adapter", () => {
     const { database, repository } = await openStore();
     const vehicleService = new VehicleService(repository, assertVehicleRecordV1);
     const workingCopies = new InterruptCompletionOnce(new RecordFormWorkingCopyRepository(repository, "web"));
-    const runtime = createAdminFormRuntimeV1({
-      repository, recordSource: "web", performanceAdminSettings: new PerformanceAdminSettingsServiceV1(repository),
-      handleBusinessExpenseSubmission: async () => undefined, vehicleService, workingCopyRepository: workingCopies,
-    });
     const registrationNumber = "DXECR001";
     let copy = await runtime.open(VEHICLE_FORM_V1, "new:" + registrationNumber);
     for (const [field, value] of Object.entries({
