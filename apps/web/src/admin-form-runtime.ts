@@ -15,6 +15,7 @@ import type { FormSubmissionCommand } from "../../../packages/application/src/fo
 
 type AdminFormRepositoryV1 = RecordRepository & AtomicRecordRepository;
 type BusinessExpenseSubmissionV1 = (command: FormSubmissionCommand) => Promise<unknown>;
+type VehicleAdminServiceV1 = Pick<ReturnType<typeof getApplicationVehicleService>, "create" | "update">;
 
 /** Feature-specific Admin form command routing, kept out of platform bootstrap. */
 export function createAdminFormRuntimeV1(dependencies: Readonly<{
@@ -283,13 +284,13 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           };
           const revision = values._recordRevision;
           if (typeof revision === "number") {
-            return getApplicationVehicleService().update({
+            return vehicleService.update({
               id: command.instanceId, expectedRevision: revision, data,
               operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
               now: command.submittedAt,
             });
           }
-          return getApplicationVehicleService().create(data, recordSource, {
+          return vehicleService.create(data, recordSource, {
             operationId: command.operationId, payloadFingerprint: command.payloadFingerprint,
           }, command.submittedAt);
         }
