@@ -172,8 +172,9 @@ export function allocatePreBusinessRecoveryV1(
     amountPaise: number;
     sourceId: string;
     revision: number;
-    origin: "manual";
+    origin: "manual" | "emi" | "compliance";
     note: string;
+    scheduleVersion?: number;
   }>[];
 }> {
   const startDay = assertDate(businessStartDate);
@@ -184,7 +185,9 @@ export function allocatePreBusinessRecoveryV1(
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
-        source.origin !== "manual" || seen.has(source.sourceId)) {
+        !["manual", "emi", "compliance"].includes(source.origin) ||
+        (source.scheduleVersion !== undefined && (!Number.isSafeInteger(source.scheduleVersion) || source.scheduleVersion < 1)) ||
+        seen.has(source.sourceId)) {
       throw new Error("performance_recovery_source_invalid");
     }
     seen.add(source.sourceId);
