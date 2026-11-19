@@ -35,10 +35,11 @@ function operationReceiptId(operationId: string): string {
 }
 
 function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (value === undefined) return "undefined";
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value) ?? "null";
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new Error("feature_record_operation_payload_invalid");
-    return JSON.stringify(value);
+    return JSON.stringify(value) ?? "null";
   }
   if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
   if (typeof value === "object") {
@@ -94,11 +95,12 @@ export class FeatureRecordService<Data> {
     if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
     const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
     if (!receipt) return undefined;
+    assertRecordEnvelope(receipt);
     const data = receipt.data;
     if (data?.kind !== "feature_record_operation_receipt" || data.schemaVersion !== 1 ||
         data.operationId !== operation.operationId || data.action !== action || data.targetRecordId !== targetRecordId ||
         data.payloadFingerprint !== operation.payloadFingerprint ||
-        canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
+        !data.result || canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
       throw new Error("feature_record_operation_payload_conflict");
     }
     assertRecordEnvelope(data.result);
