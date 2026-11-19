@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NetworkGateway } from "../../../../packages/core/src";
 import type { AtomicRecordRepository, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import type { RuntimeRegistry } from "../../../../packages/core/src";
+import { getApplicationRuntimeRegistry } from "../../../../packages/application/src";
 import type { DriverStateProjection, DriverTransitionCommand } from "../../../../packages/features/work-shift";
 import { createDriverCommand, createDriverCommandV2, DriverWorkflowService, isOperationalBoundaryPending, nextOperationalBoundaryAt } from "../../../../packages/features/work";
 import { useWorkApplicationRuntime } from "./work-application-runtime-context";
@@ -16,7 +17,7 @@ import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, 
 
 export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository: RecordRepository & PolicyRepository & AtomicRecordRepository) {
   const workRuntime = useWorkApplicationRuntime();
-  if (!workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
+  if (runtime !== getApplicationRuntimeRegistry() || !workRuntime.usesRegistry(runtime)) throw new Error("work_application_runtime_registry_mismatch");
   const tripFinancialForms = useTripFinancialFormRuntime();
   const [now, setNow] = useState(Date.now());
   const [repo, setRepo] = useState<(RecordRepository & PolicyRepository) | null>(null);
