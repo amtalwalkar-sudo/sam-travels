@@ -160,7 +160,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
       (item.sourcePeriod?.from ?? "9999-12-31") < "2026-02-15")
       .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
-    expect(current.map(item => item.scheduleVersion)).toEqual([2, 1, 2]);
+    expect(current.map(item => item.scheduleVersion)).toEqual([2]);
     expect(current.map(item => item.sourceAmountPaise)).toEqual([3_100]);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
