@@ -251,7 +251,7 @@ Do not reimplement these mechanisms or add equivalent tests. Do not schedule iso
 
 0. Complete B0a source/test audit for every supported user/device/imported entry path and cross-cutting architecture concern; classify each and identify exact missing assertions against the binding portable-backup decision.
 0.1 Complete B0b by adding only those missing targeted tests, running focused checks, and updating this matrix/gap register with results before B1.
-1. Populate the shared fixture with schema-valid synthetic records for Vehicle/Driver dependencies, Finance, Compliance, Maintenance, Business Expenses/Fuel (including full-tank checkpoint and intervening partial-refill interval history), Performance, Work/Driver Workflow and Log Book.
+1. Populate the shared fixture with schema-valid synthetic records for exactly one active Vehicle, one active selected Driver and one current pairing, then Finance, Compliance, Maintenance, Business Expenses/Fuel (including full-tank checkpoint and intervening partial-refill interval history), Performance, Work/Driver Workflow and Log Book.
 2. Add the browser fixture loader/runner and execute the populated data through the canonical production IndexedDB export → encrypted package → restore → reopen → startup recovery → re-export path.
 2.1 Add a compact same-record browser golden journey: records created by real rendered PWA entry paths (not direct fixture insertion) flow through production calculations and canonical encrypted backup, restore into clean and pre-populated IndexedDB destinations, reopen/recovery/re-export and compare the same IDs, lineage and calculation provenance.
 3. Add the Room fixture loader/runner for the exact same fixture asset and execute it through the canonical Room export/import adapter, production restore coordinator and recovery path.
@@ -273,7 +273,7 @@ Do not reimplement these mechanisms or add equivalent tests. Do not schedule iso
 
 ## 5. Scope guard
 
-This matrix is an initial static audit. Test presence is not a CI result. Before marking any row complete, inspect the relevant assertion and confirm the test ran on the latest PR head. No new production architecture or feature behavior is authorized by this matrix.
+This matrix is an initial static audit. Test presence is not a CI result. Before marking any row complete, inspect the relevant assertion and confirm the test ran on the latest PR head. The approved one-vehicle/one-driver simplification is the only added product-scope change in this PR; other production architecture or feature behaviour remains governed by its owning contract.
 
 ## 6. Approved single-vehicle/single-driver scope correction
 
