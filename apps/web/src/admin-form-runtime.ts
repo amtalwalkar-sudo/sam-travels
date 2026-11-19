@@ -88,6 +88,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             },
             source: recordSource,
             businessDate: validFrom,
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === MAINTENANCE_VISIT_FORM_V1.id) {
@@ -243,9 +245,14 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           };
           const revision = values._recordRevision;
           if (typeof revision === "number") {
-            return getApplicationDriverRecordsService().update({ driverId, expectedRevision: revision, data });
+            return getApplicationDriverRecordsService().update({
+              driverId, expectedRevision: revision, data,
+              operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+              now: command.submittedAt,
+            });
           }
-          return getApplicationDriverRecordsService().create(data, recordSource);
+          return getApplicationDriverRecordsService().create(data, recordSource,
+            { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint }, command.submittedAt);
         }
         if (command.formId === VEHICLE_FORM_V1.id) {
           const values = command.values;
