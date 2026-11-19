@@ -40,12 +40,12 @@ internal object NativeBusinessExpenseCorrectionBackup {
                     "business_expense_correction_identity_invalid"
                 }
                 correctionsByTarget.getOrPut(targetId) { mutableListOf() }.add(row to envelope)
-            } else if (id.startsWith(CORRECTION_PREFIX) || id.startsWith(CHAIN_PREFIX) ||
-                data.has("correctionId") || data.has("fieldPath") || data.has("headCorrectionId")) {
-                // Operation receipts and other feature records may legitimately reference a
-                // Business Expenses target. Only correction-shaped rows are subject to the
-                // append-only correction identity contract; do not mistake targetRecordId
-                // on an operation receipt for a malformed correction.
+            } else if ((id.startsWith(CORRECTION_PREFIX) || id.startsWith(CHAIN_PREFIX) ||
+                    data.has("correctionId") || data.has("fieldPath") || data.has("headCorrectionId")) &&
+                (featureId == FEATURE_ID || targetId.startsWith(RECORD_PREFIX))) {
+                // This validator owns only Business Expenses corrections. Receipts that
+                // reference an expense and correction chains owned by other features are
+                // validated by their respective contracts.
                 error("business_expense_correction_identity_invalid")
             }
         }
