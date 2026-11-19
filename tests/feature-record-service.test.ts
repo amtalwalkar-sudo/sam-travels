@@ -40,6 +40,7 @@ class MemoryAtomicRepository implements AtomicRecordBatchRepository {
       if (item.next.revision !== (item.expectedRevision ?? 0) + 1) throw new Error("atomic_record_batch_revision_invalid");
     }
     mutations.forEach(item => this.rows.set(item.id, item.next as RecordEnvelope<unknown>));
+    return true;
   }
 
   async remove(id: string): Promise<void> {
