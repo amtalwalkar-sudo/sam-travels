@@ -236,7 +236,9 @@ export class FinanceLoanPrepaymentService {
           JSON.stringify(fresh.revision) !== JSON.stringify(requested.revision)) {
         throw new Error("finance_loan_prepayment_preview_stale");
       }
-      const createdAt = fresh.revision.createdAt;
+      const createdAt = input.now ?? fresh.revision.createdAt;
+      const committedRevision = createdAt === fresh.revision.createdAt
+        ? fresh.revision : { ...fresh.revision, createdAt };
       const stateData: FinanceLoanPrepaymentStateV1 = {
         schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
         baseScheduleVersion: snapshot.state?.data.baseScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,
