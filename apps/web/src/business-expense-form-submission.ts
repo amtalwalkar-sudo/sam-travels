@@ -45,6 +45,7 @@ export function createBusinessExpenseFormSubmissionHandler(
     return service.createFuelPurchase({
       uuid: command.instanceId, source,
       operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         vehicleId: requiredString(values.vehicleId, "fuel_vehicle_required"),
         odometerKm: positiveInteger(values.odometerKm, "fuel_odometer_invalid"),
