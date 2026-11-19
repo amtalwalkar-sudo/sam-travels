@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { assertDriverRecordV1 } from "../packages/features/driver-records";
 import { DriverRecordsService } from "../packages/application/src/driver-records-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
@@ -14,6 +14,14 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    for (const mutation of mutations) {
+      const current = this.rows.get(mutation.id);
+      if (mutation.expectedRevision === null ? current !== undefined : current?.revision !== mutation.expectedRevision) return false;
+    }
+    for (const mutation of mutations) this.rows.set(mutation.id, mutation.next as RecordEnvelope<unknown>);
     return true;
   }
 }
@@ -37,6 +45,33 @@ describe("DriverRecordsService", () => {
     expect(updated.revision).toBe(2);
     expect((await service.get(driver.driverId))?.data.mobileNumber).toBe("+919999999999");
     expect(await service.list()).toHaveLength(1);
+  });
+
+  it("replays create and update receipts without duplicating or reapplying a mutation", async () => {
+    const repository = new MemoryRepository();
+    const service = new DriverRecordsService(repository, assertDriverRecordV1, () => "2026-11-19T08:00:00.000Z");
+    const createOperation = { operationId: "driver-create-op", payloadFingerprint: "driver-create-payload" };
+    const created = await service.create(driver, "web", createOperation, "2026-11-19T08:00:00.000Z");
+    expect(await service.create(driver, "web", createOperation, "2026-11-19T09:00:00.000Z")).toEqual(created);
+
+    const updatedData = { ...driver, mobileNumber: "+919999999999" };
+    const updateOperation = { operationId: "driver-update-op", payloadFingerprint: "driver-update-payload" };
+    const updated = await service.update({
+      driverId: driver.driverId, expectedRevision: 1, data: updatedData,
+      operation: updateOperation, now: "2026-11-19T08:30:00.000Z",
+    });
+    expect(await service.update({
+      driverId: driver.driverId, expectedRevision: 1, data: updatedData,
+      operation: updateOperation, now: "2026-11-19T09:30:00.000Z",
+    })).toEqual(updated);
+    expect(updated.revision).toBe(2);
+    expect((await repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:"),
+    )).toHaveLength(2);
+    await expect(service.update({
+      driverId: driver.driverId, expectedRevision: 1,
+      data: { ...updatedData, name: "Changed payload" }, operation: updateOperation,
+    })).rejects.toThrow("feature_record_operation_payload_conflict");
   });
 
   it("rejects duplicate driver identities and stale or mismatched updates", async () => {
