@@ -8,7 +8,6 @@ import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import { useCancellationFeeWorkspace } from "./use-cancellation-fee-workspace";
 import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financials-workspace";
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
-import { useAdminMaintenanceServices } from "./admin-services-context";
 
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 import { recordBrowserDiagnostic } from "../diagnostics";
@@ -63,13 +62,15 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
     let unsubscribe: (() => void) | undefined;
 
     workRuntime.initialize()
-      .then(async ({ repository, service, selectedDriver: selected, restored }) => {
+      .then(async ({ repository, service, selection, selectedDriver: selected, restored }) => {
         if (!live) {
           workRuntime.dispose(repository);
           return;
         }
 
         setHasWorkDriverSelection(!!selected?.driverId);
+        const refreshWorkSelection = () => { void selection.getSelectedDriver().then(value => { if (live) setHasWorkDriverSelection(!!value?.driverId); }); };
+        window.addEventListener("work-operating-configuration-updated", refreshWorkSelection);
         setWorkflow(service);
         setDriver(restored.snapshot);
         const pendingItems = restored.pending;
@@ -124,6 +125,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         unsubscribe = () => {
           unsubscribeState();
           unsubscribeStatus();
+          window.removeEventListener("work-operating-configuration-updated", refreshWorkSelection);
           window.removeEventListener("focus", resumeWorkflow);
           document.removeEventListener("visibilitychange", resumeWorkflow);
           workRuntime.dispose(repository);
