@@ -111,6 +111,7 @@ export class BusinessExpensesService {
 
   async createExpenseEntry(input: {
     uuid: string; data: BusinessExpenseEntryInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<BusinessExpenseEntryV1>> {
     const id = sourceId(ENTRY_PREFIX, input.uuid);
     const data: BusinessExpenseEntryV1 = {
@@ -199,7 +200,8 @@ export class BusinessExpensesService {
         throw new Error("business_expense_source_already_reversed");
       }
     }
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate,
+      operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<BusinessExpenseEntryV1>>;
   }
 
