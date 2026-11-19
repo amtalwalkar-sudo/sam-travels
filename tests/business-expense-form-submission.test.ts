@@ -154,6 +154,8 @@ describe("Fuel Entry form submission mapping", () => {
     } as never);
     expect(createFuelPurchase).toHaveBeenCalledWith({
       uuid: "fuel-entry-instance-1", source,
+      operation: { operationId: "fuel-entry-operation-1", payloadFingerprint: '{"fuel":"purchase-1"}' },
+      now: "2026-11-18T00:00:00.000Z",
       data: {
         vehicleId: "vehicle-1", odometerKm: 12345, pricePaisePerKg: 9550,
         amountPaise: 47725, partialRefill: true,
