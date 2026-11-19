@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,6 +70,27 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Vehicle saved", await(activity, "document.body.innerText.includes('$registration')", 15000))
             val vehicleRecordId = "feature:vehicle:" + registration
             assertTrue("Vehicle Room identity", db.records().get(vehicleRecordId) != null)
+            val createReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") == "create" && data.optString("targetRecordId") == vehicleRecordId) data else null
+            }.singleOrNull()
+            assertTrue("Admin Vehicle create has a durable Room operation receipt", createReceipt != null)
+
+            eval(activity, "(()=>{const card=[...document.querySelectorAll('.admin-capability-record')].find(n=>n.textContent.includes('$registration'));card?.querySelector('button')?.click()})()")
+            assertTrue("Vehicle edit form opens", await(activity, "document.querySelector('.admin-capability-form')?.textContent.includes('Save vehicle')", 10000))
+            set(activity, "Make", "Acceptance Updated")
+            click(activity, "Save vehicle")
+            assertTrue("Vehicle update saved", await(activity, "document.body.innerText.includes('Vehicle details updated')", 15000))
+            val updatedVehicle = db.records().get(vehicleRecordId)
+            assertEquals(2, org.json.JSONObject(updatedVehicle!!.json).getInt("revision"))
+            assertEquals("Acceptance Updated", org.json.JSONObject(updatedVehicle.json).getJSONObject("data").getString("make"))
+            val updateReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") == "update" && data.optString("targetRecordId") == vehicleRecordId) data else null
+            }.singleOrNull()
+            assertTrue("Admin Vehicle update has a durable Room operation receipt", updateReceipt != null)
             db.close()
 
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
