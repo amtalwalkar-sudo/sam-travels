@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type MaintenanceExpenseItemV1 = Readonly<{ id: string; description: string; amountPaise: number }>;
 export type MaintenanceVisitV1 = Readonly<{
@@ -90,6 +90,7 @@ export class MaintenanceService {
 
   async createVisit(input: {
     uuid: string; data: MaintenanceVisitInput; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
     await this.requireVehicle(input.data.vehicleId);
     const data: MaintenanceVisitV1 = {
@@ -101,18 +102,19 @@ export class MaintenanceService {
     }
     return this.records.create({
       id: recordId("visit", input.uuid), data, source: input.source,
-      businessDate: data.maintenanceDate,
+      businessDate: data.maintenanceDate, operation: input.operation, now: input.now,
     }) as Promise<RecordEnvelope<MaintenanceVisitV1>>;
   }
 
   async createExpense(input: {
     uuid: string; data: MaintenanceExpenseInput; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
     await this.requireVehicle(input.data.vehicleId);
     const data: GeneralMaintenanceExpenseV1 = { ...input.data, schemaVersion: 1, kind: "expense" };
     return this.records.create({
       id: recordId("expense", input.uuid), data, source: input.source,
-      businessDate: data.expenseDate,
+      businessDate: data.expenseDate, operation: input.operation, now: input.now,
     }) as Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>>;
   }
 
