@@ -129,8 +129,9 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(renewedSource.eligibleTo).toBe("2026-03-31");
     expect(renewedSource.daily).toHaveLength(31);
     expect(renewedSource.daily.every(item => item.amountPaise === 100)).toBe(true);
-    const expectedMarchFirstTotal = report.result.sources.filter(source => source.disposition !== "pre_business_pool_summary").reduce((sum, source) => sum +
-      (source.daily.find(item => item.date === "2026-03-01")?.amountPaise ?? 0), 0);
+    const expectedMarchFirstTotal = report.result.sources.filter(source => source.disposition !== "pre_business_pool_summary")
+      .reduce((sum, source) => sum + source.daily.filter(item => item.date === "2026-03-01")
+        .reduce((dayTotal, item) => dayTotal + item.amountPaise, 0), 0);
     expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(expectedMarchFirstTotal);
     expect(report.result.allocatedAmountPaise).toBe(10_000 + 3_100);
     expect(complianceRecord.data.totalCostPaise).toBe(1_000);
@@ -159,7 +160,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
       (item.sourcePeriod?.from ?? "9999-12-31") < "2026-02-15")
       .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
-    expect(current.map(item => item.scheduleVersion)).toEqual([2]);
+    expect(current.map(item => item.scheduleVersion)).toEqual([2, 1, 2]);
     expect(current.map(item => item.sourceAmountPaise)).toEqual([3_100]);
     expect(report.result.allocatedAmountPaise).toBe(10_000);
   });
