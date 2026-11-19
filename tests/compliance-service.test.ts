@@ -35,20 +35,13 @@ function setup(repository = new MemoryRepository()) {
   const row = (id: string, data: unknown): RecordEnvelope<unknown> => ({
     id, schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1, data,
   });
+  // Compliance is Vehicle-owned; deliberately omit Work Driver selection,
+  // Driver profiles and Driver–Vehicle assignments from this fixture.
   repository.seed([
-    row("work:selected-driver", { schemaVersion: 1, driverId: "driver-1" }),
-    row("feature:driver-records:driver:driver-1", {
-      schemaVersion: 1, driverId: "driver-1", name: "Driver", lifecycleState: "active",
-    }),
     row(first.vehicleId, {
       schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Make", model: "Model",
       vehicleType: "Sedan", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned",
       lifecycleState: "active",
-    }),
-    row("feature:driver-records:assignment:driver-1", {
-      schemaVersion: 1, driverId: "driver-1", assignments: [{
-        assignmentId: "assignment-1", vehicleId: first.vehicleId, assignedAt: at,
-      }],
     }),
   ]);
   const vehicles = {
@@ -96,13 +89,13 @@ describe("ComplianceService", () => {
     })).rejects.toThrow("compliance_operating_vehicle_mismatch");
   });
 
-  it("fails closed when operating configuration is missing", async () => {
+  it("fails closed when the active operating Vehicle is missing", async () => {
     const repository = new MemoryRepository();
     const vehicles = { async getById() { return undefined; } };
     const service = new ComplianceService(repository, assertComplianceRecordV1, vehicles);
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174012", data: first, source: "web",
-    })).rejects.toThrow("work_driver_not_selected");
+    })).rejects.toThrow("operating_vehicle_missing");
   });
 
   it("allows an early linked renewal with actual overlapping dates", async () => {
