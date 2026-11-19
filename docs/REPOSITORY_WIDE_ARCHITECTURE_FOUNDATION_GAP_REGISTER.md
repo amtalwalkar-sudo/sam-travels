@@ -620,3 +620,30 @@ The PR #99 end-to-end contract defines exactly one active business Vehicle and e
 
 **Acceptance status:** Not closed by the fixture metadata tests alone. The live runtime/UI path and rendered PWA/Android assertions must pass before this requirement is marked implemented. Do not claim multi-fleet support; it requires a separate reviewed contract, explicit migration and dedicated acceptance.
 
+
+
+### 9.41 — Six-layer business-rule evidence audit and Business Start Date contract conflict
+
+**Status:** Six-layer audit added to `docs/PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md` Section 7 against PR #99 head `96449e62fdf19bdca776b004bc7d97782ffe658e`. Documentation commits are newer than that source-audit baseline; final CI and exact-head rerun remain pending. No row is marked fully proven.
+
+The audit applies six independent gates to each owner-approved rule: explicit/consistent contract wording; correct production service/calculation; positive, negative and boundary tests; Browser–Room parity; and equivalent outcome after backup/restore/reopen/recovery, in addition to the owner-approved rule itself.
+
+**Confirmed material conflict — Business Start Date allocation:**
+
+- The checked-in `BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md` §§2–4 specifies an aggregate pre-business pool recovered over a fixed 18 months, independent of Compliance validity and loan schedule end dates.
+- The current production domain implementation does something different: `allocateComplianceCostV1()` distributes the complete Compliance amount from `max(validFrom, businessStartDate)` through the remaining inclusive `validTo`; `allocateScheduledEmisV1()` carries complete pre-start EMI amounts from Business Start Date through the remaining loan schedule horizon and allocates later instalments over their EMI periods.
+- `tests/business-start-date-cost-allocation.test.ts` explicitly asserts remaining Compliance validity days, scheduled EMI periods, pre-business EMI carry-forward, settlement cutoff and prepayment schedule behaviour.
+- Therefore contract, implementation and tests are not mutually consistent. This is not a test-only omission. Do not change the calculation to match the fixed 18-month text or rewrite the contract to match code until the owner-approved policy is reconciled and recorded.
+
+**Other confirmed audit outcomes:**
+
+1. Work odometer contract explicitly classifies an upward next-shift start-reading gap as personal km; daily business km remains shift end minus shift start. Work service/04:00 tests exist, but rendered PWA and direct two-way surface proof remain open, and the populated restore fixture is absent.
+2. 04:00 pending/unallocated distance is explicitly excluded from published daily business km until confirmed rotation. The same transition is not yet exercised as populated semantic data through both restore/recovery paths.
+3. Fuel owner contract explicitly retains odometer and partial-refill choice, derives quantity from amount/price per kg, includes partial purchase spend but excludes it as a full-tank checkpoint, and excludes GPS/location enrichment. PWA entry/draft evidence exists; Android Room submit/readback and populated full→partial→full restore calculation proof remain open.
+4. Maintenance integration rejects a daily distance record unless all entries are allocated and unallocated km is zero. The shared fixture still needs effective-rate history, daily-km source ID/revision, business/personal split, accrual and correction lineage.
+5. Compliance is Vehicle-owned only. The new application service uses `resolveOperatingVehicle()`, does not require Work Driver context, and rejects a mismatched Vehicle ID. Renewal UI/readback parity and populated multi-generation restore evidence remain open.
+6. Reduce Tenure is enforced at the Finance application service preview boundary: any mode other than `reduce_tenure` is rejected, and `finance-loan-prepayment-service.test.ts` asserts that `reduce_emi` fails. The generic lower-level calculation still represents both modes; keep it behind the service boundary. Android Room transaction/readback and populated schedule/payment/prepayment/settlement restore proof remain open.
+7. Breakeven/expense rules have individual calculation tests and PWA/partial Android Admin entry evidence. Android Challan and Performance target/pre-business entry/readback plus integrated same-record calculation restore parity remain open.
+8. The shared semantic fixture remains `contract_seed_only`. Browser and Android tests currently validate its metadata and declared dimensions, not populated feature records through production export, restore, reopen, startup recovery, re-export and calculation/provenance comparison.
+
+**Required closure:** resolve the Business Start Date owner-rule conflict first; then close the specifically listed entry/parity gaps and populate/run the shared semantic fixture. Upgrade evidence only after all six gates pass on the same final PR head. PR #99 remains draft and unmerged.
