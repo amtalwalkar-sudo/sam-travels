@@ -99,6 +99,13 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                     data.optString("lifecycleState") == "active"
             }
             assertEquals("Admin acceptance configures one active driver", 1, configuredDriverRows.size)
+            val driverRecordId = configuredDriverRows.single().id
+            val driverCreateReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") == "create" && data.optString("targetRecordId") == driverRecordId) data else null
+            }.singleOrNull()
+            assertNotNull("Admin Driver create has a durable Room operation receipt", driverCreateReceipt)
             click(activity, "Configure for Work")
             assertTrue("Admin configures the canonical Work Driver selection",
                 await(activity, "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
@@ -134,6 +141,12 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             val savedComplianceData = org.json.JSONObject(savedCompliance!!.json).getJSONObject("data")
             assertEquals("Compliance persists the configured operating Vehicle", vehicleRecordId,
                 savedComplianceData.getString("vehicleId"))
+            val complianceCreateReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") == "create" && data.optString("targetRecordId") == savedCompliance!!.id) data else null
+            }.singleOrNull()
+            assertNotNull("Admin Compliance create has a durable Room operation receipt", complianceCreateReceipt)
 
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
