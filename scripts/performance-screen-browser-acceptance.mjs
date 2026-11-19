@@ -68,7 +68,7 @@ try {
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     permissions: ["geolocation"],
-    geolocation: { latitude: 19.076, longitude: 72.8777 },
+    geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 12 },
   });
   const page = await context.newPage();
   page.on("pageerror", error => console.log("Browser page error:", error.message));
