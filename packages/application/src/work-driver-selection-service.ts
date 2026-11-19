@@ -5,14 +5,14 @@ import {driverRecordId} from "../../domain/src/driver-record-identity";
 import type {DriverWorkflowRepository} from "./driver-workflow-service";
 /** Work owns the selected Driver reference; Admin continues to own profile and assignment records. */
 export class WorkDriverSelectionService {
- constructor(private readonly records:AtomicRecordRepository,private readonly workflow:Pick<DriverWorkflowRepository,"getSnapshot">,private readonly now:()=>string=()=>new Date().toISOString()){}
+ constructor(private readonly records:AtomicRecordRepository,private readonly workflow?:Pick<DriverWorkflowRepository,"getSnapshot">,private readonly now:()=>string=()=>new Date().toISOString()){}
  async getSelectedDriver():Promise<WorkSelectedDriverV1|undefined>{
   const record=await this.records.get<WorkSelectedDriverV1>(WORK_SELECTED_DRIVER_RECORD_ID);
   if(!record)return undefined;assertWorkSelectedDriverV1(record.data);return record.data;
  }
  async selectDriver(driverId:string,source:RecordEnvelope<unknown>["source"]="web"):Promise<WorkSelectedDriverV1>{
   if(!/^[A-Za-z0-9_-]{1,128}$/.test(driverId))throw new Error("work_selected_driver_invalid");
-  if((await this.workflow.getSnapshot()).state!=="idle")throw new Error("work_driver_selection_locked_during_shift");
+  if(this.workflow&&(await this.workflow.getSnapshot()).state!=="idle")throw new Error("work_driver_selection_locked_during_shift");
   const driver=await this.records.get<{schemaVersion:number;driverId:string;name:string;lifecycleState:string}>(driverRecordId(driverId));
   if(!driver||driver.data.schemaVersion!==1||driver.data.driverId!==driverId||!driver.data.name.trim()||driver.data.lifecycleState!=="active")throw new Error("driver_not_active");
   const current=await this.records.get<WorkSelectedDriverV1>(WORK_SELECTED_DRIVER_RECORD_ID);
