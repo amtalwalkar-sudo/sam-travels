@@ -22,7 +22,7 @@ internal object WorkDriverContextResolver {
         // for the pair: every decision below is based on this same returned snapshot.
         val records = db.records().list()
         val selectedRows = records.filter { it.id == "work:selected-driver" }
-        require(selectedRows.size == 1) { "operating_driver_selection_missing_or_ambiguous" }
+        require(selectedRows.size == 1) { if (selectedRows.isEmpty()) "work_driver_not_selected" else "operating_driver_selection_ambiguous" }
         val selectionEnvelope = JSONObject(selectedRows.single().json)
         val selected = selectionEnvelope.optJSONObject("data") ?: error("work_selected_driver_invalid")
         require(selected.optInt("schemaVersion", -1) == 1) { "work_selected_driver_invalid" }
