@@ -27,7 +27,7 @@ internal object NativeMaintenanceCorrectionBackup {
             val targetId = data.optString("targetRecordId")
             val featureId = data.optString("featureId")
             if (id.startsWith(CHAIN_PREFIX)) {
-                if (targetId.startsWith(EXPENSE_PREFIX) || featureId == FEATURE_ID) {
+                if (targetId.startsWith(EXPENSE_PREFIX)) {
                     require(targetId.startsWith(EXPENSE_PREFIX) &&
                         id == CHAIN_PREFIX + URLEncoder.encode(targetId, "UTF-8").replace("+", "%20")) {
                         "maintenance_correction_chain_head_identity_invalid"
@@ -36,7 +36,7 @@ internal object NativeMaintenanceCorrectionBackup {
                         "maintenance_correction_chain_head_duplicate"
                     }
                 }
-            } else if (featureId == FEATURE_ID || targetId.startsWith(EXPENSE_PREFIX)) {
+            } else if (id.startsWith(CORRECTION_PREFIX) || targetId.startsWith(EXPENSE_PREFIX)) {
                 require(id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID &&
                     targetId.startsWith(EXPENSE_PREFIX)) {
                     "maintenance_correction_identity_invalid"
