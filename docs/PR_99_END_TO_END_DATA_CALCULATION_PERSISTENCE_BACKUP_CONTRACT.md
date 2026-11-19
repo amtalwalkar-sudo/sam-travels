@@ -359,7 +359,7 @@ PR #99 is complete only when all gates pass:
 14. Failure injection covers rollback/recovery, stale writes, duplicate replay, pending intents and outbox.
 15. Web tests, architecture checks, Android unit/instrumentation tests and integrated regression gate pass in CI.
 16. PR remains draft and unmerged pending user review; physical-device/manual and external-account gates are clearly reported and not falsely marked complete.
-17. Both runtimes prove exactly one configured active Vehicle and one active selected Work Driver; all current vehicle/driver references resolve to that pair, and current user-facing workflows do not require vehicle/driver selection or reassignment. Missing or ambiguous configuration fails clearly. Legacy assignment history remains readable where present.
+17. Both runtimes prove exactly one configured active Vehicle and one active selected Work Driver for Work and other pair-dependent workflows; Compliance resolves and references the Vehicle only, without requiring Work Driver selection or assignment. Each workflow validates only the context its domain ownership requires. Missing or ambiguous required context fails clearly. Legacy assignment history remains readable where present.
 
 ## 12. Two-track implementation plan
 
