@@ -42,7 +42,8 @@ export type PreBusinessRecoverySourceV1 = Readonly<{
   revision: number;
   amountPaise: number;
   note: string;
-  origin: "manual";
+  origin: "manual" | "emi" | "compliance";
+  scheduleVersion?: number;
 }>;
 export type PerformanceCompletenessV1 = Readonly<{
   source: string;
@@ -101,7 +102,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
@@ -189,7 +190,7 @@ export function allocatePreBusinessRecoveryV1(
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
   }
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }[] = [];
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }[] = [];
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
   // Equal monthly instalments are calculated from the aggregate pool, not
@@ -234,6 +235,7 @@ export function allocatePreBusinessRecoveryV1(
         if (amountPaise > 0) daily.push({
           date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
           revision: source.revision, origin: source.origin, note: source.note,
+          ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
         });
       }
     });
@@ -301,11 +303,14 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   }
   for (const row of recovery.daily) {
     const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
-    bucket["pre-business-manual-recovery"] = add(bucket["pre-business-manual-recovery"], row.amountPaise);
+    const recoveryKind = row.origin === "manual" ? "pre-business-manual-recovery" : row.origin;
+    bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
     costsByDate.set(row.date, bucket);
-    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision }]);
+    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision,
+      ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) }]);
   }
-  for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });
+  for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision,
+    ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}) });
 
   const lifetimeTo = input.periodTo;
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;
