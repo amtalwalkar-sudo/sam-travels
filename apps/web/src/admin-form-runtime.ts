@@ -182,7 +182,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             allocations: allocations as readonly { installmentNumber: number; amountPaise: number }[],
             ...(typeof values.reference === "string" && values.reference.trim() ? { reference: values.reference.trim() } : {}),
             ...(typeof values.note === "string" && values.note.trim() ? { note: values.note.trim() } : {}),
-            source: recordSource,
+            source: recordSource, now: command.submittedAt,
           });
         }
         if (command.formId === LOAN_PREPAYMENT_FORM_V1.id) {
@@ -193,7 +193,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (!preview || typeof preview !== "object") throw new Error("finance_loan_prepayment_preview_invalid");
           return getApplicationFinanceLoanPrepaymentService().commit({
             preview: preview as import("../../../packages/application/src").FinanceLoanPrepaymentPreviewV1,
-            source: recordSource,
+            source: recordSource, now: command.submittedAt,
           });
         }
         if (command.formId === LOAN_SETTLEMENT_FORM_V1.id) {
@@ -210,6 +210,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             source: recordSource,
             preview: preview as { amountPaise: number; scheduleVersion: number; paidThroughInstallment: number;
               loanRevision: number; paymentLedgerRevision: number | null },
+            now: command.submittedAt,
           });
         }
         if (command.formId === LOAN_DETAILS_FORM_V1.id) {
