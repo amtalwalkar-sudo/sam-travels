@@ -20,6 +20,16 @@ class SharedSemanticBackupFixtureTest {
             (0 until fixture.getJSONArray("lifecycle").length()).map { fixture.getJSONArray("lifecycle").getString(it) })
         assertEquals(listOf("record_ids", "revisions", "references", "event_ordering", "correction_chain_heads"),
             (0 until fixture.getJSONArray("comparison").length()).map { fixture.getJSONArray("comparison").getString(it) })
+        val operating = fixture.getJSONObject("operatingConfiguration")
+        assertEquals("single_vehicle_single_driver", operating.getString("mode"))
+        assertEquals("exactly_one_active", operating.getJSONObject("vehicle").getString("cardinality"))
+        assertEquals("feature:vehicle:MH01AB1234", operating.getJSONObject("vehicle").getString("recordId"))
+        assertEquals("exactly_one_active_selected_for_work", operating.getJSONObject("driver").getString("cardinality"))
+        assertEquals("feature:driver-records:driver:driver-001", operating.getJSONObject("driver").getString("recordId"))
+        assertEquals("deferred_until_separately_approved", operating.getString("fleetExpansion"))
+        val workLineage = fixture.getJSONObject("domains").getJSONObject("work").getJSONArray("lineage")
+        assertEquals(true, (0 until workLineage.length()).map { workLineage.getString(it) }
+            .containsAll(listOf("configuredDriverId", "configuredVehicleId")))
         val domains = fixture.getJSONObject("domains")
         assertEquals(setOf("finance", "compliance", "maintenance", "businessExpenses", "performance", "work", "logBook"),
             domains.keys().asSequence().toSet())
