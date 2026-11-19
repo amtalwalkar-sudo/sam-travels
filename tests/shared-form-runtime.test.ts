@@ -301,6 +301,30 @@ describe("shared form runtime", () => {
     expect(await copies.get(saveDefinition.id, "vehicle-1")).toMatchObject({ status: "saved", revision: 5 });
   });
 
+  it("rotates operation identity after Save and blocks replay of the prior operation after a later edit/save", async () => {
+    const copies = new MemoryCopies();
+    const saveDefinition = { ...definition, id: "admin.vehicle", primaryAction: "save" as const };
+    const dispatched: string[] = [];
+    let sequence = 0;
+    const runtime = new SharedFormRuntime(copies, {
+      submit: async command => { dispatched.push(command.operationId); return { operationId: command.operationId }; },
+    }, () => "2026-11-19T09:00:00.000Z", () => "save-operation-" + (++sequence));
+    const original = await runtime.open(saveDefinition, "vehicle-replay-guard");
+    const firstOperationId = original.operationId;
+    await runtime.save(saveDefinition, original);
+    const saved = (await copies.get(saveDefinition.id, original.instanceId))!;
+    const edited = await runtime.update(saveDefinition, saved, "farePaise", 100);
+    expect(edited.operationId).not.toBe(firstOperationId);
+    const secondOperationId = edited.operationId;
+    await runtime.save(saveDefinition, edited);
+
+    await expect(runtime.save(saveDefinition, original)).rejects.toThrow("form_copy_revision_conflict");
+    expect(dispatched).toEqual([firstOperationId, secondOperationId]);
+    expect(await copies.get(saveDefinition.id, original.instanceId)).toMatchObject({
+      status: "saved", revision: 5, operationId: secondOperationId, values: { farePaise: 100 },
+    });
+  });
+
   it("does not submit invalid data or permit Submit on Save-only forms", async () => {
     let submissions = 0;
     const runtime = new SharedFormRuntime(new MemoryCopies(), { submit: async () => { submissions += 1; } }, undefined, () => "operation-3");
