@@ -159,7 +159,21 @@ export class BusinessStartDateCostAllocationService {
         totalCostPaise: record.data.totalCostPaise, overlapReviewStatus: "confirmed",
       };
       const base = allocateComplianceCostV1(businessStartDate, input);
-      if (!related.length || base.disposition !== "allocated") {
+      if (!related.length) {
+        sources.push(base);
+        continue;
+      }
+      if (base.disposition === "pre_business_historical") {
+        // A pre-start source is pooled as one indivisible amount. If its
+        // validity participates in an unresolved overlap, withhold the full
+        // amount rather than silently pooling an amount under review.
+        sources.push(Object.freeze({
+          ...base, sourceId: record.id + ":overlap-withheld",
+          disposition: "overlap_review_required" as const,
+        }));
+        continue;
+      }
+      if (base.disposition !== "allocated") {
         sources.push(base);
         continue;
       }
