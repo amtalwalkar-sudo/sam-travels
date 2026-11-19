@@ -287,6 +287,8 @@ The PR #99 contract now defines the current operating configuration as one activ
 | Android Admin setup | `AdminFormsCapacitorAcceptanceTest.replacementAdminFormsUseRoomBackedWebView` — created test Vehicle and Driver are each read back as exactly one active configuration record | Added; run on latest PR head pending |
 | Legacy assignment compatibility | Existing assignment validator/service and backup reference tests remain compatibility coverage only; multi-entity reassignment is not a current product acceptance requirement | Retained; do not interpret as fleet support |
 | Rendered single-config workflow | Browser and Android forms must stop requesting routine Vehicle/Driver selection and resolve the configured pair automatically; missing/ambiguous configuration must fail closed | **Open production correction**; tracked in gap register §9.40 |
+| Authoritative resolver contract | Section 3.0.1 specifies global cardinality, consistent-snapshot resolution, stable fail-closed categories, revision checks, no auto-repair and Dexie/Room parity | Contract clarified; implementation and tests remain open |
+| Resolver negative/parity matrix | Missing/ambiguous Vehicle, Driver, Work selection and assignment; mismatched pair; inactive profile; locked shift; effective-time boundary; stale config revision; no-write-on-failure | **Open**; required before B0 exit |
 
 The fixture metadata and focused service assertions do not prove the rendered UI has been simplified. Do not mark the operating-scope change complete until the resolver, selector removal, missing/ambiguous configuration handling, and browser/Android rendered acceptance all pass.
 
