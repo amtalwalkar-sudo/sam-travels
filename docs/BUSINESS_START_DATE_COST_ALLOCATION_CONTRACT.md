@@ -1,6 +1,6 @@
 # Business Start Date Cost Allocation Contract
 
-**Status:** Owner-approved product allocation policy; implementation and calculation wiring are not yet authorized by this document alone  
+**Status:** Owner-approved product allocation policy; implemented as versioned reporting allocation with Browser–Room and populated-restore evidence still tracked separately  
 **Owner:** Cross-feature business reporting policy; Compliance and Finance own their source records and domain calculations  
 **Timezone:** Asia/Kolkata for business dates  
 **Currency:** INR; integer paise for persisted money
