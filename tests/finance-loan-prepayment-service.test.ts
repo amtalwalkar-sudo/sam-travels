@@ -101,14 +101,17 @@ describe("FinanceLoanPrepaymentService", () => {
       () => "2026-11-13T00:00:00.000Z",
     );
     const report = await allocation.getReport();
-    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" ||
-      item.sourceKind === "emi-pre-business-carry-forward");
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
     expect(emiSources.length).toBeGreaterThan(0);
     expect(emiSources.every(item => item.scheduleVersion === committed.version)).toBe(true);
-    const lastAllocatedDay = report.result.daily[report.result.daily.length - 1].date;
+    const normalEmiRows = emiSources.filter(item => item.disposition === "allocated").flatMap(item => item.daily);
+    const lastAllocatedDay = normalEmiRows[normalEmiRows.length - 1].date;
     const [year, month] = preview.finalDueDate.split("-").map(Number);
     const expectedAllocationEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
     expect(lastAllocatedDay).toBe(expectedAllocationEnd);
+    const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
+    expect(pool?.eligibleTo).toBe("2027-08-14");
+    expect(report.result.daily[report.result.daily.length - 1].date).toBe("2027-08-14");
     expect(report.result.allocatedAmountPaise).toBe(
       emiSources.reduce((sum, item) => sum + item.sourceAmountPaise, 0),
     );
