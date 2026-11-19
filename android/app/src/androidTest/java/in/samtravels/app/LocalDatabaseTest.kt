@@ -89,4 +89,65 @@ class LocalDatabaseTest {
   } finally { context.deleteDatabase(name) }
  }
 
+ @Test fun pendingAdminCreateUpdateAndFuelOperationsRecoverFromRoomAfterProcessRestart() = runBlocking {
+  val context=ApplicationProvider.getApplicationContext<Context>()
+  suspend fun verifyRecovery(name:String, formId:String, instanceId:String, operationId:String,
+   action:String, targetId:String, create:Boolean) {
+   context.deleteDatabase(name)
+   val copyId="__sam_travels_form_working_copy__:"+java.net.URLEncoder.encode(formId,"UTF-8")+":"+
+    java.net.URLEncoder.encode(instanceId,"UTF-8")
+   val receiptId="__sam_travels_feature_operation__:"+java.net.URLEncoder.encode(operationId,"UTF-8")
+   fun envelope(id:String,revision:Int,data:JSONObject,at:String="2026-11-19T09:00:00.000Z")=JSONObject()
+    .put("id",id).put("schemaVersion",1).put("createdAt",at).put("updatedAt",at)
+    .put("source","android").put("revision",revision).put("data",data)
+   val pending=envelope(copyId,1,JSONObject()
+    .put("formId",formId).put("formVersion",1).put("instanceId",instanceId).put("revision",3)
+    .put("status","pending").put("operationId",operationId).put("values",JSONObject().put("value",42))
+    .put("submission",JSONObject().put("action",action).put("payloadFingerprint","fingerprint-$operationId")
+     .put("submittedAt","2026-11-19T09:00:00.000Z").put("values",JSONObject().put("value",42))))
+   val before=JSONObject().put("id",targetId).put("schemaVersion",1).put("createdAt","2026-11-19T08:00:00.000Z")
+    .put("updatedAt","2026-11-19T08:00:00.000Z").put("source","android").put("revision",1)
+    .put("data",JSONObject().put("value",1))
+   val next=envelope(targetId,if(create) 1 else 2,JSONObject().put("value",if(create) 42 else 2))
+   val receipt=envelope(receiptId,1,JSONObject().put("schemaVersion",1)
+    .put("kind","feature_record_operation_receipt").put("operationId",operationId)
+    .put("payloadFingerprint","fingerprint-$operationId").put("action",if(create) "create" else "update")
+    .put("targetRecordId",targetId).put("result",next))
+   try {
+    var db=Room.databaseBuilder(context,LocalDatabase::class.java,name).build()
+    try {
+     if(!create) assertTrue(compareAndSetStoredRecord(db,targetId,-1,before))
+     assertTrue(compareAndSetStoredRecord(db,copyId,-1,pending))
+     assertTrue(commitFeatureUpgradeBatch(db,JSONArray().put(next).put(receipt),JSONArray(),
+      JSONObject().put(targetId,if(create) -1 else 1).put(receiptId,-1)))
+    } finally { db.close() }
+    db=Room.databaseBuilder(context,LocalDatabase::class.java,name).build()
+    try {
+     val recoveredCopy=JSONObject(db.records().get(copyId)!!.json)
+     assertEquals("pending",recoveredCopy.getJSONObject("data").getString("status"))
+     val recoveredReceipt=JSONObject(db.records().get(receiptId)!!.json).getJSONObject("data")
+     assertEquals(operationId,recoveredReceipt.getString("operationId"))
+     assertEquals(targetId,recoveredReceipt.getString("targetRecordId"))
+     assertEquals("fingerprint-$operationId",recoveredReceipt.getString("payloadFingerprint"))
+     val recoveredTarget=JSONObject(db.records().get(targetId)!!.json)
+     assertEquals(if(create) 1 else 2,recoveredTarget.getInt("revision"))
+     // The reopened command observes its receipt and returns the original result;
+     // it must not issue a second feature mutation.
+     assertEquals(recoveredReceipt.getJSONObject("result").toString(),
+      JSONObject(db.records().get(targetId)!!.json).toString())
+     val completedData=recoveredCopy.getJSONObject("data").put("status","saved")
+     val completed=envelope(copyId,2,completedData,"2026-11-19T09:01:00.000Z")
+     assertTrue(compareAndSetStoredRecord(db,copyId,1,completed))
+     assertEquals("saved",JSONObject(db.records().get(copyId)!!.json).getJSONObject("data").getString("status"))
+    } finally { db.close() }
+   } finally { context.deleteDatabase(name) }
+  }
+  verifyRecovery("room-admin-create-recovery.db","admin.vehicle","new:ROOM-CREATE","room-admin-create","save",
+   "feature:vehicle:ROOM-CREATE",true)
+  verifyRecovery("room-admin-update-recovery.db","admin.vehicle","feature:vehicle:ROOM-UPDATE","room-admin-update","save",
+   "feature:vehicle:ROOM-UPDATE",false)
+  verifyRecovery("room-fuel-recovery.db","driver.fuel-entry","fuel-room-instance","room-fuel-submit","submit",
+   "feature:business-expenses:fuel:ROOM-FUEL",true)
+ }
+
 }
