@@ -179,6 +179,13 @@ describe("Business Start Date scheduled EMI allocation", () => {
     expect([...byMonth.values()].reduce((sum,value)=>sum+value,0)).toBe(6_000);
     expect([...byMonth.values()]).toEqual(Array(18).fill(333).map((value,index)=>value+(index<6?1:0)));
     expect(pool.daily.every(row => row.date >= "2026-01-01" && row.date <= "2027-06-30")).toBe(true);
+    const sourceMembers = pooled.filter(item => item.sourceKind !== "pre-business-pool");
+    expect(sourceMembers.every(item => item.disposition === "allocated" &&
+      item.daily.reduce((sum,row)=>sum+row.amountPaise,0) === item.sourceAmountPaise)).toBe(true);
+    const result = buildBusinessStartDateAllocationResultV1("2026-01-01", pooled);
+    expect(result.allocatedAmountPaise).toBe(6_000);
+    expect(result.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(6_000);
+    expect(result.monthly.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(6_000);
   });
 
   it("clamps each monthly anniversary to month end while keeping the original day anchor", () => {
