@@ -15,7 +15,7 @@ export type DailyCostAllocationV1 = Readonly<{
   sourceVersion: number;
   scheduleVersion?: number;
 }>;
-export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "pre_business_pool_member" | "pre_business_pool_summary" | "overlap_review_required";
+export type AllocationDispositionV1 = "allocated" | "pre_business_historical" | "pre_business_pool_summary" | "overlap_review_required";
 export type CostAllocationSourceResultV1 = Readonly<{
   sourceId: string;
   sourceKind: "compliance" | "emi" | "pre-business-pool";
