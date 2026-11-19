@@ -67,7 +67,7 @@ try {
   await page.getByText("MH00PS0093", { exact: true }).waitFor();
   console.log("Single active vehicle configured for the Performance distance projection.");
 
-  // Build Driver/Work records through rendered controls, not IndexedDB injection.
+  // Configure Driver through Admin UI.
   const driverName = "Performance Acceptance Driver";
   await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
@@ -111,14 +111,14 @@ try {
     throw new Error("current_assignment_mismatch");
   }
 
-  // Refresh the identity panel so it discovers the newly-created Driver profile.
+  // Refresh identity after creating the Driver.
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
-  // Reload clears the in-memory Admin actor; authenticate again before enrollment.
+  // Re-authenticate Admin after reload.
   const identityPanel = page.locator(".admin-capability-panel");
   const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
   await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor({ state: "attached" });
@@ -199,8 +199,7 @@ try {
     .getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
-  // Work Driver selection changes the active actor. Restore Admin authority
-  // before writing business settings and requesting privileged calculations.
+  // Restore Admin authority after Work changes actor.
   await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
   await identityPanel.getByLabel("Active role").selectOption("admin");
   await identityPanel.getByLabel("Admin PIN").fill(testPin);
