@@ -45,6 +45,12 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         profileRecordId: "feature:driver-records:driver:driver-001",
         selectionRecordId: "work:selected-driver",
       },
+      currentPairing: {
+        cardinality: "exactly_one_current_assignment",
+        assignmentHistoryRecordId: "feature:driver-records:assignment:driver-001",
+        vehicleId: "feature:vehicle:MH01AB1234",
+        driverId: "driver-001",
+      },
       fleetExpansion: "deferred_until_separately_approved",
     });
     expect(fixture.operatingConfiguration.referencePolicy).toContain("configured vehicle ID");
