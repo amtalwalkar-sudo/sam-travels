@@ -57,6 +57,13 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
             assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
+            val businessSettingsReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") in listOf("create", "update") &&
+                    data.optString("targetRecordId") == "feature:business-settings:business") data else null
+            }.singleOrNull()
+            assertNotNull("Business Start Date form has a durable Room operation receipt", businessSettingsReceipt)
 
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             click(activity, "Add vehicle")
@@ -164,6 +171,19 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "First EMI date (first day of month)", "2026-02-01")
             click(activity, "Save loan details")
             assertTrue("Loan saved", await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
+            val loanRecord = db.records().list().singleOrNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                row.id.startsWith("feature:finance:loan:") &&
+                    data.optJSONObject("details")?.optString("loanName") == marker + " Loan"
+            }
+            assertNotNull("Loan details record persists in Room", loanRecord)
+            val loanCreateReceipt = db.records().list().mapNotNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                if (data.optString("kind") == "feature_record_operation_receipt" &&
+                    data.optString("action") == "create" &&
+                    data.optString("targetRecordId") == loanRecord!!.id) data else null
+            }.singleOrNull()
+            assertNotNull("Loan setup has a durable Room operation receipt", loanCreateReceipt)
             assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
 
