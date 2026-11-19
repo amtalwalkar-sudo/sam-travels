@@ -75,7 +75,14 @@ describe("FinanceLoanPrepaymentService", () => {
     expect(ledger?.data.entries).toHaveLength(0);
     expect(await service.commit({ preview, source: "web" })).toEqual(committed);
   });
-  it("rebuilds daily EMI allocations from the real prepayment schedule and its earlier final due date", async () => {
+  it("uses the first-submit timestamp for the committed prepayment revision", async () => {
+    const { service } = setup();
+    const preview = await service.preview({ loanId, commandId: "prepay-submit-time",
+      businessDate: "2026-01-15", amountPaise: 500_000, mode: "reduce_tenure", source: "web" });
+    const committed = await service.commit({ preview, source: "web", now: "2026-11-19T09:31:00.000Z" });
+    expect(committed.createdAt).toBe("2026-11-19T09:31:00.000Z");
+  });
+  it("rebuilds daily EMI allocations from the real prepayment schedule and its earlier final due date", async () => {  it("rebuilds daily EMI allocations from the real prepayment schedule and its earlier final due date", async () => {
     const { repository, service } = setup();
     const preview = await service.preview({
       loanId, commandId: "prepay-allocation-integration",
