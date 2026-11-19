@@ -215,10 +215,6 @@ export function allocatePreBusinessCostPoolV1(
   if (!Number.isSafeInteger(totalPaise)) throw new Error("business_start_date_allocation_total_overflow");
   const memberIds = new Set(members.map(source => source.sourceId));
   const retained = sources.filter(source => !memberIds.has(source.sourceId));
-  const poolMembers = members.map(source => Object.freeze({
-    ...source, disposition: "pre_business_pool_member" as const,
-  }));
-  if (totalPaise === 0) return Object.freeze([...retained, ...poolMembers]);
   const sourceId = "reporting:business-start-date:pre-business-pool";
   const monthlyBase = Math.floor(totalPaise / 18);
   const monthlyRemainder = totalPaise % 18;
