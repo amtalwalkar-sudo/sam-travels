@@ -7,7 +7,6 @@ import { AdminComplianceOverview } from "./AdminComplianceOverview";
 import "./AdminFormControls.css";
 import "./AdminCompliance.css";
 
-type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 type Compliance = RecordEnvelope<ComplianceRecordV1>;
 const today = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -27,7 +26,6 @@ function complianceStatus(date: string): "Valid"|"Expiring soon"|"Expired" {
 
 export function ComplianceSection() {
   const services = useAdminComplianceServices();
-  const [vehicles,setVehicles]=useState<Vehicle[]>([]);
   const [records,setRecords]=useState<Compliance[]>([]);
   const [vehicleId,setVehicleId]=useState("");
   const [formOpen,setFormOpen]=useState(false);
@@ -39,8 +37,8 @@ export function ComplianceSection() {
   const [message,setMessage]=useState("");
   const refresh=useCallback(async()=>{
     try{
-      const [v,overview]=await Promise.all([services.vehicles.list(),services.complianceAnalysis.getOverview()]);
-      setVehicles(v);setRecords([...overview.records]);setVehicleId(current=>current||v.find(x=>x.data.lifecycleState==="active")?.id||v[0]?.id||"");
+      const [operatingVehicleId,overview]=await Promise.all([services.compliance.getOperatingVehicleId(),services.complianceAnalysis.getOverview()]);
+      setRecords([...overview.records]);setVehicleId(operatingVehicleId);
     }catch(e){setMessage(e instanceof Error?e.message:"Could not load compliance records.");}
   },[services]);
   useEffect(()=>{void refresh();},[refresh]);
@@ -89,7 +87,7 @@ export function ComplianceSection() {
   return <div className="admin-capability-panel">
     <AdminComplianceOverview />
     <p className="admin-hint">Expiry warning is 15 calendar days: Valid (&gt;15 days), Expiring soon (1–15 days), Expired (past valid-to date). This is an operational warning only, not a legal grace period. Renewals create a new immutable record linked to the previous coverage.</p>
-    <div className="admin-vehicle-context"><label>Vehicle</label><select value={vehicleId} onChange={e=>{setVehicleId(e.target.value);setFormOpen(false);setCopy(undefined);copyRef.current=undefined;}}><option value="">Select vehicle</option>{vehicles.map(v=><option key={v.id} value={v.id}>{v.data.registrationNumber}</option>)}</select></div>
+    <div className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicleId ? vehicleId.replace("feature:vehicle:", "") : "Configuration unavailable"}</span></div>
     {vehicleId&&!formOpen&&<button className="admin-primary" type="button" onClick={()=>void beginForm()}>Add compliance / renewal</button>}
     {formOpen&&<form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
@@ -103,7 +101,7 @@ export function ComplianceSection() {
       <div className="loan-form-actions"><button className="admin-primary" disabled={busy||!copy}>{busy?"Saving…":"Save record"}</button><button className="admin-secondary" type="button" disabled={busy} onClick={closeForm}>Cancel</button></div>
       {copy&&<small className="admin-hint">Draft status · {copy.status.replaceAll("_"," ")} · revision {copy.revision}</small>}
     </form>}
-    {!vehicleId?<p className="admin-hint">Add a vehicle before recording compliance.</p>:vehicleRecords.length===0?<p className="admin-hint">No compliance records for this vehicle.</p>:vehicleRecords.map(r=><article className="admin-capability-record" key={r.id}>
+    {!vehicleId?<p className="admin-hint">Configure one active Vehicle and its Work Driver assignment before recording compliance.</p>:vehicleRecords.length===0?<p className="admin-hint">No compliance records for this vehicle.</p>:vehicleRecords.map(r=><article className="admin-capability-record" key={r.id}>
       <div><strong>{r.data.complianceName} · {complianceStatus(r.data.validTo)}</strong><small>{r.data.validFrom} to {r.data.validTo} · {money(r.data.totalCostPaise)}</small><small>{r.data.renewedFromRecordId?"Renewal linked to previous record":"Original record"}{r.data.supportingDocumentRef?" · "+r.data.supportingDocumentRef:""}</small></div>
     </article>)}
     {message&&<p className="admin-message" role="status">{message}</p>}
