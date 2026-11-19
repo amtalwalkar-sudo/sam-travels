@@ -25,11 +25,12 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         daily: daily("loan:emi:3", "emi", 2, "2026-03-01", "2026-03-31").map(row => ({ ...row, scheduleVersion: 1 })),
       }),
       source({
-        sourceId: "loan:pre-business-emi-carry-forward",
-        sourceKind: "emi-pre-business-carry-forward", sourceVersion: 2,
+        sourceId: "loan:emi:pre-business",
+        sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
         sourceAmountPaise: 31, disposition: "allocated",
+        sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "EMI installment 2" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
-        daily: daily("loan:pre-business-emi-carry-forward", "emi", 2, "2026-03-01", "2026-03-31"),
+        daily: daily("loan:emi:pre-business", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
       source({
         sourceId: "loan:emi:2", sourceKind: "emi", sourceVersion: 2, scheduleVersion: 1,
@@ -61,7 +62,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         refs: [{ sourceId: "historical-correction:compliance-validity-change", revision: 1 }],
       }],
       result: {
-        calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
+        calculationId: "business-start-date-cost-allocation.v2", calculationVersion: 2,
         businessStartDate: "2026-03-01", sources,
         daily: [], monthly: [], yearly: [],
         allocatedAmountPaise: 0, historicalAmountPaise: 10_000, withheldAmountPaise: 5_000,
