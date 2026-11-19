@@ -98,12 +98,13 @@ export class BusinessExpensesService {
   async createFuelPurchase(input: {
     uuid: string; data: FuelPurchaseInputV1; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<FuelPurchaseV1>> {
     await this.requireVehicle(input.data.vehicleId);
     const id = sourceId(FUEL_PREFIX, input.uuid);
     const data: FuelPurchaseV1 = { ...input.data, schemaVersion: 1, kind: "fuel_purchase", id, revision: 1 };
     this.domain.validateFuelPurchase(data);
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation }) as
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
 
