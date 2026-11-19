@@ -137,7 +137,7 @@ try {
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
   const driverPersonLink = page.getByLabel("Link " + driverName + " to person");
-  await driverPersonLink.locator("option").filter({ hasText: "Performance Acceptance Driver Person" }).waitFor();
+  await driverPersonLink.locator("option").filter({ hasText: "Performance Acceptance Driver Person" }).waitFor({ state: "attached" });
   await driverPersonLink.selectOption({ label: "Performance Acceptance Driver Person" });
 
   await page.getByRole("navigation", { name: "Primary navigation" })
