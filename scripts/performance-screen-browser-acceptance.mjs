@@ -272,7 +272,7 @@ try {
   }
   const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
   const eligibleCostText = await eligibleCostsCard.innerText();
-  const eligibleCostRupees = Number((eligibleCostText.match(/₹([\\d,]+\\.\\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
+  const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
   if (eligibleCostRupees < 570) {
     throw new Error("driver_paid_toll_and_parking_not_reflected_in_full_performance_calculation:" + eligibleCostText);
   }
