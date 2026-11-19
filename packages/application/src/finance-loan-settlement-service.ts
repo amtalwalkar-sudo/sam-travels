@@ -114,7 +114,7 @@ export class FinanceLoanSettlementService {
 
   async commit(input: {
     id: string; commandId: string; loanId: string; businessDate: string; method: FinancePaymentMethodV1;
-    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview;
+    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview; now?: string;
   }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
       throw new Error("finance_payment_settlement_input_invalid");
