@@ -92,11 +92,26 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     return this.snapshot ?? this.allocation.getReport();
   }
 
+  async listPreBusinessRecoveryEntries() {
+    const report = await this.report();
+    return Object.freeze(report.result.sources.flatMap(source => {
+      if ((source.sourceKind !== "emi" && source.sourceKind !== "compliance") ||
+          source.disposition !== "allocated" || !source.sourcePeriod ||
+          source.sourcePeriod.from >= report.businessStartDate) return [];
+      return [Object.freeze({
+        sourceId: source.sourceId, revision: source.sourceVersion,
+        amountPaise: source.sourceAmountPaise, note: source.sourcePeriod.label,
+        origin: source.sourceKind,
+        ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
+      })];
+    }));
+  }
+
   async listDailyEmiAllocations(from: string, to: string): Promise<readonly PerformanceDailyCostInputV1[]> {
     const report = await this.report();
     return Object.freeze(report.result.sources.flatMap(source => {
-      if ((source.sourceKind !== "emi") ||
-          source.disposition !== "allocated") return [];
+      if (source.sourceKind !== "emi" || source.disposition !== "allocated" ||
+          (source.sourcePeriod?.from ?? "") < from) return [];
       return canonicalDailyRows(source, from, to, "emi");
     }));
   }
@@ -107,6 +122,7 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
     const correctionRefs = report.sourceCorrectionRefs ?? [];
     return Object.freeze(report.result.sources.flatMap(source => {
       if (source.sourceKind !== "compliance" || source.disposition !== "allocated" ||
+          (source.sourcePeriod?.from ?? "") < from ||
           blocked.has(source.sourceId.replace(/:allocated$/, ""))) return [];
       const baseId = source.sourceId.replace(/:allocated$/, "");
       const refs = correctionRefs.find(item => item.sourceId === baseId)?.refs ?? [];
