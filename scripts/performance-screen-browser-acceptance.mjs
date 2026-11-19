@@ -105,9 +105,7 @@ try {
   await page.getByText("MH00PS0093", { exact: true }).waitFor();
   console.log("Single active vehicle configured for the Performance distance projection.");
 
-  // Build a real Driver identity/profile/assignment and use the rendered Work
-  // controls to commit trip events and Fare. No trip or submitted financial
-  // record is injected into IndexedDB by this acceptance path.
+  // Build Driver/Work records through rendered controls, not IndexedDB injection.
   const driverName = "Performance Acceptance Driver";
   await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
@@ -127,18 +125,14 @@ try {
     .getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
-  // The Admin actor session is intentionally in-memory and is cleared by the
-  // full reload above. Re-authenticate before the protected Driver identity
-  // enrollment; the UI must not rely on a stale pre-reload authority.
+  // Reload clears the in-memory Admin actor; authenticate again before enrollment.
   const identityPanel = page.locator(".admin-capability-panel");
   const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
   await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor();
   await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
   await identityPanel.getByLabel("Active role").selectOption("admin");
-  await identityPanel.getByLabel("Admin PIN").fill(testPin);
-  await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByLabel("Admin PIN").fill(testPin); await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
   await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
-
   await page.getByLabel("Person name").fill("Performance Acceptance Driver Person");
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
