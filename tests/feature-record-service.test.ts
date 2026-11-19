@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordBatchRepository, AtomicRecordRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FeatureRecordService } from "../packages/application/src/feature-record-service";
 
