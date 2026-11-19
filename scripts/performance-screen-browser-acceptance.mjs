@@ -95,20 +95,20 @@ try {
   });
   const selectedWorkDriver = configuredRecords.find(row => row.id === "work:selected-driver");
   if (!selectedWorkDriver?.data?.driverId) {
-    throw new Error("Admin configuration did not persist the canonical Work Driver selection");
+    throw new Error("missing_canonical_work_driver_selection");
   }
   const configuredDriver = configuredRecords.find(row =>
     row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName
   );
   if (selectedWorkDriver.data.driverId !== configuredDriver?.data?.driverId) {
-    throw new Error("Canonical Work Driver selection does not match the created Driver profile");
+    throw new Error("work_driver_selection_mismatch");
   }
   const assignmentHistory = configuredRecords.find(row =>
     row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver.data.driverId)
   );
   const currentAssignments = assignmentHistory?.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
   if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== "feature:vehicle:MH00PS0093") {
-    throw new Error("Admin configuration did not create exactly one current Driver–Vehicle assignment");
+    throw new Error("current_assignment_mismatch");
   }
 
   // Refresh the identity panel so it discovers the newly-created Driver profile.
@@ -136,7 +136,7 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Drive", exact: true }).click();
   if (await page.getByLabel("Work Driver").count()) {
-    throw new Error("Work must use the Admin-configured Driver; a routine Work Driver selector must not render");
+    throw new Error("unexpected_work_driver_selector");
   }
   await page.locator(".driver-message").filter({ hasText: driverName }).waitFor();
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
