@@ -41,9 +41,10 @@ export function createBusinessExpenseFormSubmissionHandler(
 
   if (command.formId === FUEL_ENTRY_FORM_V1.id) {
     if (command.action !== "submit") throw new Error("fuel_entry_requires_submit");
-    const occurredAt = new Date().toISOString();
+    const occurredAt = command.submittedAt;
     return service.createFuelPurchase({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
       data: {
         vehicleId: requiredString(values.vehicleId, "fuel_vehicle_required"),
         odometerKm: positiveInteger(values.odometerKm, "fuel_odometer_invalid"),
