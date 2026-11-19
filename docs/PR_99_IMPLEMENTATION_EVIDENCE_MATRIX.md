@@ -300,7 +300,7 @@ The resolver and Work/Admin setup slice now have implementation and rendered evi
 
 | Boundary | Implementation / assertion | Status |
 |---|---|---|
-| Application command boundary | `ComplianceService.getOperatingVehicleId()` resolves the operating configuration from one repository snapshot; `create()` rejects a submitted Vehicle ID that differs from the resolved Vehicle before creating a record | Implemented; focused tests added |
+| Application command boundary | `ComplianceService.getOperatingVehicleId()` resolves exactly one active Vehicle from one repository snapshot using `resolveOperatingVehicle()`; no selected Work Driver or assignment is read. `create()` rejects a submitted Vehicle ID that differs from the resolved Vehicle before creating a record | Implemented; focused tests added |
 | Browser Admin presentation | `AdminComplianceSection` obtains the configured Vehicle from Compliance service, displays its registration, removes the routine Vehicle selector, and clears stale context when resolution fails | Implemented |
 | Browser form-to-command | `admin-form-runtime.ts` continues routing the actual form submission to `ComplianceService.create()`; service-level resolver check prevents stale/tampered draft Vehicle IDs | Production command boundary enforced |
 | Browser acceptance | `scripts/admin-form-browser-acceptance.mjs` asserts no Compliance Vehicle selector and that the configured Vehicle is displayed; `tests/compliance-service.test.ts` verifies command-boundary enforcement and persisted create/list history | Updated; run on current head pending |
