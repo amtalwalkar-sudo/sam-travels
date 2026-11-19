@@ -86,6 +86,28 @@ export class FeatureRecordService<Data> {
     this.definition.validate(record.data);
   }
 
+  /** Returns the committed result for a matching operation regardless of whether it created or updated the target. */
+  async replayOperation(
+    operation: FeatureRecordOperationIdentityV1,
+    targetRecordId: string,
+    expectedData: Data,
+  ): Promise<RecordEnvelope<Data> | undefined> {
+    if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
+    const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
+    if (!receipt) return undefined;
+    assertRecordEnvelope(receipt);
+    const data = receipt.data;
+    if (data?.kind !== "feature_record_operation_receipt" || data.schemaVersion !== 1 ||
+        data.operationId !== operation.operationId || !["create", "update"].includes(data.action) ||
+        data.targetRecordId !== targetRecordId || data.payloadFingerprint !== operation.payloadFingerprint ||
+        !data.result || canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
+      throw new Error("feature_record_operation_payload_conflict");
+    }
+    assertRecordEnvelope(data.result);
+    if (data.result.id !== targetRecordId) throw new Error("feature_record_operation_receipt_invalid");
+    return data.result;
+  }
+
   private async findOperationReceipt(
     operation: FeatureRecordOperationIdentityV1,
     action: "create" | "update",
