@@ -32,6 +32,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: undefined },
+      now: undefined,
       data: {
         sourceKind: "platform_fee", businessDate: "2026-11-14", amountPaise: 1234,
         currencyCode: "INR", effect: "charge", vehicleId: "vehicle-1", reference: "trip-42",
