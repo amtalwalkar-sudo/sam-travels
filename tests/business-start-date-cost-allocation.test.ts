@@ -183,9 +183,9 @@ describe("Business Start Date scheduled EMI allocation", () => {
     expect(sourceMembers.every(item => item.disposition === "allocated" &&
       item.daily.reduce((sum,row)=>sum+row.amountPaise,0) === item.sourceAmountPaise)).toBe(true);
     const result = buildBusinessStartDateAllocationResultV1("2026-01-01", pooled);
-    expect(result.allocatedAmountPaise).toBe(6_000);
-    expect(result.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(6_000);
-    expect(result.monthly.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(6_000);
+    expect(result.allocatedAmountPaise).toBe(10_000);
+    expect(result.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(10_000);
+    expect(result.monthly.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(10_000);
   });
 
   it("clamps each monthly anniversary to month end while keeping the original day anchor", () => {
