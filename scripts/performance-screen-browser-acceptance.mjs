@@ -193,13 +193,7 @@ try {
       request.onerror = () => reject(request.error);
     });
     const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = {
-      schemaVersion: 1, shiftId: "performance-acceptance-shift",
-      driverId: "performance-acceptance-driver",
-      assignmentId: "performance-acceptance-assignment",
-      vehicleId: "feature:vehicle:MH00PS0093",
-      operationalDate,
-    };
+    const tripContext = "committedTripContext";
     const records = [
       {
         id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
@@ -209,7 +203,7 @@ try {
           schemaVersion: 1, kind: "daily_business_kilometres",
           vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
           totalBusinessKm: 42, unallocatedBusinessKm: 0,
-          entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
+          entries: [{ shiftId: tripContext.shiftId, allocationStatus: "allocated",
             businessKm: 42, personalKm: 7 }],
         },
       },
@@ -233,7 +227,7 @@ try {
       transaction.onabort = () => reject(transaction.error);
     });
     db.close();
-  }, { operationalDate: today });
+  }, { operationalDate: today, committedTripContext: committedTripFinancials.data.tripContext });
   console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
