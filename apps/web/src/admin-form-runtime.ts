@@ -38,6 +38,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           }
           return performanceAdminSettings.setMonthlyDriverTargetPaise(
             Math.round(rupees * 100), recordSource,
+            { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            command.submittedAt,
           );
         }
         if (command.formId === PRE_BUSINESS_COST_FORM_V1.id) {
@@ -51,6 +53,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             amountPaise: Math.round(rupees * 100),
             note,
             source: recordSource,
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === BUSINESS_SETUP_FORM_V1.id) {
@@ -58,6 +62,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (typeof businessStartDate !== "string") throw new Error("business_start_date_required");
           return getApplicationBusinessSettingsService().setBusinessStartDate(
             businessStartDate, recordSource,
+            { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            command.submittedAt,
           );
         }
         if (command.formId === COMPLIANCE_FORM_V1.id) {
