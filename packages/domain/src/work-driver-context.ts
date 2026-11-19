@@ -52,6 +52,47 @@ function dataOf(record: RecordEnvelope<unknown>): Record<string, unknown> {
   return record.data as Record<string, unknown>;
 }
 
+export type OperatingVehicleV1 = Readonly<{
+  schemaVersion: 1;
+  vehicleId: string;
+  vehicleRevision: number;
+}>;
+
+/**
+ * Resolves the single active business Vehicle without imposing Work's
+ * selected-Driver or Driver–Vehicle assignment requirements.
+ */
+export function resolveOperatingVehicle(
+  records: readonly RecordEnvelope<unknown>[],
+): OperatingVehicleV1 {
+  const activeVehicles: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
+  for (const record of records.filter(item => item.id.startsWith(VEHICLE_PREFIX))) {
+    const data = dataOf(record);
+    if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive" && data.lifecycleState !== "sold") {
+      throw new Error("operating_vehicle_invalid");
+    }
+    if (data.lifecycleState === "active") {
+      const expectedKeys = ["fuelType", "lifecycleState", "make", "model", "ownership", "registrationNumber", "schemaVersion", "vehicleType", "yearOfManufacture"];
+      let registration = "";
+      try {
+        if (typeof data.registrationNumber === "string") registration = normalizeVehicleRegistrationNumber(data.registrationNumber);
+      } catch { throw new Error("operating_vehicle_invalid"); }
+      if (Object.keys(data).sort().join(",") !== expectedKeys.sort().join(",") || data.schemaVersion !== 1 ||
+          typeof data.registrationNumber !== "string" || data.registrationNumber !== registration ||
+          record.id !== VEHICLE_PREFIX + registration ||
+          !["make", "model", "vehicleType", "fuelType", "ownership"].every(key => typeof data[key] === "string" && (data[key] as string).trim()) ||
+          !Number.isSafeInteger(data.yearOfManufacture) || (data.yearOfManufacture as number) < 1) {
+        throw new Error("operating_vehicle_invalid");
+      }
+      activeVehicles.push({ record, data });
+    }
+  }
+  if (activeVehicles.length === 0) throw new Error("operating_vehicle_missing");
+  if (activeVehicles.length !== 1) throw new Error("operating_vehicle_ambiguous");
+  const vehicle = activeVehicles[0];
+  return Object.freeze({ schemaVersion: 1, vehicleId: vehicle.record.id, vehicleRevision: vehicle.record.revision });
+}
+
 /**
  * Resolves the one permitted operating pair from one repository snapshot.
  * This function is read-only: it never creates or repairs configuration.
@@ -86,30 +127,9 @@ export function resolveOperatingConfiguration(
   const driverId = String(driver.data.driverId);
   if (driverId !== selection.driverId) throw new Error("operating_driver_selection_mismatch");
 
-  const activeVehicles: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
-  for (const record of records.filter(item => item.id.startsWith(VEHICLE_PREFIX))) {
-    const data = dataOf(record);
-    if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive" && data.lifecycleState !== "sold") throw new Error("operating_vehicle_invalid");
-    if (data.lifecycleState === "active") {
-      const expectedKeys = ["fuelType", "lifecycleState", "make", "model", "ownership", "registrationNumber", "schemaVersion", "vehicleType", "yearOfManufacture"];
-      let registration = "";
-      try {
-        if (typeof data.registrationNumber === "string") registration = normalizeVehicleRegistrationNumber(data.registrationNumber);
-      } catch { throw new Error("operating_vehicle_invalid"); }
-      if (Object.keys(data).sort().join(",") !== expectedKeys.sort().join(",") || data.schemaVersion !== 1 ||
-          typeof data.registrationNumber !== "string" || data.registrationNumber !== registration ||
-          record.id !== VEHICLE_PREFIX + registration ||
-          !["make", "model", "vehicleType", "fuelType", "ownership"].every(key => typeof data[key] === "string" && (data[key] as string).trim()) ||
-          !Number.isSafeInteger(data.yearOfManufacture) || (data.yearOfManufacture as number) < 1) {
-        throw new Error("operating_vehicle_invalid");
-      }
-      activeVehicles.push({ record, data });
-    }
-  }
-  if (activeVehicles.length === 0) throw new Error("operating_vehicle_missing");
-  if (activeVehicles.length !== 1) throw new Error("operating_vehicle_ambiguous");
-  const vehicle = activeVehicles[0];
-  const vehicleId = vehicle.record.id;
+  const vehicle = resolveOperatingVehicle(records);
+  const vehicleId = vehicle.vehicleId;
+
 
   const activeAssignments: Array<{ record: RecordEnvelope<unknown>; assignment: { assignmentId: string; vehicleId: string; assignedAt: string } }> = [];
   for (const record of records.filter(item => item.id.startsWith(ASSIGNMENT_PREFIX))) {
@@ -139,7 +159,7 @@ export function resolveOperatingConfiguration(
     assignmentId: active.assignment.assignmentId,
     selectionRevision: selectionRecord.revision,
     driverRevision: driver.record.revision,
-    vehicleRevision: vehicle.record.revision,
+    vehicleRevision: vehicle.vehicleRevision,
     assignmentRevision: active.record.revision,
   });
 }
