@@ -145,6 +145,8 @@ describe("Fuel Entry form submission mapping", () => {
       action: "submit",
       instanceId: "fuel-entry-instance-1",
       operationId: "fuel-entry-operation-1",
+      submittedAt: "2026-11-18T00:00:00.000Z",
+      payloadFingerprint: '{"fuel":"purchase-1"}',
       values: {
         vehicleId: "vehicle-1", odometerKm: 12345, priceRupeesPerKg: 95.5,
         amountRupees: 477.25, partialRefill: true,
