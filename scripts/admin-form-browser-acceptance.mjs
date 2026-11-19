@@ -60,13 +60,11 @@ try {
   await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-  console.log("Admin identity enrolled and PIN-verified actor activated.");
 
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
-  console.log("Business Setup form saved and authoritative setting rendered.");
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
@@ -101,7 +99,6 @@ try {
     if (matches.length !== 1) throw new Error("canonical_vehicle_id_lookup_failed:" + matches.length);
     return matches[0].id;
   }, registration);
-  console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
 
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
@@ -143,7 +140,6 @@ try {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
   if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
-  console.log("Single active Driver/Vehicle setup, authoritative Work selection and selector-free Work rendering passed.");
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
