@@ -129,7 +129,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect(renewedSource.eligibleTo).toBe("2026-03-31");
     expect(renewedSource.daily).toHaveLength(31);
     expect(renewedSource.daily.every(item => item.amountPaise === 100)).toBe(true);
-    const expectedMarchFirstTotal = report.result.sources.reduce((sum, source) => sum +
+    const expectedMarchFirstTotal = report.result.sources.filter(source => source.disposition !== "pre_business_pool_summary").reduce((sum, source) => sum +
       (source.daily.find(item => item.date === "2026-03-01")?.amountPaise ?? 0), 0);
     expect(report.result.daily.find(item => item.date === "2026-03-01")?.amountPaise).toBe(expectedMarchFirstTotal);
     expect(report.result.allocatedAmountPaise).toBe(10_000 + 3_100);
@@ -153,7 +153,8 @@ describe("BusinessStartDateCostAllocationService", () => {
   it("preserves the outgoing schedule's open period exactly once after prepayment", async () => {
     const report = await createService().getReport();
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
-    const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
+    const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
+      (item.sourcePeriod?.from ?? "9999-12-31") >= "2026-02-15");
     expect(pool?.sourceAmountPaise).toBe(6_900);
     expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated" &&
       (item.sourcePeriod?.from ?? "9999-12-31") < "2026-02-15")
