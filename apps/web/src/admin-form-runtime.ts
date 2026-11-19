@@ -156,6 +156,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
             ratePaisePerKm,
             commandId: command.instanceId,
             source: recordSource,
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === LOAN_PAYMENT_FORM_V1.id) {
