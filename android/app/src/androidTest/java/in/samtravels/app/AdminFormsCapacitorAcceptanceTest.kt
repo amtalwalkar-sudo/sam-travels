@@ -44,7 +44,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
-                "driver" to "Add driver", "compliance" to "Configure one active Vehicle and its Work Driver assignment before recording compliance.",
+                "driver" to "Add driver", "compliance" to "Configure exactly one active Vehicle before recording compliance.",
                 "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
