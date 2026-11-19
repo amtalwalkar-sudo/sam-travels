@@ -186,14 +186,14 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
-  await page.evaluate(async ({ operationalDate }) => {
+  await page.evaluate(async ({ operationalDate, committedTripContext }) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = "committedTripContext";
+    const tripContext = committedTripContext;
     const records = [
       {
         id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
