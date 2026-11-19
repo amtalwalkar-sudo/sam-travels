@@ -236,6 +236,8 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
           if (typeof values._recordRevision === "number") throw new Error("finance_loan_details_immutable");
           return getApplicationFinanceLoanService().create({
             uuid: command.instanceId, details, source: recordSource,
+            operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+            now: command.submittedAt,
           });
         }
         if (command.formId === DRIVER_FORM_V1.id) {
