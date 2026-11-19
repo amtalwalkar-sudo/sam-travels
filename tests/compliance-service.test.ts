@@ -60,7 +60,7 @@ function setup(repository = new MemoryRepository()) {
       } : undefined;
     },
   };
-  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1, vehicles) };
+  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1, vehicles, () => at) };
 }
 
 describe("ComplianceService", () => {
