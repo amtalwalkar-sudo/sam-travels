@@ -49,6 +49,24 @@ If this contract conflicts with a domain rule or a higher-level technical safegu
 6. Do not remove stable entity IDs, references, record ownership, versioning or migration seams. A later fleet expansion may introduce an explicit fleet/configuration boundary and assignment workflows through a reviewed contract and migration; it must not require rewriting calculation semantics or weakening historical integrity.
 7. This single-configuration rule applies independently to browser IndexedDB and Android Room, and the PWA/WebView and native overlay must resolve the same configured pair from the same runtime-authoritative store.
 
+#### 3.0.1 Authoritative operating-configuration resolution
+
+The application-layer resolver is the only authority for the current operating pair. UI components and feature services must not independently scan profile lists, choose the first result, or infer a vehicle from an arbitrary historical assignment.
+
+A successful resolution must validate one coherent snapshot from the runtime-authoritative repository and return a versioned context containing the configured `vehicleId`, `driverId`, and current `assignmentId` (plus the source record revisions needed to detect stale configuration). Apply all of these checks before enabling a dependent command:
+
+1. Exactly one active Vehicle profile exists in the business configuration. Zero active profiles is `operating_vehicle_missing`; more than one is `operating_vehicle_ambiguous`. Inactive/sold profiles remain historical records and do not count as active.
+2. Exactly one active Driver profile exists. Zero is `operating_driver_missing`; more than one is `operating_driver_ambiguous`.
+3. The Work-owned `work:selected-driver` record exists, has the supported schema, and names that sole active Driver. Missing, malformed, inactive or mismatched selection fails with a stable `operating_driver_selection_*` category; it must not auto-select or repair the record.
+4. Exactly one current active Driver–Vehicle assignment exists across current assignment histories, and it connects the selected Driver to the sole active Vehicle. Missing, multiple, or mismatched pairing fails with `operating_assignment_missing`, `operating_assignment_ambiguous`, or `operating_assignment_pair_mismatch`. Assignment history remains append-only/compatible; old closed assignments do not count as current.
+5. The selected-driver lock and assignment effective-time rules owned by the Work/Driver contracts still apply. A configuration change cannot take effect during an active shift, and a transition cannot use an assignment that was not effective at its defined event time.
+6. The resolver must read a consistent repository snapshot (or equivalent transactionally consistent set of records). It must not combine a Vehicle from one revision with a Driver/assignment from another. Commands carry the resolved IDs and relevant revisions through the application boundary; a stale configuration revision is rejected and re-resolved before retry.
+7. Resolution is read-only. It must not create a selection, activate a profile, close an assignment, or choose a candidate as a side effect. Admin setup/repair is the only permitted place to establish or repair the one configured pair.
+
+Browser and Android implementations must expose equivalent success context and stable failure categories. The Android PWA/WebView and native overlay must use the same Room resolver/store; browser PWA uses Dexie. Historical records retain their original references after a configuration change. New records use the configuration resolved at command acceptance, not a later UI refresh.
+
+**Required resolver evidence:** valid sole-pair resolution; each missing/ambiguous Vehicle, Driver, selected-driver and assignment case; selected Driver mismatch; wrong Vehicle pairing; inactive/sold profile; locked active shift; assignment effective-time boundary; stale configuration revision; deterministic parity of result/error category between Dexie and Room. Assert that failure performs no business write. Do not count a test of `resolveWorkDriverContext` alone as proof that every feature command uses the resolver.
+
 
 ### 3.1 Browser-only PWA
 
