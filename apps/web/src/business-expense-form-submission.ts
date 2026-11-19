@@ -101,6 +101,8 @@ export function createBusinessExpenseFormSubmissionHandler(
     }
     return service.createExpenseEntry({
       uuid: command.instanceId, source,
+      operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+      now: command.submittedAt,
       data: {
         sourceKind: "miscellaneous", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
         category,
@@ -126,6 +128,8 @@ export function createBusinessExpenseFormSubmissionHandler(
   if (paymentStatus !== "unpaid" && paymentStatus !== "paid") throw new Error("traffic_challan_payment_status_required");
   return service.createExpenseEntry({
     uuid: command.instanceId, source,
+    operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
+    now: command.submittedAt,
     data: {
       sourceKind: "traffic_challan", businessDate, amountPaise, currencyCode: "INR", effect: "charge",
       vehicleId: requiredString(values.vehicleId, "traffic_challan_vehicle_required"),
