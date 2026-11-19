@@ -69,6 +69,17 @@ class NativeMaintenanceBackupTest {
     }
 
     @Test
+    fun acceptsOrdinaryMaintenanceExpenseWithFeatureIdentity() {
+        val expense = row(
+            "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003",
+            "maintenance-records",
+            JSONObject().put("featureId", "maintenance").put("kind", "expense")
+                .put("amountPaise", 400000L),
+        )
+        NativeMaintenanceCorrectionBackup.validate(listOf(expense), listOf(expense))
+    }
+
+    @Test
     fun rejectsMaintenanceRecordWithoutVehicle() = withParticipants {
         val records = JSONArray().put(visitRow())
         val failure = assertThrows(IllegalStateException::class.java) {
