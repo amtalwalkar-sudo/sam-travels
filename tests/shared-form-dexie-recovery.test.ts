@@ -66,6 +66,10 @@ describe("shared form recovery against the production Dexie adapter", () => {
     const { database, repository } = await openStore();
     const vehicleService = new VehicleService(repository, assertVehicleRecordV1);
     const workingCopies = new InterruptCompletionOnce(new RecordFormWorkingCopyRepository(repository, "web"));
+    const runtime = createAdminFormRuntimeV1({
+      repository, recordSource: "web", performanceAdminSettings: new PerformanceAdminSettingsServiceV1(repository),
+      handleBusinessExpenseSubmission: async () => undefined, vehicleService, workingCopyRepository: workingCopies,
+    });
     const registrationNumber = "DXECR001";
     let copy = await runtime.open(VEHICLE_FORM_V1, "new:" + registrationNumber);
     for (const [field, value] of Object.entries({
@@ -101,10 +105,6 @@ describe("shared form recovery against the production Dexie adapter", () => {
     const original = await vehicleService.create(vehicleData("DXEUP001"), "web", undefined, "2026-11-19T08:00:00.000Z");
     const inner = new RecordFormWorkingCopyRepository(repository, "web");
     const workingCopies = new InterruptCompletionOnce(inner);
-    const runtime = createAdminFormRuntimeV1({
-      repository, recordSource: "web", performanceAdminSettings: new PerformanceAdminSettingsServiceV1(repository),
-      handleBusinessExpenseSubmission: async () => undefined, vehicleService, workingCopyRepository: workingCopies,
-    });
     const instanceId = original.id;
     const values = {
       ...vehicleData("DXEUP001", "Updated make"), _recordRevision: original.revision,
