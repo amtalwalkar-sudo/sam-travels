@@ -264,6 +264,21 @@ describe("shared form runtime", () => {
     expect(drafts[0]).toMatchObject({ status: "in_progress", values: { farePaise: 0 } });
   });
 
+  it("includes durable pending submissions in the resumable working-copy list", async () => {
+    const copies = new MemoryCopies();
+    const runtime = new SharedFormRuntime(copies, {
+      submit: async () => { throw new Error("interrupted"); },
+    }, () => "2026-11-10T09:00:00.000Z", () => "pending-list-operation");
+    let copy = await runtime.open(definition, "trip-pending-list");
+    copy = await runtime.update(definition, copy, "farePaise", 500);
+    copy = await runtime.update(definition, copy, "tripDate", "2026-11-10");
+    await expect(runtime.submit(definition, copy)).rejects.toThrow("interrupted");
+    const resumable = await runtime.listDrafts(definition);
+    expect(resumable.map(item => item.instanceId)).toContain("trip-pending-list");
+    expect(resumable.find(item => item.instanceId === "trip-pending-list"))
+      .toMatchObject({ status: "pending", operationId: "pending-list-operation" });
+  });
+
   it("submits once and marks the working copy submitted only after durable success", async () => {
     const copies = new MemoryCopies();
     let submissions = 0;
