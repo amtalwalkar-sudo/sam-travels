@@ -34,6 +34,20 @@ function operationReceiptId(operationId: string): string {
   return OPERATION_RECEIPT_PREFIX + encodeURIComponent(operationId);
 }
 
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("feature_record_operation_payload_invalid");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+    return "{" + entries.map(([key, entry]) => JSON.stringify(key) + ":" + canonicalJson(entry)).join(",") + "}";
+  }
+  throw new Error("feature_record_operation_payload_invalid");
+}
+
 /**
  * The only generic persistence entry point for feature-owned records.
  *
@@ -75,6 +89,7 @@ export class FeatureRecordService<Data> {
     operation: FeatureRecordOperationIdentityV1,
     action: "create" | "update",
     targetRecordId: string,
+    expectedData: Data,
   ): Promise<RecordEnvelope<Data> | undefined> {
     if (!operation.payloadFingerprint.trim()) throw new Error("feature_record_operation_identity_invalid");
     const receipt = await this.repository.get<FeatureRecordOperationReceiptV1<Data>>(operationReceiptId(operation.operationId));
@@ -82,7 +97,8 @@ export class FeatureRecordService<Data> {
     const data = receipt.data;
     if (data?.kind !== "feature_record_operation_receipt" || data.schemaVersion !== 1 ||
         data.operationId !== operation.operationId || data.action !== action || data.targetRecordId !== targetRecordId ||
-        data.payloadFingerprint !== operation.payloadFingerprint) {
+        data.payloadFingerprint !== operation.payloadFingerprint ||
+        canonicalJson(data.result.data) !== canonicalJson(expectedData)) {
       throw new Error("feature_record_operation_payload_conflict");
     }
     assertRecordEnvelope(data.result);
@@ -113,7 +129,7 @@ export class FeatureRecordService<Data> {
       { id: receiptId, expectedRevision: null, next: receipt },
     ]);
     if (committed) return record;
-    const replay = await this.findOperationReceipt(operation, action, record.id);
+    const replay = await this.findOperationReceipt(operation, action, record.id, record.data);
     if (replay) return replay;
     if (expectedRevision === null && await this.repository.get(record.id)) {
       throw new Error("feature_record_already_exists:" + record.id);
@@ -135,7 +151,7 @@ export class FeatureRecordService<Data> {
     this.assertOwnedId(input.id);
     this.definition.validate(input.data);
     if (input.operation) {
-      const replay = await this.findOperationReceipt(input.operation, "create", input.id);
+      const replay = await this.findOperationReceipt(input.operation, "create", input.id, input.data);
       if (replay) return replay;
     }
     const timestamp = input.now ?? this.now();
@@ -168,7 +184,7 @@ export class FeatureRecordService<Data> {
   }): Promise<RecordEnvelope<Data>> {
     this.assertOwnedId(input.id);
     if (input.operation) {
-      const replay = await this.findOperationReceipt(input.operation, "update", input.id);
+      const replay = await this.findOperationReceipt(input.operation, "update", input.id, input.data);
       if (replay) return replay;
     }
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1) {
