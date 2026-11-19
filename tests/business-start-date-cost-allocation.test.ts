@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allocateComplianceCostV1,
+  allocatePreBusinessCostPoolV1,
   allocateScheduledEmisV1,
   buildBusinessStartDateAllocationResultV1,
 } from "../packages/domain/src/business-start-date-cost-allocation";
@@ -20,27 +21,34 @@ const loanSchedule = (overrides: Partial<Parameters<typeof allocateScheduledEmis
 });
 
 describe("Business Start Date Compliance allocation", () => {
-  it("carries the complete source cost forward across remaining inclusive validity days", () => {
+  it("puts the full pre-start compliance amount into the aggregate pool, regardless of remaining validity", () => {
     const result = allocateComplianceCostV1("2026-01-06", compliance());
-    expect(result.disposition).toBe("allocated");
-    expect(result.eligibleFrom).toBe("2026-01-06");
-    expect(result.eligibleTo).toBe("2026-01-10");
-    expect(result.daily.map(row => row.amountPaise)).toEqual([200,200,200,200,200]);
-    expect(result.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
-    expect(result.daily.every(row => row.date >= "2026-01-06")).toBe(true);
+    expect(result.disposition).toBe("pre_business_historical");
+    expect(result.daily).toEqual([]);
+    const pooled = allocatePreBusinessCostPoolV1("2026-01-06", [result]);
+    const pool = pooled.find(item => item.sourceKind === "pre-business-pool")!;
+    expect(pool.sourceAmountPaise).toBe(1_000);
+    expect(pool.eligibleFrom).toBe("2026-01-06");
+    expect(pool.eligibleTo).toBe("2027-07-05");
+    expect(pool.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
+    expect(pool.daily.every(row => row.date >= "2026-01-06" && row.date <= "2027-07-05")).toBe(true);
+    expect(pooled.find(item => item.sourceId === result.sourceId)?.disposition).toBe("pre_business_pool_member");
   });
 
-  it("allocates a record beginning on the Business Start Date over its full period", () => {
+  it("allocates a record effective on the Business Start Date normally over its full validity period", () => {
     const result = allocateComplianceCostV1("2026-01-01", compliance({ validFrom: "2026-01-01", validTo: "2026-01-03" }));
     expect(result.daily.map(row => row.date)).toEqual(["2026-01-01","2026-01-02","2026-01-03"]);
     expect(result.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(1_000);
   });
 
-  it("retains an expired pre-business record without extending its end date", () => {
+  it("includes even an expired pre-business source in the 18-month pool without changing its source dates", () => {
     const result = allocateComplianceCostV1("2026-01-11", compliance());
     expect(result.disposition).toBe("pre_business_historical");
     expect(result.daily).toEqual([]);
     expect(result.sourceAmountPaise).toBe(1_000);
+    const pool = allocatePreBusinessCostPoolV1("2026-01-11", [result]).find(item => item.sourceKind === "pre-business-pool")!;
+    expect(pool.eligibleTo).toBe("2027-07-10");
+    expect(pool.sourceAmountPaise).toBe(1_000);
   });
 
   it.each(["unreviewed","rejected","stale"] as const)("withholds %s overlap sources", status => {
@@ -56,20 +64,19 @@ describe("Business Start Date Compliance allocation", () => {
 });
 
 describe("Business Start Date scheduled EMI allocation", () => {
-  it("allocates straddling EMI and later EMIs separately and carries fully elapsed periods", () => {
+  it("puts every complete EMI due before Business Start Date into the pool and allocates later EMIs normally", () => {
     const results = allocateScheduledEmisV1("2026-02-15", loanSchedule());
-    const carry = results.find(item => item.sourceKind === "emi-pre-business-carry-forward")!;
-    const february = results.find(item => item.sourceKind === "emi" && item.sourceId.endsWith(":2"))!;
+    const preStart = results.filter(item => item.disposition === "pre_business_historical");
     const march = results.find(item => item.sourceKind === "emi" && item.sourceId.endsWith(":3"))!;
-    expect(carry.sourceAmountPaise).toBe(3_100);
-    expect(carry.eligibleFrom).toBe("2026-02-15");
-    expect(carry.eligibleTo).toBe("2026-03-31");
-    expect(february.eligibleFrom).toBe("2026-02-15");
-    expect(february.eligibleTo).toBe("2026-02-28");
+    expect(preStart.map(item => item.sourceAmountPaise)).toEqual([3_100,2_800]);
+    expect(preStart.every(item => item.daily.length === 0)).toBe(true);
     expect(march.eligibleFrom).toBe("2026-03-01");
     expect(march.eligibleTo).toBe("2026-03-31");
-    expect(results.reduce((sum,item)=>sum+item.sourceAmountPaise,0)).toBe(9_000);
-    expect(results.every(item => item.daily.every(row => row.date >= "2026-02-15"))).toBe(true);
+    const pooled = allocatePreBusinessCostPoolV1("2026-02-15", results);
+    const pool = pooled.find(item => item.sourceKind === "pre-business-pool")!;
+    expect(pool.sourceAmountPaise).toBe(5_900);
+    expect(pool.daily.reduce((sum,row)=>sum+row.amountPaise,0)).toBe(5_900);
+    expect(pooled.find(item => item.sourceId === march.sourceId)?.sourceAmountPaise).toBe(3_100);
   });
 
   it("uses complete scheduled EMI amounts and retains schedule and source revisions", () => {
@@ -97,9 +104,11 @@ describe("Business Start Date scheduled EMI allocation", () => {
         { installmentNumber: 3, dueDate: "2024-04-01", installmentAmountPaise: 300 },
       ],
     }));
-    const carry = results.find(item => item.sourceKind === "emi-pre-business-carry-forward")!;
-    expect(carry.eligibleTo).toBe("2024-04-30");
-    expect(carry.daily[0].date).toBe("2024-03-01");
+    const preStart = results.filter(item => item.disposition === "pre_business_historical");
+    expect(preStart.map(item => item.sourceAmountPaise)).toEqual([100]);
+    const march = results.find(item => item.sourceId.endsWith(":2"))!;
+    expect(march.eligibleFrom).toBe("2024-03-01");
+    expect(march.eligibleTo).toBe("2024-03-31");
   });
 
   it("caps the final EMI allocation period at the loan settlement date", () => {
@@ -142,6 +151,47 @@ describe("Business Start Date scheduled EMI allocation", () => {
     }))).toThrow("business_start_date_emi_amount_invalid");
   });
 });
+
+
+  it("aggregates Compliance and complete pre-start EMIs into one 18-month pool with monthly paise reconciliation", () => {
+    const complianceSource = allocateComplianceCostV1("2026-01-31", compliance({
+      validFrom: "2025-12-01", validTo: "2026-02-28", totalCostPaise: 1_000,
+    }));
+    const emiSources = allocateScheduledEmisV1("2026-01-31", loanSchedule({
+      rows: [
+        { installmentNumber: 1, dueDate: "2025-12-01", installmentAmountPaise: 2_000 },
+        { installmentNumber: 2, dueDate: "2026-01-01", installmentAmountPaise: 3_000 },
+        { installmentNumber: 3, dueDate: "2026-02-01", installmentAmountPaise: 4_000 },
+      ],
+    }));
+    const pooled = allocatePreBusinessCostPoolV1("2026-01-31", [complianceSource, ...emiSources]);
+    const pool = pooled.find(item => item.sourceKind === "pre-business-pool")!;
+    expect(pool.sourceAmountPaise).toBe(6_000);
+    expect(pool.eligibleFrom).toBe("2026-01-31");
+    expect(pool.eligibleTo).toBe("2027-07-30");
+    const byMonth = new Map<string, number>();
+    for (const row of pool.daily) {
+      const month = row.date.slice(0, 7);
+      byMonth.set(month, (byMonth.get(month) ?? 0) + row.amountPaise);
+    }
+    expect([...byMonth.values()]).toHaveLength(18);
+    expect([...byMonth.values()].reduce((sum,value)=>sum+value,0)).toBe(6_000);
+    expect([...byMonth.values()]).toEqual(Array(18).fill(333).map((value,index)=>value+(index<6?1:0)));
+    expect(pool.daily.every(row => row.date >= "2026-01-31" && row.date <= "2027-07-30")).toBe(true);
+  });
+
+  it("clamps each monthly anniversary to month end while keeping the original day anchor", () => {
+    const source = allocateComplianceCostV1("2026-01-31", compliance({
+      validFrom: "2025-12-01", totalCostPaise: 18,
+    }));
+    const pool = allocatePreBusinessCostPoolV1("2026-01-31", [source])
+      .find(item => item.sourceKind === "pre-business-pool")!;
+    const dates = [...new Set(pool.daily.map(row => row.date.slice(0,7)))];
+    expect(dates).toHaveLength(18);
+    expect(pool.daily.some(row => row.date === "2026-02-28")).toBe(true);
+    expect(pool.daily.some(row => row.date === "2026-03-31")).toBe(true);
+    expect(pool.eligibleTo).toBe("2027-07-30");
+  });
 
 describe("Business Start Date reporting rollups", () => {
   it("derives daily, monthly, and yearly totals from the same integer-paise rows", () => {
