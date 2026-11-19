@@ -187,7 +187,7 @@ jobs:
           fi
           source_list="$(mktemp)"
           trap 'rm -f "$source_list"' EXIT
-          printf '%s\\n' \
+          printf '%s\n' \
             "deb [arch=amd64] https://azure.archive.ubuntu.com/ubuntu noble main universe" \
             "deb [arch=amd64] https://archive.ubuntu.com/ubuntu noble main universe" > "$source_list"
           for attempt in 1 2 3 4 5; do
