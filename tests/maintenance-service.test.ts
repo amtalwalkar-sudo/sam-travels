@@ -125,7 +125,7 @@ describe("MaintenanceService", () => {
   });
 
   it("starts each vehicle at ₹2.50/km and appends idempotent effective-date rate changes", async () => {
-    const { service, setNow } = setup();
+    const { service, repository, setNow } = setup();
     const defaultHistory = await service.getRateHistory(vehicleId);
     expect(defaultHistory.entries[0]).toMatchObject({
       effectiveFrom: "2026-11-01", ratePaisePerKm: 250, isDefault: true,
