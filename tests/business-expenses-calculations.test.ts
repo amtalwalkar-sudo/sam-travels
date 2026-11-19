@@ -28,35 +28,14 @@ function expense(id: string, sourceKind: BusinessExpenseEntryV1["sourceKind"], a
 }
 
 describe("Business expense source contracts", () => {
-  it("validates optional event-scoped fuel GPS evidence without requiring it", () => {
-    const purchase = fuel("fuel-gps", "2026-11-14T20:00:00.000Z", 45000, false, 18000);
+  it("rejects all Fuel location evidence because location is not part of the purchase contract", () => {
+    const purchase = fuel("fuel-no-location", "2026-11-14T20:00:00.000Z", 45000, false, 18000);
     expect(() => assertFuelPurchaseV1(purchase)).not.toThrow();
     expect(() => assertFuelPurchaseV1({
       ...purchase,
       locationEvidence: {
         latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
         capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
-      },
-    })).not.toThrow();
-    expect(() => assertFuelPurchaseV1({
-      ...purchase,
-      locationEvidence: {
-        latitude: 190, longitude: 72.8777, accuracyMeters: 18,
-        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
-      },
-    })).toThrow("fuel_purchase_invalid");
-    expect(() => assertFuelPurchaseV1({
-      ...purchase,
-      locationEvidence: {
-        latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
-        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device", captureTiming: "late",
-      },
-    })).not.toThrow();
-    expect(() => assertFuelPurchaseV1({
-      ...purchase,
-      locationEvidence: {
-        latitude: 19.076, longitude: 72.8777, accuracyMeters: 18,
-        capturedAt: "2026-11-14T19:59:30.000Z", provider: "device", captureTiming: "background",
       },
     })).toThrow("fuel_purchase_invalid");
   });
