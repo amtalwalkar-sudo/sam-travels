@@ -6,6 +6,8 @@ import {
   submitCompletedTripFinancials, type CompletedTripFinancialObligation,
 } from "../packages/application/src/trip-financial-service";
 import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
+import { PerformanceCalculationServiceV1 } from "../packages/application/src/performance-calculation-service";
+import { PerformanceOperatingCostAdapterV1, PerformanceCompletenessCompositeV1 } from "../packages/application/src/performance-operating-cost-adapter";
 import { FullCostBreakevenService } from "../packages/application/src/full-cost-breakeven-service";
 
 class MemoryRecords implements AtomicRecordRepository {
@@ -86,5 +88,30 @@ describe("completed trip financial end-to-end read models", () => {
       sourceId: obligation.id, sourceRevision: 2,
       sourceRefs: [{ sourceId: obligation.id, revision: 2 }],
     }));
+
+    // Exercise the complete calculation orchestrator with the production
+    // revenue and operating-cost adapters, not only their isolated outputs.
+    const operatingCosts = new PerformanceOperatingCostAdapterV1(breakeven);
+    const calculation = new PerformanceCalculationServiceV1({
+      businessSettings: { getBusinessStartDate: async () => "2026-01-01" },
+      driverTarget: { getMonthlyTargetPaise: async () => 0 },
+      revenue,
+      operatingCosts,
+      emi: { listDailyEmiAllocations: async () => [] },
+      compliance: { listDailyComplianceAllocations: async () => [] },
+      manualPreBusinessCosts: { listEntries: async () => [] },
+      completeness: new PerformanceCompletenessCompositeV1([revenue, operatingCosts]),
+    });
+    const result = await calculation.calculate("2026-11-10", "2026-11-10");
+    expect(result.period.revenuePaise).toBe(252_000);
+    expect(result.period.costPaise).toBe(57_000);
+    expect(result.daily).toContainEqual(expect.objectContaining({
+      date: "2026-11-10",
+      grossRevenuePaise: 252_000,
+      costs: expect.objectContaining({ "toll-parking": 57_000 }),
+    }));
+    expect(result.provenance.sourceRefs).toContainEqual({
+      sourceId: obligation.id, revision: 2,
+    });
   });
 });
