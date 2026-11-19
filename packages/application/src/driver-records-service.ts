@@ -1,7 +1,7 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import { driverRecordId } from "../../domain/src/driver-record-identity";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type DriverLifecycleState = "active" | "inactive";
 export type DriverRecordV1 = Readonly<{
@@ -31,8 +31,10 @@ export class DriverRecordsService {
   async create(
     data: DriverRecordV1,
     source: FeatureRecordSource,
+    operation?: FeatureRecordOperationIdentityV1,
+    now?: string,
   ): Promise<RecordEnvelope<DriverRecordV1>> {
-    return this.records.create({ id: driverRecordId(data.driverId), data, source });
+    return this.records.create({ id: driverRecordId(data.driverId), data, source, operation, now });
   }
 
   private assertIdentity(record: RecordEnvelope<DriverRecordV1>): void {
@@ -51,13 +53,16 @@ export class DriverRecordsService {
     driverId: string;
     expectedRevision: number;
     data: DriverRecordV1;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<DriverRecordV1>> {
     const id = driverRecordId(input.driverId);
     if (input.data.driverId !== input.driverId) throw new Error("driver_identity_immutable");
     const current = await this.records.get(id);
     if (!current) throw new Error("feature_record_not_found:" + id);
     this.assertIdentity(current);
-    return this.records.update({ id, expectedRevision: input.expectedRevision, data: input.data });
+    return this.records.update({ id, expectedRevision: input.expectedRevision, data: input.data,
+      operation: input.operation, now: input.now });
   }
 
   async list(): Promise<Array<RecordEnvelope<DriverRecordV1>>> {
