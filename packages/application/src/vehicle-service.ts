@@ -14,7 +14,7 @@ export type VehicleRecordV1 = Readonly<{
   ownership: string;
   lifecycleState: VehicleLifecycleState;
 }>;
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export const VEHICLE_RECORD_ID_PREFIX = "feature:vehicle:";
 export type VehicleRecordValidator = (value: unknown) => asserts value is VehicleRecordV1;
@@ -38,10 +38,11 @@ export class VehicleService {
   async create(
     input: Omit<VehicleRecordV1, "registrationNumber"> & { registrationNumber: string },
     source: FeatureRecordSource,
+    operation?: FeatureRecordOperationIdentityV1,
   ): Promise<RecordEnvelope<VehicleRecordV1>> {
     const registrationNumber = normalizeVehicleRegistrationNumber(input.registrationNumber);
     const data: VehicleRecordV1 = { ...input, registrationNumber };
-    return this.records.create({ id: vehicleRecordId(registrationNumber), data, source });
+    return this.records.create({ id: vehicleRecordId(registrationNumber), data, source, operation });
   }
 
   private assertIdentity(record: RecordEnvelope<VehicleRecordV1>): void {
@@ -67,6 +68,7 @@ export class VehicleService {
     id: string;
     expectedRevision: number;
     data: VehicleRecordV1;
+    operation?: FeatureRecordOperationIdentityV1;
   }): Promise<RecordEnvelope<VehicleRecordV1>> {
     const registrationNumber = normalizeVehicleRegistrationNumber(input.data.registrationNumber);
     if (VEHICLE_RECORD_ID_PREFIX + registrationNumber !== input.id) {
