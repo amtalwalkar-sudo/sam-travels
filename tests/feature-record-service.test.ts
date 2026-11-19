@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { FeatureRecordService } from "../packages/application/src/feature-record-service";
 
@@ -15,7 +15,7 @@ function validateSample(value: unknown): asserts value is SampleData {
   }
 }
 
-class MemoryAtomicRepository implements AtomicRecordRepository {
+class MemoryAtomicRepository implements AtomicRecordBatchRepository {
   private readonly rows = new Map<string, RecordEnvelope<unknown>>();
 
   async get<T>(id: string): Promise<RecordEnvelope<T> | undefined> {
@@ -28,6 +28,18 @@ class MemoryAtomicRepository implements AtomicRecordRepository {
 
   async list<T>(): Promise<Array<RecordEnvelope<T>>> {
     return [...this.rows.values()] as Array<RecordEnvelope<T>>;
+  }
+
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]): Promise<boolean> {
+    if (!mutations.length || new Set(mutations.map(item => item.id)).size !== mutations.length) {
+      throw new Error("atomic_record_batch_invalid");
+    }
+    for (const item of mutations) {
+      const current = this.rows.get(item.id);
+      if (item.expectedRevision === null ? current !== undefined : current?.revision !== item.expectedRevision) return false;
+      if (item.next.revision !== (item.expectedRevision ?? 0) + 1) throw new Error("atomic_record_batch_revision_invalid");
+    }
+    mutations.forEach(item => this.rows.set(item.id, item.next as RecordEnvelope<unknown>));
   }
 
   async remove(id: string): Promise<void> {
@@ -165,6 +177,56 @@ describe("atomic feature-owned record service", () => {
     });
     await expect(service.get("feature:sample:corrupt")).rejects.toThrow("sample_payload_invalid");
     await expect(service.list()).rejects.toThrow("sample_payload_invalid");
+  });
+
+  it("replays an operation receipt after create commit and rejects changed payload reuse", async () => {
+    const { service, repository } = setup();
+    const operation = { operationId: "form-op-create", payloadFingerprint: '{"amount":12500}' };
+    const input = {
+      id: "feature:sample:once", data: { label: "Fuel", amountPaise: 12500 },
+      source: "web" as const, now: "2026-11-10T10:00:00.000Z", operation,
+    };
+    const first = await service.create(input);
+    const replay = await service.create({ ...input, now: "2026-11-10T11:00:00.000Z" });
+    expect(replay).toEqual(first);
+    expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
+    await expect(service.create({
+      ...input, data: { label: "Changed", amountPaise: 13000 },
+    })).rejects.toThrow("feature_record_operation_payload_conflict");
+  });
+
+  it("returns the original update revision and receipt when retry follows a committed update", async () => {
+    const { service, repository } = setup();
+    const created = await service.create({
+      id: "feature:sample:update-replay", data: { label: "Original", amountPaise: 100 },
+      source: "web",
+    });
+    const operation = { operationId: "form-op-update", payloadFingerprint: '{"amount":200}' };
+    const input = {
+      id: created.id, expectedRevision: 1, data: { label: "Corrected", amountPaise: 200 },
+      now: "2026-11-10T12:00:00.000Z", operation,
+    };
+    const first = await service.update(input);
+    const replay = await service.update(input);
+    expect(replay).toEqual(first);
+    expect(replay.revision).toBe(2);
+    expect((await service.get(created.id))?.revision).toBe(2);
+    await expect(service.update({
+      ...input, data: { label: "Different", amountPaise: 300 },
+    })).rejects.toThrow("feature_record_operation_payload_conflict");
+    expect((await repository.list()).filter(row => row.id === created.id)).toHaveLength(1);
+  });
+
+  it("deduplicates concurrent create attempts with the same durable operation", async () => {
+    const { service, repository } = setup();
+    const input = {
+      id: "feature:sample:concurrent", data: { label: "Fuel", amountPaise: 500 },
+      source: "web" as const,
+      operation: { operationId: "form-op-concurrent", payloadFingerprint: '{"amount":500}' },
+    };
+    const results = await Promise.all([service.create(input), service.create(input)]);
+    expect(results[0]).toEqual(results[1]);
+    expect((await repository.list()).filter(row => row.id === input.id)).toHaveLength(1);
   });
 
   it("requires a non-empty suffix and a canonical feature namespace", () => {
