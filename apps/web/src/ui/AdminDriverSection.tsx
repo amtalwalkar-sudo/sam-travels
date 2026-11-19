@@ -105,12 +105,22 @@ export function DriverSection() {
       if (activeVehicles.length !== 1) throw new Error("operating_vehicle_missing_or_ambiguous");
       if (selected?.lockedShiftId) throw new Error("work_driver_selection_locked_during_shift");
       const vehicle = activeVehicles[0];
+      const configuredAt = new Date().toISOString();
+      const histories = await services.driverAssignments.list();
+      for (const history of histories) {
+        const current = history.data.assignments.find(item => !item.unassignedAt);
+        if (current && history.data.driverId !== driver.data.driverId) {
+          await services.driverAssignments.unassign({
+            driverId: history.data.driverId, expectedRevision: history.revision, unassignedAt: configuredAt,
+          });
+        }
+      }
       const history = await services.driverAssignments.getHistory(driver.data.driverId);
       const current = history?.data.assignments.find(item => !item.unassignedAt);
       if (!current || current.vehicleId !== vehicle.id) {
         await services.driverAssignments.assign({
           driverId: driver.data.driverId, vehicleId: vehicle.id, assignmentId: crypto.randomUUID(),
-          assignedAt: new Date().toISOString(), source: services.recordSource,
+          assignedAt: configuredAt, source: services.recordSource,
         });
       }
       await services.workDriverSelection.selectDriver(driver.data.driverId, services.recordSource);
