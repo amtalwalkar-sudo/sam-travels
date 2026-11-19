@@ -305,7 +305,7 @@ The resolver and Work/Admin setup slice now have implementation and rendered evi
 | Browser form-to-command | `admin-form-runtime.ts` continues routing the actual form submission to `ComplianceService.create()`; service-level resolver check prevents stale/tampered draft Vehicle IDs | Production command boundary enforced |
 | Browser acceptance | `scripts/admin-form-browser-acceptance.mjs` asserts no Compliance Vehicle selector and that the configured Vehicle is displayed; `tests/compliance-service.test.ts` verifies command-boundary enforcement and persisted create/list history | Updated; run on current head pending |
 | Android Room acceptance | `AdminFormsCapacitorAcceptanceTest.replacementAdminFormsUseRoomBackedWebView` asserts no routine Compliance Vehicle selector and verifies the saved Room Compliance record references the configured Vehicle | Updated; run on current head pending |
-| Negative service tests | `tests/compliance-service.test.ts` covers caller-supplied mismatched Vehicle and missing operating configuration fail-closed behaviour, alongside immutable renewal/history coverage | Added; run on current head pending |
+| Negative service tests | `tests/compliance-service.test.ts` covers caller-supplied mismatched Vehicle, missing active Vehicle fail-closed behaviour, and successful creation with no Work Driver selection/profile/assignment in the repository fixture, alongside immutable renewal/history coverage | Added; run on current head pending |
 
 **Remaining Compliance proof:** execute browser and Android acceptance on the same current head; add reload/reopen readback parity and verify renewal submissions still preserve the predecessor link while using the configured Vehicle. No full §9.40 completion claim is made.
 
