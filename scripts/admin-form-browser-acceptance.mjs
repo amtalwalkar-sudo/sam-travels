@@ -227,7 +227,7 @@ try {
   }
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
-  await paymentPanel.getByLabel("Payment date").fill(futureDateOffsetDays(1));
+  await paymentPanel.getByLabel("Payment date").fill(indiaDateOffsetDays(1));
   // The prior prepayment creates schedule v2 effective today. Select that effective
   // schedule explicitly; the restored payment draft may still carry v1.
   await paymentPanel.getByLabel("Schedule version").selectOption("2");
