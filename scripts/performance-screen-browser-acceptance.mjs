@@ -130,7 +130,7 @@ try {
   // The Admin actor session is intentionally in-memory and is cleared by the
   // full reload above. Re-authenticate before the protected Driver identity
   // enrollment; the UI must not rely on a stale pre-reload authority.
-  const identityPanel = page.getByRole("region", { name: "People & roles" });
+  const identityPanel = page.locator(".admin-capability-panel");
   await identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select")
     .selectOption({ label: "Performance Screen Acceptance Admin" });
   await identityPanel.getByLabel("Active role").selectOption("admin");
