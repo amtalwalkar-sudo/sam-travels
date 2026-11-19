@@ -61,7 +61,8 @@ export function resolveOperatingConfiguration(
   transitionAt?: string,
 ): OperatingConfigurationV1 {
   const selections = records.filter(record => record.id === WORK_SELECTED_DRIVER_RECORD_ID);
-  if (selections.length !== 1) throw new Error("operating_driver_selection_missing_or_ambiguous");
+  if (selections.length === 0) throw new Error("work_driver_not_selected");
+  if (selections.length !== 1) throw new Error("operating_driver_selection_ambiguous");
   const selectionRecord = selections[0];
   assertWorkSelectedDriverV1(selectionRecord.data);
   const selection = selectionRecord.data;
