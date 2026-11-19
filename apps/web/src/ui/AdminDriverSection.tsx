@@ -17,14 +17,14 @@ export function DriverSection() {
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
   const copyRef = useRef<Awaited<ReturnType<typeof services.formRuntime.open>> | undefined>(undefined);
   const updateQueue = useRef<Promise<void>>(Promise.resolve());
-  const [assignVehicle, setAssignVehicle] = useState<Record<string,string>>({});
+  const [selectedWorkDriverId, setSelectedWorkDriverId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const refresh = useCallback(async () => {
     try {
-      const [d,v] = await Promise.all([services.driverRecords.list(), services.vehicles.list()]);
+      const [d,v,selected] = await Promise.all([services.driverRecords.list(), services.vehicles.list(), services.workDriverSelection.getSelectedDriver()]);
       const hs = await Promise.all(d.map(async x => [x.data.driverId, await services.driverAssignments.getHistory(x.data.driverId)] as const));
-      setDrivers(d); setVehicles(v); setHistories(Object.fromEntries(hs));
+      setDrivers(d); setVehicles(v); setHistories(Object.fromEntries(hs)); setSelectedWorkDriverId(selected?.driverId ?? "");
     } catch (e) { setMessage(e instanceof Error ? e.message : "Could not load drivers."); }
   }, [services]);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -72,6 +72,12 @@ export function DriverSection() {
       await updateQueue.current;
       const current = copyRef.current;
       if (!current) throw new Error("driver_form_not_ready");
+      if (form.lifecycleState === "active") {
+        const activeDrivers = await services.driverRecords.list();
+        if (activeDrivers.some(row => row.data.lifecycleState === "active" && row.data.driverId !== editing?.data.driverId)) {
+          throw new Error("operating_driver_already_configured");
+        }
+      }
       if (editing && form.lifecycleState === "inactive") {
         const history = await services.driverAssignments.getHistory(editing.data.driverId);
         if (history?.data.assignments.some(item => !item.unassignedAt)) {
@@ -84,49 +90,39 @@ export function DriverSection() {
     finally { setBusy(false); }
   }
 
-  async function assign(driver: Driver) {
-    const vehicleId = assignVehicle[driver.data.driverId];
-    if (!vehicleId) { setMessage("Choose an active vehicle first."); return; }
-    setBusy(true); setMessage("");
-    try {
-      await services.driverAssignments.assign({
-        driverId:driver.data.driverId, vehicleId, assignmentId:crypto.randomUUID(),
-        assignedAt:new Date().toISOString(), source:services.recordSource,
-      });
-      setMessage("Vehicle assignment saved. Previous active assignment, if any, was closed in history.");
-      await refresh();
-    } catch (e) { setMessage(e instanceof Error ? e.message : "Assignment failed."); }
-    finally { setBusy(false); }
-  }
-  async function selectForWork(driver: Driver) {
+  async function configureOperatingPair(driver: Driver) {
     if (driver.data.lifecycleState !== "active") return;
     setBusy(true); setMessage("");
     try {
-      const service = services.driverRecords;
-      const all = await service.list();
-      for (const current of all) {
-        const selectedForWork = current.data.driverId === driver.data.driverId;
-        if (Boolean(current.data.selectedForWork) !== selectedForWork) {
-          await service.update({ driverId: current.data.driverId, expectedRevision: current.revision, data: { ...current.data, selectedForWork } });
-        }
+      const [allDrivers, allVehicles, selected] = await Promise.all([
+        services.driverRecords.list(), services.vehicles.list(), services.workDriverSelection.getSelectedDriver(),
+      ]);
+      const activeDrivers = allDrivers.filter(row => row.data.lifecycleState === "active");
+      const activeVehicles = allVehicles.filter(row => row.data.lifecycleState === "active");
+      if (activeDrivers.length !== 1 || activeDrivers[0].data.driverId !== driver.data.driverId) {
+        throw new Error("operating_driver_missing_or_ambiguous");
       }
-      setMessage(driver.data.selectedForWork ? "Driver selection cleared." : driver.data.name + " selected for Work.");
+      if (activeVehicles.length !== 1) throw new Error("operating_vehicle_missing_or_ambiguous");
+      if (selected?.lockedShiftId) throw new Error("work_driver_selection_locked_during_shift");
+      const vehicle = activeVehicles[0];
+      const history = await services.driverAssignments.getHistory(driver.data.driverId);
+      const current = history?.data.assignments.find(item => !item.unassignedAt);
+      if (!current || current.vehicleId !== vehicle.id) {
+        await services.driverAssignments.assign({
+          driverId: driver.data.driverId, vehicleId: vehicle.id, assignmentId: crypto.randomUUID(),
+          assignedAt: new Date().toISOString(), source: services.recordSource,
+        });
+      }
+      await services.workDriverSelection.selectDriver(driver.data.driverId, services.recordSource);
+      setSelectedWorkDriverId(driver.data.driverId);
+      window.dispatchEvent(new Event("work-operating-configuration-updated"));
+      setMessage(driver.data.name + " is configured with " + vehicle.data.registrationNumber + " for Work.");
       await refresh();
-    } catch (e) { setMessage(e instanceof Error ? e.message : "Work driver selection failed."); }
-    finally { setBusy(false); }
-  }
-  async function unassign(driver: Driver) {
-    const history = histories[driver.data.driverId];
-    if (!history) return;
-    setBusy(true); setMessage("");
-    try {
-      await services.driverAssignments.unassign({ driverId:driver.data.driverId, expectedRevision:history.revision, unassignedAt:new Date().toISOString() });
-      setMessage("Driver unassigned."); await refresh();
-    } catch (e) { setMessage(e instanceof Error ? e.message : "Unassignment failed."); }
+    } catch (e) { setMessage(e instanceof Error ? e.message : "Operating configuration could not be saved."); }
     finally { setBusy(false); }
   }
   return <div className="admin-capability-panel">
-    <p className="admin-hint">Driver profiles are separate from trip operations. Each driver can have one active vehicle assignment; reassignment preserves the previous assignment in history.</p>
+    <p className="admin-hint">Configure one active Driver with the single active Vehicle. Assignment history is retained for reference; routine driver and vehicle reassignment is not part of daily operations.</p>
     {!formOpen && <button className="admin-primary" type="button" onClick={() => { void startEdit(); }}>Add driver</button>}
     {formOpen && <form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
@@ -147,15 +143,8 @@ export function DriverSection() {
         <div style={{flex:1}}>
           <strong>{driver.data.name}</strong>
           <small>{driver.data.mobileNumber ?? "No mobile"} · Licence {driver.data.licenceNumber ?? "not recorded"}{driver.data.licenceExpiryDate ? " · Expires "+driver.data.licenceExpiryDate : ""}</small>
-          <small>{activeVehicle ? "Assigned: "+activeVehicle.data.registrationNumber : "No active vehicle assignment"} · {driver.data.lifecycleState}{driver.data.selectedForWork ? " · Selected for Work" : ""}</small>
-          {driver.data.lifecycleState === "active" && <button className="admin-secondary" type="button" disabled={busy} onClick={()=>void selectForWork(driver)}>{driver.data.selectedForWork ? "Clear Work selection" : "Select for Work"}</button>}
-          {driver.data.lifecycleState==="active" && <div className="loan-form-actions">
-            <select aria-label={"Vehicle for "+driver.data.name} value={assignVehicle[driver.data.driverId] ?? ""} onChange={e=>setAssignVehicle(p=>({...p,[driver.data.driverId]:e.target.value}))}>
-              <option value="">Select active vehicle</option>{vehicles.filter(v=>v.data.lifecycleState==="active").map(v=><option key={v.id} value={v.id}>{v.data.registrationNumber} · {v.data.make} {v.data.model}</option>)}
-            </select>
-            <button className="admin-secondary" type="button" disabled={busy} onClick={()=>void assign(driver)}>Assign / reassign</button>
-            {active && <button className="admin-secondary" type="button" disabled={busy} onClick={()=>void unassign(driver)}>Unassign</button>}
-          </div>}
+          <small>{activeVehicle ? "Assigned: "+activeVehicle.data.registrationNumber : "No active vehicle assignment"} · {driver.data.lifecycleState}{selectedWorkDriverId === driver.data.driverId ? " · Configured for Work" : ""}</small>
+          {driver.data.lifecycleState === "active" && <button className="admin-secondary" type="button" disabled={busy} onClick={()=>void configureOperatingPair(driver)}>{selectedWorkDriverId === driver.data.driverId ? "Verify operating configuration" : "Configure for Work"}</button>}
           {history?.data.assignments.length ? <details className="loan-schedule"><summary>Assignment history ({history.data.assignments.length})</summary>{history.data.assignments.map(a=><small key={a.assignmentId}>{vehicles.find(v=>v.id===a.vehicleId)?.data.registrationNumber ?? a.vehicleId} · {a.assignedAt} → {a.unassignedAt ?? "Active"}</small>)}</details> : null}
         </div>
         <button className="admin-secondary" type="button" onClick={()=>{ void startEdit(driver); }}>Edit</button>
