@@ -7,6 +7,15 @@ type Fixture = {
   lifecycle: string[];
   comparison: string[];
   domains: Record<string, { requiredKinds: string[]; lineage: string[] }>;
+  operatingConfiguration: {
+    mode: string;
+    vehicle: { cardinality: string; recordId: string };
+    driver: { cardinality: string; recordId: string };
+    currentPairing: string;
+    referencePolicy: string;
+    fleetExpansion: string;
+    compatibility: string;
+  };
   status: string;
 };
 
@@ -25,6 +34,26 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     expect(fixture.comparison).toEqual([
       "record_ids", "revisions", "references", "event_ordering", "correction_chain_heads",
     ]);
+  });
+
+  it("limits current end-to-end data to one configured vehicle and one configured driver", () => {
+    expect(fixture.operatingConfiguration).toMatchObject({
+      mode: "single_vehicle_single_driver",
+      vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:MH01AB1234" },
+      driver: {
+        cardinality: "exactly_one_active_selected_for_work",
+        recordId: "feature:driver-records:driver:driver-001",
+      },
+      fleetExpansion: "deferred_until_separately_approved",
+    });
+    expect(fixture.operatingConfiguration.referencePolicy).toContain("configured vehicle ID");
+    expect(fixture.operatingConfiguration.referencePolicy).toContain("configured driver ID");
+    expect(fixture.domains.work.lineage).toEqual(
+      expect.arrayContaining(["configuredDriverId", "configuredVehicleId"]),
+    );
+    expect(fixture.domains.businessExpenses.lineage).toEqual(
+      expect.arrayContaining(["vehicleId", "driverId"]),
+    );
   });
 
   it("covers every requested domain and its lineage requirements", () => {
