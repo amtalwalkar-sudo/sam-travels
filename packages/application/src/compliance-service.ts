@@ -45,18 +45,18 @@ export class ComplianceService {
     repository: AtomicRecordRepository,
     validate: ComplianceRecordValidator,
     private readonly vehicles: VehicleDirectory,
-    now?: () => string,
+    private readonly now: () => string = () => new Date().toISOString(),
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
       featureId: "compliance",
       recordIdPrefix: PREFIX,
       validate,
-    }, now);
+    }, this.now);
   }
 
   async getOperatingVehicleId(): Promise<string> {
-    const configuration = resolveOperatingConfiguration(await this.repository.list());
+    const configuration = resolveOperatingConfiguration(await this.repository.list(), this.now());
     return configuration.vehicleId;
   }
 
