@@ -131,7 +131,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       businessStartDate: "2026-03-01", businessSettingsRevision: 1,
       generatedAt: "2026-11-15T00:00:00.000Z",
       result: {
-        calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
+        calculationId: "business-start-date-cost-allocation.v2", calculationVersion: 2,
         businessStartDate: "2026-03-01",
         sources: [
           source({
