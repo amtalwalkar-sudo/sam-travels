@@ -37,6 +37,19 @@ If this contract conflicts with a domain rule or a higher-level technical safegu
 
 ## 3. Runtime and surface guarantees
 
+### 3.0 Current operating configuration — one vehicle and one driver
+
+**Approved current product scope:** Sam Travels operates with exactly one configured active business vehicle and exactly one configured active driver. Multi-vehicle, multi-driver and fleet-management workflows are deferred until separately approved. This is a deliberate product-scope constraint, not a permanent schema or architecture limitation.
+
+1. Admin setup establishes the one active Vehicle profile and one active Driver profile. Work uses that configured pair automatically; routine Work, Fuel, Compliance, Maintenance, Finance and Performance flows must not ask the user to select or reassign a vehicle or driver.
+2. The current runtime must fail clearly when either configuration is missing or invalid. It must not silently choose an arbitrary record when multiple active candidates exist. Until the configuration is repaired, dependent entry/calculation actions remain unavailable rather than attaching data to the wrong entity.
+3. Every vehicle-bound source record, calculation input, correction, backup reference and restored record uses the same configured `vehicleId`. Every Work/driver-attributed event and calculation uses the same configured `driverId`. The identifiers are stable and explicit; do not duplicate profile details into dependent records where a reference is sufficient.
+4. Vehicle and Driver profiles remain separately owned, revisioned feature records. A single current driver-to-vehicle relationship may be retained where required by existing Work contracts, but interactive reassignment, assignment-history management and multiple active pairings are not current product workflows.
+5. Existing assignment-history schemas, validators and backup readers may remain for compatibility and future migration. They are not a requirement to populate reassignment histories in the current synthetic fixture, expose assignment UI, or implement fleet functionality now. Historical records must not be discarded or rewritten merely to simplify the current UI.
+6. Do not remove stable entity IDs, references, record ownership, versioning or migration seams. A later fleet expansion may introduce an explicit fleet/configuration boundary and assignment workflows through a reviewed contract and migration; it must not require rewriting calculation semantics or weakening historical integrity.
+7. This single-configuration rule applies independently to browser IndexedDB and Android Room, and the PWA/WebView and native overlay must resolve the same configured pair from the same runtime-authoritative store.
+
+
 ### 3.1 Browser-only PWA
 
 1. All authoritative business writes go through the browser repository/application boundary and commit to IndexedDB.
@@ -91,7 +104,7 @@ Build an inventory from the current screens, forms, overlay actions, application
 
 The inventory must inspect at least these existing data families and confirm which are user-entered, device-captured, imported, or derived:
 
-- Vehicle and Driver identity/profile/assignment.
+- The single configured Vehicle and Driver identity/profile pair. Audit legacy assignment-history support for compatibility, but do not treat assignment creation/reassignment as a current user-facing entry path.
 - Finance loan setup, EMI/payment entries, prepayment and settlement/correction actions.
 - Compliance validity setup, renewal, overlap review and corrections.
 - Maintenance records and admin-configured effective-dated maintenance rates.
@@ -208,13 +221,13 @@ The shared deterministic fixture must contain valid synthetic records, not the u
 
 Required domains:
 
-- **Vehicle and identity dependencies:** valid synthetic Vehicle and Driver records required to resolve feature references.
+- **Single operating configuration:** exactly one active synthetic Vehicle and exactly one active selected Work Driver, with one stable configured pair. All vehicle/driver references in the fixture resolve to those same IDs; no second vehicle, second selected driver or reassignment history is required.
 - **Finance:** loan schedule, payment ledger entries, prepayment schedule revision and settlement lineage/cutoff where supported by current schemas and validators.
 - **Compliance:** validity records, renewal links, overlap-review decision/head and historical correction chain.
 - **Maintenance:** effective-dated rate history, fully allocated daily-kilometre source link, immutable daily accrual, and correction chain where supported.
 - **Business Expenses and Fuel:** source charges, reversals, correction chain/head and resulting source projection. Fuel must include a baseline full-tank checkpoint, a later full-tank checkpoint that closes the interval, and any intervening partial refill(s); assert that the opening baseline is excluded from interval consumption, intervening partials and closing full refill contribute kg/spend, and the resulting km/kg, effective cost/kg, cost/km and weighted rate history survive backup/restore. Include a second completed interval where supported to prove prospective weighted-rate history.
 - **Performance:** actual supported persisted records (currently settings and pre-business-cost records). Calculation provenance is generated from source references by the Performance calculation service and must be asserted as calculation output; do not invent a persisted `source_provenance` record kind.
-- **Work/Driver Workflow:** selected synthetic driver/vehicle, committed ordered events, durable pending intent(s), outbox message(s), stable IDs, revisions, delivery state and recovery status.
+- **Work/Driver Workflow:** the one configured synthetic driver/vehicle pair, committed ordered events, durable pending intent(s), outbox message(s), stable IDs, revisions, delivery state and recovery status.
 - **Feature-owned edit and recalculation lineage:** include a trip added to repair a missing trip, a revised trip with linked fare/toll/parking values, an edited fare record, edited Maintenance and Compliance records, and a Fuel purchase correction that changes amount and/or price/kg while quantity remains derived. Use only current production schemas and supported correction/revision mechanisms. Assert that every affected downstream calculation/projection is recomputed immediately and that the revised outputs, source revisions, correction heads and provenance survive backup/restore; include a failed or interrupted recalculation case if the production path supports recoverable pending work.
 - **Log Book:** event history with stable event IDs and ordering/occurrence timestamps, reconciled to the corresponding Work events where applicable.
 
@@ -299,7 +312,7 @@ Normalization may remove platform-only storage metadata (for example, Room row w
 This PR is not authorization to:
 - Add a central/cloud database or sync server.
 - Make Dexie and Room dual writable stores on Android.
-- Redesign Driver Workflow, overlay UI, Admin forms or other screens.
+- Redesign unrelated Driver Workflow, overlay UI, Admin forms or other screens. The explicitly approved single-vehicle/single-driver simplification is in scope: remove routine entity selectors/reassignment flows and resolve the configured pair automatically.
 - Add new business features, record kinds, calculations or accounting policy.
 - Seed real user profile, vehicle, loan, compliance, or financial data into fixtures.
 - Change domain validators to accept invalid fixture data.
@@ -368,7 +381,7 @@ Do not repeat Track A tests that already prove the same assertions. Existing tes
 
 Use one deterministic fixture asset for both platforms, with schema-valid synthetic records and dependencies in valid creation order. Include registered participants with zero records so participant inventory and empty-owner semantics are tested, not inferred:
 
-1. Vehicle and Driver identity dependencies.
+1. Exactly one active Vehicle and one active selected Driver configuration, with a single stable relationship for the Work workflow.
 2. Finance: loan schedule, payment ledger, prepayment schedule revision and settlement lineage/cutoff where the current schema supports them.
 3. Compliance: validity records, renewals, overlap decision/head and correction history.
 4. Maintenance: effective-dated rate history, fully allocated daily-kilometre source, immutable accrual and supported correction history.
@@ -376,7 +389,7 @@ Use one deterministic fixture asset for both platforms, with schema-valid synthe
 6. Performance: only persisted `settings` and `pre_business_cost` records; calculation provenance must be asserted from the production calculation result, not persisted as a fabricated record kind.
 7. Work/Driver Workflow and Log Book: stable ordered event IDs, committed state/revisions, pending intent, outbox entry/delivery state and linked Log Book history.
 
-For every record, use current production schemas and validators. Add matching valid and invalid record/snapshot cases to a validator-parity matrix and compare browser/Android accept-or-reject outcomes plus stable error categories. Capture expected stable IDs, revisions, references, effective dates, correction heads and calculation inputs. Include Compliance renewal generations/early-overlap review supersession; Maintenance rate, allocated business/personal km, source revision and correction heads; Business Expense fuel and ordinary charges, Vehicle/Driver/trip-financial references and reversal/correction chains; Driver assignment interval/reassignment history; and Work intents/outbox in pending, acknowledged, retried and failed states linked to ordered Log Book events. Classify Performance recovery/provenance data as durable or derived/transient from the actual owner contract; if derived, prove deterministic reconstruction rather than inventing persisted record kinds. Do not use the user's actual personal/vehicle/loan/compliance/financial data.
+For every record, use current production schemas and validators. Add matching valid and invalid record/snapshot cases to a validator-parity matrix and compare browser/Android accept-or-reject outcomes plus stable error categories. Capture expected stable IDs, revisions, references, effective dates, correction heads and calculation inputs. Include Compliance renewal generations/early-overlap review supersession; Maintenance rate, allocated business/personal km, source revision and correction heads; Business Expense fuel and ordinary charges, references to the one configured Vehicle/Driver and trip-financial records, and reversal/correction chains; and Work intents/outbox in pending, acknowledged, retried and failed states linked to ordered Log Book events. Do not populate multi-vehicle reassignment or multi-driver assignment histories as current-scope fixture data. Classify Performance recovery/provenance data as durable or derived/transient from the actual owner contract; if derived, prove deterministic reconstruction rather than inventing persisted record kinds. Do not use the user's actual personal/vehicle/loan/compliance/financial data.
 
 **B1 exit:** the shared fixture is populated; positive and negative records/snapshots pass the browser and Android production validators with matching semantic outcomes; zero-record participants are accounted for; no fixture-only schema or validator relaxation.
 
@@ -412,7 +425,7 @@ Compare browser and Room normalized results for (in addition to all fixture IDs 
 
 - Participant inventory and ownership, including participants with zero records.
 - Validator parity for matching valid/invalid feature records and whole snapshots, including stable error categories.
-- Driver assignment temporal intervals, reassignment and Vehicle lifecycle references.
+- Exactly one current Driver–Vehicle pairing and consistent use of the same configured IDs across Work, expenses, compliance, maintenance and calculations. Historical assignment compatibility is validated only when legacy records are present; reassignment scenarios are deferred.
 - Record IDs, schema versions and revisions.
 - Cross-feature references and referential integrity.
 - Event IDs/order, pending intent identity/status and outbox identity/delivery state for pending, acknowledged, retried and failed cases.
