@@ -138,10 +138,12 @@ try {
 
   await page.getByRole("button", { name: "Connect Dropbox", exact: true }).click();
   await page.waitForURL((url) => url.searchParams.has("code") && url.searchParams.has("state"));
+  // OAuth returns through a full-page navigation, which resets the shell's
+  // transient Settings-open state. Reopen Settings so BackupPanel mounts and
+  // consumes the callback query before asserting the connected session.
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.locator(".settings-panel").waitFor({ state: "visible" });
   await page.waitForFunction(() => !window.location.search.includes("code="));
-  // The OAuth callback is consumed by the mounted BackupPanel. Do not toggle
-  // Settings again here: the callback has already mounted the panel, and a
-  // second click can close it before the connection assertion runs.
   await page.locator(".backup-heading .pill.good").getByText("CONNECTED").waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
   await page.locator(".backup-select option").first().waitFor({ state: "attached" });
