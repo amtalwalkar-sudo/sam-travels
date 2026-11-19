@@ -51,6 +51,13 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "Old permit" },
       }),
       source({
+        sourceId: "compliance:pre-business", sourceKind: "compliance", sourceVersion: 5,
+        sourceAmountPaise: 31, disposition: "allocated",
+        sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "Pre-start permit" },
+        eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
+        daily: daily("compliance:pre-business", "compliance", 5, "2026-03-01", "2026-03-31"),
+      }),
+      source({
         sourceId: "compliance:blocked", sourceKind: "compliance", sourceVersion: 1,
         sourceAmountPaise: 5_000, disposition: "overlap_review_required",
       }),
@@ -86,6 +93,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     expect(reads).toBe(1);
     expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(31);
     expect(preBusiness).toContainEqual(expect.objectContaining({ sourceId: "loan:emi:pre-business", amountPaise: 31, origin: "emi", scheduleVersion: 1 }));
+    expect(preBusiness).toContainEqual(expect.objectContaining({ sourceId: "compliance:pre-business", amountPaise: 31, origin: "compliance" }));
     expect(emi.every(row => row.verified && row.sourceRefs[0].revision === 2)).toBe(true);
     expect(emi.find(row => row.sourceRefs[0].sourceId === "loan:emi:3")?.sourceRefs[0].scheduleVersion).toBe(1);
     expect(new Set(emi.map(row => row.sourceRefs[0].sourceId)))
