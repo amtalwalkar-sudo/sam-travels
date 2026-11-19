@@ -147,6 +147,7 @@ describe("shared form recovery against the production Dexie adapter", () => {
     }, { async getById(id) { return id === vehicleId ? await repository.get(id) as RecordEnvelope<{ lifecycleState: string }> : undefined; } });
     const handler = createBusinessExpenseFormSubmissionHandler(service, "web");
     const workingCopies = new InterruptCompletionOnce(new RecordFormWorkingCopyRepository(repository, "web"));
+    const fuelInstanceId = "550e8400-e29b-41d4-a716-446655440000";
     const makeRuntime = () => new SharedFormRuntime(workingCopies, {
       submit: async command => {
         const result = await handler(command);
@@ -154,14 +155,14 @@ describe("shared form recovery against the production Dexie adapter", () => {
         return result;
       },
     }, () => "2026-11-19T08:30:00.000Z", () => "dexie-fuel-operation");
-    let copy = await makeRuntime().open(FUEL_ENTRY_FORM_V1, "123e4567-e89b-42d3-a456-426614174010");
+    let copy = await makeRuntime().open(FUEL_ENTRY_FORM_V1, fuelInstanceId);
     for (const [field, value] of Object.entries({
       vehicleId, odometerKm: 1200, priceRupeesPerKg: 95, amountRupees: 475, partialRefill: false,
     })) copy = await makeRuntime().update(FUEL_ENTRY_FORM_V1, copy, field, value);
     await expect(makeRuntime().submit(FUEL_ENTRY_FORM_V1, copy)).rejects.toThrow("simulated_process_death_after_domain_commit");
-    const beforeRetry = (await service.listAll()).filter(row => row.id.includes("fuel-dexie-instance"));
+    const beforeRetry = (await service.listAll()).filter(row => row.id.includes(fuelInstanceId));
     expect(beforeRetry).toHaveLength(1);
-    const reopened = await makeRuntime().open(FUEL_ENTRY_FORM_V1, "fuel-dexie-instance");
+    const reopened = await makeRuntime().open(FUEL_ENTRY_FORM_V1, fuelInstanceId);
     const replay = await makeRuntime().submit(FUEL_ENTRY_FORM_V1, reopened);
     expect(replay).toEqual(beforeRetry[0]);
     expect((await service.listAll()).filter(row => row.id.includes("fuel-dexie-instance"))).toEqual(beforeRetry);
