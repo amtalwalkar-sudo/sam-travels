@@ -42,10 +42,11 @@ export function validateFormValues(definition: FormDefinition, values: Readonly<
 
 /** Canonical JSON identity for a submitted form payload. */
 function canonicalJson(value: unknown): string {
-  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (value === undefined) return "undefined";
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value) ?? "null";
   if (typeof value === "number") {
     if (!Number.isFinite(value)) throw new Error("form_submission_payload_invalid");
-    return JSON.stringify(value);
+    return JSON.stringify(value) ?? "null";
   }
   if (Array.isArray(value)) return "[" + value.map(canonicalJson).join(",") + "]";
   if (typeof value === "object") {
