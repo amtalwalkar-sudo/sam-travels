@@ -238,7 +238,7 @@ export class FinanceLoanPaymentService {
       if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const totals = allocationTotals(entries, input.scheduleVersion), seen = new Set<number>();
       let allocatedSum = 0;
-      const createdAt = this.now();
+      const createdAt = input.now ?? this.now();
       const allocations = input.allocations.map((allocation, index) => {
         const row = rows.find(item => item.installmentNumber === allocation.installmentNumber);
         if (!row || row.dueDate > input.businessDate || seen.has(row.installmentNumber) ||
