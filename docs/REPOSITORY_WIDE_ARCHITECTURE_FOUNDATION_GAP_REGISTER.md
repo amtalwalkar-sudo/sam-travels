@@ -647,3 +647,27 @@ The audit applies six independent gates to each owner-approved rule: explicit/co
 8. The shared semantic fixture remains `contract_seed_only`. Browser and Android tests currently validate its metadata and declared dimensions, not populated feature records through production export, restore, reopen, startup recovery, re-export and calculation/provenance comparison.
 
 **Required closure:** resolve the Business Start Date owner-rule conflict first; then close the specifically listed entry/parity gaps and populate/run the shared semantic fixture. Upgrade evidence only after all six gates pass on the same final PR head. PR #99 remains draft and unmerged.
+
+
+### 9.42 — Business Start Date 18-month pool rule clarified and implementation aligned
+
+**Status:** Owner clarification received 2026-11-19. This section supersedes the Business Start Date conflict/blocker wording in §9.41 and the earlier audit baseline.
+
+**Authoritative rule now confirmed:**
+
+- Every eligible source amount whose authoritative business/effective date is before the Business Start Date contributes its full amount to one aggregate pre-business pool. Do not prorate an individual source according to remaining validity or schedule days.
+- Recover the combined pool in 18 equal monthly instalments beginning on the Business Start Date. Monthly anniversaries are anchored to the original start day and clamped to month end where needed. Integer-paise residuals are distributed deterministically; each monthly instalment is distributed across its recovery-month days.
+- Amounts dated on or after Business Start Date are not included in the pool. They continue under normal source-category monthly allocation.
+- Compliance classification uses `validFrom`; a pre-start Compliance record contributes its full amount even if its validity extends beyond or expired before Business Start Date. Compliance effective on/after the start date continues across its actual inclusive validity period.
+- Each complete EMI is classified by its scheduled due date. A due date before Business Start Date contributes the complete EMI amount to the pool, including when its normal allocation period would otherwise straddle the start date. Due dates on/after the start date continue on their normal EMI period. No principal/interest split is used.
+
+**Implementation changes on PR #99:**
+
+1. `allocateComplianceCostV1()` now routes the full pre-start Compliance amount into a pool-member source instead of allocating only the remaining validity days.
+2. `allocateScheduledEmisV1()` now routes each complete pre-start scheduled EMI into the same pool-member set; post-start EMIs retain their normal due-date periods.
+3. New `allocatePreBusinessCostPoolV1()` aggregates those members from all supported source categories and creates one 18-month daily recovery schedule. Original source IDs, revisions, source dates and amounts remain separately represented as pool members for lineage.
+4. `BusinessStartDateCostAllocationService` applies the aggregation after collecting Compliance and Finance source rows and before building the report/provenance.
+5. Calculation ID/version is bumped to v2 so the changed allocation semantics cannot collide with v1 provenance.
+6. Domain tests now cover Compliance remaining-validity and expired cases, exact-start boundary, pre-start EMI whose period crosses Business Start Date, normal post-start EMI periods, combined Compliance+EMI aggregation, all 18 monthly instalments, paise residuals and month-end anchoring.
+
+**Evidence status:** Contract and domain-level rule/tests are aligned. Service-level integration, Performance output surfaces, Browser–Room parity, and populated backup/restore/recompute of the pool and its source lineage remain required before the six-layer row can be marked PROVEN. CI must pass on the final PR head.
