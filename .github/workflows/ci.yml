@@ -179,27 +179,40 @@ jobs:
       - name: Ensure Android Emulator host runtime dependency
         run: |
           set -euo pipefail
-          # The Ubuntu 22.04 runner image normally includes libpulse0. Avoid
-          # contacting an apt mirror unless the emulator runtime is genuinely absent.
+          # This job runs on Ubuntu 24.04 (Noble), where the PulseAudio
+          # runtime package is libpulse0t64, not the Jammy-era libpulse0.
           if ldconfig -p | grep -Fq 'libpulse.so.0'; then
             echo "Android Emulator PulseAudio runtime is already available"
             exit 0
           fi
           source_list="$(mktemp)"
           trap 'rm -f "$source_list"' EXIT
-          echo "deb [arch=amd64] https://archive.ubuntu.com/ubuntu jammy main universe" > "$source_list"
+          printf '%s\\n' \
+            "deb [arch=amd64] https://azure.archive.ubuntu.com/ubuntu noble main universe" \
+            "deb [arch=amd64] https://archive.ubuntu.com/ubuntu noble main universe" > "$source_list"
+          for attempt in 1 2 3 4 5; do
+            sudo apt-get \
+              -o Dir::Etc::sourcelist="$source_list" \
+              -o Dir::Etc::sourceparts="-" \
+              -o Acquire::Retries=5 \
+              -o Acquire::https::Timeout=45 \
+              -o Acquire::http::Timeout=45 update || true
+            if apt-cache show libpulse0t64 >/dev/null 2>&1; then
+              break
+            fi
+            echo "Noble package index unavailable on attempt $attempt; retrying" >&2
+            sleep $((attempt * 5))
+          done
+          if ! apt-cache show libpulse0t64 >/dev/null 2>&1; then
+            echo "Ubuntu 24.04 libpulse0t64 package metadata is unavailable from configured mirrors" >&2
+            exit 1
+          fi
           sudo apt-get \
             -o Dir::Etc::sourcelist="$source_list" \
             -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=3 \
-            -o Acquire::https::Timeout=20 \
-            -o Acquire::http::Timeout=20 update
-          sudo apt-get \
-            -o Dir::Etc::sourcelist="$source_list" \
-            -o Dir::Etc::sourceparts="-" \
-            -o Acquire::Retries=3 \
-            -o Acquire::https::Timeout=20 \
-            -o Acquire::http::Timeout=20 install -y libpulse0
+            -o Acquire::Retries=5 \
+            -o Acquire::https::Timeout=45 \
+            -o Acquire::http::Timeout=45 install -y libpulse0t64
           ldconfig -p | grep -Fq 'libpulse.so.0'
       - name: Install and verify Android Emulator SDK package
         run: |
