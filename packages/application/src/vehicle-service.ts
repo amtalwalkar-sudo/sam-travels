@@ -39,10 +39,11 @@ export class VehicleService {
     input: Omit<VehicleRecordV1, "registrationNumber"> & { registrationNumber: string },
     source: FeatureRecordSource,
     operation?: FeatureRecordOperationIdentityV1,
+    now?: string,
   ): Promise<RecordEnvelope<VehicleRecordV1>> {
     const registrationNumber = normalizeVehicleRegistrationNumber(input.registrationNumber);
     const data: VehicleRecordV1 = { ...input, registrationNumber };
-    return this.records.create({ id: vehicleRecordId(registrationNumber), data, source, operation });
+    return this.records.create({ id: vehicleRecordId(registrationNumber), data, source, operation, now });
   }
 
   private assertIdentity(record: RecordEnvelope<VehicleRecordV1>): void {
@@ -69,6 +70,7 @@ export class VehicleService {
     expectedRevision: number;
     data: VehicleRecordV1;
     operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<VehicleRecordV1>> {
     const registrationNumber = normalizeVehicleRegistrationNumber(input.data.registrationNumber);
     if (VEHICLE_RECORD_ID_PREFIX + registrationNumber !== input.id) {
