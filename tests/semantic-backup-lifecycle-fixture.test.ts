@@ -10,8 +10,8 @@ type Fixture = {
   operatingConfiguration: {
     mode: string;
     vehicle: { cardinality: string; recordId: string };
-    driver: { cardinality: string; recordId: string };
-    currentPairing: string;
+    driver: { cardinality: string; profileRecordId: string; selectionRecordId: string };
+    currentPairing: { cardinality: string; assignmentHistoryRecordId: string; vehicleId: string; driverId: string };
     referencePolicy: string;
     fleetExpansion: string;
     compatibility: string;
@@ -41,8 +41,9 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       mode: "single_vehicle_single_driver",
       vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:MH01AB1234" },
       driver: {
-        cardinality: "exactly_one_active_selected_for_work",
-        recordId: "feature:driver-records:driver:driver-001",
+        cardinality: "exactly_one_active",
+        profileRecordId: "feature:driver-records:driver:driver-001",
+        selectionRecordId: "work:selected-driver",
       },
       fleetExpansion: "deferred_until_separately_approved",
     });
