@@ -115,9 +115,9 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance binds the configured operating Vehicle", await(activity,
-                "document.querySelector('#admin-section-panel-compliance .admin-vehicle-context')?.textContent.includes('$registration')", 10000))
+                "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
             assertTrue("Compliance has no routine Vehicle selector", await(activity,
-                "!document.querySelector('#admin-section-panel-compliance .admin-vehicle-context select')", 10000))
+                "!document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context select')", 10000))
             click(activity, "Add compliance / renewal")
             set(activity, "Compliance type / name", marker + " Insurance")
             set(activity, "Valid from", "2026-11-15")
