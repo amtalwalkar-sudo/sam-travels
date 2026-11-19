@@ -106,11 +106,17 @@ try {
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
   const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
-  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
-  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
+  await driverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " is configured with " + registration + " for Work." }).waitFor({ state: "visible" });
+  const configuredPair = await readBrowserRecords(page);
+  const selectedWorkDriver = configuredPair.find(row => row.id === "work:selected-driver");
+  assert.equal(selectedWorkDriver?.data?.driverId, configuredPair.find(row => row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName)?.data?.driverId,
+    "Admin must persist the canonical Work Driver selection");
+  const assignmentHistory = configuredPair.find(row => row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver?.data?.driverId ?? ""));
+  assert.ok(assignmentHistory, "Admin must persist the Driver assignment history");
+  const currentAssignments = assignmentHistory.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
+  assert.equal(currentAssignments.length, 1, "the configured Driver must have one current assignment");
+  assert.equal(currentAssignments[0].vehicleId, vehicleId, "the configured Driver must be paired with the sole active Vehicle");
   await page.getByLabel("Person name").fill(driverName);
   await page.getByLabel("Driver role").check();
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
