@@ -46,7 +46,7 @@ export class DropboxBackupClient {
     private readonly vault: CredentialVault,
     private readonly clientId: string,
     private readonly redirectUri: string,
-    private readonly fetcher: Fetcher = fetch,
+    private readonly fetcher: Fetcher = (input, init) => globalThis.fetch(input, init),
   ) {
     this.gateway = new NetworkGateway(policy);
     if (!clientId.trim() || !redirectUri.trim()) throw new Error("dropbox_oauth_configuration_required");
