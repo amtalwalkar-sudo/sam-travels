@@ -6,6 +6,7 @@ import { ComplianceService } from "../packages/application/src/compliance-servic
 
 class MemoryRepository implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
+  seed(records: Array<RecordEnvelope<unknown>>) { for (const record of records) this.rows.set(record.id, record); }
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
   async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
@@ -30,6 +31,26 @@ const second = {
 };
 
 function setup(repository = new MemoryRepository()) {
+  const at = "2026-11-19T08:00:00.000Z";
+  const row = (id: string, data: unknown): RecordEnvelope<unknown> => ({
+    id, schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1, data,
+  });
+  repository.seed([
+    row("work:selected-driver", { schemaVersion: 1, driverId: "driver-1" }),
+    row("feature:driver-records:driver:driver-1", {
+      schemaVersion: 1, driverId: "driver-1", name: "Driver", lifecycleState: "active",
+    }),
+    row(first.vehicleId, {
+      schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Make", model: "Model",
+      vehicleType: "Sedan", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned",
+      lifecycleState: "active",
+    }),
+    row("feature:driver-records:assignment:driver-1", {
+      schemaVersion: 1, driverId: "driver-1", assignments: [{
+        assignmentId: "assignment-1", vehicleId: first.vehicleId, assignedAt: at,
+      }],
+    }),
+  ]);
   const vehicles = {
     async getById(id: string) {
       return [first.vehicleId, "feature:vehicle:MH02CD5678"].includes(id) ? {
@@ -64,7 +85,24 @@ describe("ComplianceService", () => {
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174010",
       data: { ...first, vehicleId: "feature:vehicle:UNKNOWN" }, source: "web",
-    })).rejects.toThrow("compliance_vehicle_not_found");
+    })).rejects.toThrow("compliance_operating_vehicle_mismatch");
+  });
+
+  it("rejects a caller-supplied vehicle that differs from the configured operating vehicle", async () => {
+    const { service } = setup();
+    await expect(service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174011",
+      data: { ...first, vehicleId: "feature:vehicle:MH02CD5678" }, source: "web",
+    })).rejects.toThrow("compliance_operating_vehicle_mismatch");
+  });
+
+  it("fails closed when operating configuration is missing", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById() { return undefined; } };
+    const service = new ComplianceService(repository, assertComplianceRecordV1, vehicles);
+    await expect(service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174012", data: first, source: "web",
+    })).rejects.toThrow("work_driver_not_selected");
   });
 
   it("allows an early linked renewal with actual overlapping dates", async () => {
