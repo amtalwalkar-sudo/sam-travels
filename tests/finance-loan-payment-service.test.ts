@@ -70,7 +70,7 @@ describe("FinanceLoanPaymentService", () => {
     });
     expect(payment.createdAt).toBe("2026-11-19T09:30:00.000Z");
   });
-  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
+  it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
     const repo = new MemoryRepository();
     void repo.put(loanEnvelope);
     const service = new FinanceLoanPaymentService(repo,
