@@ -143,8 +143,11 @@ try {
   await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
-  const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
-  await complianceVehicle.selectOption(vehicleId);
+  const complianceContext = page.locator("#admin-section-panel-compliance .admin-vehicle-context");
+  await complianceContext.getByText(registration, { exact: false }).waitFor({ state: "visible" });
+  if (await complianceContext.locator("select").count()) {
+    throw new Error("compliance_must_not_expose_routine_vehicle_selector");
+  }
   await page.getByRole("button", { name: "Add compliance / renewal", exact: true }).click();
   await page.getByLabel("Compliance type / name").fill("Acceptance Insurance");
   await page.getByLabel("Valid from").fill(today);
@@ -153,6 +156,24 @@ try {
   await page.getByLabel("Document reference (optional)").fill("INS-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
+  const complianceVehicleMatches = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const record = rows.find(row => row.id.startsWith("feature:compliance:") &&
+      row.data?.complianceName === "Acceptance Insurance");
+    return record?.data?.vehicleId === "feature:vehicle:MH00AA0090";
+  });
+  if (!complianceVehicleMatches) throw new Error("compliance_record_did_not_persist_configured_operating_vehicle");
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Issue date").fill(today);
   await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
