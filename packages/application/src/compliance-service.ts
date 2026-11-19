@@ -1,6 +1,7 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { resolveOperatingConfiguration } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -38,6 +39,7 @@ function assertRecordId(id: string): void {
  */
 export class ComplianceService {
   private readonly records: FeatureRecordService<ComplianceRecordV1>;
+  private readonly repository: AtomicRecordRepository;
 
   constructor(
     repository: AtomicRecordRepository,
@@ -45,11 +47,17 @@ export class ComplianceService {
     private readonly vehicles: VehicleDirectory,
     now?: () => string,
   ) {
+    this.repository = repository;
     this.records = new FeatureRecordService(repository, {
       featureId: "compliance",
       recordIdPrefix: PREFIX,
       validate,
     }, now);
+  }
+
+  async getOperatingVehicleId(): Promise<string> {
+    const configuration = resolveOperatingConfiguration(await this.repository.list());
+    return configuration.vehicleId;
   }
 
   async create(input: {
@@ -58,7 +66,9 @@ export class ComplianceService {
     source: FeatureRecordSource;
     businessDate?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
-    const vehicle = await this.vehicles.getById(input.data.vehicleId);
+    const operatingVehicleId = await this.getOperatingVehicleId();
+    if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
+    const vehicle = await this.vehicles.getById(operatingVehicleId);
     if (!vehicle) throw new Error("compliance_vehicle_not_found");
     const id = recordId(input.uuid);
     if (input.data.renewedFromRecordId) {
