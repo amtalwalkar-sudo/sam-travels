@@ -80,7 +80,7 @@ describe("ComplianceService", () => {
     expect((await service.get(previous.id))?.data.validTo).toBe("2024-12-31");
   });
 
-  it("rejects records for an unknown vehicle", async () => {
+  it("rejects a non-operating vehicle before persistence", async () => {
     const { service } = setup();
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174010",
@@ -130,7 +130,7 @@ describe("ComplianceService", () => {
     });
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174003",
-      data: { ...second, vehicleId: "feature:vehicle:MH02CD5678" }, source: "web",
+      data: { ...second, complianceName: "Permit" }, source: "web",
     })).rejects.toThrow("compliance_renewal_source_mismatch");
   });
 
