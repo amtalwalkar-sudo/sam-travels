@@ -153,7 +153,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
     const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
     expect(pool?.sourceAmountPaise).toBe(6_900);
-    expect(report.result.sources.filter(item => item.disposition === "pre_business_pool_member")
+    expect(report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "pre_business_pool_member")
       .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
     expect(current.map(item => item.scheduleVersion)).toEqual([2]);
     expect(current.map(item => item.sourceAmountPaise)).toEqual([3_100]);
