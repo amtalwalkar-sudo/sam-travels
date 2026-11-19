@@ -144,7 +144,17 @@ try {
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.locator(".settings-panel").waitFor({ state: "visible" });
   await page.waitForFunction(() => !window.location.search.includes("code="));
-  await page.locator(".backup-heading .pill.good").getByText("CONNECTED").waitFor({ state: "visible" });
+  await page.waitForFunction(() => {
+    const connected = document.querySelector(".backup-heading .pill.good")?.textContent?.includes("CONNECTED");
+    const message = document.querySelector(".backup-message")?.textContent?.trim();
+    return connected || Boolean(message && !message.includes("Finishing connection"));
+  });
+  const connectionMessage = await page.locator(".backup-message").innerText();
+  assert.equal(
+    await page.locator(".backup-heading .pill.good").getByText("CONNECTED").count(),
+    1,
+    "Dropbox OAuth callback must connect successfully; panel message: " + connectionMessage,
+  );
   await page.getByRole("button", { name: "Back up now", exact: true }).click();
   await page.locator(".backup-select option").first().waitFor({ state: "attached" });
   assert.ok(uploadedBytes && uploadedBytes.length > 0, "encrypted backup bytes must be uploaded");
