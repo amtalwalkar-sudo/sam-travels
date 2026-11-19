@@ -107,25 +107,19 @@ describe("BusinessExpensesService", () => {
   });
 
 
-  it("replays a committed Admin expense entry with its original receipt and rejects changed payload reuse", async () => {
+  it("replays a committed Admin expense with its original receipt and rejects changed payload reuse", async () => {
     const { service, repository } = setup();
-    const input = {
-      uuid: "123e4567-e89b-42d3-a456-426614174098", source: "web" as const,
-      now: "2026-11-19T06:00:00.000Z",
-      operation: { operationId: "admin-expense-operation-1", payloadFingerprint: '{"amountRupees":12.5}' },
-      data: {
-        sourceKind: "platform_fee" as const, businessDate: "2026-11-19", amountPaise: 1250,
-        currencyCode: "INR" as const, effect: "charge" as const, vehicleId, reference: "trip-99",
-      },
-    };
+    const input = { uuid: "123e4567-e89b-42d3-a456-426614174098", source: "web" as const,
+      now: "2026-11-19T06:00:00.000Z", operation: { operationId: "admin-expense-operation-1", payloadFingerprint: '{"amountRupees":12.5}' },
+      data: { sourceKind: "platform_fee" as const, businessDate: "2026-11-19", amountPaise: 1250,
+        currencyCode: "INR" as const, effect: "charge" as const, vehicleId, reference: "trip-99" } };
     const first = await service.createExpenseEntry(input);
     const replay = await service.createExpenseEntry({ ...input, now: "2026-11-19T07:00:00.000Z" });
     expect(replay).toEqual(first);
     expect(first.createdAt).toBe("2026-11-19T06:00:00.000Z");
     expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
-    await expect(service.createExpenseEntry({
-      ...input, data: { ...input.data, amountPaise: 1500 },
-    })).rejects.toThrow("feature_record_operation_payload_conflict");
+    await expect(service.createExpenseEntry({ ...input, data: { ...input.data, amountPaise: 1500 } }))
+      .rejects.toThrow("feature_record_operation_payload_conflict");
     expect((await repository.list()).filter(row => row.id === first.id)).toHaveLength(1);
   });
 
