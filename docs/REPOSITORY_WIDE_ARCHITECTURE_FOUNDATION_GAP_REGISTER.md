@@ -1,3 +1,13 @@
+### 9.34 — Save/Submit lifecycle semantics
+
+**Status:** Resolved by owner clarification on 2026-11-19; the owner contract and current runtime semantics are aligned.
+
+The authoritative `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` §§4–7 defines Save and Submit as explicit business-record creation actions. Each form declares exactly one of those primary-action labels according to its workflow. Automatic in-progress preservation and draft resume are working-copy operations only; they do not create or update business records. Edit is a separate action and may update an existing record only where the owning feature permits it. Delete remains feature-policy-controlled.
+
+The current `SharedFormRuntime.save()` and `submit()` both invoke the declared business submission port and then persist distinct truthful completion statuses (`saved` or `submitted`). Admin forms declare Save; Fuel declares Submit. The earlier draft-only interpretation is superseded by the owner's clarification and must not be reintroduced.
+
+**Remaining evidence belongs to B0b / gap 9.33:** verify each registered form's declared primary action, post-save/post-submit editability and durable retry semantics. This is no longer an owner-decision blocker; do not change visible labels or runtime behaviour to implement draft-only Save.
+
 # Repository-Wide Architecture Foundation Gap Register
 
 **Status:** In-progress audit register; not an implementation completion certificate.  
@@ -516,38 +526,20 @@ The 19-entry `ALL_FORM_DEFINITIONS` inventory covers the ordinary Admin, Perform
 These workflows may legitimately need specialized UX and must not be forced into an ordinary Save/Submit form if that would weaken security or correction semantics. However, the Form Architecture Contract requires every implemented form to be discoverable through the shared registry or an equivalent authoritative contract. B0 must record a narrow exception/owner contract for each specialized flow, covering field schema, actor/role, stable operation identity, validation, interruption/retry, immutable history and supported surfaces. PWA rendered acceptance already exercises Person Identity enrollment/activation, Compliance overlap review/correction and Maintenance correction; Android acceptance exercises Person Identity and Maintenance correction. Add only missing Android Compliance correction/overlap-review acceptance where supported; preserve the existing green PWA and Maintenance correction evidence.
 
 
-### 9.33 — Shared form submission is not crash-safe after the domain commit
+### 9.33 — Shared form submission must survive commit/completion interruption
 
-**Status:** Source-confirmed high-priority B0b gap; applies to shared Admin/Performance/Fuel forms unless a handler has a separate durable idempotency mechanism.
+**Status:** Partially addressed in PR #99 B0b; durable intent and operation receipts exist, with Fuel, Vehicle and Business Expense paths now using them. Cross-adapter and remaining Admin-handler proof is still open.
 
-`SharedFormRuntime.complete()` currently validates the working copy, keeps an in-memory `submissions` Promise map for same-process duplicate taps, calls `submissionPort.submit(...)`, and only after that Promise resolves writes the working copy with `status: "submitted"`. The `FormWorkingCopy` type and repository allow `status: "pending"`, but `complete()` does not persist a pending intent before invoking the handler. Therefore a process death after the business record commits but before the working-copy status write leaves the persisted copy in `in_progress`/`saved`.
+The current branch has a durable submission protocol in `SharedFormRuntime`: it persists a pending operation before dispatch, captures the first-submit timestamp and immutable payload fingerprint, and replays the pending command after reopen. `FeatureRecordService` can atomically commit a feature record with an operation receipt; matching replays return the original record/revision and changed-payload reuse fails closed. Fuel already passed its operation identity and timestamp to `BusinessExpensesService`; Vehicle create/update also pass the operation identity. This slice now extends the same receipt boundary to Platform Fee, Miscellaneous Expense and Traffic Challan through `BusinessExpensesService.createExpenseEntry()`.
 
-On reopen, `SharedFormRuntime.open()` returns that same operationId and copy. `FeatureRecordService.create()` uses `compareAndSet(id, null, record)` and throws `feature_record_already_exists:<id>` on replay rather than returning the original result. `FeatureRecordService.update()` commits with the expected revision; a retry after the first update commit sees a stale revision rather than returning the prior result. The in-memory Promise map is lost on process death. `FormWorkingCopy.operationId` is generated once per copy and `updateField()` preserves it across subsequent edits/saves, so a new logical save is not given a fresh idempotency key. In the Fuel handler, `occurredAt` and the derived businessDate are regenerated from `new Date()` on each invocation, and the handler uses `command.instanceId` as the record UUID; an ambiguous retry can therefore conflict even when the driver has not changed any entered values.
+Added evidence includes `tests/shared-form-runtime-recovery.test.ts` for pending-before-dispatch, retry after runtime recreation, concurrent taps and payload mutation; `tests/feature-record-service.test.ts` for create/update receipt replay and changed-payload rejection; `tests/business-expenses-service.test.ts` for Fuel and Admin expense receipt replay; and `tests/shared-form-business-expense-recovery.test.ts` for a production-service Platform Fee commit followed by simulated interruption before working-copy completion and replay after reopening. `tests/business-expense-form-submission.test.ts` asserts operation ID, payload fingerprint and first-submit timestamp are forwarded by the Admin expense handlers. These are automated browser/application-level tests; they are not yet proof against the actual Dexie and Room adapters.
 
-**Required closure:** introduce a durable form submission operation protocol. Persist a stable operation identity per logical save/submit, immutable submitted-payload identity and the first-submit timestamp before dispatch. Rotate to a new operation identity only after a successful save when the user starts a new edit/save cycle. Commit create/update domain mutations plus a durable submission receipt/working-copy completion atomically where the platform store allows it; otherwise make the handler/service replay-safe through a durable idempotency ledger keyed by operationId. A replay with the same operation and payload must return the original record/receipt and original timestamp exactly once; a different payload under the same operation must fail closed. Do not weaken generic duplicate-ID protection or rely on an in-memory cache.
-
-**Required focused tests:**
-- Handler fails before domain commit; retry commits once.
-- Domain record commits but the response/working-copy completion is interrupted; simulate process death, reopen the same working copy and retry; return the same record ID, original timestamp/businessDate and receipt, with one persisted business record.
-- Two concurrent submit taps with the same operation share one durable result.
-- Same operationId with changed payload is rejected and does not mutate the original.
-- After a successful save, a subsequent edit/save gets a new operation identity; replaying the previous operation returns its prior receipt and does not apply a second mutation.
-- Update replay after the first revision commit returns the same resulting revision/receipt rather than a stale-revision error.
-- Run the same commit/restart/retry contract against browser IndexedDB and Android Room, using representative Admin and Fuel handlers. Existing Track A Driver Workflow idempotency tests and generic SharedFormRuntime active-Promise tests are not substitutes for this form-specific proof.
-
-
-### 9.34 — Save/Submit lifecycle contract conflicts with Admin form runtime
-
-**Status:** Source-confirmed owner decision required; do not resolve by silently changing labels or code.
-
-The approved `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md` Sections 4–5 define **Save** as storing an editable draft only, without submitting/finalizing the business operation, and **Submit** as performing the intended business operation. The current implementation does something different:
-- `SharedFormRuntime.save()` calls the same `complete(copy, "save")` path as Submit; that path invokes `submissionPort.submit(...)` and only then writes the working copy status as `saved`.
-- `createAdminFormRuntimeV1` routes Admin `action: "save"` to handlers that create/update authoritative business records (Finance, Compliance, Maintenance, Platform Fee, Miscellaneous Expense, Traffic Challan and Performance settings).
-- `shared-form-runtime.test.ts` currently codifies Save calling the submission handler, so the tests reflect implementation, not the written owner contract.
-- Fuel uses `action: "submit"` and creates a Fuel purchase, which matches the written distinction.
-
-**Required closure:** the owner must ratify one of two coherent models: (A) preserve Save=draft-only and Submit=business operation, then change the affected form definitions, visible primary labels, runtime action routing and tests; or (B) explicitly amend the owner contract to permit Save-as-business-record for named forms, with the resulting lifecycle state and editing policy declared per form. Do not assume all Admin forms share one exception. Once ratified, add tests proving draft Save never creates a business record, Submit does, and each form's post-save/post-submit editing policy is enforced.
-
+**Remaining closure:**
+- Prove the same commit → process death → reopen → retry path using actual Dexie and Room working-copy/repository adapters, with representative Admin create, Admin update and Fuel.
+- Add a form-runtime test that a successful Save followed by a new edit/save rotates the operation identity and that replaying the prior operation cannot apply a second mutation.
+- Exercise the real Admin update handler through a commit-before-completion interruption; generic FeatureRecordService update receipt tests alone are not enough.
+- Audit every Admin/Performance handler and pass the operation identity and first-submit timestamp to each operation-aware feature service. Where a domain operation cannot use the generic receipt, add an equivalent durable ledger at its owning command boundary.
+- Keep same-operation concurrent calls, changed-payload rejection, stable record ID/timestamp/businessDate, original update revision, and no-duplicate business effects asserted. Do not weaken duplicate-ID or stale-revision protections.
 
 ### 9.35 — Dependency vulnerability report is present but unclassified
 
