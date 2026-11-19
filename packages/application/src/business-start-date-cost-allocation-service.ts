@@ -1,5 +1,6 @@
 import {
   allocateComplianceCostV1,
+  allocatePreBusinessCostPoolV1,
   allocateScheduledEmisV1,
   buildBusinessStartDateAllocationResultV1,
   type BusinessStartDateAllocationResultV1,
@@ -234,7 +235,8 @@ export class BusinessStartDateCostAllocationService {
     }
 
     const generatedAt = this.now();
-    const result = buildBusinessStartDateAllocationResultV1(businessStartDate, sources);
+    const pooledSources = allocatePreBusinessCostPoolV1(businessStartDate, sources);
+    const result = buildBusinessStartDateAllocationResultV1(businessStartDate, pooledSources);
     const provenance = await this.retainProvenance(
       businessStartDate, settings.revision, result, generatedAt, sourceCorrectionRefs,
     );
