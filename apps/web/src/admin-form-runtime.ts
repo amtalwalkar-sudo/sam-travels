@@ -1,5 +1,5 @@
 import {
-  SharedFormRuntime, RecordFormWorkingCopyRepository,
+  SharedFormRuntime, RecordFormWorkingCopyRepository,\n  type FormWorkingCopyRepository,
   getApplicationBusinessSettingsService, getApplicationComplianceService,
   getApplicationMaintenanceService, getApplicationFinanceLoanService, getApplicationFinanceLoanPaymentService,
   getApplicationFinanceLoanPrepaymentService, getApplicationFinanceLoanSettlementService,
@@ -26,7 +26,7 @@ export function createAdminFormRuntimeV1(dependencies: Readonly<{
 }>): SharedFormRuntime {
   const { repository, recordSource, performanceAdminSettings, handleBusinessExpenseSubmission } = dependencies;
   return new SharedFormRuntime(
-    new RecordFormWorkingCopyRepository(repository, recordSource),
+    dependencies.workingCopyRepository ?? new RecordFormWorkingCopyRepository(repository, recordSource),
     {
       submit: async (command) => {
         const expenseResult = await handleBusinessExpenseSubmission(command);
