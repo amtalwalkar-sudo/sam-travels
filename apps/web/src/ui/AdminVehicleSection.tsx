@@ -106,6 +106,12 @@ export function VehicleSection() {
       await updateQueue.current;
       const current = copyRef.current;
       if (!current) throw new Error("vehicle_form_not_ready");
+      if (form.lifecycleState === "active") {
+        const existing = await services.vehicles.list();
+        if (existing.some(row => row.data.lifecycleState === "active" && row.id !== editing?.id)) {
+          throw new Error("operating_vehicle_already_configured");
+        }
+      }
       await services.formRuntime.save(VEHICLE_FORM_V1, current);
       closeForm();
       setMessage(editing ? "Vehicle details updated." : "Vehicle record created.");
