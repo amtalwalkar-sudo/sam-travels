@@ -77,7 +77,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             }.singleOrNull()
             assertTrue("Admin Vehicle create has a durable Room operation receipt", createReceipt != null)
 
-            db.close()
 
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
@@ -98,6 +97,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                     data.optString("lifecycleState") == "active"
             }
             assertEquals("Admin acceptance configures one active driver", 1, configuredDriverRows.size)
+            db.close()
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance vehicle selector", await(activity, "document.querySelectorAll('#admin-section-panel-compliance select').length>0", 10000))
             eval(activity, """(()=>{const s=document.querySelector('#admin-section-panel-compliance select');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
