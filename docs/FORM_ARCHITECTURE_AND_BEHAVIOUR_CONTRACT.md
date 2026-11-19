@@ -74,10 +74,11 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 
 ## 6. In-progress preservation, drafts, and editing
 
-- If the driver leaves a partially completed form, the entered information must remain available when that same form is reopened.
-- In-progress preservation is a recovery/working-copy capability, not an implicit explicit Save action. It must not show a Saved-success message or create a submitted/finalized business record.
+- In-progress preservation is automatic; the driver is not required to press a separate draft-save button. As fields change, the working copy is retained without interrupting data entry.
+- If the driver leaves a partially completed form without pressing Save or Submit—including navigating to another page, switching to another app, backgrounding or closing the app—the entered information must remain available when that same form is reopened. The driver must not have to re-enter it.
+- In-progress preservation is a recovery/working-copy capability, not an implicit Save or Submit action. It must not show a Saved/Submitted-success message or create/update an authoritative business record.
 - The form must restore the correct working copy for the correct form instance/business record. It must not mix values between different forms, records, or drivers.
-- Retained working copies must survive supported interruptions, including navigation, app backgrounding, process termination, app restart, and recovery, subject to the shared persistence/recovery contract. Never silently discard entered information.
+- Retained working copies must survive supported interruptions, including navigation, switching apps, app backgrounding, process termination, app closure, phone restart and recovery, subject to platform persistence guarantees and the shared persistence/recovery contract. Phone-restart recovery must be tested on supported surfaces; if a platform limitation prevents it, document that limitation rather than implying support. Never silently discard entered information.
 - An explicit Save creates a business record; it does not create a draft. A later change to that record uses the explicit Edit action.
 - A form's definition must distinguish the retained in-progress working copy from a business record created by Save or Submit.
 - If a form can be opened from more than one surface, both surfaces must resolve to the same authoritative form instance and revision.
