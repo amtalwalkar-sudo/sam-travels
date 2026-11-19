@@ -112,16 +112,44 @@ try {
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
   const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
-  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
-  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
-  console.log("Driver create, Work selection, vehicle assignment and unassignment commands passed.");
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.getByText("Operating configuration is incomplete.", { exact: false }).waitFor({ state: "visible" });
+  if (!await page.getByRole("button", { name: "Start shift", exact: true }).isDisabled()) {
+    throw new Error("shift_start_must_fail_closed_without_operating_configuration");
+  }
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("button", { name: "Driver", exact: true }).click();
+  const configuredDriverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await configuredDriverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " is configured with " + registration + " for Work." }).waitFor({ state: "visible" });
+  const operatingConfiguration = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return rows.find(row => row.id === "work:selected-driver")?.data;
+  });
+  if (operatingConfiguration?.driverId !== "configured-driver") {
+    const selectedDriver = await page.evaluate(async () => {
+      const request = indexedDB.open("sam-travels-browser");
+      const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+      const rows = await new Promise((resolve, reject) => { const tx=db.transaction("records","readonly"); const get=tx.objectStore("records").getAll(); get.onsuccess=()=>resolve(get.result); get.onerror=()=>reject(get.error); });
+      db.close(); return rows.find(row=>row.id==="work:selected-driver")?.data?.driverId;
+    });
+    if (typeof selectedDriver !== "string" || !selectedDriver) throw new Error("authoritative_work_driver_selection_not_persisted");
+  }
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
+  if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
+  console.log("Single active Driver/Vehicle setup, authoritative Work selection and selector-free Work rendering passed.");
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
