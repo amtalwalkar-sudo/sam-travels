@@ -49,4 +49,41 @@ class LocalDatabaseTest {
    } finally { db.close() }
   } finally { context.deleteDatabase(name) }
  }
+
+ @Test fun formOperationReceiptAndBusinessRecordCommitAtomicallyAcrossReopen() = runBlocking {
+  val context=ApplicationProvider.getApplicationContext<Context>()
+  val name="form-operation-receipt-test.db"
+  context.deleteDatabase(name)
+  fun envelope(id:String,revision:Int,data:JSONObject)=JSONObject()
+   .put("id",id).put("schemaVersion",1)
+   .put("createdAt","2026-11-19T04:00:00.000Z")
+   .put("updatedAt","2026-11-19T04:00:00.000Z")
+   .put("source","android").put("revision",revision).put("data",data)
+  val businessId="feature:vehicle:FORM-RECEIPT-TEST"
+  val receiptId="__sam_travels_feature_operation__:form-room-operation"
+  val business=envelope(businessId,1,JSONObject().put("registrationNumber","FORM-RECEIPT-TEST").put("make","Test"))
+  val receiptData=JSONObject()
+   .put("schemaVersion",1).put("kind","feature_record_operation_receipt")
+   .put("operationId","form-room-operation").put("payloadFingerprint","canonical-form-payload")
+   .put("action","create").put("targetRecordId",businessId).put("result",business)
+  val receipt=envelope(receiptId,1,receiptData)
+  try {
+   var db=Room.databaseBuilder(context,LocalDatabase::class.java,name).build()
+   try {
+    assertTrue(commitFeatureUpgradeBatch(db,JSONArray().put(business).put(receipt),JSONArray(),
+     JSONObject().put(businessId,-1).put(receiptId,-1)))
+   } finally { db.close() }
+   db=Room.databaseBuilder(context,LocalDatabase::class.java,name).build()
+   try {
+    assertEquals(1,JSONObject(db.records().get(businessId)!!.json).getInt("revision"))
+    val storedReceipt=JSONObject(db.records().get(receiptId)!!.json).getJSONObject("data")
+    assertEquals("canonical-form-payload",storedReceipt.getString("payloadFingerprint"))
+    assertEquals(businessId,storedReceipt.getString("targetRecordId"))
+    assertFalse(commitFeatureUpgradeBatch(db,JSONArray().put(business).put(receipt),JSONArray(),
+     JSONObject().put(businessId,-1).put(receiptId,-1)))
+    assertEquals(1,JSONObject(db.records().get(businessId)!!.json).getInt("revision"))
+   } finally { db.close() }
+  } finally { context.deleteDatabase(name) }
+ }
+
 }
