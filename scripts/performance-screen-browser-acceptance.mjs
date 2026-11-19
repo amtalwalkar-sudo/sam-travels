@@ -66,7 +66,11 @@ try {
   }
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext({
+    permissions: ["geolocation"],
+    geolocation: { latitude: 19.076, longitude: 72.8777 },
+  });
+  const page = await context.newPage();
   page.on("pageerror", error => console.log("Browser page error:", error.message));
   page.on("console", message => { if (message.type() === "error") console.log("Browser console error:", message.text()); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -101,6 +105,92 @@ try {
   await page.getByText("MH00PS0093", { exact: true }).waitFor();
   console.log("Single active vehicle configured for the Performance distance projection.");
 
+  // Build a real Driver identity/profile/assignment and use the rendered Work
+  // controls to commit trip events and Fare. No trip or submitted financial
+  // record is injected into IndexedDB by this acceptance path.
+  const driverName = "Performance Acceptance Driver";
+  await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
+  await page.getByRole("button", { name: "Add driver", exact: true }).click();
+  await page.getByLabel("Driver name").fill(driverName);
+  await page.getByRole("button", { name: "Save driver", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor();
+  await page.getByLabel("Vehicle for " + driverName).selectOption({ label: /MH00PS0093/ });
+  await page.getByRole("button", { name: "Assign / reassign", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor();
+  await page.getByRole("button", { name: "Select for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor();
+
+  // Refresh the identity panel so it discovers the newly-created Driver profile.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+  await page.getByLabel("Person name").fill("Performance Acceptance Driver Person");
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
+  await page.getByLabel("Link " + driverName + " to person")
+    .selectOption({ label: "Performance Acceptance Driver Person" });
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Drive", exact: true }).click();
+  await page.getByLabel("Work Driver").selectOption({ label: driverName });
+  await page.locator(".driver-message").filter({ hasText: "Work Driver selected" }).waitFor();
+  await page.getByLabel("Shift-start odometer (km)").fill("1000");
+  await page.getByRole("button", { name: "Start shift", exact: true }).click();
+  await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
+
+  async function completeSwipe(label, nextState) {
+    await page.locator('input[type="range"][aria-label="Swipe to ' + label + '"]').press("End");
+    await page.getByRole("heading", { name: nextState, exact: true }).waitFor({ timeout: 30000 });
+  }
+  await completeSwipe("Going to pickup", "Going To Pickup");
+  await completeSwipe("Start trip", "Trip Active");
+  await completeSwipe("End trip", "Shift Active");
+  await page.getByText("Fare and trip financials required", { exact: true }).waitFor();
+
+  await page.getByLabel("Fare in rupees").fill("2520.00");
+  await page.getByText("Add Toll (optional)", { exact: true }).click();
+  await page.getByLabel("Toll in rupees").fill("320.00");
+  await page.getByLabel("Toll paid by").selectOption("driver");
+  await page.getByText("Add Parking (optional)", { exact: true }).click();
+  await page.getByLabel("Parking in rupees").fill("250.00");
+  await page.getByLabel("Parking paid by").selectOption("driver");
+  await page.getByRole("button", { name: "Submit trip financials", exact: true }).click();
+  await page.locator(".driver-message").filter({ hasText: "Fare and trip financials submitted" }).waitFor({ timeout: 30000 });
+
+  const committedTripFinancials = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const transaction = db.transaction("records", "readonly");
+      const read = transaction.objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    const row = rows.find(item => item.data?.kind === "completed_ride_financials" &&
+      item.data.status === "submitted" && item.data.farePaise === 252000);
+    return row ? { id: row.id, revision: row.revision, data: row.data } : null;
+  });
+  if (!committedTripFinancials || committedTripFinancials.revision !== 2 ||
+      committedTripFinancials.data.tollPaise !== 32000 ||
+      committedTripFinancials.data.tollPayer !== "driver" ||
+      committedTripFinancials.data.parkingPaise !== 25000 ||
+      committedTripFinancials.data.parkingPayer !== "driver" ||
+      committedTripFinancials.data.tripContext?.vehicleId !== "feature:vehicle:MH00PS0093" ||
+      committedTripFinancials.data.tripContext?.operationalDate !== today) {
+    throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record:" +
+      JSON.stringify(committedTripFinancials));
+  }
+  console.log("Rendered Work swipe actions committed End Ride, required Fare, driver-paid Toll/Parking, and immutable trip context to IndexedDB revision 2.");
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  const adminSections = page.getByRole("navigation", { name: "Admin sections" });
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
@@ -140,17 +230,6 @@ try {
           totalBusinessKm: 42, unallocatedBusinessKm: 0,
           entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
             businessKm: 42, personalKm: 7 }],
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-fare",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-fare",
-          kind: "completed_ride_financials", status: "submitted",
-          endRideEventId: "performance-screen-fare-end", createdAt,
-          tripContext, farePaise: 120000,
         },
       },
       {
@@ -203,12 +282,18 @@ try {
   }
 
   const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
-  if (!(await periodRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  if (!(await periodRevenue.innerText()).includes("₹2,570.00")) {
+    throw new Error("rendered_work_fare_and_cancellation_fee_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
-  if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_revenue_missing_from_lifetime_position");
+  if (!(await lifetimeRevenue.innerText()).includes("₹2,570.00")) {
+    throw new Error("rendered_work_fare_missing_from_lifetime_position");
+  }
+  const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
+  const eligibleCostText = await eligibleCostsCard.innerText();
+  const eligibleCostRupees = Number((eligibleCostText.match(/₹([\\d,]+\\.\\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
+  if (eligibleCostRupees < 570) {
+    throw new Error("driver_paid_toll_and_parking_not_reflected_in_full_performance_calculation:" + eligibleCostText);
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();
