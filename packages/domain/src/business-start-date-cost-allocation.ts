@@ -4,8 +4,8 @@
  * Source dates and amounts are never mutated. Daily integer-paise rows are
  * canonical; month/year summaries are derived only by summing those rows.
  */
-export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_ID = "business-start-date-cost-allocation.v1" as const;
-export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_VERSION = 1 as const;
+export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_ID = "business-start-date-cost-allocation.v2" as const;
+export const BUSINESS_START_DATE_ALLOCATION_CALCULATION_VERSION = 2 as const;
 
 export type DailyCostAllocationV1 = Readonly<{
   date: string;
