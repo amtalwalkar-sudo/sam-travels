@@ -16,7 +16,15 @@ export class WorkDriverSelectionService {
   const driver=await this.records.get<{schemaVersion:number;driverId:string;name:string;lifecycleState:string}>(driverRecordId(driverId));
   if(!driver||driver.data.schemaVersion!==1||driver.data.driverId!==driverId||!driver.data.name.trim()||driver.data.lifecycleState!=="active")throw new Error("driver_not_active");
   const current=await this.records.get<WorkSelectedDriverV1>(WORK_SELECTED_DRIVER_RECORD_ID);
-  if(current){assertWorkSelectedDriverV1(current.data);if(current.data.lockedShiftId)throw new Error("work_driver_selection_locked_during_shift");if(current.data.driverId===driverId)return current.data;}
+  if(current){
+   const rawData:unknown=current.data;
+   const lockedShiftId=rawData&&typeof rawData==="object"&&"lockedShiftId" in rawData
+    ? (rawData as {lockedShiftId?:unknown}).lockedShiftId : undefined;
+   if(lockedShiftId!==undefined&&lockedShiftId!==null)throw new Error("work_driver_selection_locked_during_shift");
+   let validCurrent=false;
+   try{assertWorkSelectedDriverV1(current.data);validCurrent=true;}catch{/* Explicit Admin setup may replace an invalid, unlocked selection. */}
+   if(validCurrent&&current.data.driverId===driverId)return current.data;
+  }
   const data:WorkSelectedDriverV1={schemaVersion:1,driverId},now=this.now();
   const next:RecordEnvelope<WorkSelectedDriverV1>=current?{...current,updatedAt:now,revision:current.revision+1,data}:
    {id:WORK_SELECTED_DRIVER_RECORD_ID,schemaVersion:1,createdAt:now,updatedAt:now,source,revision:1,data};
