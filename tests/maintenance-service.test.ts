@@ -132,14 +132,21 @@ describe("MaintenanceService", () => {
     });
 
     const commandId = "123e4567-e89b-42d3-a456-426614174020";
+    const rateOperation = { operationId: "maintenance-rate-operation", payloadFingerprint: "maintenance-rate-300" };
     const first = await service.setRate({
       vehicleId, ratePaisePerKm: 300, commandId, source: "web",
+      operation: rateOperation, now: "2026-11-19T08:00:00.000Z",
     });
     expect(first.revision).toBe(1);
     expect(first.data.entries).toHaveLength(2);
     const duplicate = await service.setRate({
       vehicleId, ratePaisePerKm: 300, commandId, source: "web",
+      operation: rateOperation, now: "2026-11-19T09:00:00.000Z",
     });
+    expect(duplicate).toEqual(first);
+    expect((await repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:"),
+    )).toHaveLength(1);
     expect(duplicate.revision).toBe(1);
     expect(duplicate.data.entries).toHaveLength(2);
     await expect(service.setRate({
