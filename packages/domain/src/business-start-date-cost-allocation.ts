@@ -240,7 +240,7 @@ export function allocatePreBusinessCostPoolV1(
     const shares = numerators.map(value => remainingTotal === 0 ? 0 : Number(value / denominator));
     const fractions = numerators.map(value => remainingTotal === 0 ? 0n : value % denominator);
     let residual = aggregateRow.amountPaise - shares.reduce((sum, value) => sum + value, 0);
-    const order = members.map((member, index) => index).sort((left, right) =>
+    const order = members.map((_, index) => index).sort((left, right) =>
       fractions[left] === fractions[right]
         ? members[left].sourceId.localeCompare(members[right].sourceId)
         : fractions[left] > fractions[right] ? -1 : 1);
