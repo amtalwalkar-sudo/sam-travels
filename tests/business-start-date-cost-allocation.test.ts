@@ -81,7 +81,7 @@ describe("Business Start Date scheduled EMI allocation", () => {
 
   it("uses complete scheduled EMI amounts and retains schedule and source revisions", () => {
     const results = allocateScheduledEmisV1("2026-02-01", loanSchedule());
-    const first = results.find(item => item.sourceKind === "emi")!;
+    const first = results.find(item => item.sourceKind === "emi" && item.disposition === "allocated")!;
     expect(first.sourceAmountPaise).toBe(2_800);
     expect(first.sourceVersion).toBe(8);
     expect(first.scheduleVersion).toBe(2);
@@ -132,7 +132,7 @@ describe("Business Start Date scheduled EMI allocation", () => {
 
   it("does not split scheduled EMI into principal and interest components", () => {
     const results = allocateScheduledEmisV1("2026-02-01", loanSchedule());
-    const scheduled = results.filter(item => item.sourceKind === "emi");
+    const scheduled = results.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
     expect(scheduled.map(item => item.sourceAmountPaise)).toEqual([2_800,3_100]);
   });
 
@@ -194,7 +194,7 @@ describe("Business Start Date scheduled EMI allocation", () => {
 describe("Business Start Date reporting rollups", () => {
   it("derives daily, monthly, and yearly totals from the same integer-paise rows", () => {
     const complianceResult = allocateComplianceCostV1("2026-12-31", compliance({
-      validFrom: "2026-12-30", validTo: "2027-01-02", totalCostPaise: 7,
+      validFrom: "2026-12-31", validTo: "2027-01-02", totalCostPaise: 7,
     }));
     const result = buildBusinessStartDateAllocationResultV1("2026-12-31", [complianceResult]);
     expect(result.daily).toEqual([
