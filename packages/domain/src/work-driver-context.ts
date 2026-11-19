@@ -70,8 +70,11 @@ export function resolveOperatingConfiguration(
   const activeDrivers: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
   for (const record of records.filter(item => item.id.startsWith(DRIVER_PREFIX))) {
     const data = dataOf(record);
+    if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive") throw new Error("operating_driver_invalid");
     if (data.lifecycleState === "active") {
-      if (record.id !== driverRecordId(String(data.driverId)) || data.schemaVersion !== 1 ||
+      let expectedId = "";
+      try { expectedId = driverRecordId(String(data.driverId)); } catch { throw new Error("operating_driver_invalid"); }
+      if (record.id !== expectedId || data.schemaVersion !== 1 ||
           typeof data.name !== "string" || !data.name.trim()) throw new Error("operating_driver_invalid");
       activeDrivers.push({ record, data });
     }
@@ -85,6 +88,7 @@ export function resolveOperatingConfiguration(
   const activeVehicles: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
   for (const record of records.filter(item => item.id.startsWith(VEHICLE_PREFIX))) {
     const data = dataOf(record);
+    if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive" && data.lifecycleState !== "sold") throw new Error("operating_vehicle_invalid");
     if (data.lifecycleState === "active") {
       const expectedKeys = ["fuelType", "lifecycleState", "make", "model", "ownership", "registrationNumber", "schemaVersion", "vehicleType", "yearOfManufacture"];
       let registration = "";
