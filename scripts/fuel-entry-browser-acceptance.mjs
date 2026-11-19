@@ -149,12 +149,45 @@ try {
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
   assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
+  const firstFormState = await panel.locator("form").evaluate(form => ({
+    valid: form.checkValidity(),
+    invalid: [...form.querySelectorAll(":invalid")].map(control => ({
+      label: control.closest("label")?.textContent?.trim(),
+      value: control.value,
+      validationMessage: control.validationMessage,
+    })),
+  }));
+  assert.equal(firstFormState.valid, true, "Fuel form must be valid before submit: " + JSON.stringify(firstFormState));
+  await page.waitForFunction(async expected => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows.some(row => row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
+      row.data?.values?.vehicleId === expected.vehicleId &&
+      row.data?.values?.odometerKm === 12345 &&
+      row.data?.values?.priceRupeesPerKg === 82.5 &&
+      row.data?.values?.amountRupees === 825);
+  }, { vehicleId }, { timeout: 10000 });
+  let firstSubmitEvent = false;
+  await panel.locator("form").evaluate(form => form.addEventListener("submit", () => {
+    window.__fuelFirstSubmitObserved = true;
+  }, { once: true }));
   await panel.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await page.waitForFunction(() => {
     const panel = document.querySelector(".fuel-entry-panel");
     const status = panel?.querySelector('[role="status"]');
-    return Boolean(status?.textContent?.trim());
+    return Boolean(status?.textContent?.trim()) || window.__fuelFirstSubmitObserved === true;
   }, undefined, { timeout: 30000 });
+  firstSubmitEvent = await page.evaluate(() => window.__fuelFirstSubmitObserved === true);
+  assert.equal(firstSubmitEvent, true, "Fuel submit button must dispatch the form submit event");
   const firstSubmitStatus = (await panel.getByRole("status").textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
   let committedRows = await readBrowserRecords(page);
