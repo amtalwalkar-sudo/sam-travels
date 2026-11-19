@@ -129,12 +129,15 @@ try {
   await page.getByLabel("Person name").fill("Performance Acceptance Driver Person");
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
-  await page.getByLabel("Link " + driverName + " to person")
-    .selectOption({ label: "Performance Acceptance Driver Person" });
+  const driverPersonLink = page.getByLabel("Link " + driverName + " to person");
+  await driverPersonLink.locator("option").filter({ hasText: "Performance Acceptance Driver Person" }).waitFor();
+  await driverPersonLink.selectOption({ label: "Performance Acceptance Driver Person" });
 
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Drive", exact: true }).click();
-  await page.getByLabel("Work Driver").selectOption({ label: driverName });
+  const workDriver = page.getByLabel("Work Driver");
+  await workDriver.locator("option").filter({ hasText: driverName }).waitFor();
+  await workDriver.selectOption({ label: driverName });
   await page.locator(".driver-message").filter({ hasText: "Work Driver selected" }).waitFor();
   await page.getByLabel("Shift-start odometer (km)").fill("1000");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
