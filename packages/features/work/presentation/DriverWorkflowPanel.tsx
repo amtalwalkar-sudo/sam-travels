@@ -21,8 +21,7 @@ export type DriverWorkflowWorkspace = Readonly<{
   driverBusy: boolean;
   driverMessage: string;
   shiftOn: boolean;
-  driverChoices: ReadonlyArray<{ driverId: string; name: string }>;
-  selectedDriverId: string;
+  hasWorkDriverSelection: boolean;
   pendingCancellationFees: ReadonlyArray<{ id: string; data: { tripId: string } }>;
   cancellationFeeDrafts: Readonly<Record<string, string>>;
   cancellationFeeBusy: boolean;
@@ -37,7 +36,6 @@ export type DriverWorkflowWorkspace = Readonly<{
   actions: Readonly<{
     retry: (eventId: string) => Promise<void>;
     dispatch: (eventType: DriverTransitionCommand["eventType"], odometerKm?: number) => Promise<void>;
-    selectDriver: (driverId: string) => Promise<void>;
     updateCancellationFeeDraft: (tripId: string, value: string) => Promise<void>;
     submitCancellationFee: (tripId: string) => Promise<void>;
     updateCompletedTripFinancialDraft: (tripId: string, field: "fare" | "toll" | "tollPayer" | "parking" | "parkingPayer", raw: string) => Promise<void>;
@@ -60,11 +58,11 @@ export function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
   }, [workspace.driver?.state, workspace.driver?.lastConfirmedOdometerKm, workspace.driver?.shiftStartOdometerKm]);
   const {
     driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy,
-    driverMessage, shiftOn, driverChoices, selectedDriverId,
+    driverMessage, shiftOn, hasWorkDriverSelection,
     pendingCancellationFees, cancellationFeeDrafts, cancellationFeeBusy,
     pendingCompletedTripFinancials, completedTripFinancialDrafts, completedTripFinancialBusy, completedTripFinancialSummaries,
   } = workspace;
-  const { retry, dispatch, selectDriver, updateCancellationFeeDraft, submitCancellationFee,
+  const { retry, dispatch, updateCancellationFeeDraft, submitCancellationFee,
     updateCompletedTripFinancialDraft, submitCompletedTripFinancials } = workspace.actions;
   const swipeAction = getDriverSwipeAction(driver?.state);
 
@@ -78,12 +76,7 @@ export function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
           <small>LATEST CONFIRMED ODOMETER</small>
           <strong>{driver?.lastConfirmedOdometerKm === undefined ? "Not available yet" : driver.lastConfirmedOdometerKm.toLocaleString("en-IN") + " km"}</strong>
         </div>
-        {!shiftOn && <label className="driver-selection">Work Driver
-          <select value={selectedDriverId} onChange={(event) => void selectDriver(event.target.value)} disabled={driverBusy}>
-            <option value="">Select an active Driver</option>
-            {driverChoices.map((choice) => <option key={choice.driverId} value={choice.driverId}>{choice.name}</option>)}
-          </select>
-        </label>}
+        {!shiftOn && !hasWorkDriverSelection && <p className="driver-note" role="alert">Operating configuration is incomplete. Configure the single active Driver and Vehicle in Admin before starting a shift.</p>}
         <div className="driver-actions driver-actions-stateful">
           {!shiftOn && <>
             <label className="driver-selection">Shift-start odometer (km)
@@ -94,7 +87,7 @@ export function DriverWorkflowPanel({ workspace }: DriverWorkflowPanelProps) {
             {driver?.lastConfirmedOdometerKm !== undefined && shiftStartOdometer !== "" &&
               <small className="driver-note">Personal kilometres: {Math.max(0, Number(shiftStartOdometer) - driver.lastConfirmedOdometerKm)} km</small>}
             {driver?.lastConfirmedOdometerKm === undefined && <small className="driver-note">First shift: personal kilometres are not available.</small>}
-            <button className="primary-action" disabled={!driver || !selectedDriverId || driverBusy || pendingBlocksWorkflow ||
+            <button className="primary-action" disabled={!driver || !hasWorkDriverSelection || driverBusy || pendingBlocksWorkflow ||
               (shiftStartOdometer === "" && driver?.lastConfirmedOdometerKm === undefined) ||
               !Number.isSafeInteger(Number(shiftStartOdometer || driver?.lastConfirmedOdometerKm)) ||
               Number(shiftStartOdometer || driver?.lastConfirmedOdometerKm) < (driver?.lastConfirmedOdometerKm ?? 0)}
