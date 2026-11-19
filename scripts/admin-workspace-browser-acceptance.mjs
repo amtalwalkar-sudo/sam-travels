@@ -23,7 +23,7 @@ try {
   const sections = [
     { id: "business-setup", label: "Business setup", marker: "Business-wide settings are owned by Business Settings" },
     { id: "vehicle", label: "Vehicle", marker: "Vehicle owns canonical registration identity and lifecycle" },
-    { id: "driver", label: "Driver", marker: "Driver profiles are separate from trip operations" },
+    { id: "driver", label: "Driver", marker: "Configure one active Driver with the single active Vehicle" },
     { id: "compliance", label: "Compliance", marker: "Expiry warning is 15 calendar days" },
     { id: "finance", label: "Finance", marker: "Platform Fees" },
     { id: "maintenance", label: "Maintenance", marker: "Record actual service visits and itemised costs" },
