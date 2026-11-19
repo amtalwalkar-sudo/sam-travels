@@ -24,7 +24,8 @@ export function DriverSection() {
   const [message, setMessage] = useState("");
   const refresh = useCallback(async () => {
     try {
-      const [d,v,selected] = await Promise.all([services.driverRecords.list(), services.vehicles.list(), services.workDriverSelection.getSelectedDriver()]);
+      const [d,v] = await Promise.all([services.driverRecords.list(), services.vehicles.list()]);
+      const selected = await services.workDriverSelection.getSelectedDriver().catch(() => undefined);
       const hs = await Promise.all(d.map(async x => [x.data.driverId, await services.driverAssignments.getHistory(x.data.driverId)] as const));
       setDrivers(d); setVehicles(v); setHistories(Object.fromEntries(hs)); setSelectedWorkDriverId(selected?.driverId ?? "");
     } catch (e) { setMessage(e instanceof Error ? e.message : "Could not load drivers."); }
@@ -100,16 +101,13 @@ export function DriverSection() {
     setBusy(true); setMessage("");
     try {
       if ((await workRuntime.snapshot()).state !== "idle") throw new Error("operating_configuration_locked_during_shift");
-      const [allDrivers, allVehicles, selected] = await Promise.all([
-        services.driverRecords.list(), services.vehicles.list(), services.workDriverSelection.getSelectedDriver(),
-      ]);
+      const [allDrivers, allVehicles] = await Promise.all([services.driverRecords.list(), services.vehicles.list()]);
       const activeDrivers = allDrivers.filter(row => row.data.lifecycleState === "active");
       const activeVehicles = allVehicles.filter(row => row.data.lifecycleState === "active");
       if (activeDrivers.length !== 1 || activeDrivers[0].data.driverId !== driver.data.driverId) {
         throw new Error("operating_driver_missing_or_ambiguous");
       }
       if (activeVehicles.length !== 1) throw new Error("operating_vehicle_missing_or_ambiguous");
-      if (selected?.lockedShiftId) throw new Error("work_driver_selection_locked_during_shift");
       const vehicle = activeVehicles[0];
       const configuredAt = new Date().toISOString();
       const histories = await services.driverAssignments.list();
