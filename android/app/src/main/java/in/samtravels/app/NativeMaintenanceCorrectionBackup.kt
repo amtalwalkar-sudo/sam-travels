@@ -33,8 +33,7 @@ internal object NativeMaintenanceCorrectionBackup {
                 require(headsByTarget.put(targetId, row to envelope) == null) {
                     "maintenance_correction_chain_head_duplicate"
                 }
-            } else if ((id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID) ||
-                targetId.startsWith(EXPENSE_PREFIX)) {
+            } else if (id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID) {
                 require(id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID &&
                     targetId.startsWith(EXPENSE_PREFIX)) {
                     "maintenance_correction_identity_invalid"
