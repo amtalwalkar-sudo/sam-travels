@@ -329,15 +329,21 @@ describe("shared form runtime", () => {
     const copies = new MemoryCopies();
     let calls = 0;
     let release!: (value: unknown) => void;
+    let markStarted!: () => void;
+    const started = new Promise<void>(resolve => { markStarted = resolve; });
     const runtime = new SharedFormRuntime(copies, {
-      submit: async () => { calls += 1; return new Promise(resolve => { release = resolve; }); },
+      submit: async () => {
+        calls += 1;
+        markStarted();
+        return new Promise(resolve => { release = resolve; });
+      },
     }, () => "2026-11-10T09:00:00.000Z", () => "concurrent-operation");
     let copy = await runtime.open(definition, "trip-concurrent");
     copy = await runtime.update(definition, copy, "farePaise", 2500);
     copy = await runtime.update(definition, copy, "tripDate", "2026-11-10");
     const first = runtime.submit(definition, copy);
     const second = runtime.submit(definition, copy);
-    await Promise.resolve();
+    await started;
     expect(calls).toBe(1);
     release({ recordId: "same-record" });
     await expect(Promise.all([first, second])).resolves.toEqual([
