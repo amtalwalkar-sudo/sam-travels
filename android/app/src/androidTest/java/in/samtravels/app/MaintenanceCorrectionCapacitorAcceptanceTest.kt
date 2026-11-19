@@ -16,343 +16,343 @@ import java.util.UUID
 class MaintenanceCorrectionCapacitorAcceptanceTest {
   @Test
   fun adminMaintenanceCorrectionUsesLiveCapacitorRepositoryAndPreservesOriginal() {
-    val instrumentation = InstrumentationRegistry.getInstrumentation()
-    val app = instrumentation.targetContext.applicationContext
-    val database = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
-      .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
-      .enableMultiInstanceInvalidation()
-      .allowMainThreadQueries()
-      .build()
-    val suffix = UUID.randomUUID().toString()
-    val previousSelectedDriver = database.records().get("work:selected-driver")
-    val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
-    val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
-    val previousMaintenanceRecords = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
-    val vehicleId = "feature:vehicle:MH01AB1234"
-    val expenseId = "feature:maintenance:expense:$suffix"
-    val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
-    val correctionPrefix = "historical-correction:"
-    val now = Instant.now().toString()
-    val vehicle = maintenanceEnvelope(vehicleId, now, JSONObject()
-      .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
-      .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
-      .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
-      .put("ownership", "Owned").put("lifecycleState", "active"))
-    val otherExpenseId = expenseId.dropLast(36) + UUID.randomUUID()
-    val expense = maintenanceEnvelope(expenseId, now, JSONObject()
-      .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
-      .put("expenseDate", "2026-10-10").put("expenseName", "Accept tyre repair")
-      .put("description", "Accept receipt").put("amountPaise", 10000L),
-      JSONObject().put("personId", "person-driver-one").put("role", "driver"))
-    val otherExpense = maintenanceEnvelope(otherExpenseId, now, JSONObject()
-      .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
-      .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
-      .put("description", "Other Driver receipt").put("amountPaise", 20000L),
-      JSONObject().put("personId", "person-driver-two").put("role", "driver"))
-    lateinit var activity: MainActivity
-    try {
-      previousAssignmentRecords.forEach { database.records().remove(it.id) }
-      previousMaintenanceRecords.forEach { database.records().remove(it.id) }
-      previousVehicleRecords.forEach { database.records().remove(it.id) }
-      database.records().put(vehicle)
-      database.records().put(expense)
-      database.records().put(otherExpense)
-      DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
-      DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-two", "person-driver-two")
-      listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
-          val row = database.records().get("identity:person:$personId")!!
-          val payload = JSONObject(row.json)
-          payload.getJSONObject("data").put("displayName", name)
-          database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
-      }
-      NativeStartupRecovery.invalidate(database)
-      activity = instrumentation.startActivitySync(
-        Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-      ) as MainActivity
-      assertTrue("Drive",
-          awaitMaintenanceJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
-      assertTrue("Admin nav", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
-          10_000))
-      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
-      assertTrue("Admin", awaitMaintenanceJavascript(activity,
-          "document.querySelector('.admin-replacement-shell') !== null", 15_000))
-      assertTrue("Name", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
-      assertTrue("Role", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
-            const input = label?.querySelector('input[type=checkbox]');
-            if (!input) return false;
-            input.click();
-            return true;
-          })()
-      """))
-      awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
-            "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
-      assertTrue("Fields", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const set = (labelText, value) => {
-              const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
-              const input = label?.querySelector('input');
-              if (!input) return false;
-              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-              setter.call(input, value);
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              return true;
-            };
-            const pinLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Set initial Admin PIN'));
-            return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
-          })()
-      """))
-      assertTrue("Enroll", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
-      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
-      assertTrue("Enrolled", awaitMaintenanceJavascript(activity,
-          "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
-      assertTrue("Ready", awaitMaintenanceJavascript(activity, """
-          Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
-            Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
-          Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
-      """, 15_000))
-      assertTrue("Activate", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
-            const person = personLabel?.querySelector('select');
-            const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
-            const role = roleLabel?.querySelector('select');
-            if (!person || !role) return false;
-            const setSelect = (select, value) => {
-              const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-              setter.call(select, value);
-              select.dispatchEvent(new Event('input', { bubbles: true }));
-              select.dispatchEvent(new Event('change', { bubbles: true }));
-            };
-            setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Corr Admin')?.value ?? '');
-            setSelect(role, 'admin');
-            return true;
-          })()
-      """))
-      assertTrue("PIN", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
-          5_000))
-      assertTrue("PIN accept", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
-            const pin = label?.querySelector('input');
-            if (!pin) return false;
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-            setter.call(pin, '4831');
-            pin.dispatchEvent(new Event('input', { bubbles: true }));
-            label.closest('form')?.querySelector('button')?.click();
-            return true;
-          })()
-      """))
-      assertTrue("Active", awaitMaintenanceJavascript(activity,
-          "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
-      val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
-      adminSections.forEach { (id, expected) ->
-        evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
-        assertTrue("$id", awaitMaintenanceJavascript(activity,
-          "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
-      }
-      assertTrue("Maintenance load", awaitMaintenanceJavascript(activity,
-          "document.body.textContent.includes('Accept tyre repair')", 15_000))
-      evaluateMaintenanceWebView(activity, """
-          (() => {
-            document.querySelector('details.loan-schedule')?.setAttribute('open','');
-            const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
-            record?.querySelector('button')?.click();
-            return Boolean(record);
-          })()
-      """)
-      assertTrue("Correction opens", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
-      assertTrue("Inputs", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const set = (labelText, value) => {
-              const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
-              const input = label?.querySelector('input');
-              if (!input) return false;
-              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-              setter.call(input, value);
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              return true;
-            };
-            return set('Corrected amount', '150.00') && set('Reason for correction', 'Receipt verified');
-          })()
-      """))
-      evaluateMaintenanceWebView(activity, """
-          (() => {
-            const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
-            if (!button) return false;
-            button.click();
-            button.click();
-            return true;
-          })()
-      """)
-      assertTrue("Saved", awaitMaintenanceJavascript(activity,
-          "document.body.textContent.includes('appended')", 15_000))
-      assertTrue("Admin correction ready", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
-          15_000))
-      val original = JSONObject(database.records().get(expenseId)!!.json)
-      val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
-          .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
-      assertEquals("Original", 10000L,
-          original.getJSONObject("data").getLong("amountPaise"))
-      assertEquals("One correction", 1, correctionRows.size)
-      val correction = correctionRows.single().getJSONObject("data")
-      assertEquals(10000L, correction.getLong("beforeValue"))
-      assertEquals(15000L, correction.getLong("afterValue"))
-      assertEquals("Receipt verified", correction.getString("reason"))
-      assertEquals("admin", correction.getJSONObject("actor").getString("role"))
-      assertEquals(1, correction.getInt("chainRevision"))
-      val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
-      assertEquals(1, head.getInt("chainRevision"))
-      assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
-      assertNotNull("Room stored",
-          database.records().get(correctionRows.single().getString("id")))
-      assertTrue("Driver", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
-            const person = personLabel?.querySelector('select');
-            const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
-            const role = roleLabel?.querySelector('select');
-            if (!person || !role) return false;
-            const setSelect = (select, value) => {
-              const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-              setter.call(select, value);
-              select.dispatchEvent(new Event('input', { bubbles: true }));
-              select.dispatchEvent(new Event('change', { bubbles: true }));
-            };
-            setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Driver One')?.value ?? '');
-            setSelect(role, 'driver');
-            return Boolean(person.value);
-          })()
-      """))
-      evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
-      assertTrue("Driver activates", awaitMaintenanceJavascript(activity,
-          "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
-      assertTrue("Own record appears", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept tyre repair'))", 10_000))
-      assertTrue("Driver correction ready", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
-          15_000))
-      assertTrue("Driver button", evaluateMaintenanceWebView(activity, """
-          (() => {
-            document.querySelector('details.loan-schedule')?.setAttribute('open','');
-            const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
-            const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
-            button?.click();
-            return Boolean(button);
-          })()
-      """))
-      assertTrue("Driver form", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('label input') !== null",
-          15_000))
-      assertTrue("Driver submits", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
-            const set = (labelText, value) => {
-              const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
-              const input = label?.querySelector('input');
-              if (!input) return false;
-              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-              setter.call(input, value);
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              return true;
-            };
-            if (!set('Corrected amount', '160.00') || !set('Reason for correction', 'Driver One verified own receipt')) return false;
-            Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
-            return true;
-          })()
-      """))
-      assertTrue("Driver correction committed", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Correction appended')", 15_000))
-      assertTrue("Other record", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
-      assertTrue("Other form button", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
-            const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
-            button?.click();
-            return Boolean(button);
-          })()
-      """))
-      assertTrue("Other form opens", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.querySelector('label input') !== null",
-          15_000))
-      assertTrue("Other input", evaluateMaintenanceWebView(activity, """
-          (() => {
-            const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
-            const set = (labelText, value) => {
-              const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
-              const input = label?.querySelector('input');
-              if (!input) return false;
-              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-              setter.call(input, value);
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              return true;
-            };
-            if (!set('Corrected amount', '210.00') || !set('Reason for correction', 'Attempt to alter another Driver record')) return false;
-            Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
-            return true;
-          })()
-      """))
-      assertTrue("Other rejected", awaitMaintenanceJavascript(activity,
-          "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
-      val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
-          .map { JSONObject(it.json).getJSONObject("data") }
-          .filter { it.optString("targetRecordId") == expenseId }
-          .sortedBy { it.getInt("chainRevision") }
-      assertEquals("Two-entry correction chain", 2, driverOneChain.size)
-      assertEquals("person-driver-one", driverOneChain.last().getJSONObject("actor").getString("actorId"))
-      assertEquals("Driver One verified own receipt", driverOneChain.last().getString("reason"))
-      assertEquals("No other correction", 0, database.records().list()
-          .filter { it.id.startsWith(correctionPrefix) }
-          .count { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == otherExpenseId }.getOrDefault(false) })
-      val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
-      NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
-      assertEquals("Restore must begin from an empty business-record set", 0, database.records().list()
-          .count { it.id == expenseId || it.id == otherExpenseId || it.id == chainId })
-      NativeBackupCoverage.replaceBusinessRecords(database, backup)
-      val restoredOriginal = JSONObject(database.records().get(expenseId)!!.json)
-      assertEquals("Restore original", 10000L,
-          restoredOriginal.getJSONObject("data").getLong("amountPaise"))
-      val restoredCorrections = database.records().list().filter { it.id.startsWith(correctionPrefix) }
-          .map { JSONObject(it.json).getJSONObject("data") }
-          .filter { it.optString("targetRecordId") == expenseId }
-          .sortedBy { it.getInt("chainRevision") }
-      assertEquals(2, restoredCorrections.size)
-      assertEquals(driverOneChain.last().getString("correctionId"), restoredCorrections.last().getString("correctionId"))
-      val restoredHead = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
-      assertEquals(2, restoredHead.getInt("chainRevision"))
-      assertEquals(restoredCorrections.last().getString("correctionId"), restoredHead.getString("headCorrectionId"))
-    } finally {
-      database.records().remove(expenseId)
-      database.records().remove(otherExpenseId)
-      database.records().remove(vehicleId)
-      previousVehicleRecords.forEach { database.records().put(it) }
-      previousMaintenanceRecords.forEach { database.records().put(it) }
-      previousAssignmentRecords.forEach { database.records().put(it) }
-      database.records().remove(chainId)
-      listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
-          "feature:driver-records:driver:driver-one", "feature:driver-records:driver:driver-two").forEach { database.records().remove(it) }
-      listOf("person-driver-one", "person-driver-two").forEach { database.records().remove("identity:person:$it") }
-      if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
-      else database.records().remove("work:selected-driver")
-      database.records().list().filter { it.id.startsWith(correctionPrefix) }
-          .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId }.getOrDefault(false) }
-          .forEach { database.records().remove(it.id) }
-      database.records().list().filter { it.id.startsWith("identity:person:") }
-          .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") in setOf("Correction Admin", "Driver One", "Driver Two") }.getOrDefault(false) }
-          .forEach { database.records().remove(it.id) }
-      runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
-      NativeStartupRecovery.invalidate(database)
-      instrumentation.runOnMainSync { activity.finish() }
-      database.close()
+  val instrumentation = InstrumentationRegistry.getInstrumentation()
+  val app = instrumentation.targetContext.applicationContext
+  val database = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
+    .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
+    .enableMultiInstanceInvalidation()
+    .allowMainThreadQueries()
+    .build()
+  val suffix = UUID.randomUUID().toString()
+  val previousSelectedDriver = database.records().get("work:selected-driver")
+  val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
+  val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
+  val previousMaintenanceRecords = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
+  val vehicleId = "feature:vehicle:MH01AB1234"
+  val expenseId = "feature:maintenance:expense:$suffix"
+  val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
+  val correctionPrefix = "historical-correction:"
+  val now = Instant.now().toString()
+  val vehicle = maintenanceEnvelope(vehicleId, now, JSONObject()
+    .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
+    .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
+    .put("fuelType", "Diesel").put("yearOfManufacture", 2022)
+    .put("ownership", "Owned").put("lifecycleState", "active"))
+  val otherExpenseId = expenseId.dropLast(36) + UUID.randomUUID()
+  val expense = maintenanceEnvelope(expenseId, now, JSONObject()
+    .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
+    .put("expenseDate", "2026-10-10").put("expenseName", "Accept tyre repair")
+    .put("description", "Accept receipt").put("amountPaise", 10000L),
+    JSONObject().put("personId", "person-driver-one").put("role", "driver"))
+  val otherExpense = maintenanceEnvelope(otherExpenseId, now, JSONObject()
+    .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", vehicleId)
+    .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
+    .put("description", "Other Driver receipt").put("amountPaise", 20000L),
+    JSONObject().put("personId", "person-driver-two").put("role", "driver"))
+  lateinit var activity: MainActivity
+  try {
+    previousAssignmentRecords.forEach { database.records().remove(it.id) }
+    previousMaintenanceRecords.forEach { database.records().remove(it.id) }
+    previousVehicleRecords.forEach { database.records().remove(it.id) }
+    database.records().put(vehicle)
+    database.records().put(expense)
+    database.records().put(otherExpense)
+    DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
+    DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-two", "person-driver-two")
+    listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
+        val row = database.records().get("identity:person:$personId")!!
+        val payload = JSONObject(row.json)
+        payload.getJSONObject("data").put("displayName", name)
+        database.records().put(StoredRecord(row.id, payload.toString(), row.schemaVersion, row.updatedAt))
     }
+    NativeStartupRecovery.invalidate(database)
+    activity = instrumentation.startActivitySync(
+      Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    ) as MainActivity
+    assertTrue("Drive",
+        awaitMaintenanceJavascript(activity, "document.querySelector('.driver-card') !== null", 30_000))
+    assertTrue("Admin nav", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.bottom-navigation-item')).some(node => node.textContent.trim() === 'Admin')",
+        10_000))
+    evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('.bottom-navigation-item')).find(node => node.textContent.trim() === 'Admin')?.click()")
+    assertTrue("Admin", awaitMaintenanceJavascript(activity,
+        "document.querySelector('.admin-replacement-shell') !== null", 15_000))
+    assertTrue("Name", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Person name'))", 10_000))
+    assertTrue("Role", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Admin role'));
+          const input = label?.querySelector('input[type=checkbox]');
+          if (!input) return false;
+          input.click();
+          return true;
+        })()
+    """))
+    awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Set initial Admin PIN')) || " +
+          "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person'))", 5_000)
+    assertTrue("Fields", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const set = (labelText, value) => {
+            const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
+            const input = label?.querySelector('input');
+            if (!input) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          const pinLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Set initial Admin PIN'));
+          return set('Person name', 'Corr Admin') && (!pinLabel || set('Set initial Admin PIN', '4831'));
+        })()
+    """))
+    assertTrue("Enroll", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('form button')).some(node => node.textContent.includes('Enroll person') && !node.disabled)", 10_000))
+    evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Enroll person'))?.click()")
+    assertTrue("Enrolled", awaitMaintenanceJavascript(activity,
+        "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15_000))
+    assertTrue("Ready", awaitMaintenanceJavascript(activity, """
+        Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Select person') &&
+          Array.from(node.querySelectorAll('select option')).some(option => option.textContent.trim() === 'Corr Admin')) &&
+        Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Active role'))
+    """, 15_000))
+    assertTrue("Activate", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
+          const person = personLabel?.querySelector('select');
+          const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
+          const role = roleLabel?.querySelector('select');
+          if (!person || !role) return false;
+          const setSelect = (select, value) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+            setter.call(select, value);
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+          setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Corr Admin')?.value ?? '');
+          setSelect(role, 'admin');
+          return true;
+        })()
+    """))
+    assertTrue("PIN", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('label')).some(node => node.textContent.trim() === 'Admin PIN')",
+        5_000))
+    assertTrue("PIN accept", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.trim() === 'Admin PIN');
+          const pin = label?.querySelector('input');
+          if (!pin) return false;
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(pin, '4831');
+          pin.dispatchEvent(new Event('input', { bubbles: true }));
+          label.closest('form')?.querySelector('button')?.click();
+          return true;
+        })()
+    """))
+    assertTrue("Active", awaitMaintenanceJavascript(activity,
+        "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
+    val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
+    adminSections.forEach { (id, expected) ->
+      evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
+      assertTrue("$id", awaitMaintenanceJavascript(activity,
+        "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
+    }
+    assertTrue("Maintenance load", awaitMaintenanceJavascript(activity,
+        "document.body.textContent.includes('Accept tyre repair')", 15_000))
+    evaluateMaintenanceWebView(activity, """
+        (() => {
+          document.querySelector('details.loan-schedule')?.setAttribute('open','');
+          const record = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
+          record?.querySelector('button')?.click();
+          return Boolean(record);
+        })()
+    """)
+    assertTrue("Correction opens", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('label')).some(node => node.textContent.includes('Corrected amount'))", 5_000))
+    assertTrue("Inputs", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const set = (labelText, value) => {
+            const label = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes(labelText));
+            const input = label?.querySelector('input');
+            if (!input) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          return set('Corrected amount', '150.00') && set('Reason for correction', 'Receipt verified');
+        })()
+    """))
+    evaluateMaintenanceWebView(activity, """
+        (() => {
+          const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
+          if (!button) return false;
+          button.click();
+          button.click();
+          return true;
+        })()
+    """)
+    assertTrue("Saved", awaitMaintenanceJavascript(activity,
+        "document.body.textContent.includes('appended')", 15_000))
+    assertTrue("Admin correction ready", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
+        15_000))
+    val original = JSONObject(database.records().get(expenseId)!!.json)
+    val correctionRows = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+        .map { JSONObject(it.json) }.filter { it.optJSONObject("data")?.optString("targetRecordId") == expenseId }
+    assertEquals("Original", 10000L,
+        original.getJSONObject("data").getLong("amountPaise"))
+    assertEquals("One correction", 1, correctionRows.size)
+    val correction = correctionRows.single().getJSONObject("data")
+    assertEquals(10000L, correction.getLong("beforeValue"))
+    assertEquals(15000L, correction.getLong("afterValue"))
+    assertEquals("Receipt verified", correction.getString("reason"))
+    assertEquals("admin", correction.getJSONObject("actor").getString("role"))
+    assertEquals(1, correction.getInt("chainRevision"))
+    val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
+    assertEquals(1, head.getInt("chainRevision"))
+    assertEquals(correction.getString("correctionId"), head.getString("headCorrectionId"))
+    assertNotNull("Room stored",
+        database.records().get(correctionRows.single().getString("id")))
+    assertTrue("Driver", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const personLabel = Array.from(document.querySelectorAll('label')).find(node => node.querySelector('select') && node.textContent.includes('Select person'));
+          const person = personLabel?.querySelector('select');
+          const roleLabel = Array.from(document.querySelectorAll('label')).find(node => node.textContent.includes('Active role'));
+          const role = roleLabel?.querySelector('select');
+          if (!person || !role) return false;
+          const setSelect = (select, value) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+            setter.call(select, value);
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+          setSelect(person, Array.from(person.options).find(option => option.textContent.trim() === 'Driver One')?.value ?? '');
+          setSelect(role, 'driver');
+          return Boolean(person.value);
+        })()
+    """))
+    evaluateMaintenanceWebView(activity, "Array.from(document.querySelectorAll('form button')).find(node => node.textContent.includes('Activate role'))?.click()")
+    assertTrue("Driver activates", awaitMaintenanceJavascript(activity,
+        "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 10_000))
+    assertTrue("Own record appears", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept tyre repair'))", 10_000))
+    assertTrue("Driver correction ready", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('button')?.disabled === false",
+        15_000))
+    assertTrue("Driver button", evaluateMaintenanceWebView(activity, """
+        (() => {
+          document.querySelector('details.loan-schedule')?.setAttribute('open','');
+          const card = Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
+          const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
+          button?.click();
+          return Boolean(button);
+        })()
+    """))
+    assertTrue("Driver form", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.loan-schedule article.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.querySelector('label input') !== null",
+        15_000))
+    assertTrue("Driver submits", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'));
+          const set = (labelText, value) => {
+            const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
+            const input = label?.querySelector('input');
+            if (!input) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          if (!set('Corrected amount', '160.00') || !set('Reason for correction', 'Driver One verified own receipt')) return false;
+          Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
+          return true;
+        })()
+    """))
+    assertTrue("Driver correction committed", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept tyre repair'))?.textContent.includes('Correction appended')", 15_000))
+    assertTrue("Other record", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Other Driver tyre'))", 10_000))
+    assertTrue("Other form button", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
+          const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct amount / view history'));
+          button?.click();
+          return Boolean(button);
+        })()
+    """))
+    assertTrue("Other form opens", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.querySelector('label input') !== null",
+        15_000))
+    assertTrue("Other input", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'));
+          const set = (labelText, value) => {
+            const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
+            const input = label?.querySelector('input');
+            if (!input) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          if (!set('Corrected amount', '210.00') || !set('Reason for correction', 'Attempt to alter another Driver record')) return false;
+          Array.from(card.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'))?.click();
+          return true;
+        })()
+    """))
+    assertTrue("Other rejected", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
+    val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+        .map { JSONObject(it.json).getJSONObject("data") }
+        .filter { it.optString("targetRecordId") == expenseId }
+        .sortedBy { it.getInt("chainRevision") }
+    assertEquals("Two-entry correction chain", 2, driverOneChain.size)
+    assertEquals("person-driver-one", driverOneChain.last().getJSONObject("actor").getString("actorId"))
+    assertEquals("Driver One verified own receipt", driverOneChain.last().getString("reason"))
+    assertEquals("No other correction", 0, database.records().list()
+        .filter { it.id.startsWith(correctionPrefix) }
+        .count { runCatching { JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == otherExpenseId }.getOrDefault(false) })
+    val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
+    NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+    assertEquals("Restore must begin from an empty business-record set", 0, database.records().list()
+        .count { it.id == expenseId || it.id == otherExpenseId || it.id == chainId })
+    NativeBackupCoverage.replaceBusinessRecords(database, backup)
+    val restoredOriginal = JSONObject(database.records().get(expenseId)!!.json)
+    assertEquals("Restore original", 10000L,
+        restoredOriginal.getJSONObject("data").getLong("amountPaise"))
+    val restoredCorrections = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+        .map { JSONObject(it.json).getJSONObject("data") }
+        .filter { it.optString("targetRecordId") == expenseId }
+        .sortedBy { it.getInt("chainRevision") }
+    assertEquals(2, restoredCorrections.size)
+    assertEquals(driverOneChain.last().getString("correctionId"), restoredCorrections.last().getString("correctionId"))
+    val restoredHead = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
+    assertEquals(2, restoredHead.getInt("chainRevision"))
+    assertEquals(restoredCorrections.last().getString("correctionId"), restoredHead.getString("headCorrectionId"))
+  } finally {
+    database.records().remove(expenseId)
+    database.records().remove(otherExpenseId)
+    database.records().remove(vehicleId)
+    previousVehicleRecords.forEach { database.records().put(it) }
+    previousMaintenanceRecords.forEach { database.records().put(it) }
+    previousAssignmentRecords.forEach { database.records().put(it) }
+    database.records().remove(chainId)
+    listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
+        "feature:driver-records:driver:driver-one", "feature:driver-records:driver:driver-two").forEach { database.records().remove(it) }
+    listOf("person-driver-one", "person-driver-two").forEach { database.records().remove("identity:person:$it") }
+    if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
+    else database.records().remove("work:selected-driver")
+    database.records().list().filter { it.id.startsWith(correctionPrefix) }
+        .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId }.getOrDefault(false) }
+        .forEach { database.records().remove(it.id) }
+    database.records().list().filter { it.id.startsWith("identity:person:") }
+        .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") in setOf("Correction Admin", "Driver One", "Driver Two") }.getOrDefault(false) }
+        .forEach { database.records().remove(it.id) }
+    runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
+    NativeStartupRecovery.invalidate(database)
+    instrumentation.runOnMainSync { activity.finish() }
+    database.close()
+  }
   }
 }
