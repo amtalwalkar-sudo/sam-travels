@@ -133,12 +133,14 @@ class LocalDatabaseTest {
      assertEquals(if(create) 1 else 2,recoveredTarget.getInt("revision"))
      // The reopened command observes its receipt and returns the original result;
      // it must not issue a second feature mutation.
-     assertEquals(recoveredReceipt.getJSONObject("result").toString(),
-      JSONObject(db.records().get(targetId)!!.json).toString())
-     val completedData=recoveredCopy.getJSONObject("data").put("status","saved")
+     assertEquals(recoveredReceipt.getJSONObject("result").getInt("revision"),recoveredTarget.getInt("revision"))
+     assertEquals(recoveredReceipt.getJSONObject("result").getJSONObject("data").toString(),
+      recoveredTarget.getJSONObject("data").toString())
+     val completedStatus=if(action=="submit") "submitted" else "saved"
+     val completedData=recoveredCopy.getJSONObject("data").put("status",completedStatus)
      val completed=envelope(copyId,2,completedData,"2026-11-19T09:01:00.000Z")
      assertTrue(compareAndSetStoredRecord(db,copyId,1,completed))
-     assertEquals("saved",JSONObject(db.records().get(copyId)!!.json).getJSONObject("data").getString("status"))
+     assertEquals(completedStatus,JSONObject(db.records().get(copyId)!!.json).getJSONObject("data").getString("status"))
     } finally { db.close() }
    } finally { context.deleteDatabase(name) }
   }
@@ -146,7 +148,7 @@ class LocalDatabaseTest {
    "feature:vehicle:ROOM-CREATE",true)
   verifyRecovery("room-admin-update-recovery.db","admin.vehicle","feature:vehicle:ROOM-UPDATE","room-admin-update","save",
    "feature:vehicle:ROOM-UPDATE",false)
-  verifyRecovery("room-fuel-recovery.db","driver.fuel-entry","fuel-room-instance","room-fuel-submit","submit",
+  verifyRecovery("room-fuel-recovery.db","work.fuel-entry","fuel-room-instance","room-fuel-submit","submit",
    "feature:business-expenses:fuel:ROOM-FUEL",true)
  }
 
