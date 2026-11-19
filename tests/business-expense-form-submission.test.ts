@@ -19,7 +19,8 @@ describe("Admin business expense form submission mapping", () => {
       source as never,
     );
     const command = (formId: string, values: Record<string, unknown>) => ({
-      formId, action: "save", instanceId: "admin-entry-1", operationId: "operation-1", values,
+      formId, action: "save", instanceId: "admin-entry-1", operationId: "operation-1",
+      submittedAt: "2026-11-14T10:00:00.000Z", payloadFingerprint: "fingerprint-1", values,
     }) as never;
     return { createExpenseEntry, submit, command, source };
   }
@@ -32,8 +33,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
-      operation: { operationId: "operation-1", payloadFingerprint: undefined },
-      now: undefined,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "platform_fee", businessDate: "2026-11-14", amountPaise: 1234,
         currencyCode: "INR", effect: "charge", vehicleId: "vehicle-1", reference: "trip-42",
@@ -52,6 +53,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 5000,
         currencyCode: "INR", effect: "charge", category: "Parking",
@@ -71,6 +74,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "miscellaneous", businessDate: "2026-11-13", amountPaise: 1200,
         currencyCode: "INR", effect: "charge", category: "Toll",
@@ -94,6 +99,8 @@ describe("Admin business expense form submission mapping", () => {
     }));
     expect(createExpenseEntry).toHaveBeenCalledWith({
       uuid: "admin-entry-1", source,
+      operation: { operationId: "operation-1", payloadFingerprint: "fingerprint-1" },
+      now: "2026-11-14T10:00:00.000Z",
       data: {
         sourceKind: "traffic_challan", businessDate: "2026-11-12", amountPaise: 50000,
         currencyCode: "INR", effect: "charge", vehicleId: "vehicle-2",
