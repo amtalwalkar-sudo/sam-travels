@@ -97,6 +97,20 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                     data.optString("lifecycleState") == "active"
             }
             assertEquals("Admin acceptance configures one active driver", 1, configuredDriverRows.size)
+            click(activity, "Configure for Work")
+            assertTrue("Admin configures the canonical Work Driver selection",
+                await(activity, "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
+            val configuredDriverData = org.json.JSONObject(configuredDriverRows.single().json).getJSONObject("data")
+            val selectedWorkDriver = db.records().get("work:selected-driver")
+            assertNotNull("Admin writes the authoritative Work selection record", selectedWorkDriver)
+            val selectedWorkDriverData = org.json.JSONObject(selectedWorkDriver!!.json).getJSONObject("data")
+            assertEquals("Work selection references the sole active Driver",
+                configuredDriverData.getString("driverId"), selectedWorkDriverData.getString("driverId"))
+            val assignmentHistory = db.records().get("feature:driver-records:assignment:" + configuredDriverData.getString("driverId"))
+            assertNotNull("Admin creates the current Driver–Vehicle assignment", assignmentHistory)
+            val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
+            assertEquals("Admin assigns the sole active Vehicle", vehicleRecordId, assignment.getString("vehicleId"))
+            assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
             db.close()
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance vehicle selector", await(activity, "document.querySelectorAll('#admin-section-panel-compliance select').length>0", 10000))
