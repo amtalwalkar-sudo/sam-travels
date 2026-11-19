@@ -30,6 +30,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
         sourceAmountPaise: 31, disposition: "allocated",
         sourcePeriod: { from: "2026-01-01", to: "2026-02-28", label: "EMI installment 2" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
+        eligibleFrom: "2026-03-01", eligibleTo: "2026-03-31",
         daily: daily("loan:emi:pre-business", "emi", 2, "2026-03-01", "2026-03-31"),
       }),
       source({
@@ -40,7 +41,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       source({
         sourceId: "compliance:overlap", sourceKind: "compliance", sourceVersion: 4,
         sourceAmountPaise: 306, disposition: "allocated",
-        sourcePeriod: { from: "2026-01-01", to: "2026-12-31", label: "Annual permit" },
+        sourcePeriod: { from: "2026-03-01", to: "2026-12-31", label: "Annual permit" },
         eligibleFrom: "2026-03-01", eligibleTo: "2026-12-31",
         daily: daily("compliance:overlap", "compliance", 4, "2026-03-01", "2026-12-31"),
       }),
@@ -74,6 +75,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     });
 
     await adapter.prepareSnapshot("2026-03-01", "2026-12-31");
+    const preBusiness = await adapter.listPreBusinessRecoveryEntries();
     const emi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-31");
     const compliance = await adapter.listDailyComplianceAllocations("2026-03-01", "2026-12-31");
     const firstDayEmi = await adapter.listDailyEmiAllocations("2026-03-01", "2026-03-01");
@@ -82,18 +84,19 @@ describe("Performance fixed-cost allocation adapter v1", () => {
     adapter.releaseSnapshot();
 
     expect(reads).toBe(1);
-    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(62);
+    expect(emi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(31);
+    expect(preBusiness).toContainEqual(expect.objectContaining({ sourceId: "loan:emi:pre-business", amountPaise: 31, origin: "emi", scheduleVersion: 1 }));
     expect(emi.every(row => row.verified && row.sourceRefs[0].revision === 2)).toBe(true);
     expect(emi.find(row => row.sourceRefs[0].sourceId === "loan:emi:3")?.sourceRefs[0].scheduleVersion).toBe(1);
     expect(new Set(emi.map(row => row.sourceRefs[0].sourceId)))
-      .toEqual(new Set(["loan:emi:3", "loan:pre-business-emi-carry-forward"]));
+      .toEqual(new Set(["loan:emi:3"]));
     expect(compliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(306);
     expect(compliance.every(row => row.verified &&
       row.sourceRefs.some(ref => ref.sourceId === "compliance:overlap" && ref.revision === 4) &&
       row.sourceRefs.some(ref => ref.sourceId === "historical-correction:compliance-validity-change" && ref.revision === 1))).toBe(true);
     // The adapter returns the canonical daily paise rows verbatim and does not
     // reconstruct a new distribution for the requested report window.
-    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(2);
+    expect(firstDayEmi.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
     expect(firstDayCompliance.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1);
     expect(completeness).toEqual([expect.objectContaining({ status: "review-required" })]);
   });
@@ -103,7 +106,7 @@ describe("Performance fixed-cost allocation adapter v1", () => {
       businessStartDate: "2026-03-01", businessSettingsRevision: 1,
       generatedAt: "2026-11-15T00:00:00.000Z",
       result: {
-        calculationId: "business-start-date-cost-allocation.v1", calculationVersion: 1,
+        calculationId: "business-start-date-cost-allocation.v2", calculationVersion: 2,
         businessStartDate: "2026-03-01", sources: [],
         daily: [], monthly: [], yearly: [],
         allocatedAmountPaise: 0, historicalAmountPaise: 0, withheldAmountPaise: 0,
