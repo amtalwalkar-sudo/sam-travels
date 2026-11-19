@@ -131,8 +131,9 @@ try {
   // full reload above. Re-authenticate before the protected Driver identity
   // enrollment; the UI must not rely on a stale pre-reload authority.
   const identityPanel = page.locator(".admin-capability-panel");
-  await identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select")
-    .selectOption({ label: "Performance Screen Acceptance Admin" });
+  const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
+  await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor();
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
   await identityPanel.getByLabel("Active role").selectOption("admin");
   await identityPanel.getByLabel("Admin PIN").fill(testPin);
   await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
