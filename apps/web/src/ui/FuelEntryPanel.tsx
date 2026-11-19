@@ -128,33 +128,34 @@ export function FuelEntryPanel() {
       {!vehicles.length && <p role="status">Add an active vehicle in Admin before recording fuel.</p>}
       <form onSubmit={submit}>
         <label>Vehicle
-          <select required disabled={copy?.status === "pending"} value={String(values.vehicleId ?? "")} onChange={event => change("vehicleId", event.target.value)}>
+          <select required disabled={!copy || copy.status === "pending"} value={String(values.vehicleId ?? "")} onChange={event => change("vehicleId", event.target.value)}>
             <option value="">Select vehicle</option>
             {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber} · {vehicle.data.make} {vehicle.data.model}</option>)}
           </select>
         </label>
         <label>Odometer (km)
-          <input required disabled={copy?.status === "pending"} type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
             onChange={event => change("odometerKm", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         <label>Price per kg (₹)
-          <input required disabled={copy?.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.priceRupeesPerKg ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.priceRupeesPerKg ?? "")}
             onChange={event => change("priceRupeesPerKg", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         <label>Amount paid (₹)
-          <input required disabled={copy?.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.amountRupees ?? "")}
+          <input required disabled={!copy || copy.status === "pending"} type="number" min="0.01" step="0.01" inputMode="decimal" value={String(values.amountRupees ?? "")}
             onChange={event => change("amountRupees", event.target.value === "" ? undefined : Number(event.target.value))} />
         </label>
         {calculatedQuantityMilliKg !== undefined && <p className="fuel-derived-preview">Calculated fuel quantity: <strong>{(calculatedQuantityMilliKg / 1000).toFixed(3)} kg</strong></p>}
         {latestOdometer !== undefined && <small>Latest recorded odometer for this vehicle: {latestOdometer.toLocaleString("en-IN")} km</small>}
         {odometerRegression && <p className="fuel-odometer-warning" role="status">This reading is below the latest recorded odometer ({latestOdometer} km). Check it before submitting; the entry will not be blocked.</p>}
         <label className="fuel-partial-choice">
-          <input type="checkbox" disabled={copy?.status === "pending"} checked={values.partialRefill === true} onChange={event => change("partialRefill", event.target.checked)} />
+          <input type="checkbox" disabled={!copy || copy.status === "pending"} checked={values.partialRefill === true} onChange={event => change("partialRefill", event.target.checked)} />
           Partial refill
         </label>
         <small>Full tank is the default. All purchases count as fuel expense; only full-tank refills form mileage checkpoints.</small>
         <button className="primary-action" type="submit" disabled={busy || !copy || !vehicles.length}>{busy ? "Saving…" : "Submit fuel purchase"}</button>
       </form>
+      {!copy && <p role="status">Loading fuel entry…</p>}
       {copy && <small>Draft · {copy.status.replaceAll("_", " ")}</small>}
       {message && <p role="status">{message}</p>}
     </section>}
