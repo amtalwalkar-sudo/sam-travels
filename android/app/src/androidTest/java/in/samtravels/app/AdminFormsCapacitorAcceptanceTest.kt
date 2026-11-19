@@ -113,7 +113,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
             assertEquals("Admin assigns the sole active Vehicle", vehicleRecordId, assignment.getString("vehicleId"))
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
-            db.close()
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance binds the configured operating Vehicle", await(activity,
                 "document.querySelector('#admin-section-panel-compliance .admin-vehicle-context')?.textContent.includes('$registration')", 10000))
