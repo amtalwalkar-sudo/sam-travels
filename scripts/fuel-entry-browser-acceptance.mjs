@@ -143,6 +143,7 @@ try {
   await toggle.click();
   const panel = page.locator(".fuel-entry-panel");
   await panel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
+  await panel.getByText(/^Draft · /).waitFor({ state: "visible", timeout: 15000 });
   assert.equal(await panel.getByLabel("Partial refill").isChecked(), false, "full tank is the default");
   await panel.getByLabel("Odometer (km)").fill("12345");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
