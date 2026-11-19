@@ -71,3 +71,37 @@ describe("Admin operating Driver configuration", () => {
     expect(await records.get("work:selected-driver")).toBeUndefined();
   });
 });
+
+  it("repairs an invalid but unlocked selection only through explicit Admin configuration", async () => {
+    const records = new DexieRecordRepository();
+    await browserDatabase.records.bulkPut([
+      driverRecord(),
+      {
+        id: "work:selected-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web" as const, revision: 4,
+        data: { schemaVersion: 99, legacyValue: true },
+      },
+    ]);
+    const service = new WorkDriverSelectionService(records);
+    expect(await service.selectDriver("configured-driver")).toEqual({
+      schemaVersion: 1, driverId: "configured-driver",
+    });
+    expect(await records.get("work:selected-driver")).toMatchObject({
+      revision: 5, data: { schemaVersion: 1, driverId: "configured-driver" },
+    });
+  });
+
+  it("does not repair a malformed selection carrying a shift lock", async () => {
+    const records = new DexieRecordRepository();
+    await browserDatabase.records.bulkPut([
+      driverRecord(),
+      {
+        id: "work:selected-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web" as const, revision: 4,
+        data: { schemaVersion: 99, lockedShiftId: "legacy-shift" },
+      },
+    ]);
+    const service = new WorkDriverSelectionService(records);
+    await expect(service.selectDriver("configured-driver")).rejects.toThrow("work_driver_selection_locked_during_shift");
+    expect((await records.get("work:selected-driver"))?.revision).toBe(4);
+  });
