@@ -77,8 +77,9 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             }.singleOrNull()
             assertTrue("Admin Vehicle create has a durable Room operation receipt", createReceipt != null)
 
-            eval(activity, "(()=>{const card=[...document.querySelectorAll('.admin-capability-record')].find(n=>n.textContent.includes('$registration'));const edit=[...(card?.querySelectorAll('.admin-capability-record-actions button')??[])].find(b=>b.textContent.trim()==='Edit');if(!edit)throw new Error('vehicle_edit_action_missing');edit.click()})()")
-            assertTrue("Vehicle edit form opens; status=" + javascriptValue(activity, "document.querySelector('[role=status]')?.textContent||''"), await(activity, "document.querySelector('.admin-capability-form')?.querySelector('button[type=submit]')?.textContent.trim()==='Save vehicle'", 15000))
+            assertTrue("Saved vehicle has an Edit action", await(activity, "[...document.querySelectorAll('.admin-capability-record')].some(n=>n.textContent.includes('$registration')&&[...n.querySelectorAll('button')].some(b=>b.textContent.trim()==='Edit'&&!b.disabled))", 15000))
+            click(activity, "Edit")
+            assertTrue("Vehicle edit form opens", await(activity, "document.querySelector('.admin-capability-form')?.querySelector('button[type=submit]')?.textContent.trim()==='Save vehicle'", 15000))
             set(activity, "Make", "Acceptance Updated")
             click(activity, "Save vehicle")
             assertTrue("Vehicle update saved", await(activity, "document.body.innerText.includes('Vehicle details updated')", 15000))
