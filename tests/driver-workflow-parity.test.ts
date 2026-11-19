@@ -53,12 +53,13 @@ describe("shared driver workflow parity and interruption contract", () => {
     const selection = new WorkDriverSelectionService(new DexieRecordRepository(), repository);
     const configuredVehicles = await new DexieRecordRepository().list();
     expect(configuredVehicles.filter(record => record.id.startsWith("feature:vehicle:"))).toHaveLength(1);
-    expect(configuredVehicles.filter(record =>
-      record.id.startsWith("feature:driver-records:driver:") &&
-      (record.data as { selectedForWork?: boolean }).selectedForWork === true,
-    )).toHaveLength(0);
     await selection.selectDriver("parity-driver");
     expect(await selection.getSelectedDriver()).toEqual({ schemaVersion: 1, driverId: "parity-driver" });
+    expect(configuredVehicles.filter(record => record.id.startsWith("feature:driver-records:driver:"))).toHaveLength(1);
+    expect(configuredVehicles.filter(record => record.id.startsWith("feature:driver-records:assignment:"))).toHaveLength(1);
+    expect(configuredVehicles.find(record => record.id === "feature:driver-records:assignment:parity-driver")?.data)
+      .toMatchObject({ driverId: "parity-driver", assignments: [{ vehicleId: "feature:vehicle:MH01CD5678" }] });
+
     let service = new DriverWorkflowService(repository, {
       capture: async () => gpsAt(new Date().toISOString()),
     });
