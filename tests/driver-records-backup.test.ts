@@ -58,6 +58,25 @@ describe("Driver Records browser backup participant", () => {
     expect(snapshot.data.records).toHaveLength(2);
   });
 
+  it("exports the one active driver selected for the current single-driver configuration", async () => {
+    const timestamp = "2026-11-07T00:00:00.000Z";
+    await browserDatabase.records.put({
+      id: "feature:driver-records:driver:driver-001", schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: {
+        schemaVersion: 1, driverId: "driver-001", name: "Configured Driver",
+        lifecycleState: "active", selectedForWork: true,
+      },
+    });
+    const snapshot = await exportBrowserSnapshot("0.1.0");
+    const selected = snapshot.data.records.filter(record =>
+      record.id.startsWith("feature:driver-records:driver:") &&
+      (record.data as { selectedForWork?: boolean }).selectedForWork === true,
+    );
+    expect(selected).toHaveLength(1);
+    expect(selected[0].id).toBe("feature:driver-records:driver:driver-001");
+  });
+
   it("rejects a backup containing more than one selected Work driver", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
     for (const driverId of ["driver-001", "driver-002"]) {
