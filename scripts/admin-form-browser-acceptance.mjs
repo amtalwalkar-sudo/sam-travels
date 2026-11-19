@@ -139,7 +139,7 @@ try {
   await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
-  const complianceContext = page.locator("#admin-section-panel-compliance .admin-vehicle-context");
+  const complianceContext = page.locator("#admin-section-panel-compliance .admin-operating-vehicle-context");
   await complianceContext.getByText(registration, { exact: false }).waitFor({ state: "visible" });
   if (await complianceContext.locator("select").count()) {
     throw new Error("compliance_must_not_expose_routine_vehicle_selector");
