@@ -106,7 +106,7 @@ export function VehicleSection() {
     setSaving(true); setMessage("");
     try {
       await updateQueue.current;
-      if ((!editing || form.lifecycleState !== editing.data.lifecycleState) && (await workRuntime.snapshot()).state !== "idle") {
+      if (editing && form.lifecycleState !== editing.data.lifecycleState && (await workRuntime.snapshot()).state !== "idle") {
         throw new Error("operating_configuration_locked_during_shift");
       }
       const current = copyRef.current;
