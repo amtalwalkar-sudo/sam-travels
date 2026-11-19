@@ -34,6 +34,7 @@ import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-f
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
+import { WorkDriverSelectionService } from "../../../packages/application/src/work-driver-selection-service";
 import { createAdminFormRuntimeV1 } from "./admin-form-runtime";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
@@ -53,6 +54,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  const workDriverSelection = new WorkDriverSelectionService(repository);
   const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),
@@ -127,6 +129,7 @@ async function bootstrap(): Promise<void> {
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
+    workDriverSelection,
     compliance: getApplicationComplianceService(),
     complianceAnalysis: getApplicationComplianceAnalysisService(),
     maintenance: getApplicationMaintenanceService(),
