@@ -101,7 +101,7 @@ export function ComplianceSection() {
       <div className="loan-form-actions"><button className="admin-primary" disabled={busy||!copy}>{busy?"Saving…":"Save record"}</button><button className="admin-secondary" type="button" disabled={busy} onClick={closeForm}>Cancel</button></div>
       {copy&&<small className="admin-hint">Draft status · {copy.status.replaceAll("_"," ")} · revision {copy.revision}</small>}
     </form>}
-    {!vehicleId?<p className="admin-hint">Configure one active Vehicle and its Work Driver assignment before recording compliance.</p>:vehicleRecords.length===0?<p className="admin-hint">No compliance records for this vehicle.</p>:vehicleRecords.map(r=><article className="admin-capability-record" key={r.id}>
+    {!vehicleId?<p className="admin-hint">Configure exactly one active Vehicle before recording compliance.</p>:vehicleRecords.length===0?<p className="admin-hint">No compliance records for this vehicle.</p>:vehicleRecords.map(r=><article className="admin-capability-record" key={r.id}>
       <div><strong>{r.data.complianceName} · {complianceStatus(r.data.validTo)}</strong><small>{r.data.validFrom} to {r.data.validTo} · {money(r.data.totalCostPaise)}</small><small>{r.data.renewedFromRecordId?"Renewal linked to previous record":"Original record"}{r.data.supportingDocumentRef?" · "+r.data.supportingDocumentRef:""}</small></div>
     </article>)}
     {message&&<p className="admin-message" role="status">{message}</p>}
