@@ -97,7 +97,7 @@ describe("Admin form durable submission across commit/completion interruption", 
       status: "pending", operationId: "platform-fee-operation-1",
       submission: { action: "save", submittedAt: "2026-11-19T06:30:00.000Z" },
     });
-    const committedBeforeRetry = (await service.listRecords()).filter(record => record.id.includes(instanceId));
+    const committedBeforeRetry = (await service.listAll()).filter(record => record.id.includes(instanceId));
     expect(committedBeforeRetry).toHaveLength(1);
     const original = committedBeforeRetry[0];
 
@@ -109,7 +109,7 @@ describe("Admin form durable submission across commit/completion interruption", 
     expect(await copies.get(PLATFORM_FEE_FORM_V1.id, instanceId)).toMatchObject({
       status: "saved", operationId: "platform-fee-operation-1",
     });
-    const committedAfterRetry = (await service.listRecords()).filter(record => record.id.includes(instanceId));
+    const committedAfterRetry = (await service.listAll()).filter(record => record.id.includes(instanceId));
     expect(committedAfterRetry).toEqual([original]);
     expect((await repository.list()).filter(record => record.id.startsWith("__sam_travels_feature_operation__:")))
       .toHaveLength(1);
