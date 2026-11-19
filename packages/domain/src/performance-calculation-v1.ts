@@ -172,9 +172,10 @@ export function allocatePreBusinessRecoveryV1(
 }> {
   const startDay = assertDate(businessStartDate);
   const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
+  const orderedSources = [...sources].sort((left, right) => left.sourceId.localeCompare(right.sourceId));
   const seen = new Set<string>();
   let totalPaise = 0;
-  for (const source of sources) {
+  for (const source of orderedSources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
@@ -195,11 +196,11 @@ export function allocatePreBusinessRecoveryV1(
   const monthTotal = (monthIndex: number): number =>
     monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
   let cumulativePoolAllocated = 0;
-  let previousSourceShares = sources.map(() => 0);
+  let previousSourceShares = orderedSources.map(() => 0);
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
     cumulativePoolAllocated = add(cumulativePoolAllocated, monthlyAmount);
     let cumulativeSourceAmount = 0;
-    const cumulativePrefixTargets = sources.map(source => {
+    const cumulativePrefixTargets = orderedSources.map(source => {
       cumulativeSourceAmount = add(cumulativeSourceAmount, source.amountPaise);
       return Number(
         (BigInt(cumulativePoolAllocated) * BigInt(cumulativeSourceAmount)) / BigInt(totalPaise),
@@ -220,7 +221,7 @@ export function allocatePreBusinessRecoveryV1(
     if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
     const instalment = monthTotal(monthIndex);
     const sourceShares = cumulativeSourceShares(instalment);
-    sources.forEach((source, sourceIndex) => {
+    orderedSources.forEach((source, sourceIndex) => {
       const amount = sourceShares[sourceIndex];
       const quotient = Math.floor(amount / dayCount);
       const remainder = amount % dayCount;
