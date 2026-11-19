@@ -25,6 +25,9 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       .build()
     val suffix = UUID.randomUUID().toString()
     val previousSelectedDriver = database.records().get("work:selected-driver")
+    // This acceptance test needs one unambiguous operating Vehicle. Preserve and
+    // temporarily isolate any vehicle fixtures left by other instrumentation tests.
+    val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
     val vehicleId = "feature:vehicle:MH01AB1234"
     val expenseId = "feature:maintenance:expense:$suffix"
     val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
@@ -48,6 +51,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       JSONObject().put("personId", "person-driver-two").put("role", "driver"))
     lateinit var activity: MainActivity
     try {
+      previousVehicleRecords.forEach { database.records().remove(it.id) }
       database.records().put(vehicle)
       database.records().put(expense)
       database.records().put(otherExpense)
@@ -329,6 +333,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       database.records().remove(expenseId)
       database.records().remove(otherExpenseId)
       database.records().remove(vehicleId)
+      previousVehicleRecords.forEach { database.records().put(it) }
       database.records().remove(chainId)
       listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
           "feature:driver-records:driver:driver-one", "feature:driver-records:driver:driver-two").forEach { database.records().remove(it) }
