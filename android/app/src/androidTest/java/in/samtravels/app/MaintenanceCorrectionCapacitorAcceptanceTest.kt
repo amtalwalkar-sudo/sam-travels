@@ -145,7 +145,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       """))
       assertTrue("Active", awaitMaintenanceJavascript(activity,
           "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15_000))
-      val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Configure one active Vehicle and its Work Driver assignment before recording compliance.", "finance" to "Add loan", "maintenance" to "Maintenance")
+      val adminSections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle", "driver" to "Add driver", "compliance" to "Add compliance / renewal", "finance" to "Add loan", "maintenance" to "Maintenance")
       adminSections.forEach { (id, expected) ->
         evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
         assertTrue("$id", awaitMaintenanceJavascript(activity,
