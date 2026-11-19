@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertMaintenanceRecordV1,
@@ -9,7 +9,7 @@ import {
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
 import { accrueMaintenanceForCompletedWorkDay } from "../packages/application/src/maintenance-daily-accrual-integration";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
@@ -19,6 +19,14 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    for (const mutation of mutations) {
+      const current = this.rows.get(mutation.id);
+      if (mutation.expectedRevision === null ? current !== undefined : current?.revision !== mutation.expectedRevision) return false;
+    }
+    for (const mutation of mutations) this.rows.set(mutation.id, mutation.next as RecordEnvelope<unknown>);
     return true;
   }
 }
@@ -65,6 +73,36 @@ describe("MaintenanceService", () => {
     expect("editExpense" in service).toBe(false);
     const history = await service.listVehicleRecords(vehicleId);
     expect(history.visits[0]).toEqual(created);
+  });
+
+  it("atomically records Maintenance visit and expense operation receipts for safe form retries", async () => {
+    const { service, repository } = setup();
+    const visitOperation = { operationId: "maintenance-visit-operation", payloadFingerprint: "visit-payload" };
+    const visit = await service.createVisit({
+      uuid: "123e4567-e89b-42d3-a456-426614174030", data: visitInput, source: "web",
+      operation: visitOperation, now: "2026-11-19T08:00:00.000Z",
+    });
+    expect(await service.createVisit({
+      uuid: "123e4567-e89b-42d3-a456-426614174030", data: visitInput, source: "web",
+      operation: visitOperation, now: "2026-11-19T09:00:00.000Z",
+    })).toEqual(visit);
+
+    const expenseData = {
+      vehicleId, expenseDate: "2026-10-06", expenseName: "Towing",
+      description: "Roadside towing", amountPaise: 120000,
+    };
+    const expenseOperation = { operationId: "maintenance-expense-operation", payloadFingerprint: "expense-payload" };
+    const expense = await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174031", data: expenseData, source: "android",
+      operation: expenseOperation, now: "2026-11-19T08:15:00.000Z",
+    });
+    expect(await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174031", data: expenseData, source: "android",
+      operation: expenseOperation, now: "2026-11-19T09:15:00.000Z",
+    })).toEqual(expense);
+    expect((await repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:"),
+    )).toHaveLength(2);
   });
 
   it("keeps general expenses separate and sums only actual expenses", async () => {
