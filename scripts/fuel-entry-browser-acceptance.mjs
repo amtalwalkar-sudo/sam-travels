@@ -150,7 +150,7 @@ try {
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   assert.equal(await panel.getByLabel("Vehicle").inputValue(), vehicleId,
     "selected vehicle must remain the controlled form value before submission");
-  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\\.000 kg/);
+  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
   const firstFormState = await panel.locator("form").evaluate(form => ({
     valid: form.checkValidity(),
     invalid: [...form.querySelectorAll(":invalid")].map(control => ({
