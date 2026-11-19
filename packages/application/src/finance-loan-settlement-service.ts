@@ -166,7 +166,7 @@ export class FinanceLoanSettlementService {
           throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
         }
       }
-      const createdAt = this.now();
+      const createdAt = input.now ?? this.now();
       const settlement: FinancePaymentEntryV1 = {
         kind: "settlement", id: input.id, commandId: input.commandId, loanId: input.loanId,
         businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
