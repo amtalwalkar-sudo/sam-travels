@@ -68,7 +68,8 @@ export class TimelineEnrichmentQueue {
     }
     for (const event of events) {
       const gps = event.gps;
-      if (!eligibleEvents.has(event.command.eventType) || !gps ||
+      if (event.eventId.startsWith("fuel:feature:business-expenses:fuel:") ||
+          !eligibleEvents.has(event.command.eventType) || !gps ||
           !Number.isFinite(gps.latitude) || !Number.isFinite(gps.longitude) ||
           gps.latitude < -90 || gps.latitude > 90 || gps.longitude < -180 || gps.longitude > 180) continue;
       const id = recordId(event.eventId);
@@ -93,74 +94,6 @@ export class TimelineEnrichmentQueue {
   }
 
 
-  /**
-   * Persist the GPS result for a Fuel Entry submission under its stable fuel-event
-   * identity. The purchase itself is already committed; this evidence/enrichment
-   * record is separate and can never delay or roll back that purchase.
-   */
-  async recordFuelLocationCapture(input: Readonly<{
-    eventId: string;
-    outcome:
-      | Readonly<{ status: "captured"; latitude: number; longitude: number; accuracyMeters: number; fixAt: string; gpsProvider: "device" }>
-      | Readonly<{ status: "permission_denied" | "timeout" | "unavailable"; reason: string }>;
-    captureTiming: "submission_event" | "late";
-  }>): Promise<void> {
-    if (!input.eventId.startsWith("fuel:feature:business-expenses:fuel:")) {
-      throw new Error("fuel_location_event_identity_invalid");
-    }
-    const id = recordId(input.eventId);
-    if (await this.records.get<TimelineEnrichmentRecord>(id)) return;
-    const now = new Date(this.now()).toISOString();
-    const captured = input.outcome.status === "captured";
-    if (captured && (!Number.isFinite(input.outcome.latitude) || input.outcome.latitude < -90 ||
-        input.outcome.latitude > 90 || !Number.isFinite(input.outcome.longitude) ||
-        input.outcome.longitude < -180 || input.outcome.longitude > 180 ||
-        !Number.isFinite(input.outcome.accuracyMeters) || input.outcome.accuracyMeters <= 0 ||
-        !Number.isFinite(Date.parse(input.outcome.fixAt)))) {
-      throw new Error("fuel_location_evidence_invalid");
-    }
-    const data: TimelineEnrichmentRecord = {
-      eventId: input.eventId,
-      status: captured ? "pending" : "capture_unavailable",
-      provider: "geoapify",
-      createdAt: now,
-      attempts: 0,
-      captureStatus: input.outcome.status,
-      captureTiming: input.captureTiming,
-      ...(captured ? {
-        latitude: input.outcome.latitude,
-        longitude: input.outcome.longitude,
-        accuracyMeters: input.outcome.accuracyMeters,
-        fixAt: input.outcome.fixAt,
-        gpsProvider: input.outcome.gpsProvider,
-      } : { captureReason: input.outcome.reason }),
-    };
-    await this.records.put({
-      id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1, data,
-    });
-  }
-
-  async reconcileFuelLocationCaptures(purchases: readonly Readonly<{
-    id: string;
-    locationEvidence?: Readonly<{
-      latitude: number; longitude: number; accuracyMeters: number; capturedAt: string;
-      provider: "device"; captureTiming?: "submission_event" | "late";
-    }>;
-  }>[]): Promise<void> {
-    for (const purchase of purchases) {
-      const evidence = purchase.locationEvidence;
-      if (!evidence) continue;
-      await this.recordFuelLocationCapture({
-        eventId: "fuel:" + purchase.id,
-        outcome: {
-          status: "captured", latitude: evidence.latitude, longitude: evidence.longitude,
-          accuracyMeters: evidence.accuracyMeters, fixAt: evidence.capturedAt,
-          gpsProvider: evidence.provider,
-        },
-        captureTiming: evidence.captureTiming ?? "late",
-      });
-    }
-  }
 
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
     if (this.draining) return Object.freeze({});
@@ -169,6 +102,9 @@ export class TimelineEnrichmentQueue {
     const nowMs = this.now();
     const all = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
+      // Older releases could enqueue Fuel GPS rows. Preserve those records for backup compatibility,
+      // but never reverse-geocode them after Fuel location capture was retired.
+      .filter(row => !row.data.eventId.startsWith("fuel:feature:business-expenses:fuel:"))
       .filter(row => typeof row.data.latitude === "number" && typeof row.data.longitude === "number")
       .filter(row => (row.data.status === "pending" || row.data.status === "network_disabled") ||
         (row.data.status === "retry_wait" && (!row.data.nextAttemptAt || Date.parse(row.data.nextAttemptAt) <= nowMs)))
@@ -234,6 +170,7 @@ export class TimelineEnrichmentQueue {
   async nextWakeAt(): Promise<number | undefined> {
     const rows = (await this.records.list<TimelineEnrichmentRecord>())
       .filter(row => row.id.startsWith(TIMELINE_ENRICHMENT_RECORD_PREFIX))
+      .filter(row => !row.data.eventId.startsWith("fuel:feature:business-expenses:fuel:"))
       .filter(row => row.data.status === "pending" || row.data.status === "retry_wait");
     if (!rows.length) return undefined;
     const times = rows.map(row => row.data.status === "retry_wait" && row.data.nextAttemptAt

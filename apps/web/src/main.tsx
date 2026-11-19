@@ -31,7 +31,6 @@ import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
 import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-form-submission";
-import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
@@ -46,7 +45,6 @@ async function bootstrap(): Promise<void> {
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
-  const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   FeatureRecordService.setAuthorResolver(async () => {
     const actor = await getPersonIdentityService().currentActor();
@@ -69,7 +67,7 @@ async function bootstrap(): Promise<void> {
   }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
-    getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
+    getApplicationBusinessExpensesService(), getApplicationRecordSource(),
   );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(

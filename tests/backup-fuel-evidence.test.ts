@@ -8,7 +8,7 @@ import {
 } from "../packages/storage-browser/src";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 
-describe("Fuel location evidence backup ownership", () => {
+describe("Legacy Fuel location payload backup compatibility", () => {
   let unregisterVehicle: (() => void) | undefined;
 
   beforeEach(async () => {
@@ -24,10 +24,10 @@ describe("Fuel location evidence backup ownership", () => {
     await browserDatabase.delete();
   });
 
-  it("round-trips Fuel GPS capture evidence while excluding device-local vault and recovery state", async () => {
+  it("preserves pre-existing Fuel location payloads as ordinary records without enabling new capture", async () => {
     const timestamp = "2026-11-18T00:00:00.000Z";
     const fuelEventId = "feature:business-expenses:fuel:purchase-1";
-    const locationEvidence = {
+    const legacyLocationPayload = {
       eventId: fuelEventId,
       eventType: "fuel_purchase",
       latitude: 19.076,
@@ -44,7 +44,7 @@ describe("Fuel location evidence backup ownership", () => {
       updatedAt: timestamp,
       source: "integration" as const,
       revision: 1,
-      data: locationEvidence,
+      data: legacyLocationPayload,
     };
     await browserDatabase.records.put(fuelLocationRecord);
     await browserDatabase.credentialVault.put({
@@ -71,7 +71,7 @@ describe("Fuel location evidence backup ownership", () => {
 
     const snapshot = await exportBrowserSnapshot("0.1.0");
     expect(snapshot.data.records).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: fuelLocationRecord.id, data: locationEvidence }),
+      expect.objectContaining({ id: fuelLocationRecord.id, data: legacyLocationPayload }),
     ]));
     expect(snapshot.manifest.participants).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: "platform-records", featureId: "platform" }),
@@ -86,7 +86,7 @@ describe("Fuel location evidence backup ownership", () => {
       data: snapshot.data, manifest: snapshot.manifest, confirmed: true,
     });
     expect(await browserDatabase.records.get(fuelLocationRecord.id)).toMatchObject({
-      revision: 1, data: locationEvidence,
+      revision: 1, data: legacyLocationPayload,
     });
     expect(await browserDatabase.credentialVault.get("dropbox")).toMatchObject({
       ciphertext: "local-secret-ciphertext",

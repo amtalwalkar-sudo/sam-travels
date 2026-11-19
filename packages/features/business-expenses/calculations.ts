@@ -23,6 +23,7 @@ export type FuelPurchaseV1 = Readonly<{
   pricePaisePerKg: number;
   amountPaise: number;
   partialRefill: boolean;
+  /** @deprecated Legacy backup/read compatibility only. Current Fuel workflows never capture or update location evidence. */
   locationEvidence?: FuelLocationEvidenceV1;
 }>;
 

@@ -51,10 +51,13 @@ try {
   const page = await context.newPage();
   page.on("pageerror", error => console.error("BROWSER PAGE ERROR", error.stack ?? error.message));
   await page.addInitScript(() => {
-    localStorage.setItem("__fuel_instrumentation_active","yes");const trace=(key,stack)=>{const a=JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]");a.push({key,stack});localStorage.setItem("__fuel_record_deletes",JSON.stringify(a));};
-    const objectStore=IDBTransaction.prototype.objectStore;IDBTransaction.prototype.objectStore=function(name){const store=objectStore.call(this,name);if(name==="records"&&!store.__fuelTrace){store.__fuelTrace=true;const remove=store.delete.bind(store);store.delete=key=>{trace("delete "+String(key),new Error().stack);return remove(key);};const clear=store.clear.bind(store);store.clear=()=>{trace("clear records",new Error().stack);return clear();};const put=store.put.bind(store);store.put=value=>{if(String(value?.id).startsWith("feature:business-expenses:fuel:")||String(value?.id).startsWith("timeline-enrichment:"))trace("put "+value.id+" "+JSON.stringify(value.data?.locationEvidence),new Error().stack);return put(value);};}return store;};
-    const cursorDelete=IDBCursor.prototype.delete;IDBCursor.prototype.delete=function(){if(this.source?.name==="records"||this.source?.objectStore?.name==="records")trace("cursor.delete "+this.primaryKey,new Error().stack);return cursorDelete.call(this);};const dropStore=IDBDatabase.prototype.deleteObjectStore;IDBDatabase.prototype.deleteObjectStore=function(name){trace("deleteObjectStore "+this.name+"."+name,new Error().stack);return dropStore.call(this,name);};const drop=IDBFactory.prototype.deleteDatabase;IDBFactory.prototype.deleteDatabase=function(name){trace("deleteDatabase "+name,new Error().stack);return drop.call(this,name);};
-    Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition(success, error) { const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1; localStorage.setItem("__fuel_geo_calls", String(calls)); if (calls === 1) setTimeout(() => success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 12.5 }, timestamp: Date.now() }), 1000); else setTimeout(() => error?.({ code: 1, message: "Permission denied" }), 5000); } } });
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: { getCurrentPosition() {
+        const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
+        localStorage.setItem("__fuel_geo_calls", String(calls));
+      } },
+    });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
@@ -140,7 +143,6 @@ try {
   await toggle.click();
   const panel = page.locator(".fuel-entry-panel");
   await panel.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 0, "opening the form must not request GPS");
   assert.equal(await panel.getByLabel("Partial refill").isChecked(), false, "full tank is the default");
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12345");
@@ -155,7 +157,6 @@ try {
   }, undefined, { timeout: 30000 });
   const firstSubmitStatus = (await panel.getByRole("status").textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "one GPS request is made for the first Submit");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -165,32 +166,6 @@ try {
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
-  await page.waitForFunction(async expectedEventId => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const transaction = db.transaction("records", "readonly");
-      const read = transaction.objectStore("records").getAll();
-      let result;
-      read.onsuccess = () => { result = read.result; };
-      read.onerror = () => reject(read.error);
-      transaction.oncomplete = () => resolve(result ?? []);
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
-    });
-    db.close();
-    const purchaseId = expectedEventId.slice("fuel:".length);
-    return rows.some(row =>
-      row.id === purchaseId &&
-      row.data?.locationEvidence?.provider === "device" &&
-      row.data?.locationEvidence?.captureTiming === "late" &&
-      row.data?.locationEvidence?.latitude === 19.076 &&
-      row.data?.locationEvidence?.longitude === 72.8777
-    );
-  }, "fuel:" + purchases[0].id, { timeout: 10000 });
   await context.setOffline(false);
 
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
@@ -222,38 +197,45 @@ try {
 
   await toggle.click();
   const firstFuelPurchaseId = purchases[0].id;
-  const verifyFirstEvidence = async stage => { const evidence=await page.evaluate(async id=>{const request=indexedDB.open("sam-travels-browser");const db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const read=db.transaction("records","readonly").objectStore("records").get(id);read.onsuccess=()=>resolve(read.result);read.onerror=()=>reject(read.error);});db.close();return row?.data?.locationEvidence;},firstFuelPurchaseId);const trace=await page.evaluate(()=>JSON.parse(localStorage.getItem("__fuel_record_deletes")||"[]"));assert.equal(evidence?.captureTiming,"late","authoritative Fuel GPS evidence lost during "+stage+"; evidence="+JSON.stringify({evidence,trace}));assert.equal(evidence?.latitude,19.076);assert.equal(evidence?.longitude,72.8777); };
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(async expectedId => {
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
+  const reloadedPurchase = await page.evaluate(async id => {
     const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
     const row = await new Promise((resolve, reject) => {
-      const read = db.transaction("records", "readonly").objectStore("records").get(expectedId);
-      read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+      const read = db.transaction("records", "readonly").objectStore("records").get(id);
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
     });
     db.close();
-    return row?.data?.locationEvidence?.captureTiming === "late" &&
-      row?.data?.locationEvidence?.latitude === 19.076 &&
-      row?.data?.locationEvidence?.longitude === 72.8777;
-  }, firstFuelPurchaseId, { timeout: 10000 });
-  await verifyFirstEvidence("immediately after reload wait");
+    return row;
+  }, firstFuelPurchaseId);
+  assert(reloadedPurchase, "authoritative Fuel purchase must still exist in IndexedDB after a fresh page load");
+  assert.equal(reloadedPurchase.data.vehicleId, vehicleId);
+  assert.equal(reloadedPurchase.data.odometerKm, 12345);
+  assert.equal(reloadedPurchase.data.pricePaisePerKg, 8250);
+  assert.equal(reloadedPurchase.data.amountPaise, 82500);
+  assert.equal(reloadedPurchase.data.partialRefill, false);
+  assert.equal(typeof reloadedPurchase.data.occurredAt, "string");
+  assert.equal(typeof reloadedPurchase.data.businessDate, "string");
+  assert.equal(Object.hasOwn(reloadedPurchase.data, "locationEvidence"), false,
+    "new Fuel purchases do not capture or persist GPS evidence");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 0,
+    "Fuel submission and page reload must never request GPS");
   await page.waitForTimeout(500);
-  await verifyFirstEvidence("500ms after reload");
   await page.getByRole("button", { name: "Admin", exact: true }).click();
-  await verifyFirstEvidence("opening Admin");
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: driverName });
   await page.getByLabel("Active role").selectOption("driver");
-  await verifyFirstEvidence("selecting Driver role");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-  await verifyFirstEvidence("Driver role activation");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
-  await verifyFirstEvidence("opening Drive");
   await page.locator(".fuel-entry-toggle").waitFor({ state: "visible" });
   await page.locator(".fuel-entry-toggle").click();
-  await verifyFirstEvidence("opening Fuel Entry");
   const resumed = page.locator(".fuel-entry-panel");
   await resumed.getByRole("heading", { name: "Fuel Entry", exact: true }).waitFor({ state: "visible" });
   try {
@@ -305,8 +287,6 @@ try {
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 1, "draft resume must not request GPS again");
-  await verifyFirstEvidence("before second submit");
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
@@ -317,34 +297,14 @@ try {
   }, undefined, { timeout: 30000 });
   const secondSubmitStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 2, "one additional GPS request is made for the second Submit");
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   );
-  assert.equal(purchases.length, 2, "both full and partial purchases must commit before optional GPS enrichment completes");
-  const evidenceBeforeCompletion = committedBeforeEnrichment.filter(row =>
-    row.id.startsWith("timeline-enrichment:fuel:") &&
-    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
-  );
-  assert(evidenceBeforeCompletion.length < 2, "the latest GPS callback must still be pending when the purchase save completes");
-  let readback = await readBrowserRecords(page);
-  const evidenceDeadline = Date.now() + 10000;
-  while (readback.filter(row =>
-    row.id.startsWith("timeline-enrichment:fuel:") &&
-    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
-  ).length !== 2 && Date.now() < evidenceDeadline) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    readback = await readBrowserRecords(page);
-  }
-  purchases = readback.filter(row =>
+  purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
-  const evidence = readback.filter(row =>
-    row.id.startsWith("timeline-enrichment:fuel:") &&
-    row.data?.eventId?.startsWith("fuel:feature:business-expenses:fuel:")
-  );
-  assert.equal(purchases.length, 2);
+  assert.equal(purchases.length, 2, "both full and partial purchases must commit offline");
   assert.equal(purchases[0].data.odometerKm, 12345);
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[1].data.odometerKm, 12346);
@@ -354,24 +314,13 @@ try {
     assert.equal(purchase.data.amountPaise, 82500);
     assert.equal(typeof purchase.data.occurredAt, "string");
     assert.equal(typeof purchase.data.businessDate, "string");
+    assert.equal(Object.hasOwn(purchase.data, "locationEvidence"), false);
   }
-  assert.equal(evidence.length, 2, "each Fuel purchase must retain its separate GPS outcome; observed=" + JSON.stringify({ rowCount: readback.length, matchingIds: readback.filter(row => String(row.id).startsWith("timeline-enrichment:")).map(row => ({ id: row.id, eventId: row.data?.eventId, captureStatus: row.data?.captureStatus })), purchaseIds: purchases.map(row => row.id) }));
-  const capturedEvidence = evidence.find(row => row.data.captureStatus === "captured");
-  const deniedEvidence = evidence.find(row => row.data.captureStatus === "permission_denied");
-  assert(capturedEvidence, "a successful GPS fix must be stored");
-  assert.equal(capturedEvidence.data.latitude, 19.076);
-  assert.equal(capturedEvidence.data.longitude, 72.8777);
-  assert.equal(capturedEvidence.data.accuracyMeters, 12.5);
-  assert.equal(typeof capturedEvidence.data.fixAt, "string");
-  assert.equal(capturedEvidence.data.gpsProvider, "device");
-  assert.equal(capturedEvidence.data.captureTiming, "late");
-  assert.equal(capturedEvidence.data.eventId, "fuel:" + purchases[0].id);
-  assert(deniedEvidence, "permission denial must be stored as separate evidence");
-  assert.equal(deniedEvidence.data.eventId, "fuel:" + purchases[1].id);
-  assert.equal(deniedEvidence.data.captureReason, "permission_denied");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 0,
+    "Fuel submissions never invoke the browser geolocation API");
   await context.setOffline(false);
 
-  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, offline purchase committed once, derived quantity preview and GPS denial evidence verified.");
+  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and no GPS request made.");
 } finally {
   await browser?.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }

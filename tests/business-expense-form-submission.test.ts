@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { beginFuelLocationCapture, createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
+import { createBusinessExpenseFormSubmissionHandler } from "../apps/web/src/business-expense-form-submission";
 import {
   FUEL_ENTRY_FORM_V1,
   PLATFORM_FEE_FORM_V1, MISC_BUSINESS_EXPENSE_FORM_V1, TRAFFIC_CHALLAN_FORM_V1,
@@ -9,63 +9,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
-
-describe("Fuel Entry submit-time GPS acquisition", () => {
-  it("requests a fresh device fix and resolves with its actual timestamp and accuracy", async () => {
-    let success: ((position: GeolocationPosition) => void) | undefined;
-    let options: PositionOptions | undefined;
-    const geolocation = {
-      getCurrentPosition(callback: (position: GeolocationPosition) => void, _error: unknown, requested?: PositionOptions) {
-        success = callback;
-        options = requested;
-      },
-    } as unknown as Geolocation;
-
-    const capture = beginFuelLocationCapture(geolocation);
-    expect(options).toMatchObject({ enableHighAccuracy: true, maximumAge: 0, timeout: 6000 });
-    expect(capture.completedAt()).toBeUndefined();
-
-    success!({
-      coords: {
-        latitude: 19.076, longitude: 72.8777, accuracy: 12.5,
-        altitude: null, altitudeAccuracy: null, heading: null, speed: null,
-      },
-      timestamp: Date.parse("2026-11-14T20:00:02.000Z"),
-    } as GeolocationPosition);
-
-    await expect(capture.promise).resolves.toEqual({
-      status: "captured", latitude: 19.076, longitude: 72.8777,
-      accuracyMeters: 12.5, fixAt: "2026-11-14T20:00:02.000Z", gpsProvider: "device",
-    });
-    expect(capture.completedAt()).toEqual(expect.any(Number));
-  });
-
-  it("records permission denial as unavailable evidence instead of rejecting submission", async () => {
-    let failure: ((error: GeolocationPositionError) => void) | undefined;
-    const geolocation = {
-      getCurrentPosition(_success: unknown, callback: (error: GeolocationPositionError) => void) {
-        failure = callback;
-      },
-    } as unknown as Geolocation;
-    const capture = beginFuelLocationCapture(geolocation);
-    failure!({
-      code: 1, message: "permission denied",
-      PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3,
-    } as GeolocationPositionError);
-    await expect(capture.promise).resolves.toEqual({
-      status: "permission_denied", reason: "permission_denied",
-    });
-    expect(capture.completedAt()).toEqual(expect.any(Number));
-  });
-
-  it("reports unsupported location without throwing", async () => {
-    const capture = beginFuelLocationCapture(undefined);
-    await expect(capture.promise).resolves.toEqual({
-      status: "unavailable", reason: "geolocation_unsupported",
-    });
-  });
-});
-
 
 describe("Admin business expense form submission mapping", () => {
   function setup() {
@@ -186,83 +129,36 @@ describe("Admin business expense form submission mapping", () => {
 
 
 describe("Fuel Entry form submission mapping", () => {
-  it("commits the purchase fields before a delayed GPS fix and records late evidence separately", async () => {
+  it("submits the authoritative purchase without requesting or persisting GPS", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-18T00:00:00.000Z"));
-    let success: ((position: GeolocationPosition) => void) | undefined;
-    const geolocation = {
-      getCurrentPosition(callback: (position: GeolocationPosition) => void) {
-        success = callback;
-      },
-    };
-    vi.stubGlobal("navigator", { geolocation });
-
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
     const createFuelPurchase = vi.fn(async (input: unknown) => ({ id: "purchase-1", input }));
-    const recordFuelLocationEvidence = vi.fn(async (_input: unknown) => undefined);
-    const recordFuelLocationCapture = vi.fn(async (_input: unknown) => undefined);
     const source = { platform: "browser-test" };
     const submit = createBusinessExpenseFormSubmissionHandler(
-      { createFuelPurchase, recordFuelLocationEvidence } as never,
+      { createFuelPurchase } as never,
       source as never,
-      { recordFuelLocationCapture } as never,
     );
-
     const result = await submit({
       formId: FUEL_ENTRY_FORM_V1.id,
       action: "submit",
       instanceId: "fuel-entry-instance-1",
       operationId: "fuel-entry-operation-1",
       values: {
-        vehicleId: "vehicle-1",
-        odometerKm: 12345,
-        priceRupeesPerKg: 95.5,
-        amountRupees: 477.25,
-        partialRefill: true,
+        vehicleId: "vehicle-1", odometerKm: 12345, priceRupeesPerKg: 95.5,
+        amountRupees: 477.25, partialRefill: true,
       },
     } as never);
-
     expect(createFuelPurchase).toHaveBeenCalledWith({
-      uuid: "fuel-entry-instance-1",
-      source,
+      uuid: "fuel-entry-instance-1", source,
       data: {
-        vehicleId: "vehicle-1",
-        odometerKm: 12345,
-        pricePaisePerKg: 9550,
-        amountPaise: 47725,
-        partialRefill: true,
-        occurredAt: "2026-11-18T00:00:00.000Z",
-        businessDate: "2026-11-18",
+        vehicleId: "vehicle-1", odometerKm: 12345, pricePaisePerKg: 9550,
+        amountPaise: 47725, partialRefill: true,
+        occurredAt: "2026-11-18T00:00:00.000Z", businessDate: "2026-11-18",
       },
     });
     expect(result).toMatchObject({ id: "purchase-1" });
-    expect(recordFuelLocationCapture).not.toHaveBeenCalled();
-
-    success!({
-      coords: {
-        latitude: 19.076, longitude: 72.8777, accuracy: 8,
-        altitude: null, altitudeAccuracy: null, heading: null, speed: null,
-      },
-      timestamp: Date.parse("2026-11-18T00:00:02.000Z"),
-    } as GeolocationPosition);
-
-    await vi.waitFor(() => expect(recordFuelLocationEvidence).toHaveBeenCalledWith({
-      fuelPurchaseId: "purchase-1",
-      evidence: {
-        latitude: 19.076, longitude: 72.8777, accuracyMeters: 8,
-        capturedAt: "2026-11-18T00:00:02.000Z", provider: "device", captureTiming: "late",
-      },
-    }));
-    await vi.waitFor(() => expect(recordFuelLocationCapture).toHaveBeenCalledWith({
-      eventId: "fuel:purchase-1",
-      outcome: {
-        status: "captured",
-        latitude: 19.076,
-        longitude: 72.8777,
-        accuracyMeters: 8,
-        fixAt: "2026-11-18T00:00:02.000Z",
-        gpsProvider: "device",
-      },
-      captureTiming: "late",
-    }));
+    expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 });

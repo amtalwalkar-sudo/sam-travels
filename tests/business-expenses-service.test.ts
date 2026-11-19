@@ -69,29 +69,6 @@ describe("BusinessExpensesService", () => {
     })).rejects.toThrow("feature_record_already_exists");
   });
 
-  it("attaches captured GPS evidence to the authoritative Fuel purchase idempotently", async () => {
-    const { service } = setup();
-    const purchase = await service.createFuelPurchase({
-      uuid: "123e4567-e89b-42d3-a456-426614174099", source: "web",
-      data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
-        vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
-        partialRefill: true,
-      },
-    });
-    const evidence = {
-      latitude: 19.076, longitude: 72.8777, accuracyMeters: 12.5,
-      capturedAt: "2026-11-14T20:00:02.000Z", provider: "device" as const, captureTiming: "late" as const,
-    };
-    const saved = await service.recordFuelLocationEvidence({ fuelPurchaseId: purchase.id, evidence });
-    expect(saved).toMatchObject({ revision: 2, data: { locationEvidence: evidence } });
-    await expect(service.recordFuelLocationEvidence({ fuelPurchaseId: purchase.id, evidence }))
-      .resolves.toMatchObject({ revision: 2, data: { locationEvidence: evidence } });
-    await expect(service.recordFuelLocationEvidence({
-      fuelPurchaseId: purchase.id, evidence: { ...evidence, latitude: 19.1 },
-    })).rejects.toThrow("fuel_location_evidence_already_recorded");
-  });
-
   it("exposes a derived historical rate timeline from completed intervals", async () => {
     const { service } = setup();
     for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of [

@@ -1,7 +1,7 @@
 # Fuel Entry and Business Expense Calculation Contract
 
-**Version:** 1.1  
-**Status:** Owner decisions reconciled with the approved breakeven and upstream source contracts; this amendment is documentation-only and makes no runtime implementation claim.
+**Version:** 1.2  
+**Status:** Owner-approved Fuel GPS removal. Fuel is an offline-first purchase record and does not request, store, enqueue, or reverse-geocode device location. Legacy location fields/queue rows, if present in older backups, are compatibility data only and are not produced by current Fuel workflows.
 **Base:** `main` after merged PR #77 (`6f92fe759e753e93e17f86efc11df94a00e0c1e8`).
 **Scope:** PR 1 expense-source foundation and Fuel Entry; PR 2 full-cost breakeven. Driver Target remains a later, separately sequenced phase after reliable breakeven.
 **Authorities:** `FORM_ARCHITECTURE_AND_BEHAVIOUR_CONTRACT.md`, `LOCATION_AND_STATE_TIMING_CONTRACT.md`, `NETWORK_ACCESS_CONTRACT.md`, `BUSINESS_START_DATE_COST_ALLOCATION_CONTRACT.md`, and the existing architecture, persistence, backup, recovery, and feature-extension contracts.
@@ -31,7 +31,7 @@ The calculation and source-record foundation is the primary deliverable. It must
 - Every field change updates the form's in-progress working copy through the shared form runtime.
 - Closing the form, navigating away, backgrounding the app, or closing the app does not submit or discard the entry. Reopening Fuel Entry must find and resume the correct incomplete working copy without mixing it with another driver or record.
 - The approved shared form contract requires retained working copies to survive navigation, backgrounding, process termination, app restart, and supported recovery. Therefore restart recovery is part of conformance, even though the initial product request described it as optional.
-- A resumed form retains its original working-copy identity and values. Its final entry timestamp and location evidence are captured for the actual submission event, not retroactively fabricated from the time the draft was first opened.
+- A resumed form retains its original working-copy identity and values. Its final entry timestamp is assigned when the purchase is submitted. Fuel does not capture device location.
 - Submission is idempotent. A repeated tap/retry with the same operation identity must not create duplicate fuel purchases. An ambiguous failure retains the form values and operation identity for safe retry.
 - A successfully submitted purchase is immutable by default. Corrections use the existing auditable correction mechanism; they do not silently overwrite the original source facts.
 
@@ -57,27 +57,20 @@ Validation must follow the shared form contract:
 - Do not require an active shift, trip, or network connection.
 - No date restriction should be inherited from Business Start Date. The authoritative entry instant is captured by the app; any later historical correction follows the correction contract.
 
-### 2.3 Entry timestamp and GPS evidence
+### 2.3 Entry timestamp and location boundary
 
-- Capture a stable entry timestamp for the successful submission intent, storing the UTC instant and Asia/Kolkata business-date context under the existing time contract.
-- Initiate a fresh, event-scoped GPS snapshot from the actual Fuel Entry Submit event; never request it merely because the form was opened. Use a fresh device fix (no cached/last-known position) and preserve coordinates, accuracy, actual fix timestamp, and device provider/source.
-- Commit the fuel purchase and its submission timestamp locally without waiting for GPS. GPS acquisition and persistence of its separate evidence record are best-effort asynchronous work and must never hold the form open, delay submission, require internet, or block navigation/another driver action.
-- Persist an explicit capture outcome under a stable fuel-scoped enrichment identity: captured, permission denied, timed out, or unavailable. A successful fix stores coordinates, accuracy, actual fix timestamp, and provider; unavailable outcomes store a reason but never fabricated coordinates. These records use the existing durable platform record store and participate in its backup/recovery path.
-- If a fix resolves before the fuel source commit completes, mark it as submission-event evidence. If it resolves after the purchase is committed, mark it as late evidence while retaining the actual fix timestamp; never represent a late result as an exact submission-time fix.
-- Reverse geocoding remains a separate retryable task derived from the persisted GPS evidence. It cannot roll back or delay the already-committed purchase.
-- The GPS snapshot is immutable source evidence once attached. A correction must not silently rewrite it.
+- Capture the authoritative entry timestamp when the Fuel purchase is submitted, storing the UTC instant and Asia/Kolkata business-date context under the existing time contract.
+- Fuel Entry must never request device geolocation, access GPS coordinates, persist Fuel-scoped location evidence, create Fuel-scoped Timeline enrichment events, or initiate reverse geocoding.
+- Fuel submission must not depend on location permission, location services, GPS availability, network connectivity, or geocoding.
+- This is an intentional product boundary, not a temporary fallback or an unimplemented feature. Future development must not reintroduce Fuel GPS capture or locality enrichment without a new explicit owner decision and a separately versioned contract amendment.
+- Historical Fuel records or backup packages may contain legacy `locationEvidence` fields or Fuel-scoped `timeline-enrichment:` rows created by earlier versions. They are compatibility data only: preserve them during ordinary backup/restore where the generic record contract requires it, but do not create, update, interpret, or enrich them as part of current Fuel workflows.
 
-### 2.4 Offline and reverse geocoding
+### 2.4 Offline operation
 
 - Fuel form opening, field editing, draft persistence, validation, derived quantity, submission, local record reads, and all local calculations work offline.
-- Reverse geocoding is the only network-dependent part of this workflow.
-- Store GPS coordinates locally first. A durable background enrichment task may later send coordinates to the existing server-side Geoapify proxy when the app's network policy permits and connectivity is available.
-- Reverse geocoding must be queued/retried without polling, with bounded retry/backoff, idempotent request identity, and explicit pending/resolved/not-found/unavailable states.
-- Persist the resolved locality as enrichment metadata linked to the fuel record. Never replace or mutate the original latitude/longitude, entry timestamp, or GPS fix metadata.
-- Failure, timeout, missing proxy configuration, disabled network policy, or geocoder outage must not affect fuel record creation, form completion, navigation, or any driver workflow.
-- Do not make a geocoder request from the form's critical submit path.
-- Reuse the existing reverse-geocoder adapter/proxy and shared network policy where appropriate, but do not assume the current Timeline enrichment service is a complete persistence solution: its current cache is session-local and its source-event scope is Timeline-specific. Fuel enrichment needs durable fuel-record linkage and recovery on both browser IndexedDB and Android Room.
-- No continuous GPS tracking or location polling is introduced.
+- Fuel purchase submission writes only the authoritative purchase source record through the existing shared form/application/repository path. No location, geocoder, or network side task is part of submission.
+- A failed or unavailable network must not affect fuel record creation, form completion, navigation, or any driver workflow.
+- Do not add a GPS permission prompt, location status, reverse-geocoding state, or locality field to Fuel Entry.
 
 ## 3. CNG full-tank measurement and fuel metrics
 
@@ -158,7 +151,7 @@ Scope:
 1. Add the common expense-source and calculation foundation.
 2. Add Fuel Entry as the only new driver-facing form, using the existing shared PWA form runtime and the rules above.
 3. Add separate Admin entry forms in the approved hierarchy: Platform Fees and Miscellaneous Business Expenses under Finance; Traffic Challans under Compliance. Each has its own dedicated section and form, using the established shared form runtime and form rules.
-4. Persist fuel purchase facts, durable in-progress form working copies, timestamp, best-effort GPS evidence, and durable asynchronous locality enrichment.
+4. Persist fuel purchase facts, durable in-progress form working copies, and the authoritative submission timestamp. Fuel GPS and locality enrichment are excluded.
 5. Implement derived kg, full-tank checkpoint pairing, km/kg, effective interval cost/kg, and per-interval fuel cost/km with deterministic provenance. Preserve all purchases as source records; do not treat purchase spend as a second daily breakeven cost.
 6. Add the three Admin expense forms and their authoritative source records, then implement source adapters and calculations for platform fees, challans, and miscellaneous expenses.
 7. Produce reliable daily source-entry summaries and completed fuel-interval outputs without changing the Performance presentation. These source summaries are not themselves a breakeven result; breakeven fuel cost must use confirmed business kilometres multiplied by the weighted interval rate.
@@ -167,8 +160,8 @@ Scope:
 Acceptance gates:
 - Fuel entry can be opened from every screen and when no shift is active.
 - Form draft survives navigation, app close/reopen, process restart, and supported recovery without accidental submission or data loss.
-- Fuel submission and local calculations work with network disabled; geocoding failure never blocks the driver.
-- GPS evidence is event-scoped and correctly timestamped; absent/late evidence is represented honestly.
+- Fuel submission and local calculations work with network disabled; no geocoding task exists in the Fuel workflow.
+- Fuel submission does not invoke geolocation or create location-enrichment work.
 - Full-to-full mileage requires two valid full-tank checkpoints and a positive odometer delta.
 - Full tank is the default; the Partial refill checkbox is unchecked by default.
 - All fuel purchases remain immutable source records; only full-tank records are checkpoints for km/kg and cost/km intervals, while intervening partial purchases contribute quantity and spend to the interval. Fuel purchases are not separately added to daily breakeven costs.
@@ -193,7 +186,7 @@ Driver Target is a later phase and remains last in sequence. Its approved produc
 
 Inspection of `main` after PR #77 found:
 - The shared form contract/runtime and record-backed working-copy repository already exist. The form contract requires restart recovery, so the Fuel form must conform rather than introduce a weaker draft lifecycle.
-- The shared location contract supports offline event-scoped GPS acquisition, and the existing reverse-geocoder adapter/proxy exists. Timeline enrichment currently uses a session-local cache and Timeline-specific event types, so fuel needs durable enrichment linkage/queue handling rather than relying on that cache as-is.
+- The shared location contract applies to Work/Trip events, not Fuel purchases. Fuel must not be wired to the reverse-geocoder adapter or Timeline enrichment queue.
 - Existing completed-trip financial records store fare, toll, and parking, but no platform-fee field or authoritative platform-settlement record was found; PR 1 therefore needs an Admin Platform Fees source form and record model.
 - Existing Maintenance records include vehicle-scoped visits and general expenses, but there is no dedicated traffic-challan source or general business-expense category model in the inspected source; PR 1 therefore needs dedicated Admin forms and typed record models for these categories.
 - These are approved Admin entry forms, not unapproved UI. They must be implemented using the shared form architecture; no separate Performance presentation is included.
@@ -204,11 +197,11 @@ Inspection of `main` after PR #77 found:
 - **Driver Target:** The approved rule is a monthly Admin-configured additional surplus above full-cost breakeven, per Breakeven and Driver Target Calculation Contract v2.0, Addendum J. It is a fixed monthly amount independent of business/operating days, with proration only for the first calendar month from the Business Start Date. Target implementation remains deferred until reliable breakeven is complete; Driver Target is last in sequence.
 - **Initial operating scope:** One car and one driver only. Multi-car, multi-driver, and shared-cost allocation are explicitly deferred. Keep the architecture extensible without implementing that future complexity now.
 - **Partial-refill treatment** and the three separate Admin expense forms remain approved as specified above.
-- **Fuel timestamp and location:** At submission, capture a UTC timestamp and Asia/Kolkata business-date context, plus a fresh event-scoped GPS snapshot when available. Preserve accuracy, fix time, provider/source, and capture status. Missing or late GPS must be represented honestly and must never block submission or driver work.
-- **Offline and geocoding:** Fuel entry, draft recovery, submission, and local calculations work offline. Persist coordinates locally; reverse geocoding runs later through a durable, retryable background task when internet and network policy permit. Geocoding never runs in the critical submit path and never blocks the driver.
+- **Fuel timestamp:** At submission, capture a UTC timestamp and Asia/Kolkata business-date context. Fuel does not request or persist GPS evidence.
+- **Offline operation:** Fuel entry, draft recovery, submission, and local calculations work offline. There is no Fuel location capture, geocoding, or external enrichment task.
 - **Work access:** Fuel Entry is accessible from the Work screen even when no shift is active, and from any app screen. Opening it must not start or alter a shift, trip, or workflow state.
 - **Form lifecycle:** Use the shared form architecture and working-copy lifecycle. Drafts survive navigation, app background/close, process restart, and supported recovery; no close/navigation action submits or discards a draft. One Submit action creates an idempotent purchase record.
-- **Scope boundary:** Include the approved partial-refill checkpoint rules, three separate Admin expense forms, timestamp/GPS evidence, durable asynchronous reverse-geocoding, offline operation, and all previously approved source, correction, audit, backup/restore, browser/Android parity, and regression requirements. Do not add Performance presentation changes.
+- **Scope boundary:** Include the approved partial-refill checkpoint rules, three separate Admin expense forms, submission timestamp, offline operation, and all previously approved source, correction, audit, backup/restore, browser/Android parity, and regression requirements. Fuel GPS capture and locality enrichment are explicitly excluded. Do not add Performance presentation changes.
 
 The owner decisions recorded in this contract are resolved. No further clarification is currently required to proceed against this scope after the documentation review gate is accepted.
 

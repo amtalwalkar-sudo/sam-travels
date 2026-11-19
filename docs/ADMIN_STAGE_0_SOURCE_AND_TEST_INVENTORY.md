@@ -125,7 +125,7 @@ The matrix maps each current Admin workflow to the capability boundary that must
 - tests/shared-form-runtime.test.ts covers shared form definition/lifecycle mechanics, incomplete drafts, Save/Submit distinction, stale working-copy revisions and durable success before submitted status.
 - tests/record-form-working-copy.test.ts covers repository-backed draft persistence, discovery, revision checks and isolated removal.
 - Form Conformance Audit records migration of Business Setup, Vehicle, Driver, Compliance, Maintenance and Loan forms to versioned definitions/shared runtime, and rendered PWA/Android correction pilot.
-- tests/business-expense-form-submission.test.ts currently tests Fuel Entry GPS capture behaviour; it does not test Platform Fee, Miscellaneous Expense or Traffic Challan form-to-service mapping.
+- tests/business-expense-form-submission.test.ts verifies Fuel Entry submission without invoking browser geolocation and covers Platform Fee, Miscellaneous Expense and Traffic Challan form-to-service mapping.
 
 Shared form mechanics are a foundation to retain, not a requirement to retain current React form renderers. Each new form renderer must consume a narrow feature-owned form contract and dispatch through the same application path.
 
@@ -213,7 +213,7 @@ The shared form contract requires every registered/rendered form to be included 
 
 ### 9.2 Business expense form mapping lacks focused tests
 
-Service tests cover source-kind rules for platform fees, miscellaneous expenses and traffic challans. Current business-expense-form-submission.test.ts covers Fuel Entry GPS acquisition only. Add focused tests for each Admin definition's field-to-command mapping, date/amount conversion, attribution and validation errors. Do not change underlying BusinessExpensesService rules.
+Service tests cover source-kind rules for platform fees, miscellaneous expenses and traffic challans. Current business-expense-form-submission.test.ts verifies Fuel Entry does not request GPS and includes focused tests for each Admin definition's field-to-command mapping, date/amount conversion, attribution and validation errors. Fuel GPS capture and reverse geocoding are explicitly out of scope; do not add them to future Fuel form tests.
 
 ### 9.3 Admin rendered UI acceptance is partial
 
