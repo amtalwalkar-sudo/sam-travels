@@ -46,6 +46,10 @@ export class BusinessSettingsService {
     now?: string,
   ): Promise<RecordEnvelope<BusinessSettingsRecordV1>> {
     const data: BusinessSettingsRecordV1 = { schemaVersion: 1, businessStartDate };
+    if (operation) {
+      const replay = await this.records.replayOperation(operation, BUSINESS_SETTINGS_RECORD_ID, data);
+      if (replay) return replay;
+    }
     const current = await this.get();
     if (!current) {
       return this.records.create({ id: BUSINESS_SETTINGS_RECORD_ID, data, source, operation, now });
