@@ -140,6 +140,7 @@ try {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
   if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
   const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
@@ -176,7 +177,6 @@ try {
   await page.getByRole("button", { name: "Save loan details", exact: true }).click();
   const loanCard = page.locator(".loan-record").filter({ hasText: "Admin Browser Loan" });
   await loanCard.waitFor({ state: "visible", timeout: 15000 });
-  console.log("Loan details saved as an immutable historical record and rendered in Finance.");
   const paymentPanel = loanCard.locator(".loan-payment-panel");
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
