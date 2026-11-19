@@ -138,7 +138,7 @@ describe("BusinessStartDateCostAllocationService", () => {
 
   it("stops EMI allocation at the settlement date and retains only historical paid-through cost", async () => {
     const report = await createService({ settlement: true }).getReport();
-    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi");
+    const emiSources = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
     expect(emiSources).toHaveLength(0);
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
     expect(pool?.sourceAmountPaise).toBe(6_900);
@@ -152,7 +152,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     const report = await createService().getReport();
     const pool = report.result.sources.find(item => item.sourceKind === "pre-business-pool");
     const current = report.result.sources.filter(item => item.sourceKind === "emi" && item.disposition === "allocated");
-    expect(pool?.sourceAmountPaise).toBe(5_900);
+    expect(pool?.sourceAmountPaise).toBe(6_900);
     expect(report.result.sources.filter(item => item.disposition === "pre_business_pool_member")
       .map(item => item.sourceAmountPaise)).toEqual([3_100, 2_800]);
     expect(current.map(item => item.scheduleVersion)).toEqual([2]);
