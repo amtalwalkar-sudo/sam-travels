@@ -150,13 +150,14 @@ export class MaintenanceService {
 
   async setRate(input: {
     vehicleId: string; ratePaisePerKm: number; commandId: string; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceRateHistoryV1>> {
     const vehicle = await this.requireVehicle(input.vehicleId);
     if (!Number.isSafeInteger(input.ratePaisePerKm) || input.ratePaisePerKm < 0) {
       throw new Error("maintenance_rate_invalid");
     }
     if (!UUID.test(input.commandId)) throw new Error("maintenance_rate_command_id_invalid");
-    const timestamp = this.now();
+    const timestamp = input.now ?? this.now();
     const effectiveFrom = this.businessDateFromInstant(timestamp);
     const id = rateHistoryId(input.vehicleId);
     const current = await this.records.get(id);
@@ -197,11 +198,11 @@ export class MaintenanceService {
     };
     if (!current) {
       return this.records.create({
-        id, data, source: input.source, businessDate: effectiveFrom, now: timestamp,
+        id, data, source: input.source, businessDate: effectiveFrom, now: timestamp, operation: input.operation,
       }) as Promise<RecordEnvelope<MaintenanceRateHistoryV1>>;
     }
     return this.records.update({
-      id, expectedRevision: current.revision, data, now: timestamp,
+      id, expectedRevision: current.revision, data, now: timestamp, operation: input.operation,
     }) as Promise<RecordEnvelope<MaintenanceRateHistoryV1>>;
   }
 
