@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type { AdminPresentationServices, DriverRecordV1 } from "../../../../packages/application/src";
 import { DRIVER_FORM_V1 } from "../../../../packages/application/src";
 import { useAdminDriverServices } from "./admin-services-context";
+import { useWorkApplicationRuntime } from "./work-application-runtime-context";
 import "./AdminFormControls.css";
 
 type Driver = Awaited<ReturnType<AdminPresentationServices["driverRecords"]["list"]>>[number];
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 export function DriverSection() {
   const services = useAdminDriverServices();
+  const workRuntime = useWorkApplicationRuntime();
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [histories, setHistories] = useState<Record<string, Awaited<ReturnType<AdminPresentationServices["driverAssignments"]["getHistory"]>>>>({});
@@ -70,6 +72,9 @@ export function DriverSection() {
     e.preventDefault(); setBusy(true); setMessage("");
     try {
       await updateQueue.current;
+      if (editing && form.lifecycleState !== editing.data.lifecycleState && (await workRuntime.snapshot()).state !== "idle") {
+        throw new Error("operating_configuration_locked_during_shift");
+      }
       const current = copyRef.current;
       if (!current) throw new Error("driver_form_not_ready");
       if (form.lifecycleState === "active") {
@@ -94,6 +99,7 @@ export function DriverSection() {
     if (driver.data.lifecycleState !== "active") return;
     setBusy(true); setMessage("");
     try {
+      if ((await workRuntime.snapshot()).state !== "idle") throw new Error("operating_configuration_locked_during_shift");
       const [allDrivers, allVehicles, selected] = await Promise.all([
         services.driverRecords.list(), services.vehicles.list(), services.workDriverSelection.getSelectedDriver(),
       ]);
