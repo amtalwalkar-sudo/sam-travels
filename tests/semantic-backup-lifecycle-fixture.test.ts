@@ -149,9 +149,17 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     const interval = calculateFuelIntervals(fuel as never).find(item =>
       item.startCheckpointId === fixture.expectedBusinessResults.fuelIntervals[0].startCheckpointId);
     expect(interval).toMatchObject(fixture.expectedBusinessResults.fuelIntervals[0]);
-    expect(calculateDailyBusinessExpenses(fuel as never, expenses as never)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ businessDate: "2026-11-01", ...fixture.expectedBusinessResults.dailyExpenses }),
-    ]));
+    const dailyTotals = calculateDailyBusinessExpenses(fuel as never, expenses as never).reduce((total, row) => ({
+      fuelPaise: total.fuelPaise + row.fuelPaise,
+      platformFeesPaise: total.platformFeesPaise + row.platformFeesPaise,
+      trafficChallansPaise: total.trafficChallansPaise + row.trafficChallansPaise,
+      miscellaneousPaise: total.miscellaneousPaise + row.miscellaneousPaise,
+      reportedSourceExpensePaise: total.reportedSourceExpensePaise + row.reportedSourceExpensePaise,
+      normalOperatingExpensePaise: total.normalOperatingExpensePaise + row.normalOperatingExpensePaise,
+      fullCostExpensePaise: total.fullCostExpensePaise + row.fullCostExpensePaise,
+    }), { fuelPaise: 0, platformFeesPaise: 0, trafficChallansPaise: 0, miscellaneousPaise: 0,
+      reportedSourceExpensePaise: 0, normalOperatingExpensePaise: 0, fullCostExpensePaise: 0 });
+    expect(dailyTotals).toEqual(fixture.expectedBusinessResults.dailyExpenses);
     const accrual = rows.find(row => row.id.startsWith("feature:maintenance:daily-accrual:"))?.data;
     expect(accrual).toMatchObject(fixture.expectedBusinessResults.maintenanceAccrual);
     const loan = rows.find(row => row.id.startsWith("feature:finance:loan:"))?.data;

@@ -23,7 +23,7 @@ export function toCanonicalBackupSnapshotV1(data: BrowserSnapshotData, manifest:
     records.push({ participantId, id, json: JSON.stringify(value), schemaVersion, updatedAt });
   };
   for (const row of data.records as Array<Record<string, unknown>>) add(canonicalOwnerForRecord(String(row.id), participants), String(row.id), row, Number(row.schemaVersion ?? 1), row.updatedAt);
-  for (const row of data.driverState as Array<Record<string, unknown>>) add("work-driver-state", String(row.id), row, 1, row.updatedAt ?? row.createdAt);
+  for (const row of data.driverState as Array<Record<string, unknown>>) add("work-driver-state", String(row.id), row, 1, row.updatedAt ?? row.createdAt ?? manifest.createdAt);
   for (const row of data.driverIntents as Array<Record<string, unknown>>) {
     const command = row.command as Record<string, unknown> | undefined;
     add("work-driver-state", "driver-intent:" + String(command?.eventId ?? ""), row, 1, row.updatedAt ?? row.createdAt ?? command?.transitionAt);

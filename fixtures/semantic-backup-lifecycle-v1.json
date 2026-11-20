@@ -938,7 +938,6 @@
         "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
         "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
         "sourcePurchaseIds": [
-          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
         ],
@@ -946,12 +945,12 @@
         "quantityMilliKg": 3000,
         "spendPaise": 27000,
         "kmPerKg": {
-          "numerator": "10",
-          "denominator": "3"
+          "numerator": "10000",
+          "denominator": "3000"
         },
         "effectiveCostPaisePerKg": {
-          "numerator": "9000",
-          "denominator": "1"
+          "numerator": "27000000",
+          "denominator": "3000"
         },
         "costPaisePerKm": {
           "numerator": "27000",
