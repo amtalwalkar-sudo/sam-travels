@@ -104,7 +104,7 @@ internal object NativeBusinessExpensesBackup {
         if (data.has("vehicleId")) require(data.optString("vehicleId").startsWith("feature:vehicle:")) {
             "business_expense_entry_invalid"
         }
-        if (data.has("driverId")) require(data.optString("driverId").startsWith("feature:driver:")) {
+        if (data.has("driverId")) require(data.optString("driverId").startsWith("feature:driver-records:driver:")) {
             "business_expense_entry_invalid"
         }
         when (data.optString("sourceKind")) {
