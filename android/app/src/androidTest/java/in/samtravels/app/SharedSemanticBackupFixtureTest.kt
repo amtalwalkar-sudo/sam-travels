@@ -9,6 +9,25 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 
 @RunWith(AndroidJUnit4::class)
 class SharedSemanticBackupFixtureTest {
+    @Test fun emptyRegisteredParticipantsAreAcceptedAndUnknownOwnersAreRejected() {
+        NativeVehicleBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeBackupCoverage.validateBusinessRecords(JSONArray(), requireExplicitOwnerTags = true)
+
+        val unknownOwner = JSONArray().put(JSONObject()
+            .put("id", "synthetic-unknown-record")
+            .put("json", JSONObject().put("id", "synthetic-unknown-record").toString())
+            .put("schemaVersion", 1)
+            .put("updatedAt", "2026-11-20T00:00:00.000Z")
+            .put("participantId", "synthetic-unknown-participant"))
+        try {
+            NativeBackupCoverage.validateBusinessRecords(unknownOwner, requireExplicitOwnerTags = true)
+            throw AssertionError("unknown participant owner must be rejected")
+        } catch (expected: IllegalArgumentException) {
+            assertEquals(true, expected.message.orEmpty().contains("backup_unknown_participant"))
+        }
+    }
+
     @Test fun sharedSemanticLifecycleFixtureDeclaresAllParityDomains() {
         // Instrumentation assets are packaged in the test APK, not the target app APK.
         val context = InstrumentationRegistry.getInstrumentation().context
@@ -18,7 +37,8 @@ class SharedSemanticBackupFixtureTest {
         assertEquals("sam-travels-cross-platform-semantic-restore-v1", fixture.getString("fixtureId"))
         assertEquals(listOf("export", "restore", "database_reopen", "startup_recovery", "re_export"),
             (0 until fixture.getJSONArray("lifecycle").length()).map { fixture.getJSONArray("lifecycle").getString(it) })
-        assertEquals(listOf("record_ids", "revisions", "references", "event_ordering", "correction_chain_heads"),
+        assertEquals(listOf("record_ids", "revisions", "references", "event_ordering", "correction_chain_heads",
+            "pending_work_and_outbox_state", "calculation_outputs", "source_provenance"),
             (0 until fixture.getJSONArray("comparison").length()).map { fixture.getJSONArray("comparison").getString(it) })
         val operating = fixture.getJSONObject("operatingConfiguration")
         assertEquals("single_vehicle_single_driver", operating.getString("mode"))
@@ -39,6 +59,10 @@ class SharedSemanticBackupFixtureTest {
         val domains = fixture.getJSONObject("domains")
         assertEquals(setOf("finance", "compliance", "maintenance", "businessExpenses", "performance", "work", "logBook"),
             domains.keys().asSequence().toSet())
+        val emptyPolicy = fixture.getJSONObject("emptyParticipantPolicy")
+        assertEquals(true, emptyPolicy.getString("required").contains("zero records is valid"))
+        assertEquals(true, emptyPolicy.getString("restore").contains("clear stale rows"))
+        assertEquals(true, emptyPolicy.getString("negative").contains("Unknown participant IDs"))
         assertEquals("contract_seed_only", fixture.getString("status"))
     }
 }

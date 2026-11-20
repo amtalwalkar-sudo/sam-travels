@@ -33,6 +33,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     ]);
     expect(fixture.comparison).toEqual([
       "record_ids", "revisions", "references", "event_ordering", "correction_chain_heads",
+      "pending_work_and_outbox_state", "calculation_outputs", "source_provenance",
     ]);
   });
 
@@ -83,6 +84,14 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     expect(fixture.domains.businessExpenses.requiredKinds).toEqual(
       expect.arrayContaining(["expense", "reversal", "correction"]),
     );
+  });
+
+  it("defines empty-participant and fail-closed owner semantics", () => {
+    expect(fixture.emptyParticipantPolicy).toMatchObject({
+      required: expect.stringContaining("zero records is valid"),
+      restore: expect.stringContaining("clear stale rows"),
+      negative: expect.stringContaining("Unknown participant IDs"),
+    });
   });
 
   it("does not misrepresent the contract seed as completed parity evidence", () => {

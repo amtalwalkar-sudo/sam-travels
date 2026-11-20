@@ -15,7 +15,10 @@
     "revisions",
     "references",
     "event_ordering",
-    "correction_chain_heads"
+    "correction_chain_heads",
+    "pending_work_and_outbox_state",
+    "calculation_outputs",
+    "source_provenance"
   ],
   "domains": {
     "finance": {
@@ -116,7 +119,7 @@
     }
   },
   "status": "contract_seed_only",
-  "note": "Shared contract seed consumed by browser and Android tests. Populate with schema-valid synthetic feature records and run the production export/restore/reopen/recovery/re-export lifecycle before claiming parity.",
+  "note": "The fixture defines the shared lifecycle contract and empty-participant semantics. Populated domain records and production lifecycle parity remain mandatory before completion.",
   "operatingConfiguration": {
     "mode": "single_vehicle_single_driver",
     "vehicle": {
@@ -137,5 +140,10 @@
     "referencePolicy": "Every vehicle-bound record and calculation uses the configured vehicle ID; every Work/driver-attributed event and calculation uses the configured driver ID.",
     "fleetExpansion": "deferred_until_separately_approved",
     "compatibility": "Stable IDs and legacy assignment-history readers remain supported; current fixtures do not create reassignment histories or additional entities."
+  },
+  "emptyParticipantPolicy": {
+    "required": "A registered participant with zero records is valid and remains present in the manifest.",
+    "restore": "Restore must clear stale rows owned by an empty participant without requiring a placeholder record.",
+    "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
   }
 }
