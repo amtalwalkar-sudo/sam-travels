@@ -28,7 +28,7 @@ export function toCanonicalBackupSnapshotV1(data: BrowserSnapshotData, manifest:
     const command = row.command as Record<string, unknown> | undefined;
     add("work-driver-state", "driver-intent:" + String(command?.eventId ?? ""), row, 1, row.updatedAt ?? row.createdAt ?? command?.transitionAt);
   }
-  for (const row of data.driverOutbox as Array<Record<string, unknown>>) add("work-driver-state", String(row.id), row, 1, row.updatedAt ?? row.createdAt);
+  for (const row of data.driverOutbox as Array<Record<string, unknown>>) add("work-driver-state", "driver-outbox:" + String(row.revision ?? String(row.id).split(":").at(-1)), row, 1, row.updatedAt ?? row.createdAt);
   for (const row of data.driverEvents as Array<Record<string, unknown>>) add("logbook-events", String(row.eventId), row, 1, row.updatedAt ?? row.createdAt ?? (row.command as Record<string, unknown> | undefined)?.transitionAt);
   records.sort((x,y) => (x.participantId + ":" + x.id).localeCompare(y.participantId + ":" + y.id));
   return { format: "sam-travels-canonical-snapshot-v1", schemaVersion: manifest.schemaVersion, snapshotRevision: manifest.snapshotRevision, participants, records };
