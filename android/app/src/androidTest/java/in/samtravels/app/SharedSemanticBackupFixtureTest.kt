@@ -1,9 +1,13 @@
 package `in`.samtravels.app
 
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,6 +30,41 @@ class SharedSemanticBackupFixtureTest {
             throw AssertionError("unknown participant owner must be rejected")
         } catch (expected: IllegalArgumentException) {
             assertEquals(true, expected.message.orEmpty().contains("backup_unknown_participant"))
+        }
+    }
+
+
+    @Test fun restoringEmptyParticipantsClearsTheirPreviouslyStoredRows() {
+        NativeVehicleBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val at = "2026-11-20T00:00:00.000Z"
+            val vehicleId = "feature:vehicle:SYNTHETIC-EMPTY-001"
+            val complianceId = "feature:compliance:123e4567-e89b-42d3-a456-426614174000"
+            database.records().put(StoredRecord(vehicleId,
+                JSONObject().put("id", vehicleId).put("schemaVersion", 1)
+                    .put("createdAt", at).put("updatedAt", at).put("source", "test")
+                    .put("revision", 1).put("data", JSONObject()).toString(), 1, at))
+            database.records().put(StoredRecord(complianceId,
+                JSONObject().put("id", complianceId).put("schemaVersion", 1)
+                    .put("createdAt", at).put("updatedAt", at).put("source", "test")
+                    .put("revision", 1).put("data", JSONObject()).toString(), 1, at))
+
+            database.runInTransaction {
+                NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
+            }
+
+            assertNull(database.records().get(vehicleId))
+            assertNull(database.records().get(complianceId))
+            NativeBackupCoverage.validateBusinessRecords(
+                NativeBackupCoverage.exportBusinessRecords(database) { false },
+                requireExplicitOwnerTags = true,
+            )
+        } finally {
+            database.close()
         }
     }
 
