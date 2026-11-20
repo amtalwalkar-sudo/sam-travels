@@ -501,3 +501,32 @@ For every guarantee, report:
 |---|---|---|---|---|---|
 
 A test name alone is not proof. The evidence must identify the assertion and lifecycle boundary. Distinguish automated deterministic proof from physical-device or real-account acceptance.
+
+
+## 14. User-approved practical execution boundary (2026-11-20)
+
+This section narrows the execution backlog for PR #99 without weakening the data-integrity and financial-correctness guarantees above. Where earlier candidate checklists imply exhaustive testing, this section is the approved prioritization for this PR.
+
+### Mandatory closure
+
+1. One populated, schema-valid synthetic fixture for Finance, Compliance, Maintenance, Business Expenses/Fuel, Performance, Work and Log Book. Use existing production schemas, validators and backup participants. Include representative supported corrections, reversals, effective-dated records and ordered Work/Log Book event lineage. Keep the configured single active Vehicle/Driver pair.
+2. Run the same fixture independently through production Browser/Dexie and Android/Room export, restore, database reopen, startup recovery, calculation recomputation and re-export.
+3. Compare normalized business semantics: IDs, revisions, references, event ordering, correction-chain heads, pending/outbox state, calculation outputs and source provenance.
+4. Include focused negative restore and interrupted-restore recovery assertions sufficient to show invalid input fails closed and existing data is preserved or recoverable.
+5. Android Device Readiness rendered acceptance must prove the actual WebView prompt and that optional settings do not block normal Driver workspace entry. The app must recheck status on resume; opening settings is not proof that a setting was granted.
+6. Backup plaintext preflight must measure the actual serialized plaintext byte count and estimate package expansion before expensive encryption. The estimate must be tied to the existing encrypted-package ceiling and documented overhead; it must not be presented as a device-memory or performance benchmark.
+
+### Explicitly deferred (not PR #99 merge blockers)
+
+- Physical certification across Android OEMs/models/OS versions, including Xiaomi/Redmi, Samsung and Pixel. Keep this as a manual device acceptance gate.
+- Full OS reboot acceptance where CI cannot deterministically exercise it; do not conflate it with process-death/startup-recovery tests.
+- Exhaustive combinations of optional notification, overlay and battery-optimization settings. Optional settings must remain optional and non-blocking.
+- Repeated tests of the same guarantee at multiple layers when one production-path test and existing lower-level tests establish it.
+- Rare theoretical permutations without a credible impact on data loss, incorrect financial calculations, recovery safety or ordinary Driver operation.
+- Real Dropbox account/cloud delivery acceptance where automated CI uses mocked OAuth and package transport.
+
+### Scope control
+
+Do not introduce new storage architecture, unrelated feature work, Performance redesign, fleet/multi-driver workflows or broad OEM-specific automation in this PR. If implementation exposes a concrete integrity or calculation defect, fix that exact boundary. Otherwise record the limitation and keep the agreed deferral.
+
+The PR remains draft and unmerged until mandatory closure has passing evidence on the exact final head. Green CI is necessary but is not itself proof that the populated all-domain lifecycle has run.
