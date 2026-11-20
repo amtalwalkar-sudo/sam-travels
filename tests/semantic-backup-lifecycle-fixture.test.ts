@@ -17,6 +17,7 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
+  emptyParticipantPolicy: { required: string; restore: string; negative: string };
 };
 
 const fixture = JSON.parse(readFileSync(
