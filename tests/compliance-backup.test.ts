@@ -73,6 +73,32 @@ describe("Compliance browser backup participant", () => {
     })).resolves.toMatchObject({ restoredCounts: { records: 0 } });
   });
 
+
+  it("clears stale Compliance rows when restoring a legacy snapshot with an empty omitted participant", async () => {
+    const timestamp = "2026-11-07T00:00:00.000Z";
+    const emptySnapshot = await exportBrowserSnapshot("0.1.0");
+    const legacyManifest = {
+      ...emptySnapshot.manifest,
+      participants: emptySnapshot.manifest.participants?.filter(item => item.id !== "compliance-records"),
+    };
+
+    await seedValidRecords();
+    expect(await browserDatabase.records.get(
+      "feature:compliance:123e4567-e89b-42d3-a456-426614174000",
+    )).toBeDefined();
+
+    await restoreBrowserSnapshot({
+      data: emptySnapshot.data,
+      manifest: legacyManifest as never,
+      confirmed: true,
+    });
+
+    expect(await browserDatabase.records.get(
+      "feature:compliance:123e4567-e89b-42d3-a456-426614174000",
+    )).toBeUndefined();
+    expect(await browserDatabase.records.get("feature:vehicle:MH01AB1234")).toBeUndefined();
+  });
+
   it("rejects Compliance records whose Vehicle reference is missing", async () => {
     const timestamp = "2026-11-07T00:00:00.000Z";
     await browserDatabase.records.put({
