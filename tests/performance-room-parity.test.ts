@@ -9,7 +9,7 @@ const fixture = JSON.parse(readFileSync(
 )) as {
   records: Array<{ id: string; schemaVersion: number; updatedAt: string; [key: string]: unknown }>;
   input: Parameters<typeof calculatePerformanceV1>[0];
-  expected: Record<string, any>;
+  expected: Record<string, number | string | Record<string, number>>;
 };
 
 describe("Performance browser and Room shared parity fixture", () => {
