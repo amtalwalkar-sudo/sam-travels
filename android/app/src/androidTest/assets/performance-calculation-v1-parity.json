@@ -1,6 +1,25 @@
 {
   "records": [
     {
+      "id": "feature:vehicle:MH01AB1234",
+      "schemaVersion": 1,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "source": "web",
+      "revision": 1,
+      "data": {
+        "schemaVersion": 1,
+        "registrationNumber": "MH01AB1234",
+        "make": "Example Make",
+        "model": "Example Model",
+        "vehicleType": "Sedan",
+        "fuelType": "CNG",
+        "yearOfManufacture": 2022,
+        "ownership": "Owned",
+        "lifecycleState": "active"
+      }
+    },
+    {
       "id": "work:trip-financial-obligation:parity-trip-1",
       "schemaVersion": 1,
       "createdAt": "2026-03-15T05:00:00.000Z",
