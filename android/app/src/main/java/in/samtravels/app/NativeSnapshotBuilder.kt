@@ -20,8 +20,10 @@ internal object NativeSnapshotBuilder {
         isInternal: (String) -> Boolean,
         applicationVersion: String,
         createdAt: String = Instant.now().toString(),
+        maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
     ): NativeSnapshotBundle {
         val records = NativeBackupCoverage.exportBusinessRecords(database, isInternal)
+        requireBackupRecordCountWithinLimit(records.length(), maxRecordCount)
         val snapshotRevision = (0 until records.length()).map { records.getJSONObject(it) }
             .firstOrNull { it.optString("participantId") == "work-driver-state" && it.optString("id") == "driver-state" }
             ?.let { row ->
