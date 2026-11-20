@@ -167,21 +167,23 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 secondTripId, secondTrip.toString(), 1, secondTripAt,
             ))
 
-            // The target-date operating cost is a real Maintenance-owned record,
-            // not a synthetic cost passed directly to the calculation function.
-            val maintenanceId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174094"
-            val maintenanceAt = targetDate + "T06:00:00.000Z"
-            val maintenance = envelope(
-                maintenanceId,
-                JSONObject().put("schemaVersion", 1).put("kind", "expense")
-                    .put("vehicleId", vehicleId).put("expenseDate", targetDate)
-                    .put("expenseName", "Parity maintenance")
-                    .put("description", "Restored Room Performance acceptance")
-                    .put("amountPaise", 1_000),
-                maintenanceAt, businessDate = targetDate,
+            // The target-date cost is a real persisted Business Expenses
+            // charge. The production FullCost source projection feeds it into
+            // Performance's miscellaneous cost category.
+            val targetExpenseId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174094"
+            val targetExpenseAt = targetDate + "T06:00:00.000Z"
+            val targetExpense = envelope(
+                targetExpenseId,
+                JSONObject().put("schemaVersion", 1).put("kind", "business_expense")
+                    .put("id", targetExpenseId).put("revision", 1)
+                    .put("sourceKind", "miscellaneous").put("businessDate", targetDate)
+                    .put("amountPaise", 1_000).put("currencyCode", "INR")
+                    .put("effect", "charge").put("category", "Miscellaneous")
+                    .put("vehicleId", vehicleId),
+                targetExpenseAt, businessDate = targetDate,
             )
             sourceDb.records().put(StoredRecord(
-                maintenanceId, maintenance.toString(), 1, maintenanceAt,
+                targetExpenseId, targetExpense.toString(), 1, targetExpenseAt,
             ))
 
             val exported = snapshot(sourceDb)
@@ -219,7 +221,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue(graph.containsKey("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
             assertTrue(graph.containsKey("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092"))
             assertTrue(graph.containsKey("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
-            assertTrue(graph.containsKey("feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174094"))
+            assertTrue(graph.containsKey("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174094"))
             assertEquals(expectedGraph, graph)
         } finally {
             reopened.close()
