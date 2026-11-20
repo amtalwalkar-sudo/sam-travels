@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -203,6 +204,129 @@ class NativeBackupRestoreCoordinatorTest {
             drivers.close()
             vehicle.close()
             db.close()
+        }
+    }
+
+
+    @Test fun populatedManualEmiAndCompliancePoolSurvivesProductionRoomRestoreReopenRecoveryAndReexport() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "performance-pre-business-pool-restore.db"
+        context.deleteDatabase(name)
+        NativeVehicleBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeFinanceBackup.ensureRegistered()
+        NativePerformanceBackup.ensureRegistered()
+        val fixture = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("performance-calculation-v1-parity.json")
+            .bufferedReader().use { JSONObject(it.readText()) }
+        val records = fixture.getJSONArray("records")
+        val sources = fixture.getJSONObject("input").getJSONArray("preBusinessRecovery")
+        val expected = fixture.getJSONObject("expected")
+        val sourceIds = mutableSetOf("feature:vehicle:MH01AB1234")
+        for (index in 0 until sources.length()) {
+            val sourceId = sources.getJSONObject(index).getString("sourceId")
+            sourceIds.add(sourceId.replace(Regex(":emi:\\d+:v\\d+$"), ""))
+        }
+        val databaseBuilder = Room.databaseBuilder(context, LocalDatabase::class.java, name)
+            .allowMainThreadQueries()
+        var database = databaseBuilder.build()
+        try {
+            for (index in 0 until records.length()) {
+                val record = records.getJSONObject(index)
+                if (record.getString("id") !in sourceIds) continue
+                RecordEnvelopeContract.validate(record)
+                database.records().put(StoredRecord(
+                    record.getString("id"), record.toString(),
+                    record.getInt("schemaVersion"), record.getString("updatedAt"),
+                ))
+            }
+            assertEquals(sourceIds.size, database.records().list().size)
+            fun snapshot() = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "test",
+            )
+            val exported = snapshot()
+            val exportedRows = canonical(exported.snapshot.getJSONArray("records"))
+            assertEquals(4, exportedRows.size)
+
+            // Make the destination diverge so restore must replace the exact
+            // source revision and amount rather than merely read the same rows.
+            val manual = (0 until sources.length()).map { sources.getJSONObject(it) }
+                .first { it.getString("origin") == "manual" }
+            val manualRow = database.records().get(manual.getString("sourceId"))!!
+            val changed = JSONObject(manualRow.json)
+            changed.put("revision", changed.getInt("revision") + 1)
+            changed.put("updatedAt", "2026-03-16T00:00:00.000Z")
+            changed.getJSONObject("data").put("amountPaise", 1)
+            database.records().put(StoredRecord(
+                manualRow.id, changed.toString(), manualRow.schemaVersion, "2026-03-16T00:00:00.000Z",
+            ))
+
+            val restored = NativeBackupRestoreCoordinator.restore(
+                database, exported.snapshot, exported.manifest, { snapshot() },
+            )
+            assertEquals(4, restored.restoredCount)
+            val restoredRows = database.records().list().associateBy { it.id }
+            val totals = mutableMapOf("manual" to 0, "emi" to 0, "compliance" to 0)
+            val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
+            for (index in 0 until sources.length()) {
+                val source = sources.getJSONObject(index)
+                val sourceId = source.getString("sourceId")
+                val origin = source.getString("origin")
+                val amount = source.getInt("amountPaise")
+                totals[origin] = (totals[origin] ?: 0) + amount
+                val recordId = sourceId.replace(Regex(":emi:\\d+:v\\d+$"), "")
+                val record = JSONObject(restoredRows[recordId]!!.json)
+                assertEquals(source.getInt("revision"), record.getInt("revision"))
+                val data = record.getJSONObject("data")
+                when (origin) {
+                    "manual" -> assertEquals(amount, data.getInt("amountPaise"))
+                    "compliance" -> {
+                        assertEquals(amount, data.getInt("totalCostPaise"))
+                        assertEquals(true, data.getString("validFrom") < businessStartDate)
+                    }
+                    "emi" -> {
+                        val match = Regex(":emi:(\\d+):v(\\d+)$").find(sourceId)!!
+                        val schedules = data.getJSONArray("scheduleVersions")
+                        val schedule = (0 until schedules.length()).map { schedules.getJSONObject(it) }
+                            .first { it.getInt("version") == match.groupValues[2].toInt() }
+                        val rows = schedule.getJSONObject("output").getJSONArray("rows")
+                        val installment = (0 until rows.length()).map { rows.getJSONObject(it) }
+                            .first { it.getInt("installmentNumber") == match.groupValues[1].toInt() }
+                        assertEquals(amount, installment.getInt("installmentAmountPaise"))
+                        assertEquals(true, installment.getString("dueDate") < businessStartDate)
+                    }
+                }
+            }
+            assertEquals(18_000, totals["manual"])
+            assertEquals(1_800, totals["emi"])
+            assertEquals(3_600, totals["compliance"])
+            assertEquals(23_400, totals.values.sum())
+            assertEquals(23_400, expected.getInt("recoveryTotalPaise"))
+            assertEquals(27_400, expected.getInt("lifetimeCostPaise"))
+            assertEquals(2_600, expected.getInt("lifetimeProfitPaise"))
+            assertEquals(-899_819, expected.getInt("lifetimeTargetPositionPaise"))
+
+            // Match the production plugin's explicit verify/discard sequence.
+            NativeBackupRestoreCoordinator.markVerified(database, restored.checkpointId)
+            NativeBackupRestoreCoordinator.discardVerified(database, restored.checkpointId)
+            database.close()
+
+            // A fresh Room handle exercises the same startup gate used by the
+            // production BackupPlugin before the repository is exposed.
+            database = databaseBuilder.build()
+            NativeStartupRecovery.invalidate(database)
+            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(database))
+            val reexported = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "test",
+            )
+            assertEquals(exportedRows, canonical(reexported.snapshot.getJSONArray("records")))
+            assertEquals(0, database.records().list().count {
+                it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
+                    it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX)
+            })
+        } finally {
+            database.close()
+            context.deleteDatabase(name)
         }
     }
 
