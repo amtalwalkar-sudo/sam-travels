@@ -14,8 +14,8 @@ import { registerComplianceBrowserBackupParticipant } from "../apps/web/src/comp
 import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
-import { calculateFuelIntervals, calculateDailyBusinessExpenses } from "../packages/features/business-expenses/calculations";
-import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/backup-snapshot";
+import { calculateFuelIntervals, calculateDailyBusinessExpenses } from "../packages/features/business-expenses";
+import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/canonical-backup-snapshot";
 
 type Fixture = {
   schemaVersion: number;
