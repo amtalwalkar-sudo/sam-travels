@@ -31,7 +31,7 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
-  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
+  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; lineage: { correctionChainHeads: Array<{ featureId: string; targetRecordId: string; chainRevision: number; headCorrectionId: string }>; reversalSourceIds: string[] }; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
 };
 
