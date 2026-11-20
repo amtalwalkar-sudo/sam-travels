@@ -1,4 +1,5 @@
 import type { SnapshotManifest } from "../../core/src/backup";
+import { assertBackupRecordCount } from "../../core/src/persistence-contract";
 
 /**
  * backup-encryption-v1 package cryptography.
@@ -111,9 +112,12 @@ function validateManifest(manifest: BackupManifest): void {
   if (!Number.isFinite(Date.parse(manifest.createdAt)) || !manifest.applicationVersion || !manifest.businessTimezone) {
     throw new Error("backup_invalid_manifest");
   }
+  let totalRecords = 0;
   for (const count of Object.values(manifest.recordCounts)) {
     if (!Number.isSafeInteger(count) || count < 0) throw new Error("backup_invalid_record_count");
+    totalRecords += count;
   }
+  assertBackupRecordCount(totalRecords);
 }
 
 function validatePackageShape(pkg: BackupPackage): void {
@@ -146,12 +150,17 @@ export async function createEncryptedBackup(input: {
   if (recoveryBytes.length !== 32) throw new Error("backup_invalid_recovery_key");
   const salt = randomBytes(16);
   const dekBytes = randomBytes(32);
-  const manifest: BackupManifest = {
+  // Validate the complete manifest before hashing or encrypting any payload bytes.
+  const manifestWithoutDigest = {
     ...input.manifest,
     format: recoveryOnly ? BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION : BACKUP_ENCRYPTION_VERSION,
+    plaintextSha256: "",
+  } as BackupManifest;
+  validateManifest(manifestWithoutDigest);
+  const manifest: BackupManifest = {
+    ...manifestWithoutDigest,
     plaintextSha256: toBase64(await digest(input.plaintext)),
   };
-  validateManifest(manifest);
   const aad = aadFor(manifest);
   const recoveryKey = await importAesKey(recoveryBytes);
   const dek = await importAesKey(dekBytes);
