@@ -101,7 +101,7 @@ describe("FinanceLoanPrepaymentService", () => {
     const allocation = new BusinessStartDateCostAllocationService(
       { async get() { return { id: "feature:business-settings:business", revision: 1,
         data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
-      { async getOverview() { return { records: [], overlaps: [] }; } } as never,
+      { async getAllocationOverview() { return { records: [], overlaps: [] }; } } as never,
       { async list() { const currentLoan = await repository.get<FinanceLoanRecordV1>(loanId); return currentLoan ? [currentLoan] : []; } } as never,
       service,
       { async list() { return []; } } as never,
