@@ -194,7 +194,9 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
       expect(exported.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
-      expect(exported.data.driverEvents.map((event: any) => event.eventId))
+      expect([...exported.data.driverEvents]
+        .sort((left: any, right: any) => left.sequence - right.sequence)
+        .map((event: any) => event.eventId))
         .toEqual(transitions.map(transition => transition.id));
       expect(exported.data.driverIntents).toHaveLength(3);
       expect(exported.data.driverOutbox).toHaveLength(3);
