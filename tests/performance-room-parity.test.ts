@@ -35,7 +35,7 @@ describe("Performance browser and Room shared parity fixture", () => {
         expect(record.revision).toBe(source.revision);
         expect(record.data.amountPaise ?? record.data.totalCostPaise).toBe(source.amountPaise);
       } else {
-        const match = /^(.*):emi:(\\d+):v(\\d+)$/.exec(source.sourceId);
+        const match = /^(.*):emi:(\d+):v(\d+)$/.exec(source.sourceId);
         expect(match).not.toBeNull();
         const loan = recordsById.get(match![1]) as any;
         expect(loan).toBeDefined();
