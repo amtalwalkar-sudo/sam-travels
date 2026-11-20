@@ -20,7 +20,6 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-
 /**
  * Exercises the actual Android Capacitor WebView Performance screen over the
  * same populated Room repository that has passed the production backup/restore
@@ -47,7 +46,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
 
     private fun snapshot(database: LocalDatabase) =
         NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "android-webview-acceptance")
-
     private fun recordGraph(bundle: NativeSnapshotBundle): Map<String, String> {
         val records = bundle.snapshot.getJSONArray("records")
         return (0 until records.length()).associate { index ->
@@ -65,7 +63,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         }
         return null
     }
-
     private fun evaluate(webView: WebView, script: String): String {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val latch = CountDownLatch(1)
@@ -99,7 +96,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         }
         throw AssertionError("Timed out waiting for WebView acceptance condition. Last DOM: ${last}")
     }
-
     @Test fun restoredRoomPoolDrivesTheActualAndroidPerformanceScreen() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -121,7 +117,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         NativeFinanceBackup.ensureRegistered()
         NativeBusinessExpensesBackup.ensureRegistered()
         NativePerformanceBackup.ensureRegistered()
-
         context.deleteDatabase(databaseName)
         var expectedGraph: Map<String, String> = emptyMap()
         val sourceDb = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
@@ -146,7 +141,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             sourceDb.records().put(StoredRecord(
                 settings.getString("id"), settings.toString(), 1, settings.getString("updatedAt"),
             ))
-
             // Add the second, target-date fare so the screen proves period and
             // lifetime totals against actual persisted trip obligations.
             val secondTripId = "work:trip-financial-obligation:parity-trip-2"
@@ -188,7 +182,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             sourceDb.records().put(StoredRecord(
                 targetExpenseId, targetExpense.toString(), 1, targetExpenseAt,
             ))
-
             val exported = snapshot(sourceDb)
             expectedGraph = recordGraph(exported)
 
@@ -210,7 +203,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         } finally {
             sourceDb.close()
         }
-
         // Reopen the real app DB and pass its production startup-recovery gate
         // before the Activity/WebView is allowed to read it.
         val reopened = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
@@ -239,7 +231,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 webViewRef.set(findWebView(activity!!.window.decorView))
             }
             val webView = webViewRef.get() ?: throw AssertionError("MainActivity did not attach its Capacitor WebView")
-
             waitFor(webView, 90) { it.getString("body").contains("Local workspace ready") }
 
             // Compliance's production overview is Admin-authorized. Establish
@@ -275,7 +266,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertEquals("true", enrolled)
             evaluate(webView, "document.querySelector('form button')?.click(); true")
             waitFor(webView) { it.getString("body").contains("Person enrolled") }
-
             val selectedAdmin = evaluate(webView, """
                 (() => {
                   const find = text => [...document.querySelectorAll("label")].find(node => node.textContent.includes(text));
@@ -324,7 +314,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 })()
             """.trimIndent())
             waitFor(webView) { it.getString("performance") == "Performance overview" }
-
             val dateInputsSet = evaluate(webView, """
                 (() => {
                   const fields = [...document.querySelectorAll(".performance-period-form input[type=date]")];
@@ -350,7 +339,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return true;
                 })()
             """.trimIndent())
-
             val calculated = waitFor(webView, 90) {
                 it.getString("lifetime").contains("Lifetime eligible costs") ||
                     it.getString("error").isNotBlank()
@@ -376,7 +364,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue(output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
             assertTrue(output.getString("provenance").contains("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1"))
             assertTrue(output.getString("provenance").contains("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
-
             evaluate(webView, """
                 (() => {
                   const tab = [...document.querySelectorAll('[role="tab"]')]
