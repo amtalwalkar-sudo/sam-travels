@@ -22,6 +22,7 @@ internal object BackupSnapshotContract {
         val counts = manifest.optJSONObject("recordCounts") ?: error("backup_invalid_record_counts")
         val records = integer(counts.opt("records"), "backup_invalid_record_counts")
         require(records >= 0.0) { "backup_invalid_record_counts" }
+        require(records <= MAX_BACKUP_RECORD_COUNT.toDouble()) { "backup_record_count_limit" }
     }
 
     fun validateSnapshot(snapshot: JSONObject) {
