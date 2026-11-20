@@ -79,6 +79,29 @@ describe("backup-encryption-v1", () => {
     })).rejects.toThrow("backup_recovery_key_required");
   });
 
+  it("rejects aggregate record counts over the shared limit before package creation", async () => {
+    await expect(createEncryptedBackup({
+      plaintext: new TextEncoder().encode("must not be hashed or encrypted"),
+      manifest: {
+        ...manifest,
+        recordCounts: { records: 1_000_000, driverEvents: 1 },
+      },
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    })).rejects.toThrow("backup_record_count_limit");
+  });
+
+  it("rejects an over-limit aggregate manifest when parsing a package", async () => {
+    const { backup } = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode("valid"),
+      manifest,
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    });
+    backup.manifest.recordCounts = { records: 1_000_000, driverEvents: 1 };
+    expect(() => serializeBackupPackage(backup)).toThrow("backup_record_count_limit");
+  });
+
   it("rejects wrong passphrases and tampered authenticated payloads", async () => {
     const { backup } = await createEncryptedBackup({ plaintext: new TextEncoder().encode("sensitive"), manifest, passphrase: "correct horse battery", argon2id: testKdf });
     await expect(decryptBackupWithPassphrase(backup, "incorrect passphrase", testKdf)).rejects.toBeTruthy();
