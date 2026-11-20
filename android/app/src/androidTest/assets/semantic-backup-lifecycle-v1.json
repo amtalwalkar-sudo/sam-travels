@@ -432,6 +432,10 @@
           "pricePaisePerKg": 9000,
           "amountPaise": 18000,
           "partialRefill": false
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
@@ -500,6 +504,10 @@
           "expenseName": "Tyre repair",
           "description": "Synthetic receipt amount",
           "amountPaise": 10000
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
@@ -526,6 +534,10 @@
           },
           "recordedAt": "2026-11-18T00:00:00.000Z",
           "businessEffectiveDate": "2026-10-10"
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
@@ -554,6 +566,10 @@
           },
           "recordedAt": "2026-11-18T00:00:00.000Z",
           "businessEffectiveDate": "2026-10-10"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
         }
       },
       {
@@ -640,6 +656,10 @@
             "adminPinVerifiedAt": "2026-11-18T00:00:00.000Z"
           },
           "recordedAt": "2026-11-18T00:00:00.000Z"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
         }
       },
       {
@@ -766,6 +786,10 @@
           },
           "recordedAt": "2026-11-18T00:00:00.000Z",
           "businessEffectiveDate": "2026-11-01"
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
