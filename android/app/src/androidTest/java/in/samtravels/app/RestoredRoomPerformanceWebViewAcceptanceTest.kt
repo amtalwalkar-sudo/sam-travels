@@ -385,9 +385,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue("Recovery presentation shows ₹234.00: " + recovery.getString("summary"), recovery.getString("summary").contains("₹234.00"))
             assertTrue("Recovery presentation shows Business Start Date", recovery.getString("summary").contains(businessStartDate))
             assertTrue("Recovery presentation shows the 18-month end boundary", recovery.getString("summary").contains(targetDate))
-            assertTrue("Recovery rows include manual source", recovery.getString("rows").contains("manual"))
-            assertTrue("Recovery rows include EMI source", recovery.getString("rows").contains("emi"))
-            assertTrue("Recovery rows include Compliance source", recovery.getString("rows").contains("compliance"))
+            assertTrue("Recovery table has no allocation on its exclusive end date", recovery.getString("rows").isEmpty())
         } catch (error: Throwable) {
             throw AssertionError("Restored Room Performance WebView acceptance failed at $stage: ${error.message}", error)
         } finally {
