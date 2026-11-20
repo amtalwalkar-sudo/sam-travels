@@ -374,3 +374,6 @@ This section supersedes the earlier broad candidate backlog where it conflicts w
 5. Run required CI on the final head and update this table with exact test names and run URL.
 
 **Stop condition:** no new feature architecture, unrelated UI redesign, exhaustive OEM matrix or speculative stress-test programme. Keep PR #99 draft and unmerged until the four critical items above have passing evidence or an explicitly accepted external gate.
+
+
+**CI note:** The first workflow created while these commits were arriving was cancelled during PR-head synchronization; its integrated gate failed because prerequisite jobs were cancelled, not because a test assertion failed. Re-run the complete workflow against the final PR head before treating either new acceptance test as passing.
