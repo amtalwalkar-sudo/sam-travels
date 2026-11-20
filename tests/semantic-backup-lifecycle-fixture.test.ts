@@ -135,14 +135,20 @@ describe("shared cross-platform semantic backup fixture contract", () => {
   it("does not misrepresent the contract seed as completed parity evidence", () => {
     expect(fixture.status).toBe("populated_seed_pending_production_lifecycle");
     expect(fixture.populatedGraph.status).toBe("synthetic_seed_pending_production_lifecycle");
-    expect(fixture.populatedGraph.recordCount).toBe(15);
-    expect(fixture.populatedGraph.records).toHaveLength(15);
+    expect(fixture.populatedGraph.recordCount).toBe(19);
+    expect(fixture.populatedGraph.records).toHaveLength(19);
     const ids = fixture.populatedGraph.records.map(record => record.id);
     expect(ids.some(id => id.startsWith("feature:finance:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:compliance:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:maintenance:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:business-expenses:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:performance:"))).toBe(true);
+    expect(ids).toEqual(expect.arrayContaining([
+      "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+      "historical-correction:maintenance-fix-1",
+      "historical-correction:maintenance-fix-2",
+      "historical-correction-chain:" + encodeURIComponent("feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050"),
+    ]));
     expect(ids.some(id => id.startsWith("feature:driver-records:"))).toBe(true);
     expect(fixture.populatedGraph.work.eventIds).toHaveLength(3);
     expect(fixture.populatedGraph.logBook.events).toHaveLength(2);

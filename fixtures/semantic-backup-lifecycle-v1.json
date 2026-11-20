@@ -147,8 +147,8 @@
     "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
   },
   "populatedGraph": {
-    "status": "synthetic_seed_pending_production_lifecycle",
-    "recordCount": 15,
+    "status": "populated_seed_pending_production_lifecycle",
+    "recordCount": 19,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -484,6 +484,91 @@
           "note": "Synthetic setup cost",
           "commandId": "123e4567-e89b-42d3-a456-426614174040"
         }
+      },
+      {
+        "id": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "expense",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "expenseDate": "2026-10-10",
+          "expenseName": "Tyre repair",
+          "description": "Synthetic receipt amount",
+          "amountPaise": 10000
+        }
+      },
+      {
+        "id": "historical-correction:maintenance-fix-1",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "correctionId": "maintenance-fix-1",
+          "targetRecordId": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+          "targetRecordRevision": 1,
+          "featureId": "maintenance",
+          "chainRevision": 1,
+          "fieldPath": "amountPaise",
+          "beforeValue": 10000,
+          "afterValue": 12500,
+          "reason": "Receipt amount was entered incorrectly",
+          "actor": {
+            "role": "driver",
+            "actorId": "synthetic-driver"
+          },
+          "recordedAt": "2026-11-18T00:00:00.000Z",
+          "businessEffectiveDate": "2026-10-10"
+        }
+      },
+      {
+        "id": "historical-correction:maintenance-fix-2",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "correctionId": "maintenance-fix-2",
+          "targetRecordId": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+          "targetRecordRevision": 1,
+          "featureId": "maintenance",
+          "chainRevision": 2,
+          "fieldPath": "amountPaise",
+          "beforeValue": 12500,
+          "afterValue": 13000,
+          "supersedesCorrectionId": "maintenance-fix-1",
+          "reason": "Synthetic admin receipt verification",
+          "actor": {
+            "role": "admin",
+            "actorId": "synthetic-admin",
+            "adminPinVerifiedAt": "2026-11-18T00:00:00.000Z"
+          },
+          "recordedAt": "2026-11-18T00:00:00.000Z",
+          "businessEffectiveDate": "2026-10-10"
+        }
+      },
+      {
+        "id": "historical-correction-chain:feature%3Amaintenance%3Aexpense%3A123e4567-e89b-42d3-a456-426614174050",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 2,
+        "data": {
+          "schemaVersion": 1,
+          "targetRecordId": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+          "chainRevision": 2,
+          "headCorrectionId": "maintenance-fix-2"
+        }
       }
     ],
     "work": {
@@ -536,7 +621,14 @@
       ]
     },
     "lineage": {
-      "correctionChainHeads": [],
+      "correctionChainHeads": [
+        {
+          "featureId": "maintenance",
+          "targetRecordId": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+          "chainRevision": 2,
+          "headCorrectionId": "maintenance-fix-2"
+        }
+      ],
       "reversalSourceIds": [],
       "note": "Correction/reversal chain objects remain mandatory in the production lifecycle fixture."
     }
