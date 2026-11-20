@@ -217,6 +217,31 @@ describe("Performance browser and Room shared parity fixture", () => {
         toExclusive: fixture.expected.recoveryToExclusive,
       });
       expect(afterRestart.lifetime.profitPaise).toBe(fixture.expected.lifetimeProfitPaise);
+
+      // Also exercise the interrupted-unverified path with the same populated
+      // pool: startup recovery must roll back to the exact pre-restore graph.
+      const changedManual = await browserDatabase.records.get(manualSource.sourceId) as any;
+      await browserDatabase.records.put({
+        ...changedManual,
+        revision: changedManual.revision + 1,
+        updatedAt: "2026-03-17T00:00:00.000Z",
+        data: { ...changedManual.data, amountPaise: 777 },
+      });
+      const interrupted = await restoreBrowserSnapshot({
+        data: imported,
+        manifest: parsed.manifest as import("../packages/core/src/backup").SnapshotManifest,
+        confirmed: true,
+      });
+      browserDatabase.close();
+      await browserDatabase.open();
+      expect(await recoverBrowserRestoreTransactions()).toEqual({ recovered: 1 });
+      expect(await browserDatabase.records.get(manualSource.sourceId)).toMatchObject({
+        revision: changedManual.revision + 1,
+        data: { amountPaise: 777 },
+      });
+      expect(await listBrowserRecoveryCheckpoints()).toEqual([
+        expect.objectContaining({ id: interrupted.checkpointId, status: "rollback_complete" }),
+      ]);
     } finally {
       unregister.reverse().forEach(dispose => dispose());
     }
