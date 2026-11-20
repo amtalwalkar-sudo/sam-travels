@@ -26,8 +26,12 @@ internal object BackupSnapshotContract {
     }
 
     fun validateSnapshot(snapshot: JSONObject) {
-        require(snapshot.optString("format") == "sam-travels-canonical-snapshot-v1") {
-            "backup_unsupported_snapshot_format"
+        // Format-less snapshots are the supported legacy package shape. New
+        // exports always carry the canonical format; unknown declared formats fail closed.
+        if (snapshot.has("format")) {
+            require(snapshot.optString("format") == "sam-travels-canonical-snapshot-v1") {
+                "backup_unsupported_snapshot_format"
+            }
         }
         require(integer(snapshot.opt("schemaVersion"), "backup_unsupported_schema") == CURRENT_SCHEMA_VERSION.toDouble()) {
             "backup_unsupported_schema"

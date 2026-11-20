@@ -19,6 +19,7 @@ import {
   discardVerifiedBrowserCheckpoint,
   rollbackBrowserRecoveryCheckpoint,
   recoverBrowserRestoreTransactions,
+  type BrowserSnapshotData,
 } from "../../../packages/storage-browser/src";
 
 type RoomSnapshot = CanonicalBackupSnapshotV1;
@@ -94,24 +95,32 @@ export async function restoreBackupForCurrentRuntime(input: {
   const plaintext = "passphrase" in input.secret
     ? await decryptBackupWithPassphrase(input.backup, input.secret.passphrase, argon2id)
     : await decryptBackupWithRecoveryKey(input.backup, input.secret.recoveryKey);
-  const snapshot = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)) as CanonicalBackupSnapshotV1;
+  const snapshotValue = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)) as unknown;
+  const snapshotFormat = snapshotValue && typeof snapshotValue === "object"
+    ? (snapshotValue as { format?: unknown }).format
+    : undefined;
+  if (typeof snapshotFormat === "string" && snapshotFormat !== "sam-travels-canonical-snapshot-v1") {
+    throw new Error("backup_unsupported_snapshot_format");
+  }
   await recoverPendingBackupTransactions();
 
   try {
     if (Capacitor.isNativePlatform()) {
       const result = await NativeBackup.restoreSnapshot({
-        snapshot,
+        snapshot: snapshotValue as RoomSnapshot,
         manifest: input.backup.manifest,
         confirmed: true,
       });
       return { checkpointId: result.checkpointId, restoredCount: result.restoredCount };
     }
 
-    const browserSnapshot = fromCanonicalBackupSnapshotV1(snapshot, {
-      applicationVersion: input.backup.manifest.applicationVersion,
-      createdAt: input.backup.manifest.createdAt,
-      businessTimezone: input.backup.manifest.businessTimezone,
-    });
+    const browserSnapshot = snapshotFormat === "sam-travels-canonical-snapshot-v1"
+      ? fromCanonicalBackupSnapshotV1(snapshotValue as CanonicalBackupSnapshotV1, {
+          applicationVersion: input.backup.manifest.applicationVersion,
+          createdAt: input.backup.manifest.createdAt,
+          businessTimezone: input.backup.manifest.businessTimezone,
+        })
+      : { data: snapshotValue as BrowserSnapshotData, manifest: input.backup.manifest };
     const result = await restoreBrowserSnapshot({
       data: browserSnapshot.data,
       manifest: browserSnapshot.manifest,

@@ -48,6 +48,13 @@ class BackupSnapshotContractTest {
     }
 
     @Test
+    fun acceptsSupportedLegacySnapshotWithoutDeclaredFormat() {
+        BackupSnapshotContract.validateSnapshot(
+            JSONObject("""{"schemaVersion":1,"snapshotRevision":0,"records":[]}"""),
+        )
+    }
+
+    @Test
     fun rejectsUnsupportedCanonicalSnapshotFormat() {
         assertEquals("backup_unsupported_snapshot_format", assertThrows(IllegalArgumentException::class.java) {
             BackupSnapshotContract.validateSnapshot(
