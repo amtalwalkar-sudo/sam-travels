@@ -160,7 +160,32 @@ describe("Performance browser and Room shared parity fixture", () => {
         }
       }
 
-      const result = calculatePerformanceV1(fixture.input);
+      const calculateFromRestoredRecords = (rows: readonly any[]) => {
+        const recordsById = new Map(rows.map(record => [record.id, record]));
+        const restoredPool = fixture.input.preBusinessRecovery.map(source => {
+          const sourceId = source.sourceId.replace(/:emi:\d+:v\d+$/, "");
+          const record = recordsById.get(sourceId);
+          expect(record).toBeDefined();
+          if (source.origin === "manual") {
+            return { ...source, revision: record.revision, amountPaise: record.data.amountPaise, note: record.data.note };
+          }
+          if (source.origin === "compliance") {
+            return { ...source, revision: record.revision, amountPaise: record.data.totalCostPaise, note: record.data.complianceName };
+          }
+          const match = /:emi:(\d+):v(\d+)$/.exec(source.sourceId)!;
+          const schedule = record.data.scheduleVersions.find((item: any) => item.version === Number(match[2]));
+          const installment = schedule.output.rows.find((item: any) => item.installmentNumber === Number(match[1]));
+          return {
+            ...source,
+            revision: record.revision,
+            amountPaise: installment.installmentAmountPaise,
+            scheduleVersion: schedule.version,
+            note: "EMI installment " + installment.installmentNumber,
+          };
+        });
+        return calculatePerformanceV1({ ...fixture.input, preBusinessRecovery: restoredPool });
+      };
+      const result = calculateFromRestoredRecords(present);
       expect(result.recovery.totalPaise).toBe(fixture.expected.recoveryTotalPaise);
       expect(result.recovery.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(23_400);
       expect(result.recovery.daily.at(-1)?.date).toBe(fixture.expected.recoveryLastDate);
@@ -185,7 +210,7 @@ describe("Performance browser and Room shared parity fixture", () => {
       const reExported = await exportBrowserSnapshot("0.1.0");
       expect(reExported.data.records).toEqual(exported.data.records);
       expect(await listBrowserRecoveryCheckpoints()).toHaveLength(0);
-      const afterRestart = calculatePerformanceV1(fixture.input);
+      const afterRestart = calculateFromRestoredRecords(reExported.data.records as readonly any[]);
       expect(afterRestart.recovery).toMatchObject({
         totalPaise: fixture.expected.recoveryTotalPaise,
         from: fixture.expected.recoveryFrom,
