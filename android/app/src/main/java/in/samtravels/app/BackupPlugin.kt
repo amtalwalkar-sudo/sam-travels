@@ -209,10 +209,12 @@ internal object NativeBackupRestoreCoordinator {
         manifest: JSONObject,
         makeSnapshot: () -> NativeSnapshotBundle,
         afterReplacement: () -> Unit = {},
+        maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
     ): RestoreResult {
         BackupSnapshotContract.validateSnapshot(snapshot)
         BackupSnapshotContract.validateManifest(manifest)
         val rawRecords = snapshot.optJSONArray("records") ?: error("backup_records_missing")
+        requireBackupRecordCountWithinLimit(rawRecords.length(), maxRecordCount)
         NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"), rawRecords)
         NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"), rawRecords)
         val records = if (snapshot.optJSONArray("participants") == null)
