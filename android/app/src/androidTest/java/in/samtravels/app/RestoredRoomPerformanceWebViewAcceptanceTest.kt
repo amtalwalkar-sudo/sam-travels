@@ -101,6 +101,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         val fixtureRecords = fixture.getJSONArray("records")
         val vehicleId = "feature:vehicle:MH01AB1234"
         val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
+        val periodFrom = fixture.getJSONObject("input").getString("periodFrom")
         val targetDate = fixture.getJSONObject("input").getString("periodTo")
         val adminMarker = "Performance Restore " + UUID.randomUUID().toString().take(8)
         val databaseName = "sam-travels.db"
@@ -319,7 +320,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   const fields = [...document.querySelectorAll(".performance-period-form input[type=date]")];
                   if (fields.length !== 2) throw new Error("performance_period_inputs_missing");
                   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-                  setter.call(fields[0], "$businessStartDate");
+                  setter.call(fields[0], "$periodFrom");
                   fields[0].dispatchEvent(new Event("input", { bubbles: true }));
                   fields[0].dispatchEvent(new Event("change", { bubbles: true }));
                   setter.call(fields[1], "$targetDate");
@@ -328,7 +329,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return fields.map(field => field.value);
                 })()
             """.trimIndent())
-            assertEquals("Performance date inputs accept the restored reporting range", JSONArray().put(businessStartDate).put(targetDate).toString(), dateInputsSet)
+            assertEquals("Performance date inputs accept the restored reporting range", JSONArray().put(periodFrom).put(targetDate).toString(), dateInputsSet)
             stage = "run actual Performance calculation"
             evaluate(webView, """
                 (() => {
