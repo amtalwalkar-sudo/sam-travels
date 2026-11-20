@@ -63,9 +63,9 @@ class NativeBackupV2PackageTest {
         assertArrayEquals(plaintext, restored)
     }
 
-    @Test fun nativeDecryptsTypeScriptRecoveryOnlyPackageAndRejectsTampering() {
+    @Test fun nativeDecryptsSharedRecoveryOnlyPackageAndRejectsTampering() {
         val context = InstrumentationRegistry.getInstrumentation().context
-        val fixture = JSONObject(context.assets.open("typescript-backup-v2.json").bufferedReader().use { it.readText() })
+        val fixture = JSONObject(context.assets.open("cross-platform-backup-v2.json").bufferedReader().use { it.readText() })
         val recoveryKey = fixture.getString("recoveryKey")
         val expected = fixture.getString("expectedPlaintext").toByteArray(Charsets.UTF_8)
         val packageJson = fixture.getJSONObject("backup")

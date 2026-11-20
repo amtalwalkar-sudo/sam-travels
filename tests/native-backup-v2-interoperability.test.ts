@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import tsFixture from "../fixtures/typescript-backup-v2.json";
+import tsFixture from "../fixtures/cross-platform-backup-v2.json";
 import fixture from "../fixtures/native-backup-v2.json";
 import { decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
 
