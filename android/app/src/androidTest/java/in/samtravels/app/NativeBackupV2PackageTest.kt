@@ -1,6 +1,5 @@
 package `in`.samtravels.app
 
-import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
@@ -11,9 +10,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupV2PackageTest {
@@ -59,13 +55,12 @@ class NativeBackupV2PackageTest {
             .forEach { key -> assertEquals("Manifest field $key must match shared fixture", expectedManifest.get(key), actualManifest.get(key)) }
         assertEquals("recordCounts must match shared fixture", expectedManifest.getJSONObject("recordCounts").getInt("records"), actualManifest.getJSONObject("recordCounts").getInt("records"))
 
-        val aad = actualManifest.toString().toByteArray(Charsets.UTF_8)
-        val recoveryKey = Base64.decode(fixture.getString("recoveryKey"), Base64.NO_WRAP)
-        val wrapped = generated.getJSONObject("keyEnvelopes").getJSONObject("recovery").getJSONObject("wrappedDek")
-        val dek = decrypt(recoveryKey, wrapped, aad)
-        val payload = generated.getJSONObject("payload")
-        val restored = decrypt(dek, payload, aad)
-        assertArrayEquals(plaintext, restored)
+        // Exercise the same canonical manifest serializer used by production
+        // decryption. JSONObject.toString() is not the v2 wire-format AAD.
+        assertArrayEquals(
+            plaintext,
+            NativeBackupV2Package.decrypt(generated, fixture.getString("recoveryKey")),
+        )
     }
 
     @Test fun nativeDecryptsSharedRecoveryOnlyPackageAndRejectsTampering() {
@@ -104,14 +99,4 @@ class NativeBackupV2PackageTest {
         else -> value.toString()
     }
 
-    private fun decrypt(key: ByteArray, envelope: JSONObject, aad: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            SecretKeySpec(key, "AES"),
-            GCMParameterSpec(128, Base64.decode(envelope.getString("nonce"), Base64.NO_WRAP)),
-        )
-        cipher.updateAAD(aad)
-        return cipher.doFinal(Base64.decode(envelope.getString("ciphertext"), Base64.NO_WRAP))
-    }
 }
