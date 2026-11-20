@@ -246,8 +246,19 @@ internal object NativeBackupRestoreCoordinator {
                 "backup_invalid_record_envelope"
             }
             val payload = JSONObject(record.getString("json"))
-            if (payload.has("id")) require(payload.optString("id") == id) {
-                "backup_record_identity_mismatch"
+            if (payload.has("id")) {
+                // Room stores Work outbox rows under driver-outbox:<revision>,
+                // while the durable outbox contract's payload identity remains
+                // driver-state:<revision>. Both identities are validated by
+                // WorkDriverRecordsAdapter; do not collapse the storage key
+                // into the payload's public contract id here.
+                val expectedPayloadId = if (
+                    record.optString("participantId") == "work-driver-state" &&
+                    id.startsWith("driver-outbox:")
+                ) "driver-state:" + payload.optLong("revision", -1L) else id
+                require(payload.optString("id") == expectedPayloadId) {
+                    "backup_record_identity_mismatch"
+                }
             }
         }
 
