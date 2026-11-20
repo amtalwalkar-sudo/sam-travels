@@ -52,7 +52,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
   it("limits current end-to-end data to one configured vehicle and one configured driver", () => {
     expect(fixture.operatingConfiguration).toMatchObject({
       mode: "single_vehicle_single_driver",
-      vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:SYNTHETIC-VEHICLE-001" },
+      vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:SYNTHETICVEHICLE001" },
       driver: {
         cardinality: "exactly_one_active",
         profileRecordId: "feature:driver-records:driver:driver-001",
@@ -61,7 +61,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       currentPairing: {
         cardinality: "exactly_one_current_assignment",
         assignmentHistoryRecordId: "feature:driver-records:assignment:driver-001",
-        vehicleId: "feature:vehicle:SYNTHETIC-VEHICLE-001",
+        vehicleId: "feature:vehicle:SYNTHETICVEHICLE001",
         driverId: "driver-001",
       },
       fleetExpansion: "deferred_until_separately_approved",
@@ -102,7 +102,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     const records = fixture.populatedGraph.records;
     const byId = new Map(records.map(record => [record.id, record]));
     const vehicle = records.find(record => record.id.startsWith("feature:vehicle:"));
-    expect(vehicle?.data.registrationNumber).toBe("SYNTHETIC-VEHICLE-001");
+    expect(vehicle?.data.registrationNumber).toBe("SYNTHETICVEHICLE001");
     expect(fixture.operatingConfiguration.vehicle.recordId).toBe(vehicle?.id);
     expect(fixture.operatingConfiguration.currentPairing.vehicleId).toBe(vehicle?.id);
     const assignment = byId.get(fixture.operatingConfiguration.currentPairing.assignmentHistoryRecordId);

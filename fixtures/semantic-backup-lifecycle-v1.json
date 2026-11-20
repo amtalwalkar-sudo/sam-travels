@@ -426,7 +426,7 @@
           "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
           "revision": 1,
           "businessDate": "2026-11-01",
-          "occurredAt": "2026-11-18T00:00:00.000Z",
+          "occurredAt": "2026-11-01T00:00:00.000Z",
           "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "odometerKm": 1000,
           "pricePaisePerKg": 9000,
@@ -454,7 +454,7 @@
           "effect": "charge",
           "category": "Cleaning",
           "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
-          "driverId": "feature:driver-records:driver:driver-001"
+          "driverId": "feature:driver:driver-001"
         }
       },
       {
