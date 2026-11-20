@@ -39,6 +39,15 @@ class BackupSnapshotContractTest {
     }
 
     @Test
+    fun rejectsManifestRecordCountAboveProductionLimit() {
+        assertEquals("backup_record_count_limit", assertThrows(IllegalArgumentException::class.java) {
+            BackupSnapshotContract.validateManifest(
+                validManifest().put("recordCounts", JSONObject().put("records", MAX_BACKUP_RECORD_COUNT + 1)),
+            )
+        }.message)
+    }
+
+    @Test
     fun rejectsMalformedSnapshotAndFutureVersion() {
         assertThrows(IllegalArgumentException::class.java) {
             BackupSnapshotContract.validateSnapshot(JSONObject("""{"schemaVersion":2,"records":[]}"""))
