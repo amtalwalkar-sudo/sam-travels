@@ -9,6 +9,8 @@ import {
   serializeBackupPackage,
   assertBackupPackageByteLength,
   MAX_BACKUP_PACKAGE_BYTES,
+  assertBackupPlaintextPreflight,
+  estimateEncryptedPackageBytes,
   type Argon2idProvider,
   HashWasmArgon2idProvider,
 } from "../packages/features/backup";
@@ -113,6 +115,25 @@ describe("backup-encryption-v1", () => {
   });
 });
 
+
+describe("backup plaintext preflight", () => {
+  it("measures the AES-GCM and base64 package expansion before encryption", () => {
+    expect(estimateEncryptedPackageBytes(0)).toBe(1024 * 1024 + 24);
+    expect(estimateEncryptedPackageBytes(3)).toBe(1024 * 1024 + 28);
+    expect(() => assertBackupPlaintextPreflight(0)).not.toThrow();
+    expect(() => assertBackupPlaintextPreflight(Number.MAX_SAFE_INTEGER)).toThrow("backup_plaintext_preflight_exceeded");
+    expect(() => estimateEncryptedPackageBytes(-1)).toThrow("backup_invalid_plaintext_size");
+  });
+
+  it("rejects an oversized plaintext snapshot before key generation or encryption", async () => {
+    await expect(createEncryptedBackup({
+      plaintext: new Uint8Array(MAX_BACKUP_PACKAGE_BYTES),
+      manifest,
+      mode: "recovery-key-only",
+      recoveryKey: generateBackupRecoveryKey(),
+    })).rejects.toThrow("backup_plaintext_preflight_exceeded");
+  });
+});
 
 describe("backup package size limits", () => {
   it("accepts the inclusive byte limit and rejects the first byte over it", () => {
