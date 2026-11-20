@@ -105,7 +105,7 @@ internal object NativeBusinessExpensesBackup {
             "business_expense_entry_invalid"
         }
         if (data.has("driverId")) require(data.optString("driverId").startsWith("feature:driver-records:driver:")) {
-            "business_expense_entry_invalid"
+            "business_expense_driver_not_found"
         }
         when (data.optString("sourceKind")) {
             "platform_fee" -> require(data.optString("reference").isNotBlank() &&
