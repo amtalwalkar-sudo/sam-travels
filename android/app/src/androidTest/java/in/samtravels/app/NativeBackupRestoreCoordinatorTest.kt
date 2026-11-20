@@ -324,6 +324,39 @@ class NativeBackupRestoreCoordinatorTest {
                 it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
                     it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX)
             })
+
+            // Repeat with the same populated pool but simulate process death
+            // before verification. Startup recovery must restore the exact
+            // destination baseline rather than leave imported rows partially live.
+            val manualId = manual.getString("sourceId")
+            val currentManual = database.records().get(manualId)!!
+            val changedManual = JSONObject(currentManual.json)
+                .put("revision", JSONObject(currentManual.json).getInt("revision") + 1)
+                .put("updatedAt", "2026-03-17T00:00:00.000Z")
+            changedManual.getJSONObject("data").put("amountPaise", 777)
+            database.records().put(StoredRecord(
+                manualId, changedManual.toString(), currentManual.schemaVersion,
+                "2026-03-17T00:00:00.000Z",
+            ))
+            val interruptedBaseline = snapshot()
+            val interruptedRestore = NativeBackupRestoreCoordinator.restore(
+                database, exported.snapshot, exported.manifest, { snapshot() },
+            )
+            database.close()
+            database = databaseBuilder.build()
+            NativeStartupRecovery.invalidate(database)
+            assertEquals(listOf(interruptedRestore.checkpointId), NativeStartupRecovery.ensure(database))
+            val recoveredBaseline = snapshot()
+            assertEquals(
+                canonical(interruptedBaseline.snapshot.getJSONArray("records")),
+                canonical(recoveredBaseline.snapshot.getJSONArray("records")),
+            )
+            val recoveredManual = JSONObject(database.records().get(manualId)!!.json)
+            assertEquals(777, recoveredManual.getJSONObject("data").getInt("amountPaise"))
+            val recoveryJournal = database.records().get(
+                NativeBackupRecovery.JOURNAL_PREFIX + interruptedRestore.checkpointId,
+            )
+            assertEquals("rollback_complete", JSONObject(recoveryJournal!!.json).getString("status"))
         } finally {
             database.close()
             context.deleteDatabase(name)
