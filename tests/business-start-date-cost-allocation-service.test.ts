@@ -42,7 +42,7 @@ function createService(options: { settlement?: boolean; overlap?: boolean; recor
     { async get() { return { id: "feature:business-settings:business", revision: 7,
       data: { schemaVersion: 1, businessStartDate: "2026-02-15" } }; } } as never,
     {
-      async getOverview() { return overview; },
+      async getAllocationOverview() { return overview; },
       async listCorrectionReferences(targetRecordId: string) {
         return targetRecordId === complianceRecord.id
           ? [{ sourceId: "historical-correction:compliance-premium", revision: 1 }]
@@ -197,7 +197,7 @@ describe("BusinessStartDateCostAllocationService", () => {
     const service = createService();
     const missingSettings = new BusinessStartDateCostAllocationService(
       { async get() { return undefined; } } as never,
-      { async getOverview() { return { records: [], overlaps: [] }; } } as never,
+      { async getAllocationOverview() { return { records: [], overlaps: [] }; } } as never,
       { async list() { return []; } } as never,
       { async getScheduleHistory() { throw new Error("not_expected"); } } as never,
       { async list() { return []; } } as never,
