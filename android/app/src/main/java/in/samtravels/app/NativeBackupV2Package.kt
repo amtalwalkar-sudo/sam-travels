@@ -64,7 +64,7 @@ internal object NativeBackupV2Package {
             require(count >= 0) { "backup_invalid_record_count" }
             totalRecords += count
         }
-        require(totalRecords <= MAX_BACKUP_RECORD_COUNT) { "backup_record_count_limit" }
+        require(totalRecords <= MAX_BACKUP_RECORD_COUNT.toLong()) { "backup_record_count_limit" }
         val payload = packageJson.optJSONObject("payload") ?: error("backup_invalid_envelope")
         val recovery = packageJson.optJSONObject("keyEnvelopes")
             ?.optJSONObject("recovery") ?: error("backup_invalid_envelope")
