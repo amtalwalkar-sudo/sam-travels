@@ -8,8 +8,8 @@ import {
   listBrowserRecoveryCheckpoints,
 } from "../packages/storage-browser/src";
 import {
-  createEncryptedBackup, decryptBackupWithRecoveryKey, parseBackupPackage,
-  serializeBackupPackage,
+  createEncryptedBackup, decryptBackupWithRecoveryKey, generateBackupRecoveryKey,
+  parseBackupPackage, serializeBackupPackage,
 } from "../packages/features/backup";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { registerComplianceBrowserBackupParticipant } from "../apps/web/src/compliance-backup";
@@ -115,6 +115,7 @@ describe("Performance browser and Room shared parity fixture", () => {
         plaintext: exported.plaintext,
         manifest: exported.manifest as import("../packages/core/src/backup").SnapshotManifest,
         mode: "recovery-key-only",
+        recoveryKey: generateBackupRecoveryKey(),
       });
       const parsed = parseBackupPackage(serializeBackupPackage(backup));
       const plaintext = await decryptBackupWithRecoveryKey(parsed, recoveryKey);
