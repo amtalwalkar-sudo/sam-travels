@@ -102,8 +102,25 @@ internal object NativeBackupV2Package {
      * wire-format serializer: Android may escape characters differently.
      */
     private fun jsonStringify(value: Any?): String = when (value) {
-        is JSONObject -> value.keys().asSequence().toList().joinToString(prefix = "{", postfix = "}") { key ->
-            jsonQuote(key) + ":" + jsonStringify(value.get(key))
+        is JSONObject -> {
+            // JSONObject does not promise JavaScript property insertion order.
+            // The manifest AAD order is part of the v2 wire contract, so pin it
+            // explicitly instead of relying on the platform map implementation.
+            val keys = value.keys().asSequence().toList()
+            val orderedKeys = if (value.has("applicationVersion")) {
+                val manifestOrder = listOf(
+                    "applicationVersion", "schemaVersion", "createdAt", "businessTimezone",
+                    "snapshotRevision", "recordCounts", "participants", "format", "plaintextSha256",
+                )
+                manifestOrder.filter(value::has) + keys.filterNot(manifestOrder::contains).sorted()
+            } else if (value.has("records") && keys.size == 1) {
+                listOf("records")
+            } else {
+                keys
+            }
+            orderedKeys.joinToString(prefix = "{", postfix = "}") { key ->
+                jsonQuote(key) + ":" + jsonStringify(value.get(key))
+            }
         }
         is org.json.JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") {
             jsonStringify(value.get(it))
