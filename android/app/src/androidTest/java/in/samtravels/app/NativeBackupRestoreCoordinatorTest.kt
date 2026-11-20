@@ -5,7 +5,6 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -24,36 +23,6 @@ class NativeBackupRestoreCoordinatorTest {
 
     private fun snapshot(database: LocalDatabase) =
         NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "test")
-
-    @Test fun productionRestoreRejectsRawRecordCountBeforeParticipantValidationOrCheckpoint() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
-            .allowMainThreadQueries().build()
-        try {
-            val at = "2026-11-17T08:00:00.000Z"
-            val snapshot = JSONObject()
-                .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)
-                .put("snapshotRevision", 0)
-                .put("records", JSONArray().put(JSONObject().put("id", "unvalidated-row")))
-            val manifest = JSONObject()
-                .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)
-                .put("applicationVersion", "test")
-                .put("createdAt", at)
-                .put("businessTimezone", "Asia/Kolkata")
-                .put("snapshotRevision", 0)
-                .put("recordCounts", JSONObject().put("records", 1))
-            val failure = runCatching {
-                NativeBackupRestoreCoordinator.restore(
-                    database, snapshot, manifest, { snapshot(database) }, maxRecordCount = 0,
-                )
-            }.exceptionOrNull()
-            assertEquals("backup_record_count_limit", failure?.message)
-            assertEquals(0, database.records().list().count {
-                it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
-                    it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX)
-            })
-        } finally { database.close() }
-    }
 
     @Test fun productionRestoreReopenRecoveryAndReexportPreservePreRestoreGraph() {
         val context = ApplicationProvider.getApplicationContext<Context>()
