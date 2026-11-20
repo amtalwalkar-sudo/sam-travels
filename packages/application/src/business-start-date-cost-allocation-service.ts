@@ -59,7 +59,7 @@ export type BusinessStartDateCostAllocationReportV1 = Readonly<{
 export class BusinessStartDateCostAllocationService {
   constructor(
     private readonly settings: Pick<BusinessSettingsService, "get">,
-    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getOverview"> &
+    private readonly complianceAnalysis: Pick<ComplianceAnalysisService, "getAllocationOverview"> &
       Partial<Pick<ComplianceAnalysisService, "listCorrectionReferences">>,
     private readonly loans: Pick<FinanceLoanService, "list">,
     private readonly prepayments: Pick<FinanceLoanPrepaymentService, "getScheduleHistory">,
@@ -136,7 +136,7 @@ export class BusinessStartDateCostAllocationService {
 
   async getReport(): Promise<BusinessStartDateCostAllocationReportV1> {
     const [settings, overview, loans] = await Promise.all([
-      this.settings.get(), this.complianceAnalysis.getOverview(), this.loans.list(),
+      this.settings.get(), this.complianceAnalysis.getAllocationOverview(), this.loans.list(),
     ]);
     if (!settings) throw new Error("business_start_date_not_configured");
     const businessStartDate = settings.data.businessStartDate;
