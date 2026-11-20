@@ -28,7 +28,7 @@ describe("Performance browser and Room shared parity fixture", () => {
     const recordsById = new Map(restored.map(row => [row.id, row]));
     const recoveryByOrigin = { manual: 0, emi: 0, compliance: 0 };
     for (const source of fixture.input.preBusinessRecovery) {
-      recoveryByOrigin[source.origin] += source.amountPaise;
+      recoveryByOrigin[source.origin] = (recoveryByOrigin[source.origin] ?? 0) + source.amountPaise;
       if (source.origin === "manual" || source.origin === "compliance") {
         const record = recordsById.get(source.sourceId) as any;
         expect(record).toBeDefined();
