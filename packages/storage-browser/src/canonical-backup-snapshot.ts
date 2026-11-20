@@ -64,9 +64,10 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
   };
   assertBrowserSnapshotForCanonical(data, manifest);
   for (const row of canonical.records) {
-    if (canonicalOwnerForRecord(row.id, canonical.participants) !== row.participantId) {
-      throw new Error("backup_canonical_record_owner_mismatch");
-    }
+    const owner = row.participantId === "logbook-events" ? "logbook-events" :
+      row.participantId === "work-driver-state" && (row.id === "driver-state" || row.id === "legacy-driver-state" || row.id.startsWith("driver-intent:") || row.id.startsWith("driver-outbox:")) ? "work-driver-state" :
+      canonicalOwnerForRecord(row.id, canonical.participants);
+    if (owner !== row.participantId) throw new Error("backup_canonical_record_owner_mismatch");
   }
   return { data, manifest };
 }
