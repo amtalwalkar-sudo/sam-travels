@@ -22,6 +22,9 @@ class PerformanceCalculationRoomParityTest {
         val expected = fixture.getJSONObject("expected")
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
+        NativeVehicleBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeFinanceBackup.ensureRegistered()
         NativeBusinessExpensesBackup.ensureRegistered()
         NativePerformanceBackup.ensureRegistered()
         try {
@@ -53,6 +56,9 @@ class PerformanceCalculationRoomParityTest {
                 val source = records.getJSONObject(index)
                 val id = source.getString("id")
                 val participant = when {
+                    id.startsWith("feature:vehicle:") -> "vehicle-records"
+                    id.startsWith("feature:compliance:") -> "compliance-records"
+                    id.startsWith("feature:finance:loan:") -> "finance-records"
                     id.startsWith("feature:business-expenses:") -> "business-expenses-records"
                     id.startsWith("feature:performance:") -> "performance-records"
                     else -> "platform-records"
