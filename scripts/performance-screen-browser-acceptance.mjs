@@ -194,7 +194,6 @@ try {
     throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record:" +
       JSON.stringify(committedTripFinancials));
   }
-  console.log("Rendered Work swipe actions committed End Ride, required Fare, driver-paid Toll/Parking, and immutable trip context to IndexedDB revision 2.");
 
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
