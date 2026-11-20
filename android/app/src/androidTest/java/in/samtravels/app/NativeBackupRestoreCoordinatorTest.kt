@@ -212,10 +212,12 @@ class NativeBackupRestoreCoordinatorTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val name = "performance-pre-business-pool-restore.db"
         context.deleteDatabase(name)
-        NativeVehicleBackup.ensureRegistered()
-        NativeComplianceBackup.ensureRegistered()
-        NativeFinanceBackup.ensureRegistered()
-        NativePerformanceBackup.ensureRegistered()
+        val backupParticipants = listOf(
+            NativeVehicleBackup.register(),
+            NativeComplianceBackup.register(),
+            NativeFinanceBackup.register(),
+            NativePerformanceBackup.register(),
+        )
         val fixture = InstrumentationRegistry.getInstrumentation().context.assets
             .open("performance-calculation-v1-parity.json")
             .bufferedReader().use { JSONObject(it.readText()) }
@@ -359,6 +361,7 @@ class NativeBackupRestoreCoordinatorTest {
             assertEquals("rollback_complete", JSONObject(recoveryJournal!!.json).getString("status"))
         } finally {
             database.close()
+            backupParticipants.asReversed().forEach { it.close() }
             context.deleteDatabase(name)
         }
     }
