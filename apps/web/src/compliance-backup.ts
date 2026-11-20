@@ -120,7 +120,8 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
       }
 
       const corrections: HistoricalCorrectionV1[] = records
-        .filter(record => record.id.startsWith(CORRECTION_PREFIX))
+        .filter(record => record.id.startsWith(CORRECTION_PREFIX) &&
+          (record.data as { featureId?: string } | undefined)?.featureId === "compliance")
         .map(record => {
           assertHistoricalCorrectionV1(record.data);
           const correction = record.data as HistoricalCorrectionV1;
@@ -156,7 +157,8 @@ export function registerComplianceBrowserBackupParticipant(): () => void {
           throw new Error("historical_correction_chain_head_mismatch");
         }
       }
-      const chainHeads = records.filter(record => record.id.startsWith(CORRECTION_CHAIN_PREFIX));
+      const chainHeads = records.filter(record => record.id.startsWith(CORRECTION_CHAIN_PREFIX) &&
+        (record.data as { targetRecordId?: string } | undefined)?.targetRecordId?.startsWith(PREFIX));
       if (chainHeads.some(record => !correctionsByTarget.has(
         String((record.data as Record<string, unknown>)?.targetRecordId ?? ""),
       ))) {

@@ -147,7 +147,7 @@
     "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
   },
   "populatedGraph": {
-    "status": "populated_seed_pending_production_lifecycle",
+    "status": "synthetic_seed_pending_production_lifecycle",
     "recordCount": 23,
     "records": [
       {
@@ -722,7 +722,7 @@
         }
       ],
       "reversalSourceIds": [],
-      "note": "Correction/reversal chain objects remain mandatory in the production lifecycle fixture.",
+      "note": "Business Expense reversal lineage remains to be added to the production lifecycle fixture.",
       "complianceOverlapReviewHeads": [
         {
           "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
