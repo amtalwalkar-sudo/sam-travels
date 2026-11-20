@@ -1,0 +1,30 @@
+{
+  "recoveryKey": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=",
+  "backup": {
+    "manifest": {
+      "applicationVersion": "0.1.0",
+      "schemaVersion": 1,
+      "createdAt": "2026-11-04T00:00:00.000Z",
+      "businessTimezone": "Asia/Kolkata",
+      "snapshotRevision": 7,
+      "recordCounts": { "records": 1 },
+      "format": "backup-encryption-v2",
+      "plaintextSha256": "3KAtJyqYna+ChzPjZPAXLkvDsjBgezpGNqBrc7cQz8w="
+    },
+    "payload": {
+      "algorithm": "AES-256-GCM",
+      "nonce": "AQIDBAUGBwgJCgsM",
+      "ciphertext": "hSN82IqGauVefCJ+Y1OjJ7T3P3prrrxw0QsYHbNlUg/aDmJqu7KDTWI7qPWn44856r0g3u1r/69kOy0l0hyiiyf8vJcK2MDzMkCP0RgE1YADTVzp77pwlQoi2FJSqtP9Muvkn0Ik0l2ujpSvDyY1nuoQnjGiITPPkE0K9rMRolqBxKFF3Eh1TxWV+RyegvV2ee+P2GX0jW5CKSn1dAMf"
+    },
+    "keyEnvelopes": {
+      "recovery": {
+        "algorithm": "AES-256-GCM",
+        "wrappedDek": {
+          "algorithm": "AES-256-GCM",
+          "nonce": "DQ4PEBESExQVFhcY",
+          "ciphertext": "wG4mxnvrNkE5by/ysNC13Ha/OHOjqgYUuDJ2qn/Pe2CPH25s5YNWN5d8smL7MGCc"
+        }
+      }
+    }
+  }
+}

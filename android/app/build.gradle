@@ -61,7 +61,6 @@ android {
             // the implicit src/androidTest/assets directory is not retained.
             assets.srcDirs = [
                 new File(projectDir, 'src/androidTest/assets'),
-                new File(rootProject.projectDir, '../fixtures'),
                 new File(projectDir, 'schemas')
             ]
         }
