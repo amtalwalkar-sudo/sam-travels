@@ -1,5 +1,15 @@
+import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { browserDatabase } from "../packages/storage-browser/src/database";
+import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
+import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
+import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
+import { registerFinanceBrowserBackupParticipant } from "../apps/web/src/finance-backup";
+import { registerComplianceBrowserBackupParticipant } from "../apps/web/src/compliance-backup";
+import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
+import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
+import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
 
 type Fixture = {
   schemaVersion: number;
@@ -133,4 +143,41 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     expect(fixture.populatedGraph.work.eventIds).toHaveLength(3);
     expect(fixture.populatedGraph.logBook.events).toHaveLength(2);
   });
+
+  it("runs the populated feature-record graph through production Browser export, restore and re-export", async () => {
+    await browserDatabase.delete();
+    await browserDatabase.open();
+    const unregister = [
+      registerVehicleBrowserBackupParticipant(),
+      registerDriverRecordsBrowserBackupParticipant(),
+      registerFinanceBrowserBackupParticipant(),
+      registerComplianceBrowserBackupParticipant(),
+      registerMaintenanceBrowserBackupParticipant(),
+      registerBusinessExpensesBrowserBackupParticipant(),
+      registerPerformanceBrowserBackupParticipant(),
+    ];
+    try {
+      await browserDatabase.records.bulkPut(fixture.populatedGraph.records as never);
+      const exported = await exportBrowserSnapshot("0.1.0");
+      const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
+      expect(exported.data.records.map(record => (record as { id: string }).id).sort())
+        .toEqual(expectedIds);
+
+      await browserDatabase.records.clear();
+      await restoreBrowserSnapshot({
+        data: exported.data,
+        manifest: exported.manifest as never,
+        confirmed: true,
+      });
+      const reopenedExport = await exportBrowserSnapshot("0.1.0");
+      expect(reopenedExport.data.records.map(record => (record as { id: string }).id).sort())
+        .toEqual(expectedIds);
+      expect(reopenedExport.data.records).toEqual(exported.data.records);
+    } finally {
+      unregister.reverse().forEach(dispose => dispose());
+      browserDatabase.close();
+      await browserDatabase.delete();
+    }
+  });
+
 });

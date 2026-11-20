@@ -153,8 +153,8 @@
       {
         "id": "feature:vehicle:SYNTHETIC-VEHICLE-001",
         "schemaVersion": 1,
-        "createdAt": "2026-11-18T00:00:00.000Z",
-        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z",
         "source": "synthetic-fixture",
         "revision": 1,
         "data": {
@@ -358,7 +358,7 @@
             {
               "effectiveFrom": "2026-11-01",
               "ratePaisePerKm": 250,
-              "savedAt": "2026-11-18T00:00:00.000Z",
+              "savedAt": "2026-11-01T00:00:00.000Z",
               "isDefault": true
             }
           ]
