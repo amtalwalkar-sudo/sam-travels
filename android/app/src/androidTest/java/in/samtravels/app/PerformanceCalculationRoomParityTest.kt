@@ -22,11 +22,13 @@ class PerformanceCalculationRoomParityTest {
         val expected = fixture.getJSONObject("expected")
         val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
-        NativeVehicleBackup.ensureRegistered()
-        NativeComplianceBackup.ensureRegistered()
-        NativeFinanceBackup.ensureRegistered()
-        NativeBusinessExpensesBackup.ensureRegistered()
-        NativePerformanceBackup.ensureRegistered()
+        val backupParticipants = listOf(
+            NativeVehicleBackup.register(),
+            NativeComplianceBackup.register(),
+            NativeFinanceBackup.register(),
+            NativeBusinessExpensesBackup.register(),
+            NativePerformanceBackup.register(),
+        )
         try {
             val recordsById = mutableMapOf<String, JSONObject>()
             for (index in 0 until records.length()) {
@@ -126,6 +128,7 @@ class PerformanceCalculationRoomParityTest {
             assertEquals(27_400, expected.getInt("lifetimeCostPaise"))
             assertEquals(-899_819, expected.getInt("lifetimeTargetPositionPaise"))
         } finally {
+            backupParticipants.asReversed().forEach { it.close() }
             db.close()
         }
     }
