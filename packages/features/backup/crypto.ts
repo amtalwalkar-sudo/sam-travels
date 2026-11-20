@@ -171,6 +171,7 @@ export async function createEncryptedBackup(input: {
   const recoveryOnly = input.mode === "recovery-key-only";
   if (!recoveryOnly && (!input.passphrase || input.passphrase.length < 12 || !input.argon2id)) throw new Error("backup_passphrase_too_short");
   if (recoveryOnly && !input.recoveryKey) throw new Error("backup_recovery_key_required");
+  assertBackupPlaintextPreflight(input.plaintext.byteLength);
   const recoveryBytes = input.recoveryKey ? fromBase64(input.recoveryKey) : randomBytes(32);
   if (recoveryBytes.length !== 32) throw new Error("backup_invalid_recovery_key");
   const salt = randomBytes(16);
