@@ -130,7 +130,7 @@ class SharedSevenDomainBackupLifecycleTest {
             val emptyOwnerStale = JSONObject()
                 .put("id", "feature:business-settings:business").put("schemaVersion", 1)
                 .put("createdAt", at).put("updatedAt", at).put("source", "android")
-                .put("revision", 1).put("data", JSONObject().put("schemaVersion", 1).put("stale", true))
+                .put("revision", 1).put("data", JSONObject().put("schemaVersion", 1).put("businessStartDate", "2026-01-01"))
             database.records().put(StoredRecord(
                 "feature:business-settings:business", emptyOwnerStale.toString(), 1, at,
             ))
