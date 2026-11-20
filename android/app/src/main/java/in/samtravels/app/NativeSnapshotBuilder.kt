@@ -33,6 +33,7 @@ internal object NativeSnapshotBuilder {
         NativeBackupCoverage.validateSnapshotRevision(records, snapshotRevision)
         val participants: JSONArray = NativeBackupCoverage.participantManifest()
         val snapshot = JSONObject()
+            .put("format", "sam-travels-canonical-snapshot-v1")
             .put("records", records)
             .put("snapshotRevision", snapshotRevision)
             .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION)

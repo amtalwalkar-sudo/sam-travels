@@ -916,5 +916,72 @@
         }
       ]
     }
+  },
+  "canonicalSnapshotContract": {
+    "format": "sam-travels-canonical-snapshot-v1",
+    "schemaVersion": 1,
+    "recordShape": [
+      "participantId",
+      "id",
+      "json",
+      "schemaVersion",
+      "updatedAt"
+    ],
+    "participantInventory": "participant IDs, feature IDs, snapshot versions and restore validator IDs; adapter implementation IDs remain platform-local",
+    "revisionSource": "work-driver-state/driver-state",
+    "interchange": "Browser Dexie and Android Room must import and export this identical envelope before encryption or restore"
+  },
+  "expectedBusinessResults": {
+    "currency": "INR",
+    "fuelIntervals": [
+      {
+        "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
+        "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
+        ],
+        "distanceKm": 10,
+        "quantityMilliKg": 3000,
+        "spendPaise": 27000,
+        "kmPerKg": {
+          "numerator": "10",
+          "denominator": "3"
+        },
+        "effectiveCostPaisePerKg": {
+          "numerator": "9000",
+          "denominator": "1"
+        },
+        "costPaisePerKm": {
+          "numerator": "27000",
+          "denominator": "10"
+        }
+      }
+    ],
+    "dailyExpenses": {
+      "fuelPaise": 63000,
+      "platformFeesPaise": 0,
+      "trafficChallansPaise": 0,
+      "miscellaneousPaise": 0,
+      "reportedSourceExpensePaise": 63000,
+      "normalOperatingExpensePaise": 63000,
+      "fullCostExpensePaise": 63000
+    },
+    "maintenanceAccrual": {
+      "operationalDate": "2026-11-01",
+      "businessKm": 10,
+      "personalKm": 2,
+      "ratePaisePerKm": 250,
+      "amountPaise": 2500,
+      "personalAmountPaise": 500
+    },
+    "finance": {
+      "loanPrincipalPaise": 100000,
+      "regularEmiPaise": 100000,
+      "scheduledInstallments": 1,
+      "committedPaymentPaise": 100000,
+      "unallocatedCreditPaise": 0
+    }
   }
 }

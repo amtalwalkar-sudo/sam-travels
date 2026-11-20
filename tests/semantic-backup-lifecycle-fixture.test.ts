@@ -14,6 +14,8 @@ import { registerComplianceBrowserBackupParticipant } from "../apps/web/src/comp
 import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
+import { calculateFuelIntervals, calculateDailyBusinessExpenses } from "../packages/features/business-expenses/calculations";
+import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/backup-snapshot";
 
 type Fixture = {
   schemaVersion: number;
@@ -33,6 +35,13 @@ type Fixture = {
   status: string;
   populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; lineage: { correctionChainHeads: Array<{ featureId: string; targetRecordId: string; chainRevision: number; headCorrectionId: string }>; reversalSourceIds: string[] }; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
+  canonicalSnapshotContract: { format: string; schemaVersion: number; recordShape: string[]; participantInventory: string; revisionSource: string; interchange: string };
+  expectedBusinessResults: {
+    fuelIntervals: Array<Record<string, unknown>>;
+    dailyExpenses: Record<string, number>;
+    maintenanceAccrual: Record<string, string | number>;
+    finance: Record<string, number>;
+  };
 };
 
 const fixture = JSON.parse(readFileSync(
@@ -132,6 +141,30 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     });
   });
 
+
+  it("pins expected business calculations to the shared synthetic source graph", () => {
+    const rows = fixture.populatedGraph.records as Array<{ id: string; data: any }>;
+    const fuel = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:")).map(row => row.data);
+    const expenses = rows.filter(row => row.id.startsWith("feature:business-expenses:entry:")).map(row => row.data);
+    const interval = calculateFuelIntervals(fuel as never).find(item =>
+      item.startCheckpointId === fixture.expectedBusinessResults.fuelIntervals[0].startCheckpointId);
+    expect(interval).toMatchObject(fixture.expectedBusinessResults.fuelIntervals[0]);
+    expect(calculateDailyBusinessExpenses(fuel as never, expenses as never)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ businessDate: "2026-11-01", ...fixture.expectedBusinessResults.dailyExpenses }),
+    ]));
+    const accrual = rows.find(row => row.id.startsWith("feature:maintenance:daily-accrual:"))?.data;
+    expect(accrual).toMatchObject(fixture.expectedBusinessResults.maintenanceAccrual);
+    const loan = rows.find(row => row.id.startsWith("feature:finance:loan:"))?.data;
+    expect(loan?.details.principalPaise).toBe(fixture.expectedBusinessResults.finance.loanPrincipalPaise);
+    expect(loan?.scheduleVersions[0].output.regularEmiPaise).toBe(fixture.expectedBusinessResults.finance.regularEmiPaise);
+    expect(loan?.scheduleVersions[0].output.rows).toHaveLength(fixture.expectedBusinessResults.finance.scheduledInstallments);
+    const ledger = rows.find(row => row.id.startsWith("feature:finance:payments:"))?.data;
+    expect(ledger.entries.reduce((sum: number, item: any) => sum + item.amountPaise, 0))
+      .toBe(fixture.expectedBusinessResults.finance.committedPaymentPaise);
+    expect(ledger.entries.reduce((sum: number, item: any) => sum + item.unallocatedCreditPaise, 0))
+      .toBe(fixture.expectedBusinessResults.finance.unallocatedCreditPaise);
+  });
+
   it("does not misrepresent the contract seed as completed parity evidence", () => {
     expect(fixture.status).toBe("populated_seed_pending_production_lifecycle");
     expect(fixture.populatedGraph.status).toBe("synthetic_seed_pending_production_lifecycle");
@@ -215,6 +248,15 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       const expectedProjection = readTripHistoryProjection();
 
       const exported = await exportBrowserSnapshot("0.1.0");
+      const canonical = toCanonicalBackupSnapshotV1(exported.data, exported.manifest as never);
+      expect(canonical.format).toBe(fixture.canonicalSnapshotContract.format);
+      expect(canonical.records.length).toBeGreaterThan(fixture.populatedGraph.recordCount);
+      const roundTrip = fromCanonicalBackupSnapshotV1(canonical, {
+        applicationVersion: exported.manifest.applicationVersion,
+        createdAt: exported.manifest.createdAt,
+        businessTimezone: exported.manifest.businessTimezone,
+      });
+      expect(toCanonicalBackupSnapshotV1(roundTrip.data, roundTrip.manifest)).toEqual(canonical);
       const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
       const byRecordId = (rows: Array<{ id: string }>) =>
         [...rows].sort((left, right) => left.id.localeCompare(right.id));
