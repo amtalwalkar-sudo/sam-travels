@@ -279,7 +279,34 @@
         "data": {
           "schemaVersion": 1,
           "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
-          "entries": []
+          "entries": [
+            {
+              "kind": "payment",
+              "id": "fixture-payment-001",
+              "commandId": "fixture-payment-command-001",
+              "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+              "businessDate": "2026-02-01",
+              "amountPaise": 100000,
+              "method": "upi",
+              "scheduleVersion": 1,
+              "createdAt": "2026-02-01T10:00:00.000Z",
+              "source": "integration",
+              "allocations": [
+                {
+                  "id": "fixture-payment-001:allocation:1",
+                  "paymentId": "fixture-payment-001",
+                  "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+                  "scheduleVersion": 1,
+                  "installmentNumber": 1,
+                  "amountPaise": 100000,
+                  "createdAt": "2026-02-01T10:00:00.000Z",
+                  "source": "integration"
+                }
+              ],
+              "unallocatedCreditPaise": 0,
+              "status": "committed"
+            }
+          ]
         }
       },
       {

@@ -91,6 +91,11 @@ class SharedSevenDomainBackupLifecycleTest {
                 "business-expenses-records", "performance-records",
             )))
             assertEquals(1, database.logBookEvents().list().size)
+            val paymentLedger = JSONObject(database.records().get(
+                "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")!!.json)
+                .getJSONObject("data").getJSONArray("entries")
+            assertEquals(1, paymentLedger.length())
+            assertEquals("fixture-payment-001", paymentLedger.getJSONObject(0).getString("id"))
             assertEquals(1, database.records().list().count { it.id.startsWith("driver-intent:") })
             assertEquals(1, database.records().list().count { it.id.startsWith("driver-outbox:") })
 

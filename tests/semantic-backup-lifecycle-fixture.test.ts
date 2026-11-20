@@ -144,6 +144,10 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     expect(ids.some(id => id.startsWith("feature:business-expenses:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:performance:"))).toBe(true);
     expect(fixture.populatedGraph.lineage.reversalSourceIds).toContain("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031");
+    const paymentLedger = fixture.populatedGraph.records.find(record => record.id ===
+      "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000") as any;
+    expect(paymentLedger.data.entries).toHaveLength(1);
+    expect(paymentLedger.data.entries[0]).toMatchObject({ id: "fixture-payment-001", scheduleVersion: 1, amountPaise: 100000 });
     expect(ids).toEqual(expect.arrayContaining([
       "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
       "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
