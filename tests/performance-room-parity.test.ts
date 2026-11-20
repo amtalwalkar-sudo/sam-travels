@@ -44,7 +44,7 @@ describe("Performance browser and Room shared parity fixture", () => {
         const installment = schedule.output.rows.find((item: any) => item.installmentNumber === Number(match![2]));
         expect(schedule).toBeDefined();
         expect(installment.installmentAmountPaise).toBe(source.amountPaise);
-        expect(installment.dueDate).toBeLessThan(fixture.input.businessStartDate);
+        expect(installment.dueDate < fixture.input.businessStartDate).toBe(true);
         expect(source.scheduleVersion).toBe(schedule.version);
       }
     }
