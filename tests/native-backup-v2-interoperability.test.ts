@@ -15,3 +15,13 @@ describe("native backup-encryption-v2 interoperability", () => {
     expect(parsed.keyEnvelopes.passphrase).toBeUndefined();
   });
 });
+
+
+describe("TypeScript backup-encryption-v2 package fixture", () => {
+  it("decrypts the recovery-only package shared with Android", async () => {
+    const fixture = await import("../fixtures/typescript-backup-v2.json");
+    const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(fixture.backup)));
+    const plaintext = await decryptBackupWithRecoveryKey(parsed, fixture.recoveryKey);
+    expect(new TextDecoder().decode(plaintext)).toBe(fixture.expectedPlaintext);
+  });
+});

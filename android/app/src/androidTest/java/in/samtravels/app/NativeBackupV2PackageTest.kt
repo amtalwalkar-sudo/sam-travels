@@ -63,6 +63,30 @@ class NativeBackupV2PackageTest {
         assertArrayEquals(plaintext, restored)
     }
 
+    @Test fun nativeDecryptsTypeScriptRecoveryOnlyPackageAndRejectsTampering() {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val fixture = JSONObject(context.assets.open("typescript-backup-v2.json").bufferedReader().use { it.readText() })
+        val recoveryKey = fixture.getString("recoveryKey")
+        val expected = fixture.getString("expectedPlaintext").toByteArray(Charsets.UTF_8)
+        val packageJson = fixture.getJSONObject("backup")
+        assertArrayEquals(expected, NativeBackupV2Package.decrypt(packageJson, recoveryKey))
+
+        val tampered = JSONObject(packageJson.toString())
+        tampered.getJSONObject("payload").put("ciphertext", "AA==")
+        try {
+            NativeBackupV2Package.decrypt(tampered, recoveryKey)
+            throw AssertionError("tampered ciphertext must fail authentication")
+        } catch (error: Exception) {
+            assertTrue(error !is AssertionError)
+        }
+        try {
+            NativeBackupV2Package.decrypt(packageJson, Base64.encodeToString(ByteArray(32), Base64.NO_WRAP))
+            throw AssertionError("wrong recovery key must fail authentication")
+        } catch (error: Exception) {
+            assertTrue(error !is AssertionError)
+        }
+    }
+
     private fun decrypt(key: ByteArray, envelope: JSONObject, aad: ByteArray): ByteArray {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(
