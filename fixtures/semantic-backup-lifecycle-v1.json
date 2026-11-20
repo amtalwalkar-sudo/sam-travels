@@ -454,7 +454,7 @@
           "effect": "charge",
           "category": "Cleaning",
           "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
-          "driverId": "feature:driver:driver-001"
+          "driverId": "feature:driver-records:driver:driver-001"
         }
       },
       {

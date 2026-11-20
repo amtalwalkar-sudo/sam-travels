@@ -194,7 +194,7 @@ describe("Business Expenses browser backup participant", () => {
       data: { schemaVersion: 1, kind: "business_expense", id, revision: 1,
         sourceKind: "miscellaneous", businessDate: "2026-11-15", amountPaise: 1200,
         currencyCode: "INR", effect: "charge", vehicleId,
-        driverId: "feature:driver:driver-synthetic-001", category: "Parking" },
+        driverId: "feature:driver-records:driver:driver-synthetic-001", category: "Parking" },
     });
     await expect(exportBrowserSnapshot("0.1.0")).rejects.toThrow("business_expense_driver_not_found");
   });

@@ -175,7 +175,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.sourceKind !== "traffic_challan" && row.paymentStatus !== undefined) ||
       (row.sourceKind === "platform_fee" && (row.vehicleId === undefined || row.alreadyNettedFromIncome === true)) ||
       (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:"))) ||
-      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver:")))) {
+      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver-records:driver:")))) {
     throw new Error("business_expense_entry_invalid");
   }
 }
