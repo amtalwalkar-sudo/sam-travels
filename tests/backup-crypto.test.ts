@@ -127,7 +127,7 @@ describe("backup plaintext preflight", () => {
 
   it("rejects an oversized plaintext snapshot before key generation or encryption", async () => {
     await expect(createEncryptedBackup({
-      plaintext: new Uint8Array(MAX_BACKUP_PACKAGE_BYTES),
+      plaintext: { byteLength: MAX_BACKUP_PACKAGE_BYTES } as Uint8Array,
       manifest,
       mode: "recovery-key-only",
       recoveryKey: generateBackupRecoveryKey(),
