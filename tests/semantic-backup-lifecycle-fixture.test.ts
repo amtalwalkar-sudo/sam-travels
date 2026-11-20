@@ -17,6 +17,7 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
+  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string } }>; work: { eventIds: string[] }; logBook: { events: unknown[] } };
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
 };
 
@@ -96,6 +97,18 @@ describe("shared cross-platform semantic backup fixture contract", () => {
   });
 
   it("does not misrepresent the contract seed as completed parity evidence", () => {
-    expect(fixture.status).toBe("contract_seed_only");
+    expect(fixture.status).toBe("populated_seed_pending_production_lifecycle");
+    expect(fixture.populatedGraph.status).toBe("synthetic_seed_pending_production_lifecycle");
+    expect(fixture.populatedGraph.recordCount).toBe(15);
+    expect(fixture.populatedGraph.records).toHaveLength(15);
+    const ids = fixture.populatedGraph.records.map(record => record.id);
+    expect(ids.some(id => id.startsWith("feature:finance:"))).toBe(true);
+    expect(ids.some(id => id.startsWith("feature:compliance:"))).toBe(true);
+    expect(ids.some(id => id.startsWith("feature:maintenance:"))).toBe(true);
+    expect(ids.some(id => id.startsWith("feature:business-expenses:"))).toBe(true);
+    expect(ids.some(id => id.startsWith("feature:performance:"))).toBe(true);
+    expect(ids.some(id => id.startsWith("feature:driver-records:"))).toBe(true);
+    expect(fixture.populatedGraph.work.eventIds).toHaveLength(3);
+    expect(fixture.populatedGraph.logBook.events).toHaveLength(2);
   });
 });

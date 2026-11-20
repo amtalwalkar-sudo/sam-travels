@@ -103,6 +103,12 @@ class SharedSemanticBackupFixtureTest {
         assertEquals(true, emptyPolicy.getString("required").contains("zero records is valid"))
         assertEquals(true, emptyPolicy.getString("restore").contains("clear stale rows"))
         assertEquals(true, emptyPolicy.getString("negative").contains("Unknown participant IDs"))
-        assertEquals("contract_seed_only", fixture.getString("status"))
+        assertEquals("populated_seed_pending_production_lifecycle", fixture.getString("status"))
+        val graph = fixture.getJSONObject("populatedGraph")
+        assertEquals(15, graph.getInt("recordCount"))
+        assertEquals(15, graph.getJSONArray("records").length())
+        assertEquals(3, graph.getJSONObject("work").getJSONArray("eventIds").length())
+        assertEquals(2, graph.getJSONObject("logBook").getJSONArray("events").length())
+        assertEquals("driver-001", graph.getJSONObject("work").getString("selectedDriverId"))
     }
 }
