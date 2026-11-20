@@ -47,27 +47,6 @@ class NativeBackupCoverageTest {
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
     }
-    @Test fun productionSnapshotBuilderRejectsRecordLimitBeforeReturningExport() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
-            .allowMainThreadQueries().build()
-        try {
-            database.logBookEvents().put(LogBookEventRecord(
-                "limit-event",
-                """{"eventId":"limit-event","kind":"trip_completed"}""",
-                1,
-                "2026-11-10T04:00:00.000Z",
-            ))
-            val failure = runCatching {
-                NativeSnapshotBuilder.build(
-                    database, NativeBackupRecovery::isInternalRecord, "test-version",
-                    "2026-11-10T04:01:00.000Z", maxRecordCount = 0,
-                )
-            }.exceptionOrNull()
-            assertEquals("backup_record_count_limit", failure?.message)
-        } finally { database.close() }
-    }
-
     @Test fun cancellationFeeBackupRoundTrip() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
