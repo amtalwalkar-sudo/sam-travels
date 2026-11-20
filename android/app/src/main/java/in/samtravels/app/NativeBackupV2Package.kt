@@ -118,11 +118,11 @@ internal object NativeBackupV2Package {
             } else {
                 keys
             }
-            orderedKeys.joinToString(prefix = "{", postfix = "}") { key ->
+            orderedKeys.joinToString(separator = ",", prefix = "{", postfix = "}") { key ->
                 jsonQuote(key) + ":" + jsonStringify(value.get(key))
             }
         }
-        is org.json.JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") {
+        is org.json.JSONArray -> (0 until value.length()).joinToString(separator = ",", prefix = "[", postfix = "]") {
             jsonStringify(value.get(it))
         }
         JSONObject.NULL -> "null"

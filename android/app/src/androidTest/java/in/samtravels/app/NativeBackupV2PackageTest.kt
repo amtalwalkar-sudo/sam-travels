@@ -59,9 +59,13 @@ class NativeBackupV2PackageTest {
             .forEach { key -> assertEquals("Manifest field $key must match shared fixture", expectedManifest.get(key), actualManifest.get(key)) }
         assertEquals("recordCounts must match shared fixture", expectedManifest.getJSONObject("recordCounts").getInt("records"), actualManifest.getJSONObject("recordCounts").getInt("records"))
 
-        // Exercise the same authenticated reader used by the native v2 helper;
-        // JSONObject.toString() is not the AAD wire serializer.
-        assertArrayEquals(plaintext, NativeBackupV2Package.decrypt(generated, fixture.getString("recoveryKey")))
+        val aad = actualManifest.toString().toByteArray(Charsets.UTF_8)
+        val recoveryKey = Base64.decode(fixture.getString("recoveryKey"), Base64.NO_WRAP)
+        val wrapped = generated.getJSONObject("keyEnvelopes").getJSONObject("recovery").getJSONObject("wrappedDek")
+        val dek = decrypt(recoveryKey, wrapped, aad)
+        val payload = generated.getJSONObject("payload")
+        val restored = decrypt(dek, payload, aad)
+        assertArrayEquals(plaintext, restored)
     }
 
     @Test fun nativeDecryptsSharedRecoveryOnlyPackageAndRejectsTampering() {
