@@ -264,6 +264,17 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertEquals("Admin enrollment fields are available", "true", enrolled)
             evaluate(webView, "document.querySelector('form button')?.click(); true")
             waitFor(webView) { it.getString("body").contains("Person enrolled") }
+            stage = "wait for enrolled Admin identity to become selectable"
+            waitFor(webView, 30) {
+                evaluate(webView, """
+                    (() => {
+                      const person = [...document.querySelectorAll("label")]
+                        .find(node => node.textContent.includes("Select person"))?.querySelector("select");
+                      return Boolean(person && [...person.options]
+                        .some(option => option.textContent.trim() === "$adminMarker Admin"));
+                    })()
+                """.trimIndent()) == "true"
+            }
             stage = "select Admin role"
             val selectedAdmin = evaluate(webView, """
                 (() => {
