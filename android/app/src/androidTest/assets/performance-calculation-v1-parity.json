@@ -99,9 +99,9 @@
     {
       "id": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174092",
       "schemaVersion": 1,
-      "createdAt": "2026-01-15T00:00:00.000Z",
-      "updatedAt": "2026-01-15T00:00:00.000Z",
-      "businessDate": "2026-01-15",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "businessDate": "2026-01-01",
       "source": "web",
       "revision": 4,
       "data": {
@@ -114,16 +114,16 @@
           "vehicleId": "feature:vehicle:MH01AB1234",
           "principalPaise": 1800,
           "annualInterestRateBasisPoints": 0,
-          "loanStartDate": "2026-01-15",
+          "loanStartDate": "2026-01-01",
           "tenureMonths": 1,
-          "firstEmiDate": "2026-02-15"
+          "firstEmiDate": "2026-02-01"
         },
         "currentScheduleVersion": 1,
         "scheduleVersions": [
           {
             "version": 1,
-            "createdAt": "2026-01-15T00:00:00.000Z",
-            "effectiveDate": "2026-01-15",
+            "createdAt": "2026-01-01T00:00:00.000Z",
+            "effectiveDate": "2026-01-01",
             "calculationId": "finance.loan-monthly-reducing-balance.v1",
             "calculationVersion": 1,
             "inputSchemaVersion": 1,
@@ -132,8 +132,8 @@
               "principalPaise": 1800,
               "annualInterestRateBasisPoints": 0,
               "tenureMonths": 1,
-              "loanStartDate": "2026-01-15",
-              "firstEmiDate": "2026-02-15"
+              "loanStartDate": "2026-01-01",
+              "firstEmiDate": "2026-02-01"
             },
             "output": {
               "currencyCode": "INR",
@@ -146,7 +146,7 @@
               "rows": [
                 {
                   "installmentNumber": 1,
-                  "dueDate": "2026-02-15",
+                  "dueDate": "2026-02-01",
                   "openingPrincipalPaise": 1800,
                   "interestPaise": 0,
                   "installmentAmountPaise": 1800,
