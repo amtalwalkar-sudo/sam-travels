@@ -3,6 +3,7 @@ package `in`.samtravels.app
 import android.util.Base64
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -48,6 +49,10 @@ class NativeBackupV2PackageTest {
             fixture.getString("recoveryKey"),
             deterministicRandom,
         )
+        // This fixed vector is consumed by the TypeScript interoperability test.
+        // Equality proves the checked-in package is produced by the Android writer,
+        // not merely a hand-authored envelope that happens to decrypt.
+        assertEquals(canonicalJson(fixture.getJSONObject("backup")), canonicalJson(generated))
         val expectedManifest = fixture.getJSONObject("backup").getJSONObject("manifest")
         val actualManifest = generated.getJSONObject("manifest")
         listOf("applicationVersion", "schemaVersion", "createdAt", "businessTimezone", "snapshotRevision", "format", "plaintextSha256")
@@ -85,6 +90,18 @@ class NativeBackupV2PackageTest {
         } catch (error: Exception) {
             assertTrue(error !is AssertionError)
         }
+    }
+
+    private fun canonicalJson(value: Any?): String = when (value) {
+        is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix = "{", postfix = "}") {
+            JSONObject.quote(it) + ":" + canonicalJson(value.get(it))
+        }
+        is JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") {
+            canonicalJson(value.get(it))
+        }
+        JSONObject.NULL -> "null"
+        is String -> JSONObject.quote(value)
+        else -> value.toString()
     }
 
     private fun decrypt(key: ByteArray, envelope: JSONObject, aad: ByteArray): ByteArray {
