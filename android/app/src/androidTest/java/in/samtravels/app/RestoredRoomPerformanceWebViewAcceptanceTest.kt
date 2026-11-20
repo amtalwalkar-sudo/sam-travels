@@ -121,6 +121,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         NativePerformanceBackup.ensureRegistered()
 
         context.deleteDatabase(databaseName)
+        var expectedGraph: Map<String, String> = emptyMap()
         val sourceDb = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
             .allowMainThreadQueries().build()
         try {
@@ -187,7 +188,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             ))
 
             val exported = snapshot(sourceDb)
-            val expectedGraph = recordGraph(exported)
+            expectedGraph = recordGraph(exported)
 
             // Restore through the same production coordinator used by BackupPlugin
             // into the exact database name opened by RoomStorePlugin in MainActivity.
