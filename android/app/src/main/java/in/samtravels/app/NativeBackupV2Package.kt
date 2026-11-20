@@ -31,7 +31,7 @@ internal object NativeBackupV2Package {
             val manifest = JSONObject(sourceManifest.toString())
                 .put("format", "backup-encryption-v2")
                 .put("plaintextSha256", digest)
-            val aad = manifest.toString().toByteArray(Charsets.UTF_8)
+            val aad = jsonStringify(manifest).toByteArray(Charsets.UTF_8)
             val payload = encrypt(dek, plaintext, aad, random)
             val wrapped = encrypt(recoveryBytes, dek, aad, random)
             return JSONObject()
@@ -74,7 +74,7 @@ internal object NativeBackupV2Package {
         require(wrapped.optString("algorithm") == "AES-256-GCM") { "backup_invalid_envelope" }
         val recoveryBytes = Base64.decode(recoveryKey, Base64.NO_WRAP)
         require(recoveryBytes.size == 32) { "backup_invalid_recovery_key" }
-        val aad = manifest.toString().toByteArray(Charsets.UTF_8)
+        val aad = jsonStringify(manifest).toByteArray(Charsets.UTF_8)
         val dekBytes = try {
             decryptAes(recoveryBytes, wrapped, aad)
         } finally {
@@ -94,6 +94,44 @@ internal object NativeBackupV2Package {
         } finally {
             dekBytes.fill(0)
         }
+    }
+
+    /**
+     * Match JavaScript JSON.stringify for the ordered manifest object used as
+     * AES-GCM additional authenticated data. JSONObject.toString() is not a
+     * wire-format serializer: Android may escape characters differently.
+     */
+    private fun jsonStringify(value: Any?): String = when (value) {
+        is JSONObject -> value.keys().asSequence().toList().joinToString(prefix = "{", postfix = "}") { key ->
+            jsonQuote(key) + ":" + jsonStringify(value.get(key))
+        }
+        is org.json.JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") {
+            jsonStringify(value.get(it))
+        }
+        JSONObject.NULL -> "null"
+        is String -> jsonQuote(value)
+        is Number, is Boolean -> value.toString()
+        else -> error("backup_invalid_manifest")
+    }
+
+    private fun jsonQuote(value: String): String = buildString {
+        append('"')
+        value.forEach { character ->
+            when (character) {
+                '"' -> append("\\\"")
+                '\\\\' -> append("\\\\\\\\")
+                '\\b' -> append("\\\\b")
+                '\\u000C' -> append("\\\\f")
+                '\\n' -> append("\\\\n")
+                '\\r' -> append("\\\\r")
+                '\\t' -> append("\\\\t")
+                else -> if (character.code < 0x20) {
+                    append("\\\\u")
+                    append(character.code.toString(16).padStart(4, '0'))
+                } else append(character)
+            }
+        }
+        append('"')
     }
 
     private fun decryptAes(key: ByteArray, envelope: JSONObject, aad: ByteArray): ByteArray {
