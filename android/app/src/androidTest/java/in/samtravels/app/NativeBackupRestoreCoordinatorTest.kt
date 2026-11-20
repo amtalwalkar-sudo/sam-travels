@@ -188,7 +188,8 @@ class NativeBackupRestoreCoordinatorTest {
             val failure = assertThrows(IllegalStateException::class.java) {
                 NativeBackupRestoreCoordinator.restore(
                     db, source.snapshot, source.manifest, { snapshot(db) },
-                ) { throw IllegalStateException("injected_after_replacement_before_readback") }
+                    afterReplacement = { throw IllegalStateException("injected_after_replacement_before_readback") },
+                )
             }
             assertEquals("injected_after_replacement_before_readback", failure.message)
             val recovered = snapshot(db)
