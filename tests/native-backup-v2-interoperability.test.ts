@@ -1,11 +1,11 @@
 import "fake-indexeddb/auto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { createBackupForCurrentRuntime, restoreBackupForCurrentRuntime } from "../apps/web/src/backup-runtime";
 import tsFixture from "../fixtures/cross-platform-backup-v2.json";
 import fixture from "../fixtures/native-backup-v2.json";
-import { decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
+import { createEncryptedBackup, decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
 
 describe("native backup-encryption-v2 interoperability", () => {
   it("decrypts and validates the Android-generated v2 package in TypeScript (without restoring a snapshot)", async () => {
@@ -21,6 +21,47 @@ describe("native backup-encryption-v2 interoperability", () => {
   });
 });
 
+
+describe("cross-runtime encryption writer parity", () => {
+  it("matches the Android v2 writer package with the same deterministic test entropy", async () => {
+    const plaintext = new TextEncoder().encode(
+      `{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}`,
+    );
+    const recoveryKey = fixture.recoveryKey;
+    const manifest = {
+      applicationVersion: "0.1.0",
+      schemaVersion: 1,
+      createdAt: "2026-11-04T00:00:00.000Z",
+      businessTimezone: "Asia/Kolkata",
+      snapshotRevision: 7,
+      recordCounts: { records: 1 },
+    };
+    // createEncryptedBackup requests salt, DEK, payload nonce and wrapped-key
+    // nonce in that order. Salt is unused for recovery-only v2 packages.
+    const deterministicEntropy = new Uint8Array([
+      ...Array.from({ length: 16 }, (_, index) => 65 + index),
+      ...Array.from({ length: 32 }, (_, index) => 33 + index),
+      ...Array.from({ length: 12 }, (_, index) => 1 + index),
+      ...Array.from({ length: 12 }, (_, index) => 13 + index),
+    ]);
+    let offset = 0;
+    const random = vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation((target) => {
+      const bytes = new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
+      bytes.set(deterministicEntropy.subarray(offset, offset + bytes.length));
+      offset += bytes.length;
+      return target;
+    });
+    try {
+      const generated = await createEncryptedBackup({
+        plaintext, manifest, mode: "recovery-key-only", recoveryKey,
+      });
+      expect(generated.backup).toEqual(fixture.backup);
+      expect(offset).toBe(deterministicEntropy.length);
+    } finally {
+      random.mockRestore();
+    }
+  });
+});
 
 describe("TypeScript backup-encryption-v2 package fixture", () => {
   it("decrypts the recovery-only package shared with Android", async () => {
