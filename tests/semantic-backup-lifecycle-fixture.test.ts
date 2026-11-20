@@ -195,7 +195,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(exported.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
       expect([...exported.data.driverEvents]
-        .sort((left: any, right: any) => left.sequence - right.sequence)
+        .sort((left: any, right: any) => left.command.transitionAt.localeCompare(right.command.transitionAt))
         .map((event: any) => event.eventId))
         .toEqual(transitions.map(transition => transition.id));
       expect(exported.data.driverIntents).toHaveLength(3);
@@ -215,7 +215,9 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 0 });
       const reopenedWorkflow = new DexieDriverWorkflowRepository();
       const restoredEvents = await reopenedWorkflow.listEvents();
-      expect(restoredEvents.map(event => event.eventId))
+      expect([...restoredEvents]
+        .sort((left, right) => left.command.transitionAt.localeCompare(right.command.transitionAt))
+        .map(event => event.eventId))
         .toEqual(transitions.map(transition => transition.id));
       rebuildTripHistoryProjection(restoredEvents);
       expect(readTripHistoryProjection()).toEqual(expectedProjection);
