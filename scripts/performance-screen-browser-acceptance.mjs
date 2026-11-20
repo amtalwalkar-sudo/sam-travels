@@ -3,7 +3,11 @@ import { spawn } from "node:child_process";
 import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPaise, previousMonthDate } from "./performance-acceptance-helpers.mjs";
 
 const baseUrl = "http://127.0.0.1:4173";
-const today = indiaDateOffsetDays(0);
+const indiaHour = Number(new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23",
+}).formatToParts(new Date()).find(part => part.type === "hour")?.value ?? "0");
+// Work operational dates roll over at 04:00 India time, not midnight.
+const today = indiaDateOffsetDays(indiaHour < 4 ? -1 : 0);
 const businessStartDate = previousMonthDate(15);
 const recoveryToExclusive = (() => {
   const [year, month, day] = businessStartDate.split("-").map(Number);
