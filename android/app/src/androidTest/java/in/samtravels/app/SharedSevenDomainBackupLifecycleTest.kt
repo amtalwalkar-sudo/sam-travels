@@ -67,7 +67,7 @@ class SharedSevenDomainBackupLifecycleTest {
                 .put("horizontalAccuracyM", 8)
                 .put("fixAt", at)
                 .put("provider", "android-test")
-            DriverWorkflowStore.complete(database, eventId, gps, at)
+            DriverWorkflowStore.complete(database, eventId, gps, java.time.Instant.parse(at))
 
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
