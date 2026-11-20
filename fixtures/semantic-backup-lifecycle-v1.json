@@ -155,7 +155,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-01T00:00:00.000Z",
         "updatedAt": "2026-11-01T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -174,7 +174,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -189,7 +189,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -209,7 +209,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-01-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -274,7 +274,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -288,7 +288,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-01-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -305,7 +305,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-12-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -323,7 +323,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-10-05",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -348,7 +348,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -370,7 +370,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 4,
         "data": {
           "schemaVersion": 1,
@@ -395,7 +395,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -418,7 +418,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -440,7 +440,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-01",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -462,7 +462,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
@@ -475,7 +475,7 @@
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
-        "source": "synthetic-fixture",
+        "source": "integration",
         "revision": 1,
         "data": {
           "schemaVersion": 1,
