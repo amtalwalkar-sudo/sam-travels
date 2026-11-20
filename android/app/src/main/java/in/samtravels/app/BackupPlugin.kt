@@ -164,14 +164,7 @@ class BackupPlugin : Plugin() {
         executor.execute {
             try {
                 ensureStartupRecovery()
-                db.runInTransaction {
-                    val key = journalPrefix + id
-                    val row = db.records().get(key) ?: error("recovery_checkpoint_missing")
-                    val journal = JSONObject(row.json)
-                    require(journal.optString("status") == "restored_unverified") { "restore_not_pending_verification" }
-                    journal.put("status", "verified")
-                    saveInternal(key, journal, Instant.now().toString())
-                }
+                NativeBackupRestoreCoordinator.markVerified(db, id)
                 call.resolve()
             } catch (error: Exception) {
                 call.reject("Unable to verify restored data", error)
@@ -189,15 +182,7 @@ class BackupPlugin : Plugin() {
         executor.execute {
             try {
                 ensureStartupRecovery()
-                db.runInTransaction {
-                    val key = journalPrefix + id
-                    val row = db.records().get(key) ?: error("recovery_checkpoint_missing")
-                    require(JSONObject(row.json).optString("status") == "verified") {
-                        "checkpoint_must_be_verified_before_discard"
-                    }
-                    db.records().remove(checkpointPrefix + id)
-                    db.records().remove(key)
-                }
+                NativeBackupRestoreCoordinator.discardVerified(db, id)
                 call.resolve()
             } catch (error: Exception) {
                 call.reject("Recovery checkpoint cannot be discarded yet", error)
@@ -321,6 +306,36 @@ internal object NativeBackupRestoreCoordinator {
         }
 
         return RestoreResult(id, records.length())
+    }
+
+    /** Production checkpoint acknowledgement shared by the Capacitor plugin and Room tests. */
+    fun markVerified(database: LocalDatabase, checkpointId: String) {
+        require(checkpointId.isNotBlank()) { "recovery_checkpoint_missing" }
+        database.runInTransaction {
+            val key = NativeBackupRecovery.JOURNAL_PREFIX + checkpointId
+            val row = database.records().get(key) ?: error("recovery_checkpoint_missing")
+            val journal = JSONObject(row.json)
+            require(journal.optString("status") == "restored_unverified") {
+                "restore_not_pending_verification"
+            }
+            journal.put("status", "verified")
+            database.records().put(StoredRecord(key, journal.toString(), 1, Instant.now().toString()))
+        }
+    }
+
+    /** Remove only a checkpoint whose restored snapshot was explicitly verified. */
+    fun discardVerified(database: LocalDatabase, checkpointId: String) {
+        require(checkpointId.isNotBlank()) { "recovery_checkpoint_missing" }
+        database.runInTransaction {
+            val journalKey = NativeBackupRecovery.JOURNAL_PREFIX + checkpointId
+            val checkpointKey = NativeBackupRecovery.CHECKPOINT_PREFIX + checkpointId
+            val row = database.records().get(journalKey) ?: error("recovery_checkpoint_missing")
+            require(JSONObject(row.json).optString("status") == "verified") {
+                "checkpoint_must_be_verified_before_discard"
+            }
+            database.records().remove(checkpointKey)
+            database.records().remove(journalKey)
+        }
     }
 }
 
