@@ -75,7 +75,9 @@ export async function createBackupForCurrentRuntime(input: {
   const canonicalSnapshot = toCanonicalBackupSnapshotV1(data, manifest);
   return createEncryptedBackup({
     plaintext: snapshotBytes(canonicalSnapshot),
-    manifest,
+    // The interchange manifest counts canonical records once; browser table counts
+    // are reconstructed by the receiving Browser adapter after authentication.
+    manifest: { ...manifest, recordCounts: { records: canonicalSnapshot.records.length } },
     recoveryKey: input.recoveryKey,
     mode: "recovery-key-only",
   });
