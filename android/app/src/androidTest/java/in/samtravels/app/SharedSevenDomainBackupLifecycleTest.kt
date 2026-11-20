@@ -128,11 +128,11 @@ class SharedSevenDomainBackupLifecycleTest {
                 1, at,
             ))
             val emptyOwnerStale = JSONObject()
-                .put("id", "feature:business-settings:stale").put("schemaVersion", 1)
+                .put("id", "feature:business-settings:business").put("schemaVersion", 1)
                 .put("createdAt", at).put("updatedAt", at).put("source", "android")
                 .put("revision", 1).put("data", JSONObject().put("schemaVersion", 1).put("stale", true))
             database.records().put(StoredRecord(
-                "feature:business-settings:stale", emptyOwnerStale.toString(), 1, at,
+                "feature:business-settings:business", emptyOwnerStale.toString(), 1, at,
             ))
             val restored = NativeBackupRestoreCoordinator.restore(
                 database, source.snapshot, source.manifest,
@@ -140,7 +140,7 @@ class SharedSevenDomainBackupLifecycleTest {
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), restored.restoredCount)
             assertNull(database.records().get("pre-restore-only-sentinel"))
-            assertNull(database.records().get("feature:business-settings:stale"))
+            assertNull(database.records().get("feature:business-settings:business"))
             NativeBackupRestoreCoordinator.markVerified(database, restored.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, restored.checkpointId)
             database.close()
@@ -157,7 +157,7 @@ class SharedSevenDomainBackupLifecycleTest {
                 canonical(source.snapshot.getJSONArray("records")),
                 canonical(reopened.snapshot.getJSONArray("records")),
             )
-            assertEquals(1, database.logBookEvents().list().size)
+            assertEquals(3, database.logBookEvents().list().size)
             assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
             val reexported = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
