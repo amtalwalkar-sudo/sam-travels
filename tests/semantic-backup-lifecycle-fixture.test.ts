@@ -2,7 +2,11 @@ import "fake-indexeddb/auto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
-import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
+import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified, discardVerifiedBrowserCheckpoint, recoverBrowserRestoreTransactions } from "../packages/storage-browser/src";
+import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
+import { createDriverCommand } from "../packages/features/work-shift";
+import { rebuildTripHistoryProjection, readTripHistoryProjection } from "../packages/features/logbook";
+import type { GpsFix } from "../packages/core/src/types";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
 import { registerFinanceBrowserBackupParticipant } from "../apps/web/src/finance-backup";
@@ -158,21 +162,67 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     ];
     try {
       await browserDatabase.records.bulkPut(fixture.populatedGraph.records as never);
+
+      // Exercise Work through its production command/repository boundary so the
+      // same lifecycle snapshot includes durable intents, committed events and
+      // outbox state rather than only feature-record envelopes.
+      const workflow = new DexieDriverWorkflowRepository();
+      const transitions = [
+        { type: "shift_start" as const, id: "event-shift-start-001", at: "2026-11-01T04:45:00.000Z" },
+        { type: "trip_start" as const, id: "event-trip-start-001", at: "2026-11-01T05:00:00.000Z" },
+        { type: "trip_end" as const, id: "event-trip-end-001", at: "2026-11-01T05:30:00.000Z" },
+      ];
+      for (const transition of transitions) {
+        const command = createDriverCommand(
+          await workflow.getSnapshot(), transition.type, "pwa", transition.id, transition.at,
+        );
+        const gps: GpsFix = {
+          latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8,
+          fixAt: transition.at, provider: "browser-geolocation",
+        };
+        await workflow.queueIntent({
+          command, status: "pending_location",
+          createdAt: transition.at, updatedAt: transition.at,
+        });
+        await workflow.completeIntent(command.eventId, gps, transition.at);
+      }
+      const sourceEvents = await workflow.listEvents();
+      rebuildTripHistoryProjection(sourceEvents);
+      const expectedProjection = readTripHistoryProjection();
+
       const exported = await exportBrowserSnapshot("0.1.0");
       const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
       expect(exported.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
+      expect(exported.data.driverEvents.map((event: any) => event.eventId))
+        .toEqual(transitions.map(transition => transition.id));
+      expect(exported.data.driverIntents).toHaveLength(3);
+      expect(exported.data.driverOutbox).toHaveLength(3);
 
       await browserDatabase.records.clear();
-      await restoreBrowserSnapshot({
+      const restored = await restoreBrowserSnapshot({
         data: exported.data,
         manifest: exported.manifest as never,
         confirmed: true,
       });
+      await markBrowserRestoreVerified(restored.checkpointId);
+      browserDatabase.close();
+      await browserDatabase.open();
+      // Startup recovery must leave a verified restore intact; an unverified
+      // restore is separately covered by the interrupted-recovery suite.
+      await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 0 });
+      const reopenedWorkflow = new DexieDriverWorkflowRepository();
+      const restoredEvents = await reopenedWorkflow.listEvents();
+      expect(restoredEvents.map(event => event.eventId))
+        .toEqual(transitions.map(transition => transition.id));
+      rebuildTripHistoryProjection(restoredEvents);
+      expect(readTripHistoryProjection()).toEqual(expectedProjection);
+
       const reopenedExport = await exportBrowserSnapshot("0.1.0");
       expect(reopenedExport.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
-      expect(reopenedExport.data.records).toEqual(exported.data.records);
+      expect(reopenedExport.data).toEqual(exported.data);
+      await discardVerifiedBrowserCheckpoint(restored.checkpointId);
     } finally {
       unregister.reverse().forEach(dispose => dispose());
       browserDatabase.close();
