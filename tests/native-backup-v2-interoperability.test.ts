@@ -135,7 +135,7 @@ describe("encrypted package production restore integration", () => {
     await expect(restoreBackupForCurrentRuntime({
       backup: alteredPayload, secret: { recoveryKey }, confirmed: true,
     })).rejects.toBeDefined();
-    expect((await browserDatabase.records.get("synthetic-interoperability-source"))?.data.value)
+    expect(((await browserDatabase.records.get("synthetic-interoperability-source"))?.data as { value: string } | undefined)?.value)
       .toBe("destination-must-survive-rejection");
     expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
 
@@ -154,7 +154,7 @@ describe("encrypted package production restore integration", () => {
       backup, secret: { recoveryKey }, confirmed: true,
     });
     expect(restored.restoredCount).toBeGreaterThan(0);
-    expect((await browserDatabase.records.get("synthetic-interoperability-source"))?.data.value)
+    expect(((await browserDatabase.records.get("synthetic-interoperability-source"))?.data as { value: string } | undefined)?.value)
       .toBe("source-snapshot");
     expect(await browserDatabase.records.get("destination-only-sentinel")).toBeUndefined();
     expect(await browserDatabase.table("backupCheckpoints").get(restored.checkpointId))
