@@ -100,6 +100,8 @@ describe("backup-encryption-v1", () => {
     });
     backup.manifest.recordCounts = { records: 1_000_000, driverEvents: 1 };
     expect(() => serializeBackupPackage(backup)).toThrow("backup_record_count_limit");
+    const untrustedSerialized = new TextEncoder().encode(JSON.stringify(backup));
+    expect(() => parseBackupPackage(untrustedSerialized)).toThrow("backup_record_count_limit");
   });
 
   it("rejects wrong passphrases and tampered authenticated payloads", async () => {
