@@ -76,6 +76,89 @@
         "note": "Setup",
         "commandId": "123e4567-e89b-42d3-a456-426614174091"
       }
+    },
+    {
+      "id": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174092",
+      "schemaVersion": 1,
+      "createdAt": "2026-01-15T00:00:00.000Z",
+      "updatedAt": "2026-01-15T00:00:00.000Z",
+      "businessDate": "2026-01-15",
+      "source": "web",
+      "revision": 4,
+      "data": {
+        "schemaVersion": 1,
+        "kind": "loan",
+        "lifecycleState": "active",
+        "details": {
+          "loanName": "Parity pre-start loan",
+          "lenderName": "Fixture lender",
+          "vehicleId": "feature:vehicle:MH01AB1234",
+          "principalPaise": 1800,
+          "annualInterestRateBasisPoints": 0,
+          "loanStartDate": "2026-01-15",
+          "tenureMonths": 1,
+          "firstEmiDate": "2026-02-15"
+        },
+        "currentScheduleVersion": 1,
+        "scheduleVersions": [
+          {
+            "version": 1,
+            "createdAt": "2026-01-15T00:00:00.000Z",
+            "effectiveDate": "2026-01-15",
+            "calculationId": "finance.loan-monthly-reducing-balance.v1",
+            "calculationVersion": 1,
+            "inputSchemaVersion": 1,
+            "outputSchemaVersion": 1,
+            "input": {
+              "principalPaise": 1800,
+              "annualInterestRateBasisPoints": 0,
+              "tenureMonths": 1,
+              "loanStartDate": "2026-01-15",
+              "firstEmiDate": "2026-02-15"
+            },
+            "output": {
+              "currencyCode": "INR",
+              "principalPaise": 1800,
+              "annualInterestRateBasisPoints": 0,
+              "tenureMonths": 1,
+              "monthlyRateNumerator": 0,
+              "monthlyRateDenominator": 120000,
+              "regularEmiPaise": 1800,
+              "rows": [
+                {
+                  "installmentNumber": 1,
+                  "dueDate": "2026-02-15",
+                  "openingPrincipalPaise": 1800,
+                  "interestPaise": 0,
+                  "installmentAmountPaise": 1800,
+                  "principalComponentPaise": 1800,
+                  "closingPrincipalPaise": 0,
+                  "finalAdjusted": true
+                }
+              ],
+              "totalInterestPaise": 0,
+              "totalScheduledPaymentsPaise": 1800
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "feature:compliance:123e4567-e89b-42d3-a456-426614174093",
+      "schemaVersion": 1,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "businessDate": "2026-01-01",
+      "source": "web",
+      "revision": 2,
+      "data": {
+        "schemaVersion": 1,
+        "vehicleId": "feature:vehicle:MH01AB1234",
+        "complianceName": "Parity pre-start insurance",
+        "validFrom": "2026-01-01",
+        "validTo": "2026-12-31",
+        "totalCostPaise": 3600
+      }
     }
   ],
   "input": {
@@ -149,11 +232,26 @@
     ],
     "preBusinessRecovery": [
       {
-        "sourceId": "pre-manual",
+        "sourceId": "feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091",
         "revision": 1,
         "amountPaise": 18000,
         "note": "Setup",
         "origin": "manual"
+      },
+      {
+        "sourceId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1",
+        "revision": 4,
+        "amountPaise": 1800,
+        "note": "EMI installment 1",
+        "origin": "emi",
+        "scheduleVersion": 1
+      },
+      {
+        "sourceId": "feature:compliance:123e4567-e89b-42d3-a456-426614174093",
+        "revision": 2,
+        "amountPaise": 3600,
+        "note": "Parity pre-start insurance",
+        "origin": "compliance"
       }
     ],
     "completeness": [
@@ -168,14 +266,19 @@
     "periodCostPaise": 1000,
     "periodProfitPaise": 19000,
     "lifetimeRevenuePaise": 30000,
-    "lifetimeCostPaise": 22000,
-    "lifetimeProfitPaise": 8000,
+    "lifetimeCostPaise": 27400,
+    "lifetimeProfitPaise": 2600,
     "lifetimeTargetPaise": 902419,
-    "lifetimeTargetPositionPaise": -894419,
+    "lifetimeTargetPositionPaise": -899819,
     "recoveryFrom": "2026-03-15",
     "recoveryToExclusive": "2027-09-15",
-    "recoveryTotalPaise": 18000,
+    "recoveryTotalPaise": 23400,
     "recoveryLastDate": "2027-09-14",
-    "elapsedCalendarMonths": 19
+    "elapsedCalendarMonths": 19,
+    "recoverySources": {
+      "manual": 18000,
+      "emi": 1800,
+      "compliance": 3600
+    }
   }
 }
