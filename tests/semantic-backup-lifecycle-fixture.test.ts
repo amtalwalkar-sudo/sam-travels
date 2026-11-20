@@ -17,7 +17,7 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
-  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string } }>; work: { eventIds: string[] }; logBook: { events: unknown[] } };
+  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
 };
 
@@ -42,7 +42,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
   it("limits current end-to-end data to one configured vehicle and one configured driver", () => {
     expect(fixture.operatingConfiguration).toMatchObject({
       mode: "single_vehicle_single_driver",
-      vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:MH01AB1234" },
+      vehicle: { cardinality: "exactly_one_active", recordId: "feature:vehicle:SYNTHETIC-VEHICLE-001" },
       driver: {
         cardinality: "exactly_one_active",
         profileRecordId: "feature:driver-records:driver:driver-001",
@@ -51,7 +51,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       currentPairing: {
         cardinality: "exactly_one_current_assignment",
         assignmentHistoryRecordId: "feature:driver-records:assignment:driver-001",
-        vehicleId: "feature:vehicle:MH01AB1234",
+        vehicleId: "feature:vehicle:SYNTHETIC-VEHICLE-001",
         driverId: "driver-001",
       },
       fleetExpansion: "deferred_until_separately_approved",
@@ -85,6 +85,28 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     );
     expect(fixture.domains.businessExpenses.requiredKinds).toEqual(
       expect.arrayContaining(["expense", "reversal", "correction"]),
+    );
+  });
+
+  it("keeps the populated graph internally referentially consistent", () => {
+    const records = fixture.populatedGraph.records;
+    const byId = new Map(records.map(record => [record.id, record]));
+    const vehicle = records.find(record => record.id.startsWith("feature:vehicle:"));
+    expect(vehicle?.data.registrationNumber).toBe("SYNTHETIC-VEHICLE-001");
+    expect(fixture.operatingConfiguration.vehicle.recordId).toBe(vehicle?.id);
+    expect(fixture.operatingConfiguration.currentPairing.vehicleId).toBe(vehicle?.id);
+    const assignment = byId.get(fixture.operatingConfiguration.currentPairing.assignmentHistoryRecordId);
+    expect(assignment?.data.assignments?.[0]?.vehicleId).toBe(vehicle?.id);
+    const driverId = fixture.operatingConfiguration.currentPairing.driverId;
+    expect(byId.has(fixture.operatingConfiguration.driver.profileRecordId)).toBe(true);
+    expect(records.filter(record => record.id.startsWith("feature:maintenance:") ||
+      record.id.startsWith("feature:compliance:") || record.id.startsWith("feature:business-expenses:"))
+      .every(record => record.data.vehicleId === vehicle?.id)).toBe(true);
+    expect(fixture.populatedGraph.work.driverId).toBe(driverId);
+    expect(fixture.populatedGraph.logBook.events.every(event => event.driverId === driverId &&
+      event.vehicleId === vehicle?.id)).toBe(true);
+    expect(fixture.populatedGraph.work.eventIds.slice(1)).toEqual(
+      fixture.populatedGraph.logBook.events.map(event => event.eventId),
     );
   });
 

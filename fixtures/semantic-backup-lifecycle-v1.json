@@ -124,7 +124,7 @@
     "mode": "single_vehicle_single_driver",
     "vehicle": {
       "cardinality": "exactly_one_active",
-      "recordId": "feature:vehicle:MH01AB1234"
+      "recordId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
     },
     "driver": {
       "cardinality": "exactly_one_active",
@@ -134,7 +134,7 @@
     "currentPairing": {
       "cardinality": "exactly_one_current_assignment",
       "assignmentHistoryRecordId": "feature:driver-records:assignment:driver-001",
-      "vehicleId": "feature:vehicle:MH01AB1234",
+      "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
       "driverId": "driver-001"
     },
     "referencePolicy": "Every vehicle-bound record and calculation uses the configured vehicle ID; every Work/driver-attributed event and calculation uses the configured driver ID.",

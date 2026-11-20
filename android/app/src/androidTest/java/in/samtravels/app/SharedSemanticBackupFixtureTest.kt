@@ -83,14 +83,14 @@ class SharedSemanticBackupFixtureTest {
         val operating = fixture.getJSONObject("operatingConfiguration")
         assertEquals("single_vehicle_single_driver", operating.getString("mode"))
         assertEquals("exactly_one_active", operating.getJSONObject("vehicle").getString("cardinality"))
-        assertEquals("feature:vehicle:MH01AB1234", operating.getJSONObject("vehicle").getString("recordId"))
+        assertEquals("feature:vehicle:SYNTHETIC-VEHICLE-001", operating.getJSONObject("vehicle").getString("recordId"))
         assertEquals("exactly_one_active", operating.getJSONObject("driver").getString("cardinality"))
         assertEquals("feature:driver-records:driver:driver-001", operating.getJSONObject("driver").getString("profileRecordId"))
         assertEquals("work:selected-driver", operating.getJSONObject("driver").getString("selectionRecordId"))
         val pairing = operating.getJSONObject("currentPairing")
         assertEquals("exactly_one_current_assignment", pairing.getString("cardinality"))
         assertEquals("feature:driver-records:assignment:driver-001", pairing.getString("assignmentHistoryRecordId"))
-        assertEquals("feature:vehicle:MH01AB1234", pairing.getString("vehicleId"))
+        assertEquals("feature:vehicle:SYNTHETIC-VEHICLE-001", pairing.getString("vehicleId"))
         assertEquals("driver-001", pairing.getString("driverId"))
         assertEquals("deferred_until_separately_approved", operating.getString("fleetExpansion"))
         val workLineage = fixture.getJSONObject("domains").getJSONObject("work").getJSONArray("lineage")
@@ -110,5 +110,25 @@ class SharedSemanticBackupFixtureTest {
         assertEquals(3, graph.getJSONObject("work").getJSONArray("eventIds").length())
         assertEquals(2, graph.getJSONObject("logBook").getJSONArray("events").length())
         assertEquals("driver-001", graph.getJSONObject("work").getString("selectedDriverId"))
+        val records = graph.getJSONArray("records")
+        val byId = (0 until records.length()).associate { index ->
+            val row = records.getJSONObject(index)
+            row.getString("id") to row.getJSONObject("data")
+        }
+        val vehicleId = operating.getJSONObject("vehicle").getString("recordId")
+        assertEquals("SYNTHETIC-VEHICLE-001", byId.getValue(vehicleId).getString("registrationNumber"))
+        assertEquals(vehicleId, pairing.getString("vehicleId"))
+        val assignment = byId.getValue(pairing.getString("assignmentHistoryRecordId"))
+        assertEquals(vehicleId, assignment.getJSONArray("assignments").getJSONObject(0).getString("vehicleId"))
+        val work = graph.getJSONObject("work")
+        assertEquals("driver-001", work.getString("driverId"))
+        val events = graph.getJSONObject("logBook").getJSONArray("events")
+        assertEquals(2, events.length())
+        for (index in 0 until events.length()) {
+            val event = events.getJSONObject(index)
+            assertEquals(vehicleId, event.getString("vehicleId"))
+            assertEquals("driver-001", event.getString("driverId"))
+            assertEquals(work.getJSONArray("eventIds").getString(index + 1), event.getString("eventId"))
+        }
     }
 }
