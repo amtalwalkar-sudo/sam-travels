@@ -60,7 +60,7 @@ class SharedSevenDomainBackupLifecycleTest {
                 .put("expectedPriorState", "idle")
                 .put("expectedRevision", 0)
                 .put("idempotencyKey", eventId)
-            DriverWorkflowStore.queue(database, command)
+            DriverWorkflowStore.queue(database, command, java.time.Instant.parse(at))
             val gps = JSONObject()
                 .put("latitude", 19.076)
                 .put("longitude", 72.8777)
