@@ -148,7 +148,7 @@
   },
   "populatedGraph": {
     "status": "populated_seed_pending_production_lifecycle",
-    "recordCount": 19,
+    "recordCount": 23,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -569,6 +569,92 @@
           "chainRevision": 2,
           "headCorrectionId": "maintenance-fix-2"
         }
+      },
+      {
+        "id": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "eventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060",
+          "sourceRecords": [
+            {
+              "recordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+              "recordRevision": 1
+            },
+            {
+              "recordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174011",
+              "recordRevision": 1
+            }
+          ],
+          "from": "2026-12-01",
+          "to": "2026-12-31",
+          "decision": "confirmed",
+          "decisionRevision": 1,
+          "actor": {
+            "actorId": "synthetic-admin",
+            "role": "admin"
+          },
+          "rationale": "Synthetic overlap review confirms independently issued policies.",
+          "recordedAt": "2026-11-18T00:00:00.000Z"
+        }
+      },
+      {
+        "id": "compliance-overlap-review-head:feature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174010%7Cfeature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174011%7C2026-12-01%7C2026-12-31",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
+          "decisionRevision": 1,
+          "headEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060"
+        }
+      },
+      {
+        "id": "historical-correction:compliance-fix-1",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "correctionId": "compliance-fix-1",
+          "targetRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+          "targetRecordRevision": 1,
+          "featureId": "compliance",
+          "chainRevision": 1,
+          "fieldPath": "totalCostPaise",
+          "beforeValue": 365000,
+          "afterValue": 366000,
+          "reason": "Synthetic correction from source receipt.",
+          "actor": {
+            "role": "admin",
+            "actorId": "synthetic-admin",
+            "adminPinVerifiedAt": "2026-11-18T00:00:00.000Z"
+          },
+          "recordedAt": "2026-11-18T00:00:00.000Z"
+        }
+      },
+      {
+        "id": "historical-correction-chain:feature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174010",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "targetRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+          "chainRevision": 1,
+          "headCorrectionId": "compliance-fix-1"
+        }
       }
     ],
     "work": {
@@ -627,10 +713,23 @@
           "targetRecordId": "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
           "chainRevision": 2,
           "headCorrectionId": "maintenance-fix-2"
+        },
+        {
+          "featureId": "compliance",
+          "targetRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+          "chainRevision": 1,
+          "headCorrectionId": "compliance-fix-1"
         }
       ],
       "reversalSourceIds": [],
-      "note": "Correction/reversal chain objects remain mandatory in the production lifecycle fixture."
+      "note": "Correction/reversal chain objects remain mandatory in the production lifecycle fixture.",
+      "complianceOverlapReviewHeads": [
+        {
+          "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
+          "decisionRevision": 1,
+          "headEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060"
+        }
+      ]
     }
   }
 }
