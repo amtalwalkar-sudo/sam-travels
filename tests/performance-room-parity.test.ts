@@ -101,7 +101,7 @@ describe("Performance browser and Room shared parity fixture", () => {
     ];
     try {
       const sourceIds = fixture.input.preBusinessRecovery.map(source =>
-        source.sourceId.replace(/:emi:\\d+:v\\d+$/, ""),
+        source.sourceId.replace(/:emi:\d+:v\d+$/, ""),
       );
       const poolIds = new Set(["feature:vehicle:MH01AB1234", ...sourceIds]);
       const poolRecords = fixture.records.filter(record => poolIds.has(record.id));
@@ -145,14 +145,14 @@ describe("Performance browser and Room shared parity fixture", () => {
       expect(present).toHaveLength(poolRecords.length);
       const restoredById = new Map(present.map(row => [row.id, row]));
       for (const source of fixture.input.preBusinessRecovery) {
-        const sourceId = source.sourceId.replace(/:emi:\\d+:v\\d+$/, "");
+        const sourceId = source.sourceId.replace(/:emi:\d+:v\d+$/, "");
         const record = restoredById.get(sourceId) as any;
         expect(record).toBeDefined();
         expect(record.revision).toBe(source.revision);
         if (source.origin === "manual" || source.origin === "compliance") {
           expect(record.data.amountPaise ?? record.data.totalCostPaise).toBe(source.amountPaise);
         } else {
-          const match = /:emi:(\\d+):v(\\d+)$/.exec(source.sourceId)!;
+          const match = /:emi:(\d+):v(\d+)$/.exec(source.sourceId)!;
           const schedule = record.data.scheduleVersions.find((item: any) => item.version === Number(match[2]));
           const installment = schedule.output.rows.find((item: any) => item.installmentNumber === Number(match[1]));
           expect(installment.installmentAmountPaise).toBe(source.amountPaise);
