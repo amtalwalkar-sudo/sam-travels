@@ -118,8 +118,8 @@
       ]
     }
   },
-  "status": "contract_seed_only",
-  "note": "The fixture defines the shared lifecycle contract and empty-participant semantics. Populated domain records and production lifecycle parity remain mandatory before completion.",
+  "status": "populated_seed_pending_production_lifecycle",
+  "note": "Seven-domain synthetic seed is populated for fixture development. It is not completion evidence until production validators, Browser/Dexie and Android/Room lifecycle, recomputation, and normalized parity all pass.",
   "operatingConfiguration": {
     "mode": "single_vehicle_single_driver",
     "vehicle": {
@@ -145,5 +145,400 @@
     "required": "A registered participant with zero records is valid and remains present in the manifest.",
     "restore": "Restore must clear stale rows owned by an empty participant without requiring a placeholder record.",
     "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
+  },
+  "populatedGraph": {
+    "status": "synthetic_seed_pending_production_lifecycle",
+    "recordCount": 15,
+    "records": [
+      {
+        "id": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "registrationNumber": "SYNTHETIC-VEHICLE-001",
+          "make": "Fixture",
+          "model": "Synthetic",
+          "vehicleType": "Sedan",
+          "fuelType": "CNG",
+          "yearOfManufacture": 2024,
+          "ownership": "Owned",
+          "lifecycleState": "active"
+        }
+      },
+      {
+        "id": "feature:driver-records:driver:driver-001",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "driverId": "driver-001",
+          "name": "Synthetic Driver",
+          "lifecycleState": "active",
+          "selectedForWork": true
+        }
+      },
+      {
+        "id": "feature:driver-records:assignment:driver-001",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "driverId": "driver-001",
+          "assignments": [
+            {
+              "assignmentId": "assignment-001",
+              "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+              "assignedAt": "2026-11-18T00:00:00.000Z"
+            }
+          ]
+        }
+      },
+      {
+        "id": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-01-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "loan",
+          "lifecycleState": "active",
+          "details": {
+            "loanName": "Synthetic vehicle loan",
+            "lenderName": "Fixture lender",
+            "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+            "principalPaise": 100000,
+            "annualInterestRateBasisPoints": 0,
+            "loanStartDate": "2026-01-01",
+            "tenureMonths": 1,
+            "firstEmiDate": "2026-02-01"
+          },
+          "currentScheduleVersion": 1,
+          "scheduleVersions": [
+            {
+              "version": 1,
+              "createdAt": "2026-11-18T00:00:00.000Z",
+              "effectiveDate": "2026-01-01",
+              "calculationId": "finance.loan-monthly-reducing-balance.v1",
+              "calculationVersion": 1,
+              "inputSchemaVersion": 1,
+              "outputSchemaVersion": 1,
+              "input": {
+                "principalPaise": 100000,
+                "annualInterestRateBasisPoints": 0,
+                "tenureMonths": 1,
+                "loanStartDate": "2026-01-01",
+                "firstEmiDate": "2026-02-01"
+              },
+              "output": {
+                "currencyCode": "INR",
+                "principalPaise": 100000,
+                "annualInterestRateBasisPoints": 0,
+                "tenureMonths": 1,
+                "monthlyRateNumerator": 0,
+                "monthlyRateDenominator": 120000,
+                "regularEmiPaise": 100000,
+                "rows": [
+                  {
+                    "installmentNumber": 1,
+                    "dueDate": "2026-02-01",
+                    "openingPrincipalPaise": 100000,
+                    "interestPaise": 0,
+                    "installmentAmountPaise": 100000,
+                    "principalComponentPaise": 100000,
+                    "closingPrincipalPaise": 0,
+                    "finalAdjusted": true
+                  }
+                ],
+                "totalInterestPaise": 0,
+                "totalScheduledPaymentsPaise": 100000
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+          "entries": []
+        }
+      },
+      {
+        "id": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-01-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "complianceName": "Synthetic insurance",
+          "validFrom": "2026-01-01",
+          "validTo": "2026-12-31",
+          "totalCostPaise": 365000
+        }
+      },
+      {
+        "id": "feature:compliance:123e4567-e89b-42d3-a456-426614174011",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-12-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "complianceName": "Synthetic insurance",
+          "validFrom": "2026-12-01",
+          "validTo": "2027-11-30",
+          "totalCostPaise": 400000,
+          "renewedFromRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010"
+        }
+      },
+      {
+        "id": "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174020",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-10-05",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "visit",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "maintenanceDate": "2026-10-05",
+          "maintenanceType": "Scheduled service",
+          "description": "Synthetic maintenance visit",
+          "items": [
+            {
+              "id": "123e4567-e89b-42d3-a456-426614174021",
+              "description": "Oil service",
+              "amountPaise": 200000
+            }
+          ],
+          "totalPaise": 200000
+        }
+      },
+      {
+        "id": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "rate_history",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "entries": [
+            {
+              "effectiveFrom": "2026-11-01",
+              "ratePaisePerKm": 250,
+              "savedAt": "2026-11-18T00:00:00.000Z",
+              "isDefault": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "work:daily-business-km:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "synthetic-fixture",
+        "revision": 4,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "daily_business_kilometres",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "operationalDate": "2026-11-01",
+          "totalBusinessKm": 10,
+          "unallocatedBusinessKm": 0,
+          "entries": [
+            {
+              "shiftId": "shift-001",
+              "businessKm": 10,
+              "personalKm": 2,
+              "allocationStatus": "allocated"
+            }
+          ]
+        }
+      },
+      {
+        "id": "feature:maintenance:daily-accrual:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "daily_accrual",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "operationalDate": "2026-11-01",
+          "dailyBusinessKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+          "dailyBusinessKmRevision": 4,
+          "businessKm": 10,
+          "personalKm": 2,
+          "personalAmountPaise": 500,
+          "rateEffectiveFrom": "2026-11-01",
+          "ratePaisePerKm": 250,
+          "amountPaise": 2500
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+          "revision": 1,
+          "businessDate": "2026-11-01",
+          "occurredAt": "2026-11-18T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "odometerKm": 1000,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 18000,
+          "partialRefill": false
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031",
+          "revision": 1,
+          "sourceKind": "miscellaneous",
+          "businessDate": "2026-11-01",
+          "amountPaise": 500,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "category": "Cleaning",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "driverId": "feature:driver-records:driver:driver-001"
+        }
+      },
+      {
+        "id": "feature:performance:settings",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "settings",
+          "monthlyDriverTargetPaise": 50000
+        }
+      },
+      {
+        "id": "feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174040",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "synthetic-fixture",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "pre_business_cost",
+          "amountPaise": 18000,
+          "note": "Synthetic setup cost",
+          "commandId": "123e4567-e89b-42d3-a456-426614174040"
+        }
+      }
+    ],
+    "work": {
+      "selectedDriverId": "driver-001",
+      "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+      "driverId": "driver-001",
+      "shiftId": "shift-001",
+      "intentIds": [
+        "intent-shift-start-001",
+        "intent-trip-start-001",
+        "intent-trip-end-001"
+      ],
+      "eventIds": [
+        "event-shift-start-001",
+        "event-trip-start-001",
+        "event-trip-end-001"
+      ],
+      "outboxIds": [
+        "driver-state:1",
+        "driver-state:2",
+        "driver-state:3"
+      ],
+      "pendingIntentIds": [],
+      "deliveredOutboxIds": [
+        "driver-state:1",
+        "driver-state:2",
+        "driver-state:3"
+      ]
+    },
+    "logBook": {
+      "events": [
+        {
+          "eventId": "event-trip-start-001",
+          "sequence": 1,
+          "occurredAt": "2026-11-01T05:00:00.000Z",
+          "kind": "trip_start",
+          "shiftId": "shift-001",
+          "driverId": "driver-001",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
+        },
+        {
+          "eventId": "event-trip-end-001",
+          "sequence": 2,
+          "occurredAt": "2026-11-01T05:30:00.000Z",
+          "kind": "trip_end",
+          "shiftId": "shift-001",
+          "driverId": "driver-001",
+          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
+        }
+      ]
+    },
+    "lineage": {
+      "correctionChainHeads": [],
+      "reversalSourceIds": [],
+      "note": "Correction/reversal chain objects remain mandatory in the production lifecycle fixture."
+    }
   }
 }
