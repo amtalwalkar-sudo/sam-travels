@@ -46,7 +46,6 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
     const key = row.participantId + ":" + row.id;
     if (!row.participantId || !participantIds.has(row.participantId)) throw new Error("backup_canonical_participant_unknown");
     if (!row.id || seen.has(key) || typeof row.json !== "string" || !Number.isSafeInteger(row.schemaVersion) || row.schemaVersion < 1 || typeof row.updatedAt !== "string" || !row.updatedAt.trim()) throw new Error("backup_canonical_record_invalid");
-    if (canonicalOwnerForRecord(row.id, canonical.participants) !== row.participantId) throw new Error("backup_canonical_record_owner_mismatch");
     seen.add(key);
     const value = JSON.parse(row.json);
     if (row.participantId === "logbook-events") data.driverEvents.push(value);
@@ -64,5 +63,10 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
     participants: canonical.participants,
   };
   assertBrowserSnapshotForCanonical(data, manifest);
+  for (const row of canonical.records) {
+    if (canonicalOwnerForRecord(row.id, canonical.participants) !== row.participantId) {
+      throw new Error("backup_canonical_record_owner_mismatch");
+    }
+  }
   return { data, manifest };
 }

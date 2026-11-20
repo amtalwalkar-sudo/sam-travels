@@ -106,7 +106,7 @@ class SharedSevenDomainBackupLifecycleTest {
             assertTrue((0 until source.snapshot.getJSONArray("participants").length()).any {
                 source.snapshot.getJSONArray("participants").getJSONObject(it).optString("id") == "business-settings-records"
             })
-            assertEquals(1, database.logBookEvents().list().size)
+            assertEquals(3, database.logBookEvents().list().size)
             val paymentLedger = JSONObject(database.records().get(
                 "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")!!.json)
                 .getJSONObject("data").getJSONArray("entries")
