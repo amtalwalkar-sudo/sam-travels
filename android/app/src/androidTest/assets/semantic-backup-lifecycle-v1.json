@@ -148,7 +148,7 @@
   },
   "populatedGraph": {
     "status": "synthetic_seed_pending_production_lifecycle",
-    "recordCount": 23,
+    "recordCount": 29,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -655,6 +655,132 @@
           "chainRevision": 1,
           "headCorrectionId": "compliance-fix-1"
         }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
+          "revision": 1,
+          "businessDate": "2026-11-02",
+          "occurredAt": "2026-11-02T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1010,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 18000,
+          "partialRefill": false
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "revision": 1,
+          "businessDate": "2026-11-05",
+          "occurredAt": "2026-11-05T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1015,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 9000,
+          "partialRefill": true
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
+          "revision": 1,
+          "businessDate": "2026-11-10",
+          "occurredAt": "2026-11-10T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1020,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 18000,
+          "partialRefill": false
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174073",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174073",
+          "revision": 1,
+          "sourceKind": "miscellaneous",
+          "businessDate": "2026-11-01",
+          "amountPaise": 500,
+          "currencyCode": "INR",
+          "effect": "reversal",
+          "reversesSourceId": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031",
+          "category": "Cleaning",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001"
+        }
+      },
+      {
+        "id": "historical-correction:fixture-fuel-amount-fix",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "correctionId": "fixture-fuel-amount-fix",
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+          "targetRecordRevision": 1,
+          "featureId": "business-expenses",
+          "chainRevision": 1,
+          "fieldPath": "amountPaise",
+          "beforeValue": 18000,
+          "afterValue": 20000,
+          "reason": "Synthetic fuel receipt correction.",
+          "actor": {
+            "role": "driver",
+            "actorId": "synthetic-driver"
+          },
+          "recordedAt": "2026-11-18T00:00:00.000Z",
+          "businessEffectiveDate": "2026-11-01"
+        }
+      },
+      {
+        "id": "historical-correction-chain:feature%3Abusiness-expenses%3Afuel%3A123e4567-e89b-42d3-a456-426614174030",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+          "chainRevision": 1,
+          "headCorrectionId": "fixture-fuel-amount-fix"
+        }
       }
     ],
     "work": {
@@ -719,10 +845,18 @@
           "targetRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
           "chainRevision": 1,
           "headCorrectionId": "compliance-fix-1"
+        },
+        {
+          "featureId": "business-expenses",
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+          "chainRevision": 1,
+          "headCorrectionId": "fixture-fuel-amount-fix"
         }
       ],
-      "reversalSourceIds": [],
-      "note": "Business Expense reversal lineage remains to be added to the production lifecycle fixture.",
+      "reversalSourceIds": [
+        "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031"
+      ],
+      "note": "Finance transaction lineage remains to be added to the production lifecycle fixture.",
       "complianceOverlapReviewHeads": [
         {
           "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
