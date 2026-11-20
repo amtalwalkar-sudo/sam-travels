@@ -59,6 +59,31 @@ export interface BackupPackage {
 
 export const MAX_BACKUP_PACKAGE_BYTES = 512 * 1024 * 1024;
 
+/**
+ * Conservative plaintext preflight for the encrypted JSON package.
+ * AES-GCM adds a 16-byte tag and base64 expands ciphertext by 4/3.
+ * Reserve 1 MiB for manifest, wrapped keys and JSON envelope. This is a
+ * package-format bound, not a claim about device RAM or execution time.
+ */
+export const BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES = 1024 * 1024;
+
+export function estimateEncryptedPackageBytes(plaintextBytes: number): number {
+  if (!Number.isSafeInteger(plaintextBytes) || plaintextBytes < 0) {
+    throw new Error("backup_invalid_plaintext_size");
+  }
+  const ciphertextBytes = plaintextBytes + 16;
+  const base64Bytes = Math.ceil(ciphertextBytes / 3) * 4;
+  return base64Bytes + BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES;
+}
+
+export function assertBackupPlaintextPreflight(plaintextBytes: number): number {
+  const estimatedPackageBytes = estimateEncryptedPackageBytes(plaintextBytes);
+  if (estimatedPackageBytes > MAX_BACKUP_PACKAGE_BYTES) {
+    throw new Error("backup_plaintext_preflight_exceeded");
+  }
+  return estimatedPackageBytes;
+}
+
 export function assertBackupPackageByteLength(byteLength: number): void {
   if (!Number.isSafeInteger(byteLength) || byteLength < 0) throw new Error("backup_invalid_package_size");
   if (byteLength > MAX_BACKUP_PACKAGE_BYTES) throw new Error("backup_package_too_large");
