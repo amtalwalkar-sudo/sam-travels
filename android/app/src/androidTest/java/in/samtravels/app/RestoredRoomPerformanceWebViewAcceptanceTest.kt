@@ -43,7 +43,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         .put("revision", revision)
         .apply { if (businessDate != null) put("businessDate", businessDate) }
         .put("data", data)
-
     private fun snapshot(database: LocalDatabase) =
         NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "android-webview-acceptance")
     private fun recordGraph(bundle: NativeSnapshotBundle): Map<String, String> {
@@ -53,7 +52,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             row.getString("id") to row.getString("json")
         }
     }
-
     private fun findWebView(view: View): WebView? {
         if (view is WebView) return view
         if (view is ViewGroup) {
@@ -76,7 +74,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         assertTrue("WebView JavaScript evaluation timed out", latch.await(15, TimeUnit.SECONDS))
         return result.get() ?: error("WebView JavaScript returned no value")
     }
-
     private fun waitFor(webView: WebView, timeoutSeconds: Long = 60, predicate: (JSONObject) -> Boolean): JSONObject {
         val deadline = SystemClock.elapsedRealtime() + TimeUnit.SECONDS.toMillis(timeoutSeconds)
         var last = JSONObject()
@@ -129,7 +126,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                     row.getInt("schemaVersion"), row.getString("updatedAt"),
                 ))
             }
-
             // The real BusinessStartDateCostAllocationService reads this
             // singleton from the repository; it is deliberately in the backup.
             val settingsAt = "2026-01-01T00:00:00.000Z"
@@ -163,7 +159,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             sourceDb.records().put(StoredRecord(
                 secondTripId, secondTrip.toString(), 1, secondTripAt,
             ))
-
             // The target-date cost is a real persisted Business Expenses
             // charge. The production FullCost source projection feeds it into
             // Performance's miscellaneous cost category.
@@ -184,7 +179,6 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             ))
             val exported = snapshot(sourceDb)
             expectedGraph = recordGraph(exported)
-
             // Restore through the same production coordinator used by BackupPlugin
             // into the exact database name opened by RoomStorePlugin in MainActivity.
             val destination = Room.databaseBuilder(context, LocalDatabase::class.java, databaseName)
@@ -223,6 +217,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         }
 
         var activity: MainActivity? = null
+        var stage = "launch application"
         try {
             val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             activity = instrumentation.startActivitySync(intent) as MainActivity
@@ -231,11 +226,12 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 webViewRef.set(findWebView(activity!!.window.decorView))
             }
             val webView = webViewRef.get() ?: throw AssertionError("MainActivity did not attach its Capacitor WebView")
+            stage = "wait for local workspace"
             waitFor(webView, 90) { it.getString("body").contains("Local workspace ready") }
-
             // Compliance's production overview is Admin-authorized. Establish
             // the first Admin and activate its PIN-verified session through the
             // same identity UI used by the real application, not a test bypass.
+            stage = "open Admin identity"
             evaluate(webView, """
                 document.querySelectorAll(".bottom-navigation-item").forEach(item => {
                   if (item.textContent.trim() === "Admin") item.click();
@@ -246,6 +242,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 it.getString("body").contains("Admin") &&
                     evaluate(webView, "Boolean(document.querySelector('.admin-replacement-shell'))") == "true"
             }
+            stage = "enroll first Admin"
             val enrolled = evaluate(webView, """
                 (() => {
                   const set = (labelText, value) => {
@@ -266,6 +263,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertEquals("true", enrolled)
             evaluate(webView, "document.querySelector('form button')?.click(); true")
             waitFor(webView) { it.getString("body").contains("Person enrolled") }
+            stage = "select Admin role"
             val selectedAdmin = evaluate(webView, """
                 (() => {
                   const find = text => [...document.querySelectorAll("label")].find(node => node.textContent.includes(text));
@@ -289,6 +287,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 it.getString("body").contains("Admin PIN") &&
                     evaluate(webView, "Boolean([...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN')?.querySelector('input'))") == "true"
             }
+            stage = "activate PIN-verified Admin"
             val activated = evaluate(webView, """
                 (() => {
                   const label = [...document.querySelectorAll("label")].find(node => node.textContent.trim() === "Admin PIN");
@@ -302,7 +301,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             """.trimIndent())
             assertEquals("true", activated)
             waitFor(webView) { it.getString("body").contains("Role activated") }
-
+            stage = "open Performance screen"
             evaluate(webView, """
                 (() => {
                   const nav = document.querySelector('nav[aria-label="Primary navigation"]');
@@ -314,6 +313,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 })()
             """.trimIndent())
             waitFor(webView) { it.getString("performance") == "Performance overview" }
+            stage = "set Performance reporting dates"
             val dateInputsSet = evaluate(webView, """
                 (() => {
                   const fields = [...document.querySelectorAll(".performance-period-form input[type=date]")];
@@ -329,7 +329,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 })()
             """.trimIndent())
             assertEquals(JSONArray().put(businessStartDate).put(targetDate).toString(), dateInputsSet)
-
+            stage = "run actual Performance calculation"
             evaluate(webView, """
                 (() => {
                   const button = [...document.querySelectorAll(".performance-period-form button")]
@@ -346,6 +346,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue("Actual Android Performance calculation failed: ${calculated.optString("error")}",
                 calculated.getString("lifetime").contains("₹274.00"))
 
+            stage = "verify Performance totals and source provenance"
             val output = JSONObject(evaluate(webView, """
                 (() => ({
                   selected: document.querySelector(".performance-kpi-grid")?.innerText || "",
@@ -364,6 +365,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue(output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
             assertTrue(output.getString("provenance").contains("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1"))
             assertTrue(output.getString("provenance").contains("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
+            stage = "verify recovery presentation"
             evaluate(webView, """
                 (() => {
                   const tab = [...document.querySelectorAll('[role="tab"]')]
@@ -385,6 +387,8 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue(recovery.getString("rows").contains("manual"))
             assertTrue(recovery.getString("rows").contains("emi"))
             assertTrue(recovery.getString("rows").contains("compliance"))
+        } catch (error: Throwable) {
+            throw AssertionError("Restored Room Performance WebView acceptance failed at $stage: ${error.message}", error)
         } finally {
             activity?.let { instance ->
                 instrumentation.runOnMainSync { instance.finish() }
