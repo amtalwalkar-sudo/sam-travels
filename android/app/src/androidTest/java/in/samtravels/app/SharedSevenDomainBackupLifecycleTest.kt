@@ -7,6 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -49,25 +50,32 @@ class SharedSevenDomainBackupLifecycleTest {
             // Populate real Work intent/state/outbox and Log Book event rows via
             // the Room workflow transaction, using the fixture's configured pair.
             DriverWorkflowIdentityTestFixtures.seed(database, "driver-001", "synthetic-person-001")
-            val eventId = "event-shift-start-001"
-            val command = JSONObject()
-                .put("schemaVersion", 1)
-                .put("commandId", eventId)
-                .put("eventId", eventId)
-                .put("eventType", "shift_start")
-                .put("originSurface", "native_overlay")
-                .put("transitionAt", at)
-                .put("expectedPriorState", "idle")
-                .put("expectedRevision", 0)
-                .put("idempotencyKey", eventId)
-            DriverWorkflowStore.queue(database, command, java.time.Instant.parse(at))
-            val gps = JSONObject()
-                .put("latitude", 19.076)
-                .put("longitude", 72.8777)
-                .put("horizontalAccuracyM", 8)
-                .put("fixAt", at)
-                .put("provider", "android-test")
-            DriverWorkflowStore.complete(database, eventId, gps, java.time.Instant.parse(at))
+            val transitions = listOf(
+                Triple("shift_start", "event-shift-start-001", at),
+                Triple("trip_start", "event-trip-start-001", "2026-11-01T05:00:00.000Z"),
+                Triple("trip_end", "event-trip-end-001", "2026-11-01T05:30:00.000Z"),
+            )
+            for ((eventType, eventId, transitionAt) in transitions) {
+                val current = DriverWorkflowStore.snapshot(database)
+                val command = JSONObject()
+                    .put("schemaVersion", 1)
+                    .put("commandId", eventId)
+                    .put("eventId", eventId)
+                    .put("eventType", eventType)
+                    .put("originSurface", "pwa")
+                    .put("transitionAt", transitionAt)
+                    .put("expectedPriorState", current.getString("state"))
+                    .put("expectedRevision", current.getInt("revision"))
+                    .put("idempotencyKey", eventId)
+                DriverWorkflowStore.queue(database, command, java.time.Instant.parse(transitionAt))
+                val gps = JSONObject()
+                    .put("latitude", 19.076)
+                    .put("longitude", 72.8777)
+                    .put("horizontalAccuracyM", 8)
+                    .put("fixAt", transitionAt)
+                    .put("provider", "android-test")
+                DriverWorkflowStore.complete(database, eventId, gps, java.time.Instant.parse(transitionAt))
+            }
 
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
@@ -86,19 +94,29 @@ class SharedSevenDomainBackupLifecycleTest {
             }.toMap()
             assertEquals(expectedFixtureRecords, exportedFixtureRecords)
             val participantIds = NativeBackupCoverage.registeredParticipantIds()
-            assertEquals(true, participantIds.containsAll(setOf(
+            assertTrue(participantIds.containsAll(setOf(
                 "business-settings-records", "vehicle-records", "driver-records",
                 "compliance-records", "maintenance-records", "finance-records",
                 "business-expenses-records", "performance-records",
             )))
+            val snapshotRows = source.snapshot.getJSONArray("records")
+            assertTrue((0 until snapshotRows.length()).none {
+                snapshotRows.getJSONObject(it).optString("participantId") == "business-settings-records"
+            })
+            assertTrue((0 until source.snapshot.getJSONArray("participants").length()).any {
+                source.snapshot.getJSONArray("participants").getJSONObject(it).optString("id") == "business-settings-records"
+            })
             assertEquals(1, database.logBookEvents().list().size)
             val paymentLedger = JSONObject(database.records().get(
                 "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")!!.json)
                 .getJSONObject("data").getJSONArray("entries")
             assertEquals(1, paymentLedger.length())
             assertEquals("fixture-payment-001", paymentLedger.getJSONObject(0).getString("id"))
-            assertEquals(1, database.records().list().count { it.id.startsWith("driver-intent:") })
-            assertEquals(1, database.records().list().count { it.id.startsWith("driver-outbox:") })
+            val expectedWorkIds = (0 until fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").length())
+                .map { fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").getString(it) }
+            assertEquals(expectedWorkIds.toSet(), database.logBookEvents().list().map { it.eventId }.toSet())
+            assertEquals(3, database.records().list().count { it.id.startsWith("driver-intent:") })
+            assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
 
             // A destination-only sentinel proves the production replacement is
             // authoritative and removes rows absent from the imported snapshot.
@@ -109,12 +127,20 @@ class SharedSevenDomainBackupLifecycleTest {
                     .put("revision", 1).put("data", JSONObject().put("sentinel", true)).toString(),
                 1, at,
             ))
+            val emptyOwnerStale = JSONObject()
+                .put("id", "feature:business-settings:stale").put("schemaVersion", 1)
+                .put("createdAt", at).put("updatedAt", at).put("source", "android")
+                .put("revision", 1).put("data", JSONObject().put("schemaVersion", 1).put("stale", true))
+            database.records().put(StoredRecord(
+                "feature:business-settings:stale", emptyOwnerStale.toString(), 1, at,
+            ))
             val restored = NativeBackupRestoreCoordinator.restore(
                 database, source.snapshot, source.manifest,
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back") },
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), restored.restoredCount)
             assertNull(database.records().get("pre-restore-only-sentinel"))
+            assertNull(database.records().get("feature:business-settings:stale"))
             NativeBackupRestoreCoordinator.markVerified(database, restored.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, restored.checkpointId)
             database.close()
@@ -132,7 +158,7 @@ class SharedSevenDomainBackupLifecycleTest {
                 canonical(reopened.snapshot.getJSONArray("records")),
             )
             assertEquals(1, database.logBookEvents().list().size)
-            assertEquals(1, database.records().list().count { it.id.startsWith("driver-outbox:") })
+            assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
             val reexported = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
             )

@@ -916,5 +916,8 @@
         }
       ]
     }
-  }
+  },
+  "emptyParticipantIds": [
+    "business-settings-records"
+  ]
 }

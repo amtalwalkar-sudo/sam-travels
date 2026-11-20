@@ -35,11 +35,18 @@ export function toCanonicalBackupSnapshotV1(data: BrowserSnapshotData, manifest:
 }
 export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshotV1, metadata: Pick<SnapshotManifest,"applicationVersion"|"createdAt"|"businessTimezone">): { data: BrowserSnapshotData; manifest: SnapshotManifest } {
   if (!canonical || canonical.format !== "sam-travels-canonical-snapshot-v1" || canonical.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION || !Array.isArray(canonical.records) || !Array.isArray(canonical.participants)) throw new Error("backup_canonical_snapshot_invalid");
+  const participantIds = new Set<string>();
+  for (const participant of canonical.participants) {
+    if (!participant.id || participantIds.has(participant.id)) throw new Error("backup_canonical_participant_invalid");
+    participantIds.add(participant.id);
+  }
   const data: BrowserSnapshotData = { records: [], driverState: [], driverIntents: [], driverEvents: [], driverOutbox: [] };
   const seen = new Set<string>();
   for (const row of canonical.records) {
     const key = row.participantId + ":" + row.id;
-    if (!row.participantId || !row.id || seen.has(key) || typeof row.json !== "string" || !Number.isSafeInteger(row.schemaVersion) || row.schemaVersion < 1 || typeof row.updatedAt !== "string" || !row.updatedAt.trim()) throw new Error("backup_canonical_record_invalid");
+    if (!row.participantId || !participantIds.has(row.participantId)) throw new Error("backup_canonical_participant_unknown");
+    if (!row.id || seen.has(key) || typeof row.json !== "string" || !Number.isSafeInteger(row.schemaVersion) || row.schemaVersion < 1 || typeof row.updatedAt !== "string" || !row.updatedAt.trim()) throw new Error("backup_canonical_record_invalid");
+    if (canonicalOwnerForRecord(row.id, canonical.participants) !== row.participantId) throw new Error("backup_canonical_record_owner_mismatch");
     seen.add(key);
     const value = JSON.parse(row.json);
     if (row.participantId === "logbook-events") data.driverEvents.push(value);
@@ -50,10 +57,12 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
       else throw new Error("backup_canonical_work_record_invalid");
     } else data.records.push(value);
   }
-  return { data, manifest: {
+  const manifest: SnapshotManifest = {
     applicationVersion: metadata.applicationVersion, schemaVersion: canonical.schemaVersion, createdAt: metadata.createdAt,
     businessTimezone: metadata.businessTimezone, snapshotRevision: canonical.snapshotRevision,
     recordCounts: { records: data.records.length, driverState: data.driverState.length, driverIntents: data.driverIntents.length, driverEvents: data.driverEvents.length, driverOutbox: data.driverOutbox.length },
     participants: canonical.participants,
-  }};
+  };
+  assertBrowserSnapshotForCanonical(data, manifest);
+  return { data, manifest };
 }

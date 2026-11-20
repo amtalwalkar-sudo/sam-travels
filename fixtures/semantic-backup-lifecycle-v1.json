@@ -982,5 +982,8 @@
       "committedPaymentPaise": 100000,
       "unallocatedCreditPaise": 0
     }
-  }
+  },
+  "emptyParticipantIds": [
+    "business-settings-records"
+  ]
 }

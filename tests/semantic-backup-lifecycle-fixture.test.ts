@@ -7,6 +7,7 @@ import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/d
 import { createDriverCommand } from "../packages/features/work-shift";
 import { rebuildTripHistoryProjection, readTripHistoryProjection } from "../packages/features/logbook";
 import type { GpsFix } from "../packages/core/src/types";
+import { registerBusinessSettingsBrowserBackupParticipant } from "../apps/web/src/business-settings-backup";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { registerDriverRecordsBrowserBackupParticipant } from "../apps/web/src/driver-records-backup";
 import { registerFinanceBrowserBackupParticipant } from "../apps/web/src/finance-backup";
@@ -34,6 +35,7 @@ type Fixture = {
   };
   status: string;
   populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; lineage: { correctionChainHeads: Array<{ featureId: string; targetRecordId: string; chainRevision: number; headCorrectionId: string }>; reversalSourceIds: string[] }; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
+  emptyParticipantIds: string[];
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
   canonicalSnapshotContract: { format: string; schemaVersion: number; recordShape: string[]; participantInventory: string; revisionSource: string; interchange: string };
   expectedBusinessResults: {
@@ -134,6 +136,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
   });
 
   it("defines empty-participant and fail-closed owner semantics", () => {
+    expect(fixture.emptyParticipantIds).toContain("business-settings-records");
     expect(fixture.emptyParticipantPolicy).toMatchObject({
       required: expect.stringContaining("zero records is valid"),
       restore: expect.stringContaining("clear stale rows"),
@@ -217,6 +220,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     await browserDatabase.delete();
     await browserDatabase.open();
     const unregister = [
+      registerBusinessSettingsBrowserBackupParticipant(),
       registerVehicleBrowserBackupParticipant(),
       registerDriverRecordsBrowserBackupParticipant(),
       registerFinanceBrowserBackupParticipant(),
@@ -258,6 +262,34 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       const exported = await exportBrowserSnapshot("0.1.0");
       const canonical = toCanonicalBackupSnapshotV1(exported.data, exported.manifest as never);
       expect(canonical.format).toBe(fixture.canonicalSnapshotContract.format);
+      for (const participantId of fixture.emptyParticipantIds) {
+        expect(canonical.participants.map(item => item.id)).toContain(participantId);
+        expect(canonical.records.filter(item => item.participantId === participantId)).toHaveLength(0);
+      }
+      const unknownOwner = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
+      unknownOwner.records[0].participantId = "unknown-participant";
+      expect(() => fromCanonicalBackupSnapshotV1(unknownOwner, {
+        applicationVersion: exported.manifest.applicationVersion,
+        createdAt: exported.manifest.createdAt,
+        businessTimezone: exported.manifest.businessTimezone,
+      })).toThrow("backup_canonical_participant_unknown");
+      const mismatchedOwner = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
+      const vehicleRecord = mismatchedOwner.records.find(item => item.id.startsWith("feature:vehicle:"))!;
+      vehicleRecord.participantId = "platform-records";
+      expect(() => fromCanonicalBackupSnapshotV1(mismatchedOwner, {
+        applicationVersion: exported.manifest.applicationVersion,
+        createdAt: exported.manifest.createdAt,
+        businessTimezone: exported.manifest.businessTimezone,
+      })).toThrow("backup_canonical_record_owner_mismatch");
+      const missingEmptyParticipant = {
+        ...canonical,
+        participants: canonical.participants.filter(item => !fixture.emptyParticipantIds.includes(item.id)),
+      };
+      expect(() => fromCanonicalBackupSnapshotV1(missingEmptyParticipant, {
+        applicationVersion: exported.manifest.applicationVersion,
+        createdAt: exported.manifest.createdAt,
+        businessTimezone: exported.manifest.businessTimezone,
+      })).toThrow("backup_participant_manifest_mismatch");
       expect(canonical.records.length).toBeGreaterThan(fixture.populatedGraph.recordCount);
       const roundTrip = fromCanonicalBackupSnapshotV1(canonical, {
         applicationVersion: exported.manifest.applicationVersion,
@@ -280,12 +312,23 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(exported.data.driverOutbox).toHaveLength(3);
 
       await browserDatabase.records.clear();
+      const staleEmptyOwnerRecord = {
+        id: "feature:business-settings:stale",
+        schemaVersion: 1,
+        createdAt: exported.manifest.createdAt,
+        updatedAt: exported.manifest.createdAt,
+        source: "integration" as const,
+        revision: 1,
+        data: { schemaVersion: 1, stale: true },
+      };
+      await browserDatabase.records.put(staleEmptyOwnerRecord as never);
       const restored = await restoreBrowserSnapshot({
         data: exported.data,
         manifest: exported.manifest as never,
         confirmed: true,
       });
       await markBrowserRestoreVerified(restored.checkpointId);
+      expect(await browserDatabase.records.get("feature:business-settings:stale")).toBeUndefined();
       browserDatabase.close();
       await browserDatabase.open();
       // Startup recovery must leave a verified restore intact; an unverified
