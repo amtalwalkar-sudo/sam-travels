@@ -21,7 +21,7 @@ class BackupSnapshotContractTest {
     fun acceptsCurrentManifestAndSnapshot() {
         BackupSnapshotContract.validateManifest(validManifest())
         BackupSnapshotContract.validateSnapshot(
-            JSONObject("""{"schemaVersion":1,"snapshotRevision":4,"records":[]}"""),
+            JSONObject("""{"format":"sam-travels-canonical-snapshot-v1","schemaVersion":1,"snapshotRevision":4,"records":[]}"""),
         )
     }
 
@@ -48,12 +48,21 @@ class BackupSnapshotContractTest {
     }
 
     @Test
+    fun rejectsUnsupportedCanonicalSnapshotFormat() {
+        assertEquals("backup_unsupported_snapshot_format", assertThrows(IllegalArgumentException::class.java) {
+            BackupSnapshotContract.validateSnapshot(
+                JSONObject("""{"format":"sam-travels-platform-snapshot-v0","schemaVersion":1,"snapshotRevision":0,"records":[]}"""),
+            )
+        }.message)
+    }
+
+    @Test
     fun rejectsMalformedSnapshotAndFutureVersion() {
         assertThrows(IllegalArgumentException::class.java) {
             BackupSnapshotContract.validateSnapshot(JSONObject("""{"schemaVersion":2,"records":[]}"""))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            BackupSnapshotContract.validateSnapshot(JSONObject("""{"schemaVersion":1,"snapshotRevision":0}"""))
+            BackupSnapshotContract.validateSnapshot(JSONObject("""{"format":"sam-travels-canonical-snapshot-v1","schemaVersion":1,"snapshotRevision":0}"""))
         }
     }
 }

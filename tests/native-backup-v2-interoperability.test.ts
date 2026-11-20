@@ -128,6 +128,17 @@ describe("encrypted package production restore integration", () => {
       .toBe("destination-must-survive-rejection");
     expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
 
+    const alteredPayload = {
+      ...backup,
+      payload: { ...backup.payload, ciphertext: "AA==" },
+    };
+    await expect(restoreBackupForCurrentRuntime({
+      backup: alteredPayload, secret: { recoveryKey }, confirmed: true,
+    })).rejects.toBeDefined();
+    expect((await browserDatabase.records.get("synthetic-interoperability-source"))?.data.value)
+      .toBe("destination-must-survive-rejection");
+    expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
+
     const alteredManifest = {
       ...backup,
       manifest: { ...backup.manifest, snapshotRevision: backup.manifest.snapshotRevision + 1 },
