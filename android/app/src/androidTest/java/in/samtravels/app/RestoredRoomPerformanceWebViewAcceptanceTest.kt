@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -108,6 +109,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         val vehicleId = "feature:vehicle:MH01AB1234"
         val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
         val targetDate = fixture.getJSONObject("input").getString("periodTo")
+        val adminMarker = "Performance Restore " + UUID.randomUUID().toString().take(8)
         val databaseName = "sam-travels.db"
 
         // Register the same production participants MainActivity uses before
@@ -240,6 +242,77 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
 
             waitFor(webView, 90) { it.getString("body").contains("Local workspace ready") }
 
+            // Compliance's production overview is Admin-authorized. Establish
+            // the first Admin and activate its PIN-verified session through the
+            // same identity UI used by the real application, not a test bypass.
+            evaluate(webView, """
+                document.querySelectorAll(".bottom-navigation-item").forEach(item => {
+                  if (item.textContent.trim() === "Admin") item.click();
+                });
+                true
+            """.trimIndent())
+            waitFor(webView) {
+                it.getString("body").contains("Admin") &&
+                    evaluate(webView, "Boolean(document.querySelector('.admin-replacement-shell'))") == "true"
+            }
+            val enrolled = evaluate(webView, """
+                (() => {
+                  const set = (labelText, value) => {
+                    const label = [...document.querySelectorAll("label")].find(node => node.textContent.includes(labelText));
+                    const input = label?.querySelector("input");
+                    if (!input) return false;
+                    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, value);
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                    return true;
+                  };
+                  const role = [...document.querySelectorAll("label")].find(node => node.textContent.includes("Admin role"));
+                  const checkbox = role?.querySelector('input[type="checkbox"]');
+                  if (!checkbox) return false;
+                  if (!checkbox.checked) checkbox.click();
+                  return set("Person name", "$adminMarker Admin") && set("Set initial Admin PIN", "4831");
+                })()
+            """.trimIndent())
+            assertEquals("true", enrolled)
+            evaluate(webView, "document.querySelector('form button')?.click(); true")
+            waitFor(webView) { it.getString("body").contains("Person enrolled") }
+
+            val selectedAdmin = evaluate(webView, """
+                (() => {
+                  const find = text => [...document.querySelectorAll("label")].find(node => node.textContent.includes(text));
+                  const person = find("Select person")?.querySelector("select");
+                  const role = find("Active role")?.querySelector("select");
+                  if (!person || !role) return false;
+                  const set = (select, value) => {
+                    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(select, value);
+                    select.dispatchEvent(new Event("input", { bubbles: true }));
+                    select.dispatchEvent(new Event("change", { bubbles: true }));
+                  };
+                  const option = [...person.options].find(item => item.textContent.trim() === "$adminMarker Admin");
+                  if (!option) return false;
+                  set(person, option.value);
+                  set(role, "admin");
+                  return true;
+                })()
+            """.trimIndent())
+            assertEquals("true", selectedAdmin)
+            waitFor(webView) {
+                it.getString("body").contains("Admin PIN") &&
+                    evaluate(webView, "Boolean([...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN')?.querySelector('input'))") == "true"
+            }
+            val activated = evaluate(webView, """
+                (() => {
+                  const label = [...document.querySelectorAll("label")].find(node => node.textContent.trim() === "Admin PIN");
+                  const input = label?.querySelector("input");
+                  if (!input) return false;
+                  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "4831");
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                  label.closest("form")?.querySelector("button")?.click();
+                  return true;
+                })()
+            """.trimIndent())
+            assertEquals("true", activated)
+            waitFor(webView) { it.getString("body").contains("Role activated") }
+
             evaluate(webView, """
                 (() => {
                   const nav = document.querySelector('nav[aria-label="Primary navigation"]');
@@ -329,6 +402,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             activity?.let { instance ->
                 instrumentation.runOnMainSync { instance.finish() }
             }
+            runCatching { SecureCredentialVault(context).remove("sam-travels-admin-pin-v1") }
             context.deleteDatabase(databaseName)
         }
     }
