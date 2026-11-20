@@ -72,6 +72,18 @@ class SharedSevenDomainBackupLifecycleTest {
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
             )
+            // Compare every exported platform record to the exact shared fixture
+            // envelope, not merely its ID or the later Room round-trip snapshot.
+            val expectedFixtureRecords = (0 until records.length()).associate { index ->
+                val row = records.getJSONObject(index)
+                row.getString("id") to canonicalJson(row)
+            }
+            val exportedFixtureRecords = (0 until source.snapshot.getJSONArray("records").length()).mapNotNull { index ->
+                val row = source.snapshot.getJSONArray("records").getJSONObject(index)
+                val id = row.optString("id")
+                if (expectedFixtureRecords.containsKey(id)) id to canonicalJson(JSONObject(row.getString("json"))) else null
+            }.toMap()
+            assertEquals(expectedFixtureRecords, exportedFixtureRecords)
             val participantIds = NativeBackupCoverage.registeredParticipantIds()
             assertEquals(true, participantIds.containsAll(setOf(
                 "business-settings-records", "vehicle-records", "driver-records",
@@ -128,10 +140,22 @@ class SharedSevenDomainBackupLifecycleTest {
         }
     }
 
-        private fun canonical(records: JSONArray): List<String> =
+    private fun canonical(records: JSONArray): List<String> =
         (0 until records.length()).map { index ->
             val row = records.getJSONObject(index)
             listOf(row.getString("participantId"), row.getString("id"), row.getString("json"),
                 row.getInt("schemaVersion").toString(), row.getString("updatedAt")).joinToString("|")
         }.sorted()
+
+    private fun canonicalJson(value: Any?): String = when (value) {
+        is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(
+            prefix = "{", postfix = "}",
+        ) { key -> JSONObject.quote(key) + ":" + canonicalJson(value.get(key)) }
+        is JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") {
+            canonicalJson(value.get(it))
+        }
+        JSONObject.NULL -> "null"
+        is String -> JSONObject.quote(value)
+        else -> value.toString()
+    }
 }

@@ -192,6 +192,10 @@ describe("shared cross-platform semantic backup fixture contract", () => {
 
       const exported = await exportBrowserSnapshot("0.1.0");
       const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
+      const byRecordId = (rows: Array<{ id: string }>) =>
+        [...rows].sort((left, right) => left.id.localeCompare(right.id));
+      expect(byRecordId(exported.data.records as Array<{ id: string }>))
+        .toEqual(byRecordId(fixture.populatedGraph.records));
       expect(exported.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
       expect([...exported.data.driverEvents]
