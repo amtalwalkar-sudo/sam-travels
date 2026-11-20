@@ -345,3 +345,32 @@ The resolver and Work/Admin setup slice now have implementation and rendered evi
 3. Close missing entry/parity evidence identified above without duplicating existing Track A coverage.
 4. Populate the shared semantic fixture and execute the same data through production Browser and Room export/restore/reopen/recovery/re-export; compare calculation outputs and provenance.
 5. Run focused suites, then required CI on the final PR head. Upgrade a row to **PROVEN** only when all six layers pass.
+
+
+## 4. Focused closure execution — 2026-11-20
+
+This section supersedes the earlier broad candidate backlog where it conflicts with the user-approved practical scope. Do not expand PR #99 into exhaustive theoretical/OEM coverage.
+
+| Gap | Change on this branch | Evidence status |
+|---|---|---|
+| Plaintext backup-size preflight | `crypto.ts` now measures the actual plaintext byte length before key generation/encryption, estimates AES-GCM tag + base64 expansion + a documented 1 MiB JSON/envelope reserve, and rejects when the estimate exceeds the existing 512 MiB package ceiling. | Implementation and focused unit tests added. This is a package-size preflight, **not** a device-RAM or elapsed-time benchmark. |
+| Android Device Readiness rendered acceptance | Added `DeviceReadinessWebViewAcceptanceTest` against the real Capacitor MainActivity/WebView. It opens the rendered settings prompt, verifies its continue action, and asserts the Driver workspace remains available after continuing. | Test added; must pass Android CI before counted as proven. Settings handoff/return/recheck and OEM-specific behaviour are not yet exercised by this narrow test. |
+| All-domain lifecycle | Existing shared fixture remains `contract_seed_only`; existing Room Performance WebView test remains a focused manual-pool/EMI/Compliance case. | **Still open and the main milestone.** Do not relabel as populated or parity-proven until both production runners consume schema-valid fixture records and complete export/restore/reopen/recovery/recompute/re-export. |
+
+### Agreed practical deferrals
+
+- Physical-device/OEM certification across Xiaomi/Redmi, Samsung, Pixel and other Android variants: manual release/device gate, not emulator-CI scope.
+- Full OS reboot persistence: retain as a physical-device gate unless an existing deterministic emulator test already proves it.
+- Exhaustive permutations of optional notification, overlay and battery settings: defer; optional settings must remain non-blocking.
+- Rare theoretical combinations and duplicate tests at multiple layers: defer unless a concrete defect or data-integrity risk is found.
+- Real Dropbox account/cloud acceptance: external-account gate; mocked OAuth/package tests remain automated evidence.
+
+### Remaining critical work (scope-locked)
+
+1. Populate one shared, schema-valid synthetic fixture for Finance, Compliance, Maintenance, Business Expenses/Fuel, Performance, Work and Log Book, including supported correction/reversal/event lineage and the configured single Vehicle/Driver pair.
+2. Execute that same fixture through production Browser/Dexie and Android/Room export → restore → reopen → startup recovery → recomputation → re-export.
+3. Compare normalized records, IDs/revisions/references, event order, correction heads, pending/outbox state, calculations and source provenance.
+4. Add only the negative restore/recovery cases needed to prove invalid input fails safely and interrupted restore preserves/recoverably rolls back source data.
+5. Run required CI on the final head and update this table with exact test names and run URL.
+
+**Stop condition:** no new feature architecture, unrelated UI redesign, exhaustive OEM matrix or speculative stress-test programme. Keep PR #99 draft and unmerged until the four critical items above have passing evidence or an explicitly accepted external gate.
