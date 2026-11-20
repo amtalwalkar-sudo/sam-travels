@@ -1,6 +1,7 @@
 package `in`.samtravels.app
 
 import android.content.Context
+import android.util.Base64
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -51,12 +52,34 @@ class NativeBackupRestoreCoordinatorTest {
                     .put("assignmentId", "assignment-1").put("vehicleId", vehicleId)
                     .put("assignedAt", at))), at))
             val source = snapshot(db)
+            val recoveryKey = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="
+            val encryptedPackage = NativeBackupV2Package.create(
+                source.snapshot.toString().toByteArray(Charsets.UTF_8),
+                source.manifest,
+                recoveryKey,
+            )
+            val authenticatedSnapshotBytes = NativeBackupV2Package.decrypt(encryptedPackage, recoveryKey)
+            val authenticatedSnapshot = JSONObject(authenticatedSnapshotBytes.toString(Charsets.UTF_8))
+            val authenticatedManifest = encryptedPackage.getJSONObject("manifest")
+
+            // Authentication failures must happen before the production coordinator
+            // creates a checkpoint or touches the current Room dataset.
+            val wrongKey = Base64.encodeToString(ByteArray(32), Base64.NO_WRAP)
+            assertThrows(Exception::class.java) {
+                NativeBackupV2Package.decrypt(encryptedPackage, wrongKey)
+            }
+            val tamperedPackage = JSONObject(encryptedPackage.toString())
+            tamperedPackage.getJSONObject("payload").put("ciphertext", "AA==")
+            assertThrows(Exception::class.java) {
+                NativeBackupV2Package.decrypt(tamperedPackage, recoveryKey)
+            }
+            assertEquals(0, db.records().list().count { it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX) })
 
             // A different valid target state is the rollback baseline.
             db.records().put(envelope("pre-restore-record", JSONObject().put("value", "keep"), at, 2))
             val beforeRestore = snapshot(db)
             val result = NativeBackupRestoreCoordinator.restore(
-                db, source.snapshot, source.manifest, { snapshot(db) },
+                db, authenticatedSnapshot, authenticatedManifest, { snapshot(db) },
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), result.restoredCount)
             db.close()
