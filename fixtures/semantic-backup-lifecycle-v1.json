@@ -124,7 +124,7 @@
     "mode": "single_vehicle_single_driver",
     "vehicle": {
       "cardinality": "exactly_one_active",
-      "recordId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
+      "recordId": "feature:vehicle:SYNTHETICVEHICLE001"
     },
     "driver": {
       "cardinality": "exactly_one_active",
@@ -134,7 +134,7 @@
     "currentPairing": {
       "cardinality": "exactly_one_current_assignment",
       "assignmentHistoryRecordId": "feature:driver-records:assignment:driver-001",
-      "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+      "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
       "driverId": "driver-001"
     },
     "referencePolicy": "Every vehicle-bound record and calculation uses the configured vehicle ID; every Work/driver-attributed event and calculation uses the configured driver ID.",
@@ -151,7 +151,7 @@
     "recordCount": 15,
     "records": [
       {
-        "id": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+        "id": "feature:vehicle:SYNTHETICVEHICLE001",
         "schemaVersion": 1,
         "createdAt": "2026-11-01T00:00:00.000Z",
         "updatedAt": "2026-11-01T00:00:00.000Z",
@@ -159,7 +159,7 @@
         "revision": 1,
         "data": {
           "schemaVersion": 1,
-          "registrationNumber": "SYNTHETIC-VEHICLE-001",
+          "registrationNumber": "SYNTHETICVEHICLE001",
           "make": "Fixture",
           "model": "Synthetic",
           "vehicleType": "Sedan",
@@ -197,7 +197,7 @@
           "assignments": [
             {
               "assignmentId": "assignment-001",
-              "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+              "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
               "assignedAt": "2026-11-18T00:00:00.000Z"
             }
           ]
@@ -218,7 +218,7 @@
           "details": {
             "loanName": "Synthetic vehicle loan",
             "lenderName": "Fixture lender",
-            "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
             "principalPaise": 100000,
             "annualInterestRateBasisPoints": 0,
             "loanStartDate": "2026-01-01",
@@ -292,7 +292,7 @@
         "revision": 1,
         "data": {
           "schemaVersion": 1,
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "complianceName": "Synthetic insurance",
           "validFrom": "2026-01-01",
           "validTo": "2026-12-31",
@@ -309,7 +309,7 @@
         "revision": 1,
         "data": {
           "schemaVersion": 1,
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "complianceName": "Synthetic insurance",
           "validFrom": "2026-12-01",
           "validTo": "2027-11-30",
@@ -328,7 +328,7 @@
         "data": {
           "schemaVersion": 1,
           "kind": "visit",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "maintenanceDate": "2026-10-05",
           "maintenanceType": "Scheduled service",
           "description": "Synthetic maintenance visit",
@@ -343,7 +343,7 @@
         }
       },
       {
-        "id": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001",
+        "id": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETICVEHICLE001",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
@@ -353,7 +353,7 @@
         "data": {
           "schemaVersion": 1,
           "kind": "rate_history",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "entries": [
             {
               "effectiveFrom": "2026-11-01",
@@ -365,7 +365,7 @@
         }
       },
       {
-        "id": "work:daily-business-km:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+        "id": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-01",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
@@ -375,7 +375,7 @@
         "data": {
           "schemaVersion": 1,
           "kind": "daily_business_kilometres",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "operationalDate": "2026-11-01",
           "totalBusinessKm": 10,
           "unallocatedBusinessKm": 0,
@@ -390,7 +390,7 @@
         }
       },
       {
-        "id": "feature:maintenance:daily-accrual:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+        "id": "feature:maintenance:daily-accrual:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-01",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
@@ -400,9 +400,9 @@
         "data": {
           "schemaVersion": 1,
           "kind": "daily_accrual",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "operationalDate": "2026-11-01",
-          "dailyBusinessKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETIC-VEHICLE-001:2026-11-01",
+          "dailyBusinessKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-01",
           "dailyBusinessKmRevision": 4,
           "businessKm": 10,
           "personalKm": 2,
@@ -427,7 +427,7 @@
           "revision": 1,
           "businessDate": "2026-11-01",
           "occurredAt": "2026-11-18T00:00:00.000Z",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "odometerKm": 1000,
           "pricePaisePerKg": 9000,
           "amountPaise": 18000,
@@ -453,7 +453,7 @@
           "currencyCode": "INR",
           "effect": "charge",
           "category": "Cleaning",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
           "driverId": "feature:driver-records:driver:driver-001"
         }
       },
@@ -488,7 +488,7 @@
     ],
     "work": {
       "selectedDriverId": "driver-001",
-      "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001",
+      "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
       "driverId": "driver-001",
       "shiftId": "shift-001",
       "intentIds": [
@@ -522,7 +522,7 @@
           "kind": "trip_start",
           "shiftId": "shift-001",
           "driverId": "driver-001",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
         },
         {
           "eventId": "event-trip-end-001",
@@ -531,7 +531,7 @@
           "kind": "trip_end",
           "shiftId": "shift-001",
           "driverId": "driver-001",
-          "vehicleId": "feature:vehicle:SYNTHETIC-VEHICLE-001"
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
         }
       ]
     },
