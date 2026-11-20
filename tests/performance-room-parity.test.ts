@@ -25,7 +25,9 @@ describe("Performance browser and Room shared parity fixture", () => {
     await browserDatabase.records.bulkPut(fixture.records as never[]);
     const restored = await browserDatabase.records.bulkGet(fixture.records.map(row => row.id));
     expect(restored).toEqual(fixture.records);
-    const recordsById = new Map(restored.map(row => [row.id, row]));
+    const presentRecords = restored.filter((row): row is NonNullable<typeof row> => row !== undefined);
+    expect(presentRecords).toHaveLength(fixture.records.length);
+    const recordsById = new Map(presentRecords.map(row => [row.id, row]));
     const recoveryByOrigin = { manual: 0, emi: 0, compliance: 0 };
     for (const source of fixture.input.preBusinessRecovery) {
       recoveryByOrigin[source.origin] = (recoveryByOrigin[source.origin] ?? 0) + source.amountPaise;
