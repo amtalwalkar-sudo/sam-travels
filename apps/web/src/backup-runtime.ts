@@ -10,6 +10,7 @@ import {
   type BackupManifest,
   type BackupPackage,
 } from "../../../packages/features/backup";
+import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1, type CanonicalBackupSnapshotV1 } from "../../../packages/storage-browser/src/canonical-backup-snapshot";
 import {
   exportBrowserSnapshot,
   restoreBrowserSnapshot,
@@ -18,10 +19,9 @@ import {
   discardVerifiedBrowserCheckpoint,
   rollbackBrowserRecoveryCheckpoint,
   recoverBrowserRestoreTransactions,
-  type BrowserSnapshotData,
 } from "../../../packages/storage-browser/src";
 
-type RoomSnapshot = { records: unknown[]; snapshotRevision: number; schemaVersion: number };
+type RoomSnapshot = CanonicalBackupSnapshotV1;
 type RoomBackupApi = {
   consumeOAuthCallback(): Promise<{ url?: string }>;
   exportSnapshot(): Promise<{ snapshot: RoomSnapshot; manifest: SnapshotManifest }>;
@@ -71,9 +71,10 @@ export async function createBackupForCurrentRuntime(input: {
       mode: "recovery-key-only",
     });
   }
-  const { manifest, plaintext } = await exportBrowserSnapshot(input.applicationVersion);
+  const { data, manifest } = await exportBrowserSnapshot(input.applicationVersion);
+  const canonicalSnapshot = toCanonicalBackupSnapshotV1(data, manifest);
   return createEncryptedBackup({
-    plaintext,
+    plaintext: snapshotBytes(canonicalSnapshot),
     manifest,
     recoveryKey: input.recoveryKey,
     mode: "recovery-key-only",
@@ -91,22 +92,27 @@ export async function restoreBackupForCurrentRuntime(input: {
   const plaintext = "passphrase" in input.secret
     ? await decryptBackupWithPassphrase(input.backup, input.secret.passphrase, argon2id)
     : await decryptBackupWithRecoveryKey(input.backup, input.secret.recoveryKey);
-  const snapshot = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)) as unknown;
+  const snapshot = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)) as CanonicalBackupSnapshotV1;
   await recoverPendingBackupTransactions();
 
   try {
     if (Capacitor.isNativePlatform()) {
       const result = await NativeBackup.restoreSnapshot({
-        snapshot: snapshot as RoomSnapshot,
+        snapshot,
         manifest: input.backup.manifest,
         confirmed: true,
       });
       return { checkpointId: result.checkpointId, restoredCount: result.restoredCount };
     }
 
+    const browserSnapshot = fromCanonicalBackupSnapshotV1(snapshot, {
+      applicationVersion: input.backup.manifest.applicationVersion,
+      createdAt: input.backup.manifest.createdAt,
+      businessTimezone: input.backup.manifest.businessTimezone,
+    });
     const result = await restoreBrowserSnapshot({
-      data: snapshot as BrowserSnapshotData,
-      manifest: input.backup.manifest,
+      data: browserSnapshot.data,
+      manifest: browserSnapshot.manifest,
       confirmed: true,
     });
     return {
