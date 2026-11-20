@@ -188,7 +188,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                 val restored = NativeBackupRestoreCoordinator.restore(
                     destination, exported.snapshot, exported.manifest, { snapshot(destination) },
                 )
-                assertEquals(expectedGraph, recordGraph(snapshot(destination)))
+                assertEquals("Production Room restore preserves every exported record", expectedGraph, recordGraph(snapshot(destination)))
                 NativeBackupRestoreCoordinator.markVerified(destination, restored.checkpointId)
                 NativeBackupRestoreCoordinator.discardVerified(destination, restored.checkpointId)
             } finally {
@@ -203,15 +203,15 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .allowMainThreadQueries().build()
         try {
-            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(reopened))
+            assertEquals("Verified restore leaves no pending startup recovery", emptyList<String>(), NativeStartupRecovery.ensure(reopened))
             val reexported = snapshot(reopened)
             val graph = recordGraph(reexported)
-            assertTrue(graph.containsKey("feature:business-settings:business"))
-            assertTrue(graph.containsKey("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
-            assertTrue(graph.containsKey("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092"))
-            assertTrue(graph.containsKey("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
-            assertTrue(graph.containsKey("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174094"))
-            assertEquals(expectedGraph, graph)
+            assertTrue("Business Start Date settings survive Room reopen", graph.containsKey("feature:business-settings:business"))
+            assertTrue("Manual pre-business source survives Room reopen", graph.containsKey("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
+            assertTrue("EMI loan source survives Room reopen", graph.containsKey("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092"))
+            assertTrue("Compliance source survives Room reopen", graph.containsKey("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
+            assertTrue("Target-date operating expense survives Room reopen", graph.containsKey("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174094"))
+            assertEquals("Re-export after startup recovery matches original source graph", expectedGraph, graph)
         } finally {
             reopened.close()
         }
@@ -260,7 +260,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return set("Person name", "$adminMarker Admin") && set("Set initial Admin PIN", "4831");
                 })()
             """.trimIndent())
-            assertEquals("true", enrolled)
+            assertEquals("Admin enrollment fields are available", "true", enrolled)
             evaluate(webView, "document.querySelector('form button')?.click(); true")
             waitFor(webView) { it.getString("body").contains("Person enrolled") }
             stage = "select Admin role"
@@ -282,7 +282,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return true;
                 })()
             """.trimIndent())
-            assertEquals("true", selectedAdmin)
+            assertEquals("Admin role can be selected for the enrolled person", "true", selectedAdmin)
             waitFor(webView) {
                 it.getString("body").contains("Admin PIN") &&
                     evaluate(webView, "Boolean([...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN')?.querySelector('input'))") == "true"
@@ -299,7 +299,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return true;
                 })()
             """.trimIndent())
-            assertEquals("true", activated)
+            assertEquals("PIN-verified Admin activation form submits", "true", activated)
             waitFor(webView) { it.getString("body").contains("Role activated") }
             stage = "open Performance screen"
             evaluate(webView, """
@@ -328,7 +328,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   return fields.map(field => field.value);
                 })()
             """.trimIndent())
-            assertEquals(JSONArray().put(businessStartDate).put(targetDate).toString(), dateInputsSet)
+            assertEquals("Performance date inputs accept the restored reporting range", JSONArray().put(businessStartDate).put(targetDate).toString(), dateInputsSet)
             stage = "run actual Performance calculation"
             evaluate(webView, """
                 (() => {
@@ -355,16 +355,16 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   recoveryWindow: document.querySelector(".performance-meta")?.innerText || ""
                 }))()
             """.trimIndent()))
-            assertTrue(output.getString("selected").contains("₹200.00"))
-            assertTrue(output.getString("selected").contains("₹10.00"))
-            assertTrue(output.getString("selected").contains("₹190.00"))
-            assertTrue(output.getString("lifetime").contains("₹300.00"))
-            assertTrue(output.getString("lifetime").contains("₹274.00"))
-            assertTrue(output.getString("lifetime").contains("₹26.00"))
-            assertTrue(output.getString("lifetime").contains("₹9,024.19"))
-            assertTrue(output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
-            assertTrue(output.getString("provenance").contains("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1"))
-            assertTrue(output.getString("provenance").contains("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
+            assertTrue("Selected period revenue should be ₹200.00: " + output.getString("selected"), output.getString("selected").contains("₹200.00"))
+            assertTrue("Selected period cost should be ₹10.00: " + output.getString("selected"), output.getString("selected").contains("₹10.00"))
+            assertTrue("Selected period net should be ₹190.00: " + output.getString("selected"), output.getString("selected").contains("₹190.00"))
+            assertTrue("Lifetime revenue should be ₹300.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹300.00"))
+            assertTrue("Lifetime eligible cost should be ₹274.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹274.00"))
+            assertTrue("Lifetime profit should be ₹26.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹26.00"))
+            assertTrue("Lifetime target should be ₹9,024.19: " + output.getString("lifetime"), output.getString("lifetime").contains("₹9,024.19"))
+            assertTrue("Performance output retains manual source provenance", output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
+            assertTrue("Performance output retains EMI schedule provenance", output.getString("provenance").contains("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1"))
+            assertTrue("Performance output retains Compliance source provenance", output.getString("provenance").contains("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
             stage = "verify recovery presentation"
             evaluate(webView, """
                 (() => {
@@ -381,12 +381,12 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   rows: document.querySelector(".performance-recovery tbody")?.innerText || ""
                 }))()
             """.trimIndent()))
-            assertTrue(recovery.getString("summary").contains("₹234.00"))
-            assertTrue(recovery.getString("summary").contains(businessStartDate))
-            assertTrue(recovery.getString("summary").contains(targetDate))
-            assertTrue(recovery.getString("rows").contains("manual"))
-            assertTrue(recovery.getString("rows").contains("emi"))
-            assertTrue(recovery.getString("rows").contains("compliance"))
+            assertTrue("Recovery presentation shows ₹234.00: " + recovery.getString("summary"), recovery.getString("summary").contains("₹234.00"))
+            assertTrue("Recovery presentation shows Business Start Date", recovery.getString("summary").contains(businessStartDate))
+            assertTrue("Recovery presentation shows the 18-month end boundary", recovery.getString("summary").contains(targetDate))
+            assertTrue("Recovery rows include manual source", recovery.getString("rows").contains("manual"))
+            assertTrue("Recovery rows include EMI source", recovery.getString("rows").contains("emi"))
+            assertTrue("Recovery rows include Compliance source", recovery.getString("rows").contains("compliance"))
         } catch (error: Throwable) {
             throw AssertionError("Restored Room Performance WebView acceptance failed at $stage: ${error.message}", error)
         } finally {
