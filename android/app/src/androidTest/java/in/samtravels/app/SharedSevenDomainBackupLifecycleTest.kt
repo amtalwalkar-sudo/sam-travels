@@ -212,6 +212,16 @@ class SharedSevenDomainBackupLifecycleTest {
             assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
                 getJSONObject("manifest").put("format", "backup-encryption-v99")
             })
+            val futureSchemaManifest = JSONObject(source.manifest.toString())
+                .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION + 1)
+            val futureSchemaSnapshot = JSONObject(source.snapshot.toString())
+                .put("schemaVersion", BackupSnapshotContract.CURRENT_SCHEMA_VERSION + 1)
+            val futureSchemaPackage = NativeBackupV2Package.create(
+                futureSchemaSnapshot.toString().toByteArray(Charsets.UTF_8),
+                futureSchemaManifest,
+                recoveryKey,
+            )
+            assertRejectedWithoutMutation(futureSchemaPackage)
 
             // A correctly authenticated package with an invalid participant
             // must fail full semantic validation before the startup-recovery
