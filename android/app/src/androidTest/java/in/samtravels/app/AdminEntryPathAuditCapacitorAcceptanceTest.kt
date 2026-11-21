@@ -121,11 +121,11 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
 
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Reason", marker + " traffic challan")
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Reason", marker + " traffic challan")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
             AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
             assertTrue("Traffic Challan submitted", support.await(activity,
                 "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 15000))
@@ -231,9 +231,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Performance target saved", support.await(activity, "document.body.innerText.includes('Monthly Driver Target saved')", 15000))
             assertEquals("Performance target persisted in Room", 900000,
                 JSONObject(db.records().get("feature:performance:settings")!!.json).getJSONObject("data").getInt("monthlyDriverTargetPaise"))
-            setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Amount (₹)", "200")
-            setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "What was this cost for?", marker + " pre-business cost")
-            clickInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Add pre-business cost")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Amount (₹)", "200")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "What was this cost for?", marker + " pre-business cost")
+            AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Add pre-business cost")
             assertTrue("Pre-business cost saved", support.await(activity,
                 "(()=>{const p=[...document.querySelectorAll('div.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Pre-business costs');return p?.querySelector('[role=status]')?.textContent.includes('Pre-business cost entry saved')===true})()", 15000))
             val preBusinessCost = db.records().list().singleOrNull {
@@ -242,13 +242,13 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
 
             support.click(activity, "＋ Fuel entry")
-            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
-            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
-            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
-            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
             assertTrue("Fuel defaults to full refill", support.await(activity,
                 "!document.querySelector('.fuel-entry-panel label.fuel-partial-choice input')?.checked", 5000))
-            clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
+            AdminEntryPathAuditTestSupport.clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
             assertTrue("Fuel purchase saved", support.await(activity,
                 "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
             val fuel = db.records().list().singleOrNull { row ->
