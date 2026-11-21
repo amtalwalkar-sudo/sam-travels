@@ -4,7 +4,7 @@ import type { FinanceLoanRecordV1 } from "./finance-loan-service";
 import {
   assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
   type FinanceLoanScheduleResolver, type FinancePaymentEntryV1, type FinancePaymentLedgerV1,
-  type FinancePaymentMethodV1,
+  type FinancePaymentMethodV1, requireFinanceAdminAuthor,
 } from "./finance-loan-payment-service";
 
 type ScheduleRow = Readonly<{
@@ -168,13 +168,13 @@ export class FinanceLoanSettlementService {
         }
       }
       const createdAt = input.now ?? this.now();
-      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
       const settlement: FinancePaymentEntryV1 = {
         kind: "settlement", id: input.id, commandId: input.commandId, loanId: input.loanId,
         businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
         method: input.method, ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
         scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
-        createdAt, source: input.source, ...(createdBy ? { createdBy } : {}), status: "committed",
+        createdAt, source: input.source, createdBy, status: "committed",
       };
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, settlement] };
