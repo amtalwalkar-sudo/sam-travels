@@ -179,7 +179,7 @@ describe("FinanceLoanPaymentService", () => {
       async getScheduleRows() { return rows; },
       async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
     };
-    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
     const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z", adminAuthor);
     await expect(settlementService.preview({ loanId, businessDate: "2026-11-02" }))
       .rejects.toThrow("finance_payment_settlement_not_emi_date");
@@ -203,6 +203,25 @@ describe("FinanceLoanPaymentService", () => {
       paymentId: "emi-payment-1", businessDate: "2026-11-08", reason: "Correction", source: "web" }))
       .rejects.toThrow("finance_loan_closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(1);
+  });
+  it("does not close a Loan when settlement has no active Admin actor", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    const loans = { async get(id: string) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; } };
+    const schedules = {
+      async getScheduleRows() { return rows; },
+      async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
+    };
+    const payments = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
+    await payments.record({ ...base, id: "settlement-prerequisite", commandId: "settlement-prerequisite",
+      businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
+    const settlement = new FinanceLoanSettlementService(repo, loans, schedules);
+    const preview = await settlement.preview({ loanId, businessDate: "2026-11-01" });
+    await expect(settlement.commit({ id: "settlement-no-admin", commandId: "settlement-no-admin", loanId,
+      businessDate: "2026-11-01", method: "bank_transfer", source: "web", preview }))
+      .rejects.toThrow("finance_admin_actor_required");
+    expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
+    expect((await payments.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
   });
   it("rejects a settlement confirmation when the payment ledger changed after preview", async () => {
     const repo = new MemoryRepository();
