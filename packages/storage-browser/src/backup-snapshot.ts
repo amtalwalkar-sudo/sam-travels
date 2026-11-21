@@ -240,7 +240,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   }
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
-  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
+  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch:" + revision + ":" + manifest.snapshotRevision);
   const primaryKeys: Record<BrowserSnapshotTable, (row: Record<string, unknown>) => string> = {
     records: row => String(row.id ?? ""),
     driverState: row => String(row.id ?? ""),
