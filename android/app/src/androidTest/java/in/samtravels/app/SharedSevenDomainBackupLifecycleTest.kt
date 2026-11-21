@@ -155,8 +155,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
             )
             assertEquals(
-                canonical(source.snapshot.getJSONArray("records")),
-                canonical(afterTypescriptRestore.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(source.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(afterTypescriptRestore.snapshot.getJSONArray("records")),
             )
             NativeBackupRestoreCoordinator.markVerified(database, typescriptRestore.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, typescriptRestore.checkpointId)
@@ -196,8 +196,8 @@ class SharedSevenDomainBackupLifecycleTest {
                     database, NativeBackupRecovery::isInternalRecord, "after-rejected-package",
                 )
                 assertEquals(
-                    canonical(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
-                    canonical(after.snapshot.getJSONArray("records")),
+                    SharedBackupFixtureAssertions.canonicalRecords(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
+                    SharedBackupFixtureAssertions.canonicalRecords(after.snapshot.getJSONArray("records")),
                 )
                 assertEquals(0, database.records().list().count {
                     it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
@@ -268,8 +268,8 @@ class SharedSevenDomainBackupLifecycleTest {
             }.isFailure)
             assertEquals(0, startupRecoveryCalls)
             assertEquals(
-                canonical(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
-                canonical(NativeSnapshotBuilder.build(
+                SharedBackupFixtureAssertions.canonicalRecords(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(NativeSnapshotBuilder.build(
                     database, NativeBackupRecovery::isInternalRecord, "invalid-semantic-after",
                 ).snapshot.getJSONArray("records")),
             )
@@ -302,8 +302,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 database, NativeBackupRecovery::isInternalRecord, "reopened",
             )
             assertEquals(
-                canonical(source.snapshot.getJSONArray("records")),
-                canonical(reopened.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(source.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(reopened.snapshot.getJSONArray("records")),
             )
             assertEquals(3, database.logBookEvents().list().size)
             assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
@@ -311,8 +311,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
             )
             assertEquals(
-                canonical(reopened.snapshot.getJSONArray("records")),
-                canonical(reexported.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(reopened.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(reexported.snapshot.getJSONArray("records")),
             )
 
             // Publish the Android-produced package and semantic oracle for the
@@ -333,7 +333,7 @@ class SharedSevenDomainBackupLifecycleTest {
             )
             val tsParticipants = tsFixture.getJSONObject("backup").getJSONObject("manifest")
                 .getJSONArray("participants")
-            assertEquals(canonicalParticipants(tsParticipants), canonicalParticipants(source.snapshot.getJSONArray("participants")))
+            assertEquals(SharedBackupFixtureAssertions.canonicalParticipants(tsParticipants), SharedBackupFixtureAssertions.canonicalParticipants(source.snapshot.getJSONArray("participants")))
             database.records().put(StoredRecord(
                 "typescript-import-destination-sentinel",
                 JSONObject().put("id", "typescript-import-destination-sentinel")
@@ -355,8 +355,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reexport",
             )
             assertEquals(
-                canonical(tsExpected.getJSONArray("records")),
-                canonical(tsReadback.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(tsExpected.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(tsReadback.snapshot.getJSONArray("records")),
             )
             NativeBackupRestoreCoordinator.markVerified(database, tsRestored.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, tsRestored.checkpointId)
@@ -368,28 +368,14 @@ class SharedSevenDomainBackupLifecycleTest {
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reopened",
             )
             assertEquals(
-                canonical(tsExpected.getJSONArray("records")),
-                canonical(tsReopened.snapshot.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(tsExpected.getJSONArray("records")),
+                SharedBackupFixtureAssertions.canonicalRecords(tsReopened.snapshot.getJSONArray("records")),
             )
         } finally {
             database.close()
             context.deleteDatabase(name)
         }
     }
-
-    private fun canonicalParticipants(participants: JSONArray): List<String> =
-        (0 until participants.length()).map { index ->
-            val item = participants.getJSONObject(index)
-            listOf(item.getString("id"), item.getString("featureId"),
-                item.getInt("snapshotVersion").toString(), item.getString("restoreValidatorId")).joinToString("|")
-        }.sorted()
-
-    private fun canonical(records: JSONArray): List<String> =
-        (0 until records.length()).map { index ->
-            val row = records.getJSONObject(index)
-            listOf(row.getString("participantId"), row.getString("id"), row.getString("json"),
-                row.getInt("schemaVersion").toString(), row.getString("updatedAt")).joinToString("|")
-        }.sorted()
 
     private fun canonicalJson(value: Any?): String = when (value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(
