@@ -43,6 +43,13 @@ describe("Finance loan prepayment history model", () => {
     expect(loan.scheduleVersions).toHaveLength(1);
     expect(loan.currentScheduleVersion).toBe(1);
   });
+  it("rejects Driver authorship on a Finance prepayment revision", () => {
+    const value = state();
+    const invalid = { ...value, revisions: [{ ...value.revisions[0],
+      createdBy: { personId: "driver-1", role: "driver" as const } }] };
+    expect(() => assertFinanceLoanPrepaymentStateV1(invalid, loan, value.loanId))
+      .toThrow("finance_loan_prepayment_revision_invalid");
+  });
   it("rejects altered calculation output and inconsistent principal history", () => {
     const value = state();
     const altered = { ...value, revisions: [{ ...value.revisions[0], output: { ...value.revisions[0].output, interestSavedPaise: 1 } }] };
