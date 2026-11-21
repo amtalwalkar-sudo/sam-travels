@@ -6,7 +6,6 @@ import { createBackupForCurrentRuntime, restoreBackupForCurrentRuntime } from ".
 import tsFixture from "../fixtures/cross-platform-backup-v2.json";
 import fixture from "../fixtures/native-backup-v2.json";
 import { createEncryptedBackup, decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
-import { restoreBackupForCurrentRuntime } from "../apps/web/src/backup-runtime";
 
 describe("native backup-encryption-v2 interoperability", () => {
   it("decrypts and validates the Android-generated v2 package in TypeScript (without restoring a snapshot)", async () => {
@@ -14,7 +13,7 @@ describe("native backup-encryption-v2 interoperability", () => {
     const parsed = parseBackupPackage(serialized);
     const plaintext = await decryptBackupWithRecoveryKey(parsed, fixture.recoveryKey);
 
-    expect(new TextDecoder().decode(plaintext)).toBe(tsFixture.expectedPlaintext);
+    expect(new TextDecoder().decode(plaintext)).toBe(fixture.expectedPlaintext);
     expect(parsed.manifest.format).toBe("backup-encryption-v2");
     expect(parsed.keyEnvelopes.passphrase).toBeUndefined();
   });
@@ -23,17 +22,15 @@ describe("native backup-encryption-v2 interoperability", () => {
 
 describe("cross-runtime encryption writer parity", () => {
   it("matches the Android v2 writer package with the same deterministic test entropy", async () => {
-    const plaintext = new TextEncoder().encode(
-      `{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}`,
-    );
+    const plaintext = new TextEncoder().encode(fixture.expectedPlaintext);
     const recoveryKey = fixture.recoveryKey;
     const manifest = {
       applicationVersion: "0.1.0",
       schemaVersion: 1,
       createdAt: "2026-11-04T00:00:00.000Z",
       businessTimezone: "Asia/Kolkata",
-      snapshotRevision: 7,
-      recordCounts: { records: 1 },
+      snapshotRevision: 0,
+      recordCounts: { records: 1, driverState: 0, driverIntents: 0, driverEvents: 0, driverOutbox: 0 },
     };
     // createEncryptedBackup requests salt, DEK, payload nonce and wrapped-key
     // nonce in that order. Salt is unused for recovery-only v2 packages.
