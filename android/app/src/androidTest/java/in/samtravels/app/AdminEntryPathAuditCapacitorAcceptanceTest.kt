@@ -164,8 +164,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("One authoritative Loan record", 1, loanRows.size)
             val loan = loanRows.single()
             val loanUuid = loan.id.removePrefix("feature:finance:loan:")
-            // Prepayment atomically creates/advances the per-loan payment ledger, even before the first payment.
-            // Register it for cleanup now so a failed assertion cannot leave an orphan ledger behind.
             val paymentLedgerId = "feature:finance:payments:" + loanUuid
             financeRecordIds.add(paymentLedgerId)
             val originalSchedule = JSONObject(loan.json).getJSONObject("data").getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
@@ -220,10 +218,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Settlement date", "2026-02-01")
             support.click(activity, "Check settlement amount")
             assertTrue("Settlement preview shown", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
-            val settlementConfirmState = support.javascriptValue(activity, """(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));return JSON.stringify({found:!!b,disabled:b?.disabled===true,text:b?.textContent?.trim()})})()""")
-            assertTrue("Settlement confirmation becomes available: " + settlementConfirmState, support.await(activity,
-                "(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));return !!b&&!b.disabled})()", 15000))
-            support.eval(activity, "(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));b?.click()})()")
+            assertTrue("Settlement confirmation enabled", support.await(activity,
+                "[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Confirm settlement and close Loan')&&!b.disabled)", 15000))
+            support.clickMatching(activity, "Confirm settlement and close Loan")
             assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
             assertEquals("Loan closed in Room", "closed",
                 JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))
