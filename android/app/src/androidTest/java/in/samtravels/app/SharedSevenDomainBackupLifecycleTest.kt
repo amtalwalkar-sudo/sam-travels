@@ -242,6 +242,60 @@ class SharedSevenDomainBackupLifecycleTest {
                 canonical(reopened.snapshot.getJSONArray("records")),
                 canonical(reexported.snapshot.getJSONArray("records")),
             )
+
+            // Publish the Android-produced package and semantic oracle for the
+            // downstream Browser/Dexie production-restore job.
+            val androidArtifact = JSONObject()
+                .put("recoveryKey", recoveryKey)
+                .put("backup", encrypted)
+                .put("expectedSnapshot", source.snapshot)
+            context.cacheDir.resolve("android-encrypted-semantic-backup-v2.json")
+                .writeText(androidArtifact.toString())
+
+            // Restore the matching TypeScript-produced encrypted package into
+            // this same populated Room database through the production path.
+            val tsFixture = JSONObject(
+                InstrumentationRegistry.getInstrumentation().context.assets
+                    .open("generated/ts-populated-semantic-backup-v2.json")
+                    .bufferedReader().use { it.readText() },
+            )
+            database.records().put(StoredRecord(
+                "typescript-import-destination-sentinel",
+                JSONObject().put("id", "typescript-import-destination-sentinel")
+                    .put("schemaVersion", 1).put("createdAt", at).put("updatedAt", at)
+                    .put("source", "android").put("revision", 1)
+                    .put("data", JSONObject().put("sentinel", true)).toString(),
+                1, at,
+            ))
+            val tsExpected = tsFixture.getJSONObject("expectedSnapshot")
+            val tsRestored = NativeBackupRestoreCoordinator.restoreEncrypted(
+                database,
+                tsFixture.getJSONObject("backup"),
+                tsFixture.getString("recoveryKey"),
+                { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "ts-import-readback") },
+            )
+            assertEquals(tsExpected.getJSONArray("records").length(), tsRestored.restoredCount)
+            assertNull(database.records().get("typescript-import-destination-sentinel"))
+            val tsReadback = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "ts-import-reexport",
+            )
+            assertEquals(
+                canonical(tsExpected.getJSONArray("records")),
+                canonical(tsReadback.snapshot.getJSONArray("records")),
+            )
+            NativeBackupRestoreCoordinator.markVerified(database, tsRestored.checkpointId)
+            NativeBackupRestoreCoordinator.discardVerified(database, tsRestored.checkpointId)
+            database.close()
+            database = builder.build()
+            NativeStartupRecovery.invalidate(database)
+            assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(database))
+            val tsReopened = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "ts-import-reopened",
+            )
+            assertEquals(
+                canonical(tsExpected.getJSONArray("records")),
+                canonical(tsReopened.snapshot.getJSONArray("records")),
+            )
         } finally {
             database.close()
             context.deleteDatabase(name)
