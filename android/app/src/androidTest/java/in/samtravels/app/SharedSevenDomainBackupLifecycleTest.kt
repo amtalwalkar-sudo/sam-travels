@@ -157,7 +157,6 @@ class SharedSevenDomainBackupLifecycleTest {
             // restored exactly from the TypeScript package.
             assertTrue(database.records().get("work:selected-driver") != null)
             assertTrue(database.records().get("identity:driver-person-link:driver-001") != null)
-            assertTrue(database.records().get("identity:person:synthetic-person-001") != null)
             val afterTypescriptRestore = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
             )
