@@ -15,10 +15,9 @@ import java.security.SecureRandom
 @RunWith(AndroidJUnit4::class)
 class NativeBackupV2PackageTest {
     @Test fun nativePackageRoundTripsAndMatchesSharedFixtureManifest() {
-        // The TypeScript interoperability test decrypts this shared fixture and verifies
-        // the plaintext/manifest; it does not invoke a snapshot restore coordinator.
-        // Ciphertexts are randomized, so native output is verified by decrypting its
-        // own envelopes rather than byte-comparing it with another encryption run.
+        // The TypeScript interoperability test decrypts this Android-produced fixture
+        // and restores it through the production Browser/Dexie coordinator.
+        // Deterministic entropy lets this native writer assert exact wire parity.
         val testContext = InstrumentationRegistry.getInstrumentation().context
         val fixture = JSONObject(testContext.assets.open("native-backup-v2.json").bufferedReader().use { it.readText() })
         val plaintext = """{"records":[{"id":"native-fixture-record","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{"value":"android-writer"}}],"driverState":[],"driverIntents":[],"driverEvents":[],"driverOutbox":[],"snapshotRevision":0,"schemaVersion":1}"""
