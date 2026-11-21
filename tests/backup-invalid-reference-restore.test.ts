@@ -82,5 +82,36 @@ describe("authenticated invalid-reference encrypted restore", () => {
     expect((await browserDatabase.records.get("destination-only-sentinel"))?.data)
       .toEqual({ value: "must-survive-rejection" });
     expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
+
+    const futureFormat = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
+    futureFormat.format = "sam-travels-canonical-snapshot-v99" as typeof canonical.format;
+    const futureFormatPackage = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode(JSON.stringify(futureFormat)),
+      manifest: { ...exported.manifest, recordCounts: { records: canonical.records.length } },
+      mode: "recovery-key-only",
+      recoveryKey,
+    });
+    await expect(restoreBackupForCurrentRuntime({
+      backup: futureFormatPackage.backup, secret: { recoveryKey }, confirmed: true,
+    })).rejects.toBeDefined();
+
+    const futureSchema = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
+    futureSchema.schemaVersion = 2;
+    const futureSchemaPackage = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode(JSON.stringify(futureSchema)),
+      manifest: {
+        ...exported.manifest,
+        schemaVersion: 2,
+        recordCounts: { records: canonical.records.length },
+      },
+      mode: "recovery-key-only",
+      recoveryKey,
+    });
+    await expect(restoreBackupForCurrentRuntime({
+      backup: futureSchemaPackage.backup, secret: { recoveryKey }, confirmed: true,
+    })).rejects.toBeDefined();
+    expect((await browserDatabase.records.get("destination-only-sentinel"))?.data)
+      .toEqual({ value: "must-survive-rejection" });
+    expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
   });
 });
