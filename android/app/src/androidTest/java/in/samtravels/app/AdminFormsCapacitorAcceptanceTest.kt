@@ -267,8 +267,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         if (!clicked) {
             val diagnostic = javascriptValue(activity,
                 """JSON.stringify([...document.querySelectorAll('button')].map(n=>({text:(n.innerText||n.textContent||'').trim(),disabled:n.disabled,aria:n.getAttribute('aria-label')})))""")
-            error("Missing enabled Admin action matching any of: " + alternatives.joinToString(", ") +
-                "; rendered buttons: " + diagnostic)
+            error("Missing enabled Admin action: " + alternatives.joinToString(", ") + "; buttons=" + diagnostic)
         }
     }
 
@@ -288,8 +287,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             webView.evaluateJavascript(expression) { result.set(it); latch.countDown() }
         }
-        // WebView callbacks can be delayed while the emulator is exercising a busy Admin workflow.
-        // Do not turn a slow JavaScript bridge callback into a false missing-button failure.
         return if (latch.await(15, TimeUnit.SECONDS)) result.get() else null
     }
 
