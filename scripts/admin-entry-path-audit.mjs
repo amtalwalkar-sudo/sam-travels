@@ -46,6 +46,31 @@ async function readTripObligation(page, kind, status) {
   }, { kind, status });
 }
 
+async function waitForTripObligation(page, kind, status) {
+  try {
+    await page.waitForFunction(async ({ kind, status }) => {
+      const request = indexedDB.open("sam-travels-browser");
+      const db = await new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const rows = await new Promise((resolve, reject) => {
+        const tx = db.transaction("records", "readonly");
+        const get = tx.objectStore("records").getAll();
+        get.onsuccess = () => resolve(get.result);
+        get.onerror = () => reject(get.error);
+      });
+      db.close();
+      return rows.some(row => row.id.startsWith("work:trip-financial-obligation:") &&
+        row.data?.kind === kind && row.data?.status === status);
+    }, { kind, status }, { timeout: 15000 });
+  } catch {
+    const message = await page.locator(".driver-message").textContent().catch(() => "");
+    throw new Error(kind + "_" + status + "_not_committed: " + (message || "no Work status message"));
+  }
+  return readTripObligation(page, kind, status);
+}
+
 async function completeWorkSwipe(page, label) {
   const slider = page.getByRole("slider", { name: "Swipe to " + label });
   await slider.waitFor({ state: "visible", timeout: 15000 });
@@ -77,8 +102,7 @@ export async function exerciseWorkTripEntryPaths(page) {
   await page.getByLabel("Parking in rupees").fill("10");
   await page.getByLabel("Parking paid by").selectOption("customer");
   await page.getByRole("button", { name: "Submit trip financials", exact: true }).click();
-  await page.getByText("Fare and trip financials submitted", { exact: true }).waitFor({ state: "visible" });
-  const completedSaved = await readTripObligation(page, "completed_ride_financials", "submitted");
+  const completedSaved = await waitForTripObligation(page, "completed_ride_financials", "submitted");
   if (!completedSaved || completedSaved.id !== completedPending.id ||
       completedSaved.data.farePaise !== 15000 || completedSaved.data.tollPaise !== 2000 ||
       completedSaved.data.tollPayer !== "driver" || completedSaved.data.parkingPaise !== 1000 ||
@@ -97,8 +121,7 @@ export async function exerciseWorkTripEntryPaths(page) {
   }
   await page.getByLabel("Cancellation fee in rupees").fill("12.50");
   await page.getByRole("button", { name: "Save cancellation fee", exact: true }).click();
-  await page.getByText("Cancellation fee saved securely", { exact: true }).waitFor({ state: "visible" });
-  const cancellationSaved = await readTripObligation(page, "cancellation_fee", "submitted");
+  const cancellationSaved = await waitForTripObligation(page, "cancellation_fee", "submitted");
   if (!cancellationSaved || cancellationSaved.id !== cancellationPending.id ||
       cancellationSaved.data.feePaise !== 1250 || !cancellationSaved.createdBy?.personId) {
     throw new Error("cancellation_fee_entry_readback_or_actor_provenance_mismatch");
