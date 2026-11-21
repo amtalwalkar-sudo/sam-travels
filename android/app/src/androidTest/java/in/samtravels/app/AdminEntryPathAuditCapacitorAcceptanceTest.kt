@@ -129,13 +129,13 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                             data.optString("description") == marker + " traffic challan"
                     }
             }
-            assertEquals("One Traffic Challan source record", 1, challanRows.size)
+            assertEquals("One challan", 1, challanRows.size)
             val challan = challanRows.single()
             val challanData = JSONObject(challan.json).getJSONObject("data")
             assertEquals("Challan amount", 30000, challanData.getInt("amountPaise"))
             assertEquals("Challan vehicle", vehicleRecordId, challanData.getString("vehicleId"))
             assertEquals("Challan status", "paid", challanData.getString("paymentStatus"))
-            assertEquals("Challan reference persists", "CHALLAN-" + marker, challanData.getString("reference"))
+            assertEquals("Challan ref", "CHALLAN-" + marker, challanData.getString("reference"))
             support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
             support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
