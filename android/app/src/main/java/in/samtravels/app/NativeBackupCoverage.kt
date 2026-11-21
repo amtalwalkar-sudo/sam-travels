@@ -177,7 +177,6 @@ internal object NativeBackupCoverage {
                 .put("id", participant.id)
                 .put("featureId", participant.featureId)
                 .put("snapshotVersion", participant.snapshotVersion)
-                .put("adapterId", participant.adapterId)
                 .put("restoreValidatorId", participant.id + "-v1"))
         }
         return result

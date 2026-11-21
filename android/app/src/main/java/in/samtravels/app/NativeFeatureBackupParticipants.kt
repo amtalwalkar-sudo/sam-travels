@@ -97,7 +97,7 @@ internal object NativeFeatureBackupManifestCompatibility {
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             listOf(item.getString("id"), item.getString("featureId"),
-                item.getInt("snapshotVersion").toString(), item.getString("adapterId"),
+                item.getInt("snapshotVersion").toString(),
                 item.getString("restoreValidatorId")).joinToString("|")
         }.sorted()
         if (canonical(incoming) == canonical(expected)) return
