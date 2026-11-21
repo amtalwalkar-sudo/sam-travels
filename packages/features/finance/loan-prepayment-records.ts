@@ -31,7 +31,7 @@ function validAuthor(value: unknown): value is RecordAuthorV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const author = value as Record<string, unknown>;
   return typeof author.personId === "string" && !!author.personId.trim() &&
-    (author.role === "admin" || author.role === "driver") &&
+    author.role === "admin" &&
     Object.keys(author).every(key => key === "personId" || key === "role");
 }
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
