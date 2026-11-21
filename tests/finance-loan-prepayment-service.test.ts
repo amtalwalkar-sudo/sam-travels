@@ -159,7 +159,7 @@ describe("FinanceLoanPrepaymentService", () => {
   it("rejects EMI-reduction mode under the fixed contractual EMI rule", async () => {
     const { service } = setup();
     await expect(service.preview({ loanId, commandId: "prepay-reduce-emi",
-      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi", source: "web" }))
+      businessDate: "2026-01-15", amountPaise: 1_000_000, mode: "reduce_emi" as never, source: "web" }))
       .rejects.toThrow("finance_loan_prepayment_input_invalid");
   });
   it("serializes competing prepayments against the same loan and payment-ledger revisions", async () => {
