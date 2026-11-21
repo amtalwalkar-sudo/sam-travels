@@ -109,7 +109,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:compliance:") &&
                     JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
             }
-            assertEquals("One linked Compliance renewal", 1, renewalRows.size)
+            assertEquals("One linked renewal", 1, renewalRows.size)
             val renewal = renewalRows.single()
             assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
@@ -135,7 +135,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Traffic Challan amount persists in paise", 30000, challanData.getInt("amountPaise"))
             assertEquals("Traffic Challan Vehicle persists", vehicleRecordId, challanData.getString("vehicleId"))
             assertEquals("Traffic Challan payment status persists", "paid", challanData.getString("paymentStatus"))
-            assertEquals("Traffic Challan reference persists", "CHALLAN-" + marker, challanData.getString("reference"))
+            assertEquals("Challan reference persists", "CHALLAN-" + marker, challanData.getString("reference"))
             support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
             support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
