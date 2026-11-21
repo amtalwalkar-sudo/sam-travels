@@ -1,5 +1,5 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
 import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
   type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
@@ -13,7 +13,7 @@ type ReamortizedOutput = Readonly<{ openingPrincipalPaise: number; regularEmiPai
   totalInterestPaise: number; totalScheduledPaymentsPaise: number; interestSavedPaise: number;
   finalDueDate: string; remainingInstallmentCount: number }>;
 export type FinanceLoanPrepaymentRevisionV1 = Readonly<{
-  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number; createdBy?: RecordAuthorV1;
   expectedPaymentLedgerRevision: number | null; source: string;
   commandId: string; effectiveDate: string; createdAt: string; mode: FinanceLoanPrepaymentModeV1;
   principalBeforePaise: number; prepaymentAmountPaise: number; principalAfterPaise: number;
@@ -80,7 +80,8 @@ export class FinanceLoanPrepaymentService {
     private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
     private readonly validateState: FinanceLoanPrepaymentStateValidator,
     private readonly buildRevision: FinanceLoanPrepaymentRevisionBuilder,
-    private readonly now: () => string = () => new Date().toISOString()) {}
+    private readonly now: () => string = () => new Date().toISOString(),
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>) {}
 
   private async load(loanId: string): Promise<Snapshot> {
     const loan = await this.loans.get(loanId);
@@ -237,8 +238,11 @@ export class FinanceLoanPrepaymentService {
         throw new Error("finance_loan_prepayment_preview_stale");
       }
       const createdAt = input.now ?? fresh.revision.createdAt;
-      const committedRevision = createdAt === fresh.revision.createdAt
-        ? fresh.revision : { ...fresh.revision, createdAt };
+      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const committedRevision = {
+        ...(createdAt === fresh.revision.createdAt ? fresh.revision : { ...fresh.revision, createdAt }),
+        ...(createdBy ? { createdBy } : {}),
+      };
       const stateData: FinanceLoanPrepaymentStateV1 = {
         schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
         baseScheduleVersion: snapshot.state?.data.baseScheduleVersion ?? snapshot.loan.data.currentScheduleVersion,

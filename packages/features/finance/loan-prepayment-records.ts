@@ -1,10 +1,11 @@
+import type { RecordAuthorV1 } from "../../core/src/types";
 import { calculateLoanPrepaymentReamortizationV1, LOAN_PREPAYMENT_CALCULATION_ID,
   type LoanPrepaymentCalculationInputV1, type LoanPrepaymentCalculationResultV1,
   type LoanPrepaymentModeV1 } from "./loan-prepayment-calculation";
 
 export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
 export type LoanPrepaymentRevisionV1 = Readonly<{
-  version: number; previousScheduleVersion: number; expectedLoanRevision: number;
+  version: number; previousScheduleVersion: number; expectedLoanRevision: number; createdBy?: RecordAuthorV1;
   expectedPaymentLedgerRevision: number | null; source: string;
   commandId: string; effectiveDate: string; createdAt: string;
   mode: LoanPrepaymentModeV1; principalBeforePaise: number; prepaymentAmountPaise: number;
@@ -25,6 +26,13 @@ function validDate(value: unknown): value is string {
 }
 function validInstant(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+function validAuthor(value: unknown): value is RecordAuthorV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const author = value as Record<string, unknown>;
+  return typeof author.personId === "string" && !!author.personId.trim() &&
+    (author.role === "admin" || author.role === "driver") &&
+    Object.keys(author).every(key => key === "personId" || key === "role");
 }
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
   return Object.keys(value).sort().join("|") === [...keys].sort().join("|");
@@ -78,7 +86,8 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
       "commandId","effectiveDate","createdAt","mode","principalBeforePaise","prepaymentAmountPaise",
       "principalAfterPaise","calculationId","calculationVersion","inputSchemaVersion",
       "outputSchemaVersion","input","output"];
-    if (!exactKeys(r,keys) || r.version !== base + index + 1 ||
+    if (!(exactKeys(r,keys) || exactKeys(r,[...keys,"createdBy"])) ||
+        (r.createdBy !== undefined && !validAuthor(r.createdBy)) || r.version !== base + index + 1 ||
         r.previousScheduleVersion !== base + index ||
         !Number.isSafeInteger(r.expectedLoanRevision) || (r.expectedLoanRevision as number) <= previousExpectedLoanRevision ||
         (r.expectedPaymentLedgerRevision === null

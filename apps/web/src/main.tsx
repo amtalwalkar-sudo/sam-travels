@@ -47,10 +47,11 @@ async function bootstrap(): Promise<void> {
   const repository = await createPlatformRepository();
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
-  FeatureRecordService.setAuthorResolver(async () => {
+  const currentAuthor = async () => {
     const actor = await getPersonIdentityService().currentActor();
     return { personId: actor.actorId, role: actor.role };
-  });
+  };
+  FeatureRecordService.setAuthorResolver(currentAuthor);
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
@@ -73,10 +74,10 @@ async function bootstrap(): Promise<void> {
   );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
-    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
+    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor,
   );
-  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
-  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {

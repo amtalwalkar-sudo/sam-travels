@@ -186,6 +186,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val revision = JSONObject(prepaymentRecord!!.json).getJSONObject("data").getJSONArray("revisions").getJSONObject(0)
             val prepaymentOutput = revision.getJSONObject("output")
             assertEquals("Prepayment mode", "reduce_tenure", revision.getString("mode"))
+            assertEquals("Prepayment attributed to active Admin", "admin",
+                revision.getJSONObject("createdBy").getString("role"))
+            assertTrue("Prepayment actor ID persisted", revision.getJSONObject("createdBy").getString("personId").isNotBlank())
             assertEquals("Regular EMI unchanged", emiPaise, prepaymentOutput.getInt("regularEmiPaise"))
             assertTrue("Prepayment moves final instalment earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
             assertEquals("Next EMI due date unchanged", originalRows.getJSONObject(0).getString("dueDate"),
@@ -211,6 +214,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("One recorded payment", 1, paymentRows.size)
             val payment = paymentRows.single()
             assertEquals("Payment uses revised schedule", 2, payment.getInt("scheduleVersion"))
+            assertEquals("Payment attributed to active Admin", "admin", payment.getJSONObject("createdBy").getString("role"))
+            assertTrue("Payment actor ID persisted", payment.getJSONObject("createdBy").getString("personId").isNotBlank())
             assertEquals("Payment allocation retains regular EMI amount", emiPaise,
                 payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
 
@@ -225,10 +230,13 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Loan closed in Room", "closed",
                 JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))
             val settledLedger = db.records().get(paymentLedgerId)!!
-            assertTrue("Settlement ledger entry persisted",
-                JSONObject(settledLedger.json).getJSONObject("data").getJSONArray("entries").let { rows ->
-                    (0 until rows.length()).any { rows.getJSONObject(it).optString("kind") == "settlement" }
-                })
+            val settlementEntry = JSONObject(settledLedger.json).getJSONObject("data").getJSONArray("entries").let { rows ->
+                (0 until rows.length()).map { rows.getJSONObject(it) }.singleOrNull { it.optString("kind") == "settlement" }
+            }
+            assertNotNull("Settlement ledger entry persisted", settlementEntry)
+            assertEquals("Settlement attributed to active Admin", "admin",
+                settlementEntry!!.getJSONObject("createdBy").getString("role"))
+            assertTrue("Settlement actor ID persisted", settlementEntry.getJSONObject("createdBy").getString("personId").isNotBlank())
 
             support.eval(activity, "document.getElementById('admin-section-trigger-performance')?.click()")
             support.set(activity, "Monthly Driver Target (₹)", "9000")

@@ -8,6 +8,12 @@ import java.math.BigInteger
 
 /** Finance-owned Room backup/restore validation for Loan schedules and payment history. */
 internal object NativeFinanceBackup {
+    private fun validCreatedBy(value: JSONObject?): Boolean {
+        if (value == null) return false
+        return value.keys().asSequence().toSet() == setOf("personId", "role") &&
+            value.optString("personId").isNotBlank() &&
+            value.optString("role") in setOf("admin", "driver")
+    }
     private const val LOAN_PARTICIPANT_ID = "finance-records"
     private const val PAYMENT_PARTICIPANT_ID = "finance-payment-records"
     private const val FEATURE_ID = "finance"
@@ -249,13 +255,14 @@ internal object NativeFinanceBackup {
                     date(entry.optString("businessDate")).toString() == entry.optString("businessDate") &&
                     integer(entry, "amountPaise", 1) > 0 &&
                     entry.optString("status") == "committed" &&
-                    entry.optString("source").isNotBlank()) { "finance_payment_entry_invalid" }
+                    entry.optString("source").isNotBlank() &&
+                    (!entry.has("createdBy") || validCreatedBy(entry.optJSONObject("createdBy")))) { "finance_payment_entry_invalid" }
 
                 when (kind) {
                     "payment" -> {
                         val allowed = setOf("kind", "id", "commandId", "loanId", "businessDate", "amountPaise",
                             "method", "reference", "note", "scheduleVersion", "createdAt", "source",
-                            "allocations", "unallocatedCreditPaise", "status")
+                            "allocations", "unallocatedCreditPaise", "status", "createdBy")
                         require(entry.keys().asSequence().all { it in allowed } &&
                             PAYMENT_METHODS.contains(entry.optString("method")) &&
                             (!entry.has("reference") || entry.optString("reference").isNotBlank()) &&
@@ -300,7 +307,7 @@ internal object NativeFinanceBackup {
                     }
                     "settlement" -> {
                         val allowed = setOf("kind", "id", "commandId", "loanId", "businessDate", "amountPaise",
-                            "method", "reference", "scheduleVersion", "paidThroughInstallment", "createdAt", "source", "status")
+                            "method", "reference", "scheduleVersion", "paidThroughInstallment", "createdAt", "source", "status", "createdBy")
                         require(entry.keys().asSequence().all { it in allowed } &&
                             PAYMENT_METHODS.contains(entry.optString("method")) &&
                             (!entry.has("reference") || entry.optString("reference").isNotBlank()) &&
@@ -311,8 +318,8 @@ internal object NativeFinanceBackup {
                     }
                     "reversal" -> {
                         val allowed = setOf("kind", "id", "commandId", "loanId", "paymentId", "businessDate",
-                            "reason", "amountPaise", "createdAt", "source", "status")
-                        require(entry.keys().asSequence().toSet() == allowed &&
+                            "reason", "amountPaise", "createdAt", "source", "status", "createdBy")
+                        require(entry.keys().asSequence().all { it in allowed } &&
                             entry.optString("paymentId").isNotBlank() &&
                             entry.optString("reason").isNotBlank() &&
                             !reversals.containsKey(entry.optString("paymentId"))) {
