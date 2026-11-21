@@ -15,10 +15,10 @@ import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/sr
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
 import { parseBackupPackage, decryptBackupWithRecoveryKey } from "../packages/features/backup";
 
-function canonicalSnapshotForComparison(snapshot: {
-  records: Array<{ participantId: string; id: string; updatedAt?: string; [key: string]: unknown }>;
-  [key: string]: unknown;
-}) {
+function canonicalSnapshotForComparison<
+  TRecord extends { participantId: string; id: string; updatedAt?: string },
+  TSnapshot extends { records: TRecord[] },
+>(snapshot: TSnapshot) {
   return {
     ...snapshot,
     records: snapshot.records
