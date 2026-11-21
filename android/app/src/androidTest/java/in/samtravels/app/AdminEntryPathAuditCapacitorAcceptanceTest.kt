@@ -1,5 +1,4 @@
 package `in`.samtravels.app
-
 import android.content.Intent
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -11,7 +10,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.UUID
-
 @RunWith(AndroidJUnit4::class)
 class AdminEntryPathAuditCapacitorAcceptanceTest {
     @Test fun calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView() {
@@ -44,7 +42,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Admin PIN appears", support.await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
             check(support.javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""") == "true")
             assertTrue("Admin activated", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
-
             support.eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             support.click(activity, "Add vehicle")
             val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
@@ -59,7 +56,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Vehicle saved", support.await(activity, "document.body.innerText.includes('$registration')", 15000))
             vehicleRecordId = "feature:vehicle:" + registration
             assertNotNull("Vehicle persists in Room", db.records().get(vehicleRecordId!!))
-
             support.eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             support.click(activity, "Add driver")
             support.set(activity, "Driver name", marker + " Driver")
@@ -83,7 +79,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 driverData.getString("driverId"), JSONObject(selectedDriver!!.json).getJSONObject("data").getString("driverId"))
             assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
             assertNotNull("Driver–Vehicle assignment persisted", db.records().get(assignmentRecordId!!))
-
             support.eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             support.click(activity, "Add compliance / renewal")
             support.set(activity, "Compliance type / name", marker + " Insurance")
@@ -100,7 +95,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val initialCompliance = initialComplianceRows.single()
             val initialComplianceData = JSONObject(initialCompliance.json).getJSONObject("data")
             assertEquals("Compliance is bound to the configured Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
-
             support.click(activity, "Add compliance / renewal")
             support.set(activity, "Compliance type / name", marker + " Insurance")
             support.set(activity, "Valid from", "2027-11-16")
@@ -119,7 +113,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val renewal = renewalRows.single()
             assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
-
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
@@ -143,7 +136,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Traffic Challan Vehicle persists", vehicleRecordId, challanData.getString("vehicleId"))
             assertEquals("Traffic Challan payment status persists", "paid", challanData.getString("paymentStatus"))
             assertEquals("Traffic Challan reference persists", "CHALLAN-" + marker, challanData.getString("reference"))
-
             support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
             support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
@@ -170,7 +162,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val emiPaise = originalSchedule.getInt("regularEmiPaise")
             val originalRows = originalSchedule.getJSONArray("rows")
             val originalFinalDate = originalRows.getJSONObject(originalRows.length() - 1).getString("dueDate")
-
             support.click(activity, "Prepay principal")
             support.set(activity, "Prepayment date", "2026-01-15")
             support.set(activity, "Principal amount (₹)", "30000")
@@ -191,7 +182,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Prepayment moves final instalment earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
             assertEquals("Next EMI due date unchanged", originalRows.getJSONObject(0).getString("dueDate"),
                 prepaymentOutput.getJSONArray("rows").getJSONObject(0).getString("dueDate"))
-
             support.click(activity, "Record payment")
             assertTrue("Revised schedule version is available for payment", support.await(activity,
                 """(()=>{const s=[...document.querySelectorAll("label")].find(n=>n.textContent.includes("Schedule version"))?.querySelector("select");return !!s&&[...s.options].some(o=>o.value==="2")})()""", 15000))
@@ -215,7 +205,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             AdminEntryPathAuditTestSupport.assertAdminActor(payment.optJSONObject("createdBy"), "Payment")
             assertEquals("Payment allocation retains regular EMI amount", emiPaise,
                 payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
-
             support.click(activity, "Settle & close")
             support.set(activity, "Settlement date", "2026-02-01")
             support.click(activity, "Check settlement amount")
@@ -231,7 +220,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             }
             assertNotNull("Settlement entry", settlementEntry)
             AdminEntryPathAuditTestSupport.assertAdminActor(settlementEntry?.optJSONObject("createdBy"), "Settlement")
-
             support.eval(activity, "document.getElementById('admin-section-trigger-performance')?.click()")
             support.set(activity, "Monthly Driver Target (₹)", "9000")
             support.click(activity, "Save monthly target")
@@ -247,7 +235,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
             }
             assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
-
             support.click(activity, "＋ Fuel entry")
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
@@ -282,5 +269,4 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             db.close()
         }
     }
-
 }
