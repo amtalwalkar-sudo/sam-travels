@@ -30,7 +30,8 @@ internal object NativeBackupEncryptedRestore {
             try {
                 val result = NativeBackupRestoreCoordinator.restoreEncrypted(
                     database(), backup, recoveryKey, makeSnapshot,
-                ) { ensureStartupRecovery() }
+                    beforeRestore = { ensureStartupRecovery() },
+                )
                 val out = JSObject()
                 out.put("checkpointId", result.checkpointId)
                 out.put("restoredCount", result.restoredCount)

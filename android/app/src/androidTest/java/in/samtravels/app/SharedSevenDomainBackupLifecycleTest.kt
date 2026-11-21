@@ -251,7 +251,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 NativeBackupRestoreCoordinator.restoreEncrypted(
                     database, invalidSemanticPackage, recoveryKey,
                     { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "invalid-semantic-readback") },
-                ) { startupRecoveryCalls += 1 }
+                    beforeRestore = { startupRecoveryCalls += 1 },
+                )
             }.isFailure)
             assertEquals(0, startupRecoveryCalls)
             assertEquals(
