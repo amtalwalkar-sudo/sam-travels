@@ -1,8 +1,10 @@
 import "fake-indexeddb/auto";
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
-import { exportBrowserSnapshot, restoreBrowserSnapshot, markBrowserRestoreVerified, discardVerifiedBrowserCheckpoint, recoverBrowserRestoreTransactions } from "../packages/storage-browser/src";
+import { exportBrowserSnapshot, markBrowserRestoreVerified, discardVerifiedBrowserCheckpoint, recoverBrowserRestoreTransactions } from "../packages/storage-browser/src";
+import { restoreBackupForCurrentRuntime } from "../apps/web/src/backup-runtime";
+import { createEncryptedBackup } from "../packages/features/backup";
 import { DexieDriverWorkflowRepository } from "../packages/storage-browser/src/driver-workflow";
 import { createDriverCommand } from "../packages/features/work-shift";
 import { rebuildTripHistoryProjection, readTripHistoryProjection } from "../packages/features/logbook";
@@ -322,9 +324,42 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         data: { schemaVersion: 1, stale: true },
       };
       await browserDatabase.records.put(staleEmptyOwnerRecord as never);
-      const restored = await restoreBrowserSnapshot({
-        data: exported.data,
-        manifest: exported.manifest as never,
+      const recoveryKey = "AQIDBAUGBwgJCgsMDQ4PEBESExMUFRYXGBkaGxwdHh8=";
+      const entropy = new Uint8Array([
+        ...Array.from({ length: 16 }, (_, index) => 65 + index),
+        ...Array.from({ length: 32 }, (_, index) => 33 + index),
+        ...Array.from({ length: 12 }, (_, index) => 1 + index),
+        ...Array.from({ length: 12 }, (_, index) => 13 + index),
+      ]);
+      let offset = 0;
+      const random = vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation((target) => {
+        const bytes = new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
+        bytes.set(entropy.subarray(offset, offset + bytes.length));
+        offset += bytes.length;
+        return target;
+      });
+      let encryptedCanonical;
+      try {
+        encryptedCanonical = await createEncryptedBackup({
+          plaintext: new TextEncoder().encode(JSON.stringify(canonical)),
+          manifest: exported.manifest,
+          mode: "recovery-key-only",
+          recoveryKey,
+        });
+        mkdirSync("android/app/src/androidTest/assets/generated", { recursive: true });
+        writeFileSync(
+          "android/app/src/androidTest/assets/generated/ts-populated-semantic-backup-v2.json",
+          JSON.stringify({ recoveryKey, backup: encryptedCanonical.backup }),
+        );
+      } finally {
+        random.mockRestore();
+      }
+
+      // Use the same TypeScript-produced canonical package through the actual
+      // Browser parser, decryptor, participant validation and Dexie coordinator.
+      const restored = await restoreBackupForCurrentRuntime({
+        backup: encryptedCanonical!.backup,
+        secret: { recoveryKey },
         confirmed: true,
       });
       await markBrowserRestoreVerified(restored.checkpointId);
