@@ -120,13 +120,13 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
 
-            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
+            AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
             setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
             setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
             setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Reason", marker + " traffic challan")
             setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
             setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
-            clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
+            AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
             assertTrue("Traffic Challan submitted", support.await(activity,
                 "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 15000))
             val challanRows = db.records().list().filter { row ->
@@ -276,28 +276,4 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         }
     }
 
-    private fun setInPanel(
-        activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
-        selector: String, heading: String, label: String, value: String,
-    ) {
-        val safeHeading = heading.replace("'", "\\'")
-        val safeLabel = label.replace("'", "\\'")
-        val safeValue = value.replace("'", "\\'")
-        val panel = "(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');return !!p&&[...p.querySelectorAll('label')].some(n=>n.textContent.trim().startsWith('$safeLabel'))})()"
-        assertTrue("Field $label exists in $heading", support.await(activity, panel, 15000))
-        val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$safeLabel'));const c=l?.querySelector('input,select,textarea');if(!c)return false;const proto=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(c,'$safeValue');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
-        check(support.javascriptValue(activity, script) == "true") { "Could not set $label in $heading" }
-    }
-
-    private fun clickInPanel(
-        activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
-        selector: String, heading: String, button: String,
-    ) {
-        val safeHeading = heading.replace("'", "\\'")
-        val safeButton = button.replace("'", "\\'")
-        val query = "(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');return !!p&&[...p.querySelectorAll('button')].some(n=>n.textContent.trim()==='$safeButton'&&!n.disabled)})()"
-        assertTrue("Action $button exists in $heading", support.await(activity, query, 15000))
-        val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');const b=[...p.querySelectorAll('button')].find(n=>n.textContent.trim()==='$safeButton');if(!b)return false;b.click();return true})()"""
-        check(support.javascriptValue(activity, script) == "true") { "Could not click $button in $heading" }
-    }
 }
