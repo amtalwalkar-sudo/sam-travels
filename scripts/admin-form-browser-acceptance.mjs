@@ -285,7 +285,7 @@ try {
   await page.getByLabel("Receipt / source reference").fill("PARKING-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save expense", exact: true }).last().click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
-  console.log("Loan, payment, reversal, prepayment, settlement, Platform Fee and Miscellaneous Expense workflows submitted.");
+  console.log("Finance and expense Admin workflows submitted.");
 
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
   const maintenanceVehicle = page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first();
