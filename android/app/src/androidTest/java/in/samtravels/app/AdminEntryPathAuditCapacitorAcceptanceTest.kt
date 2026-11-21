@@ -67,7 +67,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:driver-records:driver:") &&
                     JSONObject(row.json).getJSONObject("data").optString("name") == marker + " Driver"
             }
-            assertEquals("One authoritative Driver profile", 1, driverRows.size)
+            assertEquals("One Driver profile", 1, driverRows.size)
             val driverRecord = driverRows.single()
             val driverData = JSONObject(driverRecord.json).getJSONObject("data")
             support.click(activity, "Configure for Work")
