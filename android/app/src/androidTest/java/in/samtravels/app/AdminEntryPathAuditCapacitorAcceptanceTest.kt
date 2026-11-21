@@ -67,7 +67,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Mobile number", "9990001111")
             support.click(activity, "Save driver")
             assertTrue("Driver saved", support.await(activity, "document.body.innerText.includes('Driver created')", 15000))
-            val driverRecord = db.records().list().single { it.json.contains(marker + " Driver") }
+            val driverRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:driver-records:driver:") &&
+                    JSONObject(row.json).getJSONObject("data").optString("name") == marker + " Driver"
+            }
+            assertEquals("One authoritative Driver profile", 1, driverRows.size)
+            val driverRecord = driverRows.single()
             val driverData = JSONObject(driverRecord.json).getJSONObject("data")
             support.click(activity, "Configure for Work")
             assertTrue("Work Driver selection saved", support.await(activity,
@@ -87,7 +92,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Total cost (₹)", "12000")
             support.click(activity, "Save record")
             assertTrue("Initial Compliance saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
-            val initialCompliance = db.records().list().single { it.json.contains(marker + " Insurance") }
+            val initialComplianceRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:compliance:") &&
+                    JSONObject(row.json).getJSONObject("data").optString("complianceName") == marker + " Insurance"
+            }
+            assertEquals("One initial Compliance record", 1, initialComplianceRows.size)
+            val initialCompliance = initialComplianceRows.single()
             val initialComplianceData = JSONObject(initialCompliance.json).getJSONObject("data")
             assertEquals("Compliance is bound to the configured Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
 
@@ -101,9 +111,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Renewing previous record", initialCompliance.id)
             support.click(activity, "Save record")
             assertTrue("Compliance renewal saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
-            val renewal = db.records().list().single { row ->
-                JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
+            val renewalRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:compliance:") &&
+                    JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
             }
+            assertEquals("One linked Compliance renewal", 1, renewalRows.size)
+            val renewal = renewalRows.single()
             assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
 
@@ -131,7 +144,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "First EMI date (first day of month)", "2026-02-01")
             support.click(activity, "Save loan details")
             assertTrue("Loan saved", support.await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
-            val loan = db.records().list().single { it.json.contains(marker + " Loan") }
+            val loanRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:finance:loan:") &&
+                    JSONObject(row.json).getJSONObject("data").optJSONObject("details")?.optString("loanName") == marker + " Loan"
+            }
+            assertEquals("One authoritative Loan record", 1, loanRows.size)
+            val loan = loanRows.single()
             val loanUuid = loan.id.removePrefix("feature:finance:loan:")
             val originalSchedule = JSONObject(loan.json).getJSONObject("data").getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
             val emiPaise = originalSchedule.getInt("regularEmiPaise")
@@ -172,7 +190,10 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val ledger = db.records().get(paymentLedgerId)
             assertNotNull("Payment ledger persisted", ledger)
             val paymentEntries = JSONObject(ledger!!.json).getJSONObject("data").getJSONArray("entries")
-            val payment = (0 until paymentEntries.length()).map { paymentEntries.getJSONObject(it) }.single { it.optString("kind") == "payment" }
+            val paymentRows = (0 until paymentEntries.length()).map { paymentEntries.getJSONObject(it) }
+                .filter { it.optString("kind") == "payment" }
+            assertEquals("One recorded payment", 1, paymentRows.size)
+            val payment = paymentRows.single()
             assertEquals("Payment uses revised schedule", 2, payment.getInt("scheduleVersion"))
             assertEquals("Payment allocation retains regular EMI amount", emiPaise,
                 payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
