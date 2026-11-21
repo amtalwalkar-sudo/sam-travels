@@ -107,7 +107,8 @@ export async function exerciseWorkTripEntryPaths(page) {
       completedSaved.data.farePaise !== 15000 || completedSaved.data.tollPaise !== 2000 ||
       completedSaved.data.tollPayer !== "driver" || completedSaved.data.parkingPaise !== 1000 ||
       completedSaved.data.parkingPayer !== "customer" || !completedSaved.createdBy?.personId) {
-    throw new Error("completed_trip_financial_entry_readback_or_actor_provenance_mismatch");
+    throw new Error("completed_trip_financial_entry_readback_or_actor_provenance_mismatch: " +
+      JSON.stringify({id:completedSaved?.id,data:completedSaved?.data,createdBy:completedSaved?.createdBy}));
   }
 
   await completeWorkSwipe(page, "Going to pickup");
