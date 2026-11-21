@@ -247,12 +247,16 @@ internal object NativeBackupCoverage {
     }
 
     fun validateBusinessRecords(records: JSONArray, requireExplicitOwnerTags: Boolean = false) {
+        // The interchange wire format has one Finance owner. Split that owner
+        // back into Room's internal loan/payment/prepayment validators before
+        // applying platform-specific validation and relationship checks.
+        val normalizedRecords = NativeFeatureBackupManifestCompatibility.normalizeCanonicalInterchangeRecords(records)
         val participants = discoverParticipants()
         require(participants.isNotEmpty()) { "backup_no_room_participants" }
         val byId = participants.associateBy { it.id }
         val seen = mutableSetOf<String>()
-        for (index in 0 until records.length()) {
-            val row = records.optJSONObject(index) ?: error("backup_invalid_record")
+        for (index in 0 until normalizedRecords.length()) {
+            val row = normalizedRecords.optJSONObject(index) ?: error("backup_invalid_record")
             require(!requireExplicitOwnerTags || row.has("participantId")) { "backup_record_participant_missing" }
             val owner = participantId(row, participants)
             if (row.has("participantId")) {
@@ -271,10 +275,10 @@ internal object NativeBackupCoverage {
             }
             adapter(participant).validate(row)
         }
+        val allNormalizedRows = (0 until normalizedRecords.length()).map { normalizedRecords.getJSONObject(it) }
         dynamicFeatureRelationshipValidators.forEach { (participantId, validator) ->
-            val owned = (0 until records.length()).map { records.getJSONObject(it) }
-                .filter { it.optString("participantId") == participantId }
-            validator(owned, (0 until records.length()).map { records.getJSONObject(it) })
+            val owned = allNormalizedRows.filter { it.optString("participantId") == participantId }
+            validator(owned, allNormalizedRows)
         }
     }
 
@@ -291,12 +295,13 @@ internal object NativeBackupCoverage {
 
     /** Caller owns the surrounding Room transaction. */
     fun replaceBusinessRecords(database: LocalDatabase, records: JSONArray) {
-        validateBusinessRecords(records)
+        val normalizedRecords = NativeFeatureBackupManifestCompatibility.normalizeCanonicalInterchangeRecords(records)
+        validateBusinessRecords(normalizedRecords)
         val participants = discoverParticipants()
         val byId = participants.associateBy { it.id }
         participants.forEach { adapter(it).clear(database) }
-        for (index in 0 until records.length()) {
-            val row = records.getJSONObject(index)
+        for (index in 0 until normalizedRecords.length()) {
+            val row = normalizedRecords.getJSONObject(index)
             val owner = participantId(row, participants)
             adapter(byId.getValue(owner)).restore(database, row)
         }
