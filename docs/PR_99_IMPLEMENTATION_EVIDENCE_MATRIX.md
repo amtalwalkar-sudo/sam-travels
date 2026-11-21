@@ -400,7 +400,7 @@ This section supersedes the earlier broad candidate backlog where it conflicts w
 
 ### Remaining evidence gaps within this scope
 
-- **Finance actor attribution:** direct Finance payment, prepayment and settlement atomic writes carry source metadata but do not yet persist and prove the active Admin actor on each immutable Finance event. Keep this separate from the calculation-source/revision provenance that is already tested.
+- **Finance actor attribution — CLOSED 2026-11-21:** new payment, reversal, prepayment and settlement writes require the active Admin actor and persist it on the immutable event in the same atomic write. Missing/Driver actor rejection, retry attribution, Browser/Dexie readback, Android Room readback and Room backup/restore preservation are covered by the Stage 1 tests listed in the closeout tracker below. Historical events without actor metadata remain readable; no retroactive actor is invented.
 - **Finance payment-allocation policy:** the existing Finance payment-allocation contract remains Proposed; UI/service mechanics passing tests do not ratify the business policy. Owner ratification is still required before this draft can become normative.
 
 
@@ -412,7 +412,7 @@ This tracker is aligned with Contract §15. It records completed evidence separa
 ### Completed at the current checkpoint
 
 - Calculation/provenance and entry-path audit: substantially complete as itemized above in this 2026-11-21 addendum.
-- Latest exact-head CI: green on `985629e17d2b6d0a76fb1be63a0374f040ecd413`, run [44932520806](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44932520806). Architecture, PWA rendered acceptance, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression passed; production geocoder verification was skipped and is not a required PR gate.
+- Latest exact-head CI: green on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`, run [44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946). Architecture, PWA rendered acceptance, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression passed; production geocoder verification was skipped and is not a required PR gate.
 - Android-produced populated encrypted package → TypeScript production Browser/Dexie restore: passing.
 - Shared seven-domain Room lifecycle instrumentation: passing, but it does not prove the reverse TypeScript-encrypted-package → Android production decrypt/Room restore path.
 
@@ -420,7 +420,7 @@ This tracker is aligned with Contract §15. It records completed evidence separa
 
 | Stage | Work | Current status | Closure evidence required |
 |---|---|---|---|
-| 1. Finance Admin actor attribution | Persist active Admin actor atomically on immutable payment, prepayment, reversal and settlement events; preserve it through correction, retry and restore. | **IMPLEMENTED — CI PENDING** | Stored event-level actor assertions, missing-actor rejection, correction/retry idempotency and Browser/Room persistence/restore readback. |
+| 1. Finance Admin actor attribution | Persist active Admin actor atomically on immutable payment, prepayment, reversal and settlement events; preserve it through correction, retry and restore. | **COMPLETE — GREEN CI** | `finance-loan-payment-service.test.ts`; `finance-loan-prepayment-service.test.ts`; `loan-prepayment-records.test.ts`; rendered PWA `admin-form-browser-acceptance.mjs` / `assertFinanceAdminActorProvenance`; Android `AdminEntryPathAuditCapacitorAcceptanceTest.calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView`; `NativeFinancePaymentBackupTest.exportsRestoresAndRevalidatesLoanPaymentHistoryInRoomBackup` and `rejectsDriverAuthorshipInFinancePaymentBackup`. Exact-head run [44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946) passed all required jobs on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`. |
 | 2. Finance payment-allocation policy | Obtain explicit owner ratification of the currently Proposed policy; then align contract, service and tests. | **OWNER DECISION REQUIRED** | Owner-approved normative policy plus matching service-boundary and regression evidence. Do not guess or silently approve the proposal. |
 | 3. Reverse encrypted restore and semantic parity | Restore a TypeScript-produced populated encrypted package through Android production decrypt/Room; compare the same semantic dataset after reopen/recovery/re-export. Retain the passing Android → Browser direction. | **OPEN** | Both production encrypted directions pass with matching IDs, revisions, references, event/correction lineage, pending/outbox state, calculation outputs and provenance. |
 | 4. Evidence and CI closeout | Update fixture/docs from real evidence, run focused suites and complete required CI on final head. | **PENDING STAGES 1–3** | Exact test names/assertions, final commit SHA, green exact-head required CI, accurate fixture/evidence statuses. |
