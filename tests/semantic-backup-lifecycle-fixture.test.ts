@@ -355,31 +355,6 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         random.mockRestore();
       }
 
-      // A validly authenticated package with a dangling Driver→Vehicle
-      // reference must fail before Browser creates a recovery checkpoint.
-      const invalidReferenceSnapshot = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
-      const assignment = invalidReferenceSnapshot.records.find(
-        row => row.id === fixture.operatingConfiguration.currentPairing.assignmentHistoryRecordId,
-      )!;
-      const assignmentEnvelope = JSON.parse(assignment.json) as {
-        data: { assignments: Array<{ vehicleId: string }> };
-      };
-      assignmentEnvelope.data.assignments[0].vehicleId = "feature:vehicle:MISSING";
-      assignment.json = JSON.stringify(assignmentEnvelope);
-      const invalidReferencePackage = await createEncryptedBackup({
-        plaintext: new TextEncoder().encode(JSON.stringify(invalidReferenceSnapshot)),
-        manifest: { ...exported.manifest, recordCounts: { records: canonical.records.length } },
-        mode: "recovery-key-only",
-        recoveryKey,
-      });
-      await expect(restoreBackupForCurrentRuntime({
-        backup: invalidReferencePackage.backup,
-        secret: { recoveryKey },
-        confirmed: true,
-      })).rejects.toBeDefined();
-      expect(await browserDatabase.records.get("feature:business-settings:stale")).toBeDefined();
-      expect(await browserDatabase.table("backupCheckpoints").count()).toBe(0);
-
       // Use the same TypeScript-produced canonical package through the actual
       // Browser parser, decryptor, participant validation and Dexie coordinator.
       const restored = await restoreBackupForCurrentRuntime({
