@@ -120,16 +120,29 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
 
-            support.set(activity, "Issue date", "2026-11-15")
-            support.set(activity, "Vehicle", vehicleRecordId!!)
-            support.set(activity, "Challan amount (₹)", "300")
-            support.set(activity, "Reason", marker + " traffic challan")
-            support.set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
-            support.set(activity, "Payment status", "paid")
-            support.click(activity, "Save expense")
-            assertTrue("Traffic Challan submitted", support.await(activity, "document.body.innerText.includes('Saved.')", 15000))
-            val challan = db.records().list().singleOrNull { it.json.contains("CHALLAN-" + marker) }
-            assertNotNull("Traffic Challan persisted in Room", challan)
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Issue date", "2026-11-15")
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Vehicle", vehicleRecordId!!)
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan amount (₹)", "300")
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Reason", marker + " traffic challan")
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
+            setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
+            clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
+            assertTrue("Traffic Challan submitted", support.await(activity,
+                "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 15000))
+            val challanRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:business-expenses:entry:") &&
+                    JSONObject(row.json).getJSONObject("data").let { data ->
+                        data.optString("sourceKind") == "traffic_challan" &&
+                            data.optString("description") == marker + " traffic challan"
+                    }
+            }
+            assertEquals("One Traffic Challan source record", 1, challanRows.size)
+            val challan = challanRows.single()
+            val challanData = JSONObject(challan.json).getJSONObject("data")
+            assertEquals("Traffic Challan amount persists in paise", 30000, challanData.getInt("amountPaise"))
+            assertEquals("Traffic Challan Vehicle persists", vehicleRecordId, challanData.getString("vehicleId"))
+            assertEquals("Traffic Challan payment status persists", "paid", challanData.getString("paymentStatus"))
+            assertEquals("Traffic Challan reference persists", "CHALLAN-" + marker, challanData.getString("reference"))
 
             support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
@@ -218,23 +231,24 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Performance target saved", support.await(activity, "document.body.innerText.includes('Monthly Driver Target saved')", 15000))
             assertEquals("Performance target persisted in Room", 900000,
                 JSONObject(db.records().get("feature:performance:settings")!!.json).getJSONObject("data").getInt("monthlyDriverTargetPaise"))
-            support.set(activity, "Amount (₹)", "200")
-            support.set(activity, "What was this cost for?", marker + " pre-business cost")
-            support.click(activity, "Add pre-business cost")
-            assertTrue("Pre-business cost saved", support.await(activity, "document.body.innerText.includes('Pre-business cost entry saved')", 15000))
+            setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Amount (₹)", "200")
+            setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "What was this cost for?", marker + " pre-business cost")
+            clickInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Add pre-business cost")
+            assertTrue("Pre-business cost saved", support.await(activity,
+                "(()=>{const p=[...document.querySelectorAll('div.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Pre-business costs');return p?.querySelector('[role=status]')?.textContent.includes('Pre-business cost entry saved')===true})()", 15000))
             val preBusinessCost = db.records().list().singleOrNull {
                 it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
             }
             assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
 
             support.click(activity, "＋ Fuel entry")
-            support.set(activity, "Vehicle", vehicleRecordId!!)
-            support.set(activity, "Odometer (km)", "56000")
-            support.set(activity, "Price per kg (₹)", "82.5")
-            support.set(activity, "Amount paid (₹)", "825")
+            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
+            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
+            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
+            setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
             assertTrue("Fuel defaults to full refill", support.await(activity,
                 "!document.querySelector('.fuel-entry-panel label.fuel-partial-choice input')?.checked", 5000))
-            support.click(activity, "Submit fuel purchase")
+            clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
             assertTrue("Fuel purchase saved", support.await(activity,
                 "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
             val fuel = db.records().list().singleOrNull { row ->
@@ -260,5 +274,30 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             instrumentation.runOnMainSync { activity.finish() }
             db.close()
         }
+    }
+
+    private fun setInPanel(
+        activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
+        selector: String, heading: String, label: String, value: String,
+    ) {
+        val safeHeading = heading.replace("'", "\\'")
+        val safeLabel = label.replace("'", "\\'")
+        val safeValue = value.replace("'", "\\'")
+        val panel = "(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');return !!p&&[...p.querySelectorAll('label')].some(n=>n.textContent.trim().startsWith('$safeLabel'))})()"
+        assertTrue("Field $label exists in $heading", support.await(activity, panel, 15000))
+        val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$safeLabel'));const c=l?.querySelector('input,select,textarea');if(!c)return false;const proto=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(c,'$safeValue');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
+        check(support.javascriptValue(activity, script) == "true") { "Could not set $label in $heading" }
+    }
+
+    private fun clickInPanel(
+        activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
+        selector: String, heading: String, button: String,
+    ) {
+        val safeHeading = heading.replace("'", "\\'")
+        val safeButton = button.replace("'", "\\'")
+        val query = "(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');return !!p&&[...p.querySelectorAll('button')].some(n=>n.textContent.trim()==='$safeButton'&&!n.disabled)})()"
+        assertTrue("Action $button exists in $heading", support.await(activity, query, 15000))
+        val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$safeHeading');const b=[...p.querySelectorAll('button')].find(n=>n.textContent.trim()==='$safeButton');if(!b)return false;b.click();return true})()"""
+        check(support.javascriptValue(activity, script) == "true") { "Could not click $button in $heading" }
     }
 }
