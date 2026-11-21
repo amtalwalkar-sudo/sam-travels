@@ -249,7 +249,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 .put("recoveryKey", recoveryKey)
                 .put("backup", encrypted)
                 .put("expectedSnapshot", source.snapshot)
-            context.cacheDir.resolve("android-encrypted-semantic-backup-v2.json")
+            requireNotNull(context.getExternalFilesDir(null))
+                .resolve("android-populated-semantic-backup-v2.json")
                 .writeText(androidArtifact.toString())
 
             // Restore the matching TypeScript-produced encrypted package into
