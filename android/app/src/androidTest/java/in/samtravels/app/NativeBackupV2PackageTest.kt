@@ -28,7 +28,7 @@ class NativeBackupV2PackageTest {
             .put("schemaVersion", 1)
             .put("createdAt", "2026-11-04T00:00:00.000Z")
             .put("businessTimezone", "Asia/Kolkata")
-            .put("snapshotRevision", 7)
+            .put("snapshotRevision", 0)
             .put("recordCounts", JSONObject()
                 .put("records", 1).put("driverState", 0).put("driverIntents", 0)
                 .put("driverEvents", 0).put("driverOutbox", 0))
