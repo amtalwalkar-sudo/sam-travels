@@ -41,7 +41,16 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(_success, error) { error?.({ code: 1, message: "Permission denied" }); } },
+      value: {
+        getCurrentPosition(success) {
+          success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() });
+        },
+        watchPosition(success) {
+          success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() });
+          return 1;
+        },
+        clearWatch() {},
+      },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
