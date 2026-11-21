@@ -115,17 +115,11 @@ class BackupPlugin : Plugin() {
         }
         executor.execute {
             try {
-                val packageBytes = backup.toString().toByteArray(Charsets.UTF_8)
-                require(packageBytes.size <= 512 * 1024 * 1024) { "backup_package_too_large" }
-                val plaintext = NativeBackupV2Package.decrypt(backup, recoveryKey)
-                val snapshot = JSONObject(plaintext.toString(Charsets.UTF_8))
-                val manifest = backup.optJSONObject("manifest") ?: error("backup_invalid_envelope")
-                // Authentication and complete snapshot validation happen before
-                // recovery/checkpoint creation inside the production coordinator.
-                ensureStartupRecovery()
-                val result = NativeBackupRestoreCoordinator.restore(
-                    db, snapshot, manifest, ::makeSnapshot,
-                )
+                // The coordinator authenticates the package before entering
+                // its existing Room checkpoint/replacement/recovery transaction.
+                val result = NativeBackupRestoreCoordinator.restoreEncrypted(
+                    db, backup, recoveryKey, ::makeSnapshot,
+                ) { ensureStartupRecovery() }
                 val out = JSObject()
                 out.put("checkpointId", result.checkpointId)
                 out.put("restoredCount", result.restoredCount)
@@ -244,6 +238,29 @@ class BackupPlugin : Plugin() {
  */
 internal object NativeBackupRestoreCoordinator {
     data class RestoreResult(val checkpointId: String, val restoredCount: Int)
+
+    /**
+     * Authenticated v2 package entry point shared by production plugin and
+     * populated-fixture instrumentation. No Room checkpoint is written until
+     * package size, AES-GCM authentication and plaintext decoding succeed.
+     */
+    fun restoreEncrypted(
+        database: LocalDatabase,
+        backup: JSONObject,
+        recoveryKey: String,
+        makeSnapshot: () -> NativeSnapshotBundle,
+        beforeRestore: () -> Unit = {},
+    ): RestoreResult {
+        val packageBytes = backup.toString().toByteArray(Charsets.UTF_8)
+        require(packageBytes.size <= 512 * 1024 * 1024) { "backup_package_too_large" }
+        val plaintext = NativeBackupV2Package.decrypt(backup, recoveryKey)
+        val snapshot = JSONObject(plaintext.toString(Charsets.UTF_8))
+        val manifest = backup.optJSONObject("manifest") ?: error("backup_invalid_envelope")
+        BackupSnapshotContract.validateSnapshot(snapshot)
+        BackupSnapshotContract.validateManifest(manifest)
+        beforeRestore()
+        return restore(database, snapshot, manifest, makeSnapshot)
+    }
 
     fun restore(
         database: LocalDatabase,

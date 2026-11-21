@@ -145,9 +145,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
             )
             assertEquals(source.snapshot.toString(), decryptedForAssertion.toString(Charsets.UTF_8))
-            val restored = NativeBackupRestoreCoordinator.restore(
-                database, JSONObject(decryptedForAssertion.toString(Charsets.UTF_8)),
-                encrypted.getJSONObject("manifest"),
+            val restored = NativeBackupRestoreCoordinator.restoreEncrypted(
+                database, encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back") },
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), restored.restoredCount)
