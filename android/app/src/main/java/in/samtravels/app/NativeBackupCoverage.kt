@@ -338,7 +338,12 @@ internal object NativeBackupRecovery {
             )
         }
 
-        val restored = NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord)
+        // Checkpoint records use the canonical interchange owner model, while
+        // Room exports Finance through its payment/prepayment adapter owners.
+        // Compare the same wire representation on both sides of rollback.
+        val restored = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(
+            NativeBackupCoverage.exportBusinessRecords(database, ::isInternalRecord),
+        )
         require(canonicalRecords(restored) == canonicalRecords(oldRecords)) {
             "checkpoint_rollback_integrity_mismatch"
         }
