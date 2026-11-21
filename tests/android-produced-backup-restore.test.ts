@@ -43,10 +43,14 @@ describe("Android-produced populated encrypted package through production Browse
   it.skipIf(!existsSync("fixtures/generated/android-populated-semantic-backup-v2.json"))("authenticates, restores, reopens and re-exports the Android writer's populated Stage 1 graph", async () => {
     const fixture = JSON.parse(readFileSync(
       "fixtures/generated/android-populated-semantic-backup-v2.json", "utf8",
-    )) as { recoveryKey: string; backup: unknown };
+    )) as { recoveryKey: string; backup: unknown; expectedSnapshot: unknown };
     const backup = parseBackupPackage(new TextEncoder().encode(JSON.stringify(fixture.backup)));
     const plaintext = await decryptBackupWithRecoveryKey(backup, fixture.recoveryKey);
     const importedCanonical = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext));
+    // The Android artifact carries the exact canonical Room export that was
+    // encrypted. Check the decrypted payload against that source oracle before
+    // exercising Browser/Dexie production restore.
+    expect(importedCanonical).toEqual(fixture.expectedSnapshot);
 
     const restored = await restoreBackupForCurrentRuntime({
       backup,
