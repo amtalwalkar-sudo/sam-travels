@@ -96,6 +96,48 @@ class BackupPlugin : Plugin() {
             }
         }
     }
+    /**
+     * Production encrypted-package entry point. Authenticate and parse the v2
+     * package before startup recovery or any destination checkpoint/mutation.
+     */
+    @PluginMethod
+    fun restoreEncryptedPackage(call: PluginCall) {
+        val confirmed = call.getBoolean("confirmed") ?: false
+        val backup = call.getObject("backup")
+        val recoveryKey = call.getString("recoveryKey")
+        if (!confirmed) {
+            call.reject("Explicit restore confirmation is required", "RESTORE_CONFIRMATION_REQUIRED")
+            return
+        }
+        if (backup == null || recoveryKey.isNullOrBlank()) {
+            call.reject("Encrypted package and recovery key are required")
+            return
+        }
+        executor.execute {
+            try {
+                val packageBytes = backup.toString().toByteArray(Charsets.UTF_8)
+                require(packageBytes.size <= 512 * 1024 * 1024) { "backup_package_too_large" }
+                val plaintext = NativeBackupV2Package.decrypt(backup, recoveryKey)
+                val snapshot = JSONObject(plaintext.toString(Charsets.UTF_8))
+                val manifest = backup.optJSONObject("manifest") ?: error("backup_invalid_envelope")
+                // Authentication and complete snapshot validation happen before
+                // recovery/checkpoint creation inside the production coordinator.
+                ensureStartupRecovery()
+                val result = NativeBackupRestoreCoordinator.restore(
+                    db, snapshot, manifest, ::makeSnapshot,
+                )
+                val out = JSObject()
+                out.put("checkpointId", result.checkpointId)
+                out.put("restoredCount", result.restoredCount)
+                call.resolve(out)
+            } catch (error: Exception) {
+                LocalDiagnostics.record(context, "recovery", "restore_encrypted_package", "backup", "restore_failed")
+                call.reject("Encrypted restore failed; source data or recovery checkpoint was preserved: " +
+                    (error.message ?: "unknown failure"), "RESTORE_FAILED", error)
+            }
+        }
+    }
+
     @PluginMethod
     fun recoverPendingCheckpoints(call: PluginCall) {
         executor.execute {

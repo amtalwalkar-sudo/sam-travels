@@ -134,8 +134,20 @@ class SharedSevenDomainBackupLifecycleTest {
             database.records().put(StoredRecord(
                 "feature:business-settings:business", emptyOwnerStale.toString(), 1, at,
             ))
+            // Exercise the same encrypted-package-to-production-Room path
+            // used by BackupPlugin, rather than passing a pre-decrypted snapshot.
+            val encrypted = NativeBackupV2Package.create(
+                source.snapshot.toString().toByteArray(Charsets.UTF_8),
+                source.manifest,
+                "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            )
+            val decryptedForAssertion = NativeBackupV2Package.decrypt(
+                encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+            )
+            assertEquals(source.snapshot.toString(), decryptedForAssertion.toString(Charsets.UTF_8))
             val restored = NativeBackupRestoreCoordinator.restore(
-                database, source.snapshot, source.manifest,
+                database, JSONObject(decryptedForAssertion.toString(Charsets.UTF_8)),
+                encrypted.getJSONObject("manifest"),
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back") },
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), restored.restoredCount)

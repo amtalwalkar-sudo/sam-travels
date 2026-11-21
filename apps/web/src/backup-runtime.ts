@@ -27,6 +27,7 @@ type RoomBackupApi = {
   consumeOAuthCallback(): Promise<{ url?: string }>;
   exportSnapshot(): Promise<{ snapshot: RoomSnapshot; manifest: SnapshotManifest }>;
   restoreSnapshot(input: { snapshot: RoomSnapshot; manifest: BackupManifest; confirmed: boolean }): Promise<{ checkpointId: string; restoredCount: number }>;
+  restoreEncryptedPackage(input: { backup: BackupPackage; recoveryKey: string; confirmed: boolean }): Promise<{ checkpointId: string; restoredCount: number }>;
   listCheckpoints(): Promise<{ checkpoints: Array<{ id: string; createdAt: string; status: string }> }>;
   markRestoreVerified(input: { checkpointId: string }): Promise<void>;
   discardVerifiedCheckpoint(input: { checkpointId: string }): Promise<void>;
@@ -91,6 +92,23 @@ export async function restoreBackupForCurrentRuntime(input: {
   confirmed: boolean;
 }): Promise<{ checkpointId: string; restoredCount: number }> {
   if (!input.confirmed) throw new Error("backup_restore_confirmation_required");
+  // Installed Android authenticates the encrypted wire package in the
+  // native Backup plugin before invoking the production Room restore
+  // coordinator. Browser continues to use the shared TypeScript decryptor.
+  if (Capacitor.isNativePlatform() && "recoveryKey" in input.secret) {
+    await recoverPendingBackupTransactions();
+    try {
+      const result = await NativeBackup.restoreEncryptedPackage({
+        backup: input.backup,
+        recoveryKey: input.secret.recoveryKey,
+        confirmed: true,
+      });
+      return { checkpointId: result.checkpointId, restoredCount: result.restoredCount };
+    } catch (error) {
+      startupRecovery = undefined;
+      throw error;
+    }
+  }
   const argon2id = new HashWasmArgon2idProvider();
   const plaintext = "passphrase" in input.secret
     ? await decryptBackupWithPassphrase(input.backup, input.secret.passphrase, argon2id)
