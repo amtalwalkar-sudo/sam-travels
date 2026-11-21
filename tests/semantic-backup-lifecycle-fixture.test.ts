@@ -342,14 +342,14 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       try {
         encryptedCanonical = await createEncryptedBackup({
           plaintext: new TextEncoder().encode(JSON.stringify(canonical)),
-          manifest: exported.manifest,
+          manifest: { ...exported.manifest, recordCounts: { records: canonical.records.length } },
           mode: "recovery-key-only",
           recoveryKey,
         });
         mkdirSync("android/app/src/androidTest/assets/generated", { recursive: true });
         writeFileSync(
           "android/app/src/androidTest/assets/generated/ts-populated-semantic-backup-v2.json",
-          JSON.stringify({ recoveryKey, backup: encryptedCanonical.backup }),
+          JSON.stringify({ recoveryKey, backup: encryptedCanonical.backup, expectedSnapshot: canonical }),
         );
       } finally {
         random.mockRestore();

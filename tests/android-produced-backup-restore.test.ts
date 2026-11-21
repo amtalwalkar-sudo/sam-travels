@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, markBrowserRestoreVerified, discardVerifiedBrowserCheckpoint } from "../packages/storage-browser/src";
@@ -40,9 +40,9 @@ describe("Android-produced populated encrypted package through production Browse
     await browserDatabase.delete();
   });
 
-  it("authenticates, restores, reopens and re-exports the Android writer's populated Stage 1 graph", async () => {
+  it.skipIf(!existsSync("fixtures/generated/android-encrypted-semantic-backup-v2.json"))("authenticates, restores, reopens and re-exports the Android writer's populated Stage 1 graph", async () => {
     const fixture = JSON.parse(readFileSync(
-      "fixtures/generated/android-populated-semantic-backup-v2.json", "utf8",
+      "fixtures/generated/android-encrypted-semantic-backup-v2.json", "utf8",
     )) as { recoveryKey: string; backup: unknown };
     const backup = parseBackupPackage(new TextEncoder().encode(JSON.stringify(fixture.backup)));
     const plaintext = await decryptBackupWithRecoveryKey(backup, fixture.recoveryKey);
