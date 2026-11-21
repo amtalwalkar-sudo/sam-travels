@@ -9,35 +9,30 @@ describe("Finance loan prepayment re-amortization v1", () => {
       principalPaise: 10_000_000, annualInterestRateBasisPoints: 1200,
       tenureMonths: 12, loanStartDate: "2026-02-01", firstEmiDate: "2026-02-01",
     }).regularEmiPaise;
+    const remainingDueDates = Array.from({ length: 20 }, (_, index) => {
+        const date = new Date(Date.UTC(2026, 1 + index, 1));
+        return date.toISOString().slice(0, 10);
+      });
     const result = calculateLoanPrepaymentReamortizationV1({
       baselinePrincipalPaise: 10_000_000, principalPaise: 9_000_000,
       annualInterestRateBasisPoints: 1200, regularEmiPaise: baselineEmi,
-      remainingDueDates: Array.from({ length: 20 }, (_, index) => {
-        const date = new Date(Date.UTC(2026, 1 + index, 1));
-        return date.toISOString().slice(0, 10);
-      }), mode: "reduce_tenure",
+      remainingDueDates, mode: "reduce_tenure",
     });
     expect(result.regularEmiPaise).toBe(baselineEmi);
+    expect(result.rows.every((row, index) => row.dueDate === remainingDueDates[index])).toBe(true);
+    expect(result.finalDueDate).toBeLessThan(remainingDueDates.at(-1)!);
     expect(result.remainingInstallmentCount).toBeLessThan(20);
     expect(result.rows.at(-1)?.closingPrincipalPaise).toBe(0);
     expect(result.interestSavedPaise).toBeGreaterThan(0);
   });
 
-  it("keeps the remaining installment dates and reduces EMI in Reduce EMI mode", () => {
-    const baselineEmi = calculateLoanEmiQuote({
-      principalPaise: 10_000_000, annualInterestRateBasisPoints: 1200,
-      tenureMonths: 4, loanStartDate: dates[0], firstEmiDate: dates[0],
-    }).regularEmiPaise;
-    const result = calculateLoanPrepaymentReamortizationV1({
+  it("rejects the unsupported Reduce EMI mode at the calculation boundary", () => {
+    const invalid = {
       baselinePrincipalPaise: 10_000_000, principalPaise: 9_000_000,
-      annualInterestRateBasisPoints: 1200, regularEmiPaise: baselineEmi,
+      annualInterestRateBasisPoints: 1200, regularEmiPaise: 250_000,
       remainingDueDates: dates, mode: "reduce_emi",
-    });
-    expect(result.regularEmiPaise).toBeLessThan(baselineEmi);
-    expect(result.remainingInstallmentCount).toBe(dates.length);
-    expect(result.rows.map(row => row.dueDate)).toEqual(dates);
-    expect(result.rows.at(-1)?.closingPrincipalPaise).toBe(0);
-    expect(result.interestSavedPaise).toBeGreaterThan(0);
+    } as unknown as Parameters<typeof calculateLoanPrepaymentReamortizationV1>[0];
+    expect(() => calculateLoanPrepaymentReamortizationV1(invalid)).toThrow("finance_loan_prepayment_input_invalid");
   });
 
   it("handles zero interest with exact final installment adjustment", () => {
