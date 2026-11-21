@@ -124,8 +124,15 @@ class NativeFinancePaymentBackupTest {
             val restored = database.records().get(paymentLedgerId)
             assertNotNull(restored)
             assertNotNull(database.records().get(prepaymentStateId))
-            assertEquals("payment-1", JSONObject(restored!!.json).getJSONObject("data")
-                .getJSONArray("entries").getJSONObject(0).getString("id"))
+            val restoredPayment = JSONObject(restored!!.json).getJSONObject("data")
+                .getJSONArray("entries").getJSONObject(0)
+            assertEquals("payment-1", restoredPayment.getString("id"))
+            assertEquals("person-1", restoredPayment.getJSONObject("createdBy").getString("personId"))
+            assertEquals("admin", restoredPayment.getJSONObject("createdBy").getString("role"))
+            val restoredPrepayment = JSONObject(database.records().get(prepaymentStateId)!!.json)
+                .getJSONObject("data").getJSONArray("revisions").getJSONObject(0).getJSONObject("createdBy")
+            assertEquals("person-1", restoredPrepayment.getString("personId"))
+            assertEquals("admin", restoredPrepayment.getString("role"))
             NativeBackupCoverage.validateBusinessRecords(
                 NativeBackupCoverage.exportBusinessRecords(database) { false },
                 requireExplicitOwnerTags = true,
@@ -152,6 +159,34 @@ class NativeFinancePaymentBackupTest {
                 .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-records"))
             NativeBackupCoverage.validateParticipantManifest(legacy, oldLoanSnapshot)
         } finally {
+            financeRegistration.close()
+            vehicleRegistration.close()
+        }
+    }
+
+    @Test fun rejectsDriverAuthorshipInFinancePaymentBackup() {
+        val vehicleRegistration = NativeVehicleBackup.register()
+        val financeRegistration = NativeFinanceBackup.register()
+        val prepaymentRegistration = NativeFinancePrepaymentBackup.register()
+        try {
+            val invalidPayment = JSONObject(paymentRecord().json)
+            val payment = invalidPayment.getJSONObject("data").getJSONArray("entries").getJSONObject(0)
+            payment.getJSONObject("createdBy").put("role", "driver")
+            val snapshot = JSONArray()
+                .put(JSONObject().put("id", vehicleId).put("json", vehicleRecord().json)
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "vehicle-records"))
+                .put(JSONObject().put("id", loanId).put("json", loanRecord().json)
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-records"))
+                .put(JSONObject().put("id", prepaymentStateId).put("json", prepaymentRecord().json)
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-prepayment-records"))
+                .put(JSONObject().put("id", paymentLedgerId).put("json", invalidPayment.toString())
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-payment-records"))
+            val failure = runCatching {
+                NativeBackupCoverage.validateBusinessRecords(snapshot, requireExplicitOwnerTags = true)
+            }.exceptionOrNull()
+            assertEquals("finance_payment_entry_invalid", failure?.message)
+        } finally {
+            prepaymentRegistration.close()
             financeRegistration.close()
             vehicleRegistration.close()
         }
