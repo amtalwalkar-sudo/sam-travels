@@ -377,3 +377,31 @@ This section supersedes the earlier broad candidate backlog where it conflicts w
 
 
 **CI note:** The first workflow created while these commits were arriving was cancelled during PR-head synchronization; its integrated gate failed because prerequisite jobs were cancelled, not because a test assertion failed. Re-run the complete workflow against the final PR head before treating either new acceptance test as passing.
+
+## Calculation/provenance and entry-path audit — 2026-11-21
+
+**Scope:** calculation correctness, source/revision provenance, and actual PWA/Android entry-to-persistence paths only. This addendum supersedes earlier first-pass observations above only where they describe these same items; it does not close unrelated B0/Track B requirements.
+
+### Calculation and provenance
+
+- **Work/Shift distance:** existing service and cross-runtime tests cover authoritative odometer readings, personal distance before the next shift, business-distance allocation, 04:00 rotation/defer/retry and browser–Room parity.
+- **Maintenance accrual:** existing integration tests verify only confirmed allocated business kilometres accrue, the operational-date rate is snapshotted, and historical daily accruals remain immutable after rate changes.
+- **Compliance and EMI:** existing allocation tests cover pre-business amounts being amortised from the configured business start date; loan calculations use complete EMI rather than separately amortising principal and interest.
+- **Loan prepayment:** the calculation now exposes only reduce_tenure; the pure calculator, service and persisted-history validator reject reduce_emi. Regression coverage asserts unchanged regular EMI and due dates, with an earlier final due date.
+- **Performance:** calculation tests cover deterministic source snapshots, source IDs/revisions, fixed-rupee Driver Target, pre-business costs, and the operating/full-cost distinction.
+- **Fuel and expenses:** existing calculation tests cover amount ÷ price/kg quantity derivation, full-to-full mileage intervals, partial-refill expense inclusion without checkpoint inclusion, and Traffic Challan exclusion from operating cost but inclusion in full cost.
+- **Corrections:** existing correction tests preserve original records and trace correction-chain provenance; Maintenance and Compliance projections are tested at their owning service/read-model boundaries.
+
+### Entry paths exercised
+
+- **PWA:** the rendered Admin acceptance covers Business Setup, Vehicle, Driver, Compliance, Traffic Challan, Finance, Platform Fee, Miscellaneous Expense, Maintenance and Performance forms. It now also submits a linked Compliance renewal and exercises Work shift start/end with odometer input, then reloads and checks the confirmed odometer. The dedicated Fuel acceptance submits a purchase and exercises draft recovery.
+- **Android Room-backed WebView:** AdminFormsCapacitorAcceptanceTest covers the existing Admin setup and Maintenance/Platform Fee/Miscellaneous paths. AdminEntryPathAuditCapacitorAcceptanceTest adds actual submission and Room readback for linked Compliance renewal, Traffic Challan, Finance payment/prepayment/settlement, Performance target/pre-business cost, and Fuel purchase. Scoped form helpers ensure similarly named controls in other Admin panels are not clicked or populated accidentally.
+- **Driver assignment:** existing Android acceptance verifies the selected Driver and Vehicle IDs are persisted in the Work selection and assignment records.
+
+### Remaining evidence gaps within this scope
+
+- **Business start date Android readback:** the Android form test verifies the operation receipt, but does not yet assert the saved business-start-date value after a Room read/reopen.
+- **PWA trip transitions:** rendered PWA shift start/end is now exercised; trip start/complete/cancel and cancellation-fee action-to-commit remain unproven through the PWA surface. Existing service and Android overlay tests are not substitutes for that rendered PWA path.
+- **Actor attribution:** direct Finance payment, prepayment and settlement atomic writes carry source metadata but do not yet prove createdBy/actor attribution consistently. Keep this separate from the calculation-source/revision provenance that is already tested.
+- **Finance payment-allocation policy:** the existing Finance payment-allocation contract remains Proposed; UI/service mechanics passing tests do not ratify the business policy.
+
