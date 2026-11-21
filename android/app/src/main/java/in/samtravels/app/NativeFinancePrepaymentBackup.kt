@@ -77,7 +77,7 @@ internal object NativeFinancePrepaymentBackup {
                     commandId.isNotBlank() && commands.add(commandId) &&
                     date(revision.optString("effectiveDate")).toString() == revision.optString("effectiveDate") &&
                     validInstant(createdAt) && (previousCreatedAt.isEmpty() || createdAt >= previousCreatedAt) &&
-                    mode in setOf("reduce_tenure", "reduce_emi") && amount < before && after == before - amount &&
+                    mode == "reduce_tenure" && amount < before && after == before - amount &&
                     revision.optString("calculationId") == CALCULATION_ID &&
                     integer(revision, "calculationVersion", 1) == 1L &&
                     integer(revision, "inputSchemaVersion", 1) == 1L &&

@@ -220,7 +220,10 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Settlement date", "2026-02-01")
             support.click(activity, "Check settlement amount")
             assertTrue("Settlement preview shown", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
-            support.click(activity, "Confirm settlement and close Loan")
+            val settlementConfirmState = support.javascriptValue(activity, """(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));return JSON.stringify({found:!!b,disabled:b?.disabled===true,text:b?.textContent?.trim()})})()""")
+            assertTrue("Settlement confirmation becomes available: " + settlementConfirmState, support.await(activity,
+                "(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));return !!b&&!b.disabled})()", 15000))
+            support.eval(activity, "(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('Confirm settlement and close Loan'));b?.click()})()")
             assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
             assertEquals("Loan closed in Room", "closed",
                 JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))

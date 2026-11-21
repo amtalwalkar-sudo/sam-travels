@@ -64,15 +64,15 @@ class NativeFinancePaymentBackupTest {
             .put("closingPrincipalPaise", 0).put("finalAdjusted", true)
         val input = JSONObject().put("principalPaise", 5000).put("baselinePrincipalPaise", 10000)
             .put("annualInterestRateBasisPoints", 0).put("regularEmiPaise", 10000)
-            .put("remainingDueDates", JSONArray().put("2026-11-01")).put("mode", "reduce_emi")
+            .put("remainingDueDates", JSONArray().put("2026-11-01")).put("mode", "reduce_tenure")
         val output = JSONObject().put("calculationId", "finance.loan-prepayment-reamortization.v1")
-            .put("calculationVersion", 1).put("mode", "reduce_emi").put("openingPrincipalPaise", 5000)
-            .put("regularEmiPaise", 5000).put("remainingInstallmentCount", 1).put("finalDueDate", "2026-11-01")
+            .put("calculationVersion", 1).put("mode", "reduce_tenure").put("openingPrincipalPaise", 5000)
+            .put("regularEmiPaise", 10000).put("remainingInstallmentCount", 1).put("finalDueDate", "2026-11-01")
             .put("rows", JSONArray().put(row)).put("totalInterestPaise", 0)
             .put("totalScheduledPaymentsPaise", 5000).put("baselineRemainingInterestPaise", 0)
             .put("interestSavedPaise", 0)
         val revision = JSONObject().put("version", 2).put("commandId", "prepayment-command-1")
-            .put("effectiveDate", "2026-10-15").put("createdAt", timestamp).put("mode", "reduce_emi")
+            .put("effectiveDate", "2026-10-15").put("createdAt", timestamp).put("mode", "reduce_tenure")
             .put("principalBeforePaise", 10000).put("prepaymentAmountPaise", 5000)
             .put("principalAfterPaise", 5000).put("calculationId", "finance.loan-prepayment-reamortization.v1")
             .put("calculationVersion", 1).put("inputSchemaVersion", 1).put("outputSchemaVersion", 1)
@@ -150,6 +150,35 @@ class NativeFinancePaymentBackupTest {
                 .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-records"))
             NativeBackupCoverage.validateParticipantManifest(legacy, oldLoanSnapshot)
         } finally {
+            financeRegistration.close()
+            vehicleRegistration.close()
+        }
+    }
+
+    @Test fun rejectsReduceEmiPrepaymentHistoryDuringRoomBackupValidation() {
+        val vehicleRegistration = NativeVehicleBackup.register()
+        val financeRegistration = NativeFinanceBackup.register()
+        val prepaymentRegistration = NativeFinancePrepaymentBackup.register()
+        try {
+            val invalid = prepaymentRecord()
+            val envelope = JSONObject(invalid.json)
+            val revision = envelope.getJSONObject("data").getJSONArray("revisions").getJSONObject(0)
+            revision.put("mode", "reduce_emi")
+            revision.getJSONObject("input").put("mode", "reduce_emi")
+            revision.getJSONObject("output").put("mode", "reduce_emi")
+            val snapshot = JSONArray()
+                .put(JSONObject().put("id", vehicleId).put("json", vehicleRecord().json)
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "vehicle-records"))
+                .put(JSONObject().put("id", loanId).put("json", loanRecord().json)
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-records"))
+                .put(JSONObject().put("id", prepaymentStateId).put("json", envelope.toString())
+                    .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "finance-prepayment-records"))
+            val failure = runCatching {
+                NativeBackupCoverage.validateBusinessRecords(snapshot, requireExplicitOwnerTags = true)
+            }.exceptionOrNull()
+            assertEquals("finance_loan_prepayment_revision_invalid", failure?.message)
+        } finally {
+            prepaymentRegistration.close()
             financeRegistration.close()
             vehicleRegistration.close()
         }

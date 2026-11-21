@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { exerciseWorkShiftEntryPath, exerciseComplianceRenewalEntryPath } from "./admin-entry-path-audit.mjs";
+import { exerciseWorkShiftEntryPath, exerciseWorkTripEntryPaths, exerciseComplianceRenewalEntryPath } from "./admin-entry-path-audit.mjs";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
@@ -342,6 +342,7 @@ try {
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await exerciseWorkShiftEntryPath(page);
+  await exerciseWorkTripEntryPaths(page);
 
 } finally {
   if (browser) await browser.close();

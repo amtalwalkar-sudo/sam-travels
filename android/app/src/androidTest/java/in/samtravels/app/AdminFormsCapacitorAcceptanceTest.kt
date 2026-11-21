@@ -209,6 +209,10 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+            val businessSettings = db.records().get("feature:business-settings:business")
+            assertNotNull("Business start date record survives Room close/reopen", businessSettings)
+            assertEquals("Business start date value survives Room close/reopen", "2024-01-01",
+                org.json.JSONObject(businessSettings!!.json).getJSONObject("data").getString("businessStartDate"))
             val records = db.records().list().joinToString("\n") { it.json }
             listOf(registration, marker + " Driver", marker + " Insurance",
                 marker + " Loan", "FEE-" + marker, "PARK-" + marker, marker + " service visit")
