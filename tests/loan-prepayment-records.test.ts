@@ -52,6 +52,20 @@ describe("Finance loan prepayment history model", () => {
     expect(() => assertFinanceLoanPrepaymentStateV1(inconsistent, loan, value.loanId))
       .toThrow("finance_loan_prepayment_revision_invalid");
   });
+  it("rejects unsupported Reduce EMI history even when its calculation fields are internally present", () => {
+    const value = state();
+    const revision = value.revisions[0];
+    const invalid = {
+      ...value,
+      revisions: [{
+        ...revision,
+        mode: "reduce_emi",
+        input: { ...revision.input, mode: "reduce_emi" },
+      }],
+    };
+    expect(() => assertFinanceLoanPrepaymentStateV1(invalid, loan, value.loanId))
+      .toThrow("finance_loan_prepayment_revision_invalid");
+  });
   it("rejects an unrelated loan identity", () => {
     const value = state();
     expect(() => assertFinanceLoanPrepaymentStateV1(value, loan, "feature:finance:loan:other"))
