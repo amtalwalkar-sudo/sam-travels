@@ -220,6 +220,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Settlement date", "2026-02-01")
             support.click(activity, "Check settlement amount")
             assertTrue("Settlement preview shown", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
+            // The production confirmation uses window.confirm; accept it in this instrumentation path.
+            support.eval(activity, "window.confirm = () => true")
             AdminEntryPathAuditTestSupport.clickEnabled(activity, support, "Confirm settlement and close Loan")
             assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
             assertEquals("Loan closed in Room", "closed",
