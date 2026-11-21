@@ -221,7 +221,7 @@ internal object NativeBackupRestoreCoordinator {
         beforeRestore: () -> Unit = {},
     ): RestoreResult {
         val packageBytes = backup.toString().toByteArray(Charsets.UTF_8)
-        require(packageBytes.size <= 512 * 1024 * 1024) { "backup_package_too_large" }
+        requireBackupPackageByteLength(packageBytes.size.toLong())
         val plaintext = NativeBackupV2Package.decrypt(backup, recoveryKey)
         val snapshot = JSONObject(plaintext.toString(Charsets.UTF_8))
         val manifest = backup.optJSONObject("manifest") ?: error("backup_invalid_envelope")
