@@ -7,7 +7,6 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -28,8 +27,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val marker = "Admin Android " + UUID.randomUUID().toString().take(8)
-        var fuelRecordId: String? = null
-        val extraFinanceRecordIds = mutableListOf<String>()
         val activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
@@ -48,8 +45,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
                 "driver" to "Add driver", "compliance" to "Configure exactly one active Vehicle before recording compliance.",
-                "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.",
-                "performance" to "Monthly Driver Target (₹)")
+                "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
                 assertTrue("Section $id", await(activity,
@@ -62,10 +58,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             clickMatching(activity, "Set business start date|Save changes")
             assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
             assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
-            val savedBusinessSettings = db.records().get("feature:business-settings:business")
-            assertNotNull("Business start date record persisted in Room", savedBusinessSettings)
-            assertEquals("Business start date read-after-write", "2024-01-01",
-                JSONObject(savedBusinessSettings!!.json).getJSONObject("data").getString("businessStartDate"))
 
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             click(activity, "Add vehicle")
@@ -142,36 +134,8 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 savedComplianceData.getString("vehicleId"))
             assertRoomOperationReceiptExists(db, savedCompliance!!.id)
 
-            click(activity, "Add compliance / renewal")
-            set(activity, "Compliance type / name", marker + " Insurance")
-            set(activity, "Valid from", "2027-11-16")
-            set(activity, "Valid until", "2028-11-16")
-            set(activity, "Total cost (₹)", "12500")
-            assertTrue("Compliance renewal predecessor is selectable", await(activity,
-                "(()=>{const s=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Renewing previous record'))?.querySelector('select');return !!s&&[...s.options].some(o=>o.value==='" + savedCompliance!!.id + "')})()", 10000))
-            set(activity, "Renewing previous record", savedCompliance!!.id)
-            click(activity, "Save record")
-            assertTrue("Compliance renewal saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
-            val savedRenewal = db.records().list().singleOrNull { row ->
-                val data = JSONObject(row.json).getJSONObject("data")
-                row.id.startsWith("feature:compliance:") && data.optString("renewedFromRecordId") == savedCompliance!!.id
-            }
-            assertNotNull("Linked Compliance renewal persisted in Room", savedRenewal)
-            assertEquals("Renewal preserves predecessor identity",
-                savedCompliance!!.id, JSONObject(savedRenewal!!.json).getJSONObject("data").getString("renewedFromRecordId"))
-
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
-            set(activity, "Issue date", "2026-11-15")
-            set(activity, "Vehicle", vehicleRecordId)
-            set(activity, "Challan amount (₹)", "300")
-            set(activity, "Reason", marker + " traffic challan")
-            set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
-            set(activity, "Payment status", "paid")
-            click(activity, "Save expense")
-            assertTrue("Traffic challan submitted", await(activity, "document.body.innerText.includes('Saved.')", 15000))
-            val savedChallan = db.records().list().singleOrNull { it.json.contains("CHALLAN-" + marker) }
-            assertNotNull("Traffic challan record persisted in Room", savedChallan)
 
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
@@ -195,75 +159,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertRoomOperationReceiptExists(db, loanRecord!!.id)
             assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
-            val loanUuid = loanRecord!!.id.removePrefix("feature:finance:loan:")
-            val originalSchedule = JSONObject(loanRecord!!.json).getJSONObject("data")
-                .getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
-            val regularEmiPaise = originalSchedule.getInt("regularEmiPaise")
-            val originalRows = originalSchedule.getJSONArray("rows")
-            val originalFinalDueDate = originalRows.getJSONObject(originalRows.length() - 1).getString("dueDate")
-
-            click(activity, "Prepay principal")
-            set(activity, "Prepayment date", "2026-01-15")
-            set(activity, "Principal amount (₹)", "30000")
-            click(activity, "Preview prepayment")
-            assertTrue("Prepayment preview calculated", await(activity,
-                "document.body.innerText.includes('Review before confirmation')", 15000))
-            click(activity, "Confirm prepayment")
-            assertTrue("Prepayment committed", await(activity,
-                "document.body.innerText.includes('Principal prepayment and revised schedule committed atomically')", 15000))
-            val prepaymentId = "feature:finance:prepayments:" + loanUuid
-            extraFinanceRecordIds.add(prepaymentId)
-            val prepaymentRecord = db.records().get(prepaymentId)
-            assertNotNull("Prepayment schedule history persisted in Room", prepaymentRecord)
-            val revisions = JSONObject(prepaymentRecord!!.json).getJSONObject("data").getJSONArray("revisions")
-            val prepayment = revisions.getJSONObject(revisions.length() - 1)
-            val prepaymentOutput = prepayment.getJSONObject("output")
-            assertEquals("Only Reduce Tenure is committed", "reduce_tenure", prepayment.getString("mode"))
-            assertEquals("Prepayment keeps the regular EMI unchanged", regularEmiPaise,
-                prepaymentOutput.getInt("regularEmiPaise"))
-            assertTrue("Prepayment shortens the final due date",
-                prepaymentOutput.getString("finalDueDate") < originalFinalDueDate)
-            assertEquals("Prepayment keeps the next regular due date unchanged",
-                originalRows.getJSONObject(0).getString("dueDate"),
-                prepaymentOutput.getJSONArray("rows").getJSONObject(0).getString("dueDate"))
-
-            click(activity, "Record payment")
-            set(activity, "Payment date", "2026-02-01")
-            set(activity, "Amount paid (₹)", String.format(java.util.Locale.US, "%.2f", regularEmiPaise / 100.0))
-            click(activity, "Suggest oldest-due-first allocation")
-            assertTrue("Finance payment allocation suggested", await(activity,
-                "document.body.innerText.includes('Suggested oldest-due-first allocation')", 15000))
-            click(activity, "Save payment")
-            assertTrue("Finance payment committed", await(activity,
-                "document.body.innerText.includes('Payment recorded atomically')", 15000))
-            val paymentLedgerId = "feature:finance:payments:" + loanUuid
-            extraFinanceRecordIds.add(paymentLedgerId)
-            val paymentLedger = db.records().get(paymentLedgerId)
-            assertNotNull("Finance payment ledger persisted in Room", paymentLedger)
-            val paymentEntries = JSONObject(paymentLedger!!.json).getJSONObject("data").getJSONArray("entries")
-            val payment = (0 until paymentEntries.length()).map { paymentEntries.getJSONObject(it) }
-                .single { it.optString("kind") == "payment" }
-            assertEquals("Payment uses the active prepayment schedule", 2, payment.getInt("scheduleVersion"))
-            assertEquals("Payment allocates the unchanged regular EMI", regularEmiPaise,
-                payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
-
-            click(activity, "Settle & close")
-            set(activity, "Settlement date", "2026-02-01")
-            click(activity, "Check settlement amount")
-            assertTrue("Settlement preview calculated", await(activity,
-                "document.body.innerText.includes('Settlement amount:')", 15000))
-            click(activity, "Confirm settlement and close Loan")
-            assertTrue("Final settlement committed", await(activity,
-                "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
-            val closedLoan = db.records().get(loanRecord!!.id)
-            assertNotNull("Settled loan remains in Room history", closedLoan)
-            assertEquals("Settlement closes the loan", "closed",
-                JSONObject(closedLoan!!.json).getJSONObject("data").getString("lifecycleState"))
-            val settledLedger = db.records().get(paymentLedgerId)
-            assertTrue("Settlement is retained in the Finance payment ledger",
-                JSONObject(settledLedger!!.json).getJSONObject("data").getJSONArray("entries").let { rows ->
-                    (0 until rows.length()).any { rows.getJSONObject(it).optString("kind") == "settlement" }
-                })
 
             set(activity, "Fee date", "2026-11-15")
             set(activity, "Vehicle", vehicleRecordId)
@@ -311,47 +206,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
 
-            eval(activity, "document.getElementById('admin-section-trigger-performance')?.click()")
-            set(activity, "Monthly Driver Target (₹)", "9000")
-            click(activity, "Save monthly target")
-            assertTrue("Performance target saved", await(activity,
-                "document.body.innerText.includes('Monthly Driver Target saved')", 15000))
-            set(activity, "Amount (₹)", "200")
-            set(activity, "What was this cost for?", marker + " pre-business cost")
-            click(activity, "Add pre-business cost")
-            assertTrue("Pre-business cost saved", await(activity,
-                "document.body.innerText.includes('Pre-business cost entry saved')", 15000))
-            val performanceSettings = db.records().get("feature:performance:settings")
-            assertNotNull("Performance target source persisted in Room", performanceSettings)
-            assertEquals("Performance target paise persisted", 900000,
-                JSONObject(performanceSettings!!.json).getJSONObject("data").getInt("monthlyDriverTargetPaise"))
-            val preBusinessSource = db.records().list().singleOrNull {
-                it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
-            }
-            assertNotNull("Pre-business source record persisted in Room", preBusinessSource)
-
-            click(activity, "＋ Fuel entry")
-            set(activity, "Vehicle", vehicleRecordId)
-            set(activity, "Odometer (km)", "56000")
-            set(activity, "Price per kg (₹)", "82.5")
-            set(activity, "Amount paid (₹)", "825")
-            assertTrue("Fuel full-tank default", await(activity,
-                "!document.querySelector('.fuel-entry-panel label.fuel-partial-choice input')?.checked", 5000))
-            click(activity, "Submit fuel purchase")
-            assertTrue("Fuel purchase saved", await(activity,
-                "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
-            val fuelRecord = db.records().list().singleOrNull { row ->
-                row.id.startsWith("feature:business-expenses:fuel:") &&
-                    JSONObject(row.json).getJSONObject("data").optString("vehicleId") == vehicleRecordId
-            }
-            assertNotNull("Fuel purchase persisted in Room", fuelRecord)
-            fuelRecordId = fuelRecord!!.id
-            val fuelData = JSONObject(fuelRecord!!.json).getJSONObject("data")
-            assertEquals("Fuel amount mapping", 82500, fuelData.getInt("amountPaise"))
-            assertEquals("Fuel price per kg mapping", 8250, fuelData.getInt("pricePaisePerKg"))
-            assertEquals("Fuel full refill mapping", false, fuelData.getBoolean("partialRefill"))
-            assertEquals("Fuel odometer mapping", 56000, fuelData.getInt("odometerKm"))
-
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
@@ -361,8 +215,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 .forEach { assertTrue("Room persists " + it, records.contains(it)) }
             val backup = NativeBackupCoverage.exportBusinessRecords(db) { false }
             NativeBackupCoverage.validateBusinessRecords(backup)
-            val submittedIds = (db.records().list().filter { it.json.contains(marker) || it.json.contains(registration) }.map { it.id } +
-                extraFinanceRecordIds + listOfNotNull(fuelRecordId)).distinct()
+            val submittedIds = db.records().list().filter { it.json.contains(marker) || it.json.contains(registration) }.map { it.id }
             NativeBackupCoverage.replaceBusinessRecords(db, JSONArray())
             submittedIds.forEach { id -> assertTrue("Backup replacement clears " + id, db.records().get(id) == null) }
             NativeBackupCoverage.replaceBusinessRecords(db, backup)
@@ -372,8 +225,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 .forEach { assertTrue("Room backup restores " + it, restoredJson.contains(it)) }
         } finally {
             // Keep shared emulator state isolated even when an assertion fails midway.
-            db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
-                it.id in extraFinanceRecordIds }.forEach { db.records().remove(it.id) }
+            db.records().list().filter { it.json.contains(marker) }.forEach { db.records().remove(it.id) }
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             NativeStartupRecovery.invalidate(db)
             instrumentation.runOnMainSync { activity.finish() }
@@ -381,7 +233,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         }
     }
 
-    private fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
+    internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin field loads: " + label, await(activity,
             "[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name'))", 15000))
@@ -390,7 +242,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
     }
 
-    private fun click(activity: MainActivity, label: String, index: Int = 0) {
+    internal fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin action loads: " + label, await(activity,
             "[...document.querySelectorAll('button')].some(n=>n.textContent.trim()==='$name'&&!n.disabled)", 15000))
@@ -398,12 +250,12 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(javascriptValue(activity, js) == "true") { "Missing Admin action: " + label }
     }
 
-    private fun clickMatching(activity: MainActivity, pattern: String) {
+    internal fun clickMatching(activity: MainActivity, pattern: String) {
         val js = """(()=>{const r=/$pattern/;const b=[...document.querySelectorAll('button')].find(n=>r.test(n.textContent));if(!b)return false;b.click();return true})()"""
         check(javascriptValue(activity, js) == "true")
     }
 
-    private fun eval(activity: MainActivity, script: String) {
+    internal fun eval(activity: MainActivity, script: String) {
         val webView = activity.getBridge().getWebView()
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -412,7 +264,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(latch.await(15, TimeUnit.SECONDS))
     }
 
-    private fun javascriptValue(activity: MainActivity, expression: String): String? {
+    internal fun javascriptValue(activity: MainActivity, expression: String): String? {
         val webView = activity.getBridge().getWebView()
         val result = AtomicReference<String?>()
         val latch = CountDownLatch(1)
@@ -422,7 +274,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         return if (latch.await(3, TimeUnit.SECONDS)) result.get() else null
     }
 
-    private fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
+    internal fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             if (javascriptValue(activity, "Boolean($expression)") == "true") return true
