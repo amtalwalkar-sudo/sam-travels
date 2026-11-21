@@ -89,7 +89,7 @@ export function assertFinanceLoanPrepaymentStateV1(value: unknown, loan: Finance
         typeof r.commandId !== "string" || !r.commandId.trim() || commands.has(r.commandId) ||
         !validDate(r.effectiveDate) || (previousEffectiveDate !== "" && r.effectiveDate < previousEffectiveDate) ||
         !validInstant(r.createdAt) || r.createdAt < previousCreatedAt ||
-        (r.mode !== "reduce_tenure" && r.mode !== "reduce_emi") ||
+        r.mode !== "reduce_tenure" ||
         !Number.isSafeInteger(r.principalBeforePaise) || (r.principalBeforePaise as number) <= 0 ||
         !Number.isSafeInteger(r.prepaymentAmountPaise) || (r.prepaymentAmountPaise as number) <= 0 ||
         (r.prepaymentAmountPaise as number) >= (r.principalBeforePaise as number) ||
