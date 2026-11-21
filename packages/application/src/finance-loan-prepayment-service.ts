@@ -1,7 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
-import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
+import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX, requireFinanceAdminAuthor,
   type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
 
 export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
@@ -238,10 +238,10 @@ export class FinanceLoanPrepaymentService {
         throw new Error("finance_loan_prepayment_preview_stale");
       }
       const createdAt = input.now ?? fresh.revision.createdAt;
-      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
       const committedRevision = {
         ...(createdAt === fresh.revision.createdAt ? fresh.revision : { ...fresh.revision, createdAt }),
-        ...(createdBy ? { createdBy } : {}),
+        createdBy,
       };
       const stateData: FinanceLoanPrepaymentStateV1 = {
         schemaVersion: 1, kind: "loan-prepayment-state", loanId: requested.loanId,
