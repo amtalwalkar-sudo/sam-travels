@@ -164,6 +164,10 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("One authoritative Loan record", 1, loanRows.size)
             val loan = loanRows.single()
             val loanUuid = loan.id.removePrefix("feature:finance:loan:")
+            // Prepayment atomically creates/advances the per-loan payment ledger, even before the first payment.
+            // Register it for cleanup now so a failed assertion cannot leave an orphan ledger behind.
+            val paymentLedgerId = "feature:finance:payments:" + loanUuid
+            financeRecordIds.add(paymentLedgerId)
             val originalSchedule = JSONObject(loan.json).getJSONObject("data").getJSONArray("scheduleVersions").getJSONObject(0).getJSONObject("output")
             val emiPaise = originalSchedule.getInt("regularEmiPaise")
             val originalRows = originalSchedule.getJSONArray("rows")
@@ -190,6 +194,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 prepaymentOutput.getJSONArray("rows").getJSONObject(0).getString("dueDate"))
 
             support.click(activity, "Record payment")
+            assertTrue("Revised schedule version is available for payment", support.await(activity,
+                """(()=>{const s=[...document.querySelectorAll("label")].find(n=>n.textContent.includes("Schedule version"))?.querySelector("select");return !!s&&[...s.options].some(o=>o.value==="2")})()""", 15000))
+            support.set(activity, "Schedule version", "2")
             support.set(activity, "Payment date", "2026-02-01")
             support.set(activity, "Amount paid (₹)", String.format(java.util.Locale.US, "%.2f", emiPaise / 100.0))
             support.click(activity, "Suggest oldest-due-first allocation")
@@ -198,8 +205,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.click(activity, "Save payment")
             assertTrue("Finance payment committed", support.await(activity,
                 "document.body.innerText.includes('Payment recorded atomically')", 15000))
-            val paymentLedgerId = "feature:finance:payments:" + loanUuid
-            financeRecordIds.add(paymentLedgerId)
             val ledger = db.records().get(paymentLedgerId)
             assertNotNull("Payment ledger persisted", ledger)
             val paymentEntries = JSONObject(ledger!!.json).getJSONObject("data").getJSONArray("entries")
