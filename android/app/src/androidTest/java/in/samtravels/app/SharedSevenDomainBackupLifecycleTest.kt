@@ -134,14 +134,41 @@ class SharedSevenDomainBackupLifecycleTest {
             database.records().put(StoredRecord(
                 "feature:business-settings:business", emptyOwnerStale.toString(), 1, at,
             ))
-            // Exercise the same encrypted-package-to-production-Room path
-            // used by BackupPlugin, rather than passing a pre-decrypted snapshot.
+            // Import the TypeScript-produced package containing this same
+            // populated seven-domain + Work + Log Book canonical graph.
+            val typescriptPackage = JSONObject(
+                InstrumentationRegistry.getInstrumentation().context.assets
+                    .open("generated/ts-populated-semantic-backup-v2.json")
+                    .bufferedReader().use { it.readText() },
+            )
+            val typescriptRestore = NativeBackupRestoreCoordinator.restoreEncrypted(
+                database,
+                typescriptPackage.getJSONObject("backup"),
+                typescriptPackage.getString("recoveryKey"),
+                { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back-ts") },
+            )
+            assertEquals(source.snapshot.getJSONArray("records").length(), typescriptRestore.restoredCount)
+            val afterTypescriptRestore = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
+            )
+            assertEquals(
+                canonical(source.snapshot.getJSONArray("records")),
+                canonical(afterTypescriptRestore.snapshot.getJSONArray("records")),
+            )
+            NativeBackupRestoreCoordinator.markVerified(database, typescriptRestore.checkpointId)
+            NativeBackupRestoreCoordinator.discardVerified(database, typescriptRestore.checkpointId)
+
+            // Exercise the Android writer through the same production Room path.
             val encrypted = NativeBackupV2Package.create(
                 source.snapshot.toString().toByteArray(Charsets.UTF_8),
                 source.manifest,
                 "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
             )
             val recoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+            context.openFileOutput("android-populated-semantic-backup-v2.json", Context.MODE_PRIVATE).use { output ->
+                output.write(JSONObject().put("recoveryKey", recoveryKey).put("backup", encrypted)
+                    .toString().toByteArray(Charsets.UTF_8))
+            }
             val decryptedForAssertion = NativeBackupV2Package.decrypt(encrypted, recoveryKey)
             assertEquals(source.snapshot.toString(), decryptedForAssertion.toString(Charsets.UTF_8))
 
