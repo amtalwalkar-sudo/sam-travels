@@ -134,3 +134,40 @@ export async function exerciseWorkTripEntryPaths(page) {
   await page.getByRole("button", { name: "End shift", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
 }
+
+export async function assertFinanceAdminActorProvenance(page) {
+  const audit = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const loan = rows.find(row => row.id?.startsWith("feature:finance:loan:") &&
+      row.data?.details?.loanName === "Admin Browser Loan");
+    if (!loan) return null;
+    const suffix = loan.id.slice("feature:finance:loan:".length);
+    const ledger = rows.find(row => row.id === "feature:finance:payments:" + suffix)?.data;
+    const prepayments = rows.find(row => row.id === "feature:finance:prepayments:" + suffix)?.data;
+    return { entries: ledger?.entries ?? [], revisions: prepayments?.revisions ?? [] };
+  });
+  const entries = audit?.entries ?? [];
+  const kinds = new Set(entries.map(entry => entry.kind));
+  const eventsValid = entries.length > 0 &&
+    ["payment", "reversal", "settlement"].every(kind => kinds.has(kind)) &&
+    entries.every(entry => entry.createdBy?.role === "admin" && !!entry.createdBy?.personId);
+  const prepaymentsValid = (audit?.revisions?.length ?? 0) > 0 &&
+    audit.revisions.every(revision => revision.createdBy?.role === "admin" && !!revision.createdBy?.personId);
+  if (!eventsValid || !prepaymentsValid) {
+    throw new Error("finance_admin_actor_provenance_missing_or_invalid: " +
+      JSON.stringify({ entries: entries.map(entry => ({kind:entry.kind,createdBy:entry.createdBy})),
+        revisions: audit?.revisions?.map(revision => revision.createdBy) }));
+  }
+  console.log("Browser/Dexie readback verified Admin attribution on Finance payments, reversal, prepayment and settlement.");
+}
