@@ -8,7 +8,11 @@ internal fun requireBackupRecordCountWithinLimit(count: Int, limit: Int = MAX_BA
 
 internal const val MAX_BACKUP_PACKAGE_BYTES = 512L * 1024 * 1024
 
-internal fun requireBackupPackageByteLength(byteLength: Long) {
+internal fun requireBackupPackageByteLength(
+    byteLength: Long,
+    limit: Long = MAX_BACKUP_PACKAGE_BYTES,
+) {
+    require(limit in 0L..MAX_BACKUP_PACKAGE_BYTES) { "backup_invalid_package_size" }
     require(byteLength >= 0L) { "backup_invalid_package_size" }
-    require(byteLength <= MAX_BACKUP_PACKAGE_BYTES) { "backup_package_too_large" }
+    require(byteLength <= limit) { "backup_package_too_large" }
 }

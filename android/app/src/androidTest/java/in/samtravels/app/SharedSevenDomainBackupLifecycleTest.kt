@@ -180,11 +180,16 @@ class SharedSevenDomainBackupLifecycleTest {
             val destinationBeforeRejectedPackages = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "before-rejected-package",
             )
-            fun assertRejectedWithoutMutation(candidate: JSONObject, key: String = recoveryKey) {
+            fun assertRejectedWithoutMutation(
+                candidate: JSONObject,
+                key: String = recoveryKey,
+                maxPackageBytes: Long = MAX_BACKUP_PACKAGE_BYTES,
+            ) {
                 assertTrue(runCatching {
                     NativeBackupRestoreCoordinator.restoreEncrypted(
                         database, candidate, key,
                         { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "rejected-readback") },
+                        maxPackageBytes = maxPackageBytes,
                     )
                 }.isFailure)
                 val after = NativeSnapshotBuilder.build(
@@ -200,6 +205,13 @@ class SharedSevenDomainBackupLifecycleTest {
                 })
             }
             assertRejectedWithoutMutation(JSONObject(encrypted.toString()), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()), maxPackageBytes = 16L)
+            val unsupportedSchemaPackage = NativeBackupV2Package.create(
+                source.snapshot.toString().toByteArray(Charsets.UTF_8),
+                JSONObject(source.manifest.toString()).put("schemaVersion", 99),
+                recoveryKey,
+            )
+            assertRejectedWithoutMutation(unsupportedSchemaPackage)
             assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
                 getJSONObject("payload").put("ciphertext", "AA==")
             })
