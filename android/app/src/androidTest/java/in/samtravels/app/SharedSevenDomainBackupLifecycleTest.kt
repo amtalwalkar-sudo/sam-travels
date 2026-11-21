@@ -213,6 +213,36 @@ class SharedSevenDomainBackupLifecycleTest {
                 getJSONObject("manifest").put("format", "backup-encryption-v99")
             })
 
+            // A correctly authenticated package with an invalid participant
+            // must fail full semantic validation before the startup-recovery
+            // callback is allowed to touch the destination.
+            val invalidSemanticSnapshot = JSONObject(source.snapshot.toString())
+            invalidSemanticSnapshot.getJSONArray("records").getJSONObject(0)
+                .put("participantId", "unknown-participant")
+            val invalidSemanticPackage = NativeBackupV2Package.create(
+                invalidSemanticSnapshot.toString().toByteArray(Charsets.UTF_8),
+                source.manifest,
+                recoveryKey,
+            )
+            var startupRecoveryCalls = 0
+            assertTrue(runCatching {
+                NativeBackupRestoreCoordinator.restoreEncrypted(
+                    database, invalidSemanticPackage, recoveryKey,
+                    { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "invalid-semantic-readback") },
+                ) { startupRecoveryCalls += 1 }
+            }.isFailure)
+            assertEquals(0, startupRecoveryCalls)
+            assertEquals(
+                canonical(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
+                canonical(NativeSnapshotBuilder.build(
+                    database, NativeBackupRecovery::isInternalRecord, "invalid-semantic-after",
+                ).snapshot.getJSONArray("records")),
+            )
+            assertEquals(0, database.records().list().count {
+                it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
+                    it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX)
+            })
+
             val restored = NativeBackupRestoreCoordinator.restoreEncrypted(
                 database, encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back") },
