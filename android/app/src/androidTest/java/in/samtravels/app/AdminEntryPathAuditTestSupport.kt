@@ -1,8 +1,21 @@
 package `in`.samtravels.app
 
+import org.json.JSONObject
 import org.junit.Assert.assertTrue
 
 internal object AdminEntryPathAuditTestSupport {
+    fun assertAdminActor(actor: JSONObject?, label: String) {
+        assertTrue("$label actor", actor != null && actor.optString("personId").isNotBlank() &&
+            actor.optString("role") == "admin")
+    }
+
+    fun clickEnabled(activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest, label: String) {
+        val safe = label.replace("'", "\\'")
+        val ready = """[...document.querySelectorAll('button')].some(b=>b.textContent.includes('$safe')&&!b.disabled)"""
+        assertTrue("Enabled $label", support.await(activity, ready, 15000))
+        support.clickMatching(activity, label)
+    }
+
     fun setInPanel(
         activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
         selector: String, heading: String, label: String, value: String,

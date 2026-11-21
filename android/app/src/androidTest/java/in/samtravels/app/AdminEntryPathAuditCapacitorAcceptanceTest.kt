@@ -186,9 +186,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val revision = JSONObject(prepaymentRecord!!.json).getJSONObject("data").getJSONArray("revisions").getJSONObject(0)
             val prepaymentOutput = revision.getJSONObject("output")
             assertEquals("Prepayment mode", "reduce_tenure", revision.getString("mode"))
-            assertEquals("Prepayment attributed to active Admin", "admin",
-                revision.getJSONObject("createdBy").getString("role"))
-            assertTrue("Prepayment actor ID persisted", revision.getJSONObject("createdBy").getString("personId").isNotBlank())
+            AdminEntryPathAuditTestSupport.assertAdminActor(revision.optJSONObject("createdBy"), "Prepayment")
             assertEquals("Regular EMI unchanged", emiPaise, prepaymentOutput.getInt("regularEmiPaise"))
             assertTrue("Prepayment moves final instalment earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
             assertEquals("Next EMI due date unchanged", originalRows.getJSONObject(0).getString("dueDate"),
@@ -201,7 +199,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Payment date", "2026-02-01")
             support.set(activity, "Amount paid (₹)", String.format(java.util.Locale.US, "%.2f", emiPaise / 100.0))
             support.click(activity, "Suggest oldest-due-first allocation")
-            assertTrue("Payment allocation suggested", support.await(activity,
+            assertTrue("Allocation suggested", support.await(activity,
                 "document.body.innerText.includes('Suggested oldest-due-first allocation')", 15000))
             support.click(activity, "Save payment")
             assertTrue("Finance payment committed", support.await(activity,
@@ -214,8 +212,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("One recorded payment", 1, paymentRows.size)
             val payment = paymentRows.single()
             assertEquals("Payment uses revised schedule", 2, payment.getInt("scheduleVersion"))
-            assertEquals("Payment attributed to active Admin", "admin", payment.getJSONObject("createdBy").getString("role"))
-            assertTrue("Payment actor ID persisted", payment.getJSONObject("createdBy").getString("personId").isNotBlank())
+            AdminEntryPathAuditTestSupport.assertAdminActor(payment.optJSONObject("createdBy"), "Payment")
             assertEquals("Payment allocation retains regular EMI amount", emiPaise,
                 payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
 
@@ -223,9 +220,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Settlement date", "2026-02-01")
             support.click(activity, "Check settlement amount")
             assertTrue("Settlement preview shown", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
-            assertTrue("Settlement confirmation enabled", support.await(activity,
-                "[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Confirm settlement and close Loan')&&!b.disabled)", 15000))
-            support.clickMatching(activity, "Confirm settlement and close Loan")
+            AdminEntryPathAuditTestSupport.clickEnabled(activity, support, "Confirm settlement and close Loan")
             assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
             assertEquals("Loan closed in Room", "closed",
                 JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))
@@ -233,10 +228,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             val settlementEntry = JSONObject(settledLedger.json).getJSONObject("data").getJSONArray("entries").let { rows ->
                 (0 until rows.length()).map { rows.getJSONObject(it) }.singleOrNull { it.optString("kind") == "settlement" }
             }
-            assertNotNull("Settlement ledger entry persisted", settlementEntry)
-            assertEquals("Settlement attributed to active Admin", "admin",
-                settlementEntry!!.getJSONObject("createdBy").getString("role"))
-            assertTrue("Settlement actor ID persisted", settlementEntry.getJSONObject("createdBy").getString("personId").isNotBlank())
+            assertNotNull("Settlement entry", settlementEntry)
+            AdminEntryPathAuditTestSupport.assertAdminActor(settlementEntry?.optJSONObject("createdBy"), "Settlement")
 
             support.eval(activity, "document.getElementById('admin-section-trigger-performance')?.click()")
             support.set(activity, "Monthly Driver Target (₹)", "9000")
