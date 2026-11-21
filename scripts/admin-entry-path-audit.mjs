@@ -63,7 +63,7 @@ async function waitForTripObligation(page, kind, status) {
       db.close();
       const row = rows.find(row => row.id.startsWith("work:trip-financial-obligation:") &&
         row.data?.kind === kind && row.data?.status === status);
-      return row ? JSON.stringify(row) : false;
+      return row ? JSON.stringify({id:row.id,data:row.data,createdBy:row.createdBy}) : false;
     }, { kind, status }, { timeout: 15000 });
     return JSON.parse(await handle.jsonValue());
   } catch {
