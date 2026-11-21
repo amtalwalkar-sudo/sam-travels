@@ -255,9 +255,17 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
     }
 
     internal fun clickMatching(activity: MainActivity, pattern: String) {
-        val name = pattern.replace("'", "\\'")
-        val js = """(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('$name')&&!n.disabled);if(!b)return false;b.click();return true})()"""
-        check(javascriptValue(activity, js) == "true") { "Missing enabled matching Admin action: " + pattern }
+        // A pipe-delimited label is an explicit set of acceptable rendered button
+        // labels (for example, older and newer copy for the same action).
+        val alternatives = pattern.split('|').map(String::trim).filter(String::isNotEmpty)
+        require(alternatives.isNotEmpty()) { "At least one Admin action label is required" }
+        val jsLabels = alternatives.joinToString(",") { label ->
+            "'" + label.replace("\\", "\\\\").replace("'", "\\'") + "'"
+        }
+        val js = """(()=>{const labels=[$jsLabels];const b=[...document.querySelectorAll('button')].find(n=>!n.disabled&&labels.some(label=>n.textContent.includes(label)));if(!b)return false;b.click();return true})()"""
+        check(javascriptValue(activity, js) == "true") {
+            "Missing enabled Admin action matching any of: " + alternatives.joinToString(", ")
+        }
     }
 
     internal fun eval(activity: MainActivity, script: String) {
