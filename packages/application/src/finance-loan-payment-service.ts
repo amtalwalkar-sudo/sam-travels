@@ -316,7 +316,7 @@ export class FinanceLoanPaymentService {
       if (entries.some(entry => entry.kind === "reversal" && entry.paymentId === input.paymentId)) throw new Error("finance_payment_already_reversed");
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const createdAt = this.now();
-      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
       const reversal: FinancePaymentEntryV1 = { kind: "reversal", id: input.id,
         commandId: input.commandId, loanId: input.loanId, paymentId: input.paymentId, businessDate: input.businessDate,
         reason: input.reason.trim(), amountPaise: payment.amountPaise, createdAt, source: input.source,
