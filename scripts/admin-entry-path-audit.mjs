@@ -61,10 +61,11 @@ async function waitForTripObligation(page, kind, status) {
         get.onerror = () => reject(get.error);
       });
       db.close();
-      return rows.find(row => row.id.startsWith("work:trip-financial-obligation:") &&
-        row.data?.kind === kind && row.data?.status === status) ?? false;
+      const row = rows.find(row => row.id.startsWith("work:trip-financial-obligation:") &&
+        row.data?.kind === kind && row.data?.status === status);
+      return row ? JSON.stringify(row) : false;
     }, { kind, status }, { timeout: 15000 });
-    return await handle.jsonValue();
+    return JSON.parse(await handle.jsonValue());
   } catch {
     const message = await page.locator(".driver-message").textContent().catch(() => "");
     throw new Error(kind + "_" + status + "_not_committed: " + (message || "no Work status message"));
