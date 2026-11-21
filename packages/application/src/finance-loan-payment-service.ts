@@ -45,9 +45,21 @@ function validAuthor(value: unknown): value is RecordAuthorV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const author = value as Record<string, unknown>;
   return typeof author.personId === "string" && !!author.personId.trim() &&
-    (author.role === "admin" || author.role === "driver") &&
+    author.role === "admin" &&
     Object.keys(author).every(key => key === "personId" || key === "role");
 }
+export async function requireFinanceAdminAuthor(
+  resolver?: () => Promise<RecordAuthorV1>,
+): Promise<RecordAuthorV1> {
+  if (!resolver) throw new Error("finance_admin_actor_required");
+  const author = await resolver();
+  if (!author || author.role !== "admin" ||
+      typeof author.personId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(author.personId)) {
+    throw new Error("finance_admin_actor_required");
+  }
+  return { personId: author.personId, role: "admin" };
+}
+
 function validInstant(value: string): boolean {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
@@ -247,7 +259,7 @@ export class FinanceLoanPaymentService {
       const totals = allocationTotals(entries, input.scheduleVersion), seen = new Set<number>();
       let allocatedSum = 0;
       const createdAt = input.now ?? this.now();
-      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const createdBy = await requireFinanceAdminAuthor(this.currentAuthor);
       const allocations = input.allocations.map((allocation, index) => {
         const row = rows.find(item => item.installmentNumber === allocation.installmentNumber);
         if (!row || row.dueDate > input.businessDate || seen.has(row.installmentNumber) ||
@@ -267,7 +279,7 @@ export class FinanceLoanPaymentService {
         ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
         ...(input.note?.trim() ? { note: input.note.trim() } : {}),
         scheduleVersion: input.scheduleVersion, createdAt, source: input.source,
-        ...(createdBy ? { createdBy } : {}), allocations,
+        createdBy, allocations,
         unallocatedCreditPaise: input.amountPaise - allocatedSum, status: "committed" };
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, payment] };
@@ -308,7 +320,7 @@ export class FinanceLoanPaymentService {
       const reversal: FinancePaymentEntryV1 = { kind: "reversal", id: input.id,
         commandId: input.commandId, loanId: input.loanId, paymentId: input.paymentId, businessDate: input.businessDate,
         reason: input.reason.trim(), amountPaise: payment.amountPaise, createdAt, source: input.source,
-        ...(createdBy ? { createdBy } : {}), status: "committed" };
+        createdBy, status: "committed" };
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, reversal] };
       assertLedger(data, input.loanId);
       const id = ledgerId(input.loanId), next: RecordEnvelope<FinancePaymentLedgerV1> = {
