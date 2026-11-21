@@ -219,6 +219,7 @@ internal object NativeBackupRestoreCoordinator {
         recoveryKey: String,
         makeSnapshot: () -> NativeSnapshotBundle,
         beforeRestore: () -> Unit = {},
+        afterReplacement: () -> Unit = {},
     ): RestoreResult {
         val packageBytes = backup.toString().toByteArray(Charsets.UTF_8)
         requireBackupPackageByteLength(packageBytes.size.toLong())
@@ -229,6 +230,7 @@ internal object NativeBackupRestoreCoordinator {
         BackupSnapshotContract.validateManifest(manifest)
         return restore(
             database, snapshot, manifest, makeSnapshot,
+            afterReplacement = afterReplacement,
             beforeCheckpoint = beforeRestore,
         )
     }

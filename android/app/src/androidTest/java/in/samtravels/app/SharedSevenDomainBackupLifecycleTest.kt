@@ -274,6 +274,39 @@ class SharedSevenDomainBackupLifecycleTest {
             assertNull(database.records().get("feature:business-settings:business"))
             NativeBackupRestoreCoordinator.markVerified(database, restored.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, restored.checkpointId)
+
+            // Interrupt the authenticated encrypted restore after Room replacement
+            // commits; the production coordinator must recover the exact baseline.
+            database.records().put(StoredRecord(
+                "encrypted-interruption-sentinel",
+                JSONObject().put("id", "encrypted-interruption-sentinel")
+                    .put("schemaVersion", 1).put("createdAt", at).put("updatedAt", at)
+                    .put("source", "android").put("revision", 1)
+                    .put("data", JSONObject().put("value", "preserve-on-interruption")).toString(),
+                1, at,
+            ))
+            val interruptedBaseline = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "encrypted-interruption-baseline",
+            )
+            val interruption = runCatching {
+                NativeBackupRestoreCoordinator.restoreEncrypted(
+                    database, encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+                    { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "encrypted-interruption-readback") },
+                    afterReplacement = { throw IllegalStateException("injected_encrypted_post_replacement_failure") },
+                )
+            }.exceptionOrNull()
+            assertEquals("injected_encrypted_post_replacement_failure", interruption?.message)
+            val recoveredAfterInterruption = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "encrypted-interruption-recovered",
+            )
+            assertEquals(
+                canonical(interruptedBaseline.snapshot.getJSONArray("records")),
+                canonical(recoveredAfterInterruption.snapshot.getJSONArray("records")),
+            )
+            assertTrue(database.records().list().any { row ->
+                row.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX) &&
+                    JSONObject(row.json).optString("status") == "rollback_complete"
+            })
             database.close()
 
             // Reopen the same durable Room file, run the production startup gate,
