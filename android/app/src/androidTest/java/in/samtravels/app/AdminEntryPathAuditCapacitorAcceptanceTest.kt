@@ -23,6 +23,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         val support = AdminFormsCapacitorAcceptanceTest()
         val marker = "Entry audit " + UUID.randomUUID().toString().take(8)
         var fuelRecordId: String? = null
+        var vehicleRecordId: String? = null
+        val previousPerformanceSettings = db.records().get("feature:performance:settings")
         val financeRecordIds = mutableListOf<String>()
         var assignmentRecordId: String? = null
         val previousWorkSelection = db.records().get("work:selected-driver")
@@ -55,8 +57,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             support.set(activity, "Ownership", "Owned")
             support.click(activity, "Create vehicle")
             assertTrue("Vehicle saved", support.await(activity, "document.body.innerText.includes('$registration')", 15000))
-            val vehicleRecordId = "feature:vehicle:" + registration
-            assertNotNull("Vehicle persists in Room", db.records().get(vehicleRecordId))
+            vehicleRecordId = "feature:vehicle:" + registration
+            assertNotNull("Vehicle persists in Room", db.records().get(vehicleRecordId!!))
 
             support.eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             support.click(activity, "Add driver")
@@ -75,6 +77,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Selected Driver identity is the saved Driver",
                 driverData.getString("driverId"), JSONObject(selectedDriver!!.json).getJSONObject("data").getString("driverId"))
             assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
+            assertNotNull("Driver–Vehicle assignment persisted", db.records().get(assignmentRecordId!!))
 
             support.eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             support.click(activity, "Add compliance / renewal")
@@ -105,7 +108,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
 
             support.set(activity, "Issue date", "2026-11-15")
-            support.set(activity, "Vehicle", vehicleRecordId)
+            support.set(activity, "Vehicle", vehicleRecordId!!)
             support.set(activity, "Challan amount (₹)", "300")
             support.set(activity, "Reason", marker + " traffic challan")
             support.set(activity, "Challan / transaction reference", "CHALLAN-" + marker)
@@ -226,9 +229,11 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Fuel full refill flag", false, fuelData.getBoolean("partialRefill"))
         } finally {
             db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
-                it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
+                it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
             if (previousWorkSelection != null) db.records().put(previousWorkSelection)
             else db.records().remove("work:selected-driver")
+            if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
+            else db.records().remove("feature:performance:settings")
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             NativeStartupRecovery.invalidate(db)
             instrumentation.runOnMainSync { activity.finish() }
