@@ -12,7 +12,7 @@ internal object NativeFinanceBackup {
         if (value == null) return false
         return value.keys().asSequence().toSet() == setOf("personId", "role") &&
             value.optString("personId").isNotBlank() &&
-            value.optString("role") in setOf("admin", "driver")
+            value.optString("role") == "admin"
     }
     private const val LOAN_PARTICIPANT_ID = "finance-records"
     private const val PAYMENT_PARTICIPANT_ID = "finance-payment-records"
