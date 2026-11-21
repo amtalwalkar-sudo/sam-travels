@@ -21,7 +21,7 @@ class NativeBackupV2PackageTest {
         // own envelopes rather than byte-comparing it with another encryption run.
         val testContext = InstrumentationRegistry.getInstrumentation().context
         val fixture = JSONObject(testContext.assets.open("native-backup-v2.json").bufferedReader().use { it.readText() })
-        val plaintext = """{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}"""
+        val plaintext = """{"records":[{"id":"native-fixture-record","schemaVersion":1,"createdAt":"2026-11-04T00:00:00.000Z","updatedAt":"2026-11-04T00:00:00.000Z","source":"web","revision":1,"data":{"value":"android-writer"}}],"driverState":[],"driverIntents":[],"driverEvents":[],"driverOutbox":[],"snapshotRevision":0,"schemaVersion":1}"""
             .toByteArray(Charsets.UTF_8)
         val manifest = JSONObject()
             .put("applicationVersion", "0.1.0")
@@ -29,7 +29,9 @@ class NativeBackupV2PackageTest {
             .put("createdAt", "2026-11-04T00:00:00.000Z")
             .put("businessTimezone", "Asia/Kolkata")
             .put("snapshotRevision", 7)
-            .put("recordCounts", JSONObject().put("records", 1))
+            .put("recordCounts", JSONObject()
+                .put("records", 1).put("driverState", 0).put("driverIntents", 0)
+                .put("driverEvents", 0).put("driverOutbox", 0))
         val deterministicRandom = object : SecureRandom() {
             private val bytes = (33..64).map { it.toByte() } + (1..24).map { it.toByte() }
             private var offset = 0

@@ -6,6 +6,7 @@ import { createBackupForCurrentRuntime, restoreBackupForCurrentRuntime } from ".
 import tsFixture from "../fixtures/cross-platform-backup-v2.json";
 import fixture from "../fixtures/native-backup-v2.json";
 import { createEncryptedBackup, decryptBackupWithRecoveryKey, parseBackupPackage } from "../packages/features/backup";
+import { restoreBackupForCurrentRuntime } from "../apps/web/src/backup-runtime";
 
 describe("native backup-encryption-v2 interoperability", () => {
   it("decrypts and validates the Android-generated v2 package in TypeScript (without restoring a snapshot)", async () => {
@@ -13,9 +14,7 @@ describe("native backup-encryption-v2 interoperability", () => {
     const parsed = parseBackupPackage(serialized);
     const plaintext = await decryptBackupWithRecoveryKey(parsed, fixture.recoveryKey);
 
-    expect(new TextDecoder().decode(plaintext)).toBe(
-      `{"records":[{"id":"driver-state","json":"{}","schemaVersion":1,"updatedAt":"2026-11-04T00:00:00.000Z"}],"snapshotRevision":7,"schemaVersion":1}`,
-    );
+    expect(new TextDecoder().decode(plaintext)).toBe(tsFixture.expectedPlaintext);
     expect(parsed.manifest.format).toBe("backup-encryption-v2");
     expect(parsed.keyEnvelopes.passphrase).toBeUndefined();
   });
@@ -157,6 +156,34 @@ describe("encrypted package production restore integration", () => {
     expect(((await browserDatabase.records.get("synthetic-interoperability-source"))?.data as { value: string } | undefined)?.value)
       .toBe("source-snapshot");
     expect(await browserDatabase.records.get("destination-only-sentinel")).toBeUndefined();
+    expect(await browserDatabase.table("backupCheckpoints").get(restored.checkpointId))
+      .toMatchObject({ status: "restored_unverified" });
+  });
+});
+
+describe("Android-produced v2 package through production Browser restore", () => {
+  beforeEach(async () => {
+    await browserDatabase.delete();
+    await browserDatabase.open();
+  });
+
+  afterEach(async () => {
+    await browserDatabase.close();
+    await browserDatabase.delete();
+  });
+
+  it("authenticates the Android writer fixture and restores through the Browser/Dexie coordinator", async () => {
+    const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(fixture.backup)));
+    const restored = await restoreBackupForCurrentRuntime({
+      backup: parsed,
+      secret: { recoveryKey: fixture.recoveryKey },
+      confirmed: true,
+    });
+    expect(restored.restoredCount).toBe(1);
+    expect(await browserDatabase.records.get("native-fixture-record")).toMatchObject({
+      revision: 1,
+      data: { value: "android-writer" },
+    });
     expect(await browserDatabase.table("backupCheckpoints").get(restored.checkpointId))
       .toMatchObject({ status: "restored_unverified" });
   });

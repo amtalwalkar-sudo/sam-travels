@@ -1,20 +1,26 @@
 {
-  "recoveryKey": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=",
+  "recoveryKey": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcY",
   "backup": {
     "manifest": {
       "applicationVersion": "0.1.0",
       "schemaVersion": 1,
       "createdAt": "2026-11-04T00:00:00.000Z",
       "businessTimezone": "Asia/Kolkata",
-      "snapshotRevision": 7,
-      "recordCounts": { "records": 1 },
+      "snapshotRevision": 0,
+      "recordCounts": {
+        "records": 1,
+        "driverState": 0,
+        "driverIntents": 0,
+        "driverEvents": 0,
+        "driverOutbox": 0
+      },
       "format": "backup-encryption-v2",
-      "plaintextSha256": "3KAtJyqYna+ChzPjZPAXLkvDsjBgezpGNqBrc7cQz8w="
+      "plaintextSha256": "Gt/ZZ10n4UOIBkhkvckx9Uly0RI6OrFef7YugyOSl5A="
     },
     "payload": {
       "algorithm": "AES-256-GCM",
       "nonce": "AQIDBAUGBwgJCgsM",
-      "ciphertext": "hSN82IqGauVefCJ+Y1OjJ7T3P3prrrxw0QsYHbNlUg/aDmJqu7KDTWI7qPWn44856r0g3u1r/69kOy0l0hyiiyf8vJcK2MDzMkCP0RgE1YADTVzp77pwlQoi2FJSqtP9Muvkn0Ik0l2ujpSvDyY1nuoQnjGiITPPkE0K9rMRolqBxKFF3Eh1TxWV+RyegvV2ee+P2GX0jW5CKSn1dAMf"
+      "ciphertext": "hSN82IqGauVefCJ+Y1OjJ7T3P3B4s6NjxgsNAKplQl+TAXp8t7PTE2Js96ToqZk3444ozchn4rIvbnIryk78zDP4vZI/yYaIZFCFwRwZ1ocDTFmQ774elQoi2FJGqtPjWPn45xUp6xD4mJ6PC3dn06xyyXHmY2uNzltk8a8J4QnTkfwKuh03Zl7WtU3LxvrIvmh6+FltvhMl0nHiemo6/etpvpLQ8PBA+BVhzn/V0X8UoQXpk42GwEPVuzQ3EQioJRozsK/ZelnVtroJp046xLSLS+kBsPG1wh35JXzfFSdjiNI+R1sIdCKkV2GWxmPG7xP72CIFxugKzgQX2F3PvvYVVB57o1rYpLMjE/8qIEidT6h9cMYBY85nQlztDUfrqY3MGCMcJh0/jPkmJyZME18OKNZmsD41g3ZI1LGYx3YcgURfvD+FOHU="
     },
     "keyEnvelopes": {
       "recovery": {
@@ -22,9 +28,10 @@
         "wrappedDek": {
           "algorithm": "AES-256-GCM",
           "nonce": "DQ4PEBESExQVFhcY",
-          "ciphertext": "wG4mxnvrNkE5by/ysNC13Ha/OHOjqgYUuDJ2qn/Pe2CPH25s5YNWN5d8smL7MGCc"
+          "ciphertext": "+7fjPExNuca+zuPIIQXU/jX9L6Aq0bSmsNhEZSmULe+j6X8SKrZ5z+rJQyxWEyiq"
         }
       }
     }
-  }
+  },
+  "expectedPlaintext": "{\"records\":[{\"id\":\"native-fixture-record\",\"schemaVersion\":1,\"createdAt\":\"2026-11-04T00:00:00.000Z\",\"updatedAt\":\"2026-11-04T00:00:00.000Z\",\"source\":\"web\",\"revision\":1,\"data\":{\"value\":\"android-writer\"}}],\"driverState\":[],\"driverIntents\":[],\"driverEvents\":[],\"driverOutbox\":[],\"snapshotRevision\":0,\"schemaVersion\":1}"
 }
