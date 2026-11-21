@@ -103,8 +103,7 @@ internal object NativeBackupCoverage {
      * snapshot or clearing them during participant replacement.
      */
     private fun isRuntimeLocalRecord(id: String): Boolean =
-        id == "work:selected-driver" || id.startsWith("identity:driver-person-link:") ||
-            id.startsWith("identity:person:")
+        id == "work:selected-driver" || id.startsWith("identity:driver-person-link:")
 
     private fun isWorkRecord(id: String): Boolean =
         id == "driver-state" || id == "legacy-driver-state" ||
