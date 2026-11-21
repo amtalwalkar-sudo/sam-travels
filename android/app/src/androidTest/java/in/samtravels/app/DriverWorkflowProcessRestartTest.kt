@@ -39,7 +39,13 @@ class DriverWorkflowProcessRestartTest {
             .put("schemaVersion", 1).put("workflowVersion", 2).put("commandId", id).put("eventId", id)
             .put("eventType", event).put("originSurface", "native_overlay").put("transitionAt", at)
             .put("expectedPriorState", state).put("expectedRevision", revision).put("idempotencyKey", id).apply {
-                if (event == "shift_start") put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 12000))
+                if (event == "shift_start") {
+                    put("odometer", JSONObject().put("schemaVersion", 1).put("readingKm", 12000))
+                    put("driverContext", JSONObject().put("schemaVersion", 1)
+                        .put("driverId", "restart-driver")
+                        .put("assignmentId", "restart-assignment")
+                        .put("vehicleId", "feature:vehicle:MH01JK7890"))
+                }
             }
         try {
             putRecord("work:selected-driver", JSONObject().put("schemaVersion", 1).put("driverId", "restart-driver"))

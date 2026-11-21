@@ -7,6 +7,9 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,7 +44,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
 
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
-                "driver" to "Add driver", "compliance" to "Add a vehicle before recording compliance.",
+                "driver" to "Add driver", "compliance" to "Configure exactly one active Vehicle before recording compliance.",
                 "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
             sections.forEach { (id, expected) ->
                 eval(activity, "document.getElementById('admin-section-trigger-$id')?.click()")
@@ -54,6 +57,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
             assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
+            assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
 
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             click(activity, "Add vehicle")
@@ -69,7 +73,8 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Vehicle saved", await(activity, "document.body.innerText.includes('$registration')", 15000))
             val vehicleRecordId = "feature:vehicle:" + registration
             assertTrue("Vehicle Room identity", db.records().get(vehicleRecordId) != null)
-            db.close()
+            assertRoomOperationReceiptExists(db, vehicleRecordId)
+
 
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
@@ -79,9 +84,38 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             click(activity, "Save driver")
             assertTrue("Driver saved", await(activity, "document.body.innerText.includes('Driver created')", 15000))
 
+            val configuredVehicleRows = db.records().list().filter { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                row.id == vehicleRecordId && data.optString("lifecycleState") == "active"
+            }
+            assertEquals("Admin acceptance configures one active vehicle", 1, configuredVehicleRows.size)
+            val configuredDriverRows = db.records().list().filter { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                data.optString("name") == marker + " Driver" &&
+                    data.optString("lifecycleState") == "active"
+            }
+            assertEquals("Admin acceptance configures one active driver", 1, configuredDriverRows.size)
+            val driverRecordId = configuredDriverRows.single().id
+            assertRoomOperationReceiptExists(db, driverRecordId)
+            click(activity, "Configure for Work")
+            assertTrue("Admin configures the canonical Work Driver selection",
+                await(activity, "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
+            val configuredDriverData = org.json.JSONObject(configuredDriverRows.single().json).getJSONObject("data")
+            val selectedWorkDriver = db.records().get("work:selected-driver")
+            assertNotNull("Admin writes the authoritative Work selection record", selectedWorkDriver)
+            val selectedWorkDriverData = org.json.JSONObject(selectedWorkDriver!!.json).getJSONObject("data")
+            assertEquals("Work selection references the sole active Driver",
+                configuredDriverData.getString("driverId"), selectedWorkDriverData.getString("driverId"))
+            val assignmentHistory = db.records().get("feature:driver-records:assignment:" + configuredDriverData.getString("driverId"))
+            assertNotNull("Admin creates the current Driver–Vehicle assignment", assignmentHistory)
+            val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
+            assertEquals("Admin assigns the sole active Vehicle", vehicleRecordId, assignment.getString("vehicleId"))
+            assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
-            assertTrue("Compliance vehicle selector", await(activity, "document.querySelectorAll('#admin-section-panel-compliance select').length>0", 10000))
-            eval(activity, """(()=>{const s=document.querySelector('#admin-section-panel-compliance select');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            assertTrue("Compliance binds the configured operating Vehicle", await(activity,
+                "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
+            assertTrue("Compliance has no routine Vehicle selector", await(activity,
+                "!document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context select')", 10000))
             click(activity, "Add compliance / renewal")
             set(activity, "Compliance type / name", marker + " Insurance")
             set(activity, "Valid from", "2026-11-15")
@@ -90,6 +124,15 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Document reference (optional)", "INS-" + marker)
             click(activity, "Save record")
             assertTrue("Compliance saved", await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
+            val savedCompliance = db.records().list().singleOrNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                row.id.startsWith("feature:compliance:") && data.optString("complianceName") == marker + " Insurance"
+            }
+            assertNotNull("Compliance record persisted after form submit", savedCompliance)
+            val savedComplianceData = org.json.JSONObject(savedCompliance!!.json).getJSONObject("data")
+            assertEquals("Compliance persists the configured operating Vehicle", vehicleRecordId,
+                savedComplianceData.getString("vehicleId"))
+            assertRoomOperationReceiptExists(db, savedCompliance!!.id)
 
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
@@ -107,6 +150,13 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "First EMI date (first day of month)", "2026-02-01")
             click(activity, "Save loan details")
             assertTrue("Loan saved", await(activity, "document.body.innerText.includes('$marker Loan')", 15000))
+            val loanRecord = db.records().list().singleOrNull { row ->
+                val data = org.json.JSONObject(row.json).getJSONObject("data")
+                row.id.startsWith("feature:finance:loan:") &&
+                    data.optJSONObject("details")?.optString("loanName") == marker + " Loan"
+            }
+            assertNotNull("Loan details record persists in Room", loanRecord)
+            assertRoomOperationReceiptExists(db, loanRecord!!.id)
             assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
 
@@ -159,6 +209,10 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
+            val businessSettings = db.records().get("feature:business-settings:business")
+            assertNotNull("Business start date record survives Room close/reopen", businessSettings)
+            assertEquals("Business start date value survives Room close/reopen", "2024-01-01",
+                org.json.JSONObject(businessSettings!!.json).getJSONObject("data").getString("businessStartDate"))
             val records = db.records().list().joinToString("\n") { it.json }
             listOf(registration, marker + " Driver", marker + " Insurance",
                 marker + " Loan", "FEE-" + marker, "PARK-" + marker, marker + " service visit")
@@ -183,7 +237,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         }
     }
 
-    private fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
+    internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin field loads: " + label, await(activity,
             "[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name'))", 15000))
@@ -192,7 +246,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
     }
 
-    private fun click(activity: MainActivity, label: String, index: Int = 0) {
+    internal fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin action loads: " + label, await(activity,
             "[...document.querySelectorAll('button')].some(n=>n.textContent.trim()==='$name'&&!n.disabled)", 15000))
@@ -200,12 +254,13 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(javascriptValue(activity, js) == "true") { "Missing Admin action: " + label }
     }
 
-    private fun clickMatching(activity: MainActivity, pattern: String) {
-        val js = """(()=>{const r=/$pattern/;const b=[...document.querySelectorAll('button')].find(n=>r.test(n.textContent));if(!b)return false;b.click();return true})()"""
-        check(javascriptValue(activity, js) == "true")
+    internal fun clickMatching(activity: MainActivity, pattern: String) {
+        val name = pattern.replace("'", "\\'")
+        val js = """(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('$name')&&!n.disabled);if(!b)return false;b.click();return true})()"""
+        check(javascriptValue(activity, js) == "true") { "Missing enabled matching Admin action: " + pattern }
     }
 
-    private fun eval(activity: MainActivity, script: String) {
+    internal fun eval(activity: MainActivity, script: String) {
         val webView = activity.getBridge().getWebView()
         val latch = CountDownLatch(1)
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -214,7 +269,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         check(latch.await(15, TimeUnit.SECONDS))
     }
 
-    private fun javascriptValue(activity: MainActivity, expression: String): String? {
+    internal fun javascriptValue(activity: MainActivity, expression: String): String? {
         val webView = activity.getBridge().getWebView()
         val result = AtomicReference<String?>()
         val latch = CountDownLatch(1)
@@ -224,7 +279,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         return if (latch.await(3, TimeUnit.SECONDS)) result.get() else null
     }
 
-    private fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
+    internal fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             if (javascriptValue(activity, "Boolean($expression)") == "true") return true

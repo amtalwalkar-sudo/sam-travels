@@ -93,52 +93,6 @@ export class TimelineEnrichmentQueue {
   }
 
 
-  /**
-   * Persist the GPS result for a Fuel Entry submission under its stable fuel-event
-   * identity. The purchase itself is already committed; this evidence/enrichment
-   * record is separate and can never delay or roll back that purchase.
-   */
-  async recordFuelLocationCapture(input: Readonly<{
-    eventId: string;
-    outcome:
-      | Readonly<{ status: "captured"; latitude: number; longitude: number; accuracyMeters: number; fixAt: string; gpsProvider: "device" }>
-      | Readonly<{ status: "permission_denied" | "timeout" | "unavailable"; reason: string }>;
-    captureTiming: "submission_event" | "late";
-  }>): Promise<void> {
-    if (!input.eventId.startsWith("fuel:feature:business-expenses:fuel:")) {
-      throw new Error("fuel_location_event_identity_invalid");
-    }
-    const id = recordId(input.eventId);
-    if (await this.records.get<TimelineEnrichmentRecord>(id)) return;
-    const now = new Date(this.now()).toISOString();
-    const captured = input.outcome.status === "captured";
-    if (captured && (!Number.isFinite(input.outcome.latitude) || input.outcome.latitude < -90 ||
-        input.outcome.latitude > 90 || !Number.isFinite(input.outcome.longitude) ||
-        input.outcome.longitude < -180 || input.outcome.longitude > 180 ||
-        !Number.isFinite(input.outcome.accuracyMeters) || input.outcome.accuracyMeters <= 0 ||
-        !Number.isFinite(Date.parse(input.outcome.fixAt)))) {
-      throw new Error("fuel_location_evidence_invalid");
-    }
-    const data: TimelineEnrichmentRecord = {
-      eventId: input.eventId,
-      status: captured ? "pending" : "capture_unavailable",
-      provider: "geoapify",
-      createdAt: now,
-      attempts: 0,
-      captureStatus: input.outcome.status,
-      captureTiming: input.captureTiming,
-      ...(captured ? {
-        latitude: input.outcome.latitude,
-        longitude: input.outcome.longitude,
-        accuracyMeters: input.outcome.accuracyMeters,
-        fixAt: input.outcome.fixAt,
-        gpsProvider: input.outcome.gpsProvider,
-      } : { captureReason: input.outcome.reason }),
-    };
-    await this.records.put({
-      id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "integration", revision: 1, data,
-    });
-  }
 
   async drain(limit = MAX_BATCH_SIZE, signal?: AbortSignal): Promise<TimelineLocationMap> {
     if (this.draining) return Object.freeze({});

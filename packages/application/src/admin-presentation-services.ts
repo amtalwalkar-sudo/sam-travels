@@ -15,6 +15,7 @@ import type { BusinessStartDateCostAllocationService } from "./business-start-da
 import type { getApplicationBusinessExpensesService } from "./business-expenses-runtime";
 import type { PerformanceAdminSettingsServiceV1 } from "./performance-admin-settings-service";
 import type { PerformanceCalculationServiceV1 } from "./performance-calculation-service";
+import type { WorkDriverSelectionService } from "./work-driver-selection-service";
 
 /**
  * Explicit application-service dependencies supplied by the composition root
@@ -27,6 +28,7 @@ export type AdminPresentationServices = Readonly<{
   vehicles: ReturnType<typeof getApplicationVehicleService>;
   driverRecords: ReturnType<typeof getApplicationDriverRecordsService>;
   driverAssignments: ReturnType<typeof getApplicationDriverAssignmentService>;
+  workDriverSelection: WorkDriverSelectionService;
   compliance: ReturnType<typeof getApplicationComplianceService>;
   complianceAnalysis: ReturnType<typeof getApplicationComplianceAnalysisService>;
   maintenance: ReturnType<typeof getApplicationMaintenanceService>;

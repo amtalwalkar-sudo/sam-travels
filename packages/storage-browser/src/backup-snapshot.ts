@@ -1,5 +1,5 @@
 import { assertDriverEventContract, assertDriverIntentContract, assertDriverOutboxContract, assertDriverStateContract } from "../../domain/src/driver-workflow";
-import { assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
+import { assertBackupRecordCount, assertRecordEnvelope, assertSnapshotManifest, BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
@@ -240,7 +240,7 @@ function validateSnapshot(data: BrowserSnapshotData, manifest: SnapshotManifest)
   }
   const state = data.driverState.find(row => row && typeof row === "object" && (row as { id?: unknown }).id === "driver-state") as { value?: { revision?: number } } | undefined;
   const revision = Number.isSafeInteger(state?.value?.revision) ? state!.value!.revision! : 0;
-  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch");
+  if (revision !== manifest.snapshotRevision) throw new Error("backup_snapshot_revision_mismatch:" + revision + ":" + manifest.snapshotRevision);
   const primaryKeys: Record<BrowserSnapshotTable, (row: Record<string, unknown>) => string> = {
     records: row => String(row.id ?? ""),
     driverState: row => String(row.id ?? ""),
@@ -275,6 +275,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
 }> {
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
+  assertBackupRecordCount(Object.values(data).reduce((total, rows) => total + rows.length, 0));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
   validateCustomFeatureBackupRecords(data.records);
@@ -387,4 +388,12 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
   if (!snapshotsEqual(restored, checkpoint.snapshot)) {
     throw new Error("backup_checkpoint_rollback_verification_failed");
   }
+}
+
+
+/** Validate before converting to the cross-platform canonical interchange envelope. */
+export function assertBrowserSnapshotForCanonical(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
+  const canonical = (items: NonNullable<SnapshotManifest["participants"]>) => items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
+  if (!manifest.participants || JSON.stringify(canonical(manifest.participants)) !== JSON.stringify(canonical(currentParticipantManifest()))) throw new Error("backup_participant_manifest_mismatch");
+  validateSnapshot(data, manifest);
 }

@@ -25,6 +25,13 @@ class NativeBusinessExpensesBackupTest {
         .put("fuelType", "CNG").put("yearOfManufacture", 2022)
         .put("ownership", "Owned").put("lifecycleState", "active"))
 
+    private fun driverRow() = row(
+        "feature:driver-records:driver:driver-synthetic-001",
+        "driver-records",
+        JSONObject().put("schemaVersion", 1).put("driverId", "driver-synthetic-001")
+            .put("name", "Synthetic Driver").put("lifecycleState", "active"),
+    )
+
     private fun fuelRow() = row(
         "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000",
         "business-expenses-records",
@@ -74,6 +81,22 @@ class NativeBusinessExpensesBackupTest {
             .put(expenseRow("traffic_challan", "123e4567-e89b-42d3-a456-426614174003",
                 JSONObject().put("paymentStatus", "unpaid")))
         NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
+    }
+
+    @Test
+    fun rejectsLegacyDriverIdentityWithTheSameMissingReferenceCategoryAsBrowser() = withParticipants {
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        try {
+            val expense = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174030",
+                JSONObject().put("category", "Parking").put("driverId", "feature:driver:driver-synthetic-001"))
+            val error = assertThrows(IllegalArgumentException::class.java) {
+                NativeBackupCoverage.validateBusinessRecords(
+                    JSONArray().put(vehicleRow()).put(driverRow()).put(expense),
+                    requireExplicitOwnerTags = true,
+                )
+            }
+            assertEquals("business_expense_driver_not_found", error.message)
+        } finally { driverRegistration.close() }
     }
 
     @Test

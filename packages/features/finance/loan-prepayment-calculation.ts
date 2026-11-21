@@ -1,7 +1,7 @@
-import { buildLoanAmortizationSchedule, calculateMonthlyInterestPaise } from "./loan-calculation";
+import { calculateMonthlyInterestPaise } from "./loan-calculation";
 
 export const LOAN_PREPAYMENT_CALCULATION_ID = "finance.loan-prepayment-reamortization.v1" as const;
-export type LoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
+export type LoanPrepaymentModeV1 = "reduce_tenure";
 export type LoanPrepaymentCalculationInputV1 = Readonly<{
   principalPaise: number;
   baselinePrincipalPaise: number;
@@ -60,7 +60,7 @@ function assertInput(input: LoanPrepaymentCalculationInputV1): void {
       !Number.isSafeInteger(input.regularEmiPaise) || input.regularEmiPaise <= 0 ||
       !Array.isArray(input.remainingDueDates) || input.remainingDueDates.length < 1 ||
       input.remainingDueDates.length > MAX_TENURE_MONTHS ||
-      (input.mode !== "reduce_tenure" && input.mode !== "reduce_emi")) {
+      input.mode !== "reduce_tenure") {
     throw new Error("finance_loan_prepayment_input_invalid");
   }
   input.remainingDueDates.forEach((date, index) => {
@@ -116,28 +116,9 @@ export function calculateLoanPrepaymentReamortizationV1(
     input.regularEmiPaise, input.remainingDueDates[0],
   );
   const baselineInterest = baselineRows.reduce((sum, row) => sum + BigInt(row.interestPaise), 0n);
-  let rows: readonly LoanPrepaymentScheduleRowV1[];
-  let regularEmiPaise: number;
-  if (input.mode === "reduce_tenure") {
-    regularEmiPaise = input.regularEmiPaise;
-    rows = buildFixedEmiSchedule(input.principalPaise, input.annualInterestRateBasisPoints,
-      regularEmiPaise, input.remainingDueDates[0]);
-  } else {
-    const schedule = buildLoanAmortizationSchedule({
-      principalPaise: input.principalPaise,
-      annualInterestRateBasisPoints: input.annualInterestRateBasisPoints,
-      tenureMonths: input.remainingDueDates.length,
-      loanStartDate: input.remainingDueDates[0],
-      firstEmiDate: input.remainingDueDates[0],
-    });
-    regularEmiPaise = schedule.regularEmiPaise;
-    rows = Object.freeze(schedule.rows.map((row, index) => Object.freeze({
-      ...row, dueDate: input.remainingDueDates[index],
-    })));
-    if (regularEmiPaise > input.regularEmiPaise) {
-      throw new Error("finance_loan_prepayment_reduced_emi_exceeds_previous");
-    }
-  }
+  const regularEmiPaise = input.regularEmiPaise;
+  const rows = buildFixedEmiSchedule(input.principalPaise, input.annualInterestRateBasisPoints,
+    regularEmiPaise, input.remainingDueDates[0]);
   const revisedInterest = rows.reduce((sum, row) => sum + BigInt(row.interestPaise), 0n);
   const saved = baselineInterest - revisedInterest;
   if (saved < 0n) throw new Error("finance_loan_prepayment_interest_saving_invalid");

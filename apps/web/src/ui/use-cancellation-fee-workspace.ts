@@ -41,7 +41,7 @@ export function useCancellationFeeWorkspace(
   }, [refresh]);
 
   function parseRupeesToPaise(value: string): number | null {
-    if (value === "" || !/^\\d+(\\.\\d{1,2})?$/.test(value)) return null;
+    if (value === "" || !/^\d+(\.\d{1,2})?$/.test(value)) return null;
     const [rupees, fraction = ""] = value.split(".");
     const amount = Number(rupees) * 100 + Number(fraction.padEnd(2, "0"));
     return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;

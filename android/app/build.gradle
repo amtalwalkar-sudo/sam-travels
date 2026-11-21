@@ -56,8 +56,11 @@ android {
             assets.srcDirs += [new File(rootProject.projectDir, '../contracts')]
         }
         androidTest {
-            assets.srcDirs += [
-                new File(rootProject.projectDir, '../fixtures'),
+            // Explicitly include staged repository fixtures and Room schemas.
+            // Assigning the complete source set avoids AGP configurations where
+            // the implicit src/androidTest/assets directory is not retained.
+            assets.srcDirs = [
+                new File(projectDir, 'src/androidTest/assets'),
                 new File(projectDir, 'schemas')
             ]
         }

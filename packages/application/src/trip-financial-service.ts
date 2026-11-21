@@ -27,7 +27,7 @@ export class TripFinancialService {
     private readonly records: RecordRepository & AtomicRecordRepository,
     private readonly source: RecordEnvelope<unknown>["source"],
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly currentAuthor?: (tripId: string) => Promise<RecordAuthorV1>,
   ) {}
 
   async pendingCancellationFees(): Promise<readonly RecordEnvelope<CancellationFeeObligation>[]> {
@@ -81,7 +81,7 @@ export class TripFinancialService {
     if (current.data.status !== "pending") throw new Error("cancellation_fee_obligation_invalid");
 
     const submittedAt = this.now();
-    const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+    const createdBy = this.currentAuthor ? await this.currentAuthor(tripId) : undefined;
     if (this.currentAuthor && !createdBy) throw new Error("business_actor_not_active");
     const next: RecordEnvelope<CancellationFeeObligation> = {
       ...current,

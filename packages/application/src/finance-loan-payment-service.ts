@@ -1,5 +1,5 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
 
 export const FINANCE_PAYMENT_RECORD_PREFIX = "feature:finance:payments:";
@@ -11,14 +11,14 @@ export type FinancePaymentAllocationV1 = Readonly<{
 export type FinancePaymentEntryV1 =
   | Readonly<{ kind: "payment"; id: string; commandId: string; loanId: string; businessDate: string;
       amountPaise: number; method: FinancePaymentMethodV1; reference?: string; note?: string;
-      scheduleVersion: number; createdAt: string; source: RecordEnvelope<unknown>["source"];
+      scheduleVersion: number; createdAt: string; source: RecordEnvelope<unknown>["source"]; createdBy?: RecordAuthorV1;
       allocations: readonly FinancePaymentAllocationV1[]; unallocatedCreditPaise: number; status: "committed" }>
   | Readonly<{ kind: "settlement"; id: string; commandId: string; loanId: string; businessDate: string;
       amountPaise: number; method: FinancePaymentMethodV1; reference?: string; scheduleVersion: number;
-      paidThroughInstallment: number; createdAt: string; source: RecordEnvelope<unknown>["source"]; status: "committed" }>
+      paidThroughInstallment: number; createdAt: string; source: RecordEnvelope<unknown>["source"]; createdBy?: RecordAuthorV1; status: "committed" }>
   | Readonly<{ kind: "reversal"; id: string; commandId: string; loanId: string; paymentId: string;
       businessDate: string; reason: string; amountPaise: number; createdAt: string;
-      source: RecordEnvelope<unknown>["source"]; status: "committed" }>;
+      source: RecordEnvelope<unknown>["source"]; createdBy?: RecordAuthorV1; status: "committed" }>;
 export type FinancePaymentLedgerV1 = Readonly<{ schemaVersion: 1; loanId: string; entries: readonly FinancePaymentEntryV1[] }>;
 type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> };
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise?: number };
@@ -41,6 +41,13 @@ function ledgerId(loanId: string): string {
   }
   return FINANCE_PAYMENT_RECORD_PREFIX + uuid.toLowerCase();
 }
+function validAuthor(value: unknown): value is RecordAuthorV1 {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const author = value as Record<string, unknown>;
+  return typeof author.personId === "string" && !!author.personId.trim() &&
+    (author.role === "admin" || author.role === "driver") &&
+    Object.keys(author).every(key => key === "personId" || key === "role");
+}
 function validInstant(value: string): boolean {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
@@ -59,7 +66,7 @@ function assertLedger(value: unknown, loanId: string): asserts value is FinanceP
         entry.loanId !== loanId || !validDate(entry.businessDate) ||
         !Number.isSafeInteger(entry.amountPaise) || entry.amountPaise <= 0 ||
         !validInstant(entry.createdAt) || entry.status !== "committed" ||
-        typeof entry.source !== "string" || !entry.source.trim()) {
+        typeof entry.source !== "string" || !entry.source.trim() || (entry.createdBy !== undefined && !validAuthor(entry.createdBy))) {
       throw new Error("finance_payment_entry_invalid");
     }
     ids.add(entry.id);
@@ -174,7 +181,8 @@ export function proposeFinancePaymentAllocationV1(
 export class FinanceLoanPaymentService {
   constructor(private readonly repository: AtomicRecordBatchRepository, private readonly loans: LoanDirectory,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly scheduleResolver?: FinanceLoanScheduleResolver) {}
+    private readonly scheduleResolver?: FinanceLoanScheduleResolver,
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>) {}
 
   private async assertScheduleVersionForDate(loanId: string, version: number, businessDate: string): Promise<void> {
     const expected = await this.scheduleResolver?.getScheduleVersionForDate(loanId, businessDate);
@@ -208,7 +216,7 @@ export class FinanceLoanPaymentService {
   }
   async record(input: { id: string; commandId: string; loanId: string; businessDate: string; amountPaise: number;
     method: FinancePaymentMethodV1; reference?: string; note?: string; scheduleVersion: number;
-    allocations: readonly { installmentNumber: number; amountPaise: number }[]; source: RecordEnvelope<unknown>["source"] }) {
+    allocations: readonly { installmentNumber: number; amountPaise: number }[]; source: RecordEnvelope<unknown>["source"]; now?: string }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) ||
         !Number.isSafeInteger(input.amountPaise) || input.amountPaise <= 0 || !METHODS.has(input.method)) {
       throw new Error("finance_payment_input_invalid");
@@ -238,7 +246,8 @@ export class FinanceLoanPaymentService {
       if (loan.data.lifecycleState === "closed") throw new Error("finance_loan_closed");
       const totals = allocationTotals(entries, input.scheduleVersion), seen = new Set<number>();
       let allocatedSum = 0;
-      const createdAt = this.now();
+      const createdAt = input.now ?? this.now();
+      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
       const allocations = input.allocations.map((allocation, index) => {
         const row = rows.find(item => item.installmentNumber === allocation.installmentNumber);
         if (!row || row.dueDate > input.businessDate || seen.has(row.installmentNumber) ||
@@ -257,7 +266,8 @@ export class FinanceLoanPaymentService {
         loanId: input.loanId, businessDate: input.businessDate, amountPaise: input.amountPaise, method: input.method,
         ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
         ...(input.note?.trim() ? { note: input.note.trim() } : {}),
-        scheduleVersion: input.scheduleVersion, createdAt, source: input.source, allocations,
+        scheduleVersion: input.scheduleVersion, createdAt, source: input.source,
+        ...(createdBy ? { createdBy } : {}), allocations,
         unallocatedCreditPaise: input.amountPaise - allocatedSum, status: "committed" };
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, payment] };
@@ -293,9 +303,12 @@ export class FinanceLoanPaymentService {
       if (!payment) throw new Error("finance_payment_not_found");
       if (entries.some(entry => entry.kind === "reversal" && entry.paymentId === input.paymentId)) throw new Error("finance_payment_already_reversed");
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
-      const createdAt = this.now(), reversal: FinancePaymentEntryV1 = { kind: "reversal", id: input.id,
+      const createdAt = this.now();
+      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
+      const reversal: FinancePaymentEntryV1 = { kind: "reversal", id: input.id,
         commandId: input.commandId, loanId: input.loanId, paymentId: input.paymentId, businessDate: input.businessDate,
-        reason: input.reason.trim(), amountPaise: payment.amountPaise, createdAt, source: input.source, status: "committed" };
+        reason: input.reason.trim(), amountPaise: payment.amountPaise, createdAt, source: input.source,
+        ...(createdBy ? { createdBy } : {}), status: "committed" };
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, reversal] };
       assertLedger(data, input.loanId);
       const id = ledgerId(input.loanId), next: RecordEnvelope<FinancePaymentLedgerV1> = {

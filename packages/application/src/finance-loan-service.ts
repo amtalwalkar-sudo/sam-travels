@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type FinanceLoanDetailsV1 = Readonly<{
   loanName: string;
@@ -107,9 +107,11 @@ export class FinanceLoanService {
     uuid: string;
     details: FinanceLoanDetailsV1;
     source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
     await this.requireVehicle(input.details.vehicleId);
-    const createdAt = this.now();
+    const createdAt = input.now ?? this.now();
     const data: FinanceLoanRecordV1 = {
       schemaVersion: 1,
       kind: "loan",
@@ -124,6 +126,7 @@ export class FinanceLoanService {
       source: input.source,
       businessDate: input.details.loanStartDate,
       now: createdAt,
+      operation: input.operation,
     });
   }
 

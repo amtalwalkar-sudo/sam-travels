@@ -6,7 +6,7 @@ import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-histor
 
 type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "businessSettings" | "costAllocation">;
 type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
-type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "vehicles" | "recordSource">;
+type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "workDriverSelection" | "vehicles" | "recordSource">;
 type ComplianceServices = Pick<AdminPresentationServices, "formRuntime" | "compliance" | "complianceAnalysis" | "vehicles">;
 type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource">;
 type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses">;
@@ -44,7 +44,7 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
     businessSetup: { formRuntime: services.formRuntime, businessSettings: services.businessSettings, costAllocation: services.costAllocation },
     vehicle: { formRuntime: services.formRuntime, vehicles: services.vehicles },
     driver: { formRuntime: services.formRuntime, driverRecords: services.driverRecords,
-      driverAssignments: services.driverAssignments, vehicles: services.vehicles, recordSource: services.recordSource },
+      driverAssignments: services.driverAssignments, workDriverSelection: services.workDriverSelection, vehicles: services.vehicles, recordSource: services.recordSource },
     compliance: { formRuntime: services.formRuntime, compliance: services.compliance,
       complianceAnalysis: services.complianceAnalysis, vehicles: services.vehicles },
     maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles, recordSource: services.recordSource },

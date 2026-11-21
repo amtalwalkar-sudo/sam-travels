@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { AtomicRecordRepository } from "../packages/core/src/repositories";
+import type { AtomicRecordBatchRepository, AtomicRecordMutation } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { assertComplianceRecordV1 } from "../packages/features/compliance";
 import { ComplianceService } from "../packages/application/src/compliance-service";
 
-class MemoryRepository implements AtomicRecordRepository {
+class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
+  seed(records: Array<RecordEnvelope<unknown>>) { for (const record of records) this.rows.set(record.id, record); }
   async get<T>(id: string) { return this.rows.get(id) as RecordEnvelope<T> | undefined; }
   async put<T>(record: RecordEnvelope<T>) { this.rows.set(record.id, record as RecordEnvelope<unknown>); }
   async list<T>() { return [...this.rows.values()] as Array<RecordEnvelope<T>>; }
@@ -14,6 +15,14 @@ class MemoryRepository implements AtomicRecordRepository {
     const current = this.rows.get(id);
     if (expectedRevision === null ? current !== undefined : current?.revision !== expectedRevision) return false;
     this.rows.set(id, next as RecordEnvelope<unknown>);
+    return true;
+  }
+  async compareAndSetMany(mutations: readonly AtomicRecordMutation[]) {
+    for (const mutation of mutations) {
+      const current = this.rows.get(mutation.id);
+      if (mutation.expectedRevision === null ? current !== undefined : current?.revision !== mutation.expectedRevision) return false;
+    }
+    for (const mutation of mutations) this.rows.set(mutation.id, mutation.next as RecordEnvelope<unknown>);
     return true;
   }
 }
@@ -30,6 +39,19 @@ const second = {
 };
 
 function setup(repository = new MemoryRepository()) {
+  const at = "2026-11-19T08:00:00.000Z";
+  const row = (id: string, data: unknown): RecordEnvelope<unknown> => ({
+    id, schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1, data,
+  });
+  // Compliance is Vehicle-owned; deliberately omit Work Driver selection,
+  // Driver profiles and Driver–Vehicle assignments from this fixture.
+  repository.seed([
+    row(first.vehicleId, {
+      schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Make", model: "Model",
+      vehicleType: "Sedan", fuelType: "CNG", yearOfManufacture: 2024, ownership: "Owned",
+      lifecycleState: "active",
+    }),
+  ]);
   const vehicles = {
     async getById(id: string) {
       return [first.vehicleId, "feature:vehicle:MH02CD5678"].includes(id) ? {
@@ -39,11 +61,11 @@ function setup(repository = new MemoryRepository()) {
       } : undefined;
     },
   };
-  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1, vehicles) };
+  return { repository, service: new ComplianceService(repository, assertComplianceRecordV1, vehicles, () => at) };
 }
 
 describe("ComplianceService", () => {
-  it("creates immutable historical records and links renewal as a new record", async () => {
+  it("creates immutable Vehicle-owned records without requiring Work Driver context", async () => {
     const { service } = setup();
     const previous = await service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174000",
@@ -59,12 +81,47 @@ describe("ComplianceService", () => {
     expect((await service.get(previous.id))?.data.validTo).toBe("2024-12-31");
   });
 
-  it("rejects records for an unknown vehicle", async () => {
+  it("replays the same Compliance create receipt after interruption and rejects changed payload reuse", async () => {
+    const { repository, service } = setup();
+    const operation = { operationId: "compliance-create-operation", payloadFingerprint: "compliance-payload-v1" };
+    const input = {
+      uuid: "123e4567-e89b-42d3-a456-426614174020",
+      data: first, source: "web" as const, businessDate: "2024-01-01",
+      operation, now: "2026-11-19T08:15:00.000Z",
+    };
+    const committed = await service.create(input);
+    const replayed = await service.create({ ...input, now: "2026-11-19T09:15:00.000Z" });
+    expect(replayed).toEqual(committed);
+    expect((await repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:"),
+    )).toHaveLength(1);
+    await expect(service.create({ ...input, data: { ...first, totalCostPaise: 99999 } }))
+      .rejects.toThrow("feature_record_operation_payload_conflict");
+  });
+
+  it("rejects a non-operating vehicle before persistence", async () => {
     const { service } = setup();
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174010",
       data: { ...first, vehicleId: "feature:vehicle:UNKNOWN" }, source: "web",
-    })).rejects.toThrow("compliance_vehicle_not_found");
+    })).rejects.toThrow("compliance_operating_vehicle_mismatch");
+  });
+
+  it("rejects a caller-supplied vehicle that differs from the configured operating vehicle", async () => {
+    const { service } = setup();
+    await expect(service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174011",
+      data: { ...first, vehicleId: "feature:vehicle:MH02CD5678" }, source: "web",
+    })).rejects.toThrow("compliance_operating_vehicle_mismatch");
+  });
+
+  it("fails closed when the active operating Vehicle is missing", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById() { return undefined; } };
+    const service = new ComplianceService(repository, assertComplianceRecordV1, vehicles);
+    await expect(service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174012", data: first, source: "web",
+    })).rejects.toThrow("operating_vehicle_missing");
   });
 
   it("allows an early linked renewal with actual overlapping dates", async () => {
@@ -92,7 +149,7 @@ describe("ComplianceService", () => {
     });
     await expect(service.create({
       uuid: "123e4567-e89b-42d3-a456-426614174003",
-      data: { ...second, vehicleId: "feature:vehicle:MH02CD5678" }, source: "web",
+      data: { ...second, complianceName: "Permit" }, source: "web",
     })).rejects.toThrow("compliance_renewal_source_mismatch");
   });
 

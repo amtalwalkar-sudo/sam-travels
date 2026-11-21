@@ -26,17 +26,14 @@ internal object NativeMaintenanceCorrectionBackup {
             val data = envelope.optJSONObject("data") ?: return@forEach
             val targetId = data.optString("targetRecordId")
             val featureId = data.optString("featureId")
-            if (id.startsWith(CHAIN_PREFIX)) {
-                if (targetId.startsWith(EXPENSE_PREFIX) || featureId == FEATURE_ID) {
-                    require(targetId.startsWith(EXPENSE_PREFIX) &&
-                        id == CHAIN_PREFIX + URLEncoder.encode(targetId, "UTF-8").replace("+", "%20")) {
-                        "maintenance_correction_chain_head_identity_invalid"
-                    }
-                    require(headsByTarget.put(targetId, row to envelope) == null) {
-                        "maintenance_correction_chain_head_duplicate"
-                    }
+            if (id.startsWith(CHAIN_PREFIX) && targetId.startsWith(EXPENSE_PREFIX)) {
+                require(id == CHAIN_PREFIX + URLEncoder.encode(targetId, "UTF-8").replace("+", "%20")) {
+                    "maintenance_correction_chain_head_identity_invalid"
                 }
-            } else if (featureId == FEATURE_ID || targetId.startsWith(EXPENSE_PREFIX)) {
+                require(headsByTarget.put(targetId, row to envelope) == null) {
+                    "maintenance_correction_chain_head_duplicate"
+                }
+            } else if (id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID) {
                 require(id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID &&
                     targetId.startsWith(EXPENSE_PREFIX)) {
                     "maintenance_correction_identity_invalid"

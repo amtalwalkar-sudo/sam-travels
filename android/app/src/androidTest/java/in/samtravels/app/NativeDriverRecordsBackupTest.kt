@@ -61,19 +61,81 @@ class NativeDriverRecordsBackupTest {
             .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "driver-records")
     }
 
+    private fun vehicleRow(registration: String): JSONObject {
+        val timestamp = "2026-11-07T00:00:00.000Z"
+        val id = "feature:vehicle:$registration"
+        val data = JSONObject().put("schemaVersion", 1).put("registrationNumber", registration)
+            .put("make", "Example Make").put("model", "Example Model")
+            .put("vehicleType", "Sedan").put("fuelType", "Petrol")
+            .put("yearOfManufacture", 2022).put("ownership", "Owned")
+            .put("lifecycleState", "active")
+        val envelope = JSONObject().put("id", id).put("schemaVersion", 1)
+            .put("createdAt", timestamp).put("updatedAt", timestamp)
+            .put("source", "web").put("revision", 1).put("data", data)
+        return JSONObject().put("id", id).put("json", envelope.toString())
+            .put("schemaVersion", 1).put("updatedAt", timestamp).put("participantId", "vehicle-records")
+    }
+
+    private fun assignmentFixture(activeTwice: Boolean): JSONArray = JSONArray()
+        .put(vehicleRow("MH01AB1234"))
+        .put(vehicleRow("MH02CD5678"))
+        .put(assignmentRow("driver-001", activeTwice))
+
     @Test fun validatesAssignmentHistoryAndRejectsTwoActiveAssignments() {
-        val registration = NativeDriverRecordsBackup.register()
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
         try {
             NativeBackupCoverage.validateBusinessRecords(
-                JSONArray().put(assignmentRow("driver-001")), requireExplicitOwnerTags = true,
+                assignmentFixture(activeTwice = false), requireExplicitOwnerTags = true,
             )
             assertEquals("driver_multiple_active_assignments", runCatching {
                 NativeBackupCoverage.validateBusinessRecords(
-                    JSONArray().put(assignmentRow("driver-001", activeTwice = true)),
-                    requireExplicitOwnerTags = true,
+                    assignmentFixture(activeTwice = true), requireExplicitOwnerTags = true,
                 )
             }.exceptionOrNull()?.message)
-        } finally { registration.close() }
+        } finally {
+            vehicleRegistration.close()
+            driverRegistration.close()
+        }
+    }
+
+
+    @Test fun rejectsAssignmentWithMissingVehicleReference() {
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
+        try {
+            assertEquals("driver_assignment_vehicle_reference_missing", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(
+                    JSONArray().put(assignmentRow("driver-001")), requireExplicitOwnerTags = true,
+                )
+            }.exceptionOrNull()?.message)
+        } finally {
+            vehicleRegistration.close()
+            driverRegistration.close()
+        }
+    }
+
+    @Test fun rejectsOverlappingHistoricalAssignmentPeriods() {
+        val driverRegistration = NativeDriverRecordsBackup.register()
+        val vehicleRegistration = NativeVehicleBackup.register()
+        try {
+            val fixture = assignmentFixture(activeTwice = false)
+            val assignment = fixture.getJSONObject(2)
+            val envelope = JSONObject(assignment.getString("json"))
+            val assignments = envelope.getJSONObject("data").getJSONArray("assignments")
+            assignments.getJSONObject(0).put("unassignedAt", "2026-11-10T00:00:00.000Z")
+            assignments.put(JSONObject().put("assignmentId", "assignment-2")
+                .put("vehicleId", "feature:vehicle:MH02CD5678")
+                .put("assignedAt", "2026-11-09T00:00:00.000Z")
+                .put("unassignedAt", "2026-11-11T00:00:00.000Z"))
+            assignment.put("json", envelope.toString())
+            assertEquals("driver_assignment_period_overlap", runCatching {
+                NativeBackupCoverage.validateBusinessRecords(fixture, requireExplicitOwnerTags = true)
+            }.exceptionOrNull()?.message)
+        } finally {
+            vehicleRegistration.close()
+            driverRegistration.close()
+        }
     }
 
     @Test fun acceptsLegacyManifestOnlyWhenNoDriverRecordsExist() {

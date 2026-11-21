@@ -7,6 +7,12 @@ import java.time.YearMonth
 
 /** Native backup/restore participant for Finance-owned prepayment schedule revisions. */
 internal object NativeFinancePrepaymentBackup {
+    private fun validCreatedBy(value: JSONObject?): Boolean {
+        if (value == null) return false
+        return value.keys().asSequence().toSet() == setOf("personId", "role") &&
+            value.optString("personId").isNotBlank() &&
+            value.optString("role") in setOf("admin", "driver")
+    }
     const val PARTICIPANT_ID = "finance-prepayment-records"
     const val RECORD_ID_PREFIX = "feature:finance:prepayments:"
     private const val LOAN_PARTICIPANT_ID = "finance-records"
@@ -70,14 +76,17 @@ internal object NativeFinancePrepaymentBackup {
                 val commandId = revision.optString("commandId")
                 val createdAt = revision.optString("createdAt")
                 val mode = revision.optString("mode")
-                require(revision.keys().asSequence().toSet() == setOf("version", "commandId", "effectiveDate",
+                val requiredRevisionKeys = setOf("version", "commandId", "effectiveDate",
                     "createdAt", "mode", "principalBeforePaise", "prepaymentAmountPaise", "principalAfterPaise",
-                    "calculationId", "calculationVersion", "inputSchemaVersion", "outputSchemaVersion", "input", "output") &&
+                    "calculationId", "calculationVersion", "inputSchemaVersion", "outputSchemaVersion", "input", "output")
+                val revisionKeys = revision.keys().asSequence().toSet()
+                require((revisionKeys == requiredRevisionKeys || revisionKeys == requiredRevisionKeys + "createdBy") &&
+                    (!revision.has("createdBy") || validCreatedBy(revision.optJSONObject("createdBy"))) &&
                     integer(revision, "version", 1) == baseVersion + index + 1L &&
                     commandId.isNotBlank() && commands.add(commandId) &&
                     date(revision.optString("effectiveDate")).toString() == revision.optString("effectiveDate") &&
                     validInstant(createdAt) && (previousCreatedAt.isEmpty() || createdAt >= previousCreatedAt) &&
-                    mode in setOf("reduce_tenure", "reduce_emi") && amount < before && after == before - amount &&
+                    mode == "reduce_tenure" && amount < before && after == before - amount &&
                     revision.optString("calculationId") == CALCULATION_ID &&
                     integer(revision, "calculationVersion", 1) == 1L &&
                     integer(revision, "inputSchemaVersion", 1) == 1L &&

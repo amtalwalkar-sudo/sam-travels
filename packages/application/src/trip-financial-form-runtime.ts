@@ -13,7 +13,7 @@ import { TripFinancialService, submitCompletedTripFinancials, TRIP_FINANCIAL_OBL
 export function createTripFinancialFormRuntimeV1(
   records: RecordRepository & AtomicRecordRepository,
   source: RecordEnvelope<unknown>["source"],
-  currentAuthor: () => Promise<RecordAuthorV1>,
+  currentAuthor: (tripId: string) => Promise<RecordAuthorV1>,
 ) {
   const financials = new TripFinancialService(records, source, undefined, currentAuthor);
   const workingCopies = new RecordFormWorkingCopyRepository(records, source);
@@ -28,7 +28,7 @@ export function createTripFinancialFormRuntimeV1(
         );
       }
       if (command.formId === TRIP_COMPLETED_FINANCIALS_FORM_V1.id) {
-        const author = await currentAuthor();
+        const author = await currentAuthor(command.instanceId);
         return submitCompletedTripFinancials(
           records, source, command.instanceId,
           command.values as unknown as CompletedTripFinancialValues,

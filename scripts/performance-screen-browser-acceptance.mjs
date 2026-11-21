@@ -1,47 +1,10 @@
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
+import { indiaDateOffsetDays, proratedTargetPaise, moneyFromPaise, monthTargetPaise, previousMonthDate } from "./performance-acceptance-helpers.mjs";
 
 const baseUrl = "http://127.0.0.1:4173";
-function indiaDateOffsetDays(offset) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  const base = Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day));
-  return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
-}
-function proratedTargetPaise(monthlyTargetPaise, from, to) {
-  let total = 0;
-  let cursor = from;
-  while (cursor <= to) {
-    const [year, month] = cursor.split("-").map(Number);
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-    const end = monthEnd < to ? monthEnd : to;
-    const days = Math.round((Date.parse(end + "T00:00:00Z") - Date.parse(cursor + "T00:00:00Z")) / 86_400_000) + 1;
-    total += Math.floor((monthlyTargetPaise * days * 2 + daysInMonth) / (2 * daysInMonth));
-    cursor = new Date(Date.parse(end + "T00:00:00Z") + 86_400_000).toISOString().slice(0, 10);
-  }
-  return total;
-}
-function moneyFromPaise(paise) {
-  return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function monthTargetPaise(month, from, to, monthlyTargetPaise) {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const monthStart = month + "-01";
-  const monthEnd = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
-  const start = from > monthStart ? from : monthStart;
-  const end = to < monthEnd ? to : monthEnd;
-  return start > end ? 0 : proratedTargetPaise(monthlyTargetPaise, start, end);
-}
-function previousMonthDate(day) {
-  const today = indiaDateOffsetDays(0);
-  const [year, month] = today.split("-").map(Number);
-  const previous = new Date(Date.UTC(year, month - 2, 1));
-  return previous.toISOString().slice(0, 7) + "-" + String(day).padStart(2, "0");
-}
-const today = indiaDateOffsetDays(0);
+const indiaHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).find(part => part.type === "hour")?.value ?? "0");
+const today = indiaDateOffsetDays(indiaHour < 4 ? -1 : 0);
 const businessStartDate = previousMonthDate(15);
 const recoveryToExclusive = (() => {
   const [year, month, day] = businessStartDate.split("-").map(Number);
@@ -66,7 +29,11 @@ try {
   }
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext({
+    permissions: ["geolocation"],
+    geolocation: { latitude: 19.076, longitude: 72.8777, accuracy: 12 },
+  });
+  const page = await context.newPage();
   page.on("pageerror", error => console.log("Browser page error:", error.message));
   page.on("console", message => { if (message.type() === "error") console.log("Browser console error:", message.text()); });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -101,6 +68,144 @@ try {
   await page.getByText("MH00PS0093", { exact: true }).waitFor();
   console.log("Single active vehicle configured for the Performance distance projection.");
 
+  // Configure Driver through Admin UI.
+  const driverName = "Performance Acceptance Driver";
+  await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
+  await page.getByRole("button", { name: "Add driver", exact: true }).click();
+  await page.getByLabel("Driver name").fill(driverName);
+  await page.getByRole("button", { name: "Save driver", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor();
+  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await driverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await page.getByRole("status").filter({
+    hasText: driverName + " is configured with MH00PS0093 for Work.",
+  }).waitFor();
+  const configuredRecords = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return rows;
+  });
+  const selectedWorkDriver = configuredRecords.find(row => row.id === "work:selected-driver");
+  if (!selectedWorkDriver?.data?.driverId) {
+    throw new Error("missing_canonical_work_driver_selection");
+  }
+  const configuredDriver = configuredRecords.find(row =>
+    row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName
+  );
+  if (selectedWorkDriver.data.driverId !== configuredDriver?.data?.driverId) {
+    throw new Error("work_driver_selection_mismatch");
+  }
+  const assignmentHistory = configuredRecords.find(row =>
+    row.id.startsWith("feature:driver-records:assignment:") && row.id.endsWith(selectedWorkDriver.data.driverId)
+  );
+  const currentAssignments = assignmentHistory?.data?.assignments?.filter(item => !item.unassignedAt) ?? [];
+  if (currentAssignments.length !== 1 || currentAssignments[0].vehicleId !== "feature:vehicle:MH00PS0093") {
+    throw new Error("current_assignment_mismatch");
+  }
+
+  // Refresh identity after creating the Driver.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+
+  // Re-authenticate Admin after reload.
+  const identityPanel = page.locator(".admin-capability-panel");
+  const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
+  await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor({ state: "attached" });
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
+  await identityPanel.getByLabel("Active role").selectOption("admin");
+  await identityPanel.getByLabel("Admin PIN").fill(testPin); await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
+  await page.getByLabel("Person name").fill("Performance Acceptance Driver Person");
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor();
+  const driverPersonLink = page.getByLabel("Link " + driverName + " to person");
+  await driverPersonLink.locator("option").filter({ hasText: "Performance Acceptance Driver Person" }).waitFor({ state: "attached" });
+  await driverPersonLink.selectOption({ label: "Performance Acceptance Driver Person" });
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Drive", exact: true }).click();
+  if (await page.getByLabel("Work Driver").count()) {
+    throw new Error("unexpected_work_driver_selector");
+  }
+  const shiftStartOdometer = page.getByLabel("Shift-start odometer (km)");
+  await shiftStartOdometer.waitFor({ state: "visible" });
+  await shiftStartOdometer.fill("1000");
+  await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button =>
+    button.textContent?.trim() === "Start shift" && !button.disabled
+  ), { timeout: 30000 });
+  await page.getByRole("button", { name: "Start shift", exact: true }).click();
+  await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
+
+  async function completeSwipe(label, nextState) {
+    await page.locator('input[type="range"][aria-label="Swipe to ' + label + '"]').press("End");
+    await page.getByRole("heading", { name: nextState, exact: true }).waitFor({ timeout: 30000 });
+  }
+  await completeSwipe("Going to pickup", "Going To Pickup");
+  await completeSwipe("Start trip", "Trip Active");
+  await completeSwipe("End trip", "Shift Active");
+  await page.getByText("Fare and trip financials required", { exact: true }).waitFor();
+
+  await page.getByLabel("Fare in rupees").fill("2520.00");
+  await page.getByText("Add Toll (optional)", { exact: true }).click();
+  await page.getByLabel("Toll in rupees").fill("320.00");
+  await page.getByLabel("Toll paid by").selectOption("driver");
+  await page.getByText("Add Parking (optional)", { exact: true }).click();
+  await page.getByLabel("Parking in rupees").fill("250.00");
+  await page.getByLabel("Parking paid by").selectOption("driver");
+  await page.getByRole("button", { name: "Submit trip financials", exact: true }).click();
+  await page.locator(".driver-message").filter({ hasText: "Fare and trip financials submitted" }).waitFor({ timeout: 30000 });
+
+  const committedTripFinancials = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const transaction = db.transaction("records", "readonly");
+      const read = transaction.objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    const row = rows.find(item => item.data?.kind === "completed_ride_financials" &&
+      item.data.status === "submitted" && item.data.farePaise === 252000);
+    return row ? { id: row.id, revision: row.revision, data: row.data } : null;
+  });
+  if (!committedTripFinancials || committedTripFinancials.revision !== 2 ||
+      committedTripFinancials.data.tollPaise !== 32000 ||
+      committedTripFinancials.data.tollPayer !== "driver" ||
+      committedTripFinancials.data.parkingPaise !== 25000 ||
+      committedTripFinancials.data.parkingPayer !== "driver" ||
+      committedTripFinancials.data.tripContext?.vehicleId !== "feature:vehicle:MH00PS0093" ||
+      committedTripFinancials.data.tripContext?.operationalDate !== today) {
+    throw new Error("rendered_work_trip_fare_action_did_not_commit_expected_authoritative_record:" +
+      JSON.stringify(committedTripFinancials));
+  }
+
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
+
+  // Restore Admin authority after Work changes actor.
+  await identityPersonSelect.selectOption({ label: "Performance Screen Acceptance Admin" });
+  await identityPanel.getByLabel("Active role").selectOption("admin");
+  await identityPanel.getByLabel("Admin PIN").fill(testPin);
+  await identityPanel.getByRole("button", { name: "Activate role", exact: true }).click();
+  await identityPanel.getByRole("status").filter({ hasText: "Role activated." }).waitFor();
+
   await adminSections.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill(businessStartDate);
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
@@ -115,20 +220,14 @@ try {
   await page.getByRole("button", { name: "Add pre-business cost", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Pre-business cost entry saved." }).waitFor();
   await page.getByText(note, { exact: true }).waitFor();
-  await page.evaluate(async ({ operationalDate }) => {
+  await page.evaluate(async ({ operationalDate, committedTripContext }) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
     const createdAt = operationalDate + "T10:00:00.000Z";
-    const tripContext = {
-      schemaVersion: 1, shiftId: "performance-acceptance-shift",
-      driverId: "performance-acceptance-driver",
-      assignmentId: "performance-acceptance-assignment",
-      vehicleId: "feature:vehicle:MH00PS0093",
-      operationalDate,
-    };
+    const tripContext = committedTripContext;
     const records = [
       {
         id: "work:daily-business-km:" + encodeURIComponent("feature:vehicle:MH00PS0093") + ":" + operationalDate,
@@ -138,19 +237,8 @@ try {
           schemaVersion: 1, kind: "daily_business_kilometres",
           vehicleId: "feature:vehicle:MH00PS0093", operationalDate,
           totalBusinessKm: 42, unallocatedBusinessKm: 0,
-          entries: [{ shiftId: "performance-acceptance-shift", allocationStatus: "allocated",
+          entries: [{ shiftId: tripContext.shiftId, allocationStatus: "allocated",
             businessKm: 42, personalKm: 7 }],
-        },
-      },
-      {
-        id: "work:trip-financial-obligation:performance-screen-fare",
-        schemaVersion: 1, createdAt, updatedAt: createdAt, businessDate: operationalDate,
-        source: "web", revision: 1,
-        data: {
-          schemaVersion: 1, tripId: "performance-screen-fare",
-          kind: "completed_ride_financials", status: "submitted",
-          endRideEventId: "performance-screen-fare-end", createdAt,
-          tripContext, farePaise: 120000,
         },
       },
       {
@@ -173,7 +261,7 @@ try {
       transaction.onabort = () => reject(transaction.error);
     });
     db.close();
-  }, { operationalDate: today });
+  }, { operationalDate: today, committedTripContext: committedTripFinancials.data.tripContext });
   console.log("Verified fare and cancellation-fee source records seeded for the selected operational date.");
   console.log("Performance Admin inputs saved: actual business start date, fixed monthly target, and a separately noted pre-business cost.");
 
@@ -203,12 +291,18 @@ try {
   }
 
   const periodRevenue = page.getByRole("button", { name: "Explain Period revenue", exact: true });
-  if (!(await periodRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_fare_and_cancellation_fee_not_combined_in_period_revenue");
+  if (!(await periodRevenue.innerText()).includes("₹2,570.00")) {
+    throw new Error("rendered_work_fare_and_cancellation_fee_not_combined_in_period_revenue");
   }
   const lifetimeRevenue = page.locator(".performance-lifetime-grid button").filter({ hasText: "Lifetime revenue" });
-  if (!(await lifetimeRevenue.innerText()).includes("₹1,250.00")) {
-    throw new Error("verified_revenue_missing_from_lifetime_position");
+  if (!(await lifetimeRevenue.innerText()).includes("₹2,570.00")) {
+    throw new Error("rendered_work_fare_missing_from_lifetime_position");
+  }
+  const eligibleCostsCard = page.getByRole("button", { name: "Explain Eligible period costs", exact: true });
+  const eligibleCostText = await eligibleCostsCard.innerText();
+  const eligibleCostRupees = Number((eligibleCostText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", ""));
+  if (eligibleCostRupees < 570) {
+    throw new Error("driver_paid_toll_and_parking_not_reflected_in_full_performance_calculation:" + eligibleCostText);
   }
   const targetCard = page.getByRole("button", { name: "Explain selected-period Driver Target", exact: true });
   await targetCard.waitFor();

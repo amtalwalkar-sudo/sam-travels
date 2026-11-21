@@ -1,9 +1,11 @@
 import { chromium } from "playwright";
+import { exerciseWorkShiftEntryPath, exerciseWorkTripEntryPaths, exerciseComplianceRenewalEntryPath } from "./admin-entry-path-audit.mjs";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
 let vehicleId = "";
 const registration = "MH00AA0090";
+const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 function indiaDateOffsetDays(offset) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
@@ -13,9 +15,6 @@ function indiaDateOffsetDays(offset) {
   return new Date(base + offset * 86_400_000).toISOString().slice(0, 10);
 }
 const today = indiaDateOffsetDays(0);
-function futureDateOffsetDays(offset) {
-  return indiaDateOffsetDays(offset);
-}
 function monthDateOffset(offset) {
   const parts = today.split("-").map(Number);
   const date = new Date(Date.UTC(parts[0], parts[1] - 1, 1));
@@ -39,27 +38,30 @@ try {
   if (!ready) throw new Error("vite_server_not_ready");
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", { configurable: true,
+      value: { watchPosition(success) { success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() }); return 1; }, clearWatch() {} },
+    });
+  });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
   await page.getByLabel("Person name").fill("Admin Form Browser Admin");
   await page.getByLabel("Admin role").check();
-  await page.getByLabel("Set initial Admin PIN").fill("4831");
+  await page.getByLabel("Set initial Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Enroll person", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Person enrolled." }).waitFor({ state: "visible" });
   await page.locator("label").filter({ hasText: "Select person" }).locator("select").selectOption({ label: "Admin Form Browser Admin" });
   await page.getByLabel("Active role").selectOption("admin");
-  await page.getByLabel("Admin PIN").fill("4831");
+  await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-  console.log("Admin identity enrolled and PIN-verified actor activated.");
 
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
-  console.log("Business Setup form saved and authoritative setting rendered.");
 
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
@@ -94,8 +96,6 @@ try {
     if (matches.length !== 1) throw new Error("canonical_vehicle_id_lookup_failed:" + matches.length);
     return matches[0].id;
   }, registration);
-  console.log("Resolved saved vehicle's authoritative record ID:", vehicleId);
-
 
   const driverName = "Admin Form Acceptance Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
@@ -105,21 +105,45 @@ try {
   await page.getByLabel("Mobile number").fill("9990001111");
   await page.getByRole("button", { name: "Save driver", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Driver created." }).waitFor({ state: "visible" });
-  const driverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
-  await driverCard.getByRole("button", { name: "Select for Work", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: driverName + " selected for Work." }).waitFor({ state: "visible" });
-  await page.getByLabel("Vehicle for " + driverName).selectOption(vehicleId);
-  await driverCard.getByRole("button", { name: "Assign / reassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Vehicle assignment saved." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Unassign", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver unassigned." }).waitFor({ state: "visible" });
-  await driverCard.getByRole("button", { name: "Clear Work selection", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Driver selection cleared." }).waitFor({ state: "visible" });
-  console.log("Driver create, Work selection, vehicle assignment and unassignment commands passed.");
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.getByText("Operating configuration is incomplete.", { exact: false }).waitFor({ state: "visible" });
+  if (!await page.getByRole("button", { name: "Start shift", exact: true }).isDisabled()) {
+    throw new Error("shift_start_must_fail_closed_without_operating_configuration");
+  }
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByRole("button", { name: "Driver", exact: true }).click();
+  const configuredDriverCard = page.locator(".admin-capability-record").filter({ hasText: driverName });
+  await configuredDriverCard.getByRole("button", { name: "Configure for Work", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: driverName + " is configured with " + registration + " for Work." }).waitFor({ state: "visible" });
+  const configuredPairMatches = await page.evaluate(async driverName => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const driver = rows.find(row => row.id.startsWith("feature:driver-records:driver:") && row.data?.name === driverName);
+    const selected = rows.find(row => row.id === "work:selected-driver");
+    return !!driver && selected?.data?.driverId === driver.data.driverId;
+  }, driverName);
+  if (!configuredPairMatches) throw new Error("authoritative_work_driver_selection_not_persisted");
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
+  if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
-  const complianceVehicle = page.locator("#admin-section-panel-compliance select").first();
-  await complianceVehicle.selectOption(vehicleId);
+  const complianceContext = page.locator("#admin-section-panel-compliance .admin-operating-vehicle-context");
+  await complianceContext.getByText(registration, { exact: false }).waitFor({ state: "visible" });
+  if (await complianceContext.locator("select").count()) {
+    throw new Error("compliance_must_not_expose_routine_vehicle_selector");
+  }
   await page.getByRole("button", { name: "Add compliance / renewal", exact: true }).click();
   await page.getByLabel("Compliance type / name").fill("Acceptance Insurance");
   await page.getByLabel("Valid from").fill(today);
@@ -128,6 +152,8 @@ try {
   await page.getByLabel("Document reference (optional)").fill("INS-ACCEPTANCE-1");
   await page.getByRole("button", { name: "Save record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
+
+  await exerciseComplianceRenewalEntryPath(page, monthDateOffset, complianceValidTo);
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Issue date").fill(today);
   await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
@@ -137,7 +163,6 @@ try {
   await page.getByLabel("Payment status").selectOption("unpaid");
   await page.getByRole("button", { name: "Save expense", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
-  console.log("Compliance coverage and Traffic Challan records submitted.");
 
   await page.getByRole("button", { name: "Finance", exact: true }).click();
   await page.locator("#admin-vehicle").selectOption(vehicleId);
@@ -152,7 +177,6 @@ try {
   await page.getByRole("button", { name: "Save loan details", exact: true }).click();
   const loanCard = page.locator(".loan-record").filter({ hasText: "Admin Browser Loan" });
   await loanCard.waitFor({ state: "visible", timeout: 15000 });
-  console.log("Loan details saved as an immutable historical record and rendered in Finance.");
   const paymentPanel = loanCard.locator(".loan-payment-panel");
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
@@ -204,9 +228,7 @@ try {
   }
 
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
-  await paymentPanel.getByLabel("Payment date").fill(futureDateOffsetDays(1));
-  // The prior prepayment creates schedule v2 effective today. Select that effective
-  // schedule explicitly; the restored payment draft may still carry v1.
+  await paymentPanel.getByLabel("Payment date").fill(indiaDateOffsetDays(1));
   await paymentPanel.getByLabel("Schedule version").selectOption("2");
   await paymentPanel.getByLabel("Amount paid (₹)").fill("10000");
   await paymentPanel.getByLabel("Transaction reference (optional)").fill("EMI-FUTURE-ACCEPTANCE-1");
@@ -318,7 +340,9 @@ try {
   await page.getByText("Recovery window", { exact: false }).waitFor({ state: "visible" });
   await page.locator(".performance-provenance > summary").click();
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
-  console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await exerciseWorkShiftEntryPath(page);
+  await exerciseWorkTripEntryPaths(page);
 
 } finally {
   if (browser) await browser.close();

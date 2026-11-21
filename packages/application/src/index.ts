@@ -5,6 +5,7 @@ export * from "./driver-workflow-service";
 export * from "./form-submission-port";
 export * from "./admin-form-definitions";
 export * from "./driver-form-definitions";
+export * from "./form-definition-inventory";
 export * from "./trip-financial-service";
 export * from "./shared-form-runtime";
 export * from "./record-form-working-copy-repository";
@@ -64,3 +65,5 @@ export * from "./performance-calculation-runtime";
 export * from "./performance-calculation-snapshot-boundary";
 
 export * from "./trip-financial-form-runtime";
+
+export * from "./work-driver-selection-service";

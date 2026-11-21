@@ -1,6 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
-import { FeatureRecordService, type FeatureRecordSource } from "./feature-record-service";
+import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import type { SubmitHistoricalCorrectionV1 } from "./historical-correction-service";
 
@@ -8,7 +8,6 @@ export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1; kind: "fuel_purchase"; id: string; revision: number;
   businessDate: string; occurredAt: string; vehicleId: string; odometerKm: number;
   pricePaisePerKg: number; amountPaise: number; partialRefill: boolean;
-  locationEvidence?: Readonly<{ latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device" }>;
 }>;
 export type BusinessExpenseEntryV1 = Readonly<{
   schemaVersion: 1; kind: "business_expense"; id: string; revision: number;
@@ -98,17 +97,21 @@ export class BusinessExpensesService {
 
   async createFuelPurchase(input: {
     uuid: string; data: FuelPurchaseInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1;
+    now?: string;
   }): Promise<RecordEnvelope<FuelPurchaseV1>> {
     await this.requireVehicle(input.data.vehicleId);
     const id = sourceId(FUEL_PREFIX, input.uuid);
     const data: FuelPurchaseV1 = { ...input.data, schemaVersion: 1, kind: "fuel_purchase", id, revision: 1 };
     this.domain.validateFuelPurchase(data);
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
 
+
   async createExpenseEntry(input: {
     uuid: string; data: BusinessExpenseEntryInputV1; source: FeatureRecordSource;
+    operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<BusinessExpenseEntryV1>> {
     const id = sourceId(ENTRY_PREFIX, input.uuid);
     const data: BusinessExpenseEntryV1 = {
@@ -197,7 +200,8 @@ export class BusinessExpensesService {
         throw new Error("business_expense_source_already_reversed");
       }
     }
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate }) as
+    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate,
+      operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<BusinessExpenseEntryV1>>;
   }
 

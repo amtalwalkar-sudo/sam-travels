@@ -1,4 +1,5 @@
 import type { SnapshotManifest } from "../../core/src/backup";
+import { assertBackupRecordCount } from "../../core/src/persistence-contract";
 
 /**
  * backup-encryption-v1 package cryptography.
@@ -56,6 +57,38 @@ export interface BackupPackage {
   };
 }
 
+export const MAX_BACKUP_PACKAGE_BYTES = 512 * 1024 * 1024;
+
+/**
+ * Conservative plaintext preflight for the encrypted JSON package.
+ * AES-GCM adds a 16-byte tag and base64 expands ciphertext by 4/3.
+ * Reserve 1 MiB for manifest, wrapped keys and JSON envelope. This is a
+ * package-format bound, not a claim about device RAM or execution time.
+ */
+export const BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES = 1024 * 1024;
+
+export function estimateEncryptedPackageBytes(plaintextBytes: number): number {
+  if (!Number.isSafeInteger(plaintextBytes) || plaintextBytes < 0) {
+    throw new Error("backup_invalid_plaintext_size");
+  }
+  const ciphertextBytes = plaintextBytes + 16;
+  const base64Bytes = Math.ceil(ciphertextBytes / 3) * 4;
+  return base64Bytes + BACKUP_PACKAGE_ENVELOPE_RESERVE_BYTES;
+}
+
+export function assertBackupPlaintextPreflight(plaintextBytes: number): number {
+  const estimatedPackageBytes = estimateEncryptedPackageBytes(plaintextBytes);
+  if (estimatedPackageBytes > MAX_BACKUP_PACKAGE_BYTES) {
+    throw new Error("backup_plaintext_preflight_exceeded");
+  }
+  return estimatedPackageBytes;
+}
+
+export function assertBackupPackageByteLength(byteLength: number): void {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 0) throw new Error("backup_invalid_package_size");
+  if (byteLength > MAX_BACKUP_PACKAGE_BYTES) throw new Error("backup_package_too_large");
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const bytes = (value: Uint8Array) => value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer;
@@ -104,9 +137,12 @@ function validateManifest(manifest: BackupManifest): void {
   if (!Number.isFinite(Date.parse(manifest.createdAt)) || !manifest.applicationVersion || !manifest.businessTimezone) {
     throw new Error("backup_invalid_manifest");
   }
+  let totalRecords = 0;
   for (const count of Object.values(manifest.recordCounts)) {
     if (!Number.isSafeInteger(count) || count < 0) throw new Error("backup_invalid_record_count");
+    totalRecords += count;
   }
+  assertBackupRecordCount(totalRecords);
 }
 
 function validatePackageShape(pkg: BackupPackage): void {
@@ -135,16 +171,22 @@ export async function createEncryptedBackup(input: {
   const recoveryOnly = input.mode === "recovery-key-only";
   if (!recoveryOnly && (!input.passphrase || input.passphrase.length < 12 || !input.argon2id)) throw new Error("backup_passphrase_too_short");
   if (recoveryOnly && !input.recoveryKey) throw new Error("backup_recovery_key_required");
+  assertBackupPlaintextPreflight(input.plaintext.byteLength);
   const recoveryBytes = input.recoveryKey ? fromBase64(input.recoveryKey) : randomBytes(32);
   if (recoveryBytes.length !== 32) throw new Error("backup_invalid_recovery_key");
   const salt = randomBytes(16);
   const dekBytes = randomBytes(32);
-  const manifest: BackupManifest = {
+  // Validate the complete manifest before hashing or encrypting any payload bytes.
+  const manifestWithoutDigest = {
     ...input.manifest,
     format: recoveryOnly ? BACKUP_ENCRYPTION_RECOVERY_ONLY_VERSION : BACKUP_ENCRYPTION_VERSION,
+    plaintextSha256: "",
+  } as BackupManifest;
+  validateManifest(manifestWithoutDigest);
+  const manifest: BackupManifest = {
+    ...manifestWithoutDigest,
     plaintextSha256: toBase64(await digest(input.plaintext)),
   };
-  validateManifest(manifest);
   const aad = aadFor(manifest);
   const recoveryKey = await importAesKey(recoveryBytes);
   const dek = await importAesKey(dekBytes);
@@ -240,11 +282,13 @@ export async function decryptBackupWithRecoveryKey(
 
 export function serializeBackupPackage(pkg: BackupPackage): Uint8Array {
   validatePackageShape(pkg);
-  return encoder.encode(JSON.stringify(pkg));
+  const serialized = encoder.encode(JSON.stringify(pkg));
+  assertBackupPackageByteLength(serialized.byteLength);
+  return serialized;
 }
 
 export function parseBackupPackage(serialized: Uint8Array): BackupPackage {
-  if (serialized.byteLength > 512 * 1024 * 1024) throw new Error("backup_package_too_large");
+  assertBackupPackageByteLength(serialized.byteLength);
   const parsed = JSON.parse(decoder.decode(serialized)) as BackupPackage;
   validatePackageShape(parsed);
   return parsed;

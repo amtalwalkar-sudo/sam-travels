@@ -19,11 +19,11 @@ const correction: HistoricalCorrectionV1 = {
   recordedAt: "2026-01-02T00:00:00.000Z",
 };
 
-function service(corrections: HistoricalCorrectionV1[]) {
+function service(corrections: HistoricalCorrectionV1[], identity = { async currentActor() { return { role: "admin", actorId: "admin-person", adminPinVerifiedAt: "2026-01-02T00:00:00.000Z" }; } }) {
   return new ComplianceAnalysisService(
     { async list() { return [record]; } } as never,
     { async list() { return []; }, async recordDecision() { throw new Error("not_expected"); } } as never,
-    { async currentActor() { return { role: "admin", actorId: "admin-person", adminPinVerifiedAt: "2026-01-02T00:00:00.000Z" }; } } as never,
+    identity as never,
     {
       analyzeCoverage() { return { gaps: [], overlaps: [] }; },
       resolveOverlap() { return "unreviewed"; },
@@ -43,6 +43,15 @@ describe("Compliance historical correction projection", () => {
     const overview = await service([correction]).getOverview();
     expect(overview.records[0].data.validTo).toBe("2026-02-28");
     expect(record.data.validTo).toBe("2026-01-31");
+  });
+
+  it("allows the internal Performance allocation projection without an active Admin session", async () => {
+    const analysis = service([correction], {
+      async currentActor() { throw new Error("business_actor_not_active"); },
+    });
+    await expect(analysis.getOverview()).rejects.toThrow("business_actor_not_active");
+    const overview = await analysis.getAllocationOverview();
+    expect(overview.records[0].data.validTo).toBe("2026-02-28");
   });
 
   it("fails closed when a correction chain cannot be projected", async () => {

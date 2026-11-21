@@ -51,10 +51,16 @@ internal object DriverWorkflowContract {
         if (command.has("driverContext")) {
             require((eventType=="trip_start"&&workflowVersion==1L)||(eventType=="shift_start"&&workflowVersion==2L)) { "invalid_driver_context" }
             val driver=command.optJSONObject("driverContext")?:error("invalid_driver_context")
-            require(driver.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&
+            val baseFields=setOf("schemaVersion","driverId","assignmentId","vehicleId")
+            val revisionFields=setOf("selectionRevision","driverRevision","vehicleRevision","assignmentRevision")
+            val fields=driver.keys().asSequence().toSet()
+            require((fields==baseFields||fields==baseFields+revisionFields)&&
                 driver.optInt("schemaVersion",-1)==1&&driver.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
                 driver.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
-                driver.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_context" }
+                driver.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))&&
+                (revisionFields.isEmpty()||revisionFields.all { field ->
+                    if (!driver.has(field)) true else integer(driver,field)>=0L
+                })) { "invalid_driver_context" }
         }
         if(command.has("tripContext")) {
             require(eventType=="trip_create"&&workflowVersion==2L) { "invalid_trip_context" }
@@ -104,9 +110,13 @@ internal object DriverWorkflowContract {
         }
         if(state.has("shiftContext")) {
             val c=state.optJSONObject("shiftContext")?:error("invalid_driver_state_context")
-            require(c.keys().asSequence().toSet()==setOf("schemaVersion","driverId","assignmentId","vehicleId")&&c.optInt("schemaVersion",-1)==1&&
+            val baseFields=setOf("schemaVersion","driverId","assignmentId","vehicleId")
+            val revisionFields=setOf("selectionRevision","driverRevision","vehicleRevision","assignmentRevision")
+            val fields=c.keys().asSequence().toSet()
+            require((fields==baseFields||fields==baseFields+revisionFields)&&c.optInt("schemaVersion",-1)==1&&
                 c.optString("driverId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&c.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}"))&&
-                c.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))) { "invalid_driver_state_context" }
+                c.optString("vehicleId").matches(Regex("feature:vehicle:[A-Za-z0-9_-]{1,128}"))&&
+                (fields==baseFields||revisionFields.all { field -> integer(c,field)>=0L })) { "invalid_driver_state_context" }
         }
         if(state.has("tripContext")) {
             val c=state.optJSONObject("tripContext")?:error("invalid_driver_state_trip_context")

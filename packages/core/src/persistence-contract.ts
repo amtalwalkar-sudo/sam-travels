@@ -8,6 +8,12 @@ import type { SnapshotManifest } from "./backup";
 export const RECORD_ENVELOPE_SCHEMA_VERSION = 1 as const;
 export const BACKUP_SNAPSHOT_SCHEMA_VERSION = 1 as const;
 export const SUPPORTED_RECORD_SOURCES = ["web", "android", "import", "integration"] as const;
+export const MAX_BACKUP_RECORD_COUNT = 1_000_000 as const;
+
+export function assertBackupRecordCount(total: number): void {
+  if (!Number.isSafeInteger(total) || total < 0) throw new Error("backup_invalid_record_count");
+  if (total > MAX_BACKUP_RECORD_COUNT) throw new Error("backup_record_count_limit");
+}
 
 function isIsoInstant(value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -76,11 +82,14 @@ export function assertSnapshotManifest(value: unknown): asserts value is Snapsho
   if (!manifest.recordCounts || typeof manifest.recordCounts !== "object" || Array.isArray(manifest.recordCounts)) {
     throw new Error("backup_invalid_record_counts");
   }
+  let totalRecords = 0;
   for (const [table, count] of Object.entries(manifest.recordCounts as Record<string, unknown>)) {
     if (!table.trim() || !Number.isSafeInteger(count) || (count as number) < 0) {
       throw new Error("backup_invalid_record_counts");
     }
+    totalRecords += count as number;
   }
+  assertBackupRecordCount(totalRecords);
   if (manifest.participants !== undefined) {
     if (!Array.isArray(manifest.participants)) throw new Error("backup_invalid_participant_manifest");
     const ids = new Set<string>();

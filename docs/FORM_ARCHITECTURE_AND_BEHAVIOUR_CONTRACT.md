@@ -45,14 +45,16 @@ A form must not inherit arbitrary business constraints merely because another fo
 The shared lifecycle vocabulary is:
 - **New:** the form has been opened and no explicit Save/Submit operation has completed.
 - **In progress:** the driver has entered information; the working copy is retained but has not been explicitly saved or submitted.
-- **Draft / Saved:** an explicit Save action completed successfully, where that form uses Save.
-- **Submitted:** an explicit Submit action completed successfully, where that form uses Submit.
+- **Saved / Created:** an explicit Save action created the record successfully.
+- **Submitted / Created:** an explicit Submit action created the record successfully.
+- **Edited:** an explicit Edit action updated an existing record successfully.
+- **Deleted:** an explicit Delete action deleted a record successfully, where permitted.
 - **Finalized:** the form's business process reached its defined final state.
 
 A form uses only the stages relevant to its purpose. Not every form must implement every stage. A form definition must specify valid transitions and the meaning of completion.
 
-- The UI must clearly distinguish in-progress, saved/draft, submitted, finalized, pending, and failed states where applicable.
-- Retaining an in-progress working copy is not the same as an explicit Save, Submit, or business-record finalization.
+- The UI must clearly distinguish in-progress working copies, saved/created records, submitted/created records, edited records, deleted records, finalized, pending, and failed states where applicable.
+- Retaining an in-progress working copy is not the same as an explicit Save, Submit, Edit, or Delete business-record action.
 - Closing a screen, navigating away, or reopening the app must never by itself imply that a form was submitted or finalized.
 - A success state must only be shown after the authoritative operation has durably succeeded.
 
@@ -60,8 +62,10 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 
 - Each form has exactly one primary completion action: **Save** or **Submit**, selected according to that form's business purpose.
 - A form must not present Save and Submit together as competing actions.
-- **Save** explicitly stores the form as a draft and does not submit or finalize the business operation.
-- **Submit** explicitly performs the form's intended business submission. It must not be represented as a draft save.
+- **Save** and **Submit** are both explicit record-creation actions. The form definition determines which primary action label applies to that workflow; neither label means draft-only.
+- **Edit** updates an existing record, subject to the owning feature's correction, revision and audit rules.
+- **Delete** deletes a record only where the owning feature's deletion policy permits it; protected historical records remain protected.
+- In-progress preservation and draft save/resume are separate working-copy operations. They do not create or update authoritative business records and must not be confused with the explicit Save or Submit actions.
 - The selected action, its meaning, and resulting lifecycle state must be clear before the driver confirms it.
 - Each action requires one clear confirmation. Do not stack duplicate confirmation prompts for the same operation.
 - After a successful operation, show a clear confirmation such as **✅ Saved successfully** or **✅ Submitted successfully**, matching the action.
@@ -70,19 +74,21 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 
 ## 6. In-progress preservation, drafts, and editing
 
-- If the driver leaves a partially completed form, the entered information must remain available when that same form is reopened.
-- In-progress preservation is a recovery/working-copy capability, not an implicit explicit Save action. It must not show a Saved-success message or create a submitted/finalized business record.
+- In-progress preservation is automatic; the driver is not required to press a separate draft-save button. As fields change, the working copy is retained without interrupting data entry.
+- If the driver leaves a partially completed form without pressing Save or Submit—including navigating to another page, switching to another app, backgrounding or closing the app—the entered information must remain available when that same form is reopened. The driver must not have to re-enter it.
+- In-progress preservation is a recovery/working-copy capability, not an implicit Save or Submit action. It must not show a Saved/Submitted-success message or create/update an authoritative business record.
 - The form must restore the correct working copy for the correct form instance/business record. It must not mix values between different forms, records, or drivers.
-- Retained working copies must survive supported interruptions, including navigation, app backgrounding, process termination, app restart, and recovery, subject to the shared persistence/recovery contract. Never silently discard entered information.
-- Forms that support explicit Save allow a saved draft to be reopened and edited repeatedly before its applicable completion transition. Saving an existing draft updates that draft rather than creating duplicates.
-- A form's definition must distinguish the retained in-progress working copy from an explicitly saved draft.
+- Retained working copies must survive supported interruptions, including navigation, switching apps, app backgrounding, process termination, app closure, phone restart and recovery, subject to platform persistence guarantees and the shared persistence/recovery contract. Phone-restart recovery must be tested on supported surfaces; if a platform limitation prevents it, document that limitation rather than implying support. Never silently discard entered information.
+- An explicit Save creates a business record; it does not create a draft. A later change to that record uses the explicit Edit action.
+- A form's definition must distinguish the retained in-progress working copy from a business record created by Save or Submit.
 - If a form can be opened from more than one surface, both surfaces must resolve to the same authoritative form instance and revision.
 
-## 7. Submitted and finalized record policy
+## 7. Created, edited and finalized record policy
 
-- Default policy: a successfully submitted form becomes read-only.
-- A form may allow post-submission editing only when its business purpose explicitly requires it. This exception must be declared in its form definition.
-- Where a submitted/finalized record can be corrected, preserve the original values and an auditable correction history. Never silently overwrite the original record.
+- Save and Submit create authoritative business records. The form definition declares the appropriate primary action and the record's subsequent lifecycle.
+- Existing records are changed through the explicit Edit action, subject to the owning feature's revision, correction and audit rules. Edit must not silently overwrite immutable history.
+- Delete removes a record only where the owning feature's deletion policy permits it; protected historical/financial records remain protected.
+- Where a record can be corrected, preserve the required original values and auditable correction history.
 - Corrections must follow the owning feature's historical-correction, transaction, and recovery rules.
 - Finalization conditions are form-specific. A form must not become finalized merely because it was submitted unless its declared business process defines those states as equivalent.
 
@@ -137,7 +143,7 @@ A form uses only the stages relevant to its purpose. Not every form must impleme
 ## 13. Editing, deletion, and destructive-action safeguards
 
 - Editing and manual deletion are form-specific capabilities. Each form explicitly declares whether they are permitted and under what conditions.
-- Drafts/in-progress working copies may be editable according to their form policy. Submitted/finalized records follow Section 7.
+- Drafts/in-progress working copies may be edited according to their form policy. Existing records are changed only through the explicit Edit action and the owning feature's correction/audit rules; Delete follows the declared deletion policy.
 - Every destructive or potentially damaging action must explain what will be affected and its consequences before execution.
 - Require explicit confirmation for destructive actions. The confirmation must identify the target/impact clearly and must not be a vague generic prompt.
 - Protect against accidental repeated deletion or destructive execution. Report success only after the operation succeeds.

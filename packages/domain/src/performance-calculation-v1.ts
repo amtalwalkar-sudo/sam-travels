@@ -42,7 +42,8 @@ export type PreBusinessRecoverySourceV1 = Readonly<{
   revision: number;
   amountPaise: number;
   note: string;
-  origin: "manual";
+  origin: "manual" | "emi" | "compliance";
+  scheduleVersion?: number;
 }>;
 export type PerformanceCompletenessV1 = Readonly<{
   source: string;
@@ -101,7 +102,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
@@ -151,14 +152,7 @@ function validateRefs(refs: readonly PerformanceSourceRefV1[]): void {
   }
 }
 
-/**
- * Recovers the aggregate eligible pre-business pool in 18 equal monthly
- * instalments. The first instalment starts on the Business Start Date and the
- * final instalment is due in the month containing its 18-month anniversary.
- * Each month's instalment is spread over that calendar month's remaining
- * operational dates; paise remainders go to the earliest dates. Source shares
- * are retained for audit provenance without changing the aggregate schedule.
- */
+/** Recovers the aggregate eligible pre-business pool in 18 monthly instalments with source-level provenance. */
 export function allocatePreBusinessRecoveryV1(
   businessStartDate: string,
   sources: readonly PreBusinessRecoverySourceV1[],
@@ -171,40 +165,42 @@ export function allocatePreBusinessRecoveryV1(
     amountPaise: number;
     sourceId: string;
     revision: number;
-    origin: "manual";
+    origin: "manual" | "emi" | "compliance";
     note: string;
+    scheduleVersion?: number;
   }>[];
 }> {
   const startDay = assertDate(businessStartDate);
   const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
+  const orderedSources = [...sources].sort((left, right) => left.sourceId.localeCompare(right.sourceId));
   const seen = new Set<string>();
   let totalPaise = 0;
-  for (const source of sources) {
+  for (const source of orderedSources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
-        source.origin !== "manual" || seen.has(source.sourceId)) {
+        !["manual", "emi", "compliance"].includes(source.origin) ||
+        (source.scheduleVersion !== undefined && (!Number.isSafeInteger(source.scheduleVersion) || source.scheduleVersion < 1)) ||
+        seen.has(source.sourceId)) {
       throw new Error("performance_recovery_source_invalid");
     }
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
   }
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual"; note: string }[] = [];
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }[] = [];
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
-  // Equal monthly instalments are calculated from the aggregate pool, not
-  // independently per source. Cumulative apportionment preserves every
-  // source's provenance while ensuring each month exactly reconciles.
+  // Cumulative source apportionment preserves provenance while each monthly pool instalment reconciles exactly.
   const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1);
   const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
   const monthTotal = (monthIndex: number): number =>
     monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
   let cumulativePoolAllocated = 0;
-  let previousSourceShares = sources.map(() => 0);
+  let previousSourceShares = orderedSources.map(() => 0);
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
     cumulativePoolAllocated = add(cumulativePoolAllocated, monthlyAmount);
     let cumulativeSourceAmount = 0;
-    const cumulativePrefixTargets = sources.map(source => {
+    const cumulativePrefixTargets = orderedSources.map(source => {
       cumulativeSourceAmount = add(cumulativeSourceAmount, source.amountPaise);
       return Number(
         (BigInt(cumulativePoolAllocated) * BigInt(cumulativeSourceAmount)) / BigInt(totalPaise),
@@ -225,7 +221,7 @@ export function allocatePreBusinessRecoveryV1(
     if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
     const instalment = monthTotal(monthIndex);
     const sourceShares = cumulativeSourceShares(instalment);
-    sources.forEach((source, sourceIndex) => {
+    orderedSources.forEach((source, sourceIndex) => {
       const amount = sourceShares[sourceIndex];
       const quotient = Math.floor(amount / dayCount);
       const remainder = amount % dayCount;
@@ -234,6 +230,7 @@ export function allocatePreBusinessRecoveryV1(
         if (amountPaise > 0) daily.push({
           date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
           revision: source.revision, origin: source.origin, note: source.note,
+          ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
         });
       }
     });
@@ -301,11 +298,14 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
   }
   for (const row of recovery.daily) {
     const bucket = costsByDate.get(row.date) ?? Object.fromEntries(COST_KINDS.map(kind => [kind, 0])) as Record<PerformanceCostKindV1, number>;
-    bucket["pre-business-manual-recovery"] = add(bucket["pre-business-manual-recovery"], row.amountPaise);
+    const recoveryKind = row.origin === "manual" ? "pre-business-manual-recovery" : row.origin;
+    bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
     costsByDate.set(row.date, bucket);
-    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision }]);
+    addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision,
+      ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) }]);
   }
-  for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision });
+  for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision,
+    ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}) });
 
   const lifetimeTo = input.periodTo;
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;

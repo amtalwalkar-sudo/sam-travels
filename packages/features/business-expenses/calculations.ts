@@ -7,10 +7,6 @@
  */
 export type ExpenseSourceKindV1 = "fuel" | "platform_fee" | "traffic_challan" | "miscellaneous";
 
-export type FuelLocationEvidenceV1 = Readonly<{
-  latitude: number; longitude: number; accuracyMeters: number; capturedAt: string; provider: "device";
-}>;
-
 export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1;
   kind: "fuel_purchase";
@@ -23,7 +19,6 @@ export type FuelPurchaseV1 = Readonly<{
   pricePaisePerKg: number;
   amountPaise: number;
   partialRefill: boolean;
-  locationEvidence?: FuelLocationEvidenceV1;
 }>;
 
 export type BusinessExpenseEntryV1 = Readonly<{
@@ -125,23 +120,13 @@ export function deriveFuelQuantityMilliKg(amountPaise: number, pricePaisePerKg: 
   return Number(rounded);
 }
 
-function validFuelLocationEvidence(value: unknown): value is FuelLocationEvidenceV1 {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const row = value as Record<string, unknown>;
-  return Object.keys(row).sort().join("|") === ["latitude", "longitude", "accuracyMeters", "capturedAt", "provider"].sort().join("|") &&
-    typeof row.latitude === "number" && Number.isFinite(row.latitude) && row.latitude >= -90 && row.latitude <= 90 &&
-    typeof row.longitude === "number" && Number.isFinite(row.longitude) && row.longitude >= -180 && row.longitude <= 180 &&
-    typeof row.accuracyMeters === "number" && Number.isFinite(row.accuracyMeters) && row.accuracyMeters > 0 &&
-    validInstant(row.capturedAt) && row.provider === "device";
-}
 
 export function assertFuelPurchaseV1(value: unknown): asserts value is FuelPurchaseV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("fuel_purchase_invalid");
   const row = value as Record<string, unknown>;
   const required = ["schemaVersion", "kind", "id", "revision", "businessDate", "occurredAt",
     "vehicleId", "odometerKm", "pricePaisePerKg", "amountPaise", "partialRefill"];
-  const optional = ["locationEvidence"];
-  if (required.some(key => !(key in row)) || Object.keys(row).some(key => !required.includes(key) && !optional.includes(key)) ||
+  if (required.some(key => !(key in row)) || Object.keys(row).some(key => !required.includes(key)) ||
       row.schemaVersion !== 1 || row.kind !== "fuel_purchase" ||
       typeof row.id !== "string" || !row.id.trim() ||
       !Number.isSafeInteger(row.revision) || (row.revision as number) < 1 ||
@@ -150,8 +135,7 @@ export function assertFuelPurchaseV1(value: unknown): asserts value is FuelPurch
       typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:") ||
       !Number.isSafeInteger(row.odometerKm) || (row.odometerKm as number) <= 0 ||
       !positiveInteger(row.pricePaisePerKg) || !positiveInteger(row.amountPaise) ||
-      typeof row.partialRefill !== "boolean" ||
-      (row.locationEvidence !== undefined && !validFuelLocationEvidence(row.locationEvidence))) {
+      typeof row.partialRefill !== "boolean") {
     throw new Error("fuel_purchase_invalid");
   }
 }
@@ -191,7 +175,7 @@ export function assertBusinessExpenseEntryV1(value: unknown): asserts value is B
       (row.sourceKind !== "traffic_challan" && row.paymentStatus !== undefined) ||
       (row.sourceKind === "platform_fee" && (row.vehicleId === undefined || row.alreadyNettedFromIncome === true)) ||
       (row.vehicleId !== undefined && (typeof row.vehicleId !== "string" || !row.vehicleId.startsWith("feature:vehicle:"))) ||
-      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver:")))) {
+      (row.driverId !== undefined && (typeof row.driverId !== "string" || !row.driverId.startsWith("feature:driver-records:driver:")))) {
     throw new Error("business_expense_entry_invalid");
   }
 }

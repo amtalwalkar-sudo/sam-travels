@@ -1,5 +1,5 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
-import type { RecordEnvelope } from "../../core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
 import {
   assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
@@ -48,6 +48,7 @@ export class FinanceLoanSettlementService {
     private readonly loans: LoanDirectory,
     private readonly schedules: FinanceLoanScheduleResolver,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
   ) {}
 
   private async load(loanId: string) {
@@ -114,7 +115,7 @@ export class FinanceLoanSettlementService {
 
   async commit(input: {
     id: string; commandId: string; loanId: string; businessDate: string; method: FinancePaymentMethodV1;
-    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview;
+    reference?: string; source: RecordEnvelope<unknown>["source"]; preview: SettlementPreview; now?: string;
   }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !METHODS.has(input.method)) {
       throw new Error("finance_payment_settlement_input_invalid");
@@ -166,13 +167,14 @@ export class FinanceLoanSettlementService {
           throw new Error("finance_payment_settlement_due_emi_not_fully_paid");
         }
       }
-      const createdAt = this.now();
+      const createdAt = input.now ?? this.now();
+      const createdBy = this.currentAuthor ? await this.currentAuthor() : undefined;
       const settlement: FinancePaymentEntryV1 = {
         kind: "settlement", id: input.id, commandId: input.commandId, loanId: input.loanId,
         businessDate: input.businessDate, amountPaise: settlementRow.closingPrincipalPaise as number,
         method: input.method, ...(input.reference?.trim() ? { reference: input.reference.trim() } : {}),
         scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
-        createdAt, source: input.source, status: "committed",
+        createdAt, source: input.source, ...(createdBy ? { createdBy } : {}), status: "committed",
       };
       if (entries.some(entry => entry.id === input.id)) throw new Error("finance_payment_id_conflict");
       const data: FinancePaymentLedgerV1 = { schemaVersion: 1, loanId: input.loanId, entries: [...entries, settlement] };

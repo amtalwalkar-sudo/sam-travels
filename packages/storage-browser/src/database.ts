@@ -9,7 +9,7 @@ type CredentialVaultRow={name:string;nonce:string;ciphertext:string;updatedAt:st
 type CredentialVaultMetaRow={id:"credential-vault";salt:string;checkNonce:string;checkCiphertext:string};
 type DiagnosticRow={id:string;timestamp:string;subsystem:string;operation:string;outcome:"success"|"blocked"|"failure"|"invalid";failureCategory:string;recoveryResult:string;appVersion:string;schemaVersion:number;traceId?:string;stage?:string;code?:string;ownerFeatureId?:string;contributionId?:string;contractVersion?:number;durationMs?:number};
 export const BROWSER_DATABASE_SCHEMA_VERSION = 6 as const;
-class SamTravelsDatabase extends Dexie{
+export class SamTravelsDatabase extends Dexie{
  records!:Table<RecordEnvelope<unknown>,string>;
  driverState!:Table<SnapshotRow,string>;
  driverIntents!:Table<DriverIntent,string>;
@@ -19,6 +19,26 @@ class SamTravelsDatabase extends Dexie{
  credentialVault!:Table<CredentialVaultRow,string>;
  credentialVaultMeta!:Table<CredentialVaultMetaRow,string>;
  diagnostics!:Table<DiagnosticRow,string>;
- constructor(){super("sam-travels-browser");this.version(1).stores({records:"id,updatedAt,schemaVersion,deletedAt"});this.version(2).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt"});this.version(3).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status"});this.version(4).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id"});this.version(BROWSER_DATABASE_SCHEMA_VERSION).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id",diagnostics:"&id,timestamp"})}
+ constructor(name="sam-travels-browser"){super(name);this.version(1).stores({records:"id,updatedAt,schemaVersion,deletedAt"});this.version(2).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt"});this.version(3).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status"});this.version(4).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id"});this.version(BROWSER_DATABASE_SCHEMA_VERSION).stores({records:"id,updatedAt,schemaVersion,deletedAt",driverState:"id",driverIntents:"&command.eventId,status,createdAt",driverEvents:"&eventId,committedAt,revision",driverOutbox:"&id,eventId,revision,delivered,createdAt",backupCheckpoints:"&id,createdAt,status",credentialVault:"&name,updatedAt",credentialVaultMeta:"&id",diagnostics:"&id,timestamp"})}
+
+ open():ReturnType<Dexie["open"]>{
+  return super.open().then(()=>{
+   // Dexie stores its logical version(6) as native IndexedDB version 60.
+   // Compare like-for-like so the current database is not mistaken for v60.
+   const actualVersion=this.backendDB().version/10;
+   if(actualVersion>BROWSER_DATABASE_SCHEMA_VERSION){
+    this.close();
+    throw new UnsupportedBrowserDatabaseVersionError(actualVersion);
+   }
+   return this;
+  }) as ReturnType<Dexie["open"]>;
+ }
 }
-export const browserDatabase=new SamTravelsDatabase();
+export class UnsupportedBrowserDatabaseVersionError extends Error{
+ constructor(actualVersion:number){
+  super("IndexedDB schema v"+actualVersion+" is newer than this app supports (v"+BROWSER_DATABASE_SCHEMA_VERSION+").");
+  this.name="UnsupportedBrowserDatabaseVersionError";
+ }
+}
+export function createBrowserDatabase(name="sam-travels-browser"):SamTravelsDatabase{return new SamTravelsDatabase(name)}
+export const browserDatabase=createBrowserDatabase();

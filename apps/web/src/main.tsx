@@ -31,10 +31,10 @@ import { DISCOVERED_FEATURE_EXTENSIONS } from "./generated-feature-catalog";
 import { createPlatformRepository, getPlatformRecordSource } from "./native-store";
 import { registerBrowserBackupParticipants } from "./register-browser-backup-participants";
 import { createBusinessExpenseFormSubmissionHandler } from "./business-expense-form-submission";
-import { createBusinessExpenseEnrichmentQueue } from "./business-expense-enrichment-runtime";
 import { createBusinessExpenseHistoricalCorrections } from "./business-expense-corrections";
 import { initializePersonIdentityRuntime, getPersonIdentityService } from "./person-identity-runtime";
 import { createAdminPresentationAdapters } from "./admin-presentation-adapters";
+import { WorkDriverSelectionService } from "../../../packages/application/src/work-driver-selection-service";
 import { createAdminFormRuntimeV1 } from "./admin-form-runtime";
 import { App } from "./ui/App";
 import { AdminServicesProvider } from "./ui/admin-services-context";
@@ -46,15 +46,16 @@ async function bootstrap(): Promise<void> {
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
-  const businessExpenseEnrichmentQueue = createBusinessExpenseEnrichmentQueue(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
-  FeatureRecordService.setAuthorResolver(async () => {
+  const currentAuthor = async () => {
     const actor = await getPersonIdentityService().currentActor();
     return { personId: actor.actorId, role: actor.role };
-  });
+  };
+  FeatureRecordService.setAuthorResolver(currentAuthor);
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
+  const workDriverSelection = new WorkDriverSelectionService(repository);
   const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),
@@ -69,14 +70,14 @@ async function bootstrap(): Promise<void> {
   }, vehicles, undefined, historicalCorrections);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
-    getApplicationBusinessExpensesService(), getApplicationRecordSource(), businessExpenseEnrichmentQueue,
+    getApplicationBusinessExpensesService(), getApplicationRecordSource(),
   );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
-    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1,
+    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor,
   );
-  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments);
-  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments);
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles);
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
@@ -129,6 +130,7 @@ async function bootstrap(): Promise<void> {
     vehicles: getApplicationVehicleService(),
     driverRecords: getApplicationDriverRecordsService(),
     driverAssignments: getApplicationDriverAssignmentService(),
+    workDriverSelection,
     compliance: getApplicationComplianceService(),
     complianceAnalysis: getApplicationComplianceAnalysisService(),
     maintenance: getApplicationMaintenanceService(),
