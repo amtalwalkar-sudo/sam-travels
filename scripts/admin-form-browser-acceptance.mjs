@@ -39,20 +39,10 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition(success) {
-          success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() });
-        },
-        watchPosition(success) {
-          success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() });
-          return 1;
-        },
-        clearWatch() {},
-      },
+    Object.defineProperty(navigator, "geolocation", { configurable: true,
+      value: { watchPosition(success) { success?.({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 5 }, timestamp: Date.now() }); return 1; }, clearWatch() {} },
     });
-  });
+  });  });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
