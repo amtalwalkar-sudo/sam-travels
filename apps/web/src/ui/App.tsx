@@ -28,7 +28,7 @@ export function App(props: AppProps) {
   const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
     props.platformRepository, getPlatformRecordSource(), async (tripId: string) => {
       const obligation = await props.platformRepository.get(cancellationFeeObligationId(tripId));
-      const driverId = obligation?.data?.tripContext?.driverId;
+      const driverId = (obligation?.data as { tripContext?: { driverId?: string } } | undefined)?.tripContext?.driverId;
       if (typeof driverId === "string" && driverId.trim()) return { personId: driverId, role: "driver" as const };
       const actor = await getPersonIdentityService().currentActor();
       return { personId: actor.actorId, role: actor.role };
