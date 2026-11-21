@@ -31,7 +31,7 @@ internal object NativeBackupCoverage {
         override val adapterId = "stored-records-json-v1"
         override val entityType = StoredRecord::class.java
         override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
-            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) }.map { row ->
+            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) }.map { row ->
                 JSONObject().put("id", row.id).put("json", row.json)
                     .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
                     .put("participantId", participantId)
@@ -52,7 +52,7 @@ internal object NativeBackupCoverage {
             }
         }
         override fun clear(database: LocalDatabase) {
-            database.records().list().filterNot { isInternalRecord(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) }
+            database.records().list().filterNot { isInternalRecord(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) }
                 .forEach { database.records().remove(it.id) }
         }
         override fun restore(database: LocalDatabase, row: JSONObject) {
@@ -94,6 +94,17 @@ internal object NativeBackupCoverage {
             StoredRecordsAdapter.restore(database, row)
         }
     }
+
+    /**
+     * Android-local driver selection and person-link rows are runtime identity
+     * scaffolding, not portable business records. The canonical backup carries
+     * the selected driver profile and Work state; preserve these destination
+     * bindings across restore rather than leaking Room-only rows into the wire
+     * snapshot or clearing them during participant replacement.
+     */
+    private fun isRuntimeLocalRecord(id: String): Boolean =
+        id == "work:selected-driver" || id.startsWith("identity:driver-person-link:") ||
+            id.startsWith("identity:person:")
 
     private fun isWorkRecord(id: String): Boolean =
         id == "driver-state" || id == "legacy-driver-state" ||
