@@ -6,17 +6,15 @@
       "schemaVersion": 1,
       "createdAt": "2026-11-04T00:00:00.000Z",
       "businessTimezone": "Asia/Kolkata",
-      "snapshotRevision": 7,
-      "recordCounts": {
-        "records": 1
-      },
+      "snapshotRevision": 0,
+      "recordCounts": { "records": 1 },
       "format": "backup-encryption-v2",
-      "plaintextSha256": "mZGcdnoKh5lJrcXODuLYpzEnuZKmsbxKh7r+cYXZHk4="
+      "plaintextSha256": "/oDCAG/TrWmRYB9uCvbemL0WpyBpI+PedMoEseWz71U="
     },
     "payload": {
       "algorithm": "AES-256-GCM",
       "nonce": "AQIDBAUGBwgJCgsM",
-      "ciphertext": "BhfzNPL7uvk5PQWcW4OCiD3l2advGjD7pxrsbzryjwKHnInuwpFfJmmpkFOO73T/HfVyiQdNFmP7p3awLmRwYvkIpVPsZP9F3GUv2dHQIqN9PesqERRN3kOE54PihemgdgGcPXHE1suhogIiODTjOUoNJUeVuw+NSHmyw+reu7zxk9x3vD9OuMULAxh5UeV5FmEX1bXdHQTp/Y7mynMJvQzx+JNhArHU"
+      "ciphertext": "hSN82IqGauVefCJ+Y1OjJ7T3P3hwv75g0UNGHaE8Q0LbTWZ9prPIE2Js9734rpJ4uPo245ln6YAvbh8ljkT23Sf+vdsKzonGKU/UnU5GiN9KIE/og6xXxlJ9hQM+/5Gga7S6mUJjvl3Q35m8GjQplPoDjxvpaAaCzF8C97IC4BTZlZgUuhc3DEbKpxCUg7jxh2hshgx9rFVohGbjTXcVtr5bvprR7uQJqFAt3HH6wzlP/UC2gYeKkR2Bkwd8WXn9JBwyp76eWwayxroasEUQg+qEHfoQo7r88C+7WzqXTX1a2P8xR186Imv9MRi9iy3X+CavhwxixPQU3wRWkG/i5vkGVB55o1rL87o8XqsqaXCoBudvSMIDY89nWCyySgK6tZLGW21Jbn44zatheHcoQABMcJQ4plA0zpyfva4U3aBtb81wWEoPIcxHZFoc9vqRgPNl3RXQXIWXTZwGDvWFPaj+oFAfWO6WRtKVn8SnDxSMLmh0pCTI38fwY/ng/Ls="
     },
     "keyEnvelopes": {
       "recovery": {
@@ -24,10 +22,10 @@
         "wrappedDek": {
           "algorithm": "AES-256-GCM",
           "nonce": "DQ4PEBESExQVFhcY",
-          "ciphertext": "6lNJj2E0W9jryqUJp+G42qOj0CElQaN6K+O2+H3c+LyNCfMmqMUYviMYOMWbUXIw"
+          "ciphertext": "61BIiGA3WtfqyaQOpuK5xaKg0SYkQqJ1KuC3/3zf+cN7Fc3y+cTaNVAw8DHgR4vw"
         }
       }
     }
   },
-  "expectedPlaintext": "{\"records\":[{\"id\":\"fixture-ts-to-android\",\"json\":\"{}\",\"schemaVersion\":1,\"updatedAt\":\"2026-11-04T00:00:00.000Z\"}],\"snapshotRevision\":7,\"schemaVersion\":1}"
+  "expectedPlaintext": "{\"records\":[{\"id\":\"fixture-ts-to-android\",\"json\":\"{\\\"id\\\":\\\"fixture-ts-to-android\\\",\\\"schemaVersion\\\":1,\\\"createdAt\\\":\\\"2026-11-04T00:00:00.000Z\\\",\\\"updatedAt\\\":\\\"2026-11-04T00:00:00.000Z\\\",\\\"source\\\":\\\"web\\\",\\\"revision\\\":1,\\\"data\\\":{\\\"value\\\":\\\"typescript-writer\\\"}}\",\"schemaVersion\":1,\"updatedAt\":\"2026-11-04T00:00:00.000Z\"}],\"snapshotRevision\":0,\"schemaVersion\":1}"
 }

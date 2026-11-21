@@ -64,6 +64,39 @@ describe("TypeScript backup-encryption-v2 package fixture", () => {
     const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(tsFixture.backup)));
     const plaintext = await decryptBackupWithRecoveryKey(parsed, tsFixture.recoveryKey);
     expect(new TextDecoder().decode(plaintext)).toBe(tsFixture.expectedPlaintext);
+
+    const entropy = new Uint8Array([
+      ...Array.from({ length: 16 }, (_, index) => 65 + index),
+      ...Array.from({ length: 32 }, (_, index) => 33 + index),
+      ...Array.from({ length: 12 }, (_, index) => 1 + index),
+      ...Array.from({ length: 12 }, (_, index) => 13 + index),
+    ]);
+    let offset = 0;
+    const random = vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation((target) => {
+      const bytes = new Uint8Array(target.buffer, target.byteOffset, target.byteLength);
+      bytes.set(entropy.subarray(offset, offset + bytes.length));
+      offset += bytes.length;
+      return target;
+    });
+    try {
+      const generated = await createEncryptedBackup({
+        plaintext: new TextEncoder().encode(tsFixture.expectedPlaintext),
+        manifest: {
+          applicationVersion: "0.1.0",
+          schemaVersion: 1,
+          createdAt: "2026-11-04T00:00:00.000Z",
+          businessTimezone: "Asia/Kolkata",
+          snapshotRevision: 0,
+          recordCounts: { records: 1 },
+        },
+        mode: "recovery-key-only",
+        recoveryKey: tsFixture.recoveryKey,
+      });
+      expect(generated.backup).toEqual(tsFixture.backup);
+      expect(offset).toBe(entropy.length);
+    } finally {
+      random.mockRestore();
+    }
   });
 });
 
