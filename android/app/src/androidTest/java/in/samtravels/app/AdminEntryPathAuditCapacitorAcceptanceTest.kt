@@ -153,7 +153,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:finance:loan:") &&
                     JSONObject(row.json).getJSONObject("data").optJSONObject("details")?.optString("loanName") == marker + " Loan"
             }
-            assertEquals("One authoritative Loan record", 1, loanRows.size)
+            assertEquals("One Loan record", 1, loanRows.size)
             val loan = loanRows.single()
             val loanUuid = loan.id.removePrefix("feature:finance:loan:")
             val paymentLedgerId = "feature:finance:payments:" + loanUuid
