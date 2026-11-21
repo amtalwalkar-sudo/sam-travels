@@ -93,6 +93,21 @@ describe("FinanceLoanPaymentService", () => {
     expect(payment.createdAt).toBe("2026-11-19T09:30:00.000Z");
     expect(payment.createdBy).toEqual({ personId: "finance-admin-1", role: "admin" });
   });
+  it("keeps the first Admin actor on an idempotent payment retry", async () => {
+    const repo = new MemoryRepository();
+    await repo.put(loanEnvelope);
+    let activeAdmin = "finance-admin-first";
+    const service = new FinanceLoanPaymentService(repo, {
+      async get(id) { return id === loanId ? await repo.get<FinanceLoanRecordV1>(id) : undefined; },
+    }, undefined, undefined, async () => ({ personId: activeAdmin, role: "admin" }));
+    const input = { ...base, id: "payment-actor-replay", commandId: "payment-actor-replay", allocations: [] };
+    const original = await service.record(input);
+    activeAdmin = "finance-admin-second";
+    const replayed = await service.record(input);
+    expect(replayed).toEqual(original);
+    expect(replayed.createdBy).toEqual({ personId: "finance-admin-first", role: "admin" });
+    expect((await service.list(loanId))).toHaveLength(1);
+  });
   it("rejects allocations against a schedule that is no longer effective on the payment date", async () => {
     const repo = new MemoryRepository();
     void repo.put(loanEnvelope);
@@ -231,7 +246,7 @@ describe("FinanceLoanPaymentService", () => {
       async getScheduleRows() { return rows; },
       async getScheduleVersionForDate(_id: string, date: string) { return date === "2026-11-01" ? 1 : undefined; },
     };
-    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules);
+    const service = new FinanceLoanPaymentService(repo, loans, () => "2026-11-08T04:00:00.000Z", schedules, adminAuthor);
     const settlementService = new FinanceLoanSettlementService(repo, loans, schedules, () => "2026-11-08T04:00:00.000Z");
     await service.record({ ...base, id: "emi-payment-stale", commandId: "emi-command-stale",
       businessDate: "2026-11-01", amountPaise: 10000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
