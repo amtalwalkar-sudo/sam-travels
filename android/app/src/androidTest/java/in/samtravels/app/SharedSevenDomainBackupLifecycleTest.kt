@@ -141,10 +141,48 @@ class SharedSevenDomainBackupLifecycleTest {
                 source.manifest,
                 "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
             )
-            val decryptedForAssertion = NativeBackupV2Package.decrypt(
-                encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-            )
+            val recoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+            val decryptedForAssertion = NativeBackupV2Package.decrypt(encrypted, recoveryKey)
             assertEquals(source.snapshot.toString(), decryptedForAssertion.toString(Charsets.UTF_8))
+
+            // Every pre-authentication/validation failure must leave the exact
+            // destination graph untouched and must not create a recovery journal.
+            val destinationBeforeRejectedPackages = NativeSnapshotBuilder.build(
+                database, NativeBackupRecovery::isInternalRecord, "before-rejected-package",
+            )
+            fun assertRejectedWithoutMutation(candidate: JSONObject, key: String = recoveryKey) {
+                assertTrue(runCatching {
+                    NativeBackupRestoreCoordinator.restoreEncrypted(
+                        database, candidate, key,
+                        { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "rejected-readback") },
+                    )
+                }.isFailure)
+                val after = NativeSnapshotBuilder.build(
+                    database, NativeBackupRecovery::isInternalRecord, "after-rejected-package",
+                )
+                assertEquals(
+                    canonical(destinationBeforeRejectedPackages.snapshot.getJSONArray("records")),
+                    canonical(after.snapshot.getJSONArray("records")),
+                )
+                assertEquals(0, database.records().list().count {
+                    it.id.startsWith(NativeBackupRecovery.CHECKPOINT_PREFIX) ||
+                        it.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX)
+                })
+            }
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
+                getJSONObject("payload").put("ciphertext", "AA==")
+            })
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
+                getJSONObject("manifest").put("snapshotRevision", 999)
+            })
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
+                remove("payload")
+            })
+            assertRejectedWithoutMutation(JSONObject(encrypted.toString()).apply {
+                getJSONObject("manifest").put("format", "backup-encryption-v99")
+            })
+
             val restored = NativeBackupRestoreCoordinator.restoreEncrypted(
                 database, encrypted, "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back") },
