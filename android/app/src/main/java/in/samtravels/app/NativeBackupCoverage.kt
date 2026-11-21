@@ -31,7 +31,7 @@ internal object NativeBackupCoverage {
         override val adapterId = "stored-records-json-v1"
         override val entityType = StoredRecord::class.java
         override fun export(database: LocalDatabase, participantId: String, isInternal: (String) -> Boolean) =
-            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) }.map { row ->
+            database.records().list().filterNot { isInternal(it.id) || isWorkRecord(it.id) || isFeatureOwnedRecord(it.id) || isRuntimeLocalRecord(it.id) || isNonPortableIdentityRecord(it.id) }.map { row ->
                 JSONObject().put("id", row.id).put("json", row.json)
                     .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
                     .put("participantId", participantId)
@@ -104,6 +104,11 @@ internal object NativeBackupCoverage {
      */
     private fun isRuntimeLocalRecord(id: String): Boolean =
         id == "work:selected-driver" || id.startsWith("identity:driver-person-link:")
+
+    /** Person identity rows are local identity metadata: omit from portable exports,
+     * but let replacement clear them so stale destination people do not survive. */
+    private fun isNonPortableIdentityRecord(id: String): Boolean =
+        id.startsWith("identity:person:")
 
     private fun isWorkRecord(id: String): Boolean =
         id == "driver-state" || id == "legacy-driver-state" ||
