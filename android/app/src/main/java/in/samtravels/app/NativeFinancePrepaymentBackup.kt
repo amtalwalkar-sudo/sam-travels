@@ -11,7 +11,7 @@ internal object NativeFinancePrepaymentBackup {
         if (value == null) return false
         return value.keys().asSequence().toSet() == setOf("personId", "role") &&
             value.optString("personId").isNotBlank() &&
-            value.optString("role") in setOf("admin", "driver")
+            value.optString("role") == "admin"
     }
     const val PARTICIPANT_ID = "finance-prepayment-records"
     const val RECORD_ID_PREFIX = "feature:finance:prepayments:"
