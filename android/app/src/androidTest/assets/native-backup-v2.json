@@ -1,5 +1,5 @@
 {
-  "recoveryKey": "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcY",
+  "recoveryKey": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
   "backup": {
     "manifest": {
       "applicationVersion": "0.1.0",
@@ -28,7 +28,7 @@
         "wrappedDek": {
           "algorithm": "AES-256-GCM",
           "nonce": "DQ4PEBESExQVFhcY",
-          "ciphertext": "+7fjPExNuca+zuPIIQXU/jX9L6Aq0bSmsNhEZSmULe+j6X8SKrZ5z+rJQyxWEyiq"
+          "ciphertext": "61BIiGA3WtfqyaQOpuK5xaKg0SYkQqJ1KuC3/3zf+cN7Fc3y+cTaNVAw8DHgR4vw"
         }
       }
     }
