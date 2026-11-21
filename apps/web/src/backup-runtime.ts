@@ -95,8 +95,7 @@ export async function restoreBackupForCurrentRuntime(input: {
   // Installed Android authenticates the encrypted wire package in the
   // native Backup plugin before invoking the production Room restore
   // coordinator. Browser continues to use the shared TypeScript decryptor.
-  if (Capacitor.isNativePlatform() && "recoveryKey" in input.secret) {
-    await recoverPendingBackupTransactions();
+  if (Capacitor.isNativePlatform() && input.backup.manifest.format === "backup-encryption-v2" && "recoveryKey" in input.secret) {
     try {
       const result = await NativeBackup.restoreEncryptedPackage({
         backup: input.backup,
