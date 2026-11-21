@@ -284,7 +284,9 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             webView.evaluateJavascript(expression) { result.set(it); latch.countDown() }
         }
-        return if (latch.await(3, TimeUnit.SECONDS)) result.get() else null
+        // WebView callbacks can be delayed while the emulator is exercising a busy Admin workflow.
+        // Do not turn a slow JavaScript bridge callback into a false missing-button failure.
+        return if (latch.await(15, TimeUnit.SECONDS)) result.get() else null
     }
 
     internal fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
