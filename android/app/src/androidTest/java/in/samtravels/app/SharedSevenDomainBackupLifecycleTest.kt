@@ -151,6 +151,13 @@ class SharedSevenDomainBackupLifecycleTest {
                 { NativeSnapshotBuilder.build(database, NativeBackupRecovery::isInternalRecord, "read-back-ts") },
             )
             assertEquals(source.snapshot.getJSONArray("records").length(), typescriptRestore.restoredCount)
+            // Room's selected-driver pointer and person-link records are local
+            // runtime identity bindings, not portable business records. They
+            // must survive replacement while the canonical business graph is
+            // restored exactly from the TypeScript package.
+            assertTrue(database.records().get("work:selected-driver") != null)
+            assertTrue(database.records().get("identity:driver-person-link:driver-001") != null)
+            assertTrue(database.records().get("identity:person:synthetic-person-001") != null)
             val afterTypescriptRestore = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
             )
