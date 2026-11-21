@@ -15,12 +15,30 @@ import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/sr
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
 import { parseBackupPackage, decryptBackupWithRecoveryKey } from "../packages/features/backup";
 
-function canonicalSnapshotForComparison(snapshot: { records: Array<{ participantId: string; id: string }> }) {
+function canonicalSnapshotForComparison(snapshot: {
+  records: Array<{ participantId: string; id: string; updatedAt?: string; [key: string]: unknown }>;
+  [key: string]: unknown;
+}) {
   return {
     ...snapshot,
-    records: [...snapshot.records].sort((left, right) =>
-      left.participantId.localeCompare(right.participantId) || left.id.localeCompare(right.id),
-    ),
+    records: snapshot.records
+      .map(record => {
+        const normalized = { ...record };
+        // Room and Dexie serialize equivalent instants with different precision.
+        if (normalized.updatedAt && Number.isFinite(Date.parse(normalized.updatedAt))) {
+          normalized.updatedAt = new Date(normalized.updatedAt).toISOString();
+        }
+        // The active driver-state row's updatedAt is destination-local restore
+        // metadata, not portable business state; the state/revision/event remain
+        // compared exactly in the record payload.
+        if (normalized.participantId === "work-driver-state") {
+          delete normalized.updatedAt;
+        }
+        return normalized;
+      })
+      .sort((left, right) =>
+        left.participantId.localeCompare(right.participantId) || left.id.localeCompare(right.id),
+      ),
   };
 }
 describe("Android-produced populated encrypted package through production Browser restore", () => {
@@ -78,7 +96,7 @@ describe("Android-produced populated encrypted package through production Browse
     browserDatabase.close();
     await browserDatabase.open();
     const reopened = await exportBrowserSnapshot("0.1.0");
-    expect(toCanonicalBackupSnapshotV1(reopened.data, reopened.manifest as never))
+    expect(canonicalSnapshotForComparison(toCanonicalBackupSnapshotV1(reopened.data, reopened.manifest as never)))
       .toEqual(canonicalSnapshotForComparison(importedCanonical));
   });
 });
