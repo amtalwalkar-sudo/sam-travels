@@ -227,8 +227,10 @@ internal object NativeBackupRestoreCoordinator {
         val manifest = backup.optJSONObject("manifest") ?: error("backup_invalid_envelope")
         BackupSnapshotContract.validateSnapshot(snapshot)
         BackupSnapshotContract.validateManifest(manifest)
-        beforeRestore()
-        return restore(database, snapshot, manifest, makeSnapshot)
+        return restore(
+            database, snapshot, manifest, makeSnapshot,
+            beforeCheckpoint = beforeRestore,
+        )
     }
 
     fun restore(
@@ -238,6 +240,7 @@ internal object NativeBackupRestoreCoordinator {
         makeSnapshot: () -> NativeSnapshotBundle,
         afterReplacement: () -> Unit = {},
         maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
+        beforeCheckpoint: () -> Unit = {},
     ): RestoreResult {
         BackupSnapshotContract.validateSnapshot(snapshot)
         BackupSnapshotContract.validateManifest(manifest)
@@ -290,6 +293,9 @@ internal object NativeBackupRestoreCoordinator {
             }
         }
 
+        // Run startup recovery only after the incoming package has passed all
+        // structural, participant, relationship, revision and count checks.
+        beforeCheckpoint()
         val now = Instant.now().toString()
         val id = UUID.randomUUID().toString()
         database.runInTransaction {
