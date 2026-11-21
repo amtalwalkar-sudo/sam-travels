@@ -540,7 +540,7 @@ This section records the current implementation position and the agreed remainin
 
 - The calculation/provenance and entry-path audit is substantially complete for the scope described in the 2026-11-21 evidence-matrix addendum: Work/Shift distance allocation and 04:00 handling; Maintenance accrual eligibility and effective-rate snapshots; Business Start Date Compliance/complete-EMI allocation; Reduce Tenure-only prepayment; Performance source/revision provenance and cost boundaries; Fuel and expense calculation rules; and correction lineage.
 - Rendered PWA entry and Android Room-backed WebView entry/readback coverage is recorded in the evidence matrix for the named Admin, Work, trip-financial, Fuel and expense paths.
-- The latest exact-head CI checkpoint is green on `985629e17d2b6d0a76fb1be63a0374f040ecd413`, workflow run [44932520806](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44932520806): Architecture, PWA rendered acceptance, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression passed. Production geocoder verification was skipped on this PR run and is not a required PR gate.
+- The latest exact-head CI checkpoint is green on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`, workflow run [44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946): Architecture, PWA rendered acceptance, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression passed. Production geocoder verification was skipped on this PR run and is not a required PR gate.
 - Android-produced populated encrypted package → TypeScript production decrypt/Browser-Dexie restore has passing cross-platform CI evidence. The Room shared seven-domain lifecycle instrumentation also passes, but this is not evidence that a TypeScript-produced populated encrypted package has been restored through Android's production decrypt/Room restore path.
 
 ### Four-stage closeout plan
@@ -549,13 +549,18 @@ The stages below are the only planned closeout sequence for the currently identi
 
 #### Stage 1 — Persist Finance Admin actor attribution
 
-**Implementation completed; final exact-head CI is the remaining closeout gate.**
+**Status: COMPLETE — implementation, Browser/Android evidence and exact-head CI all passed on 2026-11-21.**
 
 
 - Inspect the Finance payment, prepayment and settlement command/event paths and the active Admin-session source.
 - Persist the authenticated Admin actor on each immutable Finance event in the same atomic write as the financial mutation; do not infer actor identity later from mutable profile state.
 - Preserve actor attribution through retries, corrections, history projections and backup/restore.
 - Add focused positive, missing-actor, correction/retry and persistence/restore assertions on the relevant Browser and Android paths.
+- New payment, reversal, prepayment and settlement writes resolve the active actor through the Admin-session callback and fail closed with `finance_admin_actor_required` when the callback is absent, the actor is not an Admin, or the person ID is invalid. The application callback obtains the actor through `PersonIdentityService.currentActor()`, which validates the active Admin session and its PIN-verification lifetime.
+- The actor is written as `createdBy: { personId, role: "admin" }` in the same atomic record-batch/CAS write as the Finance event. Replays return the original immutable event and original actor; they do not rewrite attribution.
+- TypeScript and Android backup validators reject a non-Admin actor when attribution is present. Legacy historical Finance events with no `createdBy` remain readable; no historical actor is fabricated.
+- **Passing evidence:** `tests/finance-loan-payment-service.test.ts` (missing/Driver actor rejection, actor persistence on payment/reversal/settlement, retry identity and settlement atomicity); `tests/finance-loan-prepayment-service.test.ts` (missing/Driver actor rejection and persisted revision attribution); `tests/loan-prepayment-records.test.ts` (reject Driver-authored history); rendered PWA `admin-form-browser-acceptance.mjs` + `assertFinanceAdminActorProvenance` (Dexie readback of payment, reversal, prepayment and settlement); Android `AdminEntryPathAuditCapacitorAcceptanceTest.calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView` (Room readback of payment, prepayment and settlement); and `NativeFinancePaymentBackupTest.exportsRestoresAndRevalidatesLoanPaymentHistoryInRoomBackup` plus `rejectsDriverAuthorshipInFinancePaymentBackup` (Room backup/restore actor preservation and non-Admin rejection).
+- **Exact-head CI:** [Sam Travels CI run 44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946) passed Architecture, full Web/PWA regression, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`. Production geocoder verification was skipped and is not a required PR gate.
 - **Exit evidence:** the stored Finance event itself identifies the correct Admin actor, and the same attribution survives readback and restore without duplicate financial events.
 
 #### Stage 2 — Ratify and implement Finance payment-allocation policy
