@@ -23,7 +23,13 @@ export function toCanonicalBackupSnapshotV1(data: BrowserSnapshotData, manifest:
     records.push({ participantId, id, json: JSON.stringify(value), schemaVersion, updatedAt });
   };
   for (const row of data.records as Array<Record<string, unknown>>) add(canonicalOwnerForRecord(String(row.id), participants), String(row.id), row, Number(row.schemaVersion ?? 1), row.updatedAt);
-  for (const row of data.driverState as Array<Record<string, unknown>>) add("work-driver-state", String(row.id), row, 1, row.updatedAt ?? row.createdAt ?? manifest.createdAt);
+  for (const row of data.driverState as Array<Record<string, unknown>>) {
+    // The canonical Work state envelope carries its stable record ID in the
+    // interchange row, not inside the Room-owned JSON payload. Browser keeps
+    // the Dexie primary key on the runtime row, so strip it at this boundary.
+    const { id, ...portableValue } = row;
+    add("work-driver-state", String(id), portableValue, 1, row.updatedAt ?? row.createdAt ?? manifest.createdAt);
+  }
   for (const row of data.driverIntents as Array<Record<string, unknown>>) {
     const command = row.command as Record<string, unknown> | undefined;
     add("work-driver-state", "driver-intent:" + String(command?.eventId ?? ""), row, 1, row.updatedAt ?? row.createdAt ?? command?.transitionAt);
@@ -50,7 +56,11 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
     const value = JSON.parse(row.json);
     if (row.participantId === "logbook-events") data.driverEvents.push(value);
     else if (row.participantId === "work-driver-state") {
-      if (row.id === "driver-state" || row.id === "legacy-driver-state") data.driverState.push(value);
+      if (row.id === "driver-state" || row.id === "legacy-driver-state") {
+        // Restore the Browser/Dexie primary key from the canonical record ID;
+        // Room stores that key outside its JSON payload.
+        data.driverState.push({ ...value, id: row.id });
+      }
       else if (row.id.startsWith("driver-intent:")) data.driverIntents.push(value);
       else if (row.id.startsWith("driver-outbox:")) data.driverOutbox.push(value);
       else throw new Error("backup_canonical_work_record_invalid");
