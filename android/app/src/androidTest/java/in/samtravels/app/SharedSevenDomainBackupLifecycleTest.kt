@@ -223,12 +223,16 @@ class SharedSevenDomainBackupLifecycleTest {
             )
             assertRejectedWithoutMutation(futureSchemaPackage)
 
-            // A correctly authenticated package with an invalid participant
-            // must fail full semantic validation before the startup-recovery
-            // callback is allowed to touch the destination.
+            // A correctly authenticated package with a dangling Driver→Vehicle
+            // reference must fail semantic validation before startup recovery.
             val invalidSemanticSnapshot = JSONObject(source.snapshot.toString())
-            invalidSemanticSnapshot.getJSONArray("records").getJSONObject(0)
-                .put("participantId", "unknown-participant")
+            val invalidRows = invalidSemanticSnapshot.getJSONArray("records")
+            val assignmentRow = (0 until invalidRows.length()).map { invalidRows.getJSONObject(it) }
+                .single { it.optString("id").startsWith("feature:driver-records:assignment:") }
+            val assignmentEnvelope = JSONObject(assignmentRow.getString("json"))
+            assignmentEnvelope.getJSONObject("data").getJSONArray("assignments")
+                .getJSONObject(0).put("vehicleId", "feature:vehicle:MISSING")
+            assignmentRow.put("json", assignmentEnvelope.toString())
             val invalidSemanticPackage = NativeBackupV2Package.create(
                 invalidSemanticSnapshot.toString().toByteArray(Charsets.UTF_8),
                 source.manifest,
