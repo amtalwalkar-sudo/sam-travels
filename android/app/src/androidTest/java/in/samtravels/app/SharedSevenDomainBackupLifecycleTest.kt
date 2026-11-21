@@ -222,6 +222,14 @@ class SharedSevenDomainBackupLifecycleTest {
                 recoveryKey,
             )
             assertRejectedWithoutMutation(futureSchemaPackage)
+            val futureSnapshotFormat = JSONObject(source.snapshot.toString())
+                .put("format", "sam-travels-canonical-snapshot-v99")
+            val futureSnapshotFormatPackage = NativeBackupV2Package.create(
+                futureSnapshotFormat.toString().toByteArray(Charsets.UTF_8),
+                source.manifest,
+                recoveryKey,
+            )
+            assertRejectedWithoutMutation(futureSnapshotFormatPackage)
 
             // A correctly authenticated package with a dangling Driver→Vehicle
             // reference must fail semantic validation before startup recovery.
