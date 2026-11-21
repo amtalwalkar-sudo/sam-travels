@@ -262,9 +262,13 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
         val jsLabels = alternatives.joinToString(",") { label ->
             "'" + label.replace("\\", "\\\\").replace("'", "\\'") + "'"
         }
-        val js = """(()=>{const labels=[$jsLabels];const b=[...document.querySelectorAll('button')].find(n=>!n.disabled&&labels.some(label=>n.textContent.includes(label)));if(!b)return false;b.click();return true})()"""
-        check(javascriptValue(activity, js) == "true") {
-            "Missing enabled Admin action matching any of: " + alternatives.joinToString(", ")
+        val js = """(()=>{const labels=[$jsLabels];const norm=s=>(s||'').replace(/\\s+/g,' ').trim().toLocaleLowerCase();const b=[...document.querySelectorAll('button')].find(n=>!n.disabled&&labels.some(label=>norm(n.innerText||n.textContent).includes(norm(label))));if(!b)return false;b.click();return true})()"""
+        val clicked = javascriptValue(activity, js) == "true"
+        if (!clicked) {
+            val diagnostic = javascriptValue(activity,
+                """JSON.stringify([...document.querySelectorAll('button')].map(n=>({text:(n.innerText||n.textContent||'').trim(),disabled:n.disabled,aria:n.getAttribute('aria-label')})))""")
+            error("Missing enabled Admin action matching any of: " + alternatives.joinToString(", ") +
+                "; rendered buttons: " + diagnostic)
         }
     }
 
