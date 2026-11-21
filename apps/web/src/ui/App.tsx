@@ -4,7 +4,7 @@ import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, Re
 import { BackupPanel } from "./BackupPanel";
 import { getPlatformRecordSource } from "../native-store";
 import { getPersonIdentityService } from "../person-identity-runtime";
-import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src";
+import { createTripFinancialFormRuntimeV1, cancellationFeeObligationId } from "../../../../packages/application/src";
 import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
 import { useDriverWorkspace } from "./use-driver-workspace";
@@ -26,7 +26,10 @@ export type AppProps = Readonly<{
 /** Application composition owns shared services, dependency injection, and replaceable shell selection. */
 export function App(props: AppProps) {
   const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
-    props.platformRepository, getPlatformRecordSource(), async () => {
+    props.platformRepository, getPlatformRecordSource(), async (tripId: string) => {
+      const obligation = await props.platformRepository.get(cancellationFeeObligationId(tripId));
+      const driverId = obligation?.data?.tripContext?.driverId;
+      if (typeof driverId === "string" && driverId.trim()) return { personId: driverId, role: "driver" as const };
       const actor = await getPersonIdentityService().currentActor();
       return { personId: actor.actorId, role: actor.role };
     },
