@@ -263,6 +263,44 @@ try {
   await paymentPanel.getByText("Settlement amount:", { exact: false }).waitFor({ state: "visible", timeout: 15000 });
   await paymentPanel.getByRole("button", { name: "Confirm settlement and close Loan", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Final settlement recorded and Loan closed." }).waitFor({ state: "visible" });
+  const financeActorAudit = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const loan = rows.find(row => row.id?.startsWith("feature:finance:loan:") &&
+      row.data?.details?.loanName === "Admin Browser Loan");
+    if (!loan) return null;
+    const suffix = loan.id.slice("feature:finance:loan:".length);
+    const ledger = rows.find(row => row.id === "feature:finance:payments:" + suffix)?.data;
+    const prepayments = rows.find(row => row.id === "feature:finance:prepayments:" + suffix)?.data;
+    return {
+      entries: ledger?.entries ?? [],
+      revisions: prepayments?.revisions ?? [],
+    };
+  });
+  const financeEntries = financeActorAudit?.entries ?? [];
+  const actorKinds = new Set(financeEntries.map(entry => entry.kind));
+  const financeActorValid = financeEntries.length > 0 &&
+    ["payment", "reversal", "settlement"].every(kind => actorKinds.has(kind)) &&
+    financeEntries.every(entry => entry.createdBy?.role === "admin" && !!entry.createdBy?.personId);
+  const prepaymentActorsValid = (financeActorAudit?.revisions?.length ?? 0) > 0 &&
+    financeActorAudit.revisions.every(revision => revision.createdBy?.role === "admin" && !!revision.createdBy?.personId);
+  if (!financeActorValid || !prepaymentActorsValid) {
+    throw new Error("finance_admin_actor_provenance_missing_or_invalid: " +
+      JSON.stringify({ entries: financeEntries.map(entry => ({kind:entry.kind,createdBy:entry.createdBy})),
+        revisions: financeActorAudit?.revisions?.map(revision => revision.createdBy) }));
+  }
+  console.log("Browser/Dexie readback verified active Admin attribution on Finance payments, reversal, prepayment and settlement.");
+
 
   await page.getByRole("heading", { name: "Platform Fees", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Fee date").fill(today);
