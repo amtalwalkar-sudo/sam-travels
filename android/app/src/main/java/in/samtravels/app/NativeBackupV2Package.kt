@@ -104,7 +104,7 @@ internal object NativeBackupV2Package {
         val manifest = packageJson.optJSONObject("manifest") ?: error("backup_invalid_envelope")
         val payload = packageJson.optJSONObject("payload") ?: error("backup_invalid_envelope")
         val envelopes = packageJson.optJSONObject("keyEnvelopes") ?: error("backup_invalid_envelope")
-        return "{\\"manifest\\":${jsonStringify(manifest)},\\"payload\\":${payload},\\"keyEnvelopes\\":${envelopes}}"
+        return "{\"manifest\":${jsonStringify(manifest)},\"payload\":${payload},\"keyEnvelopes\":${envelopes}}"
     }
 
     /**
