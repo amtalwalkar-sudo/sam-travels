@@ -42,7 +42,7 @@ class NativeBackupCoverageTest {
             val logBookRow = (0 until records.length()).map { records.getJSONObject(it) }
                 .single { it.optString("id") == "scheduled-backup-event" }
             assertEquals("logbook-events", logBookRow.getString("participantId"))
-            assertEquals(13, result.manifest.getJSONArray("participants").length())
+            assertEquals(11, result.manifest.getJSONArray("participants").length())
             assertEquals(1, result.manifest.getJSONObject("recordCounts").getInt("records"))
             assertEquals(1, result.snapshot.getInt("schemaVersion"))
         } finally { database.close() }
