@@ -136,7 +136,6 @@ try {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
   if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
-  await exerciseWorkShiftEntryPath(page);
   await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
@@ -342,6 +341,8 @@ try {
   await page.locator(".performance-provenance > summary").click();
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
   console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await exerciseWorkShiftEntryPath(page);
 
 } finally {
   if (browser) await browser.close();
