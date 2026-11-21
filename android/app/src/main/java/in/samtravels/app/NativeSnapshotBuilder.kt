@@ -22,7 +22,7 @@ internal object NativeSnapshotBuilder {
         createdAt: String = Instant.now().toString(),
         maxRecordCount: Int = MAX_BACKUP_RECORD_COUNT,
     ): NativeSnapshotBundle {
-        val records = NativeBackupCoverage.toCanonicalInterchangeRecords(
+        val records = NativeFeatureBackupManifestCompatibility.toCanonicalInterchangeRecords(
             NativeBackupCoverage.exportBusinessRecords(database, isInternal),
         )
         requireBackupRecordCountWithinLimit(records.length(), maxRecordCount)
@@ -33,7 +33,7 @@ internal object NativeSnapshotBuilder {
             } ?: 0
         require(snapshotRevision >= 0) { "backup_snapshot_revision_invalid" }
         NativeBackupCoverage.validateSnapshotRevision(records, snapshotRevision)
-        val participants: JSONArray = NativeBackupCoverage.canonicalParticipantManifest()
+        val participants: JSONArray = NativeFeatureBackupManifestCompatibility.canonicalParticipantManifest()
         val snapshot = JSONObject()
             .put("format", "sam-travels-canonical-snapshot-v1")
             .put("records", records)

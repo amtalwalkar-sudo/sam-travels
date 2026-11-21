@@ -91,9 +91,65 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
 
 /** Backward compatibility for snapshots created before a new empty feature participant existed. */
 internal object NativeFeatureBackupManifestCompatibility {
+    /** Canonical interchange groups Room's finance sub-adapters under the browser finance owner. */
+    fun canonicalParticipantManifest(): JSONArray {
+        val result = JSONArray()
+        var financeAdded = false
+        NativeBackupCoverage.discoverParticipants().sortedBy { it.id }.forEach { participant ->
+            if (participant.featureId == "finance") {
+                if (!financeAdded) {
+                    result.put(JSONObject()
+                        .put("id", "finance-records")
+                        .put("featureId", "finance")
+                        .put("snapshotVersion", 1)
+                        .put("restoreValidatorId", "finance-records-v1"))
+                    financeAdded = true
+                }
+            } else {
+                result.put(JSONObject()
+                    .put("id", participant.id)
+                    .put("featureId", participant.featureId)
+                    .put("snapshotVersion", participant.snapshotVersion)
+                    .put("restoreValidatorId", participant.id + "-v1"))
+            }
+        }
+        return result
+    }
+
+    /** Room keeps finance validators separate; the interchange owner is intentionally singular. */
+    fun toCanonicalInterchangeRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            if (row.optString("participantId") == "finance-payment-records" ||
+                row.optString("participantId") == "finance-prepayment-records") {
+                row.put("participantId", "finance-records")
+            }
+            result.put(row)
+        }
+        return result
+    }
+
+    /** Split the canonical finance owner back to the precise Room validator by stable record namespace. */
+    fun normalizeCanonicalInterchangeRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            if (row.optString("participantId") == "finance-records") {
+                val id = row.optString("id")
+                when {
+                    id.startsWith("feature:finance:payments:") -> row.put("participantId", "finance-payment-records")
+                    id.startsWith("feature:finance:prepayments:") -> row.put("participantId", "finance-prepayment-records")
+                }
+            }
+            result.put(row)
+        }
+        return result
+    }
+
     fun validate(incoming: JSONArray?, records: JSONArray?) {
         if (incoming == null) return
-        val expected = NativeBackupCoverage.canonicalParticipantManifest()
+        val expected = canonicalParticipantManifest()
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             listOf(item.getString("id"), item.getString("featureId"),
