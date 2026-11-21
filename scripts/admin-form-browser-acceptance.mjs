@@ -340,7 +340,6 @@ try {
   await page.getByText("Recovery window", { exact: false }).waitFor({ state: "visible" });
   await page.locator(".performance-provenance > summary").click();
   await page.locator(".performance-provenance").getByText("Calculation ID performance.calculation.v1", { exact: false }).waitFor({ state: "visible" });
-  console.log("Performance dashboard browser acceptance passed: period and lifetime KPI, fixed monthly target, monthly roll-up, recovery and provenance rendered.");
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await exerciseWorkShiftEntryPath(page);
 
