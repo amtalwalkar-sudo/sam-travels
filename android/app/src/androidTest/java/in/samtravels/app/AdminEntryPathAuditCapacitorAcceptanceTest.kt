@@ -207,7 +207,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
 
             support.click(activity, "＋ Fuel entry")
-            support.set(activity, "Vehicle", vehicleRecordId)
+            support.set(activity, "Vehicle", vehicleRecordId!!)
             support.set(activity, "Odometer (km)", "56000")
             support.set(activity, "Price per kg (₹)", "82.5")
             support.set(activity, "Amount paid (₹)", "825")
