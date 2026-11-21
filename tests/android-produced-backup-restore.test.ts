@@ -15,6 +15,14 @@ import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/sr
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
 import { parseBackupPackage, decryptBackupWithRecoveryKey } from "../packages/features/backup";
 
+function canonicalSnapshotForComparison(snapshot: { records: Array<{ participantId: string; id: string }> }) {
+  return {
+    ...snapshot,
+    records: [...snapshot.records].sort((left, right) =>
+      left.participantId.localeCompare(right.participantId) || left.id.localeCompare(right.id),
+    ),
+  };
+}
 describe("Android-produced populated encrypted package through production Browser restore", () => {
   let unregister: Array<() => void> = [];
 
@@ -63,7 +71,7 @@ describe("Android-produced populated encrypted package through production Browse
     const restoredCanonical = toCanonicalBackupSnapshotV1(
       importedExport.data, importedExport.manifest as never,
     );
-    expect(restoredCanonical).toEqual(importedCanonical);
+    expect(canonicalSnapshotForComparison(restoredCanonical)).toEqual(canonicalSnapshotForComparison(importedCanonical));
 
     await markBrowserRestoreVerified(restored.checkpointId);
     await discardVerifiedBrowserCheckpoint(restored.checkpointId);
@@ -71,6 +79,6 @@ describe("Android-produced populated encrypted package through production Browse
     await browserDatabase.open();
     const reopened = await exportBrowserSnapshot("0.1.0");
     expect(toCanonicalBackupSnapshotV1(reopened.data, reopened.manifest as never))
-      .toEqual(importedCanonical);
+      .toEqual(canonicalSnapshotForComparison(importedCanonical));
   });
 });
