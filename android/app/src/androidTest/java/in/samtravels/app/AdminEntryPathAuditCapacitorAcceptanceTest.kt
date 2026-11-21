@@ -91,7 +91,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:compliance:") &&
                     JSONObject(row.json).getJSONObject("data").optString("complianceName") == marker + " Insurance"
             }
-            assertEquals("One initial Compliance record", 1, initialComplianceRows.size)
+            assertEquals("Initial Compliance", 1, initialComplianceRows.size)
             val initialCompliance = initialComplianceRows.single()
             val initialComplianceData = JSONObject(initialCompliance.json).getJSONObject("data")
             assertEquals("Compliance is bound to the configured Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
@@ -236,26 +236,28 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             }
             assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
             support.click(activity, "＋ Fuel entry")
+            assertTrue("Fuel form ready", support.await(activity,
+                "!!document.querySelector('.fuel-entry-panel button[type=submit]:not(:disabled)')", 15000))
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
             AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
-            assertTrue("Fuel defaults to full refill", support.await(activity,
+            assertTrue("Full refill default", support.await(activity,
                 "!document.querySelector('.fuel-entry-panel label.fuel-partial-choice input')?.checked", 5000))
             AdminEntryPathAuditTestSupport.clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
-            assertTrue("Fuel purchase saved", support.await(activity,
+            assertTrue("Fuel saved", support.await(activity,
                 "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
             val fuel = db.records().list().singleOrNull { row ->
                 row.id.startsWith("feature:business-expenses:fuel:") &&
                     JSONObject(row.json).getJSONObject("data").optString("vehicleId") == vehicleRecordId
             }
-            assertNotNull("Fuel purchase persisted in Room", fuel)
+            assertNotNull("Fuel persisted", fuel)
             fuelRecordId = fuel!!.id
             val fuelData = JSONObject(fuel.json).getJSONObject("data")
-            assertEquals("Fuel amount paise", 82500, fuelData.getInt("amountPaise"))
-            assertEquals("Fuel price paise per kg", 8250, fuelData.getInt("pricePaisePerKg"))
-            assertEquals("Fuel odometer", 56000, fuelData.getInt("odometerKm"))
-            assertEquals("Fuel full refill flag", false, fuelData.getBoolean("partialRefill"))
+            assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
+            assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
+            assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
+            assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
         } finally {
             db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
                 it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
