@@ -255,8 +255,9 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
     }
 
     internal fun clickMatching(activity: MainActivity, pattern: String) {
-        val js = """(()=>{const r=/$pattern/;const b=[...document.querySelectorAll('button')].find(n=>r.test(n.textContent));if(!b)return false;b.click();return true})()"""
-        check(javascriptValue(activity, js) == "true")
+        val name = pattern.replace("'", "\\'")
+        val js = """(()=>{const b=[...document.querySelectorAll('button')].find(n=>n.textContent.includes('$name')&&!n.disabled);if(!b)return false;b.click();return true})()"""
+        check(javascriptValue(activity, js) == "true") { "Missing enabled matching Admin action: " + pattern }
     }
 
     internal fun eval(activity: MainActivity, script: String) {
