@@ -549,6 +549,9 @@ The stages below are the only planned closeout sequence for the currently identi
 
 #### Stage 1 — Persist Finance Admin actor attribution
 
+**Implementation completed; final exact-head CI is the remaining closeout gate.**
+
+
 - Inspect the Finance payment, prepayment and settlement command/event paths and the active Admin-session source.
 - Persist the authenticated Admin actor on each immutable Finance event in the same atomic write as the financial mutation; do not infer actor identity later from mutable profile state.
 - Preserve actor attribution through retries, corrections, history projections and backup/restore.
