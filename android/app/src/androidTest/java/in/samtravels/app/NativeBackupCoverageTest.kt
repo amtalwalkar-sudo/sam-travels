@@ -179,8 +179,6 @@ class NativeBackupCoverageTest {
     @Test fun nativeParticipantManifestIsVersionedAndOwnershipSpecific() {
         val manifest = NativeBackupCoverage.participantManifest()
         assertEquals(13, manifest.length())
-        // Runtime adapter IDs are implementation details, not canonical wire data.
-        assertTrue((0 until manifest.length()).all { !manifest.getJSONObject(it).has("adapterId") })
         NativeBackupCoverage.validateParticipantManifest(manifest)
         val changed = JSONArray()
         for (index in 0 until manifest.length()) {

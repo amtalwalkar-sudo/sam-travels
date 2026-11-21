@@ -80,6 +80,9 @@ class SharedSevenDomainBackupLifecycleTest {
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
             )
+            assertTrue((0 until source.snapshot.getJSONArray("participants").length()).all {
+                !source.snapshot.getJSONArray("participants").getJSONObject(it).has("adapterId")
+            })
             assertEquals(fixture.getJSONObject("canonicalSnapshotContract").getString("format"), source.snapshot.getString("format"))
             // Compare every exported platform record to the exact shared fixture
             // envelope, not merely its ID or the later Room round-trip snapshot.
