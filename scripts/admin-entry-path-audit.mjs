@@ -47,29 +47,30 @@ async function readTripObligation(page, kind, status) {
 }
 
 async function waitForTripObligation(page, kind, status) {
-  try {
-    const handle = await page.waitForFunction(async ({ kind, status }) => {
-      const request = indexedDB.open("sam-travels-browser");
-      const db = await new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      const rows = await new Promise((resolve, reject) => {
-        const tx = db.transaction("records", "readonly");
-        const get = tx.objectStore("records").getAll();
-        get.onsuccess = () => resolve(get.result);
-        get.onerror = () => reject(get.error);
-      });
-      db.close();
-      const row = rows.find(row => row.id.startsWith("work:trip-financial-obligation:") &&
-        row.data?.kind === kind && row.data?.status === status);
-      return row ? JSON.stringify({id:row.id,data:row.data,createdBy:row.createdBy}) : false;
-    }, { kind, status }, { timeout: 15000 });
-    return JSON.parse(await handle.jsonValue());
-  } catch {
-    const message = await page.locator(".driver-message").textContent().catch(() => "");
-    throw new Error(kind + "_" + status + "_not_committed: " + (message || "no Work status message"));
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const row = await readTripObligation(page, kind, status);
+    if (row) return row;
+    await page.waitForTimeout(250);
   }
+  const message = await page.locator(".driver-message").textContent().catch(() => "");
+  const rows = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const all = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return all.filter(row => row.id?.startsWith("work:trip-financial-obligation:"))
+      .map(row => ({ id: row.id, kind: row.data?.kind, status: row.data?.status }));
+  });
+  throw new Error(kind + "_" + status + "_not_committed: " +
+    JSON.stringify({ message, rows }));
 }
 
 async function completeWorkSwipe(page, label) {
