@@ -530,3 +530,57 @@ This section narrows the execution backlog for PR #99 without weakening the data
 Do not introduce new storage architecture, unrelated feature work, Performance redesign, fleet/multi-driver workflows or broad OEM-specific automation in this PR. If implementation exposes a concrete integrity or calculation defect, fix that exact boundary. Otherwise record the limitation and keep the agreed deferral.
 
 The PR remains draft and unmerged until mandatory closure has passing evidence on the exact final head. Green CI is necessary but is not itself proof that the populated all-domain lifecycle has run.
+
+
+## 15. Current completion record and four-stage closeout plan — 2026-11-21
+
+This section records the current implementation position and the agreed remaining work. It does not replace the normative domain contracts or turn an unratified business policy into an approved rule.
+
+### Completed work recorded at this checkpoint
+
+- The calculation/provenance and entry-path audit is substantially complete for the scope described in the 2026-11-21 evidence-matrix addendum: Work/Shift distance allocation and 04:00 handling; Maintenance accrual eligibility and effective-rate snapshots; Business Start Date Compliance/complete-EMI allocation; Reduce Tenure-only prepayment; Performance source/revision provenance and cost boundaries; Fuel and expense calculation rules; and correction lineage.
+- Rendered PWA entry and Android Room-backed WebView entry/readback coverage is recorded in the evidence matrix for the named Admin, Work, trip-financial, Fuel and expense paths.
+- The latest exact-head CI checkpoint is green on `985629e17d2b6d0a76fb1be63a0374f040ecd413`, workflow run [44932520806](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44932520806): Architecture, PWA rendered acceptance, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression passed. Production geocoder verification was skipped on this PR run and is not a required PR gate.
+- Android-produced populated encrypted package → TypeScript production decrypt/Browser-Dexie restore has passing cross-platform CI evidence. The Room shared seven-domain lifecycle instrumentation also passes, but this is not evidence that a TypeScript-produced populated encrypted package has been restored through Android's production decrypt/Room restore path.
+
+### Four-stage closeout plan
+
+The stages below are the only planned closeout sequence for the currently identified gaps. Preserve completed work; add tests or production changes only at a demonstrated missing boundary.
+
+#### Stage 1 — Persist Finance Admin actor attribution
+
+- Inspect the Finance payment, prepayment and settlement command/event paths and the active Admin-session source.
+- Persist the authenticated Admin actor on each immutable Finance event in the same atomic write as the financial mutation; do not infer actor identity later from mutable profile state.
+- Preserve actor attribution through retries, corrections, history projections and backup/restore.
+- Add focused positive, missing-actor, correction/retry and persistence/restore assertions on the relevant Browser and Android paths.
+- **Exit evidence:** the stored Finance event itself identifies the correct Admin actor, and the same attribution survives readback and restore without duplicate financial events.
+
+#### Stage 2 — Ratify and implement Finance payment-allocation policy
+
+- Present the currently proposed Finance payment-allocation policy and its concrete consequences to the owner for an explicit decision.
+- Do not implement or label the proposal normative until the owner approves or corrects it.
+- After approval, update the Finance owner contract, implement the approved allocation at the owning service boundary, and add boundary, correction and cross-runtime regression tests.
+- **Exit evidence:** one owner-approved normative policy, matching production behaviour and passing tests. This stage is blocked only on the owner's policy decision; no policy is to be guessed by implementation.
+
+#### Stage 3 — Prove the remaining encrypted restore direction and semantic parity
+
+- Use the populated semantic dataset and production package format, not a minimal crypto vector or fixture-only Room seed.
+- Restore a TypeScript-produced populated encrypted package through Android's production authentication/decryption and Room restore coordinator.
+- Verify clean and pre-populated destination behaviour, close/reopen, startup recovery, re-export and normalized semantic equality, including IDs, revisions, references, correction lineage, event order, pending/outbox state and calculation provenance.
+- Retain the already-passing Android-produced package → TypeScript production Browser/Dexie restore test; extend it only for a specific missing parity assertion.
+- **Exit evidence:** both encrypted production directions pass on the same semantic dataset and the restored calculations/provenance match their pre-export baselines.
+
+#### Stage 4 — Evidence closeout and exact-head CI
+
+- Update the fixture status, this contract and the implementation evidence matrix only after the corresponding production-path evidence exists.
+- Record exact test names, platform, assertions, commit SHA and CI run; distinguish automated evidence from deferred manual/device/external-account gates.
+- Run focused suites for changed boundaries, then the complete required CI workflow on the final PR head; resolve failures without expanding scope.
+- **Exit evidence:** all mandatory automated items in this closeout plan have direct evidence, the final exact-head CI is green, and no fixture or matrix status overstates what was exercised.
+
+### Scope and workflow controls
+
+- Keep PR #99 draft, open and unmerged unless the owner explicitly requests otherwise.
+- Do not repeat already-passing Track A restore/recovery tests without a concrete integration failure.
+- Do not expand into unrelated UI redesign, new feature architecture, fleet/multi-driver workflows or exhaustive OEM testing.
+- Physical OEM certification, full OS reboot acceptance where not deterministic in CI, and real Dropbox account delivery remain explicitly deferred external/manual gates.
+- A green CI run is necessary evidence for that commit; it does not by itself close a contract item whose required production lifecycle or business-policy approval has not been demonstrated.
