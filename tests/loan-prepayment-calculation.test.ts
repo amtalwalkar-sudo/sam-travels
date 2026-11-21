@@ -20,7 +20,7 @@ describe("Finance loan prepayment re-amortization v1", () => {
     });
     expect(result.regularEmiPaise).toBe(baselineEmi);
     expect(result.rows.every((row, index) => row.dueDate === remainingDueDates[index])).toBe(true);
-    expect(result.finalDueDate).toBeLessThan(remainingDueDates.at(-1)!);
+    expect(result.finalDueDate < remainingDueDates.at(-1)!).toBe(true);
     expect(result.remainingInstallmentCount).toBeLessThan(20);
     expect(result.rows.at(-1)?.closingPrincipalPaise).toBe(0);
     expect(result.interestSavedPaise).toBeGreaterThan(0);
