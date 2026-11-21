@@ -152,10 +152,16 @@ internal object NativeFeatureBackupManifestCompatibility {
         val expected = canonicalParticipantManifest()
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
-            listOf(item.getString("id"), item.getString("featureId"),
+            val rawId = item.getString("id")
+            val financeOwner = rawId == "finance-payment-records" ||
+                rawId == "finance-prepayment-records" || rawId == "finance-records"
+            listOf(
+                if (financeOwner) "finance-records" else rawId,
+                item.getString("featureId"),
                 item.getInt("snapshotVersion").toString(),
-                item.getString("restoreValidatorId")).joinToString("|")
-        }.sorted()
+                if (financeOwner) "finance-records-v1" else item.getString("restoreValidatorId"),
+            ).joinToString("|")
+        }.distinct().sorted()
         if (canonical(incoming) == canonical(expected)) return
         val incomingIds = (0 until incoming.length()).map { incoming.getJSONObject(it).getString("id") }.toSet()
         val omitted = (0 until expected.length()).map { expected.getJSONObject(it) }
