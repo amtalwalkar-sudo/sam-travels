@@ -97,6 +97,17 @@ internal object NativeBackupV2Package {
     }
 
     /**
+     * Serialize a package with the exact manifest member order used by the
+     * TypeScript AES-GCM AAD serializer.
+     */
+    fun serialize(packageJson: JSONObject): String {
+        val manifest = packageJson.optJSONObject("manifest") ?: error("backup_invalid_envelope")
+        val payload = packageJson.optJSONObject("payload") ?: error("backup_invalid_envelope")
+        val envelopes = packageJson.optJSONObject("keyEnvelopes") ?: error("backup_invalid_envelope")
+        return "{\\"manifest\\":${jsonStringify(manifest)},\\"payload\\":${payload},\\"keyEnvelopes\\":${envelopes}}"
+    }
+
+    /**
      * Match JavaScript JSON.stringify for the ordered manifest object used as
      * AES-GCM additional authenticated data. JSONObject.toString() is not a
      * wire-format serializer: Android may escape characters differently.
@@ -115,6 +126,10 @@ internal object NativeBackupV2Package {
                 manifestOrder.filter(value::has) + keys.filterNot(manifestOrder::contains).sorted()
             } else if (value.has("records") && keys.size == 1) {
                 listOf("records")
+            } else if (value.has("id") && value.has("featureId") &&
+                value.has("snapshotVersion") && value.has("restoreValidatorId")) {
+                val participantOrder = listOf("id", "featureId", "snapshotVersion", "restoreValidatorId")
+                participantOrder.filter(value::has) + keys.filterNot(participantOrder::contains).sorted()
             } else {
                 keys
             }
