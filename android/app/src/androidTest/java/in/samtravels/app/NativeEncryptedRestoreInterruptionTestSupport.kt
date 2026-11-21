@@ -40,6 +40,9 @@ internal fun assertEncryptedRoomRestoreRollbackAfterInterruption(
         row.id.startsWith(NativeBackupRecovery.JOURNAL_PREFIX) &&
             JSONObject(row.json).optString("status") == "rollback_complete"
     })
+    // Remove only the test sentinel after proving the rollback baseline; the
+    // shared lifecycle runner then continues with its original source graph.
+    database.records().remove("encrypted-interruption-sentinel")
 }
 
 private fun canonicalRecords(records: JSONArray): List<String> =
