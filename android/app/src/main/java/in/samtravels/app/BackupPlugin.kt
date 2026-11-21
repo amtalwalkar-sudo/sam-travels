@@ -96,41 +96,10 @@ class BackupPlugin : Plugin() {
             }
         }
     }
-    /**
-     * Production encrypted-package entry point. Authenticate and parse the v2
-     * package before startup recovery or any destination checkpoint/mutation.
-     */
     @PluginMethod
-    fun restoreEncryptedPackage(call: PluginCall) {
-        val confirmed = call.getBoolean("confirmed") ?: false
-        val backup = call.getObject("backup")
-        val recoveryKey = call.getString("recoveryKey")
-        if (!confirmed) {
-            call.reject("Explicit restore confirmation is required", "RESTORE_CONFIRMATION_REQUIRED")
-            return
-        }
-        if (backup == null || recoveryKey.isNullOrBlank()) {
-            call.reject("Encrypted package and recovery key are required")
-            return
-        }
-        executor.execute {
-            try {
-                // The coordinator authenticates the package before entering
-                // its existing Room checkpoint/replacement/recovery transaction.
-                val result = NativeBackupRestoreCoordinator.restoreEncrypted(
-                    db, backup, recoveryKey, ::makeSnapshot,
-                ) { ensureStartupRecovery() }
-                val out = JSObject()
-                out.put("checkpointId", result.checkpointId)
-                out.put("restoredCount", result.restoredCount)
-                call.resolve(out)
-            } catch (error: Exception) {
-                LocalDiagnostics.record(context, "recovery", "restore_encrypted_package", "backup", "restore_failed")
-                call.reject("Encrypted restore failed; source data or recovery checkpoint was preserved: " +
-                    (error.message ?: "unknown failure"), "RESTORE_FAILED", error)
-            }
-        }
-    }
+    fun restoreEncryptedPackage(call: PluginCall) = NativeBackupEncryptedRestore.dispatch(
+        call, executor, { db }, ::makeSnapshot, ::ensureStartupRecovery, context,
+    )
 
     @PluginMethod
     fun recoverPendingCheckpoints(call: PluginCall) {
