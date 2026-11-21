@@ -303,7 +303,7 @@ jobs:
       - name: Download Android-produced populated semantic backup package
         uses: actions/download-artifact@v4
         with:
-          name: android-populated-semantic-backup-v2
+          name: android-encrypted-semantic-backup-v2
           path: fixtures/generated
       - name: Restore Android-produced package through production Browser/Dexie path
         run: npm test -- tests/android-produced-backup-restore.test.ts
