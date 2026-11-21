@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { exerciseWorkShiftEntryPath, exerciseComplianceRenewalEntryPath } from "./admin-entry-path-audit.mjs";
 import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
@@ -136,16 +137,7 @@ try {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
   if (await page.getByLabel("Work Driver").count()) throw new Error("routine_work_driver_selector_must_not_render");
-  await page.getByLabel("Shift-start odometer (km)").fill("1000");
-  await page.getByRole("button", { name: "Start shift", exact: true }).click();
-  await page.getByLabel("Shift-end odometer (km)").waitFor({ state: "visible" });
-  await page.getByLabel("Shift-end odometer (km)").fill("1050");
-  await page.getByRole("button", { name: "End shift", exact: true }).click();
-  await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
-  await page.getByText("1,050 km", { exact: true }).waitFor({ state: "visible" });
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
-  await page.getByText("1,050 km", { exact: true }).waitFor({ state: "visible" });
+  await exerciseWorkShiftEntryPath(page);
   await page.getByRole("button", { name: "Admin", exact: true }).click();
 
   await page.getByRole("button", { name: "Compliance", exact: true }).click();
@@ -163,17 +155,7 @@ try {
   await page.getByRole("button", { name: "Save record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor({ state: "visible" });
 
-  await page.getByRole("button", { name: "Add compliance / renewal", exact: true }).click();
-  await page.getByLabel("Compliance type / name").fill("Acceptance Insurance");
-  await page.getByLabel("Valid from").fill(monthDateOffset(13));
-  await page.getByLabel("Valid until").fill(monthDateOffset(25));
-  await page.getByLabel("Total cost (₹)").fill("13000");
-  await page.getByLabel("Renewing previous record").selectOption({
-    label: "Acceptance Insurance · valid to " + complianceValidTo,
-  });
-  await page.getByRole("button", { name: "Save record", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Compliance record saved." }).last().waitFor({ state: "visible" });
-  await page.getByText("Renewal linked to previous record", { exact: true }).waitFor({ state: "visible" });
+  await exerciseComplianceRenewalEntryPath(page, monthDateOffset, complianceValidTo);
   await page.getByRole("heading", { name: "Traffic Challans", exact: true }).waitFor({ state: "visible" });
   await page.getByLabel("Issue date").fill(today);
   await page.getByLabel("Vehicle", { exact: true }).fill(vehicleId);
