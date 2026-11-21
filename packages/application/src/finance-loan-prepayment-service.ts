@@ -5,7 +5,7 @@ import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
   type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
 
 export const FINANCE_LOAN_PREPAYMENT_RECORD_PREFIX = "feature:finance:prepayments:";
-export type FinanceLoanPrepaymentModeV1 = "reduce_tenure" | "reduce_emi";
+export type FinanceLoanPrepaymentModeV1 = "reduce_tenure";
 type ScheduleRow = Readonly<{ installmentNumber: number; dueDate: string; openingPrincipalPaise: number;
   interestPaise: number; installmentAmountPaise: number; principalComponentPaise: number;
   closingPrincipalPaise: number; finalAdjusted: boolean }>;
@@ -175,7 +175,7 @@ export class FinanceLoanPrepaymentService {
     });
     for (const revision of snapshot.state?.data.revisions ?? []) {
       versions.push({ version: revision.version, effectiveDate: revision.effectiveDate, createdAt: revision.createdAt,
-        label: revision.mode === "reduce_tenure" ? "Prepayment · Reduce Tenure" : "Prepayment · Reduce EMI",
+        label: "Prepayment · Reduce Tenure",
         rows: revision.output.rows, regularEmiPaise: revision.output.regularEmiPaise,
         principalPaise: revision.output.openingPrincipalPaise,
         totalInterestPaise: revision.output.totalInterestPaise,
