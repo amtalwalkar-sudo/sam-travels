@@ -169,7 +169,7 @@ class SharedSevenDomainBackupLifecycleTest {
             )
             val recoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
             context.openFileOutput("android-populated-semantic-backup-v2.json", Context.MODE_PRIVATE).use { output ->
-                val artifact = "{\\"recoveryKey\\":${JSONObject.quote(recoveryKey)},\\"backup\\":${NativeBackupV2Package.serialize(encrypted)}}"
+                val artifact = "{\"recoveryKey\":${JSONObject.quote(recoveryKey)},\"backup\":${NativeBackupV2Package.serialize(encrypted)}}"
                 output.write(artifact.toByteArray(Charsets.UTF_8))
             }
             val decryptedForAssertion = NativeBackupV2Package.decrypt(encrypted, recoveryKey)
