@@ -165,7 +165,6 @@ try {
   await page.getByLabel("Payment status").selectOption("unpaid");
   await page.getByRole("button", { name: "Save expense", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
-  console.log("Compliance coverage and Traffic Challan records submitted.");
 
   await page.getByRole("button", { name: "Finance", exact: true }).click();
   await page.locator("#admin-vehicle").selectOption(vehicleId);
