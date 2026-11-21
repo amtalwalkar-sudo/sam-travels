@@ -93,7 +93,7 @@ internal fun NativeBackupCoverage.registerFeatureRecordParticipant(
 internal object NativeFeatureBackupManifestCompatibility {
     fun validate(incoming: JSONArray?, records: JSONArray?) {
         if (incoming == null) return
-        val expected = NativeBackupCoverage.participantManifest()
+        val expected = NativeBackupCoverage.canonicalParticipantManifest()
         fun canonical(array: JSONArray): List<String> = (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             listOf(item.getString("id"), item.getString("featureId"),

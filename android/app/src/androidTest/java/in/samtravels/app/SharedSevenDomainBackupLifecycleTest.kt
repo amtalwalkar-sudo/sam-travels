@@ -319,6 +319,9 @@ class SharedSevenDomainBackupLifecycleTest {
                     .open("generated/ts-populated-semantic-backup-v2.json")
                     .bufferedReader().use { it.readText() },
             )
+            val tsParticipants = tsFixture.getJSONObject("backup").getJSONObject("manifest")
+                .getJSONArray("participants")
+            assertEquals(canonicalParticipants(tsParticipants), canonicalParticipants(source.snapshot.getJSONArray("participants")))
             database.records().put(StoredRecord(
                 "typescript-import-destination-sentinel",
                 JSONObject().put("id", "typescript-import-destination-sentinel")
@@ -361,6 +364,13 @@ class SharedSevenDomainBackupLifecycleTest {
             context.deleteDatabase(name)
         }
     }
+
+    private fun canonicalParticipants(participants: JSONArray): List<String> =
+        (0 until participants.length()).map { index ->
+            val item = participants.getJSONObject(index)
+            listOf(item.getString("id"), item.getString("featureId"),
+                item.getInt("snapshotVersion").toString(), item.getString("restoreValidatorId")).joinToString("|")
+        }.sorted()
 
     private fun canonical(records: JSONArray): List<String> =
         (0 until records.length()).map { index ->
