@@ -1546,7 +1546,18 @@
         {
           "type": "trip_start",
           "id": "event-trip-start-001",
-          "at": "2026-11-01T05:00:00.000Z"
+          "at": "2026-11-01T05:00:00.000Z",
+          "workflowVersion": 2,
+          "driverContext": {
+            "schemaVersion": 1,
+            "driverId": "driver-001",
+            "assignmentId": "assignment-001",
+            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+            "selectionRevision": 2,
+            "driverRevision": 1,
+            "vehicleRevision": 1,
+            "assignmentRevision": 1
+          }
         },
         {
           "type": "trip_end",
