@@ -271,7 +271,7 @@ describe("FinanceLoanPaymentService", () => {
   });
   it("accepts a reviewed manual allocation while enforcing per-installment and payment bounds", async () => {
     const { service } = setup();
-    const manuallyAdjusted = await service.record({ ...base, id: "manual-allocation", commandId: "manual-allocation-command",
+    const manuallyAdjusted = await service.record({ ...base, businessDate: "2026-12-08", id: "manual-allocation", commandId: "manual-allocation-command",
       amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 5000 },
         { installmentNumber: 2, amountPaise: 7000 }] });
     expect(manuallyAdjusted.allocations.map(item => [item.installmentNumber, item.amountPaise]))
