@@ -106,7 +106,11 @@ class SharedSemanticBackupFixtureTest {
         assertEquals("populated_fixture_ready_for_all_domain_validation", fixture.getString("status"))
         val validatorMatrix = fixture.getJSONObject("validatorMatrix")
         assertEquals("accept", validatorMatrix.getJSONObject("validScenario").getString("expected"))
-        assertEquals(5, validatorMatrix.getJSONArray("negativeCases").length())
+        assertEquals(7, validatorMatrix.getJSONArray("negativeCases").length())
+        val negativeCategories = (0 until validatorMatrix.getJSONArray("negativeCases").length())
+            .map { validatorMatrix.getJSONArray("negativeCases").getJSONObject(it).getString("category") }.toSet()
+        assertTrue(negativeCategories.containsAll(setOf("malformed_record", "dangling_reference", "wrong_owner",
+            "invalid_correction_head", "malformed_revision", "duplicate_identity")))
         val graph = fixture.getJSONObject("populatedGraph")
         val records = graph.getJSONArray("records")
         assertEquals(graph.getJSONArray("records").length(), graph.getInt("recordCount"))
