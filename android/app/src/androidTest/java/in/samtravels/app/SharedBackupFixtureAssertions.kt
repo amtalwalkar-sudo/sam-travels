@@ -18,6 +18,16 @@ internal object SharedBackupFixtureAssertions {
      * Compare their portable workflow semantics while retaining every business
      * field, event identity, transition, revision, GPS fix and participant owner.
      */
+    fun assertCanonicalRecordsEqual(label: String, expected: JSONArray, actual: JSONArray) {
+        val expectedRows = canonicalRecords(expected).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
+        val actualRows = canonicalRecords(actual).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
+        val mismatches = (expectedRows.keys + actualRows.keys).toSortedSet()
+            .filter { expectedRows[it] != actualRows[it] }
+            .take(20)
+            .map { key -> "$key expected=${expectedRows[key]?.take(350)} actual=${actualRows[key]?.take(350)}" }
+        check(mismatches.isEmpty()) { "$label canonical record mismatch: ${mismatches.joinToString(" || ")}" }
+    }
+
     fun canonicalRecords(records: JSONArray): List<String> =
         (0 until records.length()).map { index ->
             val row = records.getJSONObject(index)
