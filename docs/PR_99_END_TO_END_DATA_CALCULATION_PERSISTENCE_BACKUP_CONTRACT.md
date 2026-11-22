@@ -22,6 +22,24 @@ The target is one coherent proof chain:
 
 `user entry / device evidence → validated command → committed source record/event → derived projection → domain calculation + provenance → consistent snapshot → validated restore → reopen/startup recovery → equivalent records, state and calculations`
 
+## 1A. Whole-contract definition of done — authoritative
+
+**The definition of done for PR #99 is completion of this entire contract, not completion of its four-stage closeout tracker.** The four stages are a subordinate Finance/evidence closeout workstream; they are neither a replacement for nor a reduction of the acceptance criteria in this document and its referenced owner contracts.
+
+PR #99 may be declared **WHOLE CONTRACT COMPLETE** only when all of the following are true:
+
+1. Every applicable normative requirement in this contract and its referenced owning contracts has been mapped to implementation and evidence. Every supported data-entry path is audited at the real UI/action-to-command boundary or has a clearly identified, owner-accepted reason why that boundary is not applicable.
+2. Browser-only PWA/Dexie and installed Android/Room independently satisfy their authoritative persistence, validation, calculation, correction, revision, transaction, recovery and backup/restore requirements. Android WebView and native overlay use the same Room-backed authority.
+3. All required cross-runtime semantic and calculation/provenance comparisons pass using populated, schema-valid data through production export, encrypted package handling, restore, database reopen, startup recovery, recomputation and re-export in both directions. Fixture coverage limitations must remain explicit; a narrower fixture cannot be described as all-domain proof.
+4. Every critical gap in the implementation evidence matrix and contract gap register is either closed with named passing tests and exact assertions, or explicitly accepted by the owner as a scoped deferral. A merely documented unresolved blocker, partial test, source inspection, or test that only checks fixture declarations does not count as closure.
+5. Negative, boundary, interruption and recovery requirements applicable to supported workflows have passing evidence. Physical-device/OEM, nondeterministic full-OS-reboot and real external Dropbox-account checks may remain outside automated CI only when explicitly retained as external/manual release gates; they are not silently counted as passed.
+6. The evidence matrix, gap register, this contract's closeout record and the PR description agree on the final scope and status. Every claim marked proven cites the exact test/assertion and relevant run; no stale baseline CI run is represented as validation of a later head.
+7. Required CI is green on the exact final PR head after the final evidence/documentation changes. The final closeout records the exact commit SHA, run URL and required job outcomes; optional skipped jobs are identified accurately.
+8. PR metadata is verified as open, draft and unmerged unless the owner separately authorizes a merge.
+
+**Status vocabulary:** `WHOLE CONTRACT COMPLETE` is reserved for all eight conditions above. `STAGES 1–4 COMPLETE` means only that the subordinate four-stage tracker is complete. Neither stage completion nor green CI by itself establishes whole-contract completion. If any applicable critical item remains partial, open, unproven or pending owner acceptance, the whole contract remains **INCOMPLETE**.
+
+
 ## 2. Normative ownership and precedence
 
 This document adds PR #99 acceptance and evidence requirements; it does not replace domain policy or duplicate implementation rules owned elsewhere.
