@@ -21,8 +21,10 @@ internal object SharedFixtureWorkSeeder {
             if (item.optInt("workflowVersion", 1) == 2) {
                 command.put("workflowVersion", 2)
                 item.optJSONObject("odometer")?.let { command.put("odometer", JSONObject(it.toString())) }
-                item.optJSONObject("driverContext")?.let { command.put("driverContext", JSONObject(it.toString())) }
                 item.optJSONObject("tripContext")?.let { command.put("tripContext", JSONObject(it.toString())) }
+            }
+            item.optJSONObject("driverContext")?.let {
+                command.put("driverContext", JSONObject(it.toString()))
             }
             val gps = JSONObject().put("latitude", 19.076).put("longitude", 72.8777).put("horizontalAccuracyM", 8)
                 .put("fixAt", transitionAt).put("provider", "android-test")
