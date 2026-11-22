@@ -129,11 +129,12 @@ internal object WorkDriverContextResolver {
             .getOrElse { error("invalid_transition_timestamp") }
         require(!assignment.assignedAt.isAfter(eventTime)) { "operating_assignment_not_effective" }
 
-        // DriverContextV1 carries stable owner IDs only. Source revisions remain
-        // authoritative on their own records and must not extend the shared Work
-        // command shape differently on Room and Dexie.
         return JSONObject().put("schemaVersion", 1)
             .put("driverId", driverId).put("vehicleId", vehicle.id)
             .put("assignmentId", assignment.assignmentId)
+            .put("selectionRevision", selectionEnvelope.optInt("revision", -1))
+            .put("driverRevision", driver.envelope.optInt("revision", -1))
+            .put("vehicleRevision", vehicle.envelope.optInt("revision", -1))
+            .put("assignmentRevision", assignment.record.optInt("revision", -1))
     }
 }
