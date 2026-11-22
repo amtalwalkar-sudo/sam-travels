@@ -23,6 +23,11 @@ type SemanticBackupWorkFixture = {
 };
 
 export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflowRepository, work: SemanticBackupWorkFixture) {
+  const firstTransitionAt = work.committedTransitions[0].at;
+  await browserDatabase.records.put({
+    id: "work:selected-driver", schemaVersion: 1, createdAt: firstTransitionAt, updatedAt: firstTransitionAt,
+    source: "integration", revision: 1, data: { schemaVersion: 1, driverId: "driver-001" },
+  });
   const transitions = work.committedTransitions;
   for (const transition of transitions) {
     const snapshot = await workflow.getSnapshot();
