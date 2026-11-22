@@ -256,6 +256,13 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         operationId: fixture.populatedGraph.work.tripFinancial.operationId,
         ...fixture.populatedGraph.work.tripFinancial.values,
       });
+      const tripFinancialDraft = exported.data.records.find(record =>
+        (record as { id: string }).id === generatedRecordIds.find(id => id.startsWith("__sam_travels_form_working_copy__:"))) as any;
+      expect(tripFinancialDraft?.data).toMatchObject({
+        formId: "work.trip-completed-financials", formVersion: 1, status: "submitted", revision: 9,
+        operationId: fixture.populatedGraph.work.tripFinancial.operationId,
+        values: { tripId: fixture.populatedGraph.work.tripFinancial.tripId, ...fixture.populatedGraph.work.tripFinancial.values },
+      });
       expect([...exported.data.driverEvents]
         .sort((left: any, right: any) => left.command.transitionAt.localeCompare(right.command.transitionAt))
         .map((event: any) => event.eventId))
