@@ -65,8 +65,12 @@ class NativeBusinessExpensesBackupTest {
 
     private fun withParticipants(block: () -> Unit) {
         val vehicle = NativeVehicleBackup.register()
+        val driver = NativeDriverRecordsBackup.register()
         NativeBusinessExpensesBackup.ensureRegistered()
-        try { block() } finally { vehicle.close() }
+        try { block() } finally {
+            driver.close()
+            vehicle.close()
+        }
     }
 
     @Test
@@ -85,18 +89,15 @@ class NativeBusinessExpensesBackupTest {
 
     @Test
     fun rejectsLegacyDriverIdentityWithTheSameMissingReferenceCategoryAsBrowser() = withParticipants {
-        val driverRegistration = NativeDriverRecordsBackup.register()
-        try {
-            val expense = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174030",
-                JSONObject().put("category", "Parking").put("driverId", "feature:driver:driver-synthetic-001"))
-            val error = assertThrows(IllegalArgumentException::class.java) {
-                NativeBackupCoverage.validateBusinessRecords(
-                    JSONArray().put(vehicleRow()).put(driverRow()).put(expense),
-                    requireExplicitOwnerTags = true,
-                )
-            }
-            assertEquals("business_expense_driver_not_found", error.message)
-        } finally { driverRegistration.close() }
+        val expense = expenseRow("miscellaneous", "123e4567-e89b-42d3-a456-426614174030",
+            JSONObject().put("category", "Parking").put("driverId", "feature:driver:driver-synthetic-001"))
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            NativeBackupCoverage.validateBusinessRecords(
+                JSONArray().put(vehicleRow()).put(driverRow()).put(expense),
+                requireExplicitOwnerTags = true,
+            )
+        }
+        assertEquals("business_expense_driver_not_found", error.message)
     }
 
     @Test
