@@ -42,7 +42,7 @@ function validDriverContext(value: unknown): value is DriverContextV1 {
 /** Resolve selected Driver, active assignment and active Vehicle from the authoritative records at commit time. */
 export function resolveDriverContextV1(records: readonly RecordEnvelope<unknown>[]): DriverContextV1 {
  return resolveOperatingConfiguration(records);
-
+}
 
 export function assertDriverCommandContract(value: unknown): asserts value is DriverTransitionCommand {
  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_command");
