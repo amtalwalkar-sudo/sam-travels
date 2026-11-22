@@ -42,6 +42,7 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
         try {
             withAttachedOverlay(
                 tripId = "cross-surface-event-parity",
+                databaseName = "cross-surface-event-parity.db",
                 prepare = { _, _ -> },
                 expectedFormLabel = null,
                 exerciseWebView = { activity, _ ->
