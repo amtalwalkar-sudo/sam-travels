@@ -565,13 +565,16 @@ The stages below are the only planned closeout sequence for the currently identi
 
 #### Stage 2 — Implement owner-approved Finance payment-allocation policy
 
+<badge color="success">COMPLETE — GREEN CI</badge>
+
 **Owner decision: APPROVED AS WRITTEN — 2026-11-22.** The owner approved all six rules in `FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md`: deterministic oldest-due-first proposal; user-reviewable/manual allocation within payment and installment bounds; partial EMI coverage; explicit unallocated credit with no automatic principal-prepayment or future-EMI conversion; separate explicit processing of unallocated credit; and immutable schedule-version/installment linkage.
 
-- The Finance owner contract is now normative and records the approval date.
-- Verify the production service boundary enforces eligibility, amount, due-date, schedule-version, allocation-total and reversal invariants independently of UI validation.
-- Add/retain regression tests for multi-EMI chronological proposals, manual override, partial completion, unallocated credit, future-EMI rejection, reversal/correction capacity restoration, schedule-version isolation, idempotency and atomicity.
-- Verify the same Finance-owned ledger and policy validators are used by Browser/Dexie and Android/Room; retain the Android backup validator/restore parity coverage.
-- **Exit evidence:** approved normative policy, matching service-boundary behaviour, named regression assertions and passing focused plus exact-head CI. Do not change the separate approved Reduce Tenure prepayment or settlement contracts.
+- The Finance owner contract is normative and records the approval date.
+- The owning `FinanceLoanPaymentService` enforces due-date eligibility, selected schedule version, positive integer-paise amounts, per-installment unpaid capacity, payment-total bounds, explicit unallocated credit, idempotency, full reversal and atomic ledger/loan revision commits. Manual allocation is permitted only within those service-validated limits.
+- Regression coverage in `tests/finance-loan-payment-service.test.ts` includes oldest-due-first across multiple due EMIs, future EMI exclusion, manual allocation override, per-installment and total-payment bounds, partial payment/completion, excess-credit isolation, schedule-version effectiveness, reversal capacity restoration, duplicate/conflicting command replay, concurrent over-allocation prevention and atomic settlement interaction.
+- Browser and Android use the same Finance application service semantics. Android Room Finance backup tests validate and round-trip payment/allocation ledger records; the complete Android instrumentation and Browser encrypted restore gates passed in the same required CI.
+- **Exact-head CI:** [Sam Travels CI run 45005171430](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45005171430) passed Architecture, Web/PWA, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression on `8f91d1a8bf2e0219a544fa38e002fa74ba3c9774`. Production geocoder verification was skipped as an optional PR-only gate.
+- **Exit evidence:** owner-approved normative policy, service-boundary invariants, focused regression coverage, Room backup/restore validation and green required CI. The separate approved Reduce Tenure prepayment and settlement contracts remain unchanged.
 
 #### Stage 3 — Prove the remaining encrypted restore direction and semantic parity
 
