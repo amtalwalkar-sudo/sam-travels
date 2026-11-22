@@ -12,7 +12,6 @@ import android.location.LocationManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
-import androidx.room.Room
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
@@ -25,7 +24,7 @@ import java.util.concurrent.Executors
 class DriverWorkflowPlugin:Plugin(){
  private val executor=Executors.newSingleThreadExecutor()
  private val main=Handler(Looper.getMainLooper())
- private val db by lazy{Room.databaseBuilder(context,LocalDatabase::class.java,"sam-travels.db").addMigrations(LocalDatabase.MIGRATION_1_2,LocalDatabase.MIGRATION_2_3).enableMultiInstanceInvalidation().build()}
+ private val db by lazy{DriverOverlayDatabaseFactory.open(context)}
  @Volatile private var recordObserver:androidx.room.InvalidationTracker.Observer?=null
  override fun load(){
   super.load()
