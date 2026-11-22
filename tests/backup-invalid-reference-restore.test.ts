@@ -42,6 +42,17 @@ describe("authenticated invalid-reference encrypted restore", () => {
 
   it("rejects a validly encrypted dangling Driver→Vehicle reference before checkpoint or replacement", async () => {
     await browserDatabase.records.bulkPut(fixture.populatedGraph.records as never);
+    const work = fixture.populatedGraph.work;
+    const financial = work.tripFinancial;
+    const endRide = work.committedTransitions.find((item: any) => item.type === "end_ride")!;
+    const tripCreate = work.committedTransitions.find((item: any) => item.type === "trip_create")!;
+    await browserDatabase.records.put({
+      id: financial.recordId, schemaVersion: 1, createdAt: endRide.at, updatedAt: financial.submittedAt,
+      source: "integration", revision: 2, createdBy: financial.author,
+      data: { schemaVersion: 1, tripId: financial.tripId, kind: "completed_ride_financials", status: "submitted",
+        endRideEventId: endRide.id, createdAt: endRide.at, tripContext: tripCreate.tripContext,
+        ...financial.values, operationId: financial.operationId, submittedAt: financial.submittedAt },
+    } as never);
     const exported = await exportBrowserSnapshot("0.1.0");
     const canonical = toCanonicalBackupSnapshotV1(exported.data, exported.manifest as never);
     const invalid = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
