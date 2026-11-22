@@ -65,7 +65,13 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
     if (!row.id || seen.has(key) || typeof row.json !== "string" || !Number.isSafeInteger(row.schemaVersion) || row.schemaVersion < 1 || typeof row.updatedAt !== "string" || !row.updatedAt.trim()) throw new Error("backup_canonical_record_invalid");
     seen.add(key);
     const value = JSON.parse(row.json);
-    if (row.participantId === "logbook-events") data.driverEvents.push(value);
+    if (row.participantId === "logbook-events") {
+      if (row.id !== value.eventId) throw new Error("backup_canonical_record_owner_mismatch");
+      data.driverEvents.push(value);
+    } else {
+      const expectedOwner = canonicalOwnerForRecord(row.id, canonical.participants);
+      if (row.participantId !== expectedOwner) throw new Error("backup_canonical_record_owner_mismatch");
+    }
     else if (row.participantId === "work-driver-state") {
       if (row.id === "driver-state" || row.id === "legacy-driver-state") {
         // Restore the Browser/Dexie primary key from the canonical record ID;
