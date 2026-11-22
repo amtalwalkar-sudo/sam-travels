@@ -49,7 +49,7 @@ function validateReferences(
     if (!source || source.id !== "work:trip-financial-obligation:" + trip?.tripId ||
         trip?.schemaVersion !== 1 || trip.kind !== "completed_ride_financials" ||
         trip.status !== "submitted" || !trip.endRideEventId ||
-        context?.vehicleId !== data.vehicleId || context?.driverId !== data.driverId ||
+        context?.vehicleId !== data.vehicleId || data.driverId !== "feature:driver-records:driver:" + context?.driverId ||
         expectedAmount <= 0 || data.amountPaise !== expectedAmount) {
       throw new Error("business_expense_trip_financial_link_invalid");
     }
