@@ -94,8 +94,16 @@ function validatePaymentLinks(record: RecordEnvelope<unknown>, records: readonly
   for (const [key, total] of allocationTotals) {
     const [versionNumber, installmentNumber] = key.split(":").map(Number);
     const version = loanData.scheduleVersions.find(item => item.version === versionNumber);
-    const rows = (version?.output as { rows?: readonly { installmentNumber: number; installmentAmountPaise: number }[] } | undefined)?.rows ?? [];
-    const row = rows.find(item => item.installmentNumber === installmentNumber);
+    let rows = (version?.output as { rows?: readonly { installmentNumber: number; installmentAmountPaise: number }[] } | undefined)?.rows;
+    if (!rows) {
+      const prepaymentId = PREPAYMENT_PREFIX + ledger.loanId.slice(LOAN_PREFIX.length);
+      const prepayment = records.find(item => item.id === prepaymentId);
+      if (!prepayment) throw new Error("finance_payment_schedule_version_not_found");
+      assertFinanceLoanPrepaymentStateV1(prepayment.data, loanData, ledger.loanId);
+      const state = prepayment.data as { revisions: readonly { version: number; output: { rows: readonly { installmentNumber: number; installmentAmountPaise: number }[] } }[] };
+      rows = state.revisions.find(item => item.version === versionNumber)?.output.rows;
+    }
+    const row = rows?.find(item => item.installmentNumber === installmentNumber);
     if (!row || total > row.installmentAmountPaise) {
       throw new Error("finance_payment_installment_overallocated");
     }
