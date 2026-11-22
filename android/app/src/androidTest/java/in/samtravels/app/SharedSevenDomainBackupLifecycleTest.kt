@@ -150,7 +150,7 @@ class SharedSevenDomainBackupLifecycleTest {
             val afterTypescriptRestore = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
             )
-            assertCanonicalRecordsEqual(
+            SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
                 "after TypeScript restore",
                 source.snapshot.getJSONArray("records"),
                 afterTypescriptRestore.snapshot.getJSONArray("records"),
@@ -307,7 +307,7 @@ class SharedSevenDomainBackupLifecycleTest {
             val reexported = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
             )
-            assertCanonicalRecordsEqual(
+            SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
                 "reopened Room re-export",
                 source.snapshot.getJSONArray("records"),
                 reexported.snapshot.getJSONArray("records"),
@@ -352,7 +352,7 @@ class SharedSevenDomainBackupLifecycleTest {
             val tsReadback = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reexport",
             )
-            assertCanonicalRecordsEqual(
+            SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
                 "TypeScript import readback",
                 tsExpected.getJSONArray("records"),
                 tsReadback.snapshot.getJSONArray("records"),
@@ -366,7 +366,7 @@ class SharedSevenDomainBackupLifecycleTest {
             val tsReopened = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reopened",
             )
-            assertCanonicalRecordsEqual(
+            SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
                 "TypeScript import after reopen",
                 tsExpected.getJSONArray("records"),
                 tsReopened.snapshot.getJSONArray("records"),
