@@ -45,6 +45,20 @@ internal object SharedBackupFixtureAssertions {
                     normalizeInstant(payload, "committedAt")
                     updatedAt = epochMillis(updatedAt)
                 }
+                "platform-records" -> {
+                    if (id.startsWith("work:trip-financial-obligation:")) {
+                        // Source adapter and submission clocks are runtime-local;
+                        // trip identity, author, operation ID and financial values remain semantic.
+                        payload.put("source", "integration")
+                        normalizeInstant(payload, "createdAt")
+                        normalizeInstant(payload, "updatedAt")
+                        payload.optJSONObject("data")?.let { data ->
+                            normalizeInstant(data, "createdAt")
+                            normalizeInstant(data, "submittedAt")
+                        }
+                        updatedAt = epochMillis(updatedAt)
+                    }
+                }
                 "work-driver-state" -> {
                     when {
                         id == "driver-state" -> {
