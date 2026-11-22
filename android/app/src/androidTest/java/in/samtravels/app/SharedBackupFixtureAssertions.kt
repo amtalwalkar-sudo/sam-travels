@@ -57,6 +57,15 @@ internal object SharedBackupFixtureAssertions {
                             normalizeInstant(data, "submittedAt")
                         }
                         updatedAt = epochMillis(updatedAt)
+                    } else if (id.startsWith("__sam_travels_form_working_copy__:")) {
+                        payload.put("source", "integration")
+                        normalizeInstant(payload, "createdAt")
+                        normalizeInstant(payload, "updatedAt")
+                        payload.optJSONObject("data")?.let { data ->
+                            normalizeInstant(data, "updatedAt")
+                            data.optJSONObject("submission")?.let { normalizeInstant(it, "submittedAt") }
+                        }
+                        updatedAt = epochMillis(updatedAt)
                     }
                 }
                 "work-driver-state" -> {
