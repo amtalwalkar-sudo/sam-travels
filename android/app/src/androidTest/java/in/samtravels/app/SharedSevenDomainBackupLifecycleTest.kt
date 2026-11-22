@@ -107,6 +107,12 @@ class SharedSevenDomainBackupLifecycleTest {
             assertEquals(32000L, tripFinancial.getLong("tollPaise"))
             assertEquals(25000L, tripFinancial.getLong("parkingPaise"))
             assertEquals(tripFinancialFixture.getString("operationId"), tripFinancial.getString("operationId"))
+            val draftId = "__sam_travels_form_working_copy__:work.trip-completed-financials:" + tripFinancialFixture.getString("tripId")
+            val tripFinancialDraft = JSONObject(database.records().get(draftId)!!.json).getJSONObject("data")
+            assertEquals(9, tripFinancialDraft.getInt("revision"))
+            assertEquals("submitted", tripFinancialDraft.getString("status"))
+            assertEquals(tripFinancialFixture.getString("operationId"), tripFinancialDraft.getString("operationId"))
+            assertEquals(252000L, tripFinancialDraft.getJSONObject("values").getLong("farePaise"))
             val expectedWorkIds = (0 until fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").length())
                 .map { fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").getString(it) }
             assertEquals(expectedWorkIds.toSet(), database.logBookEvents().list().map { it.eventId }.toSet())
