@@ -191,7 +191,7 @@ internal object NativeBusinessExpensesBackup {
                     tripId == "work:trip-financial-obligation:" + trip.optString("tripId") &&
                     trip.optInt("schemaVersion", -1) == 1 && trip.optString("endRideEventId").isNotBlank() &&
                     tripContext?.optString("vehicleId") == expense.optString("vehicleId") &&
-                    tripContext.optString("driverId") == expense.optString("driverId") &&
+                    expense.optString("driverId") == "feature:driver-records:driver:" + tripContext.optString("driverId") &&
                     expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
                     trip.optString("kind") == "completed_ride_financials" &&
                     trip.optString("status") == "submitted" && expectedAmount > 0L &&
