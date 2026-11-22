@@ -279,8 +279,8 @@ describe("FinanceLoanPaymentService", () => {
     await expect(service.record({ ...base, id: "manual-overpay-installment", commandId: "manual-overpay-installment-command",
       amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 10001 }] }))
       .rejects.toThrow("finance_payment_installment_overallocated");
-    await expect(service.record({ ...base, id: "manual-overpay-payment", commandId: "manual-overpay-payment-command",
-      amountPaise: 1000, allocations: [{ installmentNumber: 1, amountPaise: 1001 }] }))
+    await expect(service.record({ ...base, businessDate: "2026-12-08", id: "manual-overpay-payment", commandId: "manual-overpay-payment-command",
+      amountPaise: 1000, allocations: [{ installmentNumber: 2, amountPaise: 1001 }] }))
       .rejects.toThrow("finance_payment_allocations_exceed_amount");
   });
   it("keeps unallocated credit separate from later EMI proposals and rejects future-EMI allocation", async () => {
