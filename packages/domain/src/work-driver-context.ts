@@ -101,6 +101,7 @@ export function resolveOperatingVehicle(
 export function resolveOperatingConfiguration(
   records: readonly RecordEnvelope<unknown>[],
   transitionAt?: string,
+  allowLockedShiftId?: string,
 ): OperatingConfigurationV1 {
   const selections = records.filter(record => record.id === WORK_SELECTED_DRIVER_RECORD_ID);
   if (selections.length === 0) throw new Error("work_driver_not_selected");
