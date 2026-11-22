@@ -20,6 +20,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val support = AdminFormsCapacitorAcceptanceTest()
         val marker = "Entry audit " + UUID.randomUUID().toString().take(8)
+        var fuelRecordId: String? = null
         var vehicleRecordId: String? = null
         val previousPerformanceSettings = db.records().get("feature:performance:settings")
         val financeRecordIds = mutableListOf<String>()
@@ -73,7 +74,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Work Driver selection saved", support.await(activity,
                 "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
             val selectedDriver = db.records().get("work:selected-driver")
-            assertNotNull("Selected Driver persisted", selectedDriver)
+            assertNotNull("Driver", selectedDriver)
             assertEquals("Selected Driver identity is the saved Driver",
                 driverData.getString("driverId"), JSONObject(selectedDriver!!.json).getJSONObject("data").getString("driverId"))
             assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
@@ -250,15 +251,16 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:business-expenses:fuel:") &&
                     JSONObject(row.json).getJSONObject("data").optString("vehicleId") == vehicleRecordId
             }
-            assertNotNull("Fuel persisted", fuel)
-            assertRoomOperationReceiptExists(db, fuel!!.id)
+            assertNotNull("Fuel", fuel)
+            fuelRecordId = fuel!!.id
+            assertRoomOperationReceiptExists(db, fuelRecordId!!)
             val fuelData = JSONObject(fuel.json).getJSONObject("data")
             assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
             assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
             assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
             assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
         } finally {
-            db.records().list().filter { it.json.contains(marker) || it.id == fuel?.id ||
+            db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
                 it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
             if (previousWorkSelection != null) db.records().put(previousWorkSelection)
             else db.records().remove("work:selected-driver")
