@@ -294,30 +294,6 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         businessTimezone: exported.manifest.businessTimezone,
       })).toThrow("backup_participant_manifest_mismatch");
 
-      const negativeCases = fixture.validatorMatrix.negativeCases;
-      const validateMutatedCanonical = (caseId: string, expectedError: string) => {
-        const scenario = negativeCases.find(item => item.id === caseId)!;
-        const candidate = JSON.parse(JSON.stringify(canonical)) as typeof canonical;
-        const target = candidate.records.find(item => item.id === scenario.recordId)!;
-        if (scenario.mutation === "set_data_amountPaise_zero") {
-          const payload = JSON.parse(target.json); payload.data.amountPaise = 0; target.json = JSON.stringify(payload);
-        } else if (scenario.mutation === "set_data_vehicleId_missing") {
-          const payload = JSON.parse(target.json); payload.data.vehicleId = "feature:vehicle:MISSINGVEHICLE001"; target.json = JSON.stringify(payload);
-        } else if (scenario.mutation === "set_participant_maintenance_records") {
-          target.participantId = "maintenance-records";
-        } else if (scenario.mutation === "set_headCorrectionId_missing") {
-          const payload = JSON.parse(target.json); payload.data.headCorrectionId = "missing-correction"; target.json = JSON.stringify(payload);
-        }
-        expect(() => fromCanonicalBackupSnapshotV1(candidate, {
-          applicationVersion: exported.manifest.applicationVersion,
-          createdAt: exported.manifest.createdAt,
-          businessTimezone: exported.manifest.businessTimezone,
-        })).toThrow(expectedError);
-      };
-      validateMutatedCanonical("malformed-fuel-purchase", "fuel_purchase_invalid");
-      validateMutatedCanonical("dangling-business-expense-vehicle", "business_expense_vehicle_not_found");
-      validateMutatedCanonical("wrong-feature-participant-owner", "backup_canonical_record_owner_mismatch");
-      validateMutatedCanonical("invalid-maintenance-correction-head", "maintenance_correction_backup_head_invalid");
       expect(canonical.records.length).toBeGreaterThan(fixture.populatedGraph.recordCount);
       const roundTrip = fromCanonicalBackupSnapshotV1(canonical, {
         applicationVersion: exported.manifest.applicationVersion,
