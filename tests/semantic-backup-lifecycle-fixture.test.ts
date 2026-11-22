@@ -178,9 +178,9 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       .toBe(fixture.expectedBusinessResults.finance.unallocatedCreditPaise);
   });
 
-  it("does not misrepresent the contract seed as completed parity evidence", () => {
-    expect(fixture.status).toBe("populated_seed_pending_production_lifecycle");
-    expect(fixture.populatedGraph.status).toBe("synthetic_seed_pending_production_lifecycle");
+  it("marks the populated fixture lifecycle as production-verified without overstating deferred external gates", () => {
+    expect(fixture.status).toBe("populated_production_lifecycle_verified");
+    expect(fixture.populatedGraph.status).toBe("synthetic_production_lifecycle_verified");
     expect(fixture.populatedGraph.recordCount).toBe(29);
     expect(fixture.populatedGraph.records).toHaveLength(29);
     const ids = fixture.populatedGraph.records.map(record => record.id);
