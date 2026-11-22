@@ -53,10 +53,12 @@ type Fixture = {
       pendingIntentIds: string[];
       deliveredOutboxIds: string[];
       pendingOutboxIds: string[];
-      committedTransitions: Array<{ type: string; id: string; at: string }>;
+      committedTransitions: Array<{ type: string; id: string; at: string; workflowVersion?: 2; odometer?: any; driverContext?: any; tripContext?: any }>;
       intentStates: Array<{ eventId: string; eventType: string; transitionAt: string; status: string; reason?: string; recoveryHistory?: string[] }>;
       outboxStates: Array<{ id: string; eventId: string; revision: number; delivered: boolean }>;
       boundaryState: { dailyBusinessKmRecordId: string; unallocatedBusinessKm: number; allocationStatus: string; rotationStatus: string };
+      tripFinancial: { recordId: string; tripId: string; operationId: string; values: Record<string, unknown>; author: { personId: string; role: "driver" }; submittedAt: string };
+      generatedRecordIds: string[];
     };
     logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> };
   };
@@ -228,13 +230,13 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       "historical-correction-chain:" + encodeURIComponent("feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050"),
     ]));
     expect(ids.some(id => id.startsWith("feature:driver-records:"))).toBe(true);
-    expect(fixture.populatedGraph.work.eventIds).toHaveLength(3);
-    expect(fixture.populatedGraph.work.intentIds).toHaveLength(5);
+    expect(fixture.populatedGraph.work.eventIds).toHaveLength(6);
+    expect(fixture.populatedGraph.work.intentIds).toHaveLength(8);
     expect(fixture.populatedGraph.work.pendingIntentIds).toHaveLength(2);
-    expect(fixture.populatedGraph.work.deliveredOutboxIds).toHaveLength(2);
+    expect(fixture.populatedGraph.work.deliveredOutboxIds).toHaveLength(5);
     expect(fixture.populatedGraph.work.pendingOutboxIds).toHaveLength(1);
     expect(fixture.populatedGraph.work.boundaryState).toMatchObject({ rotationStatus: "deferred_during_active_trip", unallocatedBusinessKm: 5, allocationStatus: "awaiting_operational_boundary" });
-    expect(fixture.populatedGraph.logBook.events).toHaveLength(2);
+    expect(fixture.populatedGraph.logBook.events).toHaveLength(5);
   });
 
   it("runs the populated feature-record graph through production Browser export, restore and re-export", async () => {
@@ -301,13 +303,24 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         businessTimezone: exported.manifest.businessTimezone,
       });
       expect(toCanonicalBackupSnapshotV1(roundTrip.data, roundTrip.manifest)).toEqual(canonical);
-      const expectedIds = fixture.populatedGraph.records.map(record => record.id).sort();
+      const generatedRecordIds = fixture.populatedGraph.work.generatedRecordIds;
+      const expectedIds = [...fixture.populatedGraph.records.map(record => record.id), ...generatedRecordIds].sort();
       const byRecordId = (rows: Array<{ id: string }>) =>
         [...rows].sort((left, right) => left.id.localeCompare(right.id));
-      expect(byRecordId(exported.data.records as Array<{ id: string }>))
+      const exportedStaticRecords = exported.data.records.filter(record =>
+        !generatedRecordIds.includes((record as { id: string }).id)) as Array<{ id: string }>;
+      expect(byRecordId(exportedStaticRecords))
         .toEqual(byRecordId(fixture.populatedGraph.records));
       expect(exported.data.records.map(record => (record as { id: string }).id).sort())
         .toEqual(expectedIds);
+      const tripFinancial = exported.data.records.find(record =>
+        (record as { id: string }).id === fixture.populatedGraph.work.tripFinancial.recordId) as any;
+      expect(tripFinancial?.data).toMatchObject({
+        kind: "completed_ride_financials", status: "submitted",
+        tripId: fixture.populatedGraph.work.tripFinancial.tripId,
+        operationId: fixture.populatedGraph.work.tripFinancial.operationId,
+        ...fixture.populatedGraph.work.tripFinancial.values,
+      });
       expect([...exported.data.driverEvents]
         .sort((left: any, right: any) => left.command.transitionAt.localeCompare(right.command.transitionAt))
         .map((event: any) => event.eventId))
