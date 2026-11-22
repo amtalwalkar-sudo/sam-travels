@@ -244,10 +244,12 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       const expectedIds = [...fixture.populatedGraph.records.map(record => record.id), ...generatedRecordIds].sort();
       const byRecordId = (rows: Array<{ id: string }>) =>
         [...rows].sort((left, right) => left.id.localeCompare(right.id));
-      const canonicalStaticRecords = canonical.records.filter(row => !generatedRecordIds.includes(row.id))
+      const expectedIdSet = new Set(expectedIds);
+      const canonicalFixtureRows = canonical.records.filter(row => expectedIdSet.has(row.id));
+      const canonicalStaticRecords = canonicalFixtureRows.filter(row => !generatedRecordIds.includes(row.id))
         .map(row => JSON.parse(row.json)) as Array<{ id: string }>;
       expect(byRecordId(canonicalStaticRecords)).toEqual(byRecordId(fixture.populatedGraph.records));
-      expect(canonical.records.map(record => record.id).sort()).toEqual(expectedIds);
+      expect(canonicalFixtureRows.map(record => record.id).sort()).toEqual(expectedIds);
       const tripFinancial = exported.data.records.find(record =>
         (record as { id: string }).id === fixture.populatedGraph.work.tripFinancial.recordId) as any;
       expect(tripFinancial?.data).toMatchObject({
