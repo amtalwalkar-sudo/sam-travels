@@ -80,6 +80,10 @@ describe("shared semantic backup validator parity matrix", () => {
         target.participantId = "maintenance-records";
       } else if (scenario.mutation === "set_headCorrectionId_missing") {
         const payload = JSON.parse(target.json); payload.data.headCorrectionId = "missing-correction"; target.json = JSON.stringify(payload);
+      } else if (scenario.mutation === "set_record_revision_zero") {
+        const payload = JSON.parse(target.json); payload.revision = 0; target.json = JSON.stringify(payload);
+      } else if (scenario.mutation === "duplicate_record_identity") {
+        candidate.records.push({ ...target });
       }
       expect(() => fromCanonicalBackupSnapshotV1(candidate, {
         applicationVersion: exported.manifest.applicationVersion,
@@ -92,5 +96,7 @@ describe("shared semantic backup validator parity matrix", () => {
     validateMutatedCanonical("dangling-trip-financial-source", "business_expense_trip_financial_link_invalid");
     validateMutatedCanonical("wrong-feature-participant-owner", "backup_canonical_record_owner_mismatch");
     validateMutatedCanonical("invalid-maintenance-correction-head", "maintenance_correction_backup_head_invalid");
+    validateMutatedCanonical("malformed-record-revision", "record_invalid_revision");
+    validateMutatedCanonical("duplicate-record-identity", "backup_canonical_record_invalid");
   });
 });
