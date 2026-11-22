@@ -54,7 +54,9 @@
         "vehicleId",
         "renewedFromRecordId",
         "overlapReviewId",
-        "correctionChainHead"
+        "correctionChainHead",
+        "supersedesEventId",
+        "renewalGenerationRecordIds"
       ]
     },
     "maintenance": {
@@ -158,7 +160,7 @@
   },
   "populatedGraph": {
     "status": "populated_fixture_ready_for_all_domain_validation",
-    "recordCount": 37,
+    "recordCount": 44,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -787,14 +789,14 @@
         "id": "compliance-overlap-review-head:feature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174010%7Cfeature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174011%7C2026-12-01%7C2026-12-31",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
-        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-19T00:00:00.000Z",
         "source": "integration",
-        "revision": 1,
+        "revision": 2,
         "data": {
           "schemaVersion": 1,
           "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
-          "decisionRevision": 1,
-          "headEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060"
+          "decisionRevision": 2,
+          "headEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174061"
         }
       },
       {
@@ -1244,6 +1246,159 @@
             }
           ]
         }
+      },
+      {
+        "id": "feature:compliance:123e4567-e89b-42d3-a456-426614174012",
+        "schemaVersion": 1,
+        "createdAt": "2027-11-20T00:00:00.000Z",
+        "updatedAt": "2027-11-20T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "complianceName": "Synthetic insurance",
+          "validFrom": "2027-12-01",
+          "validTo": "2028-11-30",
+          "totalCostPaise": 420000,
+          "renewedFromRecordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174011"
+        }
+      },
+      {
+        "id": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174061",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "eventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174061",
+          "sourceRecords": [
+            {
+              "recordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+              "recordRevision": 1
+            },
+            {
+              "recordId": "feature:compliance:123e4567-e89b-42d3-a456-426614174011",
+              "recordRevision": 1
+            }
+          ],
+          "from": "2026-12-01",
+          "to": "2026-12-31",
+          "decision": "rejected",
+          "decisionRevision": 2,
+          "supersedesEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060",
+          "actor": {
+            "actorId": "synthetic-admin",
+            "role": "admin"
+          },
+          "rationale": "Synthetic superseding review records the final owner decision.",
+          "recordedAt": "2026-11-19T00:00:00.000Z"
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074",
+          "revision": 1,
+          "businessDate": "2026-11-15",
+          "occurredAt": "2026-11-15T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1030,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 18000,
+          "partialRefill": false
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
+          "revision": 1,
+          "businessDate": "2026-11-17",
+          "occurredAt": "2026-11-17T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1035,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 9000,
+          "partialRefill": true
+        }
+      },
+      {
+        "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "fuel_purchase",
+          "id": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076",
+          "revision": 1,
+          "businessDate": "2026-11-20",
+          "occurredAt": "2026-11-20T00:00:00.000Z",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "odometerKm": 1040,
+          "pricePaisePerKg": 9000,
+          "amountPaise": 18000,
+          "partialRefill": false
+        }
+      },
+      {
+        "id": "historical-correction:fixture-fuel-interval-partial-amount-fix",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "correctionId": "fixture-fuel-interval-partial-amount-fix",
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "targetRecordRevision": 1,
+          "featureId": "business-expenses",
+          "chainRevision": 1,
+          "fieldPath": "amountPaise",
+          "beforeValue": 9000,
+          "afterValue": 10000,
+          "reason": "Synthetic partial refill receipt correction.",
+          "actor": {
+            "role": "driver",
+            "actorId": "synthetic-driver"
+          },
+          "recordedAt": "2026-11-18T00:00:00.000Z",
+          "businessEffectiveDate": "2026-11-05"
+        }
+      },
+      {
+        "id": "historical-correction-chain:feature%3Abusiness-expenses%3Afuel%3A123e4567-e89b-42d3-a456-426614174071",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "chainRevision": 1,
+          "headCorrectionId": "fixture-fuel-interval-partial-amount-fix"
+        }
       }
     ],
     "work": {
@@ -1410,6 +1565,12 @@
           "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
           "chainRevision": 1,
           "headCorrectionId": "fixture-fuel-amount-fix"
+        },
+        {
+          "featureId": "business-expenses",
+          "targetRecordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "chainRevision": 1,
+          "headCorrectionId": "fixture-fuel-interval-partial-amount-fix"
         }
       ],
       "reversalSourceIds": [
@@ -1453,7 +1614,20 @@
           }
         ]
       },
-      "pendingBoundaryDailyKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-03"
+      "pendingBoundaryDailyKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-03",
+      "compliance": {
+        "renewalGenerationRecordIds": [
+          "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+          "feature:compliance:123e4567-e89b-42d3-a456-426614174011",
+          "feature:compliance:123e4567-e89b-42d3-a456-426614174012"
+        ],
+        "overlapReviewEventIds": [
+          "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060",
+          "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174061"
+        ],
+        "overlapReviewHeadId": "compliance-overlap-review-head:feature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174010%7Cfeature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174011%7C2026-12-01%7C2026-12-31",
+        "finalDecision": "rejected"
+      }
     }
   },
   "canonicalSnapshotContract": {
@@ -1480,6 +1654,37 @@
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
         ],
+        "sourceRevisions": [
+          1,
+          1
+        ],
+        "distanceKm": 10,
+        "quantityMilliKg": 3111,
+        "spendPaise": 28000,
+        "kmPerKg": {
+          "numerator": "10000",
+          "denominator": "3111"
+        },
+        "effectiveCostPaisePerKg": {
+          "numerator": "28000000",
+          "denominator": "3111"
+        },
+        "costPaisePerKm": {
+          "numerator": "28000",
+          "denominator": "10"
+        }
+      },
+      {
+        "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074",
+        "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076",
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076"
+        ],
+        "sourceRevisions": [
+          1,
+          1
+        ],
         "distanceKm": 10,
         "quantityMilliKg": 3000,
         "spendPaise": 27000,
@@ -1498,13 +1703,13 @@
       }
     ],
     "dailyExpenses": {
-      "fuelPaise": 63000,
+      "fuelPaise": 111000,
       "platformFeesPaise": 1500,
       "trafficChallansPaise": 2000,
       "miscellaneousPaise": 700,
-      "reportedSourceExpensePaise": 67200,
-      "normalOperatingExpensePaise": 65200,
-      "fullCostExpensePaise": 67200
+      "reportedSourceExpensePaise": 115200,
+      "normalOperatingExpensePaise": 113200,
+      "fullCostExpensePaise": 115200
     },
     "maintenanceAccrual": {
       "operationalDate": "2026-11-01",
@@ -1548,9 +1753,91 @@
         "amountPaise": 2400,
         "personalAmountPaise": 300
       }
+    ],
+    "fuelCostRateHistory": [
+      {
+        "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
+        "effectiveFrom": "2026-11-11",
+        "completionBusinessDate": "2026-11-10",
+        "costPaisePerKm": {
+          "numerator": "28000",
+          "denominator": "10"
+        },
+        "cumulativeSpendPaise": 28000,
+        "cumulativeDistanceKm": 10,
+        "intervalEndCheckpointIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
+        ],
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
+        ],
+        "sourceRevisions": [
+          1,
+          1
+        ]
+      },
+      {
+        "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
+        "effectiveFrom": "2026-11-21",
+        "completionBusinessDate": "2026-11-20",
+        "costPaisePerKm": {
+          "numerator": "55000",
+          "denominator": "20"
+        },
+        "cumulativeSpendPaise": 55000,
+        "cumulativeDistanceKm": 20,
+        "intervalEndCheckpointIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076"
+        ],
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076"
+        ],
+        "sourceRevisions": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
     ]
   },
   "emptyParticipantIds": [
     "business-settings-records"
-  ]
+  ],
+  "validatorMatrix": {
+    "validScenario": {
+      "id": "all-domain-populated-fixture",
+      "expected": "accept"
+    },
+    "negativeCases": [
+      {
+        "id": "malformed-fuel-purchase",
+        "category": "malformed_record",
+        "recordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+        "mutation": "set_data_amountPaise_zero"
+      },
+      {
+        "id": "dangling-business-expense-vehicle",
+        "category": "dangling_reference",
+        "recordId": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174080",
+        "mutation": "set_data_vehicleId_missing"
+      },
+      {
+        "id": "wrong-feature-participant-owner",
+        "category": "wrong_owner",
+        "recordId": "feature:vehicle:SYNTHETICVEHICLE001",
+        "mutation": "set_participant_maintenance_records"
+      },
+      {
+        "id": "invalid-maintenance-correction-head",
+        "category": "invalid_correction_head",
+        "recordId": "historical-correction-chain:feature%3Amaintenance%3Aexpense%3A123e4567-e89b-42d3-a456-426614174050",
+        "mutation": "set_headCorrectionId_missing"
+      }
+    ]
+  }
 }
