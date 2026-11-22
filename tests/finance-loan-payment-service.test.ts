@@ -259,4 +259,42 @@ describe("FinanceLoanPaymentService", () => {
     expect((await repo.get<FinanceLoanRecordV1>(loanId))?.data.lifecycleState).not.toBe("closed");
     expect((await service.list(loanId)).filter(entry => entry.kind === "settlement")).toHaveLength(0);
   });
+  it("proposes oldest-due-first across multiple due EMIs and leaves future EMIs untouched", async () => {
+    const { service } = setup();
+    await service.record({ ...base, id: "older-partial", commandId: "older-partial-command",
+      amountPaise: 4000, allocations: [{ installmentNumber: 1, amountPaise: 4000 }] });
+    expect(await service.propose({ loanId, scheduleVersion: 1, businessDate: "2026-12-08", amountPaise: 25000 }))
+      .toEqual([
+        { installmentNumber: 1, amountPaise: 6000 },
+        { installmentNumber: 2, amountPaise: 10000 },
+      ]);
+  });
+  it("accepts a reviewed manual allocation while enforcing per-installment and payment bounds", async () => {
+    const { service } = setup();
+    const manuallyAdjusted = await service.record({ ...base, id: "manual-allocation", commandId: "manual-allocation-command",
+      amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 5000 },
+        { installmentNumber: 2, amountPaise: 7000 }] });
+    expect(manuallyAdjusted.allocations.map(item => [item.installmentNumber, item.amountPaise]))
+      .toEqual([[1, 5000], [2, 7000]]);
+    await expect(service.record({ ...base, id: "manual-overpay-installment", commandId: "manual-overpay-installment-command",
+      amountPaise: 12000, allocations: [{ installmentNumber: 1, amountPaise: 10001 }] }))
+      .rejects.toThrow("finance_payment_installment_overallocated");
+    await expect(service.record({ ...base, id: "manual-overpay-payment", commandId: "manual-overpay-payment-command",
+      amountPaise: 1000, allocations: [{ installmentNumber: 1, amountPaise: 1001 }] }))
+      .rejects.toThrow("finance_payment_allocations_exceed_amount");
+  });
+  it("keeps unallocated credit separate from later EMI proposals and rejects future-EMI allocation", async () => {
+    const { service } = setup();
+    const payment = await service.record({ ...base, id: "credit-only", commandId: "credit-only-command",
+      amountPaise: 15000, allocations: [{ installmentNumber: 1, amountPaise: 10000 }] });
+    expect(payment.unallocatedCreditPaise).toBe(5000);
+    expect(await service.propose({ loanId, scheduleVersion: 1, businessDate: "2026-11-08", amountPaise: 10000 }))
+      .toEqual([]);
+    await expect(service.record({ ...base, id: "future-emi", commandId: "future-emi-command",
+      amountPaise: 1000, allocations: [{ installmentNumber: 2, amountPaise: 1000 }] }))
+      .rejects.toThrow("finance_payment_allocation_invalid");
+    expect((await service.list(loanId)).find(entry => entry.id === "credit-only"))
+      .toMatchObject({ unallocatedCreditPaise: 5000 });
+  });
+
 });
