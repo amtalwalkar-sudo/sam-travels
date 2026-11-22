@@ -410,7 +410,7 @@ class DriverWorkflowStoreTest {
         assertEquals("shift_active", committed.getString("state"))
         assertEquals(1, committed.getInt("revision"))
         assertEquals("native_overlay", JSONObject(
-            db.logBookEvents().single().json,
+            db.logBookEvents().list().single().json,
         ).getJSONObject("command").getString("originSurface"))
 
         val staleFailure = runCatching {
