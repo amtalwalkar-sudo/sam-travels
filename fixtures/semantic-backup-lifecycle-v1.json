@@ -1706,7 +1706,8 @@
         }
       },
       "generatedRecordIds": [
-        "work:trip-financial-obligation:event-trip-create-repair-001"
+        "work:trip-financial-obligation:event-trip-create-repair-001",
+        "__sam_travels_form_working_copy__:work.trip-completed-financials:event-trip-create-repair-001"
       ]
     },
     "logBook": {
