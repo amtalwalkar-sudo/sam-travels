@@ -60,6 +60,7 @@ type Fixture = {
     };
     logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> };
   };
+  validatorMatrix: { validScenario: { id: string; expected: string }; negativeCases: Array<{ id: string; category: string; recordId: string; mutation: string }> };
   emptyParticipantIds: string[];
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
   canonicalSnapshotContract: { format: string; schemaVersion: number; recordShape: string[]; participantInventory: string; revisionSource: string; interchange: string };
