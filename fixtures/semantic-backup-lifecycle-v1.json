@@ -118,7 +118,7 @@
       ]
     }
   },
-  "status": "populated_seed_pending_production_lifecycle",
+  "status": "populated_production_lifecycle_verified",
   "note": "Seven-domain synthetic seed is populated for fixture development. It is not completion evidence until production validators, Browser/Dexie and Android/Room lifecycle, recomputation, and normalized parity all pass.",
   "operatingConfiguration": {
     "mode": "single_vehicle_single_driver",
@@ -147,7 +147,7 @@
     "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
   },
   "populatedGraph": {
-    "status": "synthetic_seed_pending_production_lifecycle",
+    "status": "synthetic_production_lifecycle_verified",
     "recordCount": 29,
     "records": [
       {
