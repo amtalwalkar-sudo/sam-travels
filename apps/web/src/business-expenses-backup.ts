@@ -34,6 +34,26 @@ function validateReferences(
     if (!driver) throw new Error("business_expense_driver_not_found");
     assertDriverRecordV1(driver.data);
   }
+  if (data.kind === "business_expense" && data.tripFinancialSourceId) {
+    const source = records.find(item => item.id === data.tripFinancialSourceId);
+    const trip = source?.data as {
+      schemaVersion?: number; tripId?: string; kind?: string; status?: string; endRideEventId?: string;
+      farePaise?: number; tollPaise?: number; tollPayer?: string; parkingPaise?: number; parkingPayer?: string;
+      tripContext?: { driverId?: string; vehicleId?: string };
+    } | undefined;
+    const context = trip?.tripContext;
+    const toll = trip?.tollPayer === "driver" ? trip.tollPaise ?? 0 : 0;
+    const parking = trip?.parkingPayer === "driver" ? trip.parkingPaise ?? 0 : 0;
+    const expectedAmount = data.tripFinancialComponent === "toll" ? toll :
+      data.tripFinancialComponent === "parking" ? parking : toll + parking;
+    if (!source || source.id !== "work:trip-financial-obligation:" + trip?.tripId ||
+        trip?.schemaVersion !== 1 || trip.kind !== "completed_ride_financials" ||
+        trip.status !== "submitted" || !trip.endRideEventId ||
+        context?.vehicleId !== data.vehicleId || context?.driverId !== data.driverId ||
+        expectedAmount <= 0 || data.amountPaise !== expectedAmount) {
+      throw new Error("business_expense_trip_financial_link_invalid");
+    }
+  }
   if (data.kind === "business_expense") {
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) throw new Error("traffic_challan_vehicle_required");
     if (data.sourceKind === "traffic_challan" && data.paymentStatus !== "unpaid" && data.paymentStatus !== "paid") throw new Error("traffic_challan_payment_status_required");
