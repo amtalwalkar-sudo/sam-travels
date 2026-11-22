@@ -565,7 +565,7 @@ The stages below are the only planned closeout sequence for the currently identi
 
 #### Stage 2 — Implement owner-approved Finance payment-allocation policy
 
-<badge color="success">COMPLETE — GREEN CI</badge>
+**Status: COMPLETE — GREEN CI.**
 
 **Owner decision: APPROVED AS WRITTEN — 2026-11-22.** The owner approved all six rules in `FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md`: deterministic oldest-due-first proposal; user-reviewable/manual allocation within payment and installment bounds; partial EMI coverage; explicit unallocated credit with no automatic principal-prepayment or future-EMI conversion; separate explicit processing of unallocated credit; and immutable schedule-version/installment linkage.
 
