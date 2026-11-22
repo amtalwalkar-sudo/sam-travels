@@ -9,7 +9,7 @@ const ASSIGNMENT_PREFIX = "feature:driver-records:assignment:";
 const VEHICLE_PREFIX = "feature:vehicle:";
 
 export type WorkSelectedDriverV1 = Readonly<{ schemaVersion: 1; driverId: string; lockedShiftId?: string }>;
-export type DriverContextV1 = Readonly<{ schemaVersion: 1; driverId: string; assignmentId: string; vehicleId: string }>;
+export type DriverContextV1 = Readonly<{ schemaVersion: 1; driverId: string; assignmentId: string; vehicleId: string; selectionRevision: number; driverRevision: number; vehicleRevision: number; assignmentRevision: number }>;
 export type OperatingConfigurationV1 = Readonly<{
   schemaVersion: 1;
   driverId: string;
@@ -36,11 +36,12 @@ export function assertWorkSelectedDriverV1(value: unknown): asserts value is Wor
 export function assertDriverContextV1(value: unknown): asserts value is DriverContextV1 {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid_driver_context");
   const row = value as Record<string, unknown>;
-  if (Object.keys(row).sort().join(",") !== "assignmentId,driverId,schemaVersion,vehicleId" ||
+  if (Object.keys(row).sort().join(",") !== "assignmentId,assignmentRevision,driverId,driverRevision,schemaVersion,selectionRevision,vehicleId,vehicleRevision" ||
       row.schemaVersion !== 1 || typeof row.driverId !== "string" ||
       !/^[A-Za-z0-9_-]{1,128}$/.test(row.driverId) ||
       typeof row.assignmentId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(row.assignmentId) ||
-      typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId)) {
+      typeof row.vehicleId !== "string" || !/^feature:vehicle:[A-Za-z0-9_-]{1,128}$/.test(row.vehicleId) ||
+      !["selectionRevision", "driverRevision", "vehicleRevision", "assignmentRevision"].every(key => Number.isSafeInteger(row[key]) && (row[key] as number) >= 1)) {
     throw new Error("invalid_driver_context");
   }
 }
@@ -175,6 +176,10 @@ export function resolveWorkDriverContext(
     driverId: resolved.driverId,
     assignmentId: resolved.assignmentId,
     vehicleId: resolved.vehicleId,
+    selectionRevision: resolved.selectionRevision,
+    driverRevision: resolved.driverRevision,
+    vehicleRevision: resolved.vehicleRevision,
+    assignmentRevision: resolved.assignmentRevision,
   });
 }
 
