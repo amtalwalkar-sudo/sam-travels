@@ -47,10 +47,13 @@ internal object SharedBackupFixtureAssertions {
                 }
                 "platform-records" -> {
                     if (id.startsWith("work:trip-financial-obligation:")) {
-                        // Source adapter and submission clocks are runtime-local;
-                        // trip identity, author, operation ID and financial values remain semantic.
+                        // Browser and Room may serialize the same ISO instant with
+                        // different fractional-second precision. Normalize those
+                        // semantic timestamps; submission/update clocks remain local.
                         payload.put("source", "integration")
+                        normalizeInstant(payload, "createdAt")
                         payload.optJSONObject("data")?.let { data ->
+                            normalizeInstant(data, "createdAt")
                             normalizeRuntimeTimestamp(data, "submittedAt")
                         }
                         updatedAt = "<runtime-local>"
