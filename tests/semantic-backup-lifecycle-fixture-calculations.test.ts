@@ -1,17 +1,35 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { calculateFuelIntervals, calculateDailyBusinessExpenses } from "../packages/features/business-expenses";
+import { calculateFuelIntervals, calculateDailyBusinessExpenses, calculateFuelCostRateHistory } from "../packages/features/business-expenses";
+import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 
 const fixture = JSON.parse(readFileSync(new URL("../fixtures/semantic-backup-lifecycle-v1.json", import.meta.url), "utf8")) as any;
 
 describe("Shared semantic fixture calculation expectations", () => {
   it("pins expected business calculations to the shared synthetic source graph", () => {
     const rows = fixture.populatedGraph.records as Array<{ id: string; data: any }>;
-    const fuel = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:")).map(row => row.data);
+    const rawFuel = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:"));
+    const fuel = rawFuel.map(row => {
+      const corrections = rows.filter(item => item.id.startsWith("historical-correction:") &&
+        item.data.featureId === "business-expenses" && item.data.targetRecordId === row.id)
+        .map(item => item.data).sort((a, b) => a.chainRevision - b.chainRevision);
+      if (corrections.length === 0) return row.data;
+      const projection = projectHistoricalCorrectionsV1(row.data, corrections as never);
+      expect(projection.status).toBe("valid");
+      return projection.data;
+    });
     const expenses = rows.filter(row => row.id.startsWith("feature:business-expenses:entry:")).map(row => row.data);
-    const interval = calculateFuelIntervals(fuel as never).find(item =>
-      item.startCheckpointId === fixture.expectedBusinessResults.fuelIntervals[0].startCheckpointId);
-    expect(interval).toMatchObject(fixture.expectedBusinessResults.fuelIntervals[0]);
+    const intervals = calculateFuelIntervals(fuel as never);
+    expect(intervals.filter(item => item.status === "available")).toHaveLength(2);
+    for (const expected of fixture.expectedBusinessResults.fuelIntervals) {
+      expect(intervals.find(item => item.startCheckpointId === expected.startCheckpointId))
+        .toMatchObject(expected);
+    }
+    expect(calculateFuelCostRateHistory(fuel as never, intervals))
+      .toEqual(fixture.expectedBusinessResults.fuelCostRateHistory);
+    const correctedPartial = fuel.find((item: any) => item.id.endsWith("123e4567-e89b-42d3-a456-426614174071"));
+    expect(correctedPartial).toMatchObject({ amountPaise: 10000, pricePaisePerKg: 9000 });
+    expect(correctedPartial).not.toHaveProperty("quantityMilliKg");
     const dailyTotals = calculateDailyBusinessExpenses(fuel as never, expenses as never).reduce((total, row) => ({
       fuelPaise: total.fuelPaise + row.fuelPaise,
       platformFeesPaise: total.platformFeesPaise + row.platformFeesPaise,
