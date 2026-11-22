@@ -55,12 +55,17 @@ internal object SharedBackupFixtureAssertions {
                         id.startsWith("driver-intent:") -> {
                             payload.optJSONObject("command")?.let { normalizeInstant(it, "transitionAt") }
                             normalizeInstant(payload, "createdAt")
-                            normalizeInstant(payload, "updatedAt")
-                            updatedAt = epochMillis(updatedAt)
+                            // Recovery may refresh the intent's operational
+                            // update clock. Its command, creation time, status,
+                            // reason and retry semantics remain portable.
+                            payload.remove("updatedAt")
+                            updatedAt = ""
                         }
                         id.startsWith("driver-outbox:") -> {
                             normalizeInstant(payload, "createdAt")
-                            updatedAt = epochMillis(updatedAt)
+                            // Room's wrapper timestamp is local persistence
+                            // metadata; delivery state and payload are portable.
+                            updatedAt = ""
                         }
                     }
                 }
