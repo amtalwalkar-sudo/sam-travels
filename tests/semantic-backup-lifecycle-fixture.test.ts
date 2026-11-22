@@ -348,6 +348,25 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(await browserDatabase.records.get("work:selected-driver")).toBeDefined();
       expect(reopenedExport.data).toEqual(exported.data);
       await discardVerifiedBrowserCheckpoint(restored.checkpointId);
+
+      // Repeat the same production restore against a clean business-data
+      // destination. Device-local identity remains seeded because it is not
+      // part of the portable business backup.
+      await browserDatabase.records.clear();
+      await browserDatabase.records.bulkPut(localIdentityRecords as never);
+      const cleanRestore = await restoreBackupForCurrentRuntime({
+        backup: encryptedCanonical!.backup,
+        secret: { recoveryKey },
+        confirmed: true,
+      });
+      await markBrowserRestoreVerified(cleanRestore.checkpointId);
+      browserDatabase.close();
+      await browserDatabase.open();
+      await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 0 });
+      const cleanReexport = await exportBrowserSnapshot("0.1.0");
+      expect(toCanonicalBackupSnapshotV1(cleanReexport.data, cleanReexport.manifest as never))
+        .toEqual(canonical);
+      await discardVerifiedBrowserCheckpoint(cleanRestore.checkpointId);
     } finally {
       unregister.reverse().forEach(dispose => dispose());
       browserDatabase.close();

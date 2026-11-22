@@ -149,6 +149,44 @@ class SharedSevenDomainBackupLifecycleTest {
                 "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
             )
             val recoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+
+            // Exercise the identical encrypted Room export against a genuinely
+            // clean destination, then close/reopen and prove startup recovery
+            // plus re-export preserve the complete semantic graph.
+            val cleanName = "shared-seven-domain-clean-destination.db"
+            context.deleteDatabase(cleanName)
+            val cleanBuilder = Room.databaseBuilder(context, LocalDatabase::class.java, cleanName)
+                .allowMainThreadQueries()
+            var cleanDatabase = cleanBuilder.build()
+            try {
+                val cleanRestore = NativeBackupRestoreCoordinator.restoreEncrypted(
+                    cleanDatabase, encrypted, recoveryKey,
+                    { NativeSnapshotBuilder.build(cleanDatabase, NativeBackupRecovery::isInternalRecord, "clean-room-readback") },
+                )
+                val cleanReadback = NativeSnapshotBuilder.build(
+                    cleanDatabase, NativeBackupRecovery::isInternalRecord, "clean-room-restored",
+                )
+                SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
+                    "clean Room destination restore", source.snapshot.getJSONArray("records"),
+                    cleanReadback.snapshot.getJSONArray("records"),
+                )
+                NativeBackupRestoreCoordinator.markVerified(cleanDatabase, cleanRestore.checkpointId)
+                NativeBackupRestoreCoordinator.discardVerified(cleanDatabase, cleanRestore.checkpointId)
+                cleanDatabase.close()
+                cleanDatabase = cleanBuilder.build()
+                NativeStartupRecovery.invalidate(cleanDatabase)
+                assertEquals(emptyList<String>(), NativeStartupRecovery.ensure(cleanDatabase))
+                val cleanReexport = NativeSnapshotBuilder.build(
+                    cleanDatabase, NativeBackupRecovery::isInternalRecord, "clean-room-reexport",
+                )
+                SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
+                    "clean Room destination reopen/re-export", source.snapshot.getJSONArray("records"),
+                    cleanReexport.snapshot.getJSONArray("records"),
+                )
+            } finally {
+                cleanDatabase.close()
+                context.deleteDatabase(cleanName)
+            }
             context.openFileOutput("android-populated-semantic-backup-v2.json", Context.MODE_PRIVATE).use { output ->
                 val artifact = "{\"recoveryKey\":${JSONObject.quote(recoveryKey)},\"backup\":${NativeBackupV2Package.serialize(encrypted)}}"
                 output.write(artifact.toByteArray(Charsets.UTF_8))
