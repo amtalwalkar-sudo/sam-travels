@@ -102,7 +102,7 @@ internal object SharedBackupFixtureAssertions {
     }
 
     private fun epochMillis(value: String): String =
-        if (value.matches(Regex("\\\\d{10,}"))) "<runtime-local>"
+        if (value.toLongOrNull() != null) "<runtime-local>"
         else runCatching { Instant.parse(value).toEpochMilli().toString() }.getOrDefault(value)
 
     private fun canonicalJson(value: Any?): String = when (value) {
