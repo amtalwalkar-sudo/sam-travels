@@ -48,7 +48,9 @@
         "validity_period",
         "renewal",
         "overlap_decision",
-        "correction"
+        "correction",
+        "renewal_generation",
+        "overlap_review_supersession"
       ],
       "lineage": [
         "vehicleId",
@@ -80,7 +82,8 @@
         "traffic_challan",
         "miscellaneous",
         "reversal",
-        "correction"
+        "correction",
+        "trip_expense_closeout_reference"
       ],
       "lineage": [
         "sourceId",
@@ -1840,6 +1843,20 @@
         ],
         "overlapReviewHeadId": "compliance-overlap-review-head:feature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174010%7Cfeature%3Acompliance%3A123e4567-e89b-42d3-a456-426614174011%7C2026-12-01%7C2026-12-31",
         "finalDecision": "rejected"
+      },
+      "tripFinancial": {
+        "recordId": "work:trip-financial-obligation:event-trip-create-repair-001",
+        "tripId": "event-trip-create-repair-001",
+        "endRideEventId": "event-end-ride-repaired-001",
+        "formWorkingCopyId": "__sam_travels_form_working_copy__:work.trip-completed-financials:event-trip-create-repair-001",
+        "draftEdits": [
+          {
+            "field": "farePaise",
+            "before": 240000,
+            "after": 252000
+          }
+        ],
+        "operationId": "fixture-trip-financial-operation-001"
       }
     }
   },
