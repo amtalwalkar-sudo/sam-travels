@@ -24,7 +24,7 @@ internal object SharedBackupFixtureAssertions {
         val mismatches = (expectedRows.keys + actualRows.keys).toSortedSet()
             .filter { expectedRows[it] != actualRows[it] }
             .take(20)
-            .map { key -> "$key expected=${expectedRows[key]?.take(350)} actual=${actualRows[key]?.take(350)}" }
+            .map { key -> "$key expected=${expectedRows[key]?.take(2000)} actual=${actualRows[key]?.take(2000)}" }
         check(mismatches.isEmpty()) { "$label canonical record mismatch: ${mismatches.joinToString(" || ")}" }
     }
 
