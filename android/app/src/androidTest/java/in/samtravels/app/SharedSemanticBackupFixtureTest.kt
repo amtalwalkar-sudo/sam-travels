@@ -136,7 +136,7 @@ class SharedSemanticBackupFixtureTest {
         val fuelRecords = (0 until records.length()).map { records.getJSONObject(it) }
             .filter { it.getString("id").startsWith("feature:business-expenses:fuel:") }
         assertEquals(7, fuelRecords.size)
-        assertEquals(4, graph.getJSONObject("expectedBusinessResults").getJSONArray("fuelIntervals").length())
+        assertEquals(4, fixture.getJSONObject("expectedBusinessResults").getJSONArray("fuelIntervals").length())
         assertEquals(4, graph.getJSONObject("expectedBusinessResults").getJSONArray("fuelCostRateHistory").length())
         val finance = graph.getJSONObject("lineage").getJSONObject("finance")
         assertEquals("fixture-settlement-001", finance.getString("settlementEntryId"))
