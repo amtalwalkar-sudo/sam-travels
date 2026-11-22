@@ -65,7 +65,24 @@ internal object SharedFixtureWorkSeeder {
             .put("updatedAt", financial.getString("submittedAt")).put("data", draft)
         database.records().put(StoredRecord(draftId, draftEnvelope.toString(), draftRow.schemaVersion, financial.getString("submittedAt")))
         val values = financial.getJSONObject("values")
+        // Mirror the browser form's durable field-edit sequence and stable operation identity.
+        DriverTripFinancialStore.updateDraft(database, tripId, JSONObject().put("farePaise", 240000))
+        DriverTripFinancialStore.updateDraft(database, tripId, JSONObject().put("farePaise", values.getLong("farePaise")))
+        DriverTripFinancialStore.updateDraft(database, tripId, JSONObject().put("farePaise", values.getLong("farePaise")).put("tollPaise", values.getLong("tollPaise")))
+        DriverTripFinancialStore.updateDraft(database, tripId, JSONObject().put("farePaise", values.getLong("farePaise")).put("tollPaise", values.getLong("tollPaise")).put("tollPayer", values.getString("tollPayer")))
+        DriverTripFinancialStore.updateDraft(database, tripId, JSONObject().put("farePaise", values.getLong("farePaise")).put("tollPaise", values.getLong("tollPaise")).put("tollPayer", values.getString("tollPayer")).put("parkingPaise", values.getLong("parkingPaise")))
         DriverTripFinancialStore.updateDraft(database, tripId, JSONObject(values.toString()))
         DriverTripFinancialStore.submit(database, tripId, JSONObject(values.toString()))
+        val submittedAt = java.time.Instant.now().toString()
+        val submittedRow = database.records().get(draftId) ?: error("fixture_trip_financial_submitted_draft_missing")
+        val submittedEnvelope = JSONObject(submittedRow.json)
+        val submittedCopy = submittedEnvelope.getJSONObject("data")
+        val copyValues = JSONObject(submittedCopy.getJSONObject("values").toString())
+        val fingerprint = "{\"action\":\"submit\",\"formId\":\"work.trip-completed-financials\",\"formVersion\":1,\"instanceId\":\"$tripId\",\"values\":{\"farePaise\":252000,\"parkingPaise\":25000,\"parkingPayer\":\"driver\",\"tollPaise\":32000,\"tollPayer\":\"driver\",\"tripId\":\"$tripId\"}}"
+        val submission = JSONObject().put("action", "submit").put("payloadFingerprint", fingerprint)
+            .put("submittedAt", submittedAt).put("values", copyValues)
+        submittedCopy.put("revision", 9).put("updatedAt", submittedAt).put("submission", submission)
+        submittedEnvelope.put("revision", 10).put("updatedAt", submittedAt).put("data", submittedCopy)
+        database.records().put(StoredRecord(draftId, submittedEnvelope.toString(), submittedRow.schemaVersion, submittedAt))
     }
 }
