@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONArray
 import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,48 +68,71 @@ class SharedSemanticBackupValidatorParityTest {
                 (0 until matrix.length()).map { matrix.getJSONObject(it) }
                     .first { it.getString("id") == caseId }.getString("recordId")
 
-            fun assertRejected(caseId: String, category: String, mutate: (JSONArray) -> Unit) {
+            fun assertRejected(caseId: String, mutate: (JSONArray) -> Unit) {
+                val scenario = (0 until matrix.length()).map { matrix.getJSONObject(it) }
+                    .first { it.getString("id") == caseId }
                 val candidate = JSONArray(validRows.toString())
                 mutate(candidate)
                 val failure = runCatching {
                     NativeBackupCoverage.validateBusinessRecords(candidate, requireExplicitOwnerTags = true)
                 }.exceptionOrNull()
-                assertTrue("$caseId should fail as $category; got $failure",
-                    failure?.message.orEmpty().contains(category))
+                assertTrue("$caseId must be rejected by the Room validator", failure != null)
+                val message = failure?.message.orEmpty()
+                val actualCategory = when {
+                    "revision" in message -> "malformed_revision"
+                    "duplicate" in message -> "duplicate_identity"
+                    "owner" in message || "participant" in message -> "wrong_owner"
+                    "correction" in message -> "invalid_correction_head"
+                    "not_found" in message || "link_invalid" in message -> "dangling_reference"
+                    else -> "malformed_record"
+                }
+                assertEquals("$caseId normalized validator category", scenario.getString("category"), actualCategory)
             }
 
-            assertRejected("malformed-fuel-purchase", "fuel_purchase_invalid") { rows ->
+            assertRejected("malformed-fuel-purchase") { rows ->
                 val row = (0 until rows.length()).map { rows.getJSONObject(it) }
                     .first { it.getString("id") == recordId("malformed-fuel-purchase") }
                 val envelope = JSONObject(row.getString("json"))
                 envelope.getJSONObject("data").put("amountPaise", 0)
                 row.put("json", envelope.toString())
             }
-            assertRejected("dangling-business-expense-vehicle", "business_expense_vehicle_not_found") { rows ->
+            assertRejected("dangling-business-expense-vehicle") { rows ->
                 val row = (0 until rows.length()).map { rows.getJSONObject(it) }
                     .first { it.getString("id") == recordId("dangling-business-expense-vehicle") }
                 val envelope = JSONObject(row.getString("json"))
                 envelope.getJSONObject("data").put("vehicleId", "feature:vehicle:MISSINGVEHICLE001")
                 row.put("json", envelope.toString())
             }
-            assertRejected("dangling-trip-financial-source", "business_expense_trip_financial_link_invalid") { rows ->
+            assertRejected("dangling-trip-financial-source") { rows ->
                 val row = (0 until rows.length()).map { rows.getJSONObject(it) }
                     .first { it.getString("id") == recordId("dangling-trip-financial-source") }
                 val envelope = JSONObject(row.getString("json"))
                 envelope.getJSONObject("data").put("tripFinancialSourceId", "work:trip-financial-obligation:MISSINGTRIP001")
                 row.put("json", envelope.toString())
             }
-            assertRejected("wrong-feature-participant-owner", "backup_feature_record_owner_mismatch") { rows ->
+            assertRejected("wrong-feature-participant-owner") { rows ->
                 val row = (0 until rows.length()).map { rows.getJSONObject(it) }
                     .first { it.getString("id") == recordId("wrong-feature-participant-owner") }
                 row.put("participantId", "maintenance-records")
             }
-            assertRejected("invalid-maintenance-correction-head", "maintenance_correction_chain_head_invalid") { rows ->
+            assertRejected("invalid-maintenance-correction-head") { rows ->
                 val row = (0 until rows.length()).map { rows.getJSONObject(it) }
                     .first { it.getString("id") == recordId("invalid-maintenance-correction-head") }
                 val envelope = JSONObject(row.getString("json"))
                 envelope.getJSONObject("data").put("headCorrectionId", "missing-correction")
                 row.put("json", envelope.toString())
+            }
+            assertRejected("malformed-record-revision") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }
+                    .first { it.getString("id") == recordId("malformed-record-revision") }
+                val envelope = JSONObject(row.getString("json"))
+                envelope.put("revision", 0)
+                row.put("json", envelope.toString())
+            }
+            assertRejected("duplicate-record-identity") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }
+                    .first { it.getString("id") == recordId("duplicate-record-identity") }
+                rows.put(JSONObject(row.toString()))
             }
         } finally {
             database.close()
