@@ -1,6 +1,7 @@
 import type { SnapshotManifest } from "../../core/src/backup";
 import { BACKUP_SNAPSHOT_SCHEMA_VERSION } from "../../core/src/persistence-contract";
 import { assertBrowserSnapshotForCanonical, type BrowserSnapshotData } from "./backup-snapshot";
+import { isNonPortableIdentityRecord } from "./backup-local-record-policy";
 
 /** Stable cross-platform interchange envelope; adapter implementation IDs stay platform-local. */
 export interface CanonicalBackupSnapshotV1 {
@@ -9,13 +10,6 @@ export interface CanonicalBackupSnapshotV1 {
   snapshotRevision: number;
   participants: NonNullable<SnapshotManifest["participants"]>;
   records: Array<{ participantId: string; id: string; json: string; schemaVersion: number; updatedAt: string }>;
-}
-function isNonPortableIdentityRecord(id: string): boolean {
-  return id === "work:selected-driver" ||
-    id.startsWith("identity:driver-person-link:") ||
-    id.startsWith("identity:person:") ||
-    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
-    id.startsWith("__sam_travels_recovery_journal__:");
 }
 function canonicalOwnerForRecord(id: string, participants: CanonicalBackupSnapshotV1["participants"]): string {
   if (id === "driver-state" || id === "legacy-driver-state" || id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")) return "work-driver-state";
@@ -63,6 +57,7 @@ export function fromCanonicalBackupSnapshotV1(canonical: CanonicalBackupSnapshot
     const key = row.participantId + ":" + row.id;
     if (!row.participantId || !participantIds.has(row.participantId)) throw new Error("backup_canonical_participant_unknown");
     if (!row.id || seen.has(key) || typeof row.json !== "string" || !Number.isSafeInteger(row.schemaVersion) || row.schemaVersion < 1 || typeof row.updatedAt !== "string" || !row.updatedAt.trim()) throw new Error("backup_canonical_record_invalid");
+    if (isNonPortableIdentityRecord(row.id)) throw new Error("backup_canonical_record_nonportable_identity");
     seen.add(key);
     const value = JSON.parse(row.json);
     const expectedOwner = row.participantId === "logbook-events"
