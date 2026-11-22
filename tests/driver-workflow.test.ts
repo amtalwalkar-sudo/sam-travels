@@ -43,6 +43,10 @@ describe("durable single-driver workflow",()=>{
   records[1].revision=5;
   expect(resolveDriverContextV1(records)).toEqual({schemaVersion:1,driverId:"driver-001",assignmentId:"assignment-001",vehicleId:"feature:vehicle:MH01AB1234",selectionRevision:2,driverRevision:3,vehicleRevision:4,assignmentRevision:5});
   expect(()=>resolveDriverContextV1(records.slice(1))).toThrow("operating_driver_missing");
+  const lockedRecords=records.map(record=>record.id==="work:selected-driver"?{...record,data:{schemaVersion:1,driverId:"driver-001",lockedShiftId:"shift-active"}}:record);
+  expect(resolveDriverContextV1(lockedRecords,"shift-active")).toEqual(resolveDriverContextV1(records));
+  expect(()=>resolveDriverContextV1(lockedRecords)).toThrow("operating_driver_selection_locked");
+  expect(()=>resolveDriverContextV1(lockedRecords,"different-shift")).toThrow("operating_driver_selection_locked");
  });
  it("queues first and atomically commits event, projection, status and outbox",async()=>{
   const repo=new DexieDriverWorkflowRepository(),state=await repo.getSnapshot(),command=createDriverCommand(state,"shift_start","pwa","cmd-1","2026-11-03T10:00:00.000Z");
