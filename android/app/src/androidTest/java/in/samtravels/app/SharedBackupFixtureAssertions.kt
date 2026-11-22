@@ -57,6 +57,7 @@ internal object SharedBackupFixtureAssertions {
                         // semantic timestamps; submission/update clocks remain local.
                         payload.put("source", "integration")
                         normalizeInstant(payload, "createdAt")
+                        normalizeRuntimeTimestamp(payload, "updatedAt")
                         payload.optJSONObject("data")?.let { data ->
                             normalizeInstant(data, "createdAt")
                             normalizeRuntimeTimestamp(data, "submittedAt")
