@@ -68,7 +68,14 @@ class SharedSevenDomainBackupLifecycleTest {
                 val id = row.optString("id")
                 if (expectedFixtureRecords.containsKey(id)) id to canonicalJson(JSONObject(row.getString("json"))) else null
             }.toMap()
-            assertEquals(expectedFixtureRecords, exportedFixtureRecords)
+            val fixtureMismatches = (expectedFixtureRecords.keys + exportedFixtureRecords.keys).toSortedSet()
+                .filter { expectedFixtureRecords[it] != exportedFixtureRecords[it] }
+                .map { id ->
+                    val expected = expectedFixtureRecords[id]
+                    val actual = exportedFixtureRecords[id]
+                    "$id expected=${expected?.take(500)} actual=${actual?.take(500)}"
+                }
+            assertTrue("Shared Room fixture export mismatch: ${fixtureMismatches.joinToString(" || ")}", fixtureMismatches.isEmpty())
             val participantIds = NativeBackupCoverage.registeredParticipantIds()
             assertTrue(participantIds.containsAll(setOf(
                 "business-settings-records", "vehicle-records", "driver-records",
