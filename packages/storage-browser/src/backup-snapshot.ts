@@ -4,6 +4,7 @@ import type { Table } from "dexie";
 import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
 import { registerFeatures, registerBackupParticipants } from "../../core/src/features";
+import { isNonRestorableImportedRecord, isPreservedLocalRecord, isRuntimeLocalRecord } from "./backup-local-record-policy";
 
 export interface BrowserSnapshotData {
   records: unknown[];
@@ -160,19 +161,6 @@ async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<Bro
   return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
 }
 
-function isNonPortableIdentityRecord(id: string): boolean {
-  return id === "work:selected-driver" ||
-    id.startsWith("identity:driver-person-link:") ||
-    id.startsWith("identity:person:") ||
-    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
-    id.startsWith("__sam_travels_recovery_journal__:");
-}
-function isPreservedLocalRecord(id: string): boolean {
-  return id === "work:selected-driver" ||
-    id.startsWith("identity:driver-person-link:") ||
-    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
-    id.startsWith("__sam_travels_recovery_journal__:");
-}
 function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
@@ -316,21 +304,11 @@ export async function restoreBrowserSnapshot(input: {
   const tables = liveTables();
   const current = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
 
-  const preservedLocalRecords = current.records.filter(row =>
-    row && typeof row === "object" && isPreservedLocalRecord(String((row as { id?: unknown }).id ?? "")),
-  );
-  const restoredData: BrowserSnapshotData = {
-    ...input.data,
-    records: [
-      ...input.data.records.filter(row => {
-        const id = row && typeof row === "object" ? String((row as { id?: unknown }).id ?? "") : "";
-        return !isNonPortableIdentityRecord(id);
-      }),
-      ...preservedLocalRecords.filter(local => !input.data.records.some(row =>
-        row && typeof row === "object" && (row as { id?: unknown }).id === (local as { id?: unknown }).id,
-      )),
-    ],
-  };
+  const idOf = (row: unknown) => String((row as { id?: unknown } | null)?.id ?? "");
+  const preserved = current.records.filter(row => isPreservedLocalRecord(idOf(row)));
+  const incoming = input.data.records.filter(row => !isNonRestorableImportedRecord(idOf(row)) && !isRuntimeLocalRecord(idOf(row)));
+  const incomingLocal = input.data.records.filter(row => isRuntimeLocalRecord(idOf(row)) && !preserved.some(local => idOf(local) === idOf(row)));
+  const restoredData: BrowserSnapshotData = { ...input.data, records: [...incoming, ...incomingLocal, ...preserved] };
   const checkpointId = crypto.randomUUID();
   const checkpoint: Checkpoint = {
     id: checkpointId,
