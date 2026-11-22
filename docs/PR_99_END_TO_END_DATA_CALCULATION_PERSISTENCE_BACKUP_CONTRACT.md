@@ -619,3 +619,19 @@ The stages below are the only planned closeout sequence for the currently identi
 - Do not expand into unrelated UI redesign, new feature architecture, fleet/multi-driver workflows or exhaustive OEM testing.
 - Physical OEM certification, full OS reboot acceptance where not deterministic in CI, and real Dropbox account delivery remain explicitly deferred external/manual gates.
 - A green CI run is necessary evidence for that commit; it does not by itself close a contract item whose required production lifecycle or business-policy approval has not been demonstrated.
+
+
+
+### Stage 4 closeout — 2026-11-22
+
+**Status: COMPLETE — GREEN CI on the exact evidence/documentation head.**
+
+- Stage 1 (Finance Admin actor attribution), Stage 2 (owner-approved Finance payment-allocation policy), and Stage 3 (reverse encrypted restore and semantic parity) are complete with their focused evidence and exact-head CI checkpoints recorded above.
+- Stage 4 is an evidence/CI closeout, not a new production implementation phase. No production code or fixture schema was changed for this closeout. The existing production-path evidence was reconciled into this contract, the implementation evidence matrix and the architecture gap register.
+- The populated shared semantic lifecycle is exercised by Browser/Dexie production export and encrypted package generation, Android production decrypt/Room restore into a pre-populated destination, normalized semantic comparison, Room close/reopen, startup recovery and re-export. The reverse Android-produced encrypted package → Browser/Dexie production restore direction remains covered by `tests/android-produced-backup-restore.test.ts`.
+- The restored-Room Performance acceptance now drives the actual Android WebView composition and rendered Performance screen from the restored Room repository. The exact CI job step is **“Verify Performance calculations and dashboard end to end through the rendered PWA”** on Web, with Android restored-Room acceptance included in Android instrumentation.
+- **Exact-head CI:** commit `68fa1233a7d84df0ef77c35e95b1a353085750c5`; [Sam Travels CI run 45034254979](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45034254979). Required jobs passed: Architecture, Web, Android, Cross-platform encrypted backup restore, and Integrated regression gate. Optional Production geocoder verification was skipped; it is not a required PR gate.
+- The Stage 3/4 fixture limitation remains explicit: the 29-record populated graph contains the Finance loan/payment ledger but not Finance prepayment/settlement transaction lineage. Physical OEM certification, full OS reboot acceptance where not deterministic in CI, and real Dropbox account delivery remain external/manual gates.
+- This stage completion does not assert that all PR #99 whole-contract requirements are complete. The remaining entry-path, owner-rule, cross-runtime, correction/provenance and gap-register items remain governed by §1A and the current evidence matrix. PR #99 remains draft, open and unmerged.
+
+**Stage 4 exit evidence:** evidence ledgers reconciled; exact commit and run recorded; all required CI jobs green; optional skip and remaining fixture/manual limitations disclosed.
