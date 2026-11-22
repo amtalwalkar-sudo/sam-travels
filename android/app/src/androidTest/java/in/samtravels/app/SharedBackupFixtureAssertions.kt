@@ -98,11 +98,12 @@ internal object SharedBackupFixtureAssertions {
         }.sorted()
 
     private fun normalizeInstant(value: JSONObject, key: String) {
-        if (value.has(key) && !value.isNull(key)) value.put(key, epochMillis(value.getString(key)))
+        if (value.has(key) && !value.isNull(key)) value.put(key, epochMillis(value.get(key).toString()))
     }
 
     private fun epochMillis(value: String): String =
-        runCatching { Instant.parse(value).toEpochMilli().toString() }.getOrDefault(value)
+        if (value.matches(Regex("\\\\d{10,}"))) "<runtime-local>"
+        else runCatching { Instant.parse(value).toEpochMilli().toString() }.getOrDefault(value)
 
     private fun canonicalJson(value: Any?): String = when (value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix = "{", postfix = "}") {
