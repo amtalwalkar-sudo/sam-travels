@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { resolveComplianceOverlapReview } from "../packages/features/compliance";
+import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 
 const fixture = JSON.parse(readFileSync(
   new URL("../fixtures/semantic-backup-lifecycle-v1.json", import.meta.url), "utf8",
@@ -73,8 +74,95 @@ describe("shared semantic backup fixture inventory", () => {
   it("declares the valid fixture and shared negative validator matrix", () => {
     expect(fixture.validatorMatrix.validScenario.expected).toBe("accept");
     expect(fixture.validatorMatrix.negativeCases.map((item: any) => item.category))
-      .toEqual(["malformed_record", "dangling_reference", "wrong_owner", "invalid_correction_head", "dangling_reference"]);
+      .toEqual(["malformed_record", "dangling_reference", "wrong_owner", "invalid_correction_head", "dangling_reference", "malformed_revision", "duplicate_identity"]);
     expect(fixture.expectedBusinessResults.fuelIntervals).toHaveLength(4);
     expect(fixture.expectedBusinessResults.fuelCostRateHistory).toHaveLength(4);
   });
+
+  it("validates the populated source envelopes and every domain's cross-record lineage", () => {
+    const records = fixture.populatedGraph.records as Array<{ id: string; schemaVersion: number; revision: number; createdAt: string; updatedAt: string; data: any }>;
+    const byId = new Map(records.map(record => [record.id, record]));
+    const ids = records.map(record => record.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const record of records) {
+      expect(record.schemaVersion).toBe(1);
+      expect(Number.isSafeInteger(record.revision) && record.revision >= 1).toBe(true);
+      expect(Date.parse(record.createdAt)).not.toBeNaN();
+      expect(Date.parse(record.updatedAt)).not.toBeNaN();
+      expect(record.updatedAt >= record.createdAt).toBe(true);
+      expect(record.data.schemaVersion).toBe(1);
+    }
+
+    const vehicleId = fixture.operatingConfiguration.vehicle.recordId;
+    const drivers = records.filter(record => record.id.startsWith("feature:driver-records:driver:"));
+    expect(drivers).toHaveLength(1);
+    expect(drivers[0].data.selectedForWork).toBe(true);
+    const assignment = byId.get(fixture.operatingConfiguration.currentPairing.assignmentHistoryRecordId)!;
+    expect(assignment.data.assignments).toHaveLength(1);
+    expect(assignment.data.assignments[0]).toMatchObject({ vehicleId, assignmentId: "assignment-001" });
+
+    const loan = byId.get(fixture.populatedGraph.lineage.finance.loanId)!;
+    const ledger = byId.get(fixture.populatedGraph.lineage.finance.paymentLedgerId)!;
+    const prepayment = byId.get(fixture.populatedGraph.lineage.finance.prepaymentRecordId)!;
+    expect(ledger.data.loanId).toBe(loan.id);
+    expect(prepayment.data.loanId).toBe(loan.id);
+    expect(prepayment.data.baseScheduleVersion).toBe(1);
+    expect(prepayment.data.currentScheduleVersion).toBe(2);
+    const revisedSchedule = prepayment.data.revisions.find((item: any) => item.version === 2);
+    expect(revisedSchedule).toMatchObject({ previousScheduleVersion: 1, mode: "reduce_tenure", commandId: fixture.populatedGraph.lineage.finance.prepaymentCommandId });
+    expect(revisedSchedule.output.regularEmiPaise).toBe(loan.data.scheduleVersions[0].output.regularEmiPaise);
+    expect(ledger.data.entries.map((item: any) => item.kind)).toEqual(["payment", "reversal", "payment", "payment", "settlement"]);
+    const reversal = ledger.data.entries.find((item: any) => item.kind === "reversal");
+    expect(ledger.data.entries.find((item: any) => item.id === reversal.paymentId)?.kind).toBe("payment");
+    const settlement = ledger.data.entries.find((item: any) => item.kind === "settlement");
+    const settlementScheduleRow = revisedSchedule.output.rows.find((item: any) => item.installmentNumber === settlement.paidThroughInstallment);
+    expect(settlement).toMatchObject({ scheduleVersion: revisedSchedule.version, businessDate: settlementScheduleRow.dueDate, amountPaise: settlementScheduleRow.closingPrincipalPaise });
+    expect(loan.data.lifecycleState).toBe("closed");
+
+    const compliance = records.filter(record => record.id.startsWith("feature:compliance:"));
+    expect(compliance).toHaveLength(3);
+    expect(compliance[1].data.renewedFromRecordId).toBe(compliance[0].id);
+    expect(compliance[2].data.renewedFromRecordId).toBe(compliance[1].id);
+    const reviews = records.filter(record => record.id.startsWith("compliance-overlap-review:"))
+      .map(record => record.data).sort((a, b) => a.decisionRevision - b.decisionRevision);
+    expect(reviews[1].supersedesEventId).toBe(reviews[0].eventId);
+
+    const rate = records.find(record => record.id.startsWith("feature:maintenance:rate:"))!;
+    expect(rate.data.entries.map((entry: any) => entry.effectiveFrom)).toEqual(["2026-11-01", "2026-11-02"]);
+    for (const accrual of records.filter(record => record.id.startsWith("feature:maintenance:daily-accrual:"))) {
+      const source = byId.get(accrual.data.dailyBusinessKmRecordId)!;
+      expect(source.revision).toBe(accrual.data.dailyBusinessKmRevision);
+      expect(source.data.unallocatedBusinessKm).toBe(0);
+      expect(source.data.entries.every((entry: any) => entry.allocationStatus === "allocated")).toBe(true);
+      expect(source.data.totalBusinessKm).toBe(accrual.data.businessKm);
+      expect(accrual.data.rateEffectiveFrom).toBe(accrual.data.operationalDate);
+    }
+
+    const expenses = records.filter(record => record.id.startsWith("feature:business-expenses:entry:"));
+    expect(new Set(expenses.map(record => record.data.sourceKind))).toEqual(new Set(["platform_fee", "traffic_challan", "miscellaneous"]));
+    const linkedExpenses = expenses.filter(record => record.data.tripFinancialSourceId);
+    expect(linkedExpenses.map(record => record.data.tripFinancialComponent).sort()).toEqual(["parking", "toll"]);
+    expect(linkedExpenses.every(record => record.data.tripFinancialSourceId === fixture.populatedGraph.work.tripFinancial.recordId &&
+      record.data.tripExpenseTreatment === "already-in-trip-closeout")).toBe(true);
+
+    const fuel = records.filter(record => record.id.startsWith("feature:business-expenses:fuel:"));
+    expect(fuel.filter(record => record.data.partialRefill === false)).toHaveLength(5);
+    expect(fuel.filter(record => record.data.partialRefill === true)).toHaveLength(2);
+    expect(byId.has("feature:performance:settings")).toBe(true);
+    expect(records.some(record => record.id.startsWith("feature:performance:pre-business-cost:"))).toBe(true);
+
+    for (const chain of fixture.populatedGraph.lineage.correctionChainHeads) {
+      const target = byId.get(chain.targetRecordId)!;
+      const corrections = records.filter(record => record.id.startsWith("historical-correction:") &&
+        record.data.targetRecordId === chain.targetRecordId).map(record => record.data)
+        .sort((a, b) => a.chainRevision - b.chainRevision);
+      const projection = projectHistoricalCorrectionsV1(target.data, corrections as never);
+      expect(projection.status).toBe("valid");
+      expect(projection.chainRevision).toBe(chain.chainRevision);
+      expect(projection.headCorrectionId).toBe(chain.headCorrectionId);
+      const head = byId.get("historical-correction-chain:" + encodeURIComponent(chain.targetRecordId))!;
+      expect(head.data).toMatchObject({ targetRecordId: chain.targetRecordId, chainRevision: chain.chainRevision, headCorrectionId: chain.headCorrectionId });
+    }
+  });
+
 });
