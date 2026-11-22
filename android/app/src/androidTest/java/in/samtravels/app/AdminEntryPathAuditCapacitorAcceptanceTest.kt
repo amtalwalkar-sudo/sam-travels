@@ -253,6 +253,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             }
             assertNotNull("Fuel persisted", fuel)
             fuelRecordId = fuel!!.id
+            assertRoomOperationReceiptExists(db, fuelRecordId!!)
             val fuelData = JSONObject(fuel.json).getJSONObject("data")
             assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
             assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
