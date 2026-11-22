@@ -5,7 +5,6 @@ import { browserDatabase } from "./database";
 import type { SnapshotManifest } from "../../core/src/backup";
 import { registerFeatures, registerBackupParticipants } from "../../core/src/features";
 import { isNonRestorableImportedRecord, isPreservedLocalRecord, isRuntimeLocalRecord } from "./backup-local-record-policy";
-
 export interface BrowserSnapshotData {
   records: unknown[];
   driverState: unknown[];
@@ -20,14 +19,12 @@ type Checkpoint = {
   snapshot: BrowserSnapshotData;
 };
 export type BrowserSnapshotTable = keyof BrowserSnapshotData;
-
 export type BrowserBackupParticipant = {
   id: string;
   featureId: string | "platform";
   schemaVersion: number;
   tableNames: BrowserSnapshotTable[];
 };
-
 /** One authoritative mapping from registered feature obligations to browser tables. */
 export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = Object.freeze([
   { id: "platform-records", featureId: "platform", schemaVersion: 1, tableNames: ["records"] },
@@ -41,7 +38,6 @@ export const BROWSER_BACKUP_PARTICIPANTS: readonly BrowserBackupParticipant[] = 
   { id: "finance-records", featureId: "finance", schemaVersion: 1, tableNames: ["records"] },
   { id: "performance-records", featureId: "performance", schemaVersion: 1, tableNames: ["records"] },
 ]);
-
 function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   const features = registerFeatures();
   const discovered = registerBackupParticipants(features);
@@ -67,7 +63,6 @@ function resolveBrowserBackupParticipants(): BrowserBackupParticipant[] {
   if (new Set(ids).size !== ids.length) throw new Error("backup_duplicate_participant_id");
   return resolved;
 }
-
 export type BrowserFeatureBackupAdapter = Readonly<{
   feature: import("../../core/src/features").FeatureDefinition;
   participantId: string;
@@ -75,9 +70,7 @@ export type BrowserFeatureBackupAdapter = Readonly<{
   validateRecord(record: import("../../core/src/types").RecordEnvelope<unknown>, allFeatureRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
   validateSnapshot?(allRecords: readonly import("../../core/src/types").RecordEnvelope<unknown>[]): void;
 }>;
-
 const customBrowserFeatureBackupAdapters = new Map<string, BrowserFeatureBackupAdapter>();
-
 /** Register executable feature-owned backup and restore validation for namespaced records. */
 export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureBackupAdapter): () => void {
   const existing = registerFeatures().get(adapter.feature.id);
@@ -111,7 +104,6 @@ export function registerBrowserFeatureBackupParticipant(adapter: BrowserFeatureB
   customBrowserFeatureBackupAdapters.set(adapter.participantId, Object.freeze({ ...adapter }));
   return () => { customBrowserFeatureBackupAdapters.delete(adapter.participantId); };
 }
-
 function currentParticipantManifest() {
   const required = [...registerBackupParticipants(registerFeatures()).values()]
     .filter(contract => !customBrowserFeatureBackupAdapters.has(contract.id)).map(
@@ -150,12 +142,10 @@ export function assertBrowserBackupTableCoverage(
     );
   }
 }
-
 function liveTables() {
   assertBrowserBackupTableCoverage();
   return tableNames().map(name => browserDatabase.table(name) as Table<unknown, string>);
 }
-
 async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<BrowserSnapshotData> {
   const entries = await Promise.all(tables.map(async table => [table.name, await table.toArray()] as const));
   return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
