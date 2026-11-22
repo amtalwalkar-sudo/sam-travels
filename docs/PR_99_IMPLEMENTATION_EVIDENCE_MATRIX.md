@@ -5,6 +5,8 @@
 **Method:** GitHub source/test and CI-workflow inspection; this document records test intent and assertions, not a claim that the latest CI run has passed.  
 **Authority:** [PR #99 End-to-End Contract](PR_99_END_TO_END_DATA_CALCULATION_PERSISTENCE_BACKUP_CONTRACT.md).
 
+**Definition of done (owner-approved 2026-11-22): WHOLE CONTRACT COMPLETION.** The four-stage tracker in the contract is a subordinate closeout workstream only. It does not close this evidence matrix, the broader contract gap register, or the end-to-end acceptance criteria. PR #99 remains incomplete while any applicable critical entry-path, operating-configuration, calculation/provenance, persistence/recovery, backup/restore, semantic-parity or negative-case requirement is partial, open, unproven or pending owner acceptance. Mark a requirement proven only with exact test/assertion evidence and final exact-head CI. Accepted physical-device/OEM, full-OS-reboot and real Dropbox-account deferrals remain explicit external/manual release gates. See contract §1A for the authoritative eight-part completion rule.
+
 
 
 ## 0. Data-collection entry-path audit — required before fixture population
