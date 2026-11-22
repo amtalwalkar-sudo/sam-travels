@@ -377,16 +377,6 @@ class SharedSevenDomainBackupLifecycleTest {
         }
     }
 
-    private fun assertCanonicalRecordsEqual(label: String, expected: JSONArray, actual: JSONArray) {
-        val expectedRows = SharedBackupFixtureAssertions.canonicalRecords(expected).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
-        val actualRows = SharedBackupFixtureAssertions.canonicalRecords(actual).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
-        val mismatches = (expectedRows.keys + actualRows.keys).toSortedSet()
-            .filter { expectedRows[it] != actualRows[it] }
-            .take(20)
-            .map { key -> "$key expected=${expectedRows[key]?.take(350)} actual=${actualRows[key]?.take(350)}" }
-        assertTrue("$label canonical record mismatch: ${mismatches.joinToString(" || ")}", mismatches.isEmpty())
-    }
-
     private fun canonicalJson(value: Any?): String = when (value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(
             prefix = "{", postfix = "}",
