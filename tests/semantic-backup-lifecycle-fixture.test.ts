@@ -56,7 +56,7 @@ type Fixture = {
       intentStates: Array<{ eventId: string; eventType: string; transitionAt: string; status: string; reason?: string; recoveryHistory?: string[] }>;
       outboxStates: Array<{ id: string; eventId: string; revision: number; delivered: boolean }>;
       boundaryState: { dailyBusinessKmRecordId: string; unallocatedBusinessKm: number; allocationStatus: string; rotationStatus: string };
-      tripFinancial: { recordId: string; tripId: string; operationId: string; values: Record<string, unknown>; author: { personId: string; role: "driver" }; submittedAt: string };
+      tripFinancial: { recordId: string; tripId: string; operationId: string; values: Record<string, unknown>; author: { personId: string; role: "driver" }; submittedAt: string; draftEdits: Array<{ field: string; before: number; after: number }> };
       generatedRecordIds: string[];
     };
     logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> };
