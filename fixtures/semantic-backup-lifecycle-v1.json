@@ -1547,7 +1547,6 @@
           "type": "trip_start",
           "id": "event-trip-start-001",
           "at": "2026-11-01T05:00:00.000Z",
-          "workflowVersion": 2,
           "driverContext": {
             "schemaVersion": 1,
             "driverId": "driver-001",
