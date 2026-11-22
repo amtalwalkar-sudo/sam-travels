@@ -896,6 +896,10 @@
           "pricePaisePerKg": 9000,
           "amountPaise": 9000,
           "partialRefill": true
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
@@ -1397,6 +1401,10 @@
           },
           "recordedAt": "2026-11-18T00:00:00.000Z",
           "businessEffectiveDate": "2026-11-05"
+        },
+        "createdBy": {
+          "personId": "synthetic-driver",
+          "role": "driver"
         }
       },
       {
