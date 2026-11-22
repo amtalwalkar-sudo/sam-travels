@@ -1536,7 +1536,11 @@
             "schemaVersion": 1,
             "driverId": "driver-001",
             "assignmentId": "assignment-001",
-            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
+            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+            "selectionRevision": 2,
+            "driverRevision": 1,
+            "vehicleRevision": 1,
+            "assignmentRevision": 1
           }
         },
         {
