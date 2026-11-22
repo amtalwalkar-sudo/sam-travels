@@ -74,7 +74,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertTrue("Work Driver selection saved", support.await(activity,
                 "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
             val selectedDriver = db.records().get("work:selected-driver")
-            assertNotNull("Driver", selectedDriver)
+            assertNotNull("D",selectedDriver)
             assertEquals("Selected Driver identity is the saved Driver",
                 driverData.getString("driverId"), JSONObject(selectedDriver!!.json).getJSONObject("data").getString("driverId"))
             assignmentRecordId = "feature:driver-records:assignment:" + driverData.getString("driverId")
@@ -251,7 +251,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                 row.id.startsWith("feature:business-expenses:fuel:") &&
                     JSONObject(row.json).getJSONObject("data").optString("vehicleId") == vehicleRecordId
             }
-            assertNotNull("Fuel", fuel)
+            assertNotNull("F",fuel)
             fuelRecordId = fuel!!.id
             assertRoomOperationReceiptExists(db, fuelRecordId!!)
             val fuelData = JSONObject(fuel.json).getJSONObject("data")
