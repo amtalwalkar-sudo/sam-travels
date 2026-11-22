@@ -36,6 +36,17 @@ describe("shared semantic backup validator parity matrix", () => {
     await browserDatabase.delete();
     await browserDatabase.open();
     await browserDatabase.records.bulkPut(fixture.populatedGraph.records as never);
+    const work = fixture.populatedGraph.work;
+    const financial = work.tripFinancial;
+    const endRide = work.committedTransitions.find((item: any) => item.type === "end_ride")!;
+    const tripCreate = work.committedTransitions.find((item: any) => item.type === "trip_create")!;
+    await browserDatabase.records.put({
+      id: financial.recordId, schemaVersion: 1, createdAt: endRide.at, updatedAt: financial.submittedAt,
+      source: "integration", revision: 2, createdBy: financial.author,
+      data: { schemaVersion: 1, tripId: financial.tripId, kind: "completed_ride_financials", status: "submitted",
+        endRideEventId: endRide.id, createdAt: endRide.at, tripContext: tripCreate.tripContext,
+        ...financial.values, operationId: financial.operationId, submittedAt: financial.submittedAt },
+    } as never);
     exported = await exportBrowserSnapshot("0.1.0");
     canonical = toCanonicalBackupSnapshotV1(exported.data, exported.manifest as never);
   });
@@ -63,6 +74,8 @@ describe("shared semantic backup validator parity matrix", () => {
         const payload = JSON.parse(target.json); payload.data.amountPaise = 0; target.json = JSON.stringify(payload);
       } else if (scenario.mutation === "set_data_vehicleId_missing") {
         const payload = JSON.parse(target.json); payload.data.vehicleId = "feature:vehicle:MISSINGVEHICLE001"; target.json = JSON.stringify(payload);
+      } else if (scenario.mutation === "set_data_tripFinancialSourceId_missing") {
+        const payload = JSON.parse(target.json); payload.data.tripFinancialSourceId = "work:trip-financial-obligation:MISSINGTRIP001"; target.json = JSON.stringify(payload);
       } else if (scenario.mutation === "set_participant_maintenance_records") {
         target.participantId = "maintenance-records";
       } else if (scenario.mutation === "set_headCorrectionId_missing") {
@@ -76,6 +89,7 @@ describe("shared semantic backup validator parity matrix", () => {
     };
     validateMutatedCanonical("malformed-fuel-purchase", "fuel_purchase_invalid");
     validateMutatedCanonical("dangling-business-expense-vehicle", "business_expense_vehicle_not_found");
+    validateMutatedCanonical("dangling-trip-financial-source", "business_expense_trip_financial_link_invalid");
     validateMutatedCanonical("wrong-feature-participant-owner", "backup_canonical_record_owner_mismatch");
     validateMutatedCanonical("invalid-maintenance-correction-head", "maintenance_correction_backup_head_invalid");
   });
