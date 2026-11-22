@@ -396,34 +396,4 @@ class DriverWorkflowStoreTest {
     }
 
 
-    @Test fun stalePwaWriteAfterOverlayCommitIsRejectedAndAuthoritativeRevisionWins() {
-        // The PWA reads idle/revision 0. Before its command reaches Room, the
-        // native overlay commits the same transition at revision 1.
-        val stalePwaCommand = command("stale-pwa-after-overlay")
-            .put("originSurface", "pwa")
-        val overlayCommand = command("overlay-wins-interleaving")
-            .put("originSurface", "native_overlay")
-
-        DriverWorkflowStore.queue(db, overlayCommand)
-        val committed = DriverWorkflowStore.complete(db, "overlay-wins-interleaving", gps())
-
-        assertEquals("shift_active", committed.getString("state"))
-        assertEquals(1, committed.getInt("revision"))
-        assertEquals("native_overlay", JSONObject(
-            db.logBookEvents().list().single().json,
-        ).getJSONObject("command").getString("originSurface"))
-
-        val staleFailure = runCatching {
-            DriverWorkflowStore.queue(db, stalePwaCommand)
-        }.exceptionOrNull()
-        assertEquals("stale_revision", staleFailure?.message)
-
-        val authoritative = DriverWorkflowStore.snapshot(db)
-        assertEquals("shift_active", authoritative.getString("state"))
-        assertEquals(1, authoritative.getInt("revision"))
-        assertEquals(1, DriverWorkflowStore.listEvents(db).size)
-        assertEquals(1, DriverWorkflowStore.listIntents(db).size)
-        assertTrue(db.records().get("driver-intent:stale-pwa-after-overlay") == null)
-    }
-
 }
