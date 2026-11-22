@@ -37,6 +37,27 @@ class SharedSemanticBackupValidatorParityTest {
                     row.getString("id"), row.toString(), row.getInt("schemaVersion"), row.getString("updatedAt"),
                 ))
             }
+            val work = fixture.getJSONObject("populatedGraph").getJSONObject("work")
+            val financial = work.getJSONObject("tripFinancial")
+            val endRide = (0 until work.getJSONArray("committedTransitions").length()).map {
+                work.getJSONArray("committedTransitions").getJSONObject(it)
+            }.first { it.optString("type") == "end_ride" }
+            val tripCreate = (0 until work.getJSONArray("committedTransitions").length()).map {
+                work.getJSONArray("committedTransitions").getJSONObject(it)
+            }.first { it.optString("type") == "trip_create" }
+            val financialData = JSONObject().put("schemaVersion", 1).put("tripId", financial.getString("tripId"))
+                .put("kind", "completed_ride_financials").put("status", "submitted")
+                .put("endRideEventId", endRide.getString("id")).put("createdAt", endRide.getString("at"))
+                .put("tripContext", tripCreate.getJSONObject("tripContext"))
+            val values = financial.getJSONObject("values")
+            values.keys().forEach { key -> financialData.put(key, values.get(key)) }
+            financialData.put("operationId", financial.getString("operationId"))
+                .put("submittedAt", financial.getString("submittedAt"))
+            val financialEnvelope = JSONObject().put("id", financial.getString("recordId"))
+                .put("schemaVersion", 1).put("createdAt", endRide.getString("at"))
+                .put("updatedAt", financial.getString("submittedAt")).put("source", "integration")
+                .put("revision", 2).put("createdBy", financial.getJSONObject("author")).put("data", financialData)
+            database.records().put(StoredRecord(financial.getString("recordId"), financialEnvelope.toString(), 1, financial.getString("submittedAt")))
             val validRows = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
             assertTrue(validRows.length() >= records.length())
             NativeBackupCoverage.validateBusinessRecords(validRows, requireExplicitOwnerTags = true)
@@ -68,6 +89,13 @@ class SharedSemanticBackupValidatorParityTest {
                     .first { it.getString("id") == recordId("dangling-business-expense-vehicle") }
                 val envelope = JSONObject(row.getString("json"))
                 envelope.getJSONObject("data").put("vehicleId", "feature:vehicle:MISSINGVEHICLE001")
+                row.put("json", envelope.toString())
+            }
+            assertRejected("dangling-trip-financial-source", "business_expense_trip_financial_link_invalid") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }
+                    .first { it.getString("id") == recordId("dangling-trip-financial-source") }
+                val envelope = JSONObject(row.getString("json"))
+                envelope.getJSONObject("data").put("tripFinancialSourceId", "work:trip-financial-obligation:MISSINGTRIP001")
                 row.put("json", envelope.toString())
             }
             assertRejected("wrong-feature-participant-owner", "backup_feature_record_owner_mismatch") { rows ->
