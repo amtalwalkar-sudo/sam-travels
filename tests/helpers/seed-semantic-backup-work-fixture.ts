@@ -37,7 +37,10 @@ export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflo
           ...(transition.driverContext ? { driverContext: transition.driverContext } : {}),
           ...(transition.tripContext ? { tripContext: transition.tripContext } : {}),
         }
-      : createDriverCommand(snapshot, transition.type as never, "pwa", transition.id, transition.at);
+      : {
+          ...createDriverCommand(snapshot, transition.type as never, "pwa", transition.id, transition.at),
+          ...(transition.driverContext ? { driverContext: transition.driverContext } : {}),
+        };
     const gps = { latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: transition.at, provider: "browser-geolocation" };
     await workflow.queueIntent({ command, status: "pending_location", createdAt: transition.at, updatedAt: transition.at });
     await workflow.completeIntent(command.eventId, gps, transition.at);
