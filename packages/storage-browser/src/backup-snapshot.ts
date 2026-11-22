@@ -160,6 +160,19 @@ async function readSnapshotTables(tables: Table<unknown, string>[]): Promise<Bro
   return Object.fromEntries(entries) as unknown as BrowserSnapshotData;
 }
 
+function isNonPortableIdentityRecord(id: string): boolean {
+  return id === "work:selected-driver" ||
+    id.startsWith("identity:driver-person-link:") ||
+    id.startsWith("identity:person:") ||
+    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
+    id.startsWith("__sam_travels_recovery_journal__:");
+}
+function isPreservedLocalRecord(id: string): boolean {
+  return id === "work:selected-driver" ||
+    id.startsWith("identity:driver-person-link:") ||
+    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
+    id.startsWith("__sam_travels_recovery_journal__:");
+}
 function rowKey(table: BrowserSnapshotTable, row: unknown): string {
   if (!row || typeof row !== "object") return JSON.stringify(row);
   const value = row as Record<string, unknown>;
@@ -303,6 +316,21 @@ export async function restoreBrowserSnapshot(input: {
   const tables = liveTables();
   const current = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
 
+  const preservedLocalRecords = current.records.filter(row =>
+    row && typeof row === "object" && isPreservedLocalRecord(String((row as { id?: unknown }).id ?? "")),
+  );
+  const restoredData: BrowserSnapshotData = {
+    ...input.data,
+    records: [
+      ...input.data.records.filter(row => {
+        const id = row && typeof row === "object" ? String((row as { id?: unknown }).id ?? "") : "";
+        return !isNonPortableIdentityRecord(id);
+      }),
+      ...preservedLocalRecords.filter(local => !input.data.records.some(row =>
+        row && typeof row === "object" && (row as { id?: unknown }).id === (local as { id?: unknown }).id,
+      )),
+    ],
+  };
   const checkpointId = crypto.randomUUID();
   const checkpoint: Checkpoint = {
     id: checkpointId,
@@ -316,14 +344,14 @@ export async function restoreBrowserSnapshot(input: {
     await browserDatabase.transaction("rw", [...tables, checkpointTable()], async () => {
       for (let index = 0; index < tables.length; index += 1) {
         await tables[index].clear();
-        const rows = input.data[tableNames()[index]];
+        const rows = restoredData[tableNames()[index]];
         if (rows.length) await tables[index].bulkPut(rows);
       }
       await checkpointTable().put({ ...checkpoint, status: "restored_unverified" });
     });
 
     const verified = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
-    if (!snapshotsEqual(verified, input.data)) throw new Error("backup_post_restore_verification_failed");
+    if (!snapshotsEqual(verified, restoredData)) throw new Error("backup_post_restore_verification_failed");
     return {
       checkpointId,
       restoredCounts: Object.fromEntries(tableNames().map(name => [name, verified[name].length])),
