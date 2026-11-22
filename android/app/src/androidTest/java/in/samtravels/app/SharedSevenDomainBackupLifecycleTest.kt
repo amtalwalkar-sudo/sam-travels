@@ -310,8 +310,8 @@ class SharedSevenDomainBackupLifecycleTest {
                 SharedBackupFixtureAssertions.canonicalRecords(source.snapshot.getJSONArray("records")),
                 SharedBackupFixtureAssertions.canonicalRecords(reopened.snapshot.getJSONArray("records")),
             )
-            assertEquals(3, database.logBookEvents().list().size)
-            assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
+            assertEquals(6, database.logBookEvents().list().size)
+            assertEquals(6, database.records().list().count { it.id.startsWith("driver-outbox:") })
             val reexported = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
             )
