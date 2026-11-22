@@ -1792,7 +1792,7 @@
       "reversalSourceIds": [
         "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031"
       ],
-      "note": "Finance transaction lineage remains to be added to the production lifecycle fixture.",
+      "note": "Finance transaction lineage is represented by the linked loan schedule, payment ledger, reversal, prepayment schedule revision, settlement cutoff, and closed-loan state.",
       "complianceOverlapReviewHeads": [
         {
           "overlapKey": "feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31",
@@ -2159,6 +2159,18 @@
         "category": "dangling_reference",
         "recordId": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174084",
         "mutation": "set_data_tripFinancialSourceId_missing"
+      },
+      {
+        "id": "malformed-record-revision",
+        "category": "malformed_revision",
+        "recordId": "feature:vehicle:SYNTHETICVEHICLE001",
+        "mutation": "set_record_revision_zero"
+      },
+      {
+        "id": "duplicate-record-identity",
+        "category": "duplicate_identity",
+        "recordId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
+        "mutation": "duplicate_record_identity"
       }
     ]
   }
