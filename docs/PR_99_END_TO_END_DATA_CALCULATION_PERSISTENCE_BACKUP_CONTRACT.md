@@ -534,7 +534,7 @@ The PR remains draft and unmerged until mandatory closure has passing evidence o
 
 ## 15. Current completion record and four-stage closeout plan — 2026-11-21
 
-This section records the current implementation position and the agreed remaining work. It does not replace the normative domain contracts or turn an unratified business policy into an approved rule.
+This section records the current implementation position and the agreed remaining work. It does not replace normative domain contracts. Finance payment-allocation policy was explicitly ratified by the owner on 2026-11-22; the Stage 2 work below now verifies service and cross-runtime conformance to that approved policy.
 
 ### Completed work recorded at this checkpoint
 
@@ -563,12 +563,15 @@ The stages below are the only planned closeout sequence for the currently identi
 - **Exact-head CI:** [Sam Travels CI run 44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946) passed Architecture, full Web/PWA regression, Android instrumentation, Cross-platform encrypted backup restore and Integrated regression on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`. Production geocoder verification was skipped and is not a required PR gate.
 - **Exit evidence:** the stored Finance event itself identifies the correct Admin actor, and the same attribution survives readback and restore without duplicate financial events.
 
-#### Stage 2 — Ratify and implement Finance payment-allocation policy
+#### Stage 2 — Implement owner-approved Finance payment-allocation policy
 
-- Present the currently proposed Finance payment-allocation policy and its concrete consequences to the owner for an explicit decision.
-- Do not implement or label the proposal normative until the owner approves or corrects it.
-- After approval, update the Finance owner contract, implement the approved allocation at the owning service boundary, and add boundary, correction and cross-runtime regression tests.
-- **Exit evidence:** one owner-approved normative policy, matching production behaviour and passing tests. This stage is blocked only on the owner's policy decision; no policy is to be guessed by implementation.
+**Owner decision: APPROVED AS WRITTEN — 2026-11-22.** The owner approved all six rules in `FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md`: deterministic oldest-due-first proposal; user-reviewable/manual allocation within payment and installment bounds; partial EMI coverage; explicit unallocated credit with no automatic principal-prepayment or future-EMI conversion; separate explicit processing of unallocated credit; and immutable schedule-version/installment linkage.
+
+- The Finance owner contract is now normative and records the approval date.
+- Verify the production service boundary enforces eligibility, amount, due-date, schedule-version, allocation-total and reversal invariants independently of UI validation.
+- Add/retain regression tests for multi-EMI chronological proposals, manual override, partial completion, unallocated credit, future-EMI rejection, reversal/correction capacity restoration, schedule-version isolation, idempotency and atomicity.
+- Verify the same Finance-owned ledger and policy validators are used by Browser/Dexie and Android/Room; retain the Android backup validator/restore parity coverage.
+- **Exit evidence:** approved normative policy, matching service-boundary behaviour, named regression assertions and passing focused plus exact-head CI. Do not change the separate approved Reduce Tenure prepayment or settlement contracts.
 
 #### Stage 3 — Prove the remaining encrypted restore direction and semantic parity
 
