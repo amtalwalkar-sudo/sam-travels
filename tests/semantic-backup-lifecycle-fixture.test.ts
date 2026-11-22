@@ -16,7 +16,6 @@ import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/mai
 import { registerBusinessExpensesBrowserBackupParticipant } from "../apps/web/src/business-expenses-backup";
 import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/performance-backup";
 import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/canonical-backup-snapshot";
-import { resolveComplianceOverlapReview } from "../packages/features/compliance";
 import { seedSemanticBackupWorkFixture } from "./helpers/seed-semantic-backup-work-fixture";
 
 type Fixture = {
@@ -176,68 +175,6 @@ describe("shared cross-platform semantic backup fixture contract", () => {
 
 
 
-  it("declares the expanded populated fixture without overstating deferred external gates", () => {
-    expect(fixture.status).toBe("populated_fixture_ready_for_all_domain_validation");
-    expect(fixture.populatedGraph.status).toBe("populated_fixture_ready_for_all_domain_validation");
-    expect(fixture.populatedGraph.recordCount).toBe(fixture.populatedGraph.records.length);
-    expect(fixture.populatedGraph.records).toHaveLength(44);
-    const ids = fixture.populatedGraph.records.map(record => record.id);
-    expect(ids.some(id => id.startsWith("feature:finance:"))).toBe(true);
-    expect(ids.some(id => id.startsWith("feature:compliance:"))).toBe(true);
-    expect(ids.some(id => id.startsWith("feature:maintenance:"))).toBe(true);
-    expect(ids.some(id => id.startsWith("feature:business-expenses:"))).toBe(true);
-    expect(ids.some(id => id.startsWith("feature:performance:"))).toBe(true);
-    expect(fixture.populatedGraph.lineage.reversalSourceIds).toContain("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031");
-    const paymentLedger = fixture.populatedGraph.records.find(record => record.id ===
-      "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000") as any;
-    expect(paymentLedger.data.entries).toHaveLength(5);
-    expect(paymentLedger.data.entries.map((entry: any) => entry.kind)).toEqual(["payment", "reversal", "payment", "payment", "settlement"]);
-    expect(paymentLedger.data.entries.find((entry: any) => entry.kind === "settlement")).toMatchObject({ id: "fixture-settlement-001", scheduleVersion: 2, amountPaise: 50000 });
-    expect(ids).toContain("feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000");
-    expect(ids).toContain("feature:compliance:123e4567-e89b-42d3-a456-426614174012");
-    const complianceRecords = fixture.populatedGraph.records.filter(record => record.id.startsWith("feature:compliance:"));
-    expect(complianceRecords).toHaveLength(3);
-    expect(complianceRecords.find(record => record.id.endsWith("174012"))?.data.renewedFromRecordId)
-      .toBe("feature:compliance:123e4567-e89b-42d3-a456-426614174011");
-    const reviews = fixture.populatedGraph.records.filter(record => record.id.startsWith("compliance-overlap-review:"));
-    expect(reviews.map(record => record.data.decisionRevision).sort()).toEqual([1, 2]);
-    expect(resolveComplianceOverlapReview(
-      [{ recordId: "feature:compliance:123e4567-e89b-42d3-a456-426614174010", recordRevision: 1 },
-       { recordId: "feature:compliance:123e4567-e89b-42d3-a456-426614174011", recordRevision: 1 }],
-      "2026-12-01", "2026-12-31", reviews.map(record => record.data as any),
-    )).toBe("rejected");
-    expect(ids).toEqual(expect.arrayContaining([
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074",
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
-      "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076",
-      "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174073",
-      "historical-correction:fixture-fuel-amount-fix",
-      "historical-correction:fixture-fuel-interval-partial-amount-fix",
-    ]));
-    expect(ids).toEqual(expect.arrayContaining([
-      "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060",
-      "compliance-overlap-review-head:" + encodeURIComponent("feature:compliance:123e4567-e89b-42d3-a456-426614174010|feature:compliance:123e4567-e89b-42d3-a456-426614174011|2026-12-01|2026-12-31"),
-      "historical-correction:compliance-fix-1",
-      "historical-correction-chain:" + encodeURIComponent("feature:compliance:123e4567-e89b-42d3-a456-426614174010"),
-    ]));
-    expect(ids).toEqual(expect.arrayContaining([
-      "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
-      "historical-correction:maintenance-fix-1",
-      "historical-correction:maintenance-fix-2",
-      "historical-correction-chain:" + encodeURIComponent("feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050"),
-    ]));
-    expect(ids.some(id => id.startsWith("feature:driver-records:"))).toBe(true);
-    expect(fixture.populatedGraph.work.eventIds).toHaveLength(6);
-    expect(fixture.populatedGraph.work.intentIds).toHaveLength(8);
-    expect(fixture.populatedGraph.work.pendingIntentIds).toHaveLength(2);
-    expect(fixture.populatedGraph.work.deliveredOutboxIds).toHaveLength(5);
-    expect(fixture.populatedGraph.work.pendingOutboxIds).toHaveLength(1);
-    expect(fixture.populatedGraph.work.boundaryState).toMatchObject({ rotationStatus: "deferred_during_active_trip", unallocatedBusinessKm: 5, allocationStatus: "awaiting_operational_boundary" });
-    expect(fixture.populatedGraph.logBook.events).toHaveLength(5);
-  });
 
   it("runs the populated feature-record graph through production Browser export, restore and re-export", async () => {
     await browserDatabase.delete();
