@@ -34,7 +34,31 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
-  populatedGraph: any;
+  populatedGraph: {
+    status: string;
+    recordCount: number;
+    records: Array<{ id: string; data: any }>;
+    lineage: {
+      correctionChainHeads: Array<{ featureId: string; targetRecordId: string; chainRevision: number; headCorrectionId: string }>;
+      reversalSourceIds: string[];
+      finance: Record<string, unknown>;
+      maintenanceRateHistory: Record<string, unknown>;
+      pendingBoundaryDailyKmRecordId: string;
+    };
+    work: {
+      eventIds: string[];
+      driverId: string;
+      intentIds: string[];
+      pendingIntentIds: string[];
+      deliveredOutboxIds: string[];
+      pendingOutboxIds: string[];
+      committedTransitions: Array<{ type: string; id: string; at: string }>;
+      intentStates: Array<{ eventId: string; eventType: string; transitionAt: string; status: string; reason?: string; recoveryHistory?: string[] }>;
+      outboxStates: Array<{ id: string; eventId: string; revision: number; delivered: boolean }>;
+      boundaryState: { dailyBusinessKmRecordId: string; unallocatedBusinessKm: number; allocationStatus: string; rotationStatus: string };
+    };
+    logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> };
+  };
   emptyParticipantIds: string[];
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
   canonicalSnapshotContract: { format: string; schemaVersion: number; recordShape: string[]; participantInventory: string; revisionSource: string; interchange: string };

@@ -1,7 +1,13 @@
 import { createDriverCommand } from "../../packages/features/work-shift";
 import type { DexieDriverWorkflowRepository } from "../../packages/storage-browser/src/driver-workflow";
 
-export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflowRepository, work: any) {
+type SemanticBackupWorkFixture = {
+  committedTransitions: Array<{ type: string; id: string; at: string }>;
+  outboxStates: Array<{ eventId: string; delivered: boolean }>;
+  intentStates: Array<{ eventId: string; eventType: string; transitionAt: string; status: string; reason?: string }>;
+};
+
+export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflowRepository, work: SemanticBackupWorkFixture) {
   const transitions = work.committedTransitions;
   for (const transition of transitions) {
     const command = createDriverCommand(await workflow.getSnapshot(), transition.type as never, "pwa", transition.id, transition.at);
