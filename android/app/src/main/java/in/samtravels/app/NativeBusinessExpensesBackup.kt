@@ -183,10 +183,16 @@ internal object NativeBusinessExpensesBackup {
                         (if (trip.optString("parkingPayer") == "driver") trip.optLong("parkingPaise", 0L) else 0L)
                     else -> 0L
                 }
-                val tripDate = trip.optJSONObject("tripContext")?.optString("operationalDate")
+                val tripContext = trip.optJSONObject("tripContext")
+                val tripDate = tripContext?.optString("operationalDate")
                 val linkedOriginal = if (expense.optString("effect") == "reversal")
                     entries[expense.optString("reversesSourceId")] else expense
-                require(expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
+                require(tripEnvelope.optString("id") == tripId &&
+                    tripId == "work:trip-financial-obligation:" + trip.optString("tripId") &&
+                    trip.optInt("schemaVersion", -1) == 1 && trip.optString("endRideEventId").isNotBlank() &&
+                    tripContext?.optString("vehicleId") == expense.optString("vehicleId") &&
+                    tripContext.optString("driverId") == expense.optString("driverId") &&
+                    expense.optString("tripExpenseTreatment") == "already-in-trip-closeout" &&
                     trip.optString("kind") == "completed_ride_financials" &&
                     trip.optString("status") == "submitted" && expectedAmount > 0L &&
                     integer(expense, "amountPaise") == expectedAmount &&
