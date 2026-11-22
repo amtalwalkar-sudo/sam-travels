@@ -36,7 +36,7 @@ type Fixture = {
     compatibility: string;
   };
   status: string;
-  populatedGraph: { status: string; recordCount: number; records: Array<{ id: string; data: { kind?: string; registrationNumber?: string; vehicleId?: string; assignments?: Array<{ vehicleId: string }> } }>; lineage: { correctionChainHeads: Array<{ featureId: string; targetRecordId: string; chainRevision: number; headCorrectionId: string }>; reversalSourceIds: string[] }; work: { eventIds: string[]; driverId: string }; logBook: { events: Array<{ eventId: string; driverId: string; vehicleId: string }> } };
+  populatedGraph: any;
   emptyParticipantIds: string[];
   emptyParticipantPolicy: { required: string; restore: string; negative: string };
   canonicalSnapshotContract: { format: string; schemaVersion: number; recordShape: string[]; participantInventory: string; revisionSource: string; interchange: string };
@@ -44,7 +44,8 @@ type Fixture = {
     fuelIntervals: Array<Record<string, unknown>>;
     dailyExpenses: Record<string, number>;
     maintenanceAccrual: Record<string, string | number>;
-    finance: Record<string, number>;
+    maintenanceAccruals: Array<Record<string, string | number>>;
+    finance: Record<string, unknown>;
   };
 };
 
@@ -165,24 +166,35 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     }), { fuelPaise: 0, platformFeesPaise: 0, trafficChallansPaise: 0, miscellaneousPaise: 0,
       reportedSourceExpensePaise: 0, normalOperatingExpensePaise: 0, fullCostExpensePaise: 0 });
     expect(dailyTotals).toEqual(fixture.expectedBusinessResults.dailyExpenses);
-    const accrual = rows.find(row => row.id.startsWith("feature:maintenance:daily-accrual:"))?.data;
-    expect(accrual).toMatchObject(fixture.expectedBusinessResults.maintenanceAccrual);
+    const accruals = rows.filter(row => row.id.startsWith("feature:maintenance:daily-accrual:")).map(row => row.data);
+    expect(accruals).toHaveLength(fixture.expectedBusinessResults.maintenanceAccruals.length);
+    for (const expected of fixture.expectedBusinessResults.maintenanceAccruals) expect(accruals.find((row: any) => row.operationalDate === expected.operationalDate)).toMatchObject(expected);
+    const boundarySource = rows.find(row => row.id === fixture.populatedGraph.lineage.pendingBoundaryDailyKmRecordId)?.data;
+    expect(boundarySource).toMatchObject({ totalBusinessKm: 0, unallocatedBusinessKm: 5 });
+    expect(accruals.some((row: any) => row.operationalDate === "2026-11-03")).toBe(false);
     const loan = rows.find(row => row.id.startsWith("feature:finance:loan:"))?.data;
     expect(loan?.details.principalPaise).toBe(fixture.expectedBusinessResults.finance.loanPrincipalPaise);
     expect(loan?.scheduleVersions[0].output.regularEmiPaise).toBe(fixture.expectedBusinessResults.finance.regularEmiPaise);
     expect(loan?.scheduleVersions[0].output.rows).toHaveLength(fixture.expectedBusinessResults.finance.scheduledInstallments);
+    expect(loan?.lifecycleState).toBe("closed");
     const ledger = rows.find(row => row.id.startsWith("feature:finance:payments:"))?.data;
-    expect(ledger.entries.reduce((sum: number, item: any) => sum + item.amountPaise, 0))
-      .toBe(fixture.expectedBusinessResults.finance.committedPaymentPaise);
-    expect(ledger.entries.reduce((sum: number, item: any) => sum + item.unallocatedCreditPaise, 0))
-      .toBe(fixture.expectedBusinessResults.finance.unallocatedCreditPaise);
+    const reversed = new Set(ledger.entries.filter((item: any) => item.kind === "reversal").map((item: any) => item.paymentId));
+    const activePayments = ledger.entries.filter((item: any) => item.kind === "payment" && !reversed.has(item.id));
+    expect(activePayments.reduce((sum: number, item: any) => sum + item.amountPaise, 0)).toBe(fixture.expectedBusinessResults.finance.committedPaymentPaise);
+    expect(ledger.entries.filter((item: any) => item.kind === "reversal").reduce((sum: number, item: any) => sum + item.amountPaise, 0)).toBe(fixture.expectedBusinessResults.finance.paymentReversalPaise);
+    expect(activePayments.reduce((sum: number, item: any) => sum + item.unallocatedCreditPaise, 0)).toBe(fixture.expectedBusinessResults.finance.unallocatedCreditPaise);
+    const prepayment = rows.find(row => row.id.startsWith("feature:finance:prepayments:"))?.data;
+    expect(prepayment.revisions[0]).toMatchObject({ mode: "reduce_tenure", prepaymentAmountPaise: fixture.expectedBusinessResults.finance.prepaymentPaise, principalAfterPaise: fixture.expectedBusinessResults.finance.prepaymentPrincipalAfterPaise, version: fixture.expectedBusinessResults.finance.prepaymentScheduleVersion });
+    expect(prepayment.revisions[0].output).toMatchObject({ remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments, finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate, regularEmiPaise: 100000 });
+    const settlement = ledger.entries.find((item: any) => item.kind === "settlement");
+    expect(settlement).toMatchObject({ id: "fixture-settlement-001", amountPaise: fixture.expectedBusinessResults.finance.settlementPaise, scheduleVersion: fixture.expectedBusinessResults.finance.settlementScheduleVersion, paidThroughInstallment: fixture.expectedBusinessResults.finance.settlementPaidThroughInstallment });
   });
 
   it("marks the populated fixture lifecycle as production-verified without overstating deferred external gates", () => {
-    expect(fixture.status).toBe("populated_production_lifecycle_verified");
-    expect(fixture.populatedGraph.status).toBe("synthetic_production_lifecycle_verified");
-    expect(fixture.populatedGraph.recordCount).toBe(29);
-    expect(fixture.populatedGraph.records).toHaveLength(29);
+    expect(fixture.status).toBe("populated_fixture_ready_for_all_domain_validation");
+    expect(fixture.populatedGraph.status).toBe("populated_fixture_ready_for_all_domain_validation");
+    expect(fixture.populatedGraph.recordCount).toBe(fixture.populatedGraph.records.length);
+    expect(fixture.populatedGraph.records).toHaveLength(37);
     const ids = fixture.populatedGraph.records.map(record => record.id);
     expect(ids.some(id => id.startsWith("feature:finance:"))).toBe(true);
     expect(ids.some(id => id.startsWith("feature:compliance:"))).toBe(true);
@@ -192,8 +204,10 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     expect(fixture.populatedGraph.lineage.reversalSourceIds).toContain("feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174031");
     const paymentLedger = fixture.populatedGraph.records.find(record => record.id ===
       "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000") as any;
-    expect(paymentLedger.data.entries).toHaveLength(1);
-    expect(paymentLedger.data.entries[0]).toMatchObject({ id: "fixture-payment-001", scheduleVersion: 1, amountPaise: 100000 });
+    expect(paymentLedger.data.entries).toHaveLength(5);
+    expect(paymentLedger.data.entries.map((entry: any) => entry.kind)).toEqual(["payment", "reversal", "payment", "payment", "settlement"]);
+    expect(paymentLedger.data.entries.find((entry: any) => entry.kind === "settlement")).toMatchObject({ id: "fixture-settlement-001", scheduleVersion: 2, amountPaise: 50000 });
+    expect(ids).toContain("feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000");
     expect(ids).toEqual(expect.arrayContaining([
       "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
       "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
@@ -215,6 +229,11 @@ describe("shared cross-platform semantic backup fixture contract", () => {
     ]));
     expect(ids.some(id => id.startsWith("feature:driver-records:"))).toBe(true);
     expect(fixture.populatedGraph.work.eventIds).toHaveLength(3);
+    expect(fixture.populatedGraph.work.intentIds).toHaveLength(5);
+    expect(fixture.populatedGraph.work.pendingIntentIds).toHaveLength(2);
+    expect(fixture.populatedGraph.work.deliveredOutboxIds).toHaveLength(2);
+    expect(fixture.populatedGraph.work.pendingOutboxIds).toHaveLength(1);
+    expect(fixture.populatedGraph.work.boundaryState).toMatchObject({ rotationStatus: "deferred_during_active_trip", unallocatedBusinessKm: 5, allocationStatus: "awaiting_operational_boundary" });
     expect(fixture.populatedGraph.logBook.events).toHaveLength(2);
   });
 
@@ -238,14 +257,10 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       // same lifecycle snapshot includes durable intents, committed events and
       // outbox state rather than only feature-record envelopes.
       const workflow = new DexieDriverWorkflowRepository();
-      const transitions = [
-        { type: "shift_start" as const, id: "event-shift-start-001", at: "2026-11-01T04:45:00.000Z" },
-        { type: "trip_start" as const, id: "event-trip-start-001", at: "2026-11-01T05:00:00.000Z" },
-        { type: "trip_end" as const, id: "event-trip-end-001", at: "2026-11-01T05:30:00.000Z" },
-      ];
+      const transitions = fixture.populatedGraph.work.committedTransitions;
       for (const transition of transitions) {
         const command = createDriverCommand(
-          await workflow.getSnapshot(), transition.type, "pwa", transition.id, transition.at,
+          await workflow.getSnapshot(), transition.type as never, "pwa", transition.id, transition.at,
         );
         const gps: GpsFix = {
           latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8,
@@ -256,6 +271,20 @@ describe("shared cross-platform semantic backup fixture contract", () => {
           createdAt: transition.at, updatedAt: transition.at,
         });
         await workflow.completeIntent(command.eventId, gps, transition.at);
+        if (fixture.populatedGraph.work.outboxStates.find((item: any) => item.eventId === transition.id)?.delivered) await workflow.markEventDelivered(transition.id);
+      }
+      const replayTransition = transitions[transitions.length - 1];
+      await workflow.completeIntent(replayTransition.id, { latitude: 19.076, longitude: 72.8777, horizontalAccuracyM: 8, fixAt: replayTransition.at, provider: "browser-geolocation" }, replayTransition.at);
+      for (const scenario of fixture.populatedGraph.work.intentStates.filter((item: any) => item.status !== "recorded")) {
+        const command = createDriverCommand(await workflow.getSnapshot(), scenario.eventType as never, "pwa", scenario.eventId, scenario.transitionAt);
+        const intent = { command, status: "pending_location" as const, createdAt: scenario.transitionAt, updatedAt: scenario.transitionAt };
+        await workflow.queueIntent(intent);
+        await workflow.queueIntent(intent);
+        if (scenario.status === "needs_attention") {
+          await workflow.markNeedsAttention(scenario.eventId, scenario.reason ?? "gps_recovery_window_expired");
+          await workflow.reactivateIntent(scenario.eventId);
+          await workflow.markNeedsAttention(scenario.eventId, scenario.reason ?? "gps_recovery_window_expired");
+        }
       }
       const sourceEvents = await workflow.listEvents();
       rebuildTripHistoryProjection(sourceEvents);
@@ -310,8 +339,11 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         .sort((left: any, right: any) => left.command.transitionAt.localeCompare(right.command.transitionAt))
         .map((event: any) => event.eventId))
         .toEqual(transitions.map(transition => transition.id));
-      expect(exported.data.driverIntents).toHaveLength(3);
-      expect(exported.data.driverOutbox).toHaveLength(3);
+      expect(exported.data.driverIntents).toHaveLength(fixture.populatedGraph.work.intentIds.length);
+      expect(exported.data.driverIntents.filter((item: any) => item.status === "pending_location").map((item: any) => item.command.eventId)).toContain("event-trip-start-pending-001");
+      expect(exported.data.driverIntents.filter((item: any) => item.status === "needs_attention").map((item: any) => item.command.eventId)).toContain("event-trip-start-retry-001");
+      expect(exported.data.driverOutbox).toHaveLength(fixture.populatedGraph.work.outboxStates.length);
+      for (const expected of fixture.populatedGraph.work.outboxStates) expect(exported.data.driverOutbox.find((item: any) => item.id === expected.id)).toMatchObject({ delivered: expected.delivered, eventId: expected.eventId, revision: expected.revision });
 
       await browserDatabase.records.clear();
       const staleEmptyOwnerRecord = {

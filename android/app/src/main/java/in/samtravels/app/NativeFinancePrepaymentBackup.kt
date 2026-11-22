@@ -76,13 +76,18 @@ internal object NativeFinancePrepaymentBackup {
                 val commandId = revision.optString("commandId")
                 val createdAt = revision.optString("createdAt")
                 val mode = revision.optString("mode")
-                val requiredRevisionKeys = setOf("version", "commandId", "effectiveDate",
-                    "createdAt", "mode", "principalBeforePaise", "prepaymentAmountPaise", "principalAfterPaise",
-                    "calculationId", "calculationVersion", "inputSchemaVersion", "outputSchemaVersion", "input", "output")
+                val requiredRevisionKeys = setOf("version", "previousScheduleVersion", "expectedLoanRevision",
+                    "expectedPaymentLedgerRevision", "source", "commandId", "effectiveDate", "createdAt", "mode",
+                    "principalBeforePaise", "prepaymentAmountPaise", "principalAfterPaise", "calculationId",
+                    "calculationVersion", "inputSchemaVersion", "outputSchemaVersion", "input", "output")
                 val revisionKeys = revision.keys().asSequence().toSet()
                 require((revisionKeys == requiredRevisionKeys || revisionKeys == requiredRevisionKeys + "createdBy") &&
                     (!revision.has("createdBy") || validCreatedBy(revision.optJSONObject("createdBy"))) &&
                     integer(revision, "version", 1) == baseVersion + index + 1L &&
+                    integer(revision, "previousScheduleVersion", 1) == baseVersion + index.toLong() &&
+                    integer(revision, "expectedLoanRevision", 1) >= 1L &&
+                    (revision.isNull("expectedPaymentLedgerRevision") || integer(revision, "expectedPaymentLedgerRevision", 1) >= 1L) &&
+                    revision.optString("source").isNotBlank() &&
                     commandId.isNotBlank() && commands.add(commandId) &&
                     date(revision.optString("effectiveDate")).toString() == revision.optString("effectiveDate") &&
                     validInstant(createdAt) && (previousCreatedAt.isEmpty() || createdAt >= previousCreatedAt) &&

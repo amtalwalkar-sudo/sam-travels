@@ -32,6 +32,7 @@ class SharedSevenDomainBackupLifecycleTest {
             .open("semantic-backup-lifecycle-v1.json")
             .bufferedReader().use { JSONObject(it.readText()) }
         val graph = fixture.getJSONObject("populatedGraph")
+        val workFixture = graph.getJSONObject("work")
         val at = "2026-11-01T04:45:00.000Z"
         val builder = Room.databaseBuilder(context, LocalDatabase::class.java, name)
             .allowMainThreadQueries()
@@ -50,11 +51,11 @@ class SharedSevenDomainBackupLifecycleTest {
             // Populate real Work intent/state/outbox and Log Book event rows via
             // the Room workflow transaction, using the fixture's configured pair.
             DriverWorkflowIdentityTestFixtures.seed(database, "driver-001", "synthetic-person-001")
-            val transitions = listOf(
-                Triple("shift_start", "event-shift-start-001", at),
-                Triple("trip_start", "event-trip-start-001", "2026-11-01T05:00:00.000Z"),
-                Triple("trip_end", "event-trip-end-001", "2026-11-01T05:30:00.000Z"),
-            )
+            val transitionsJson = workFixture.getJSONArray("committedTransitions")
+            val transitions = (0 until transitionsJson.length()).map { index ->
+                val item = transitionsJson.getJSONObject(index)
+                Triple(item.getString("type"), item.getString("id"), item.getString("at"))
+            }
             for ((eventType, eventId, transitionAt) in transitions) {
                 val current = DriverWorkflowStore.snapshot(database)
                 val command = JSONObject()
@@ -75,6 +76,26 @@ class SharedSevenDomainBackupLifecycleTest {
                     .put("fixAt", transitionAt)
                     .put("provider", "android-test")
                 DriverWorkflowStore.complete(database, eventId, gps, java.time.Instant.parse(transitionAt))
+                val expectedOutbox = (0 until workFixture.getJSONArray("outboxStates").length()).map { workFixture.getJSONArray("outboxStates").getJSONObject(it) }.firstOrNull { it.optString("eventId") == eventId }
+                if (expectedOutbox?.optBoolean("delivered") == true) DriverWorkflowOutbox.markEventDelivered(database, eventId)
+            }
+            val intentStates = workFixture.getJSONArray("intentStates")
+            for (index in 0 until intentStates.length()) {
+                val scenario = intentStates.getJSONObject(index)
+                if (scenario.optString("status") == "recorded") continue
+                val eventId = scenario.getString("eventId")
+                val transitionAt = scenario.getString("transitionAt")
+                val current = DriverWorkflowStore.snapshot(database)
+                val command = JSONObject().put("schemaVersion", 1).put("commandId", eventId).put("eventId", eventId)
+                    .put("eventType", scenario.getString("eventType")).put("originSurface", "pwa").put("transitionAt", transitionAt)
+                    .put("expectedPriorState", current.getString("state")).put("expectedRevision", current.getInt("revision")).put("idempotencyKey", eventId)
+                DriverWorkflowStore.queue(database, command, java.time.Instant.parse(transitionAt))
+                if (scenario.optString("status") == "needs_attention") {
+                    val reason = scenario.getString("reason")
+                    DriverWorkflowStore.markNeedsAttention(database, eventId, reason)
+                    DriverWorkflowStore.reactivate(database, eventId)
+                    DriverWorkflowStore.markNeedsAttention(database, eventId, reason)
+                }
             }
 
             val source = NativeSnapshotBuilder.build(
@@ -113,13 +134,23 @@ class SharedSevenDomainBackupLifecycleTest {
             val paymentLedger = JSONObject(database.records().get(
                 "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")!!.json)
                 .getJSONObject("data").getJSONArray("entries")
-            assertEquals(1, paymentLedger.length())
+            assertEquals(5, paymentLedger.length())
             assertEquals("fixture-payment-001", paymentLedger.getJSONObject(0).getString("id"))
+            assertEquals("reversal", paymentLedger.getJSONObject(1).getString("kind"))
+            assertEquals("fixture-settlement-001", paymentLedger.getJSONObject(4).getString("id"))
+            val prepayment = database.records().get("feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000") ?: error("fixture prepayment state missing")
+            assertEquals(2, JSONObject(prepayment.json).getJSONObject("data").getInt("currentScheduleVersion"))
             val expectedWorkIds = (0 until fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").length())
                 .map { fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").getString(it) }
             assertEquals(expectedWorkIds.toSet(), database.logBookEvents().list().map { it.eventId }.toSet())
-            assertEquals(3, database.records().list().count { it.id.startsWith("driver-intent:") })
-            assertEquals(3, database.records().list().count { it.id.startsWith("driver-outbox:") })
+            val intentRows = database.records().list().filter { it.id.startsWith("driver-intent:") }
+            assertEquals(workFixture.getJSONArray("intentIds").length(), intentRows.size)
+            assertEquals(1, intentRows.count { JSONObject(it.json).optString("status") == "pending_location" })
+            assertEquals(1, intentRows.count { JSONObject(it.json).optString("status") == "needs_attention" })
+            val outboxRows = database.records().list().filter { it.id.startsWith("driver-outbox:") }
+            assertEquals(workFixture.getJSONArray("outboxIds").length(), outboxRows.size)
+            assertEquals(2, outboxRows.count { JSONObject(it.json).optBoolean("delivered") })
+            assertEquals(1, outboxRows.count { !JSONObject(it.json).optBoolean("delivered") })
 
             // A destination-only sentinel proves the production replacement is
             // authoritative and removes rows absent from the imported snapshot.

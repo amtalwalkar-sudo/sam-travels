@@ -33,7 +33,14 @@
         "scheduleVersion",
         "paymentLedgerRevision",
         "prepaymentRevision",
-        "settlementCutoff"
+        "settlementCutoff",
+        "expectedLoanRevision",
+        "expectedPaymentLedgerRevision",
+        "source",
+        "createdBy",
+        "resultingScheduleVersion",
+        "settlementEntryId",
+        "closedLoanState"
       ]
     },
     "compliance": {
@@ -67,6 +74,9 @@
     "businessExpenses": {
       "requiredKinds": [
         "expense",
+        "platform_fee",
+        "traffic_challan",
+        "miscellaneous",
         "reversal",
         "correction"
       ],
@@ -118,8 +128,8 @@
       ]
     }
   },
-  "status": "populated_production_lifecycle_verified",
-  "note": "Seven-domain synthetic seed is populated for fixture development. It is not completion evidence until production validators, Browser/Dexie and Android/Room lifecycle, recomputation, and normalized parity all pass.",
+  "status": "populated_fixture_ready_for_all_domain_validation",
+  "note": "The shared all-domain synthetic graph includes Finance payment/reversal/prepayment/revised-schedule/settlement lineage, effective-dated Maintenance rates and accruals, paid/unpaid challans, platform and miscellaneous expenses, and pending Work recovery/boundary cases. Production Browser/Room lifecycle and normalized parity are separate Phase 2 acceptance gates.",
   "operatingConfiguration": {
     "mode": "single_vehicle_single_driver",
     "vehicle": {
@@ -147,8 +157,8 @@
     "negative": "Unknown participant IDs and records whose IDs do not match the declared owner must be rejected before mutation."
   },
   "populatedGraph": {
-    "status": "synthetic_production_lifecycle_verified",
-    "recordCount": 29,
+    "status": "populated_fixture_ready_for_all_domain_validation",
+    "recordCount": 37,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -210,19 +220,19 @@
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-01-01",
         "source": "integration",
-        "revision": 1,
+        "revision": 3,
         "data": {
           "schemaVersion": 1,
           "kind": "loan",
-          "lifecycleState": "active",
+          "lifecycleState": "closed",
           "details": {
             "loanName": "Synthetic vehicle loan",
             "lenderName": "Fixture lender",
             "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
-            "principalPaise": 100000,
+            "principalPaise": 300000,
             "annualInterestRateBasisPoints": 0,
             "loanStartDate": "2026-01-01",
-            "tenureMonths": 1,
+            "tenureMonths": 3,
             "firstEmiDate": "2026-02-01"
           },
           "currentScheduleVersion": 1,
@@ -236,17 +246,17 @@
               "inputSchemaVersion": 1,
               "outputSchemaVersion": 1,
               "input": {
-                "principalPaise": 100000,
+                "principalPaise": 300000,
                 "annualInterestRateBasisPoints": 0,
-                "tenureMonths": 1,
+                "tenureMonths": 3,
                 "loanStartDate": "2026-01-01",
                 "firstEmiDate": "2026-02-01"
               },
               "output": {
                 "currencyCode": "INR",
-                "principalPaise": 100000,
+                "principalPaise": 300000,
                 "annualInterestRateBasisPoints": 0,
-                "tenureMonths": 1,
+                "tenureMonths": 3,
                 "monthlyRateNumerator": 0,
                 "monthlyRateDenominator": 120000,
                 "regularEmiPaise": 100000,
@@ -254,6 +264,26 @@
                   {
                     "installmentNumber": 1,
                     "dueDate": "2026-02-01",
+                    "openingPrincipalPaise": 300000,
+                    "interestPaise": 0,
+                    "installmentAmountPaise": 100000,
+                    "principalComponentPaise": 100000,
+                    "closingPrincipalPaise": 200000,
+                    "finalAdjusted": false
+                  },
+                  {
+                    "installmentNumber": 2,
+                    "dueDate": "2026-03-01",
+                    "openingPrincipalPaise": 200000,
+                    "interestPaise": 0,
+                    "installmentAmountPaise": 100000,
+                    "principalComponentPaise": 100000,
+                    "closingPrincipalPaise": 100000,
+                    "finalAdjusted": false
+                  },
+                  {
+                    "installmentNumber": 3,
+                    "dueDate": "2026-04-01",
                     "openingPrincipalPaise": 100000,
                     "interestPaise": 0,
                     "installmentAmountPaise": 100000,
@@ -263,7 +293,7 @@
                   }
                 ],
                 "totalInterestPaise": 0,
-                "totalScheduledPaymentsPaise": 100000
+                "totalScheduledPaymentsPaise": 300000
               }
             }
           ]
@@ -275,7 +305,7 @@
         "createdAt": "2026-11-18T00:00:00.000Z",
         "updatedAt": "2026-11-18T00:00:00.000Z",
         "source": "integration",
-        "revision": 1,
+        "revision": 6,
         "data": {
           "schemaVersion": 1,
           "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
@@ -291,6 +321,10 @@
               "scheduleVersion": 1,
               "createdAt": "2026-02-01T10:00:00.000Z",
               "source": "integration",
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
               "allocations": [
                 {
                   "id": "fixture-payment-001:allocation:1",
@@ -305,9 +339,105 @@
               ],
               "unallocatedCreditPaise": 0,
               "status": "committed"
+            },
+            {
+              "kind": "reversal",
+              "id": "fixture-reversal-001",
+              "commandId": "fixture-reversal-command-001",
+              "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+              "paymentId": "fixture-payment-001",
+              "businessDate": "2026-02-02",
+              "reason": "Synthetic payment reversal before replacement",
+              "amountPaise": 100000,
+              "createdAt": "2026-02-02T10:00:00.000Z",
+              "source": "integration",
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
+              "status": "committed"
+            },
+            {
+              "kind": "payment",
+              "id": "fixture-payment-002",
+              "commandId": "fixture-payment-command-002",
+              "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+              "businessDate": "2026-02-03",
+              "amountPaise": 100000,
+              "method": "upi",
+              "scheduleVersion": 1,
+              "createdAt": "2026-02-03T10:00:00.000Z",
+              "source": "integration",
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
+              "allocations": [
+                {
+                  "id": "fixture-payment-002:allocation:1",
+                  "paymentId": "fixture-payment-002",
+                  "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+                  "scheduleVersion": 1,
+                  "installmentNumber": 1,
+                  "amountPaise": 100000,
+                  "createdAt": "2026-02-03T10:00:00.000Z",
+                  "source": "integration"
+                }
+              ],
+              "unallocatedCreditPaise": 0,
+              "status": "committed"
+            },
+            {
+              "kind": "payment",
+              "id": "fixture-payment-003",
+              "commandId": "fixture-payment-command-003",
+              "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+              "businessDate": "2026-03-01",
+              "amountPaise": 100000,
+              "method": "upi",
+              "scheduleVersion": 2,
+              "createdAt": "2026-03-01T10:00:00.000Z",
+              "source": "integration",
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
+              "allocations": [
+                {
+                  "id": "fixture-payment-003:allocation:1",
+                  "paymentId": "fixture-payment-003",
+                  "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+                  "scheduleVersion": 2,
+                  "installmentNumber": 1,
+                  "amountPaise": 100000,
+                  "createdAt": "2026-03-01T10:00:00.000Z",
+                  "source": "integration"
+                }
+              ],
+              "unallocatedCreditPaise": 0,
+              "status": "committed"
+            },
+            {
+              "kind": "settlement",
+              "id": "fixture-settlement-001",
+              "commandId": "fixture-settlement-command-001",
+              "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+              "businessDate": "2026-03-01",
+              "amountPaise": 50000,
+              "method": "bank_transfer",
+              "scheduleVersion": 2,
+              "paidThroughInstallment": 1,
+              "createdAt": "2026-03-01T11:00:00.000Z",
+              "source": "integration",
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
+              "status": "committed"
             }
           ]
-        }
+        },
+        "businessDate": "2026-03-01"
       },
       {
         "id": "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
@@ -373,10 +503,10 @@
         "id": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETICVEHICLE001",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
-        "updatedAt": "2026-11-18T00:00:00.000Z",
-        "businessDate": "2026-11-01",
+        "updatedAt": "2026-11-02T10:00:00.000Z",
+        "businessDate": "2026-11-02",
         "source": "integration",
-        "revision": 1,
+        "revision": 2,
         "data": {
           "schemaVersion": 1,
           "kind": "rate_history",
@@ -387,6 +517,14 @@
               "ratePaisePerKm": 250,
               "savedAt": "2026-11-01T00:00:00.000Z",
               "isDefault": true
+            },
+            {
+              "effectiveFrom": "2026-11-02",
+              "ratePaisePerKm": 300,
+              "savedAt": "2026-11-02T10:00:00.000Z",
+              "isDefault": false,
+              "commandId": "123e4567-e89b-42d3-a456-426614174022",
+              "source": "integration"
             }
           ]
         }
@@ -832,6 +970,280 @@
           "chainRevision": 1,
           "headCorrectionId": "fixture-fuel-amount-fix"
         }
+      },
+      {
+        "id": "feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-02-15",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "loan-prepayment-state",
+          "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+          "baseScheduleVersion": 1,
+          "currentScheduleVersion": 2,
+          "revisions": [
+            {
+              "version": 2,
+              "previousScheduleVersion": 1,
+              "expectedLoanRevision": 1,
+              "expectedPaymentLedgerRevision": 3,
+              "source": "integration",
+              "commandId": "fixture-prepayment-command-001",
+              "effectiveDate": "2026-02-15",
+              "createdAt": "2026-11-18T00:00:00.000Z",
+              "mode": "reduce_tenure",
+              "principalBeforePaise": 200000,
+              "prepaymentAmountPaise": 50000,
+              "principalAfterPaise": 150000,
+              "calculationId": "finance.loan-prepayment-reamortization.v1",
+              "calculationVersion": 1,
+              "inputSchemaVersion": 1,
+              "outputSchemaVersion": 1,
+              "createdBy": {
+                "personId": "synthetic-admin",
+                "role": "admin"
+              },
+              "input": {
+                "principalPaise": 150000,
+                "baselinePrincipalPaise": 200000,
+                "annualInterestRateBasisPoints": 0,
+                "regularEmiPaise": 100000,
+                "remainingDueDates": [
+                  "2026-03-01",
+                  "2026-04-01"
+                ],
+                "mode": "reduce_tenure"
+              },
+              "output": {
+                "calculationId": "finance.loan-prepayment-reamortization.v1",
+                "calculationVersion": 1,
+                "mode": "reduce_tenure",
+                "openingPrincipalPaise": 150000,
+                "regularEmiPaise": 100000,
+                "remainingInstallmentCount": 2,
+                "finalDueDate": "2026-04-01",
+                "rows": [
+                  {
+                    "installmentNumber": 1,
+                    "dueDate": "2026-03-01",
+                    "openingPrincipalPaise": 150000,
+                    "interestPaise": 0,
+                    "installmentAmountPaise": 100000,
+                    "principalComponentPaise": 100000,
+                    "closingPrincipalPaise": 50000,
+                    "finalAdjusted": false
+                  },
+                  {
+                    "installmentNumber": 2,
+                    "dueDate": "2026-04-01",
+                    "openingPrincipalPaise": 50000,
+                    "interestPaise": 0,
+                    "installmentAmountPaise": 50000,
+                    "principalComponentPaise": 50000,
+                    "closingPrincipalPaise": 0,
+                    "finalAdjusted": true
+                  }
+                ],
+                "totalInterestPaise": 0,
+                "totalScheduledPaymentsPaise": 150000,
+                "baselineRemainingInterestPaise": 0,
+                "interestSavedPaise": 0
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174080",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174080",
+          "revision": 1,
+          "sourceKind": "platform_fee",
+          "businessDate": "2026-11-01",
+          "amountPaise": 1500,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "reference": "PLATFORM-SETTLEMENT-001",
+          "alreadyNettedFromIncome": false,
+          "description": "Synthetic platform fee"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174081",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174081",
+          "revision": 1,
+          "sourceKind": "traffic_challan",
+          "businessDate": "2026-11-01",
+          "amountPaise": 2000,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "paymentStatus": "paid",
+          "reference": "CHALLAN-PAID-001",
+          "description": "Synthetic paid traffic challan"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174082",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174082",
+          "revision": 1,
+          "sourceKind": "traffic_challan",
+          "businessDate": "2026-11-01",
+          "amountPaise": 3000,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "paymentStatus": "unpaid",
+          "reference": "CHALLAN-UNPAID-001",
+          "description": "Synthetic unpaid traffic challan"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174083",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-01",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174083",
+          "revision": 1,
+          "sourceKind": "miscellaneous",
+          "businessDate": "2026-11-01",
+          "amountPaise": 700,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "category": "Cleaning",
+          "description": "Synthetic miscellaneous business expense"
+        },
+        "createdBy": {
+          "personId": "synthetic-admin",
+          "role": "admin"
+        }
+      },
+      {
+        "id": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-02",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-02",
+        "source": "integration",
+        "revision": 2,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "daily_business_kilometres",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "operationalDate": "2026-11-02",
+          "totalBusinessKm": 8,
+          "unallocatedBusinessKm": 0,
+          "entries": [
+            {
+              "shiftId": "shift-002",
+              "businessKm": 8,
+              "personalKm": 1,
+              "allocationStatus": "allocated"
+            }
+          ]
+        }
+      },
+      {
+        "id": "feature:maintenance:daily-accrual:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-02",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-02",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "daily_accrual",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "operationalDate": "2026-11-02",
+          "dailyBusinessKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-02",
+          "dailyBusinessKmRevision": 2,
+          "businessKm": 8,
+          "personalKm": 1,
+          "personalAmountPaise": 300,
+          "rateEffectiveFrom": "2026-11-02",
+          "ratePaisePerKm": 300,
+          "amountPaise": 2400
+        }
+      },
+      {
+        "id": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-03",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-18T00:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
+        "businessDate": "2026-11-03",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "daily_business_kilometres",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "operationalDate": "2026-11-03",
+          "totalBusinessKm": 0,
+          "unallocatedBusinessKm": 5,
+          "entries": [
+            {
+              "shiftId": "shift-boundary-001",
+              "businessKm": 5,
+              "personalKm": 0,
+              "allocationStatus": "awaiting_operational_boundary"
+            }
+          ]
+        }
       }
     ],
     "work": {
@@ -840,9 +1252,11 @@
       "driverId": "driver-001",
       "shiftId": "shift-001",
       "intentIds": [
-        "intent-shift-start-001",
-        "intent-trip-start-001",
-        "intent-trip-end-001"
+        "event-shift-start-001",
+        "event-trip-start-001",
+        "event-trip-end-001",
+        "event-trip-start-retry-001",
+        "event-trip-start-pending-001"
       ],
       "eventIds": [
         "event-shift-start-001",
@@ -854,12 +1268,106 @@
         "driver-state:2",
         "driver-state:3"
       ],
-      "pendingIntentIds": [],
+      "pendingIntentIds": [
+        "event-trip-start-retry-001",
+        "event-trip-start-pending-001"
+      ],
       "deliveredOutboxIds": [
         "driver-state:1",
-        "driver-state:2",
+        "driver-state:2"
+      ],
+      "pendingOutboxIds": [
         "driver-state:3"
-      ]
+      ],
+      "committedTransitions": [
+        {
+          "type": "shift_start",
+          "id": "event-shift-start-001",
+          "at": "2026-11-01T04:45:00.000Z"
+        },
+        {
+          "type": "trip_start",
+          "id": "event-trip-start-001",
+          "at": "2026-11-01T05:00:00.000Z"
+        },
+        {
+          "type": "trip_end",
+          "id": "event-trip-end-001",
+          "at": "2026-11-01T05:30:00.000Z"
+        }
+      ],
+      "intentStates": [
+        {
+          "eventId": "event-shift-start-001",
+          "eventType": "shift_start",
+          "transitionAt": "2026-11-01T04:45:00.000Z",
+          "status": "recorded"
+        },
+        {
+          "eventId": "event-trip-start-001",
+          "eventType": "trip_start",
+          "transitionAt": "2026-11-01T05:00:00.000Z",
+          "status": "recorded"
+        },
+        {
+          "eventId": "event-trip-end-001",
+          "eventType": "trip_end",
+          "transitionAt": "2026-11-01T05:30:00.000Z",
+          "status": "recorded"
+        },
+        {
+          "eventId": "event-trip-start-retry-001",
+          "eventType": "trip_start",
+          "transitionAt": "2026-11-01T05:40:00.000Z",
+          "status": "needs_attention",
+          "reason": "gps_recovery_window_expired",
+          "recoveryHistory": [
+            "pending_location",
+            "needs_attention",
+            "pending_location",
+            "needs_attention"
+          ]
+        },
+        {
+          "eventId": "event-trip-start-pending-001",
+          "eventType": "trip_start",
+          "transitionAt": "2026-11-01T05:45:00.000Z",
+          "status": "pending_location"
+        }
+      ],
+      "outboxStates": [
+        {
+          "id": "driver-state:1",
+          "eventId": "event-shift-start-001",
+          "revision": 1,
+          "delivered": true
+        },
+        {
+          "id": "driver-state:2",
+          "eventId": "event-trip-start-001",
+          "revision": 2,
+          "delivered": true
+        },
+        {
+          "id": "driver-state:3",
+          "eventId": "event-trip-end-001",
+          "revision": 3,
+          "delivered": false
+        }
+      ],
+      "boundaryState": {
+        "timezone": "Asia/Kolkata",
+        "boundaryLocalTime": "04:00",
+        "boundaryAt": "2026-11-03T04:00:00+05:30",
+        "activeTripId": "trip-active-at-boundary-001",
+        "rotationStatus": "deferred_during_active_trip",
+        "dailyBusinessKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-03",
+        "unallocatedBusinessKm": 5,
+        "allocationStatus": "awaiting_operational_boundary",
+        "retryCommandId": "shift-rotate-boundary-001",
+        "duplicateCommandId": "shift-rotate-boundary-001",
+        "expectedDailyContributionCount": 1
+      }
     },
     "logBook": {
       "events": [
@@ -914,7 +1422,38 @@
           "decisionRevision": 1,
           "headEventId": "compliance-overlap-review:123e4567-e89b-42d3-a456-426614174060"
         }
-      ]
+      ],
+      "finance": {
+        "loanId": "feature:finance:loan:123e4567-e89b-42d3-a456-426614174000",
+        "paymentLedgerId": "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000",
+        "prepaymentRecordId": "feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000",
+        "prepaymentCommandId": "fixture-prepayment-command-001",
+        "prepaymentRevision": 2,
+        "reversedPaymentId": "fixture-payment-001",
+        "replacementPaymentId": "fixture-payment-002",
+        "settlementEntryId": "fixture-settlement-001",
+        "settlementDate": "2026-03-01",
+        "settlementScheduleVersion": 2,
+        "closedLoan": true,
+        "actor": {
+          "personId": "synthetic-admin",
+          "role": "admin"
+        }
+      },
+      "maintenanceRateHistory": {
+        "recordId": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETICVEHICLE001",
+        "effectiveEntries": [
+          {
+            "effectiveFrom": "2026-11-01",
+            "ratePaisePerKm": 250
+          },
+          {
+            "effectiveFrom": "2026-11-02",
+            "ratePaisePerKm": 300
+          }
+        ]
+      },
+      "pendingBoundaryDailyKmRecordId": "work:daily-business-km:feature%3Avehicle%3ASYNTHETICVEHICLE001:2026-11-03"
     }
   },
   "canonicalSnapshotContract": {
@@ -960,12 +1499,12 @@
     ],
     "dailyExpenses": {
       "fuelPaise": 63000,
-      "platformFeesPaise": 0,
-      "trafficChallansPaise": 0,
-      "miscellaneousPaise": 0,
-      "reportedSourceExpensePaise": 63000,
-      "normalOperatingExpensePaise": 63000,
-      "fullCostExpensePaise": 63000
+      "platformFeesPaise": 1500,
+      "trafficChallansPaise": 2000,
+      "miscellaneousPaise": 700,
+      "reportedSourceExpensePaise": 67200,
+      "normalOperatingExpensePaise": 65200,
+      "fullCostExpensePaise": 67200
     },
     "maintenanceAccrual": {
       "operationalDate": "2026-11-01",
@@ -976,12 +1515,40 @@
       "personalAmountPaise": 500
     },
     "finance": {
-      "loanPrincipalPaise": 100000,
+      "loanPrincipalPaise": 300000,
       "regularEmiPaise": 100000,
-      "scheduledInstallments": 1,
-      "committedPaymentPaise": 100000,
-      "unallocatedCreditPaise": 0
-    }
+      "scheduledInstallments": 3,
+      "committedPaymentPaise": 200000,
+      "unallocatedCreditPaise": 0,
+      "paymentReversalPaise": 100000,
+      "prepaymentPaise": 50000,
+      "prepaymentPrincipalAfterPaise": 150000,
+      "prepaymentScheduleVersion": 2,
+      "prepaymentRemainingInstallments": 2,
+      "prepaymentFinalDueDate": "2026-04-01",
+      "settlementPaise": 50000,
+      "settlementScheduleVersion": 2,
+      "settlementPaidThroughInstallment": 1,
+      "closedLoan": true
+    },
+    "maintenanceAccruals": [
+      {
+        "operationalDate": "2026-11-01",
+        "businessKm": 10,
+        "personalKm": 2,
+        "ratePaisePerKm": 250,
+        "amountPaise": 2500,
+        "personalAmountPaise": 500
+      },
+      {
+        "operationalDate": "2026-11-02",
+        "businessKm": 8,
+        "personalKm": 1,
+        "ratePaisePerKm": 300,
+        "amountPaise": 2400,
+        "personalAmountPaise": 300
+      }
+    ]
   },
   "emptyParticipantIds": [
     "business-settings-records"
