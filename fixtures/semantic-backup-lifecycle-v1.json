@@ -87,7 +87,10 @@
         "vehicleId",
         "driverId",
         "reversesSourceId",
-        "correctionChainHead"
+        "correctionChainHead",
+        "tripFinancialSourceId",
+        "tripFinancialComponent",
+        "already-in-trip-closeout"
       ]
     },
     "performance": {
@@ -107,7 +110,11 @@
       "requiredKinds": [
         "intent",
         "outbox",
-        "driver_event"
+        "driver_event",
+        "trip_create",
+        "start_ride",
+        "end_ride",
+        "completed_trip_financials"
       ],
       "lineage": [
         "commandId",
@@ -116,7 +123,13 @@
         "outboxId",
         "delivered",
         "configuredDriverId",
-        "configuredVehicleId"
+        "configuredVehicleId",
+        "tripContext",
+        "endRideEventId",
+        "tripFinancialSourceId",
+        "farePaise",
+        "tollPaise",
+        "parkingPaise"
       ]
     },
     "logBook": {
@@ -160,7 +173,7 @@
   },
   "populatedGraph": {
     "status": "populated_fixture_ready_for_all_domain_validation",
-    "recordCount": 44,
+    "recordCount": 46,
     "records": [
       {
         "id": "feature:vehicle:SYNTHETICVEHICLE001",
@@ -1399,6 +1412,58 @@
           "chainRevision": 1,
           "headCorrectionId": "fixture-fuel-interval-partial-amount-fix"
         }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174084",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174084",
+          "revision": 1,
+          "sourceKind": "miscellaneous",
+          "businessDate": "2026-11-01",
+          "amountPaise": 32000,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "category": "Toll",
+          "description": "Synthetic driver-paid toll linked to trip closeout",
+          "tripExpenseTreatment": "already-in-trip-closeout",
+          "tripFinancialSourceId": "work:trip-financial-obligation:event-trip-create-repair-001",
+          "tripFinancialComponent": "toll"
+        }
+      },
+      {
+        "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174085",
+        "schemaVersion": 1,
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z",
+        "source": "integration",
+        "revision": 1,
+        "data": {
+          "schemaVersion": 1,
+          "kind": "business_expense",
+          "id": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174085",
+          "revision": 1,
+          "sourceKind": "miscellaneous",
+          "businessDate": "2026-11-01",
+          "amountPaise": 25000,
+          "currencyCode": "INR",
+          "effect": "charge",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+          "driverId": "feature:driver-records:driver:driver-001",
+          "category": "Parking",
+          "description": "Synthetic driver-paid parking linked to trip closeout",
+          "tripExpenseTreatment": "already-in-trip-closeout",
+          "tripFinancialSourceId": "work:trip-financial-obligation:event-trip-create-repair-001",
+          "tripFinancialComponent": "parking"
+        }
       }
     ],
     "work": {
@@ -1411,17 +1476,26 @@
         "event-trip-start-001",
         "event-trip-end-001",
         "event-trip-start-retry-001",
-        "event-trip-start-pending-001"
+        "event-trip-start-pending-001",
+        "event-trip-create-repair-001",
+        "event-start-ride-repaired-001",
+        "event-end-ride-repaired-001"
       ],
       "eventIds": [
         "event-shift-start-001",
         "event-trip-start-001",
-        "event-trip-end-001"
+        "event-trip-end-001",
+        "event-trip-create-repair-001",
+        "event-start-ride-repaired-001",
+        "event-end-ride-repaired-001"
       ],
       "outboxIds": [
         "driver-state:1",
         "driver-state:2",
-        "driver-state:3"
+        "driver-state:3",
+        "driver-state:4",
+        "driver-state:5",
+        "driver-state:6"
       ],
       "pendingIntentIds": [
         "event-trip-start-retry-001",
@@ -1429,7 +1503,10 @@
       ],
       "deliveredOutboxIds": [
         "driver-state:1",
-        "driver-state:2"
+        "driver-state:2",
+        "driver-state:4",
+        "driver-state:5",
+        "driver-state:6"
       ],
       "pendingOutboxIds": [
         "driver-state:3"
@@ -1438,7 +1515,18 @@
         {
           "type": "shift_start",
           "id": "event-shift-start-001",
-          "at": "2026-11-01T04:45:00.000Z"
+          "at": "2026-11-01T04:45:00.000Z",
+          "workflowVersion": 2,
+          "odometer": {
+            "schemaVersion": 1,
+            "readingKm": 1000
+          },
+          "driverContext": {
+            "schemaVersion": 1,
+            "driverId": "driver-001",
+            "assignmentId": "assignment-001",
+            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
+          }
         },
         {
           "type": "trip_start",
@@ -1449,6 +1537,32 @@
           "type": "trip_end",
           "id": "event-trip-end-001",
           "at": "2026-11-01T05:30:00.000Z"
+        },
+        {
+          "type": "trip_create",
+          "id": "event-trip-create-repair-001",
+          "at": "2026-11-01T05:40:00.000Z",
+          "workflowVersion": 2,
+          "tripContext": {
+            "schemaVersion": 1,
+            "shiftId": "event-shift-start-001",
+            "driverId": "driver-001",
+            "assignmentId": "assignment-001",
+            "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001",
+            "operationalDate": "2026-11-01"
+          }
+        },
+        {
+          "type": "start_ride",
+          "id": "event-start-ride-repaired-001",
+          "at": "2026-11-01T05:45:00.000Z",
+          "workflowVersion": 2
+        },
+        {
+          "type": "end_ride",
+          "id": "event-end-ride-repaired-001",
+          "at": "2026-11-01T06:00:00.000Z",
+          "workflowVersion": 2
         }
       ],
       "intentStates": [
@@ -1488,6 +1602,24 @@
           "eventType": "trip_start",
           "transitionAt": "2026-11-01T05:45:00.000Z",
           "status": "pending_location"
+        },
+        {
+          "eventId": "event-trip-create-repair-001",
+          "eventType": "trip_create",
+          "transitionAt": "2026-11-01T05:40:00.000Z",
+          "status": "recorded"
+        },
+        {
+          "eventId": "event-start-ride-repaired-001",
+          "eventType": "start_ride",
+          "transitionAt": "2026-11-01T05:45:00.000Z",
+          "status": "recorded"
+        },
+        {
+          "eventId": "event-end-ride-repaired-001",
+          "eventType": "end_ride",
+          "transitionAt": "2026-11-01T06:00:00.000Z",
+          "status": "recorded"
         }
       ],
       "outboxStates": [
@@ -1508,6 +1640,24 @@
           "eventId": "event-trip-end-001",
           "revision": 3,
           "delivered": false
+        },
+        {
+          "id": "driver-state:4",
+          "eventId": "event-trip-create-repair-001",
+          "revision": 4,
+          "delivered": true
+        },
+        {
+          "id": "driver-state:5",
+          "eventId": "event-start-ride-repaired-001",
+          "revision": 5,
+          "delivered": true
+        },
+        {
+          "id": "driver-state:6",
+          "eventId": "event-end-ride-repaired-001",
+          "revision": 6,
+          "delivered": true
         }
       ],
       "boundaryState": {
@@ -1522,7 +1672,34 @@
         "retryCommandId": "shift-rotate-boundary-001",
         "duplicateCommandId": "shift-rotate-boundary-001",
         "expectedDailyContributionCount": 1
-      }
+      },
+      "tripFinancial": {
+        "recordId": "work:trip-financial-obligation:event-trip-create-repair-001",
+        "tripId": "event-trip-create-repair-001",
+        "operationId": "fixture-trip-financial-operation-001",
+        "submittedAt": "2026-11-01T06:05:00.000Z",
+        "author": {
+          "personId": "synthetic-person-001",
+          "role": "driver"
+        },
+        "draftEdits": [
+          {
+            "field": "farePaise",
+            "before": 240000,
+            "after": 252000
+          }
+        ],
+        "values": {
+          "farePaise": 252000,
+          "tollPaise": 32000,
+          "tollPayer": "driver",
+          "parkingPaise": 25000,
+          "parkingPayer": "driver"
+        }
+      },
+      "generatedRecordIds": [
+        "work:trip-financial-obligation:event-trip-create-repair-001"
+      ]
     },
     "logBook": {
       "events": [
@@ -1541,6 +1718,33 @@
           "occurredAt": "2026-11-01T05:30:00.000Z",
           "kind": "trip_end",
           "shiftId": "shift-001",
+          "driverId": "driver-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
+        },
+        {
+          "eventId": "event-trip-create-repair-001",
+          "sequence": 3,
+          "occurredAt": "2026-11-01T05:40:00.000Z",
+          "kind": "trip_create",
+          "shiftId": "event-shift-start-001",
+          "driverId": "driver-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
+        },
+        {
+          "eventId": "event-start-ride-repaired-001",
+          "sequence": 4,
+          "occurredAt": "2026-11-01T05:45:00.000Z",
+          "kind": "start_ride",
+          "shiftId": "event-shift-start-001",
+          "driverId": "driver-001",
+          "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
+        },
+        {
+          "eventId": "event-end-ride-repaired-001",
+          "sequence": 5,
+          "occurredAt": "2026-11-01T06:00:00.000Z",
+          "kind": "end_ride",
+          "shiftId": "event-shift-start-001",
           "driverId": "driver-001",
           "vehicleId": "feature:vehicle:SYNTHETICVEHICLE001"
         }
@@ -1756,10 +1960,10 @@
       "fuelPaise": 111000,
       "platformFeesPaise": 1500,
       "trafficChallansPaise": 2000,
-      "miscellaneousPaise": 700,
-      "reportedSourceExpensePaise": 115200,
-      "normalOperatingExpensePaise": 113200,
-      "fullCostExpensePaise": 115200
+      "miscellaneousPaise": 57700,
+      "reportedSourceExpensePaise": 172200,
+      "normalOperatingExpensePaise": 170200,
+      "fullCostExpensePaise": 172200
     },
     "maintenanceAccrual": {
       "operationalDate": "2026-11-01",
