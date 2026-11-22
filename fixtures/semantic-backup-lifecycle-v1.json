@@ -2127,6 +2127,12 @@
         "category": "invalid_correction_head",
         "recordId": "historical-correction-chain:feature%3Amaintenance%3Aexpense%3A123e4567-e89b-42d3-a456-426614174050",
         "mutation": "set_headCorrectionId_missing"
+      },
+      {
+        "id": "dangling-trip-financial-source",
+        "category": "dangling_reference",
+        "recordId": "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174084",
+        "mutation": "set_data_tripFinancialSourceId_missing"
       }
     ]
   }
