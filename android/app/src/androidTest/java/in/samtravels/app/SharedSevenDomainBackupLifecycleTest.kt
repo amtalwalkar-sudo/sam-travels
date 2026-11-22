@@ -53,6 +53,44 @@ class SharedSevenDomainBackupLifecycleTest {
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
             )
+
+            // The shared negative-case matrix is evaluated by the production Room
+            // validators before any restore mutation.
+            val negativeCases = fixture.getJSONObject("validatorMatrix").getJSONArray("negativeCases")
+            fun assertNativeReject(caseId: String, expectedCategory: String, mutation: (JSONArray) -> Unit) {
+                val rows = JSONArray(source.snapshot.getJSONArray("records").toString())
+                mutation(rows)
+                val failure = runCatching {
+                    NativeBackupCoverage.validateBusinessRecords(rows, requireExplicitOwnerTags = true)
+                }.exceptionOrNull()
+                assertTrue("$caseId should be rejected as $expectedCategory; got $failure",
+                    failure?.message.orEmpty().contains(expectedCategory))
+            }
+            fun caseRecordId(caseId: String): String =
+                (0 until negativeCases.length()).map { negativeCases.getJSONObject(it) }
+                    .first { it.getString("id") == caseId }.getString("recordId")
+            assertNativeReject("malformed-fuel-purchase", "fuel_purchase_invalid") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }.first { it.getString("id") == caseRecordId("malformed-fuel-purchase") }
+                val payload = JSONObject(row.getString("json"))
+                payload.getJSONObject("data").put("amountPaise", 0)
+                row.put("json", payload.toString())
+            }
+            assertNativeReject("dangling-business-expense-vehicle", "business_expense_vehicle_not_found") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }.first { it.getString("id") == caseRecordId("dangling-business-expense-vehicle") }
+                val payload = JSONObject(row.getString("json"))
+                payload.getJSONObject("data").put("vehicleId", "feature:vehicle:MISSINGVEHICLE001")
+                row.put("json", payload.toString())
+            }
+            assertNativeReject("wrong-feature-participant-owner", "backup_feature_record_owner_mismatch") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }.first { it.getString("id") == caseRecordId("wrong-feature-participant-owner") }
+                row.put("participantId", "maintenance-records")
+            }
+            assertNativeReject("invalid-maintenance-correction-head", "maintenance_correction_chain_head_invalid") { rows ->
+                val row = (0 until rows.length()).map { rows.getJSONObject(it) }.first { it.getString("id") == caseRecordId("invalid-maintenance-correction-head") }
+                val payload = JSONObject(row.getString("json"))
+                payload.getJSONObject("data").put("headCorrectionId", "missing-correction")
+                row.put("json", payload.toString())
+            }
             assertTrue((0 until source.snapshot.getJSONArray("participants").length()).all {
                 !source.snapshot.getJSONArray("participants").getJSONObject(it).has("adapterId")
             })
