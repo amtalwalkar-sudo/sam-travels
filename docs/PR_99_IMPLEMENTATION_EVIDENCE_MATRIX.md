@@ -436,3 +436,41 @@ This tracker is aligned with Contract §15. It records completed evidence separa
 3. Keep PR #99 draft and unmerged until explicitly instructed otherwise.
 4. Keep OEM certification, non-deterministic full OS reboot and real Dropbox account delivery as documented external/manual deferrals, not silently converted into CI claims.
 5. Do not change fixture lifecycle status to complete until the populated production lifecycle and cross-runtime parity criteria actually pass.
+
+
+
+## Stage 4 evidence and exact-head CI closeout — 2026-11-22
+
+**Status: COMPLETE — GREEN CI for the exact source/documentation checkpoint `68fa1233a7d84df0ef77c35e95b1a353085750c5`.**
+
+The complete workflow [45034254979](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45034254979) completed successfully on that exact commit. Required job outcomes:
+
+| Required job | Result | Evidence boundary |
+|---|---|---|
+| `architecture` | PASS | Architecture boundaries and Stage 5 privacy/trace/platform/impact contracts |
+| `web` | PASS | Documentation links, complete web regression/build, rendered PWA acceptance including Maintenance correction, Compliance overview, Admin forms, Fuel draft recovery, BackupPanel encrypted backup/restore and Performance dashboard |
+| `android` | PASS | Room build/unit/instrumentation, GPS lifecycle, populated semantic backup fixture, Room restore/recovery and restored-Room WebView acceptance |
+| `Cross-platform encrypted backup restore` | PASS | Production encrypted-package interoperability and semantic restore gate |
+| `Integrated regression gate` | PASS | Required integrated regression |
+| `Production geocoder verification` | SKIPPED | Optional PR-only verification; not a required PR gate |
+
+**Stage 3 / populated restore evidence carried into this closeout:**
+- Android `SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport`: TypeScript-produced populated encrypted package is authenticated/decrypted by the Android production restore coordinator, restored over a pre-populated Room destination, compared using normalized participant/record semantics, then checked after Room close/reopen, startup recovery and re-export.
+- Browser `tests/android-produced-backup-restore.test.ts`: Android-produced populated encrypted package is restored through the TypeScript production Browser/Dexie path and checked through reopen/re-export.
+- Android `RestoredRoomPerformanceWebViewAcceptanceTest`: the actual MainActivity/Capacitor WebView reads the restored Room repository, activates an Admin through the identity UI, refreshes the reporting period and verifies rendered period/lifetime totals, the combined 18-month pre-business recovery and manual/EMI/Compliance provenance. The Admin-only Compliance overview remains protected; Performance uses the separate read-only allocation projection.
+- Web CI rendered acceptance includes the Performance dashboard calculation and presentation gate, plus the PWA Admin/Work/Fuel/BackupPanel paths named in the workflow job.
+
+**Fixture boundary:** the populated graph contains 29 records and the Finance loan/payment ledger. It does not contain Finance prepayment or settlement transaction lineage. Do not claim those lifecycle records were restored by this fixture. OEM certification, nondeterministic full-OS reboot and real Dropbox account delivery remain external/manual gates.
+
+**Evidence status discipline:** this exact-head green run proves the jobs and assertions above only. It does not convert every row in Section 7, every B0 entry path, or every repository-wide architecture gap into PROVEN. In particular, rows whose required UI entry, correction, Room parity, populated restore lineage or owner acceptance is not demonstrated remain PARTIAL/OPEN. See contract §1A for whole-contract completion criteria.
+
+### Four-stage execution tracker — Stage 4 update
+
+| Stage | Work | Current status | Closure evidence |
+|---|---|---|---|
+| 1. Finance Admin actor attribution | Persist active Admin actor atomically on immutable Finance events; preserve attribution through retry and restore. | **COMPLETE — GREEN CI** | Exact evidence and run 44936696946 recorded above. |
+| 2. Finance payment-allocation policy | Implement the six owner-approved allocation rules at the Finance service boundary and verify cross-runtime persistence. | **COMPLETE — GREEN CI** | Owner approval 2026-11-22; tests and run 45005171430 recorded above. |
+| 3. Reverse encrypted restore and semantic parity | Restore populated TypeScript encrypted package through Android production decrypt/Room and preserve reverse Android→Browser direction. | **COMPLETE — GREEN CI** | `SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport`; `tests/android-produced-backup-restore.test.ts`; run 45034254979 validates the current integrated head. |
+| 4. Evidence and CI closeout | Reconcile evidence ledgers, record fixture/manual limits and run complete required CI on the final evidence head. | **COMPLETE — GREEN CI** | Commit `68fa1233a7d84df0ef77c35e95b1a353085750c5`; run 45034254979; all five required jobs passed. |
+
+**Tracker interpretation:** STAGES 1–4 COMPLETE is not WHOLE CONTRACT COMPLETE. PR #99 remains incomplete until every applicable §1A condition is satisfied or a scoped deferral is explicitly accepted by the owner.
