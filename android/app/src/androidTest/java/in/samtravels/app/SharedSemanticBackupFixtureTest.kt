@@ -104,9 +104,12 @@ class SharedSemanticBackupFixtureTest {
         assertEquals(true, emptyPolicy.getString("restore").contains("clear stale rows"))
         assertEquals(true, emptyPolicy.getString("negative").contains("Unknown participant IDs"))
         assertEquals("populated_fixture_ready_for_all_domain_validation", fixture.getString("status"))
+        val validatorMatrix = fixture.getJSONObject("validatorMatrix")
+        assertEquals("accept", validatorMatrix.getJSONObject("validScenario").getString("expected"))
+        assertEquals(4, validatorMatrix.getJSONArray("negativeCases").length())
         val graph = fixture.getJSONObject("populatedGraph")
         assertEquals(graph.getJSONArray("records").length(), graph.getInt("recordCount"))
-        assertEquals(37, graph.getJSONArray("records").length())
+        assertEquals(44, graph.getJSONArray("records").length())
         assertEquals(3, graph.getJSONObject("work").getJSONArray("eventIds").length())
         assertEquals(2, graph.getJSONObject("logBook").getJSONArray("events").length())
         val work = graph.getJSONObject("work")
@@ -116,6 +119,19 @@ class SharedSemanticBackupFixtureTest {
         assertEquals(1, work.getJSONArray("pendingOutboxIds").length())
         assertEquals("deferred_during_active_trip", work.getJSONObject("boundaryState").getString("rotationStatus"))
         assertEquals(5, work.getJSONObject("boundaryState").getInt("unallocatedBusinessKm"))
+        val complianceRecords = (0 until records.length()).map { records.getJSONObject(it) }
+            .filter { it.getString("id").startsWith("feature:compliance:") }
+        assertEquals(3, complianceRecords.size)
+        assertEquals("feature:compliance:123e4567-e89b-42d3-a456-426614174011",
+            complianceRecords.first { it.getString("id").endsWith("174012") }.getJSONObject("data").getString("renewedFromRecordId"))
+        val reviewEvents = (0 until records.length()).map { records.getJSONObject(it) }
+            .filter { it.getString("id").startsWith("compliance-overlap-review:") }
+        assertEquals(listOf(1, 2), reviewEvents.map { it.getJSONObject("data").getInt("decisionRevision") }.sorted())
+        val fuelRecords = (0 until records.length()).map { records.getJSONObject(it) }
+            .filter { it.getString("id").startsWith("feature:business-expenses:fuel:") }
+        assertEquals(7, fuelRecords.size)
+        assertEquals(4, graph.getJSONObject("expectedBusinessResults").getJSONArray("fuelIntervals").length())
+        assertEquals(4, graph.getJSONObject("expectedBusinessResults").getJSONArray("fuelCostRateHistory").length())
         val finance = graph.getJSONObject("lineage").getJSONObject("finance")
         assertEquals("fixture-settlement-001", finance.getString("settlementEntryId"))
         assertEquals(true, finance.getBoolean("closedLoan"))
