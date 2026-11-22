@@ -1,5 +1,5 @@
 import { createDriverCommand, createDriverCommandV2 } from "../../packages/features/work-shift";
-import { submitCompletedTripFinancials } from "../../packages/application/src/trip-financial-service";
+import { createTripFinancialFormRuntimeV1 } from "../../packages/application/src/trip-financial-form-runtime";
 import { browserDatabase } from "../../packages/storage-browser/src/database";
 import type { AtomicRecordRepository } from "../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../packages/core/src/types";
@@ -18,6 +18,7 @@ type SemanticBackupWorkFixture = {
     tripId: string; operationId: string; submittedAt: string;
     author: { personId: string; role: "driver" };
     values: { farePaise: number; tollPaise: number; tollPayer: "driver" | "customer"; parkingPaise: number; parkingPayer: "driver" | "customer" };
+    draftEdits: Array<{ field: string; before: number; after: number }>;
   };
 };
 
@@ -65,7 +66,25 @@ export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflo
         return true;
       }),
   };
-  await submitCompletedTripFinancials(records, "integration", financial.tripId, financial.values,
-    financial.operationId, () => financial.submittedAt, financial.author);
+  const tripFinancialForms = createTripFinancialFormRuntimeV1(records, "integration", async () => financial.author);
+  await tripFinancialForms.openCompletedTripFinancialDraft(financial.tripId);
+  const draftId = "__sam_travels_form_working_copy__:work.trip-completed-financials:" + financial.tripId;
+  const draftRow = await browserDatabase.records.get(draftId);
+  if (!draftRow) throw new Error("fixture_trip_financial_draft_missing");
+  const draftData = draftRow.data as Record<string, unknown>;
+  await browserDatabase.records.put({
+    ...draftRow,
+    data: { ...draftData, operationId: financial.operationId },
+  });
+  for (const edit of financial.draftEdits) {
+    await tripFinancialForms.updateCompletedTripFinancialDraft(financial.tripId, edit.field, edit.before);
+    await tripFinancialForms.updateCompletedTripFinancialDraft(financial.tripId, edit.field, edit.after);
+  }
+  for (const [field, value] of Object.entries(financial.values)) {
+    if (!financial.draftEdits.some(edit => edit.field === field)) {
+      await tripFinancialForms.updateCompletedTripFinancialDraft(financial.tripId, field, value);
+    }
+  }
+  await tripFinancialForms.submitCompletedTripFinancialDraft(financial.tripId, financial.values);
   return transitions;
 }
