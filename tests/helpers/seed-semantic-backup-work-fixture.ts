@@ -1,7 +1,7 @@
 import { createDriverCommand, createDriverCommandV2 } from "../../packages/features/work-shift";
 import { createTripFinancialFormRuntimeV1 } from "../../packages/application/src/trip-financial-form-runtime";
 import { browserDatabase } from "../../packages/storage-browser/src/database";
-import type { AtomicRecordRepository } from "../../packages/core/src/repositories";
+import type { AtomicRecordRepository, RecordRepository } from "../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../packages/core/src/types";
 import type { DexieDriverWorkflowRepository } from "../../packages/storage-browser/src/driver-workflow";
 
@@ -58,7 +58,7 @@ export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflo
   }
 
   const financial = work.tripFinancial;
-  const records: AtomicRecordRepository = {
+  const records: RecordRepository & AtomicRecordRepository = {
     get: async <T>(id: string) => await browserDatabase.records.get(id) as RecordEnvelope<T> | undefined,
     put: async <T>(row: RecordEnvelope<T>) => { await browserDatabase.records.put(row as RecordEnvelope<unknown>); },
     list: async <T>() => await browserDatabase.records.toArray() as RecordEnvelope<T>[],
