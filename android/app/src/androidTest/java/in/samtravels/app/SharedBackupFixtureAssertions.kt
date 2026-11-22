@@ -50,22 +50,19 @@ internal object SharedBackupFixtureAssertions {
                         // Source adapter and submission clocks are runtime-local;
                         // trip identity, author, operation ID and financial values remain semantic.
                         payload.put("source", "integration")
-                        normalizeInstant(payload, "createdAt")
-                        normalizeInstant(payload, "updatedAt")
                         payload.optJSONObject("data")?.let { data ->
-                            normalizeInstant(data, "createdAt")
-                            normalizeInstant(data, "submittedAt")
+                            normalizeRuntimeTimestamp(data, "submittedAt")
                         }
-                        updatedAt = epochMillis(updatedAt)
+                        updatedAt = "<runtime-local>"
                     } else if (id.startsWith("__sam_travels_form_working_copy__:")) {
                         payload.put("source", "integration")
-                        normalizeInstant(payload, "createdAt")
-                        normalizeInstant(payload, "updatedAt")
+                        normalizeRuntimeTimestamp(payload, "createdAt")
+                        normalizeRuntimeTimestamp(payload, "updatedAt")
                         payload.optJSONObject("data")?.let { data ->
-                            normalizeInstant(data, "updatedAt")
-                            data.optJSONObject("submission")?.let { normalizeInstant(it, "submittedAt") }
+                            normalizeRuntimeTimestamp(data, "updatedAt")
+                            data.optJSONObject("submission")?.let { normalizeRuntimeTimestamp(it, "submittedAt") }
                         }
-                        updatedAt = epochMillis(updatedAt)
+                        updatedAt = "<runtime-local>"
                     }
                 }
                 "work-driver-state" -> {
@@ -101,9 +98,12 @@ internal object SharedBackupFixtureAssertions {
         if (value.has(key) && !value.isNull(key)) value.put(key, epochMillis(value.get(key).toString()))
     }
 
+    private fun normalizeRuntimeTimestamp(value: JSONObject, key: String) {
+        if (value.has(key) && !value.isNull(key)) value.put(key, "<runtime-local>")
+    }
+
     private fun epochMillis(value: String): String =
-        if (value.toLongOrNull() != null) "<runtime-local>"
-        else runCatching { Instant.parse(value).toEpochMilli().toString() }.getOrDefault(value)
+        runCatching { Instant.parse(value).toEpochMilli().toString() }.getOrDefault(value)
 
     private fun canonicalJson(value: Any?): String = when (value) {
         is JSONObject -> value.keys().asSequence().toList().sorted().joinToString(prefix = "{", postfix = "}") {
