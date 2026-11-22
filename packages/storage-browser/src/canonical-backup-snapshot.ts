@@ -10,6 +10,13 @@ export interface CanonicalBackupSnapshotV1 {
   participants: NonNullable<SnapshotManifest["participants"]>;
   records: Array<{ participantId: string; id: string; json: string; schemaVersion: number; updatedAt: string }>;
 }
+function isNonPortableIdentityRecord(id: string): boolean {
+  return id === "work:selected-driver" ||
+    id.startsWith("identity:driver-person-link:") ||
+    id.startsWith("identity:person:") ||
+    id.startsWith("__sam_travels_recovery_checkpoint__:") ||
+    id.startsWith("__sam_travels_recovery_journal__:");
+}
 function canonicalOwnerForRecord(id: string, participants: CanonicalBackupSnapshotV1["participants"]): string {
   if (id === "driver-state" || id === "legacy-driver-state" || id.startsWith("driver-intent:") || id.startsWith("driver-outbox:")) return "work-driver-state";
   return participants.find(item => item.featureId !== "platform" && id.startsWith("feature:" + item.featureId + ":"))?.id ?? "platform-records";
@@ -22,7 +29,11 @@ export function toCanonicalBackupSnapshotV1(data: BrowserSnapshotData, manifest:
     if (typeof updatedAt !== "string" || !updatedAt.trim()) throw new Error("backup_canonical_updated_at_missing:" + id);
     records.push({ participantId, id, json: JSON.stringify(value), schemaVersion, updatedAt });
   };
-  for (const row of data.records as Array<Record<string, unknown>>) add(canonicalOwnerForRecord(String(row.id), participants), String(row.id), row, Number(row.schemaVersion ?? 1), row.updatedAt);
+  for (const row of data.records as Array<Record<string, unknown>>) {
+    const id = String(row.id);
+    if (isNonPortableIdentityRecord(id)) continue;
+    add(canonicalOwnerForRecord(id, participants), id, row, Number(row.schemaVersion ?? 1), row.updatedAt);
+  }
   for (const row of data.driverState as Array<Record<string, unknown>>) {
     // The canonical Work state envelope carries its stable record ID in the
     // interchange row, not inside the Room-owned JSON payload. Browser keeps
