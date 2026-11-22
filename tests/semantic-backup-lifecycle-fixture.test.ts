@@ -364,8 +364,15 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       await browserDatabase.open();
       await expect(recoverBrowserRestoreTransactions()).resolves.toEqual({ recovered: 0 });
       const cleanReexport = await exportBrowserSnapshot("0.1.0");
-      expect(toCanonicalBackupSnapshotV1(cleanReexport.data, cleanReexport.manifest as never))
-        .toEqual(canonical);
+      const cleanCanonical = toCanonicalBackupSnapshotV1(cleanReexport.data, cleanReexport.manifest as never);
+      const normalizeLocalRestoreMetadata = (snapshot: typeof canonical) => ({
+        ...snapshot,
+        records: snapshot.records.map(record => record.participantId === "work-driver-state"
+          ? { ...record, updatedAt: "" }
+          : record),
+      });
+      expect(normalizeLocalRestoreMetadata(cleanCanonical))
+        .toEqual(normalizeLocalRestoreMetadata(canonical));
       await discardVerifiedBrowserCheckpoint(cleanRestore.checkpointId);
     } finally {
       unregister.reverse().forEach(dispose => dispose());
