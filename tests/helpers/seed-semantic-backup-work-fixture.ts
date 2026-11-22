@@ -62,7 +62,7 @@ export async function seedSemanticBackupWorkFixture(workflow: DexieDriverWorkflo
     get: async <T>(id: string) => await browserDatabase.records.get(id) as RecordEnvelope<T> | undefined,
     put: async <T>(row: RecordEnvelope<T>) => { await browserDatabase.records.put(row as RecordEnvelope<unknown>); },
     list: async <T>() => await browserDatabase.records.toArray() as RecordEnvelope<T>[],
-    delete: async (id: string) => { await browserDatabase.records.delete(id); },
+    remove: async (id: string) => { await browserDatabase.records.delete(id); },
     compareAndSet: async <T>(id: string, expectedRevision: number | null, next: RecordEnvelope<T>) =>
       browserDatabase.transaction("rw", browserDatabase.records, async () => {
         const current = await browserDatabase.records.get(id);
