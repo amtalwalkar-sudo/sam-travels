@@ -226,6 +226,7 @@ abstract class DriverOverlayServicePresentationTestSupport {
         prepare: (LocalDatabase, String) -> Unit,
         databaseName: String = "sam-travels.db",
         expectedFormLabel: String? = if (tripId.endsWith("cancel")) "Cancellation fee required" else "Fare required",
+        exerciseWebView: ((MainActivity, LocalDatabase) -> Unit)? = null,
         exercise: (UiAutomation, LocalDatabase) -> Unit,
     ) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -293,6 +294,7 @@ abstract class DriverOverlayServicePresentationTestSupport {
                     attached,
                 )
             }
+            exerciseWebView?.invoke(activity, db)
             exercise(ui, db)
         } finally {
             instrumentation.runOnMainSync {
