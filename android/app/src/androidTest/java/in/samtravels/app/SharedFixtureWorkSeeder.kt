@@ -60,7 +60,7 @@ internal object SharedFixtureWorkSeeder {
         val draftRow = database.records().get(draftId) ?: error("fixture_trip_financial_draft_missing")
         val draftEnvelope = JSONObject(draftRow.json)
         val draft = draftEnvelope.getJSONObject("data")
-            .put("operationId", financial.getString("operationId"))
+            .put("revision", 1).put("operationId", financial.getString("operationId"))
         draftEnvelope.put("revision", draftEnvelope.optInt("revision") + 1)
             .put("updatedAt", financial.getString("submittedAt")).put("data", draft)
         database.records().put(StoredRecord(draftId, draftEnvelope.toString(), draftRow.schemaVersion, financial.getString("submittedAt")))
