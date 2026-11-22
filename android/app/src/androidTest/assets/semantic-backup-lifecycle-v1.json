@@ -503,7 +503,7 @@
         "id": "feature:maintenance:rate:feature%3Avehicle%3ASYNTHETICVEHICLE001",
         "schemaVersion": 1,
         "createdAt": "2026-11-18T00:00:00.000Z",
-        "updatedAt": "2026-11-02T10:00:00.000Z",
+        "updatedAt": "2026-11-18T00:00:00.000Z",
         "businessDate": "2026-11-02",
         "source": "integration",
         "revision": 2,
