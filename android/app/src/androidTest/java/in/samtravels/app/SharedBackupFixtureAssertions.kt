@@ -38,6 +38,11 @@ internal object SharedBackupFixtureAssertions {
             when (participant) {
                 "logbook-events" -> {
                     payload.remove("createdBy")
+                    // Driver/Vehicle revision snapshots are resolved from each
+                    // platform's authoritative record store at commit time. Keep
+                    // the stable operating-pair identity in cross-runtime parity,
+                    // while revision provenance is asserted by the resolver tests.
+                    payload.optJSONObject("command")?.optJSONObject("driverContext")?.let(::normalizeDriverContextIdentity)
                     payload.optJSONObject("gps")?.let { gps ->
                         gps.put("provider", "geolocation")
                         normalizeInstant(gps, "fixAt")
@@ -76,7 +81,10 @@ internal object SharedBackupFixtureAssertions {
                             updatedAt = ""
                         }
                         id.startsWith("driver-intent:") -> {
-                            payload.optJSONObject("command")?.let { normalizeInstant(it, "transitionAt") }
+                            payload.optJSONObject("command")?.let { command ->
+                                normalizeInstant(command, "transitionAt")
+                                command.optJSONObject("driverContext")?.let(::normalizeDriverContextIdentity)
+                            }
                             normalizeInstant(payload, "createdAt")
                             // Recovery may refresh the intent's operational
                             // update clock. Its command, creation time, status,
@@ -96,6 +104,13 @@ internal object SharedBackupFixtureAssertions {
             listOf(participant, id, canonicalJson(payload),
                 row.getInt("schemaVersion").toString(), updatedAt).joinToString("|")
         }.sorted()
+
+    private fun normalizeDriverContextIdentity(context: JSONObject) {
+        context.remove("selectionRevision")
+        context.remove("driverRevision")
+        context.remove("vehicleRevision")
+        context.remove("assignmentRevision")
+    }
 
     private fun normalizeInstant(value: JSONObject, key: String) {
         if (value.has(key) && !value.isNull(key)) value.put(key, epochMillis(value.get(key).toString()))
