@@ -19,7 +19,7 @@ async function waitForServer() {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error("fuel_entry_browser_server_did_not_start");
+  throw new Error("driver_workflow_browser_server_did_not_start");
 }
 
 async function readBrowserRecords(page) {
@@ -53,11 +53,20 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition(success) {
-        const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
-        localStorage.setItem("__workflow_geo_calls", String(calls));
-        success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
-      } },
+      value: {
+        getCurrentPosition(success) {
+          const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
+          localStorage.setItem("__workflow_geo_calls", String(calls));
+          success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+        },
+        watchPosition(success) {
+          const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
+          localStorage.setItem("__workflow_geo_calls", String(calls));
+          success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+          return 1;
+        },
+        clearWatch() {},
+      },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
