@@ -130,7 +130,6 @@ class SharedSemanticBackupFixtureTest {
         assertEquals(vehicleId, pairing.getString("vehicleId"))
         val assignment = byId.getValue(pairing.getString("assignmentHistoryRecordId"))
         assertEquals(vehicleId, assignment.getJSONArray("assignments").getJSONObject(0).getString("vehicleId"))
-        val work = graph.getJSONObject("work")
         assertEquals("driver-001", work.getString("driverId"))
         val events = graph.getJSONObject("logBook").getJSONArray("events")
         assertEquals(2, events.length())
