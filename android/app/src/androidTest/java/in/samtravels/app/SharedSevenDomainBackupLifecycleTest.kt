@@ -90,7 +90,7 @@ class SharedSevenDomainBackupLifecycleTest {
             assertTrue((0 until source.snapshot.getJSONArray("participants").length()).any {
                 source.snapshot.getJSONArray("participants").getJSONObject(it).optString("id") == "business-settings-records"
             })
-            assertEquals(3, database.logBookEvents().list().size)
+            assertEquals(6, database.logBookEvents().list().size)
             val paymentLedger = JSONObject(database.records().get(
                 "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000")!!.json)
                 .getJSONObject("data").getJSONArray("entries")
@@ -100,6 +100,13 @@ class SharedSevenDomainBackupLifecycleTest {
             assertEquals("fixture-settlement-001", paymentLedger.getJSONObject(4).getString("id"))
             val prepayment = database.records().get("feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000") ?: error("fixture prepayment state missing")
             assertEquals(2, JSONObject(prepayment.json).getJSONObject("data").getInt("currentScheduleVersion"))
+            val tripFinancialFixture = workFixture.getJSONObject("tripFinancial")
+            val tripFinancial = JSONObject(database.records().get(tripFinancialFixture.getString("recordId"))!!.json).getJSONObject("data")
+            assertEquals("submitted", tripFinancial.getString("status"))
+            assertEquals(252000L, tripFinancial.getLong("farePaise"))
+            assertEquals(32000L, tripFinancial.getLong("tollPaise"))
+            assertEquals(25000L, tripFinancial.getLong("parkingPaise"))
+            assertEquals(tripFinancialFixture.getString("operationId"), tripFinancial.getString("operationId"))
             val expectedWorkIds = (0 until fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").length())
                 .map { fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").getString(it) }
             assertEquals(expectedWorkIds.toSet(), database.logBookEvents().list().map { it.eventId }.toSet())
@@ -109,7 +116,7 @@ class SharedSevenDomainBackupLifecycleTest {
             assertEquals(1, intentRows.count { JSONObject(it.json).optString("status") == "needs_attention" })
             val outboxRows = database.records().list().filter { it.id.startsWith("driver-outbox:") }
             assertEquals(workFixture.getJSONArray("outboxIds").length(), outboxRows.size)
-            assertEquals(2, outboxRows.count { JSONObject(it.json).optBoolean("delivered") })
+            assertEquals(5, outboxRows.count { JSONObject(it.json).optBoolean("delivered") })
             assertEquals(1, outboxRows.count { !JSONObject(it.json).optBoolean("delivered") })
 
             // A destination-only sentinel proves the production replacement is
