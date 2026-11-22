@@ -32,6 +32,7 @@ describe("authoritative single operating configuration resolver", () => {
     });
     expect(resolveWorkDriverContext(rows, at)).toEqual({
       schemaVersion: 1, driverId: "driver-1", vehicleId: "feature:vehicle:MH01AB1234", assignmentId: "assignment-1",
+      selectionRevision: 2, driverRevision: 3, vehicleRevision: 4, assignmentRevision: 5,
     });
   });
 
