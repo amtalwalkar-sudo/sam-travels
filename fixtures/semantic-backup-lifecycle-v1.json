@@ -1648,6 +1648,31 @@
     "currency": "INR",
     "fuelIntervals": [
       {
+        "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030",
+        "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070"
+        ],
+        "sourceRevisions": [
+          1
+        ],
+        "distanceKm": 10,
+        "quantityMilliKg": 2000,
+        "spendPaise": 18000,
+        "kmPerKg": {
+          "numerator": "10000",
+          "denominator": "2000"
+        },
+        "effectiveCostPaisePerKg": {
+          "numerator": "18000000",
+          "denominator": "2000"
+        },
+        "costPaisePerKm": {
+          "numerator": "18000",
+          "denominator": "10"
+        }
+      },
+      {
         "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070",
         "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
         "sourcePurchaseIds": [
@@ -1671,6 +1696,31 @@
         },
         "costPaisePerKm": {
           "numerator": "28000",
+          "denominator": "10"
+        }
+      },
+      {
+        "startCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
+        "endCheckpointId": "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074",
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074"
+        ],
+        "sourceRevisions": [
+          1
+        ],
+        "distanceKm": 10,
+        "quantityMilliKg": 2000,
+        "spendPaise": 18000,
+        "kmPerKg": {
+          "numerator": "10000",
+          "denominator": "2000"
+        },
+        "effectiveCostPaisePerKg": {
+          "numerator": "18000000",
+          "denominator": "2000"
+        },
+        "costPaisePerKm": {
+          "numerator": "18000",
           "denominator": "10"
         }
       },
@@ -1757,14 +1807,34 @@
     "fuelCostRateHistory": [
       {
         "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
+        "effectiveFrom": "2026-11-03",
+        "completionBusinessDate": "2026-11-02",
+        "costPaisePerKm": {
+          "numerator": "18000",
+          "denominator": "10"
+        },
+        "cumulativeSpendPaise": 18000,
+        "cumulativeDistanceKm": 10,
+        "intervalEndCheckpointIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070"
+        ],
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174070"
+        ],
+        "sourceRevisions": [
+          1
+        ]
+      },
+      {
+        "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
         "effectiveFrom": "2026-11-11",
         "completionBusinessDate": "2026-11-10",
         "costPaisePerKm": {
-          "numerator": "28000",
-          "denominator": "10"
+          "numerator": "46000",
+          "denominator": "20"
         },
-        "cumulativeSpendPaise": 28000,
-        "cumulativeDistanceKm": 10,
+        "cumulativeSpendPaise": 46000,
+        "cumulativeDistanceKm": 20,
         "intervalEndCheckpointIds": [
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072"
         ],
@@ -1779,26 +1849,42 @@
       },
       {
         "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
+        "effectiveFrom": "2026-11-16",
+        "completionBusinessDate": "2026-11-15",
+        "costPaisePerKm": {
+          "numerator": "64000",
+          "denominator": "30"
+        },
+        "cumulativeSpendPaise": 64000,
+        "cumulativeDistanceKm": 30,
+        "intervalEndCheckpointIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074"
+        ],
+        "sourcePurchaseIds": [
+          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174074"
+        ],
+        "sourceRevisions": [
+          1
+        ]
+      },
+      {
+        "calculationVersion": "business-expenses.fuel-cost-rate-history.v1",
         "effectiveFrom": "2026-11-21",
         "completionBusinessDate": "2026-11-20",
         "costPaisePerKm": {
-          "numerator": "55000",
-          "denominator": "20"
+          "numerator": "91000",
+          "denominator": "40"
         },
-        "cumulativeSpendPaise": 55000,
-        "cumulativeDistanceKm": 20,
+        "cumulativeSpendPaise": 91000,
+        "cumulativeDistanceKm": 40,
         "intervalEndCheckpointIds": [
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076"
         ],
         "sourcePurchaseIds": [
-          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071",
-          "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174072",
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174075",
           "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076"
         ],
         "sourceRevisions": [
-          1,
-          1,
           1,
           1
         ]
