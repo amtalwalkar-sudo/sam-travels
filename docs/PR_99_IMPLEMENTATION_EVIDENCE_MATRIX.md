@@ -474,3 +474,6 @@ The complete workflow [45034254979](https://github.com/amtalwalkar-sudo/sam-trav
 | 4. Evidence and CI closeout | Reconcile evidence ledgers, record fixture/manual limits and run complete required CI on the final evidence head. | **COMPLETE — GREEN CI** | Commit `68fa1233a7d84df0ef77c35e95b1a353085750c5`; run 45034254979; all five required jobs passed. |
 
 **Tracker interpretation:** STAGES 1–4 COMPLETE is not WHOLE CONTRACT COMPLETE. PR #99 remains incomplete until every applicable §1A condition is satisfied or a scoped deferral is explicitly accepted by the owner.
+
+
+**Stage 4 status correction:** Run 45034254979 is green on pre-closeout source head `68fa1233a7d84df0ef77c35e95b1a353085750c5`. The three evidence-ledger commits advanced PR #99 to `f2efeb74ff8a383d3d572d7acae3b668c51c8336` after that run. The required exact-final-head CI has not yet been triggered; therefore Stage 4 is **EVIDENCE RECONCILIATION COMPLETE — EXACT-HEAD CI PENDING**. The prior table's Stage 4 COMPLETE label and any implication that run 45034254979 validated the later documentation commits are superseded. No new production code changed after the green source-head run.
