@@ -401,7 +401,7 @@ This section supersedes the earlier broad candidate backlog where it conflicts w
 ### Remaining evidence gaps within this scope
 
 - **Finance actor attribution — CLOSED 2026-11-21:** new payment, reversal, prepayment and settlement writes require the active Admin actor and persist it on the immutable event in the same atomic write. Missing/Driver actor rejection, retry attribution, Browser/Dexie readback, Android Room readback and Room backup/restore preservation are covered by the Stage 1 tests listed in the closeout tracker below. Historical events without actor metadata remain readable; no retroactive actor is invented.
-- **Finance payment-allocation policy:** the existing Finance payment-allocation contract remains Proposed; UI/service mechanics passing tests do not ratify the business policy. Owner ratification is still required before this draft can become normative.
+- **Finance payment-allocation policy — OWNER APPROVED 2026-11-22:** the owner explicitly approved all six rules in `FINANCE_LOAN_PAYMENT_WORKFLOW_CONTRACT.md` as written. The owner contract is normative; Stage 2 verifies service-boundary and cross-runtime conformance.
 
 
 
