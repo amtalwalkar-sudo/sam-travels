@@ -635,3 +635,6 @@ The stages below are the only planned closeout sequence for the currently identi
 - This stage completion does not assert that all PR #99 whole-contract requirements are complete. The remaining entry-path, owner-rule, cross-runtime, correction/provenance and gap-register items remain governed by §1A and the current evidence matrix. PR #99 remains draft, open and unmerged.
 
 **Stage 4 exit evidence:** evidence ledgers reconciled; exact commit and run recorded; all required CI jobs green; optional skip and remaining fixture/manual limitations disclosed.
+
+
+**Stage 4 CI reconciliation (supersedes the provisional status above):** The evidence/documentation commits were created after run 45034254979. That run is green on source head `68fa1233a7d84df0ef77c35e95b1a353085750c5`, but the current PR head is `f2efeb74ff8a383d3d572d7acae3b668c51c8336`. Because the contract requires CI after the final evidence/documentation changes, Stage 4 is **IMPLEMENTATION/EVIDENCE RECONCILIATION COMPLETE — EXACT-HEAD CI PENDING**, not complete. Do not use run 45034254979 as final-head validation. The workflow supports manual dispatch; the available GitHub connection in this session exposes no workflow-dispatch action, so a run on the current head could not be started here.
