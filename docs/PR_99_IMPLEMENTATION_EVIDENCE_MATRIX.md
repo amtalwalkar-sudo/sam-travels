@@ -421,14 +421,14 @@ This tracker is aligned with Contract §15. It records completed evidence separa
 | Stage | Work | Current status | Closure evidence required |
 |---|---|---|---|
 | 1. Finance Admin actor attribution | Persist active Admin actor atomically on immutable payment, prepayment, reversal and settlement events; preserve it through correction, retry and restore. | **COMPLETE — GREEN CI** | `finance-loan-payment-service.test.ts`; `finance-loan-prepayment-service.test.ts`; `loan-prepayment-records.test.ts`; rendered PWA `admin-form-browser-acceptance.mjs` / `assertFinanceAdminActorProvenance`; Android `AdminEntryPathAuditCapacitorAcceptanceTest.calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView`; `NativeFinancePaymentBackupTest.exportsRestoresAndRevalidatesLoanPaymentHistoryInRoomBackup` and `rejectsDriverAuthorshipInFinancePaymentBackup`. Exact-head run [44936696946](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/44936696946) passed all required jobs on `fee8389c56f7d96222301429fc3cbc0c7eb5691d`. |
-| 2. Finance payment-allocation policy | Obtain explicit owner ratification of the currently Proposed policy; then align contract, service and tests. | **OWNER DECISION REQUIRED** | Owner-approved normative policy plus matching service-boundary and regression evidence. Do not guess or silently approve the proposal. |
+| 2. Finance payment-allocation policy | Owner approved the policy as written on 2026-11-22; align service and tests to the normative owner contract. | **APPROVED — IMPLEMENTATION/TEST VERIFICATION IN PROGRESS** | Owner-approved normative policy plus passing service-boundary, correction, cross-runtime and exact-head CI evidence. |
 | 3. Reverse encrypted restore and semantic parity | Restore a TypeScript-produced populated encrypted package through Android production decrypt/Room; compare the same semantic dataset after reopen/recovery/re-export. Retain the passing Android → Browser direction. | **OPEN** | Both production encrypted directions pass with matching IDs, revisions, references, event/correction lineage, pending/outbox state, calculation outputs and provenance. |
 | 4. Evidence and CI closeout | Update fixture/docs from real evidence, run focused suites and complete required CI on final head. | **PENDING STAGES 1–3** | Exact test names/assertions, final commit SHA, green exact-head required CI, accurate fixture/evidence statuses. |
 
 ### Execution guardrails
 
 1. Preserve completed work and existing passing tests; add only missing assertions at the demonstrated boundary.
-2. Stage 1 and Stage 3 may be investigated independently. Stage 2 implementation must wait for owner ratification. Stage 4 is the final evidence closeout after the relevant changes.
+2. Stage 1 and Stage 3 may be investigated independently. Stage 2 is authorized following owner ratification on 2026-11-22; complete service and cross-runtime verification. Stage 4 is the final evidence closeout after the relevant changes.
 3. Keep PR #99 draft and unmerged until explicitly instructed otherwise.
 4. Keep OEM certification, non-deterministic full OS reboot and real Dropbox account delivery as documented external/manual deferrals, not silently converted into CI claims.
 5. Do not change fixture lifecycle status to complete until the populated production lifecycle and cross-runtime parity criteria actually pass.
