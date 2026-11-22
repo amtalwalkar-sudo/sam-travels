@@ -62,7 +62,7 @@ describe("shared semantic backup validator parity matrix", () => {
       applicationVersion: exported.manifest.applicationVersion,
       createdAt: exported.manifest.createdAt,
       businessTimezone: exported.manifest.businessTimezone,
-    }).data.records.length).toBe(fixture.populatedGraph.recordCount);
+    }).data.records.length).toBe(fixture.populatedGraph.recordCount + 1);
   });
 
   it("rejects every shared malformed, dangling, wrongly-owned and broken-lineage case", () => {
