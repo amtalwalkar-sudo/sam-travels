@@ -150,9 +150,10 @@ class SharedSevenDomainBackupLifecycleTest {
             val afterTypescriptRestore = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "after-typescript-restore",
             )
-            assertEquals(
-                SharedBackupFixtureAssertions.canonicalRecords(source.snapshot.getJSONArray("records")),
-                SharedBackupFixtureAssertions.canonicalRecords(afterTypescriptRestore.snapshot.getJSONArray("records")),
+            assertCanonicalRecordsEqual(
+                "after TypeScript restore",
+                source.snapshot.getJSONArray("records"),
+                afterTypescriptRestore.snapshot.getJSONArray("records"),
             )
             NativeBackupRestoreCoordinator.markVerified(database, typescriptRestore.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, typescriptRestore.checkpointId)
@@ -306,9 +307,10 @@ class SharedSevenDomainBackupLifecycleTest {
             val reexported = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "reexport",
             )
-            assertEquals(
-                SharedBackupFixtureAssertions.canonicalRecords(reopened.snapshot.getJSONArray("records")),
-                SharedBackupFixtureAssertions.canonicalRecords(reexported.snapshot.getJSONArray("records")),
+            assertCanonicalRecordsEqual(
+                "reopened Room re-export",
+                source.snapshot.getJSONArray("records"),
+                reexported.snapshot.getJSONArray("records"),
             )
 
             // Publish the Android-produced package and semantic oracle for the
@@ -350,9 +352,10 @@ class SharedSevenDomainBackupLifecycleTest {
             val tsReadback = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reexport",
             )
-            assertEquals(
-                SharedBackupFixtureAssertions.canonicalRecords(tsExpected.getJSONArray("records")),
-                SharedBackupFixtureAssertions.canonicalRecords(tsReadback.snapshot.getJSONArray("records")),
+            assertCanonicalRecordsEqual(
+                "TypeScript import readback",
+                tsExpected.getJSONArray("records"),
+                tsReadback.snapshot.getJSONArray("records"),
             )
             NativeBackupRestoreCoordinator.markVerified(database, tsRestored.checkpointId)
             NativeBackupRestoreCoordinator.discardVerified(database, tsRestored.checkpointId)
@@ -363,14 +366,25 @@ class SharedSevenDomainBackupLifecycleTest {
             val tsReopened = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "ts-import-reopened",
             )
-            assertEquals(
-                SharedBackupFixtureAssertions.canonicalRecords(tsExpected.getJSONArray("records")),
-                SharedBackupFixtureAssertions.canonicalRecords(tsReopened.snapshot.getJSONArray("records")),
+            assertCanonicalRecordsEqual(
+                "TypeScript import after reopen",
+                tsExpected.getJSONArray("records"),
+                tsReopened.snapshot.getJSONArray("records"),
             )
         } finally {
             database.close()
             context.deleteDatabase(name)
         }
+    }
+
+    private fun assertCanonicalRecordsEqual(label: String, expected: JSONArray, actual: JSONArray) {
+        val expectedRows = SharedBackupFixtureAssertions.canonicalRecords(expected).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
+        val actualRows = SharedBackupFixtureAssertions.canonicalRecords(actual).associateBy { it.substringBefore("|") + "|" + it.substringAfter("|").substringBefore("|") }
+        val mismatches = (expectedRows.keys + actualRows.keys).toSortedSet()
+            .filter { expectedRows[it] != actualRows[it] }
+            .take(20)
+            .map { key -> "$key expected=${expectedRows[key]?.take(350)} actual=${actualRows[key]?.take(350)}" }
+        assertTrue("$label canonical record mismatch: ${mismatches.joinToString(" || ")}", mismatches.isEmpty())
     }
 
     private fun canonicalJson(value: Any?): String = when (value) {
