@@ -20,7 +20,7 @@ describe("Shared semantic fixture calculation expectations", () => {
     });
     const expenses = rows.filter(row => row.id.startsWith("feature:business-expenses:entry:")).map(row => row.data);
     const intervals = calculateFuelIntervals(fuel as never);
-    expect(intervals.filter(item => item.status === "available")).toHaveLength(2);
+    expect(intervals.filter(item => item.status === "available")).toHaveLength(4);
     for (const expected of fixture.expectedBusinessResults.fuelIntervals) {
       expect(intervals.find(item => item.startCheckpointId === expected.startCheckpointId))
         .toMatchObject(expected);
