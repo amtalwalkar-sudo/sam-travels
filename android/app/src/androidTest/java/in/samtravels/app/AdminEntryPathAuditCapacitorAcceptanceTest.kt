@@ -20,7 +20,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val support = AdminFormsCapacitorAcceptanceTest()
         val marker = "Entry audit " + UUID.randomUUID().toString().take(8)
-        var fuelRecordId: String? = null
         var vehicleRecordId: String? = null
         val previousPerformanceSettings = db.records().get("feature:performance:settings")
         val financeRecordIds = mutableListOf<String>()
@@ -252,15 +251,14 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                     JSONObject(row.json).getJSONObject("data").optString("vehicleId") == vehicleRecordId
             }
             assertNotNull("Fuel persisted", fuel)
-            fuelRecordId = fuel!!.id
-            assertRoomOperationReceiptExists(db, fuelRecordId!!)
+            assertRoomOperationReceiptExists(db, fuel!!.id)
             val fuelData = JSONObject(fuel.json).getJSONObject("data")
             assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
             assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
             assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
             assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
         } finally {
-            db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
+            db.records().list().filter { it.json.contains(marker) || it.id == fuel?.id ||
                 it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
             if (previousWorkSelection != null) db.records().put(previousWorkSelection)
             else db.records().remove("work:selected-driver")
