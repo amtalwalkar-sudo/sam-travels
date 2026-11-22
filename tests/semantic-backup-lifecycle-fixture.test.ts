@@ -273,6 +273,8 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(exported.data.driverOutbox).toHaveLength(fixture.populatedGraph.work.outboxStates.length);
       for (const expected of fixture.populatedGraph.work.outboxStates) expect(exported.data.driverOutbox.find((item: any) => item.id === expected.id)).toMatchObject({ delivered: expected.delivered, eventId: expected.eventId, revision: expected.revision });
 
+      const localIdentityRecords = (await browserDatabase.records.toArray()).filter(record =>
+        record.id === "work:selected-driver" || record.id.startsWith("identity:driver-person-link:"));
       await browserDatabase.records.clear();
       const staleEmptyOwnerRecord = {
         id: "feature:business-settings:stale",
@@ -283,7 +285,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
         revision: 1,
         data: { schemaVersion: 1, stale: true },
       };
-      await browserDatabase.records.put(staleEmptyOwnerRecord as never);
+      await browserDatabase.records.bulkPut([...localIdentityRecords, staleEmptyOwnerRecord] as never);
       const recoveryKey = "AQIDBAUGBwgJCgsMDQ4PEBESExMUFRYXGBkaGxwdHh8=";
       const entropy = new Uint8Array([
         ...Array.from({ length: 16 }, (_, index) => 65 + index),
@@ -339,8 +341,9 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(readTripHistoryProjection()).toEqual(expectedProjection);
 
       const reopenedExport = await exportBrowserSnapshot("0.1.0");
-      expect(reopenedExport.data.records.map(record => (record as { id: string }).id).sort())
-        .toEqual(expectedIds);
+      const reopenedCanonical = toCanonicalBackupSnapshotV1(reopenedExport.data, reopenedExport.manifest as never);
+      expect(reopenedCanonical.records.map(record => record.id).sort()).toEqual(expectedIds);
+      expect(await browserDatabase.records.get("work:selected-driver")).toBeDefined();
       expect(reopenedExport.data).toEqual(exported.data);
       await discardVerifiedBrowserCheckpoint(restored.checkpointId);
     } finally {
