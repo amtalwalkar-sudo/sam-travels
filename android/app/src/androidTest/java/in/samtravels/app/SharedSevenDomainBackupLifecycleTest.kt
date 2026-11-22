@@ -76,7 +76,7 @@ class SharedSevenDomainBackupLifecycleTest {
                     val actual = exportedFixtureRecords[id]
                     "$id expected=${expected?.take(500)} actual=${actual?.take(500)}"
                 }
-            assertTrue("Shared Room fixture export mismatch: ${fixtureMismatches.joinToString(" || ")}", fixtureMismatches.isEmpty())
+            assertTrue("Room fixture mismatch: ${fixtureMismatches.joinToString(" || ")}", fixtureMismatches.isEmpty())
             val participantIds = NativeBackupCoverage.registeredParticipantIds()
             assertTrue(participantIds.containsAll(setOf(
                 "business-settings-records", "vehicle-records", "driver-records",
@@ -100,10 +100,11 @@ class SharedSevenDomainBackupLifecycleTest {
             assertEquals("fixture-settlement-001", paymentLedger.getJSONObject(4).getString("id"))
             val prepayment = database.records().get("feature:finance:prepayments:123e4567-e89b-42d3-a456-426614174000") ?: error("fixture prepayment state missing")
             assertEquals(2, JSONObject(prepayment.json).getJSONObject("data").getInt("currentScheduleVersion"))
-            val tripFinancialFixture = workFixture.getJSONObject("tripFinancial"); val tripFinancial = JSONObject(database.records().get(tripFinancialFixture.getString("recordId"))!!.json).getJSONObject("data")
-            assertEquals(listOf<Any>("submitted", 252000L, 32000L, 25000L, tripFinancialFixture.getString("operationId")), listOf(tripFinancial.getString("status"), tripFinancial.getLong("farePaise"), tripFinancial.getLong("tollPaise"), tripFinancial.getLong("parkingPaise"), tripFinancial.getString("operationId")))
-            val draftId = "__sam_travels_form_working_copy__:work.trip-completed-financials:" + tripFinancialFixture.getString("tripId"); val tripFinancialDraft = JSONObject(database.records().get(draftId)!!.json).getJSONObject("data")
-            assertEquals(listOf<Any>(9, "submitted", tripFinancialFixture.getString("operationId"), 252000L), listOf(tripFinancialDraft.getInt("revision"), tripFinancialDraft.getString("status"), tripFinancialDraft.getString("operationId"), tripFinancialDraft.getJSONObject("values").getLong("farePaise")))
+            val tf = workFixture.getJSONObject("tripFinancial"); val op = tf.getString("operationId")
+            val tripFinancial = JSONObject(database.records().get(tf.getString("recordId"))!!.json).getJSONObject("data")
+            assertEquals(listOf<Any>("submitted", 252000L, 32000L, 25000L, op), listOf(tripFinancial.getString("status"), tripFinancial.getLong("farePaise"), tripFinancial.getLong("tollPaise"), tripFinancial.getLong("parkingPaise"), tripFinancial.getString("operationId")))
+            val draftId = "__sam_travels_form_working_copy__:work.trip-completed-financials:" + tf.getString("tripId"); val draft = JSONObject(database.records().get(draftId)!!.json).getJSONObject("data")
+            assertEquals(listOf<Any>(9, "submitted", op, 252000L), listOf(draft.getInt("revision"), draft.getString("status"), draft.getString("operationId"), draft.getJSONObject("values").getLong("farePaise")))
             val expectedWorkIds = (0 until fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").length())
                 .map { fixture.getJSONObject("populatedGraph").getJSONObject("work").getJSONArray("eventIds").getString(it) }
             assertEquals(expectedWorkIds.toSet(), database.logBookEvents().list().map { it.eventId }.toSet())
