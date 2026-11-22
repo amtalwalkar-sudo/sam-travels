@@ -108,7 +108,7 @@ export function resolveOperatingConfiguration(
   const selectionRecord = selections[0];
   assertWorkSelectedDriverV1(selectionRecord.data);
   const selection = selectionRecord.data;
-  if (selection.lockedShiftId !== undefined) throw new Error("operating_driver_selection_locked");
+  if (selection.lockedShiftId !== undefined && selection.lockedShiftId !== allowLockedShiftId) throw new Error("operating_driver_selection_locked");
 
   const activeDrivers: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
   for (const record of records.filter(item => item.id.startsWith(DRIVER_PREFIX))) {
