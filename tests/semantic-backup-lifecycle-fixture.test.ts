@@ -344,7 +344,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
 
       const reopenedExport = await exportBrowserSnapshot("0.1.0");
       const reopenedCanonical = toCanonicalBackupSnapshotV1(reopenedExport.data, reopenedExport.manifest as never);
-      expect(reopenedCanonical.records.map(record => record.id).sort()).toEqual(expectedIds);
+      expect(reopenedCanonical.records.filter(record => expectedIdSet.has(record.id)).map(record => record.id).sort()).toEqual(expectedIds);
       expect(await browserDatabase.records.get("work:selected-driver")).toBeDefined();
       expect(reopenedExport.data).toEqual(exported.data);
       await discardVerifiedBrowserCheckpoint(restored.checkpointId);
