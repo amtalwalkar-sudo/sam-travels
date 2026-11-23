@@ -364,9 +364,6 @@ try {
   // Carry those exact UI-created Fuel IDs into Performance and the production
   // encrypted Browser backup/restore path in this same browser lifecycle.
   await page.getByRole("button", { name: "Admin", exact: true }).click();
-  await page.getByLabel("Person name").fill("Fuel Entry Browser Admin");
-  await page.getByLabel("Admin role").check();
-  await page.getByRole("button", { name: "Enroll person", exact: true }).click().catch(() => {});
   await page.getByLabel("Select person").selectOption({ label: "Fuel Entry Browser Admin" });
   await page.getByLabel("Active role").selectOption("admin");
   await page.getByLabel("Admin PIN").fill(adminPin);
