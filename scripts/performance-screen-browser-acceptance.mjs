@@ -69,7 +69,6 @@ try {
   await page.getByText("MH00PS0093", { exact: true }).waitFor();
   console.log("Single active vehicle configured for the Performance distance projection.");
 
-  // Configure Driver through Admin UI.
   const driverName = "Performance Acceptance Driver";
   await adminSections.getByRole("button", { name: "Driver", exact: true }).click();
   await page.getByRole("button", { name: "Add driver", exact: true }).click();
