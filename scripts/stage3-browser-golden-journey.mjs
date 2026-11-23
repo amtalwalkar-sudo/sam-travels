@@ -149,3 +149,44 @@ export async function assertBrowserWorkDistanceThroughUi(page) {
   return { state: state.state, revision: state.revision, gpsCalls, businessKilometres: 42 };
 }
 
+export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPin, purchases) {
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByLabel("Select person").selectOption({ label: "Fuel Entry Browser Admin" });
+  await page.getByLabel("Active role").selectOption("admin");
+  await page.getByLabel("Admin PIN").fill(adminPin);
+  await page.getByRole("button", { name: "Activate role", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  await page.locator("#admin-section-trigger-performance").click();
+  await page.getByLabel("Monthly Driver Target (₹)").fill("1000");
+  await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
+  const period = page.locator(".performance-period-form");
+  await period.getByLabel("Period from").fill("2024-01-01");
+  await period.getByLabel("Period to").fill(new Date().toISOString().slice(0, 10));
+  await period.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
+  await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
+  await page.locator("#performance-provenance > summary").first().click();
+  await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
+  const golden = await assertBrowserStage3GoldenJourney(page);
+  const eligibleCosts = await page.getByRole("button", { name: "Explain Eligible period costs", exact: true }).innerText();
+  const match = eligibleCosts.match(/₹([\d,]+\.\d{2})/);
+  const paise = Math.round(Number((match?.[1] ?? "0").replaceAll(",", "")) * 100);
+  if (paise < 165000) {
+    throw new Error("stage3_performance_excludes_ui_created_fuel_expenses:" + eligibleCosts);
+  }
+  for (const purchase of purchases) {
+    if (!golden.uiSourceIds.includes(purchase.id)) {
+      throw new Error("stage3_backup_restore_lost_ui_fuel_source:" + purchase.id);
+    }
+    if (!golden.calculationSnapshot.provenance.includes(purchase.id)) {
+      throw new Error("stage3_calculation_provenance_missing_fuel_source:" + purchase.id);
+    }
+  }
+  console.log("PWA Fuel → confirmed Work distance → Performance → encrypted restore passed:",
+    JSON.stringify({ purchaseIds: purchases.map(p => p.id), businessKilometres: 42, eligibleCostsPaise: paise }));
+  return golden;
+}
+
