@@ -222,10 +222,25 @@ internal object NativeBackupCoverage {
             require(isFeatureOwnedRecord(row.id)) { "backup_unregistered_feature_record:" + row.id }
         }
         val result = JSONArray()
+        val exportedFeatureKeys = mutableSetOf<String>()
         discoverParticipants().forEach { participant ->
-            adapter(participant).export(database, participant.id, isInternal).forEach { result.put(it) }
+            adapter(participant).export(database, participant.id, isInternal).forEach { row ->
+                result.put(row)
+                if (row.optString("participantId") == participant.id) {
+                    exportedFeatureKeys.add(participant.id + ":" + row.optString("id"))
+                }
+            }
         }
-        NativeBackupFeatureRecordExport.appendMissingRegisteredRecords(database, isInternal, result)
+        dynamicFeatureRecordPrefixes.forEach { (participantId, prefix) ->
+            database.records().list()
+                .filter { !isInternal(it.id) && it.id.startsWith(prefix) &&
+                    (participantId + ":" + it.id) !in exportedFeatureKeys }
+                .forEach { row ->
+                    result.put(JSONObject().put("id", row.id).put("json", row.json)
+                        .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
+                        .put("participantId", participantId))
+                }
+        }
         validateBusinessRecords(result, requireExplicitOwnerTags = true)
         return result
     }
@@ -242,26 +257,6 @@ internal object NativeBackupCoverage {
         }
         require(participants.any { it.id == id }) { "backup_unknown_participant:" + id }
         return id
-    }
-
-    /** Convert pre-manifest snapshots from the old shared-records owner model. */
-    fun normalizeLegacyRecords(records: JSONArray): JSONArray {
-        val result = JSONArray()
-        for (index in 0 until records.length()) {
-            val row = JSONObject(records.getJSONObject(index).toString())
-            val originalId = row.optString("id")
-            when {
-                originalId.startsWith("driver-event:") -> {
-                    row.put("id", originalId.removePrefix("driver-event:"))
-                    row.put("participantId", "logbook-events")
-                }
-                isWorkRecord(originalId) -> row.put("participantId", "work-driver-state")
-                row.optString("participantId") == "logbook-events" -> Unit
-                else -> row.put("participantId", "platform-records")
-            }
-            result.put(row)
-        }
-        return result
     }
 
     fun validateBusinessRecords(records: JSONArray, requireExplicitOwnerTags: Boolean = false) {
