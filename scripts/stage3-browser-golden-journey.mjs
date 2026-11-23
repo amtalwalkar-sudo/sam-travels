@@ -111,6 +111,7 @@ export async function assertBrowserStage3GoldenJourney(page) {
   }
   const evidence = {
     ...goldenJourney, calculationOutputAndProvenanceStable: true,
+    calculationSnapshot: calculationBeforeRestore,
     calculationSourceRecords: goldenJourney.uiSourceIds,
   };
   console.log("Stage 3 same-record golden journey passed:", JSON.stringify(evidence));
