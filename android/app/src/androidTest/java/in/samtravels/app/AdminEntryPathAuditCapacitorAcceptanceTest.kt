@@ -23,11 +23,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
     var fuelRecordId: String? = null
     val fuelRecordIds = mutableListOf<String>()
     var vehicleRecordId: String? = null
-    val previousBusinessSettings = db.records().get("feature:business-settings:business")
-    val previousBusinessSettingsReceipts = db.records().list().filter { row ->
-        row.id.startsWith("__sam_travels_feature_operation__:") &&
-            JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == "feature:business-settings:business"
-    }
     val previousPerformanceSettings = db.records().get("feature:performance:settings")
     val financeRecordIds = mutableListOf<String>()
     var assignmentRecordId: String? = null
@@ -273,21 +268,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
         assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
         assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
-        android.os.SystemClock.sleep(1100)
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56042")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
-        AdminEntryPathAuditTestSupport.clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
-        assertTrue("Closing full-tank checkpoint saved", support.await(activity,
-            "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
-        val closingFuel = db.records().list().singleOrNull { row ->
-            row.id.startsWith("feature:business-expenses:fuel:") &&
-                JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 56042
-        }
-        assertNotNull("Closing Fuel checkpoint", closingFuel)
-        fuelRecordIds.add(closingFuel!!.id)
-        assertRoomOperationReceiptExists(db, closingFuel.id)
+        fuelRecordIds.add(AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(activity, support, db, vehicleRecordId!!))
         Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
             db,
             vehicleRecordId!!,
@@ -306,8 +287,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             it.id == "feature:business-settings:business" ||
             (it.id.startsWith("__sam_travels_feature_operation__:") &&
                 JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == "feature:business-settings:business") }.forEach { db.records().remove(it.id) }
-        if (previousBusinessSettings != null) db.records().put(previousBusinessSettings)
-        previousBusinessSettingsReceipts.forEach { db.records().put(it) }
         if (previousWorkSelection != null) db.records().put(previousWorkSelection)
         else db.records().remove("work:selected-driver")
         if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
