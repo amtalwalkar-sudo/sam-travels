@@ -185,7 +185,7 @@ class PerformanceCalculationRoomParityTest {
                 ?: throw AssertionError("missing Finance prepayment")
             assertEquals(true, financeLineage.getBoolean("closedLoan"))
             assertEquals("closed", loan.getJSONObject("data").getString("lifecycleState"))
-            assertEquals(financeLineage.getInt("prepaymentRevision"), prepayment.getInt("revision"))
+            assertEquals(financeLineage.getInt("prepaymentRevision"), prepayment.getJSONObject("data").getJSONArray("revisions").getJSONObject(0).getInt("version"))
             val settlement = ledger.getJSONObject("data").getJSONArray("entries").let { entries ->
                 (0 until entries.length()).map { entries.getJSONObject(it) }
                     .first { it.getString("kind") == "settlement" }
