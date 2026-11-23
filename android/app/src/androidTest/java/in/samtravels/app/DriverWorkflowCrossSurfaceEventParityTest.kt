@@ -160,6 +160,41 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
                     "document.querySelector('.driver-head h2')?.textContent?.trim() === 'Trip Active'",
                     20_000,
                 ))
+                val staleEventId = "stale-pwa-" + UUID.randomUUID()
+                val staleCommand = JSONObject()
+                    .put("schemaVersion", 1)
+                    .put("workflowVersion", 2)
+                    .put("commandId", staleEventId)
+                    .put("eventId", staleEventId)
+                    .put("eventType", "start_ride")
+                    .put("originSurface", "pwa")
+                    .put("transitionAt", Instant.now().toString())
+                    .put("expectedPriorState", "going_to_pickup")
+                    .put("expectedRevision", 2)
+                    .put("idempotencyKey", staleEventId)
+                val staleExpression = """
+                    (() => {
+                      const plugin = window.Capacitor?.Plugins?.DriverWorkflow;
+                      if (!plugin) { window.__staleWriteResult = 'plugin_missing'; return; }
+                      plugin.queueIntent({ command: __STALE_COMMAND__ })
+                        .then(() => { window.__staleWriteResult = 'unexpectedly_accepted'; })
+                        .catch(() => { window.__staleWriteResult = 'rejected'; });
+                    })()
+                """.trimIndent().replace("__STALE_COMMAND__", staleCommand.toString())
+                evaluateJavascript(webActivity!!, staleExpression)
+                assertTrue("A stale PWA write based on revision 2 must be rejected after overlay commits revision 3",
+                    awaitJavascript(webActivity!!, "window.__staleWriteResult === 'rejected'", 15_000))
+                assertEquals("Stale PWA write must not append a durable intent", 2,
+                    DriverWorkflowStore.listIntents(db).size)
+                assertEquals("Stale PWA write must not append an event", 2,
+                    DriverWorkflowStore.listEvents(db).size)
+                assertEquals("Both surfaces must remain on the authoritative revision 3", 3,
+                    DriverWorkflowStore.snapshot(db).optInt("revision"))
+                assertTrue("PWA must remain converged on the overlay's authoritative state", awaitJavascript(
+                    webActivity!!,
+                    "document.querySelector('.driver-head h2')?.textContent?.trim() === 'Trip Active'",
+                    10_000,
+                ))
             }
         } finally {
             DriverLocationSourceFactory.overrideForTests = null
