@@ -369,6 +369,10 @@ try {
   await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  await page.locator("#admin-section-trigger-performance").click();
+  await page.getByLabel("Monthly Driver Target (₹)").fill("1000");
+  await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
