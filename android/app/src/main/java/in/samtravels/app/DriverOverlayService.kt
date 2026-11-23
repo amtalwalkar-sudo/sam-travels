@@ -27,6 +27,15 @@ class DriverOverlayService:Service(){
   )
  }
  private val main=Handler(Looper.getMainLooper())
+ // Room invalidation is the fast path. A low-frequency refresh pulse is the
+ // cross-process safety net for OEM/Room invalidation delivery gaps.
+ private val roomRefreshPulse=object:Runnable{
+  override fun run(){
+   if(serviceDestroyed)return
+   refresh()
+   main.postDelayed(this,1_000L)
+  }
+ }
  @Volatile private var intervalStartedAt:String?=null
  private var activeLocationEventId:String?=null
  // These request fields are read and written only on the main thread.
@@ -70,6 +79,8 @@ class DriverOverlayService:Service(){
     if(databaseObserver==null){
      databaseObserver=object:androidx.room.InvalidationTracker.Observer("records"){override fun onInvalidated(tables:Set<String>){refresh()}}
      db.invalidationTracker.addObserver(databaseObserver!!)
+     main.removeCallbacks(roomRefreshPulse)
+     main.postDelayed(roomRefreshPulse,1_000L)
     }
     val active=DriverWorkflowStore.snapshot(db).optString("state")!="idle"
     main.post{if(active){presentation.showPanel();recoverPendingAfterServiceStart()}else stopSelf()}
@@ -287,6 +298,7 @@ class DriverOverlayService:Service(){
  override fun onDestroy(){
   check(Looper.myLooper()==Looper.getMainLooper()){ "service_destroy_must_run_on_main_thread" }
   serviceDestroyed=true
+  main.removeCallbacks(roomRefreshPulse)
   activeLocationTimeout?.let{main.removeCallbacks(it)}
   activeLocationListener?.let{try{locationSource.removeUpdates(it)}catch(_:Exception){}}
   activeLocationEventId=null;activeLocationListener=null;activeLocationTimeout=null
