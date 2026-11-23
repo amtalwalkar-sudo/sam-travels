@@ -90,7 +90,7 @@ class AdminFormsCapacitorAcceptanceTest {
             val driverRecordId = configuredDriverRows.single().id
             assertRoomOperationReceiptExists(db, driverRecordId)
             click(activity, "Configure for Work")
-            assertTrue("Admin configures the canonical Work Driver selection",
+            assertTrue("Admin configures Work Driver",
                 await(activity, "document.body.innerText.includes('$marker Driver is configured with $registration for Work.')", 15000))
             val configuredDriverData = org.json.JSONObject(configuredDriverRows.single().json).getJSONObject("data")
             val selectedWorkDriver = db.records().get("work:selected-driver")
@@ -101,7 +101,7 @@ class AdminFormsCapacitorAcceptanceTest {
             val assignmentHistory = db.records().get("feature:driver-records:assignment:" + configuredDriverData.getString("driverId"))
             assertNotNull("Admin creates the current Driver–Vehicle assignment", assignmentHistory)
             val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
-            assertEquals("Admin assigns the sole active Vehicle", vehicleRecordId, assignment.getString("vehicleId"))
+            assertEquals("Active Vehicle assigned", vehicleRecordId, assignment.getString("vehicleId"))
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
             val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
                 activity, this, db, vehicleRecordId,
@@ -109,9 +109,9 @@ class AdminFormsCapacitorAcceptanceTest {
             activity = fuelRecovery.first
             val fuelRecordId = fuelRecovery.second
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
-            assertTrue("Compliance binds the configured operating Vehicle", await(activity,
+            assertTrue("Compliance uses configured Vehicle", await(activity,
                 "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
-            assertTrue("Compliance has no routine Vehicle selector", await(activity,
+            assertTrue("No routine Compliance Vehicle selector", await(activity,
                 "!document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context select')", 10000))
             click(activity, "Add compliance / renewal")
             set(activity, "Compliance type / name", marker + " Insurance")
