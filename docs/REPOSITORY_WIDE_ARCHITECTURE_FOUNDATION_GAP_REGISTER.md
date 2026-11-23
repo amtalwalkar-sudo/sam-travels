@@ -704,3 +704,26 @@ PR #99 remains draft, open and unmerged. Whole-contract status remains **INCOMPL
 
 
 **Exact-head validation correction:** Run 45034254979 is green on `68fa1233a7d84df0ef77c35e95b1a353085750c5`, before the Stage 4 documentation-only commits. Current PR head is `f2efeb74ff8a383d3d572d7acae3b668c51c8336`; no workflow run is currently associated with that SHA. Accordingly, the Stage 4 evidence reconciliation is complete but final exact-head CI remains pending. Do not cite run 45034254979 as validation of the later documentation head. The connector available in this session has no workflow-dispatch operation; CI must be started through the repository's manual workflow dispatch or a subsequent PR synchronization event.
+
+
+### 9.44 — PR #99 Stage 6 whole-contract reconciliation — 2026-11-23
+
+**Audit source head:** `34e01756922985ecfb1ba69a2b438d884efe7d8b`.  
+**Exact-head CI at audit start:** [45154128872](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45154128872), successful for Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression; optional Production geocoder verification skipped.  
+**Reconciliation status:** Whole contract **INCOMPLETE**. This entry supersedes stale execution-status wording in earlier audit snapshots only where it conflicts with the current PR #99 evidence matrix and execution plan. Historical findings remain preserved.
+
+The current PR contains meaningful production restore and recovery improvements, including both encrypted restore directions for the existing populated graph, Room rollback/startup recovery, invalid-reference rejection, participant validation and workflow replay tests. These facts do not close the following whole-contract requirements:
+
+1. **G-18 / shared fixture completeness:** the 29-record populated graph still lacks Finance prepayment and settlement transaction lineage. The Stage 1 fixture acceptance gate is not met.
+2. **G-15 / G-16 / G-18 / cross-runtime completeness:** Browser/Dexie and Android/Room lifecycle tests cover the current graph, not every required owner-contract record, correction chain, event state and source revision. Stage 2 remains partial.
+3. **G-19 through G-24 / integrated calculations:** domain-level tests cover important individual calculations and provenance. A complete same-source, same-revision, full correction/workflow graph has not been shown to produce equivalent calculations and provenance through both production restore/recovery paths. Stage 4 remains partial.
+4. **G-11 / G-24 / surface workflow parity:** direct PWA-to-overlay and overlay-to-PWA committed Driver Workflow state/event/revision visibility, plus the stale-read N → overlay commit N+1 → stale PWA rejection/convergence sequence, remain explicit open requirements. Stage 3 remains partial.
+5. **G-10 / backup completeness and G-37 / G-39:** participant/zero-record representation, paired exclusion proof, production snapshot consistency and Android production record-count/creation-boundary enforcement require exact normative-contract mapping and passing assertions. Existing malformed-input, rollback and participant tests prove important slices but do not by themselves close the complete Stage 5 gate.
+6. **G-40 / operating configuration:** the canonical resolver and Compliance vehicle-only path are implemented, but automatic context binding for all dependent Fuel, Maintenance, Finance, Business Expense and Performance command boundaries remains to be demonstrated. Do not mark the one-pair operating contract fully wired based only on resolver unit tests or Compliance proof.
+7. **G-19 / correction consumers:** correction-chain integrity and selected owner read models are tested, but remaining consumer-level recalculation and restored-source provenance must be reconciled feature by feature. Do not infer full correction closure from source immutability tests.
+
+The earlier conversational declaration that Stage 5 was complete is superseded by the formal Stage 6 audit: Stage 5 has meaningful passing regression slices but no complete recorded exit-evidence matrix and remains **PARTIAL** until every applicable negative, boundary, interruption, exclusion and snapshot requirement is mapped and proven. The six-stage execution plan now records Stages 1–5 as incomplete/partial and Stage 6 as in progress and blocked; sequential stage gates must not be bypassed.
+
+**External/manual gates retained, not counted as CI passes:** physical OEM/device certification and owner usability approval; full OS reboot where deterministic CI coverage is unavailable; and live Dropbox account authentication/upload/download/scheduled-backup/restore. Repository branch-protection/ruleset enforcement is also not established by the application CI run and remains a repository-administration verification item.
+
+**Disposition:** Stage 6 reconciliation is recorded but final acceptance is **BLOCKED**. Resume at the earliest unmet sequential gate (Stage 1 shared fixture completion). PR #99 must remain open, draft and unmerged. Do not label the whole contract complete until all eight conditions in PR #99 contract §1A are satisfied.
