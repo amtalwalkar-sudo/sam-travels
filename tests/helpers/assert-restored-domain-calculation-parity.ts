@@ -9,7 +9,6 @@ export function assertRestoredDomainCalculationParity(restoredRows: readonly any
   // This prevents the fixture's precomputed input objects from acting as
   // an accidental calculation oracle.
   const restoredById = new Map(restoredRows.map(record => [record.id, record]));
-  const restoredById = new Map(restoredRows.map(record => [record.id, record]));
   const projectRestoredTarget = (targetRecordId: string, featureId: string) => {
     const original = restoredById.get(targetRecordId);
     expect(original, "restored correction target " + targetRecordId).toBeDefined();
