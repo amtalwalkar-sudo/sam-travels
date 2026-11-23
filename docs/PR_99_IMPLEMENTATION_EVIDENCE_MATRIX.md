@@ -524,3 +524,16 @@ Physical OEM/device certification, deterministic full-OS reboot acceptance where
 **Stage 3 remains PARTIAL/ACTIVE.** This fixture and lifecycle evidence does not prove direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility or the stale-read N → overlay commit N+1 → stale PWA rejection/convergence sequence. Stage 4's broader correction-consumer recalculation and Stage 5's complete negative/boundary/interruption mapping remain distinct gates.
 
 **CI scope:** Web regression suite reported 131 test files passed, 1 skipped; 737 tests passed, 1 skipped. Required Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression jobs all succeeded. Optional Production geocoder verification was skipped. The run validates only `e45823f09675ff4c8b8eceffad0e00faed68cbc2`; the documentation update commit requires a fresh exact-head run.
+
+
+## 9.47 — Stage 3 cross-surface Driver Workflow evidence revalidation — 2026-11-23
+
+The earlier Section 0D statement that direct two-way PWA ↔ native-overlay event/state/revision visibility and stale-write convergence were missing is superseded by the following current-branch Android instrumentation evidence:
+
+- `DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA`: actual rendered PWA submits `trip_create` through the Capacitor plugin into shared Room; overlay refreshes to the committed state/revision; overlay performs GPS-backed `start_ride`; PWA observes the committed native event; a stale PWA command based on revision 2 is rejected after Room advances to revision 3; intent/event counts and authoritative state/revision remain unchanged after rejection.
+- `DriverWorkflowStaleWriteInterleavingTest.stalePwaWriteAfterOverlayCommitIsRejectedAndAuthoritativeRevisionWins`: deterministic Room-store interleaving asserts stale revision rejection and absence of a stale intent/event.
+- `DriverWorkflowProcessRestartTest.preparePendingWorkflowForProcessRestart` and `recoverPendingWorkflowAfterProcessRestart`: separate instrumentation invocations with forced target and test process stops verify pending intent persistence, recovery, stable event/outbox counts and idempotent replay.
+
+The required Android instrumentation gate in exact-head CI [45168382085](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45168382085) passed on `623821124a210a9f0b9dc586756a40b5418f9f48`. The CI script's broad remaining instrumentation invocation excludes only the separately invoked process-restart and three named Performance/restore classes; `DriverWorkflowCrossSurfaceEventParityTest` remains included.
+
+**Stage 3 is still PARTIAL.** The rendered PWA Work acceptance, rendered BackupPanel acceptance and production backup lifecycle tests are currently separate contexts. They do not yet prove that the same UI-created record IDs/revisions flow through dependent production calculations and then through production encrypted backup/restore for each runtime. That continuous same-record golden journey, plus the remaining Admin/Fuel draft recovery and durable retry/idempotency clause reconciliation, remains the Stage 3 exit work. This entry supersedes only the stale cross-surface finding; it does not close Stage 3, Stage 4–6 or the whole contract.
