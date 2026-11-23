@@ -264,10 +264,14 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
             db,
             vehicleRecordId!!,
-            fuelRecordId!!,
-            { script -> support.eval(activity, script) },
-            { script, timeout -> support.await(activity, script, timeout) },
-            { label -> support.clickMatching(activity, label) },
+            fuelRecordId = fuelRecordId!!,
+            evaluate = { script -> support.eval(activity, script) },
+            waitFor = { script, timeout -> support.await(activity, script, timeout) },
+            click = { label -> support.clickMatching(activity, label) },
+            readCalculation = {
+                support.javascriptValue(activity,
+                    "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})").orEmpty()
+            },
         )
     } finally {
         db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
