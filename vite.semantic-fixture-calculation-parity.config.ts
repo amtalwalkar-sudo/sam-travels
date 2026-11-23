@@ -3,7 +3,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: "tests/helpers/semantic-fixture-calculation-parity.ts",
-      name: "SemanticFixtureCalculationParity",
+      name: "SemanticFixtureCalculationParityBundle",
       formats: ["iife"],
       fileName: () => "semantic-fixture-calculation-parity.js",
     },
