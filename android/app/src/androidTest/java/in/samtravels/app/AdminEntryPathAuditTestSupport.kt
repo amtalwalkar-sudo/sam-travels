@@ -143,27 +143,29 @@ internal object AdminEntryPathAuditTestSupport {
         support.set(activity, "Odometer (km)", "55123")
         support.set(activity, "Price per kg (₹)", "82.50")
         support.set(activity, "Amount paid (₹)", "825")
-        val workingCopyId = "__sam_travels_form_working_copy__:work.fuel-entry:" +
-            java.net.URLEncoder.encode("android-fuel-draft-recovery", "UTF-8").replace("+", "%20")
+        val workingCopyPrefix = "__sam_travels_form_working_copy__:work.fuel-entry:"
         val draftDeadline = SystemClock.uptimeMillis() + 15000
-        var savedDraft = false
+        var workingCopyId: String? = null
         while (SystemClock.uptimeMillis() < draftDeadline) {
-            val row = db.records().get(workingCopyId)
-            if (row != null) {
-                val data = JSONObject(row.json).getJSONObject("data")
-                val values = data.optJSONObject("values")
-                if (data.optString("status") == "in_progress" && values != null &&
-                    values.optString("vehicleId") == vehicleRecordId &&
-                    values.optInt("odometerKm") == 55123 &&
-                    values.optDouble("priceRupeesPerKg") == 82.5 &&
-                    values.optDouble("amountRupees") == 825.0) {
-                    savedDraft = true
-                    break
+            val row = db.records().list().firstOrNull { candidate ->
+                if (!candidate.id.startsWith(workingCopyPrefix)) false else {
+                    val data = JSONObject(candidate.json).getJSONObject("data")
+                    val values = data.optJSONObject("values")
+                    data.optString("status") == "in_progress" && values != null &&
+                        values.optString("vehicleId") == vehicleRecordId &&
+                        values.optInt("odometerKm") == 55123 &&
+                        values.optDouble("priceRupeesPerKg") == 82.5 &&
+                        values.optDouble("amountRupees") == 825.0
                 }
+            }
+            if (row != null) {
+                workingCopyId = row.id
+                break
             }
             SystemClock.sleep(100)
         }
-        assertTrue("Fuel draft values are durably committed to Room before interruption", savedDraft)
+        assertNotNull("Fuel draft values are durably committed to Room before interruption", fuelWorkingCopyId)
+        val fuelWorkingCopyId = fuelWorkingCopyId
         activity.finish()
         instrumentation.waitForIdleSync()
         activity = instrumentation.startActivitySync(
@@ -177,7 +179,7 @@ internal object AdminEntryPathAuditTestSupport {
         support.eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
         assertTrue("Fuel draft is recovered into the rendered form after WebView recreation",
             support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 15000))
-        val recoveredDraft = db.records().get(workingCopyId)
+        val recoveredDraft = db.records().get(fuelWorkingCopyId)
         assertNotNull("Recovered draft remains durable in Room", recoveredDraft)
         assertEquals("Interruption did not submit the Fuel draft", "in_progress",
             JSONObject(recoveredDraft!!.json).getJSONObject("data").getString("status"))
@@ -189,7 +191,7 @@ internal object AdminEntryPathAuditTestSupport {
         val interruptedDeadline = SystemClock.uptimeMillis() + 20000
         var pendingCopy: JSONObject? = null
         while (SystemClock.uptimeMillis() < interruptedDeadline) {
-            val row = db.records().get(workingCopyId)
+            val row = db.records().get(fuelWorkingCopyId)
             if (row != null) {
                 val data = JSONObject(row.json).getJSONObject("data")
                 if (data.optString("status") == "pending") {
@@ -244,7 +246,7 @@ internal object AdminEntryPathAuditTestSupport {
         assertEquals("First-submit timestamp is preserved across Room replay", originalCreatedAt,
             JSONObject(afterRetry.single().json).getString("createdAt"))
         assertEquals("Working copy completes after successful replay", "submitted",
-            JSONObject(db.records().get(workingCopyId)!!.json).getJSONObject("data").getString("status"))
+            JSONObject(db.records().get(fuelWorkingCopyId)!!.json).getJSONObject("data").getString("status"))
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
         assertTrue("Admin remains available after recovered Fuel submission",
             support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
