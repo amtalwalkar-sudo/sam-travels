@@ -23,7 +23,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
             waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
         val calculationBeforeRestore = readCalculation()
-        assertTrue("Pre-restore calculation snapshot includes the production provenance contract",
+        assertTrue("Pre-restore calculation snapshot includes the production provenance contract: " + calculationBeforeRestore,
             calculationBeforeRestore.contains("Calculation ID"))
         fuelRecordId?.let { id ->
             assertTrue("Performance provenance names the exact UI-created Fuel record",
