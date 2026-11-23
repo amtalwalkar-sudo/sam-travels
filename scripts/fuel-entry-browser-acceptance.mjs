@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
-import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
+import { assertBrowserStage3GoldenJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 const registration = "MH00AA0091";
@@ -50,10 +50,20 @@ try {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition() {
-        const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
-        localStorage.setItem("__fuel_geo_calls", String(calls));
-      } },
+      value: {
+        getCurrentPosition(success) {
+          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
+          localStorage.setItem("__fuel_geo_calls", String(calls));
+          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+        },
+        watchPosition(success) {
+          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
+          localStorage.setItem("__fuel_geo_calls", String(calls));
+          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+          return 1;
+        },
+        clearWatch() {},
+      },
     });
   });
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
@@ -264,6 +274,9 @@ try {
     "new Fuel purchases do not capture or persist GPS evidence");
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), 0,
     "Fuel submission and page reload must never request GPS");
+  const workDistance = await assertBrowserWorkDistanceThroughUi(page);
+  assert.equal(workDistance.businessKilometres, 42,
+    "Performance must consume a confirmed Work odometer allocation from the rendered UI");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
@@ -354,7 +367,7 @@ try {
     "Fuel submissions never invoke the browser geolocation API");
   await context.setOffline(false);
 
-  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and no GPS request made.");
+  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and Fuel itself requested no GPS; Work distance was confirmed separately through GPS-backed shift events.");
 
   // Carry those exact UI-created Fuel IDs into Performance and the production
   // encrypted Browser backup/restore path in this same browser lifecycle.
