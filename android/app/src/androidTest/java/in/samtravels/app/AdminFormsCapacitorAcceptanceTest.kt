@@ -152,7 +152,7 @@ class AdminFormsCapacitorAcceptanceTest {
             }
             assertNotNull("Loan details record persists in Room", loanRecord)
             assertRoomOperationReceiptExists(db, loanRecord!!.id)
-            assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
+            assertTrue("Loan actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
             set(activity, "Fee date", "2026-11-15")
             set(activity, "Vehicle", vehicleRecordId)
