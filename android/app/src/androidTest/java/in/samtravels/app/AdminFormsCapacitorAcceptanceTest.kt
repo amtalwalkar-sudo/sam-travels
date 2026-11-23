@@ -211,6 +211,10 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 evaluate = { script -> eval(activity, script) },
                 waitFor = { script, timeout -> await(activity, script, timeout) },
                 click = { label -> clickMatching(activity, label) },
+                readCalculation = {
+                    javascriptValue(activity,
+                        "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})")
+                },
             )
 
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
