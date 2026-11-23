@@ -148,7 +148,7 @@ This plan does not authorize:
 - Original four-stage closeout tracker: **COMPLETE** (subordinate only).
 - Stage 1 — shared populated semantic fixture: **COMPLETE — EVIDENCED**. The current shared fixture contains 46 records and the Finance payment/reversal/prepayment revision/settlement/closed-loan lineage, all-domain source links, correction chains, Work recovery states and zero-record participant policy. Inventory, lineage, calculation and validator-parity tests passed on baseline head `e45823f09675ff4c8b8eceffad0e00faed68cbc2` (run [45165851554](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45165851554)).
 - Stage 2 — production Browser/Dexie and Android/Room lifecycle: **COMPLETE — EVIDENCED**. The same populated graph passes Browser production export/encrypted restore/reopen/re-export, Android Room production restore/reopen/re-export, TypeScript→Room import and Android→Browser import. Normalized records/participants, pending Work/outbox state, correction lineage and production calculation/provenance checks pass in the same exact-head CI run.
-- Stage 3 — UI-originated lifecycle and cross-surface parity: **ACTIVE — PARTIAL**. Direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility and the stale-read N → overlay commit N+1 → stale PWA rejection/convergence interleaving remain open.
+- Stage 3 — UI-originated lifecycle and cross-surface parity: **ACTIVE — PARTIAL**. Direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility and the stale-read N → overlay commit N+1 → stale PWA rejection/convergence interleaving are now evidenced by DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA on the Android emulator; the remaining Stage 3 blocker is the same-record UI → production calculation → encrypted backup/restore golden journey per runtime, plus any still-unproven form-recovery/retry assertions.
 - Stage 4 — calculation and correction lineage: **NOT YET ACCEPTED**. Stage 2 proves fixture-backed calculations at the restore boundary, but the broader whole-contract consumer/recalculation and same-source provenance requirements still require their own Stage 4 reconciliation.
 - Stage 5 — backup/restore negative, boundary and interruption proof: **NOT YET ACCEPTED**. Existing rollback, invalid-reference, participant and replay tests prove important slices; the complete requirement-to-test map, including backup exclusions, zero-record participants and snapshot/record-count boundaries, remains to be closed.
 - Stage 6 — whole-contract reconciliation and final acceptance: **BLOCKED** until Stages 3–5 and all eight §1A conditions are satisfied.
@@ -178,3 +178,24 @@ The Stage 6 audit found that the six-stage status had not been maintained in thi
 **Stage 3 remains active:** The direct two-way PWA/Android overlay workflow visibility and stale-write interleaving are not proven by the fixture or restore tests. Stage 4 and Stage 5 remain separate acceptance gates; the passing Stage 2 calculation assertions do not waive their broader requirements.
 
 **Head discipline:** run 45165851554 validates only `e45823f09675ff4c8b8eceffad0e00faed68cbc2`. The evidence/documentation update itself requires a new exact-head CI run before this revalidation checkpoint is treated as current-head green.
+
+
+### Stage 3 evidence revalidation — cross-surface Driver Workflow — 2026-11-23
+
+**Status: PARTIAL — one previously listed blocker is now closed; the Stage 3 acceptance gate remains open.**
+
+The earlier Stage 3 wording that described direct PWA ↔ overlay event/state/revision visibility and stale-write convergence as missing was stale. The current branch contains and the required Android instrumentation suite executes:
+
+- `DriverWorkflowCrossSurfaceEventParityTest.pwaCommittedTripCreationRefreshesOverlayAndOverlayRideStartRefreshesPWA` (`android/app/src/androidTest/java/in/samtravels/app/DriverWorkflowCrossSurfaceEventParityTest.kt`).
+  - Starts from a rendered PWA Drive workspace and a shared Room-backed overlay fixture.
+  - Commits a PWA-originated `trip_create` through the real Capacitor DriverWorkflow plugin; asserts the PWA renders “Going To Pickup”, Room state is `going_to_pickup` at revision 2, and the overlay refreshes to the same committed state/revision.
+  - Performs the overlay’s real “Swipe to Start trip” action, completes its GPS-backed `start_ride` command, and asserts Room advances once to `trip_active` revision 3 with the event origins preserved (`pwa`, then `native_overlay`).
+  - Asserts the PWA observes the overlay’s committed “Trip Active” state.
+  - Submits a stale PWA `start_ride` command based on `going_to_pickup` revision 2 after the overlay committed revision 3; asserts rejection, no additional durable intent/event, authoritative Room revision remains 3, and PWA remains converged.
+- `DriverWorkflowStaleWriteInterleavingTest.stalePwaWriteAfterOverlayCommitIsRejectedAndAuthoritativeRevisionWins` provides a narrower deterministic Room-store interleaving assertion; it is supplementary, not a substitute for the rendered cross-surface test.
+- `DriverWorkflowProcessRestartTest.preparePendingWorkflowForProcessRestart` / `recoverPendingWorkflowAfterProcessRestart` separately exercise pending intent durability, startup recovery, completion and replay idempotency across forced target/instrumentation process stops.
+- The exact-head CI run [45168382085](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45168382085) passed the Android job, including the required instrumentation gate. Its workflow excludes only the explicitly invoked special-case instrumentation classes from the broad suite; the cross-surface parity class remains in that suite.
+
+**Still required for Stage 3 acceptance:** a same-record golden journey for each authoritative runtime. Records must be created through actual supported UI/action boundaries, their dependent production calculations must be evaluated from those committed records, and the same stable record IDs/revisions must then be exported/restored through the production encrypted backup lifecycle and asserted after reopen/recovery. Existing rendered Work, Admin, Fuel, Performance and BackupPanel acceptances run as separate scripts/contexts and therefore do not yet establish this continuous identity chain. Also reconcile the precise Admin/Fuel draft recovery and durable retry/idempotency clauses against existing Dexie and Room assertions before claiming them complete.
+
+Do not mark Stage 3 complete based on the cross-surface test alone. Stages 4–6 remain unaccepted and the whole contract remains INCOMPLETE.
