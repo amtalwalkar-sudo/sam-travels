@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -99,6 +100,11 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         val fixture = instrumentation.context.assets.open("performance-calculation-v1-parity.json")
             .bufferedReader().use { JSONObject(it.readText()) }
         val fixtureRecords = fixture.getJSONArray("records")
+        val expected = fixture.getJSONObject("expected")
+        fun expectedRupees(key: String): String {
+            val paise = expected.getInt(key)
+            return "₹" + String.format(Locale.US, "%,d.%02d", paise / 100, paise % 100)
+        }
         val vehicleId = "feature:vehicle:MH01AB1234"
         val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
         val periodFrom = fixture.getJSONObject("input").getString("periodFrom")
@@ -346,7 +352,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                     it.getString("error").isNotBlank()
             }
             assertTrue("Actual Android Performance calculation failed: ${calculated.optString("error")}",
-                calculated.getString("lifetime").contains("₹274.00"))
+                calculated.getString("lifetime").contains("${expectedRupees("lifetimeCostPaise")}"))
 
             stage = "verify Performance totals and source provenance"
             val output = JSONObject(evaluate(webView, """
@@ -357,13 +363,13 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   recoveryWindow: document.querySelector(".performance-meta")?.innerText || ""
                 }))()
             """.trimIndent()))
-            assertTrue("Selected period revenue should be ₹200.00: " + output.getString("selected"), output.getString("selected").contains("₹200.00"))
-            assertTrue("Selected period cost should be ₹10.00: " + output.getString("selected"), output.getString("selected").contains("₹10.00"))
-            assertTrue("Selected period net should be ₹190.00: " + output.getString("selected"), output.getString("selected").contains("₹190.00"))
-            assertTrue("Lifetime revenue should be ₹300.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹300.00"))
+            assertTrue("Selected period revenue should be ₹200.00: " + output.getString("selected"), output.getString("selected").contains("${expectedRupees("periodRevenuePaise")}"))
+            assertTrue("Selected period cost should be ₹10.00: " + output.getString("selected"), output.getString("selected").contains("${expectedRupees("periodCostPaise")}"))
+            assertTrue("Selected period net should be ₹190.00: " + output.getString("selected"), output.getString("selected").contains("${expectedRupees("periodProfitPaise")}"))
+            assertTrue("Lifetime revenue should be ₹300.00: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeRevenuePaise")}"))
             assertTrue("Lifetime eligible cost should be ₹274.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹274.00"))
-            assertTrue("Lifetime profit should be ₹26.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹26.00"))
-            assertTrue("Lifetime target should be ₹9,024.19: " + output.getString("lifetime"), output.getString("lifetime").contains("₹9,024.19"))
+            assertTrue("Lifetime profit should be ₹26.00: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeProfitPaise")}"))
+            assertTrue("Lifetime target should be ₹9,024.19: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeTargetPaise")}"))
             assertTrue("Performance output retains manual source provenance", output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
             assertTrue("Performance output retains EMI schedule provenance", output.getString("provenance").contains("feature:finance:loan:123e4567-e89b-42d3-a456-426614174092:emi:1:v1"))
             assertTrue("Performance output retains Compliance source provenance", output.getString("provenance").contains("feature:compliance:123e4567-e89b-42d3-a456-426614174093"))
@@ -383,7 +389,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
                   rows: document.querySelector(".performance-recovery tbody")?.innerText || ""
                 }))()
             """.trimIndent()))
-            assertTrue("Recovery presentation shows ₹234.00: " + recovery.getString("summary"), recovery.getString("summary").contains("₹234.00"))
+            assertTrue("Recovery presentation shows ₹234.00: " + recovery.getString("summary"), recovery.getString("summary").contains("${expectedRupees("recoveryTotalPaise")}"))
             assertTrue("Recovery presentation shows Business Start Date", recovery.getString("summary").contains(businessStartDate))
             assertTrue("Recovery presentation shows the 18-month end boundary", recovery.getString("summary").contains(targetDate))
             assertTrue("Recovery table has no allocation on its exclusive end date", recovery.getString("rows").isEmpty())
