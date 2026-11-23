@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 @RunWith(AndroidJUnit4::class)
-class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
+class AdminFormsCapacitorAcceptanceTest {
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
@@ -74,7 +74,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             val vehicleRecordId = "feature:vehicle:" + registration
             assertTrue("Vehicle Room identity", db.records().get(vehicleRecordId) != null)
             assertRoomOperationReceiptExists(db, vehicleRecordId)
-
 
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
