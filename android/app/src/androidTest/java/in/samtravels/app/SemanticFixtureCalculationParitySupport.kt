@@ -1,4 +1,4 @@
-package \`in\`.samtravels.app
+package `in`.samtravels.app
 
 import android.content.Context
 import android.os.SystemClock
