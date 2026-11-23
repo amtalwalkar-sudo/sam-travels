@@ -71,7 +71,7 @@ export async function assertBrowserStage3GoldenJourney(page) {
     if (!restore.checkpointId || restore.restoredCount < before.length) {
       throw new Error("stage3_golden_journey_restore_count_or_checkpoint_invalid");
     }
-    const after = canonicalRows(await readRecords());
+    const after = canonicalRows((await readRecords()).filter(isUiSource));
     if (JSON.stringify(before) !== JSON.stringify(after)) {
       const afterById = new Map(after.map(row => [row.id, row]));
       const mismatches = before.filter(row => JSON.stringify(row) !== JSON.stringify(afterById.get(row.id)))
