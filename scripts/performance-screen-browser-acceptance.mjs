@@ -415,8 +415,10 @@ try {
       db.close();
       return rows;
     };
+    const normalize = value => Array.isArray(value) ? value.map(normalize) :
+      value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, normalize(value[key])])) : value;
     const canonicalRows = rows => rows
-      .map(row => ({ id: row.id, revision: row.revision, schemaVersion: row.schemaVersion,
+      .map(row => normalize({ id: row.id, revision: row.revision, schemaVersion: row.schemaVersion,
         updatedAt: row.updatedAt, data: row.data, createdBy: row.createdBy }))
       .sort((a, b) => a.id.localeCompare(b.id));
     const before = canonicalRows(await readRecords());
@@ -429,8 +431,10 @@ try {
     ).map(row => row.id);
     if (uiSourceIds.length < 5) throw new Error("stage3_golden_journey_missing_ui_source_records");
     const runtime = await import("/apps/web/src/backup-runtime.ts");
-    const recoveryKey = crypto.randomUUID().replaceAll("-", "") +
-      crypto.randomUUID().replaceAll("-", "");
+    const recoveryBytes = crypto.getRandomValues(new Uint8Array(32));
+    let recoveryBinary = "";
+    for (const byte of recoveryBytes) recoveryBinary += String.fromCharCode(byte);
+    const recoveryKey = btoa(recoveryBinary);
     const created = await runtime.createBackupForCurrentRuntime({
       applicationVersion: "stage3-golden-journey",
       recoveryKey,
