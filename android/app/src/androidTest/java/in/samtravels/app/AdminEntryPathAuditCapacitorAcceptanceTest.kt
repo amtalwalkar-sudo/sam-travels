@@ -32,11 +32,11 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
     try {
         assertTrue("Drive loads", support.await(activity, "!!document.querySelector('.driver-card')", 30000))
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
-        assertTrue("Admin shell loads", support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+        assertTrue("Admin shell", support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
         check(support.javascriptValue(activity, """(()=>{const set=(labelText,value)=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes(labelText));const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,value);i.dispatchEvent(new Event('input',{bubbles:true}));return true};const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'));const i=l?.querySelector('input[type=checkbox]');if(!i)return false;i.click();return set('Person name','$marker Admin')&&set('Set initial Admin PIN','4831')})()""") == "true")
         support.eval(activity, "document.querySelector('form button')?.click()")
-        assertTrue("Admin enrollment", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
-        assertTrue("Admin activation controls", support.await(activity,
+        assertTrue("Enrollment", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
+        assertTrue("Activation controls", support.await(activity,
             "(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Select person'));return !!l?.querySelector('select')&&[...l.querySelectorAll('option')].some(o=>o.textContent.trim()==='$marker Admin')})()", 15000))
         check(support.javascriptValue(activity, """(()=>{const find=t=>[...document.querySelectorAll('label')].find(n=>n.textContent.includes(t));const p=find('Select person')?.querySelector('select');const r=find('Active role')?.querySelector('select');if(!p||!r)return false;const set=(s,v)=>{Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,v);s.dispatchEvent(new Event('input',{bubbles:true}));s.dispatchEvent(new Event('change',{bubbles:true}))};const o=[...p.options].find(o=>o.textContent.trim()==='$marker Admin');if(!o)return false;set(p,o.value);set(r,'admin');return true})()""") == "true")
         assertTrue("Admin PIN appears", support.await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
