@@ -9,6 +9,7 @@ internal object Stage3AndroidUiBackupAcceptance {
     fun assertPerformanceAndRestore(
         db: LocalDatabase,
         vehicleRecordId: String,
+        fuelRecordId: String,
         evaluate: (String) -> Unit,
         waitFor: (String, Long) -> Boolean,
         click: (String) -> Unit,
@@ -19,6 +20,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         click("Refresh performance|Calculating")
         org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
             waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
+        assertNotNull("The rendered Fuel purchase is persisted before backup", db.records().get(fuelRecordId))
         val stage3Source = NativeSnapshotBuilder.build(
         db, NativeBackupRecovery::isInternalRecord, "stage3-android-ui-golden-journey",
         )
@@ -63,6 +65,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         stage3Readback.snapshot.getJSONArray("records"),
         )
         assertNotNull("The exact UI-created Vehicle identity is restored", db.records().get(stage3VehicleId))
+        assertNotNull("The exact UI-created Fuel purchase identity is restored", db.records().get(fuelRecordId))
         (stage3DependentRows.map { it.id } + stage3VehicleId).forEach { id ->
             assertNotNull("The exact dependent record identity is restored: " + id, db.records().get(id))
         }
