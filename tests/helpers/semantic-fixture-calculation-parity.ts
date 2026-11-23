@@ -131,7 +131,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     entries: row.data.entries,
   }));
   const rateHistory = required(rows, "feature:maintenance:rate:" + encodeURIComponent(vehicle.id));
-  const provenance = [
+  const provenance: Array<{ sourceId: string; revision: number; scheduleVersion?: number }> = [
     ...fuelIntervals.flatMap(interval => interval.sourcePurchaseIds.map((sourceId, index) => ({
       sourceId, revision: interval.sourceRevisions[index],
     }))),
