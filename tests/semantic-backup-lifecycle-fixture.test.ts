@@ -18,8 +18,6 @@ import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/per
 import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/canonical-backup-snapshot";
 import { seedSemanticBackupWorkFixture } from "./helpers/seed-semantic-backup-work-fixture";
 import { assertRestoredDomainCalculationParity } from "./helpers/assert-restored-domain-calculation-parity";
-import { calculateFuelIntervals, calculateDailyBusinessExpenses, calculateFuelCostRateHistory } from "../packages/features/business-expenses";
-import { projectHistoricalCorrectionsV1 } from "../packages/domain/src/historical-correction";
 
 type Fixture = {
   schemaVersion: number;
