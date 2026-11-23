@@ -367,7 +367,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             assertTrue("Selected period cost should be ₹10.00: " + output.getString("selected"), output.getString("selected").contains("${expectedRupees("periodCostPaise")}"))
             assertTrue("Selected period net should be ₹190.00: " + output.getString("selected"), output.getString("selected").contains("${expectedRupees("periodProfitPaise")}"))
             assertTrue("Lifetime revenue should be ₹300.00: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeRevenuePaise")}"))
-            assertTrue("Lifetime eligible cost should be ₹274.00: " + output.getString("lifetime"), output.getString("lifetime").contains("₹274.00"))
+            assertTrue("Lifetime eligible cost should be ₹274.00: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeCostPaise")}"))
             assertTrue("Lifetime profit should be ₹26.00: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeProfitPaise")}"))
             assertTrue("Lifetime target should be ₹9,024.19: " + output.getString("lifetime"), output.getString("lifetime").contains("${expectedRupees("lifetimeTargetPaise")}"))
             assertTrue("Performance output retains manual source provenance", output.getString("provenance").contains("feature:performance:pre-business-cost:123e4567-e89b-42d3-a456-426614174091"))
