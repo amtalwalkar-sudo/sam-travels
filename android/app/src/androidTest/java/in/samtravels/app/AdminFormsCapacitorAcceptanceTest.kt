@@ -27,7 +27,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val marker = "Admin Android " + UUID.randomUUID().toString().take(8)
-        val activity = instrumentation.startActivitySync(
+        var activity = instrumentation.startActivitySync(
             Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
         try {
@@ -111,6 +111,69 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             val assignment = org.json.JSONObject(assignmentHistory!!.json).getJSONObject("data").getJSONArray("assignments").getJSONObject(0)
             assertEquals("Admin assigns the sole active Vehicle", vehicleRecordId, assignment.getString("vehicleId"))
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
+            // Fuel draft interruption/recovery through the rendered Android WebView and Room.
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
+            assertTrue("Work screen exposes Fuel Entry without an active shift",
+                await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
+            eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
+            assertTrue("Fuel form opens while no shift is active",
+                await(activity, "!!document.querySelector('.fuel-entry-panel')", 10000))
+            set(activity, "Vehicle", vehicleRecordId)
+            set(activity, "Odometer (km)", "55123")
+            set(activity, "Price per kg (₹)", "82.50")
+            set(activity, "Amount paid (₹)", "825")
+            val fuelWorkingCopyId = "__sam_travels_form_working_copy__:work.fuel-entry:" +
+                java.net.URLEncoder.encode("android-fuel-draft-recovery", "UTF-8").replace("+", "%20")
+            val fuelDraftDeadline = SystemClock.uptimeMillis() + 15000
+            var savedFuelDraft: LocalRecord? = null
+            while (SystemClock.uptimeMillis() < fuelDraftDeadline) {
+                val row = db.records().get(fuelWorkingCopyId)
+                if (row != null) {
+                    val data = org.json.JSONObject(row.json).getJSONObject("data")
+                    val values = data.optJSONObject("values")
+                    if (data.optString("status") == "in_progress" &&
+                        values?.optString("vehicleId") == vehicleRecordId &&
+                        values.optInt("odometerKm") == 55123 &&
+                        values.optDouble("priceRupeesPerKg") == 82.5 &&
+                        values.optDouble("amountRupees") == 825.0) {
+                        savedFuelDraft = row
+                        break
+                    }
+                }
+                SystemClock.sleep(100)
+            }
+            assertNotNull("Fuel draft values are durably committed to Room before interruption", savedFuelDraft)
+            activity.finish()
+            instrumentation.waitForIdleSync()
+            activity = instrumentation.startActivitySync(
+                Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as MainActivity
+            assertTrue("WebView restarts and restores the Work screen",
+                await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
+            assertTrue("Fuel launcher survives WebView recreation",
+                await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
+            eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
+            assertTrue("Fuel draft is recovered into the rendered form after WebView recreation",
+                await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 15000))
+            val recoveredFuelDraft = db.records().get(fuelWorkingCopyId)
+            assertNotNull("Recovered draft remains durable in Room", recoveredFuelDraft)
+            assertEquals("Interruption did not submit the Fuel draft", "in_progress",
+                org.json.JSONObject(recoveredFuelDraft!!.json).getJSONObject("data").getString("status"))
+            click(activity, "Submit fuel purchase")
+            assertTrue("Recovered Fuel draft submits through the production handler",
+                await(activity, "document.body.innerText.includes('Fuel purchase saved.')", 20000))
+            val fuelRows = db.records().list().filter { row ->
+                row.id.startsWith("feature:business-expenses:fuel:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
+            }
+            assertEquals("Recovered UI draft creates exactly one authoritative Fuel purchase", 1, fuelRows.size)
+            val fuelRecordId = fuelRows.single().id
+            assertRoomOperationReceiptExists(db, fuelRecordId)
+
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
+            assertTrue("Admin remains available after recovered Fuel submission",
+                await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance binds the configured operating Vehicle", await(activity,
                 "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
@@ -207,7 +270,7 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
 
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
-                db, vehicleRecordId,
+                db, vehicleRecordId, fuelRecordId,
                 evaluate = { script -> eval(activity, script) },
                 waitFor = { script, timeout -> await(activity, script, timeout) },
                 click = { label -> clickMatching(activity, label) },
