@@ -130,6 +130,24 @@ internal object AdminEntryPathAuditTestSupport {
     }
 
 
+    fun submitClosingFuelCheckpoint(activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest, db: LocalDatabase, vehicleId: String): String {
+        SystemClock.sleep(1100)
+        setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleId)
+        setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56042")
+        setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
+        setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
+        clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
+        assertTrue("Closing Fuel checkpoint saved", support.await(activity,
+            "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
+        val row = db.records().list().singleOrNull { it.id.startsWith("feature:business-expenses:fuel:") &&
+            JSONObject(it.json).getJSONObject("data").optInt("odometerKm") == 56042 }
+        assertNotNull("Closing Fuel checkpoint", row)
+        val id = row!!.id
+        assertEquals("Closing Fuel operation receipt", 1, db.records().list().count { it.id.startsWith("__sam_travels_feature_operation__:") &&
+            JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == id })
+        return id
+    }
+
     /** Verifies Room-backed Fuel draft resume and post-commit receipt replay through the actual WebView. */
     fun assertFuelDraftAndPostCommitRecovery(
         startingActivity: MainActivity,
