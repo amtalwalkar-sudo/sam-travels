@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
-import { assertBrowserStage3GoldenJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
+import { assertBrowserFuelPerformanceAndBackupJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 const registration = "MH00AA0091";
@@ -369,41 +369,7 @@ try {
 
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and Fuel itself requested no GPS; Work distance was confirmed separately through GPS-backed shift events.");
 
-  // Carry those exact UI-created Fuel IDs into Performance and the production
-  // encrypted Browser backup/restore path in this same browser lifecycle.
-  await page.getByRole("button", { name: "Admin", exact: true }).click();
-  await page.getByLabel("Select person").selectOption({ label: "Fuel Entry Browser Admin" });
-  await page.getByLabel("Active role").selectOption("admin");
-  await page.getByLabel("Admin PIN").fill(adminPin);
-  await page.getByRole("button", { name: "Activate role", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-  await page.locator("#admin-section-trigger-performance").click();
-  await page.getByLabel("Monthly Driver Target (₹)").fill("1000");
-  await page.getByRole("button", { name: "Save monthly target", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Monthly Driver Target saved." }).waitFor({ state: "visible" });
-  await page.getByRole("navigation", { name: "Primary navigation" })
-    .getByRole("button", { name: "Performance", exact: true }).click();
-  await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
-  const performancePeriod = page.locator(".performance-period-form");
-  await performancePeriod.getByLabel("Period from").fill("2024-01-01");
-  await performancePeriod.getByLabel("Period to").fill(new Date().toISOString().slice(0, 10));
-  await performancePeriod.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
-  await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
-  await page.locator("#performance-provenance > summary").first().click();
-  await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
-  const goldenJourney = await assertBrowserStage3GoldenJourney(page);
-  const eligibleCostsText = await page.getByRole("button", { name: "Explain Eligible period costs", exact: true }).innerText();
-  const eligibleCostsPaise = Math.round(Number((eligibleCostsText.match(/₹([\d,]+\.\d{2})/)?.[1] ?? "0").replaceAll(",", "")) * 100);
-  assert.ok(eligibleCostsPaise >= 165000,
-    "Performance eligible costs must include both UI-created full and partial Fuel purchases: " + eligibleCostsText);
-  for (const purchase of purchases) {
-    assert.ok(goldenJourney.uiSourceIds.includes(purchase.id),
-      "The exact UI-created Fuel purchase must survive the same Performance-to-encrypted-restore journey: " + purchase.id);
-    assert.ok(goldenJourney.calculationSnapshot.provenance.includes(purchase.id),
-      "The Performance calculation provenance must identify the exact UI-created Fuel source record: " + purchase.id);
-  }
-  console.log("PWA Fuel → Performance → production encrypted backup/restore same-record journey passed for:",
-    purchases.map(purchase => purchase.id).join(", "));
+  await assertBrowserFuelPerformanceAndBackupJourney(page, adminPin, purchases);
 } finally {
   await browser?.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }
