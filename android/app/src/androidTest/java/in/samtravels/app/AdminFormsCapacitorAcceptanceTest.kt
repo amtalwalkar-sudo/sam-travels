@@ -125,24 +125,24 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             val fuelWorkingCopyId = "__sam_travels_form_working_copy__:work.fuel-entry:" +
                 java.net.URLEncoder.encode("android-fuel-draft-recovery", "UTF-8").replace("+", "%20")
             val fuelDraftDeadline = SystemClock.uptimeMillis() + 15000
-            var savedFuelDraft: LocalRecord? = null
+            var savedFuelDraft = false
             while (SystemClock.uptimeMillis() < fuelDraftDeadline) {
                 val row = db.records().get(fuelWorkingCopyId)
                 if (row != null) {
                     val data = org.json.JSONObject(row.json).getJSONObject("data")
                     val values = data.optJSONObject("values")
-                    if (data.optString("status") == "in_progress" &&
-                        values?.optString("vehicleId") == vehicleRecordId &&
+                    if (data.optString("status") == "in_progress" && values != null &&
+                        values.optString("vehicleId") == vehicleRecordId &&
                         values.optInt("odometerKm") == 55123 &&
                         values.optDouble("priceRupeesPerKg") == 82.5 &&
                         values.optDouble("amountRupees") == 825.0) {
-                        savedFuelDraft = row
+                        savedFuelDraft = true
                         break
                     }
                 }
                 SystemClock.sleep(100)
             }
-            assertNotNull("Fuel draft values are durably committed to Room before interruption", savedFuelDraft)
+            assertTrue("Fuel draft values are durably committed to Room before interruption", savedFuelDraft)
             activity.finish()
             instrumentation.waitForIdleSync()
             activity = instrumentation.startActivitySync(
