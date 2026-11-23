@@ -55,13 +55,14 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     val eventsBefore = DriverWorkflowStore.listEvents(db).size
                     val intentsBefore = DriverWorkflowStore.listIntents(db).size
                     val slider = findNode(ui) {
-                        it.className?.toString() == "android.widget.SeekBar" && it.isEnabled
+                        it.className?.toString() == "android.widget.SeekBar" &&
+                            it.contentDescription?.toString()?.startsWith("Swipe to ") == true && it.isEnabled
                     }
                     assertNotNull("Active native overlay must expose its enabled workflow swipe", slider)
                     val bounds = android.graphics.Rect().also { slider!!.getBoundsInScreen(it) }
                     swipeAt(ui, bounds.left + 6, bounds.centerY(), bounds.right - 6, bounds.centerY())
 
-                    assertTrue("A real overlay swipe must queue a native workflow command", waitUntil {
+                    assertTrue("A real overlay swipe must queue a native workflow command; hierarchy=${describeNodes(ui)}", waitUntil {
                         DriverWorkflowStore.listIntents(db).size == intentsBefore + 1 &&
                             locationSource.listener != null
                     })
