@@ -34,9 +34,22 @@ internal object Stage3AndroidUiBackupAcceptance {
         // Remove the Vehicle and every persisted record that refers to it. The
         // restore destination must itself remain a valid graph while the source
         // package proves that all removed identities are reinstated.
-        val stage3DependentRows = db.records().list().filter { row ->
+        val stage3AllRows = db.records().list()
+        val stage3VehicleRows = stage3AllRows.filter { row ->
             row.id != stage3VehicleId && row.json.contains(stage3VehicleId)
         }
+        // Finance ledgers refer to their Loan identity, not directly to the Vehicle.
+        // Remove those transitive dependants with the Loan so the intermediate Room
+        // graph never contains an orphan payment/prepayment ledger during restore.
+        val stage3LoanIds = stage3VehicleRows.filter {
+            it.id.startsWith("feature:finance:loan:")
+        }.map { it.id }
+        val stage3FinanceLedgerRows = stage3AllRows.filter { row ->
+            (row.id.startsWith("feature:finance:payments:") ||
+                row.id.startsWith(NativeFinancePrepaymentBackup.RECORD_ID_PREFIX)) &&
+                stage3LoanIds.any { loanId -> row.json.contains(loanId) }
+        }
+        val stage3DependentRows = (stage3VehicleRows + stage3FinanceLedgerRows).distinctBy { it.id }
         val stage3AssignmentIds = stage3DependentRows.filter {
             it.id.startsWith("feature:driver-records:assignment:")
         }.map { it.id }
