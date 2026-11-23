@@ -39,12 +39,12 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val moves = (1..8).map { step ->
             val fraction = step / 8f
             MotionEvent.obtain(
-                downTime, downTime + step * 35L, MotionEvent.ACTION_MOVE,
+                downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE,
                 fromX + (toX - fromX) * fraction,
                 fromY + (toY - fromY) * fraction, 0,
             ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
         }
-        val up = MotionEvent.obtain(downTime, downTime + 320, MotionEvent.ACTION_UP,
+        val up = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP,
             toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
         try {
             assertTrue("Gesture down must be injected", ui.injectInputEvent(down, true))
