@@ -34,7 +34,6 @@ class PerformanceCalculationRoomParityTest {
             for (index in 0 until records.length()) {
                 val record = records.getJSONObject(index)
                 RecordEnvelopeContract.validate(record)
-                recordsById[record.getString("id")] = record
                 db.records().put(StoredRecord(
                     record.getString("id"),
                     record.toString(),
@@ -52,6 +51,10 @@ class PerformanceCalculationRoomParityTest {
                 assertEquals(source.getInt("revision"), restoredEnvelope.getInt("revision"))
                 assertEquals(source.getJSONObject("data").toString(),
                     restoredEnvelope.getJSONObject("data").toString())
+                // All subsequent source/provenance checks must resolve against
+                // the envelope actually read back from Room, never the fixture
+                // object that was originally inserted.
+                recordsById[restoredEnvelope.getString("id")] = restoredEnvelope
             }
             val backupRows = JSONArray()
             for (index in 0 until records.length()) {
