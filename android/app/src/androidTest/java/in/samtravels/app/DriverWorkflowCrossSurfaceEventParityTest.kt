@@ -45,7 +45,7 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
                 databaseName = "cross-surface-event-parity.db",
                 prepare = { _, _ -> },
                 expectedFormLabel = null,
-                exerciseWebView = { activity, _ ->
+                exerciseWebView = { activity, db ->
                     webActivity = activity
                     assertTrue("PWA Drive workspace must render", awaitJavascript(
                         activity, "document.querySelector('.driver-card') !== null", 30_000,
