@@ -220,7 +220,7 @@ describe("shared form recovery against the production Dexie adapter", () => {
         },
         workingCopyRepository: copies,
       });
-    const instanceId = "dxe-platform-fee-retry-001";
+    const instanceId = "550e8400-e29b-41d4-a716-446655440001";
     const firstRuntime = makeRuntime(repository, workingCopies, handler);
     let copy = await firstRuntime.open(PLATFORM_FEE_FORM_V1, instanceId);
     for (const [field, value] of Object.entries({
