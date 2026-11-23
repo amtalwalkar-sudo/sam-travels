@@ -267,7 +267,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             fuelRecordId!!,
             { script -> support.eval(activity, script) },
             { script, timeout -> support.await(activity, script, timeout) },
-            { label -> support.click(activity, label) },
+            { label -> support.clickMatching(activity, label) },
         )
     } finally {
         db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
