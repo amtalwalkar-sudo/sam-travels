@@ -344,6 +344,9 @@ try {
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit,
     "offline Fuel submission must not request geolocation");
   await context.setOffline(false);
+  await page.locator(".fuel-entry-toggle").click();
+  await page.locator(".fuel-entry-toggle").click();
+  await resumed.getByText(/^Draft · /).waitFor({ state: "visible" });
   await resumed.getByLabel("Vehicle").selectOption(vehicleId);
   await resumed.getByLabel("Odometer (km)").fill("12387");
   await resumed.getByLabel("Price per kg (₹)").fill("82.50");
