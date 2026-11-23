@@ -44,7 +44,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         check(support.javascriptValue(activity, """(()=>{const p=[...document.querySelectorAll('select')].find(s=>s.closest('label')?.textContent.includes('Select person'));const r=[...document.querySelectorAll('select')].find(s=>s.closest('label')?.textContent.includes('Active role'));const o=[...p?.options??[]].find(o=>o.textContent.trim()==='$marker Admin');if(!p||!r||!o)return false;for(const [s,v] of [[p,o.value],[r,'admin']]){Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,v);s.dispatchEvent(new Event('change',{bubbles:true}))}return true})()""") == "true")
         assertTrue("Admin PIN appears", support.await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
         check(support.javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""") == "true")
-        assertTrue("Admin activated", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
+        assertTrue("Activated", support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
         support.eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
         support.click(activity, "Add vehicle")
         val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
@@ -94,7 +94,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.set(activity, "Valid until", "2027-11-15")
         support.set(activity, "Total cost (₹)", "12000")
         support.click(activity, "Save record")
-        assertTrue("Initial Compliance saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
+        assertTrue("Compliance saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
         val initialComplianceRows = db.records().list().filter { row ->
             row.id.startsWith("feature:compliance:") &&
                 JSONObject(row.json).getJSONObject("data").optString("complianceName") == marker + " Insurance"
@@ -102,7 +102,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertEquals("Initial Compliance", 1, initialComplianceRows.size)
         val initialCompliance = initialComplianceRows.single()
         val initialComplianceData = JSONObject(initialCompliance.json).getJSONObject("data")
-        assertEquals("Compliance is bound to the configured Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
+        assertEquals("Compliance Vehicle", vehicleRecordId, initialComplianceData.getString("vehicleId"))
         support.click(activity, "Add compliance / renewal")
         support.set(activity, "Compliance type / name", marker + " Insurance")
         support.set(activity, "Valid from", "2027-11-16")
@@ -117,7 +117,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             row.id.startsWith("feature:compliance:") &&
                 JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
         }
-        assertEquals("One linked renewal", 1, renewalRows.size)
+        assertEquals("Renewal link", 1, renewalRows.size)
         val renewal = renewalRows.single()
         assertEquals("Renewal keeps immutable predecessor link", initialCompliance.id,
             JSONObject(renewal.json).getJSONObject("data").getString("renewedFromRecordId"))
@@ -186,9 +186,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         val prepaymentOutput = revision.getJSONObject("output")
         assertEquals("Prepayment mode", "reduce_tenure", revision.getString("mode"))
         AdminEntryPathAuditTestSupport.assertAdminActor(revision.optJSONObject("createdBy"), "Prepayment")
-        assertEquals("Regular EMI unchanged", emiPaise, prepaymentOutput.getInt("regularEmiPaise"))
-        assertTrue("Prepayment moves final instalment earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
-        assertEquals("Next EMI due date unchanged", originalRows.getJSONObject(0).getString("dueDate"),
+        assertEquals("EMI unchanged", emiPaise, prepaymentOutput.getInt("regularEmiPaise"))
+        assertTrue("Final EMI moves earlier", prepaymentOutput.getString("finalDueDate") < originalFinalDate)
+        assertEquals("Next EMI unchanged", originalRows.getJSONObject(0).getString("dueDate"),
             prepaymentOutput.getJSONArray("rows").getJSONObject(0).getString("dueDate"))
         support.click(activity, "Record payment")
         assertTrue("Revised schedule version is available for payment", support.await(activity,
@@ -200,7 +200,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertTrue("Allocation suggested", support.await(activity,
             "document.body.innerText.includes('Suggested oldest-due-first allocation')", 15000))
         support.click(activity, "Save payment")
-        assertTrue("Finance payment committed", support.await(activity,
+        assertTrue("Payment committed", support.await(activity,
             "document.body.innerText.includes('Payment recorded atomically')", 15000))
         val ledger = db.records().get(paymentLedgerId)
         assertNotNull("Payment ledger persisted", ledger)
@@ -220,7 +220,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.eval(activity, "window.confirm = () => true")
         AdminEntryPathAuditTestSupport.clickEnabled(activity, support, "Confirm settlement and close Loan")
         assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
-        assertEquals("Loan closed in Room", "closed",
+        assertEquals("Loan closed", "closed",
             JSONObject(db.records().get(loan.id)!!.json).getJSONObject("data").getString("lifecycleState"))
         val settledLedger = db.records().get(paymentLedgerId)!!
         val settlementEntry = JSONObject(settledLedger.json).getJSONObject("data").getJSONArray("entries").let { rows ->
