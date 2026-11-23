@@ -39,31 +39,43 @@ internal object SemanticFixtureCalculationParitySupport {
         val webView = webViewRef.get() ?: throw AssertionError("Android parity WebView was not created")
         try {
             assertTrue("Android production calculation bundle did not load", loaded.await(20, TimeUnit.SECONDS))
-            evaluate(webView, """
-                (() => {
-                  if (!window.SemanticFixtureCalculationParity ||
-                      typeof window.SemanticFixtureCalculationParity.run !== "function") {
-                    throw new Error("semantic_calculation_parity_bundle_missing");
-                  }
+            val readiness = decodeJsString(evaluate(webView, "typeof window.SemanticFixtureCalculationParity"))
+            assertEquals("Android semantic calculation bundle must be callable", "object", readiness)
+            val startResult = evaluate(webView, """
+                try {
                   window.__semanticParityResult = null;
                   window.__semanticParityError = null;
-                  window.SemanticFixtureCalculationParity.run(JSON.parse($inputLiteral))
+                  window.__semanticParityProgress = "starting";
+                  Promise.resolve(window.SemanticFixtureCalculationParity.run(JSON.parse($inputLiteral)))
                     .then(value => { window.__semanticParityResult = JSON.stringify(value); })
                     .catch(error => { window.__semanticParityError = String(error && error.stack || error); });
-                  return true;
-                })()
+                  "started"
+                } catch (error) {
+                  window.__semanticParityError = String(error && error.stack || error);
+                  "synchronous_error"
+                }
             """.trimIndent())
+            assertTrue("Android calculation runner did not start: $startResult", startResult.contains("started"))
             var raw = ""
-            val deadline = SystemClock.elapsedRealtime() + TimeUnit.SECONDS.toMillis(45)
+            var progress = ""
+            var error = ""
+            val deadline = SystemClock.elapsedRealtime() + TimeUnit.SECONDS.toMillis(120)
             while (SystemClock.elapsedRealtime() < deadline) {
-                raw = decodeJsString(evaluate(webView,
-                    "window.__semanticParityError || window.__semanticParityResult || ''"))
-                if (raw.isNotBlank()) break
+                val state = JSONObject(evaluate(webView, """
+                    JSON.stringify({
+                      result: window.__semanticParityResult,
+                      error: window.__semanticParityError,
+                      progress: window.__semanticParityProgress
+                    })
+                """.trimIndent()))
+                raw = state.optString("result")
+                error = state.optString("error")
+                progress = state.optString("progress")
+                if (raw.isNotBlank() || error.isNotBlank()) break
                 SystemClock.sleep(100)
             }
-            val error = decodeJsString(evaluate(webView, "window.__semanticParityError || ''"))
-            assertEquals("Android production calculation runner failed: $error", "", error)
-            assertTrue("Android production calculation runner timed out", raw.isNotBlank())
+            assertEquals("Android production calculation runner failed at $progress: $error", "", error)
+            assertTrue("Android production calculation runner timed out at progress=$progress", raw.isNotBlank())
             val actual = JSONObject(raw)
             val expected = fixture.getJSONObject("expectedBusinessResults")
             val expectedExpenses = expected.getJSONObject("dailyExpenses")

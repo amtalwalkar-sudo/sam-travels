@@ -55,6 +55,8 @@ function makeRepository(rows: readonly Row[]): AtomicRecordRepository {
 
 /** Run owning production calculators over platform-read records, never fixture calculation inputs. */
 export async function runSemanticFixtureProductionCalculations(inputRows: readonly Row[]) {
+  const mark = (value: string) => { if (typeof window !== "undefined") window.__semanticParityProgress = value; };
+  mark("started");
   const rows = [...inputRows];
   const byId = new Map(rows.map(row => [row.id, row]));
   const corrections = [
@@ -63,12 +65,15 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     project(rows, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174030", "business-expenses"),
     project(rows, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174071", "business-expenses"),
   ];
+  mark("corrections");
   const correctedFuel = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:"))
     .map(row => corrections.find(item => item.targetRecordId === row.id)?.data ?? row.data);
   const expenses = rows.filter(row => row.id.startsWith("feature:business-expenses:entry:")).map(row => row.data);
   const fuelIntervals = calculateFuelIntervals(correctedFuel as never);
   const fuelCostRateHistory = calculateFuelCostRateHistory(correctedFuel as never, fuelIntervals);
+  mark("fuel");
   const dailyExpenseRows = calculateDailyBusinessExpenses(correctedFuel as never, expenses as never);
+  mark("expenses");
   const dailyExpenses = dailyExpenseRows.reduce((total, row) => ({
     fuelPaise: total.fuelPaise + row.fuelPaise,
     platformFeesPaise: total.platformFeesPaise + row.platformFeesPaise,
@@ -88,6 +93,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant);
   const dailyKmRows = rows.filter(row => row.id.startsWith("work:daily-business-km:"))
     .sort((a, b) => a.data.operationalDate.localeCompare(b.data.operationalDate));
+  mark("maintenance-start");
   const calculatedAccruals = [];
   for (const daily of dailyKmRows) {
     if (daily.data.unallocatedBusinessKm !== 0 || daily.data.totalBusinessKm <= 0) continue;
@@ -95,7 +101,9 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
       vehicleId: vehicle.id, operationalDate: daily.data.operationalDate, source: "integration",
     });
     calculatedAccruals.push({ id: accrual.id, revision: accrual.revision, data: accrual.data });
+    mark("maintenance-" + calculatedAccruals.length);
   }
+  mark("maintenance");
   const storedAccruals = rows.filter(row => row.id.startsWith("feature:maintenance:daily-accrual:"));
   for (const calculated of calculatedAccruals) {
     const stored = required(storedAccruals, calculated.id);
@@ -118,6 +126,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     throw new Error("semantic_parity_finance_prepayment_schedule_mismatch");
   }
 
+  mark("finance");
   const complianceRows = rows.filter(row => row.id.startsWith("feature:compliance:") && row.data.vehicleId)
     .map(row => ({ id: row.id, revision: row.revision, data: row.data }));
   const complianceDaily = calculateDailyComplianceCost(complianceRows as never, vehicle.id, "2026-11-01");
@@ -125,6 +134,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     throw new Error("semantic_parity_compliance_calculation_unavailable");
   }
 
+  mark("compliance");
   const workAllocations = dailyKmRows.map(row => ({
     sourceId: row.id, revision: row.revision, operationalDate: row.data.operationalDate,
     totalBusinessKm: row.data.totalBusinessKm, unallocatedBusinessKm: row.data.unallocatedBusinessKm,
@@ -158,6 +168,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
     const source = byId.get(ref.sourceId);
     if (!source || source.revision !== ref.revision) throw new Error("semantic_parity_provenance_source_mismatch:" + ref.sourceId);
   }
+  mark("complete");
   return {
     corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses, maintenanceAccruals: calculatedAccruals,
     finance: { loanSourceId: loan.id, loanRevision: loan.revision, originalScheduleVersion: storedSchedule.version,
