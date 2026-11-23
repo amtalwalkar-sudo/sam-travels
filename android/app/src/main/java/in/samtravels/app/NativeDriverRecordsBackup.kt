@@ -23,10 +23,12 @@ internal object NativeDriverRecordsBackup {
         recordIdPrefix = RECORD_PREFIX,
         validateRelationships = { rows, allRecords ->
             var selectedWorkDrivers = 0
-            val vehicleIds = allRecords.filter {
-                it.optString("participantId") == "vehicle-records" &&
-                    it.optString("id").startsWith("feature:vehicle:")
-            }.map { it.optString("id") }.toSet()
+            // Relationship integrity is based on the canonical Vehicle record
+            // identity. Ownership is independently enforced by the participant
+            // validator, so do not make this lookup depend on an interchange owner
+            // label that may be normalized during backup/restore.
+            val vehicleIds = allRecords.map { it.optString("id") }
+                .filter { it.startsWith("feature:vehicle:") }.toSet()
             rows.forEach { row ->
                 val id = row.optString("id")
                 val data = JSONObject(row.getString("json")).getJSONObject("data")
