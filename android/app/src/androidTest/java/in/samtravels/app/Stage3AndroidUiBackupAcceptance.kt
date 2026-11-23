@@ -13,6 +13,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         evaluate: (String) -> Unit,
         waitFor: (String, Long) -> Boolean,
         click: (String) -> Unit,
+        readCalculation: () -> String,
     ) {
         evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
         org.junit.Assert.assertTrue("Performance screen consumes UI-created Admin sources",
@@ -20,6 +21,9 @@ internal object Stage3AndroidUiBackupAcceptance {
         click("Refresh performance|Calculating")
         org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
             waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
+        val calculationBeforeRestore = readCalculation()
+        assertTrue("Pre-restore calculation snapshot includes the production provenance contract",
+            calculationBeforeRestore.contains("performance.calculation.v1"))
         fuelRecordId?.let { assertNotNull("The rendered Fuel purchase is persisted before backup", db.records().get(it)) }
         val stage3Source = NativeSnapshotBuilder.build(
         db, NativeBackupRecovery::isInternalRecord, "stage3-android-ui-golden-journey",
@@ -82,6 +86,12 @@ internal object Stage3AndroidUiBackupAcceptance {
         (stage3DependentRows.map { it.id } + stage3VehicleId).forEach { id ->
             assertNotNull("The exact dependent record identity is restored: " + id, db.records().get(id))
         }
+        click("Refresh performance|Calculating")
+        assertTrue("Restored Room records recalculate in the rendered Performance screen",
+            waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
+        val calculationAfterRestore = readCalculation()
+        assertEquals("Calculation output and provenance remain identical for the same restored source identities",
+            calculationBeforeRestore, calculationAfterRestore)
         NativeBackupRestoreCoordinator.markVerified(db, stage3Restored.checkpointId)
         NativeBackupRestoreCoordinator.discardVerified(db, stage3Restored.checkpointId)
         
