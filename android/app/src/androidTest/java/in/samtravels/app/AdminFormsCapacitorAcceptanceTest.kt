@@ -285,10 +285,70 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             set(activity, "Note", marker + " platform fee")
             assertTrue("Platform fee inputs valid: " + javascriptValue(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const f=s?.querySelector('form');return [...(f?.querySelectorAll(':invalid')??[])].map(e=>e.closest('label')?.textContent||e.name||e.type).join(',')})()"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('form')?.checkValidity()", 10000))
             assertTrue("Platform Fee submit enabled", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('button[type=submit]')?.disabled===false", 15000))
-            eval(activity, "document.querySelector('.admin-capability-panel h3')?.textContent")
+            eval(activity, "window.Capacitor?.Plugins?.RoomStore?.armWorkingCopyCompletionFailure?.().then(()=>window.__stage3AdminRoomFailureArmed=true)")
+            assertTrue("Debug Room fault injector arms for the Admin form completion boundary",
+                await(activity, "window.__stage3AdminRoomFailureArmed===true", 10000))
             eval(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');s?.querySelector('form button[type=submit]')?.click()})()")
-            assertTrue("Platform fee saved", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('[role=status]')?.textContent.includes('Saved.')", 30000))
+            val adminFeeInterruptedDeadline = SystemClock.uptimeMillis() + 20000
+            var adminFeeCopyId: String? = null
+            var adminFeeOriginalJson: String? = null
+            while (SystemClock.uptimeMillis() < adminFeeInterruptedDeadline) {
+                val rows = db.records().list()
+                val fee = rows.firstOrNull { row ->
+                    row.id.startsWith("feature:business-expenses:entry:") &&
+                        org.json.JSONObject(row.json).getJSONObject("data").optString("sourceKind") == "platform_fee" &&
+                        org.json.JSONObject(row.json).getJSONObject("data").optString("reference") == "FEE-" + marker
+                }
+                val pending = rows.firstOrNull { row ->
+                    row.id.startsWith("__sam_travels_form_working_copy__:admin.platform-fee:") &&
+                        org.json.JSONObject(row.json).getJSONObject("data").optString("status") == "pending"
+                }
+                if (fee != null && pending != null) {
+                    adminFeeCopyId = pending.id
+                    adminFeeOriginalJson = fee.json
+                    break
+                }
+                SystemClock.sleep(100)
+            }
+            assertNotNull("Admin Platform Fee and durable pending intent survive the injected post-commit failure", adminFeeCopyId)
+            assertNotNull("Original Admin Platform Fee record is committed before working-copy completion", adminFeeOriginalJson)
+            val adminFeeRecordId = org.json.JSONObject(adminFeeOriginalJson!!).getString("id")
+            val adminFeeReceiptCount = db.records().list().count { row ->
+                row.id.startsWith("__sam_travels_feature_operation__:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == adminFeeRecordId
+            }
+            assertEquals("Admin Platform Fee target and receipt committed atomically", 1, adminFeeReceiptCount)
 
+            activity.finish()
+            instrumentation.waitForIdleSync()
+            activity = instrumentation.startActivitySync(
+                Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as MainActivity
+            assertTrue("Admin WebView restarts after the post-commit interruption",
+                await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
+            assertTrue("Admin workspace returns after restart",
+                await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+            eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
+            assertTrue("Pending Platform Fee draft is recovered in the rendered Admin form",
+                await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return !!s&&s.textContent.includes('Draft · pending')&&s.textContent.includes('FEE-$marker')})()""", 15000))
+            eval(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');s?.querySelector('form button[type=submit]')?.click()})()")
+            assertTrue("Pending Admin Platform Fee replays the original Room receipt",
+                await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return s?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()""", 20000))
+            val adminFeeRowsAfterRetry = db.records().list().filter { row ->
+                row.id.startsWith("feature:business-expenses:entry:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("sourceKind") == "platform_fee" &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("reference") == "FEE-" + marker
+            }
+            assertEquals("Admin post-commit retry creates exactly one Platform Fee record", 1, adminFeeRowsAfterRetry.size)
+            assertEquals("Admin retry returns the original record envelope", adminFeeOriginalJson, adminFeeRowsAfterRetry.single().json)
+            val adminFeeReceiptsAfterRetry = db.records().list().count { row ->
+                row.id.startsWith("__sam_travels_feature_operation__:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == adminFeeRecordId
+            }
+            assertEquals("Admin retry preserves exactly one feature receipt", adminFeeReceiptCount, adminFeeReceiptsAfterRetry)
+            assertEquals("Admin working copy completes after receipt replay", "saved",
+                org.json.JSONObject(db.records().get(adminFeeCopyId!!)!!.json).getJSONObject("data").getString("status"))
             set(activity, "Expense date", "2026-11-15")
             set(activity, "Category", "Parking " + marker)
             set(activity, "Amount (₹)", "50")
