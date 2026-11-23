@@ -76,7 +76,9 @@ internal object NativeDriverRecordsBackup {
                                 assignment.optString("assignmentId").matches(Regex("[A-Za-z0-9_-]{1,128}")) &&
                                 ids.add(assignment.optString("assignmentId")) &&
                                 assignment.optString("vehicleId").startsWith("feature:vehicle:") &&
-                                assignment.optString("vehicleId") in vehicleIds) { "driver_assignment_vehicle_reference_missing" }
+                                assignment.optString("vehicleId") in vehicleIds) {
+                                "driver_assignment_vehicle_reference_missing:vehicle=${assignment.optString("vehicleId")}:available=${vehicleIds.joinToString(",")}"
+                            }
                             val assigned = Instant.parse(assignment.getString("assignedAt")).toEpochMilli()
                             require(assigned >= previous) { "driver_assignment_history_order_invalid" }
                             require(previousUnassignedAt != Long.MAX_VALUE) { "driver_multiple_active_assignments" }
