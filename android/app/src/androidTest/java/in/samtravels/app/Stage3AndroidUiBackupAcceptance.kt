@@ -39,7 +39,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         val timestamp = java.time.Instant.now().toString()
         val accrualData = JSONObject().put("schemaVersion", 1).put("kind", "daily_accrual")
             .put("vehicleId", vehicleRecordId).put("operationalDate", nextDate)
-            .put("dailyBusinessKmRecordId", dailyId).put("dailyBusinessKmRevision", daily.revision)
+            .put("dailyBusinessKmRecordId", dailyId).put("dailyBusinessKmRevision", JSONObject(daily.json).getInt("revision"))
             .put("businessKm", dailyData.getInt("totalBusinessKm")).put("personalKm", 0)
             .put("personalAmountPaise", 0).put("rateEffectiveFrom", rateEffectiveFrom)
             .put("ratePaisePerKm", 250).put("amountPaise", dailyData.getInt("totalBusinessKm") * 250)
