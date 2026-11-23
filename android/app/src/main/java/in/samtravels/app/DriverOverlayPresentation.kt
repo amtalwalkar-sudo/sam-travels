@@ -190,7 +190,10 @@ internal class DriverOverlayPresentation(
                     }
                 }
                 MotionEvent.ACTION_UP -> {
-                    val confirmed = swipeMoved && slider.progress >= swipePresentation.completionPercent
+                    val completionPercent = if (slider.width > 0) {
+                        (event.x / slider.width.toFloat() * 100f).toInt()
+                    } else 0
+                    val confirmed = swipeMoved && completionPercent >= swipePresentation.completionPercent
                     swipeStartX = null
                     swipeMoved = false
                     if (confirmed) onSwipeTransition()
