@@ -1,27 +1,22 @@
 package `in`.samtravels.app
-
 import android.content.Intent
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-
 import org.json.JSONObject
 import org.junit.Assert.assertTrue
-
 internal object AdminEntryPathAuditTestSupport {
     fun assertAdminActor(actor: JSONObject?, label: String) {
         assertTrue("$label actor", actor != null && actor.optString("personId").isNotBlank() &&
             actor.optString("role") == "admin")
     }
-
     fun clickEnabled(activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest, label: String) {
         val safe = label.replace("'", "\\'")
         val ready = """[...document.querySelectorAll('button')].some(b=>b.textContent.includes('$safe')&&!b.disabled)"""
         assertTrue("Enabled $label", support.await(activity, ready, 15000))
         support.clickMatching(activity, label)
     }
-
     fun setInPanel(
         activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
         selector: String, heading: String, label: String, value: String,
@@ -34,7 +29,6 @@ internal object AdminEntryPathAuditTestSupport {
         val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$h');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$l'));const c=l?.querySelector('input,select,textarea');if(!c)return false;const q=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(q,'value').set.call(c,'$v');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
         check(support.javascriptValue(activity, script) == "true") { "Could not set $label in $heading" }
     }
-
     fun clickInPanel(
         activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest,
         selector: String, heading: String, button: String,
@@ -46,7 +40,6 @@ internal object AdminEntryPathAuditTestSupport {
         val script = """(()=>{const p=[...document.querySelectorAll('$selector')].find(n=>n.querySelector('h2,h3')?.textContent.trim()==='$h');const b=[...p.querySelectorAll('button')].find(n=>n.textContent.trim()==='$b'&&!n.disabled);if(!b)return false;b.click();return true})()"""
         check(support.javascriptValue(activity, script) == "true") { "Could not click $button in $heading" }
     }
-
     /** Exercises the rendered Admin form through Room commit, completion-write failure, WebView recreation and receipt replay. */
     fun assertPlatformFeePostCommitRecovery(
         startingActivity: MainActivity,
@@ -95,7 +88,6 @@ internal object AdminEntryPathAuditTestSupport {
                 JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == recordId
         }
         assertEquals("Admin Platform Fee target and receipt committed atomically", 1, receiptCount)
-
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         activity.finish()
         instrumentation.waitForIdleSync()
@@ -141,7 +133,6 @@ internal object AdminEntryPathAuditTestSupport {
         return activity to recordId
     }
 
-
     fun submitClosingFuelCheckpoint(activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest, db: LocalDatabase, vehicleId: String): String {
         SystemClock.sleep(1100)
         setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleId)
@@ -159,7 +150,6 @@ internal object AdminEntryPathAuditTestSupport {
             JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == id })
         return id
     }
-
     /** Verifies Room-backed Fuel draft resume and post-commit receipt replay through the actual WebView. */
     fun assertFuelDraftAndPostCommitRecovery(
         startingActivity: MainActivity,
@@ -249,7 +239,6 @@ internal object AdminEntryPathAuditTestSupport {
         assertNotNull("Recovered draft remains durable in Room", recoveredDraft)
         assertEquals("Interruption did not submit the Fuel draft", "in_progress",
             JSONObject(recoveredDraft!!.json).getJSONObject("data").getString("status"))
-
         support.eval(activity, "window.Capacitor?.Plugins?.RoomStore?.armWorkingCopyCompletionFailure?.().then(()=>window.__stage3RoomFailureArmed=true)")
         assertTrue("Debug Room fault injector is armed through the native WebView bridge",
             support.await(activity, "window.__stage3RoomFailureArmed===true", 10000))
@@ -280,7 +269,7 @@ internal object AdminEntryPathAuditTestSupport {
                     JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
             }
         }
-        assertEquals("Fuel commit missing; records=" + db.records().list().filter { it.id.startsWith("feature:business-expenses:") }.joinToString { it.json } + "; status=" + support.javascriptValue(activity, "document.querySelector('.fuel-entry-panel [role=status]')?.textContent"), 1, beforeRetry.size)
+        assertEquals("Fuel record commits before retry", 1, beforeRetry.size)
         val original = beforeRetry.single()
         val originalCreatedAt = JSONObject(original.json).getString("createdAt")
         val receiptCount = db.records().list().count { row ->
@@ -288,7 +277,6 @@ internal object AdminEntryPathAuditTestSupport {
                 JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == original.id
         }
         assertEquals("Fuel record and operation receipt committed atomically before interruption", 1, receiptCount)
-
         activity.finish()
         instrumentation.waitForIdleSync()
         activity = instrumentation.startActivitySync(
@@ -327,5 +315,4 @@ internal object AdminEntryPathAuditTestSupport {
             support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
         return activity to fuelRecordId
     }
-
 }
