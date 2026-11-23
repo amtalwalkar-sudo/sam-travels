@@ -120,6 +120,79 @@ class PerformanceCalculationRoomParityTest {
             assertEquals(expectedSources.getInt("compliance"), totals["compliance"])
             assertEquals(expected.getInt("recoveryTotalPaise"), totals.values.sum())
 
+
+            // Verify every persisted correction chain against its restored target,
+            // correction sequence and authoritative chain-head record.
+            val correctionHeads = fixture.getJSONObject("populatedGraph").getJSONObject("lineage")
+                .getJSONArray("correctionChainHeads")
+            for (index in 0 until correctionHeads.length()) {
+                val expectedHead = correctionHeads.getJSONObject(index)
+                val targetId = expectedHead.getString("targetRecordId")
+                val target = recordsById[targetId] ?: throw AssertionError("missing corrected target $targetId")
+                val featureId = expectedHead.getString("featureId")
+                val corrections = recordsById.values
+                    .filter { it.optJSONObject("data")?.optString("featureId") == featureId &&
+                        it.optJSONObject("data")?.optString("targetRecordId") == targetId &&
+                        it.getString("id").startsWith("historical-correction:") }
+                    .sortedBy { it.getJSONObject("data").getInt("chainRevision") }
+                assertEquals(expectedHead.getInt("chainRevision"), corrections.size)
+                var previousAfter: Any? = null
+                corrections.forEachIndexed { correctionIndex, envelope ->
+                    val correction = envelope.getJSONObject("data")
+                    assertEquals(target.getInt("revision"), correction.getInt("targetRecordRevision"))
+                    assertEquals(correctionIndex + 1, correction.getInt("chainRevision"))
+                    if (correctionIndex > 0) {
+                        assertEquals(previousAfter.toString(), correction.get("beforeValue").toString())
+                        assertEquals(corrections[correctionIndex - 1].getJSONObject("data")
+                            .getString("correctionId"), correction.getString("supersedesCorrectionId"))
+                    }
+                    previousAfter = correction.get("afterValue")
+                }
+                val headId = "historical-correction-chain:" + java.net.URLEncoder
+                    .encode(targetId, "UTF-8").replace("+", "%20")
+                val head = recordsById[headId] ?: throw AssertionError("missing correction chain head $headId")
+                assertEquals(expectedHead.getInt("chainRevision"), head.getJSONObject("data").getInt("chainRevision"))
+                assertEquals(expectedHead.getString("headCorrectionId"), head.getJSONObject("data").getString("headCorrectionId"))
+                assertEquals(expectedHead.getInt("chainRevision"), head.getInt("revision"))
+            }
+
+            // Maintenance accrual provenance must resolve to the exact Room
+            // daily-km envelope revision and effective-dated rate snapshot.
+            val allRecords = fixture.getJSONObject("populatedGraph").getJSONArray("records")
+            for (index in 0 until allRecords.length()) {
+                val source = allRecords.getJSONObject(index)
+                if (!source.getString("id").startsWith("feature:maintenance:daily-accrual:")) continue
+                val accrual = source.getJSONObject("data")
+                val dailyKm = recordsById[accrual.getString("dailyBusinessKmRecordId")]
+                    ?: throw AssertionError("missing daily-km source")
+                assertEquals(accrual.getInt("dailyBusinessKmRevision"), dailyKm.getInt("revision"))
+                assertEquals(accrual.getString("operationalDate"), dailyKm.getJSONObject("data").getString("operationalDate"))
+                assertEquals(accrual.getInt("businessKm"), dailyKm.getJSONObject("data").getInt("totalBusinessKm"))
+                assertEquals(0, dailyKm.getJSONObject("data").getInt("unallocatedBusinessKm"))
+                assertEquals(accrual.getInt("amountPaise"),
+                    accrual.getInt("businessKm") * accrual.getInt("ratePaisePerKm"))
+            }
+
+            // Finance transaction provenance binds payment/reversal, prepayment
+            // schedule revision and settlement cutoff to the persisted loan.
+            val financeLineage = fixture.getJSONObject("populatedGraph").getJSONObject("lineage")
+                .getJSONObject("finance")
+            val loan = recordsById[financeLineage.getString("loanId")]
+                ?: throw AssertionError("missing Finance loan")
+            val ledger = recordsById[financeLineage.getString("paymentLedgerId")]
+                ?: throw AssertionError("missing Finance payment ledger")
+            val prepayment = recordsById[financeLineage.getString("prepaymentRecordId")]
+                ?: throw AssertionError("missing Finance prepayment")
+            assertEquals(true, financeLineage.getBoolean("closedLoan"))
+            assertEquals("closed", loan.getJSONObject("data").getString("lifecycleState"))
+            assertEquals(financeLineage.getInt("prepaymentRevision"), prepayment.getInt("revision"))
+            val settlement = ledger.getJSONObject("data").getJSONArray("entries").let { entries ->
+                (0 until entries.length()).map { entries.getJSONObject(it) }
+                    .first { it.getString("kind") == "settlement" }
+            }
+            assertEquals(financeLineage.getString("settlementEntryId"), settlement.getString("id"))
+            assertEquals(financeLineage.getInt("settlementScheduleVersion"), settlement.getInt("scheduleVersion"))
+
             // These expected values are consumed by the TypeScript browser test,
             // which runs the shared platform-neutral calculation against this
             // same fixture. Room must preserve the exact source records supplied
