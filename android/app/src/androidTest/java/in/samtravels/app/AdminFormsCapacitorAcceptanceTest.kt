@@ -162,7 +162,7 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Platform fee inputs valid: " + javascriptValue(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const f=s?.querySelector('form');return [...(f?.querySelectorAll(':invalid')??[])].map(e=>e.closest('label')?.textContent||e.name||e.type).join(',')})()"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('form')?.checkValidity()", 10000))
             assertTrue("Platform Fee submit enabled", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('button[type=submit]')?.disabled===false", 15000))
             val adminFeeRecovery = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
-                activity, this, db, marker,
+                activity, this, db, marker, marker + " Admin",
             )
             activity = adminFeeRecovery.first
             val adminFeeRecordId = adminFeeRecovery.second
