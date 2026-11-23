@@ -169,6 +169,8 @@ internal object AdminEntryPathAuditTestSupport {
             val script = """(()=>{const p=document.querySelector('.fuel-entry-panel');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$safeLabel'));const c=l?.querySelector('input,select');if(!c)return false;const proto=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(c,'$safeValue');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
             check(support.javascriptValue(activity, script) == "true") { "Fuel field missing: $label" }
         }
+        assertTrue("Fuel form is fully loaded and its controls are enabled",
+            support.await(activity, "!!document.querySelector('.fuel-entry-panel select:not(:disabled)') && !!document.querySelector('.fuel-entry-panel input:not(:disabled)')", 15000))
         setFuelField("Vehicle", vehicleRecordId)
         setFuelField("Odometer (km)", "55123")
         setFuelField("Price per kg (₹)", "82.50")
