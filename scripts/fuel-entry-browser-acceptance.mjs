@@ -377,9 +377,15 @@ try {
   await page.locator("#performance-provenance > summary").first().click();
   await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
   const goldenJourney = await assertBrowserStage3GoldenJourney(page);
+  const eligibleCostsText = await page.getByRole("button", { name: "Explain Eligible period costs", exact: true }).innerText();
+  const eligibleCostsPaise = Math.round(Number((eligibleCostsText.match(/₹([\\d,]+\\.\\d{2})/)?.[1] ?? "0").replaceAll(",", "")) * 100);
+  assert.ok(eligibleCostsPaise >= 165000,
+    "Performance eligible costs must include both UI-created full and partial Fuel purchases: " + eligibleCostsText);
   for (const purchase of purchases) {
     assert.ok(goldenJourney.uiSourceIds.includes(purchase.id),
       "The exact UI-created Fuel purchase must survive the same Performance-to-encrypted-restore journey: " + purchase.id);
+    assert.ok(goldenJourney.calculationSnapshot.provenance.includes(purchase.id),
+      "The Performance calculation provenance must identify the exact UI-created Fuel source record: " + purchase.id);
   }
   console.log("PWA Fuel → Performance → production encrypted backup/restore same-record journey passed for:",
     purchases.map(purchase => purchase.id).join(", "));
