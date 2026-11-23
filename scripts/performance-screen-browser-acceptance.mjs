@@ -112,14 +112,12 @@ try {
     throw new Error("current_assignment_mismatch");
   }
 
-  // Refresh identity after creating the Driver.
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
 
-  // Re-authenticate Admin after reload.
   const identityPanel = page.locator(".admin-capability-panel");
   const identityPersonSelect = identityPanel.locator("label").filter({ hasText: "Select person" }).locator("select");
   await identityPersonSelect.locator("option").filter({ hasText: "Performance Screen Acceptance Admin" }).waitFor({ state: "attached" });
