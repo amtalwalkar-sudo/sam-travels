@@ -34,20 +34,24 @@ abstract class DriverOverlayServicePresentationTestSupport {
 
     protected fun swipeAt(ui: UiAutomation, fromX: Int, fromY: Int, toX: Int, toY: Int) {
         val downTime = SystemClock.uptimeMillis()
-        val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
-            fromX.toFloat(), fromY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val move = MotionEvent.obtain(downTime, downTime + 120, MotionEvent.ACTION_MOVE,
-            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val up = MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
-            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        val events = mutableListOf(
+            MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
+                fromX.toFloat(), fromY.toFloat(), 0),
+        )
+        for (step in 1..5) {
+            val fraction = step / 5f
+            events += MotionEvent.obtain(downTime, downTime + step * 40L, MotionEvent.ACTION_MOVE,
+                fromX + (toX - fromX) * fraction, fromY + (toY - fromY) * fraction, 0)
+        }
+        events += MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
+            toX.toFloat(), toY.toFloat(), 0)
+        events.forEach { it.source = InputDevice.SOURCE_TOUCHSCREEN }
         try {
-            assertTrue("Gesture down must be injected", ui.injectInputEvent(down, true))
-            assertTrue("Gesture move must be injected", ui.injectInputEvent(move, true))
-            assertTrue("Gesture up must be injected", ui.injectInputEvent(up, true))
+            events.forEachIndexed { index, event ->
+                assertTrue("Gesture event $index must be injected", ui.injectInputEvent(event, true))
+            }
         } finally {
-            down.recycle()
-            move.recycle()
-            up.recycle()
+            events.forEach(MotionEvent::recycle)
         }
     }
 
