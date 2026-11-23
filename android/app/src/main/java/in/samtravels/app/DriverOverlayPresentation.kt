@@ -190,8 +190,12 @@ internal class DriverOverlayPresentation(
                     }
                 }
                 MotionEvent.ACTION_UP -> {
+                    // Measure the gesture in screen coordinates. SeekBar's local x
+                    // includes thumb/track padding and can under-report a full-width
+                    // overlay swipe on WindowManager-attached views.
                     val completionPercent = if (slider.width > 0) {
-                        (event.x / slider.width.toFloat() * 100f).toInt()
+                        ((event.rawX - (swipeStartX ?: event.rawX)) / slider.width.toFloat() * 100f)
+                            .toInt().coerceIn(0, 100)
                     } else 0
                     val confirmed = swipeMoved && completionPercent >= swipePresentation.completionPercent
                     swipeStartX = null
