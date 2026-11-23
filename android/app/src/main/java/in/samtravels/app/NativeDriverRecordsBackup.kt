@@ -13,7 +13,9 @@ internal object NativeDriverRecordsBackup {
 
     @Synchronized
     fun ensureRegistered() {
-        if (processRegistration == null) processRegistration = register()
+        if (processRegistration == null || PARTICIPANT_ID !in NativeBackupCoverage.registeredParticipantIds()) {
+            processRegistration = register()
+        }
     }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
@@ -77,7 +79,7 @@ internal object NativeDriverRecordsBackup {
                                 ids.add(assignment.optString("assignmentId")) &&
                                 assignment.optString("vehicleId").startsWith("feature:vehicle:") &&
                                 assignment.optString("vehicleId") in vehicleIds) {
-                                "driver_assignment_vehicle_reference_missing:vehicle=${assignment.optString("vehicleId")}:available=${vehicleIds.joinToString(",")}"
+                                "driver_assignment_vehicle_reference_missing"
                             }
                             val assigned = Instant.parse(assignment.getString("assignedAt")).toEpochMilli()
                             require(assigned >= previous) { "driver_assignment_history_order_invalid" }
