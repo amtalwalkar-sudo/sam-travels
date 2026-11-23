@@ -332,12 +332,8 @@ try {
 
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
-  await page.waitForFunction(() => {
-    const panel = document.querySelector(".fuel-entry-panel");
-    const status = panel?.querySelector('[role="status"]');
-    return Boolean(status?.textContent?.trim());
-  }, undefined, { timeout: 30000 });
-  const secondSubmitStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
+  await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  const secondSubmitStatus = (await resumed.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
