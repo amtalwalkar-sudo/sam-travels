@@ -56,6 +56,11 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertTrue("Vehicle saved", support.await(activity, "document.body.innerText.includes('$registration')", 15000))
         vehicleRecordId = "feature:vehicle:" + registration
         assertNotNull("Vehicle persists in Room", db.records().get(vehicleRecordId!!))
+        support.eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
+        support.set(activity, "Business start date", "2026-11-15")
+        support.click(activity, "Set business start date")
+        assertTrue("Business start date is configured for the Performance calculation",
+            support.await(activity, "document.body.innerText.includes('Business start date saved.')", 15000))
         support.eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
         support.click(activity, "Add driver")
         support.set(activity, "Driver name", marker + " Driver")
