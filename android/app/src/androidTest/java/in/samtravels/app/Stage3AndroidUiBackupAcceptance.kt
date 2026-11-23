@@ -33,7 +33,8 @@ internal object Stage3AndroidUiBackupAcceptance {
         val daily = db.records().get(dailyId) ?: error("stage3_daily_business_km_missing")
         val dailyData = JSONObject(daily.json).getJSONObject("data")
         val vehicle = db.records().get(vehicleRecordId) ?: error("stage3_vehicle_missing")
-        val rateEffectiveFrom = JSONObject(vehicle.json).getString("createdAt").take(10)
+        val rateEffectiveFrom = java.time.Instant.parse(JSONObject(vehicle.json).getString("createdAt"))
+            .atZone(java.time.ZoneId.of("Asia/Kolkata")).minusHours(4).toLocalDate().toString()
         val accrualId = "feature:maintenance:daily-accrual:" +
             java.net.URLEncoder.encode(vehicleRecordId, "UTF-8") + ":" + nextDate
         val timestamp = java.time.Instant.now().toString()
