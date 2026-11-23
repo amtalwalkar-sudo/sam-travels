@@ -166,7 +166,7 @@ class NativeBackupCoverageTest {
             .put(JSONObject().put("id", "event-already-logbook")
                 .put("json", """{"eventId":"event-already-logbook","kind":"trip_completed"}""")
                 .put("schemaVersion", 1).put("updatedAt", "2026-11-04T00:00:01.000Z").put("participantId", "logbook-events"))
-        val normalized = NativeBackupCoverage.normalizeLegacyRecords(legacy)
+        val normalized = NativeFeatureBackupManifestCompatibility.normalizeLegacyRecords(legacy)
         assertEquals("work-driver-state", normalized.getJSONObject(0).getString("participantId"))
         assertEquals("event-legacy", normalized.getJSONObject(1).getString("id"))
         assertEquals("logbook-events", normalized.getJSONObject(1).getString("participantId"))
