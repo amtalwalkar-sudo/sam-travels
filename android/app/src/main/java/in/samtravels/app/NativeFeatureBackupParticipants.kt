@@ -147,6 +147,28 @@ internal object NativeFeatureBackupManifestCompatibility {
         return result
     }
 
+    /** Convert pre-manifest snapshots from the old shared-records owner model. */
+    fun normalizeLegacyRecords(records: JSONArray): JSONArray {
+        val result = JSONArray()
+        for (index in 0 until records.length()) {
+            val row = JSONObject(records.getJSONObject(index).toString())
+            val originalId = row.optString("id")
+            when {
+                originalId.startsWith("driver-event:") -> {
+                    row.put("id", originalId.removePrefix("driver-event:"))
+                    row.put("participantId", "logbook-events")
+                }
+                originalId == "driver-state" || originalId == "legacy-driver-state" ||
+                    originalId.startsWith("driver-intent:") || originalId.startsWith("driver-outbox:") ->
+                    row.put("participantId", "work-driver-state")
+                row.optString("participantId") == "logbook-events" -> Unit
+                else -> row.put("participantId", "platform-records")
+            }
+            result.put(row)
+        }
+        return result
+    }
+
     fun validate(incoming: JSONArray?, records: JSONArray?) {
         if (incoming == null) return
         val expected = canonicalParticipantManifest()
