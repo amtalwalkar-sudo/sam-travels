@@ -90,6 +90,18 @@ internal suspend fun commitFeatureUpgradeBatch(
 @CapacitorPlugin(name = "RoomStore")
 class RoomStorePlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
+    @Volatile private var failNextWorkingCopyCompletion = false
+
+    /** Debug-only deterministic fault injection for WebView/Room recovery instrumentation. */
+    @PluginMethod
+    fun armWorkingCopyCompletionFailure(call: PluginCall) {
+        if (!BuildConfig.DEBUG) {
+            call.reject("Fault injection is available only in debug builds")
+            return
+        }
+        failNextWorkingCopyCompletion = true
+        call.resolve()
+    }
     private val db by lazy {
         Room.databaseBuilder(context, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
@@ -169,6 +181,14 @@ class RoomStorePlugin : Plugin() {
         }
         executor.execute {
             try {
+                val workingCopyStatus = record.optJSONObject("data")?.optString("status")
+                if (BuildConfig.DEBUG && failNextWorkingCopyCompletion &&
+                    id.startsWith("__sam_travels_form_working_copy__:") &&
+                    (workingCopyStatus == "saved" || workingCopyStatus == "submitted")) {
+                    failNextWorkingCopyCompletion = false
+                    call.reject("simulated_process_death_after_domain_commit")
+                    return@execute
+                }
                 NativeStartupRecovery.ensure(db)
                 val committed = runBlocking { compareAndSetStoredRecord(db, id, expected, record) }
                 val out = JSObject()
