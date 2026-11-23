@@ -19,6 +19,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
         org.junit.Assert.assertTrue("Performance screen consumes UI-created Admin sources",
             waitFor("!!document.querySelector('.performance-dashboard')", 20000))
+        evaluate("""(()=>{const i=[...document.querySelectorAll('label')].find(l=>l.textContent.includes('Period to'))?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,new Date(Date.now()-4*3600000+86400000).toISOString().slice(0,10));i.dispatchEvent(new Event('input',{bubbles:true}));return true})()""")
         click("Refresh performance|Calculating")
         org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
             waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
