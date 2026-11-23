@@ -127,7 +127,7 @@ export async function assertBrowserWorkDistanceThroughUi(page) {
   await page.getByLabel("Shift-end odometer (km)").fill("12388");
   await page.getByText("Business kilometres: 42 km", { exact: true }).waitFor();
   await page.getByRole("button", { name: "End shift", exact: true }).click();
-  await page.getByRole("heading", { name: "Off Shift", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("heading", { name: "Idle", exact: true }).waitFor({ timeout: 30000 });
   const state = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -142,7 +142,7 @@ export async function assertBrowserWorkDistanceThroughUi(page) {
     db.close();
     return row?.value ?? null;
   });
-  if (state?.state !== "off_shift" || state?.revision !== 2) {
+  if (state?.state !== "idle" || state?.revision !== 2) {
     throw new Error("stage3_work_distance_not_confirmed_through_rendered_ui:" + JSON.stringify(state));
   }
   const gpsCalls = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
