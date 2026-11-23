@@ -70,8 +70,14 @@ internal object AdminEntryPathAuditTestSupport {
                     JSONObject(row.json).getJSONObject("data").optString("reference") == "FEE-" + marker
             }
             val pending = rows.firstOrNull { row ->
-                row.id.startsWith("__sam_travels_form_working_copy__:admin.platform-fee:") &&
-                    JSONObject(row.json).getJSONObject("data").optString("status") == "pending"
+                if (!row.id.startsWith("__sam_travels_form_working_copy__:admin.platform-fee:")) false else {
+                    val copy = JSONObject(row.json).getJSONObject("data")
+                    val values = copy.optJSONObject("values")
+                    val submittedValues = copy.optJSONObject("submission")?.optJSONObject("values")
+                    copy.optString("status") == "pending" &&
+                        (values?.optString("reference") == "FEE-" + marker ||
+                            submittedValues?.optString("reference") == "FEE-" + marker)
+                }
             }
             if (fee != null && pending != null) {
                 copyId = pending.id
