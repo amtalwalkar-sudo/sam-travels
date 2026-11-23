@@ -477,3 +477,37 @@ The complete workflow [45034254979](https://github.com/amtalwalkar-sudo/sam-trav
 
 
 **Stage 4 status correction:** Run 45034254979 is green on pre-closeout source head `68fa1233a7d84df0ef77c35e95b1a353085750c5`. The three evidence-ledger commits advanced PR #99 to `f2efeb74ff8a383d3d572d7acae3b668c51c8336` after that run. The required exact-final-head CI has not yet been triggered; therefore Stage 4 is **EVIDENCE RECONCILIATION COMPLETE — EXACT-HEAD CI PENDING**. The prior table's Stage 4 COMPLETE label and any implication that run 45034254979 validated the later documentation commits are superseded. No new production code changed after the green source-head run.
+
+
+## Stage 6 whole-contract reconciliation — 2026-11-23
+
+**Audit baseline:** PR #99 head `34e01756922985ecfb1ba69a2b438d884efe7d8b`.  
+**Exact-head CI at audit start:** [run 45154128872](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45154128872) completed successfully. Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate passed; optional Production geocoder verification was skipped. This run proves the jobs executed on that SHA only.
+
+### Reconciled six-stage status
+
+| Whole-contract stage | Reconciled status at this audit | Evidence and remaining acceptance |
+|---|---|---|
+| 1. Shared populated semantic fixture | **INCOMPLETE** | The populated cross-runtime fixture/lifecycle currently evidenced in the closeout addendum is a 29-record graph. It does not include Finance prepayment and settlement transaction lineage. The Stage 1 execution-plan requirement for complete Finance payment, reversal, prepayment, revised schedule and settlement/closure lineage is therefore not met. Do not describe the fixture as complete for all owner-contract dimensions. |
+| 2. Production Browser/Dexie and Android/Room lifecycle | **PARTIAL** | Both encrypted production restore directions and production reopen/recovery/re-export tests exist for the current populated graph. They do not establish lifecycle parity for source lineage absent from that graph, including Finance prepayment/settlement, nor all required correction-chain and workflow states. |
+| 3. UI-originated lifecycle and cross-surface parity | **PARTIAL** | Rendered PWA and Android Room-backed WebView entry coverage has expanded and is recorded above. Direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility and the stale-read N → overlay commit N+1 → stale PWA rejection/convergence interleaving remain explicitly required in the execution plan and are not evidenced as closed here. Operating-context resolver wiring for every dependent command boundary also remains open in the repository gap register. |
+| 4. Calculation and correction lineage | **PARTIAL** | Domain-level Work, Maintenance, Compliance/EMI, Finance prepayment policy, Fuel, expense and Performance tests exist. The current populated cross-runtime lifecycle does not include all required Finance transaction lineage, and the same complete source/revision/correction graph has not been demonstrated through both production restore paths with equivalent calculations and provenance. |
+| 5. Backup/restore negative, boundary and interruption proof | **PARTIAL — prior completion claim superseded** | Existing browser and Android tests prove important cases: malformed/duplicate/unknown participant rejection, dangling-reference rejection, interrupted replacement rollback, startup recovery and replay idempotency. The Stage 5 exit gate is not fully evidenced by a requirement-to-test ledger: paired backup-exclusion and zero-record participant assertions, production snapshot consistency boundaries and the Android production record-count enforcement identified in the gap register still require exact contract mapping/verification. The earlier conversational statement that Stage 5 was complete is not a substitute for this acceptance evidence. |
+| 6. Whole-contract reconciliation and final acceptance | **IN PROGRESS — ACCEPTANCE BLOCKED** | This addendum reconciles the known status and stale claims. The §1A acceptance gate cannot pass while Stages 1–5 have the open requirements above. Required CI must be rerun after this and the other final evidence/documentation updates on the exact resulting PR head. |
+
+### Whole-contract §1A disposition
+
+1. **Normative requirement mapping:** incomplete; several entry-path, resolver, recovery and owner-contract rows remain partial/open.
+2. **Independent Dexie and Room guarantees:** substantial implementation and tests exist, but not all required application-boundary and cross-surface assertions are proven.
+3. **Complete populated bidirectional lifecycle and semantic/calculation parity:** not satisfied; the current fixture omits Finance prepayment/settlement transaction lineage and the complete correction/workflow graph.
+4. **Critical gap disposition:** not satisfied; material software gaps remain open and have not all been owner-accepted as scoped deferrals.
+5. **Negative/boundary/recovery proof:** substantial cases pass, but the complete applicable requirement-to-test mapping remains open.
+6. **Evidence/documentation/PR-description agreement:** being reconciled in this Stage 6 addendum; final exact-head evidence is pending.
+7. **Exact-final-head required CI:** pending until all reconciliation changes are committed.
+8. **PR metadata:** verified at audit start as open, draft and unmerged.
+
+### External/manual release gates retained
+
+Physical OEM/device certification, deterministic full-OS reboot acceptance where not covered by CI, live Dropbox account delivery, and final owner visual/usability approval remain external/manual gates. They are not represented as passed by emulator tests or mocked Dropbox tests. These gates must remain visible in the final PR description.
+
+**Stage 6 outcome:** reconciliation identifies concrete blockers; it does not authorize a whole-contract completion declaration. PR #99 remains open, draft and unmerged. The next implementation work must return to the earliest unmet sequential stage gate (Stage 1), rather than treating later-stage test presence or a green CI run as a substitute for the missing fixture and lifecycle evidence.
