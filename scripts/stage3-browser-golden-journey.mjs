@@ -1,4 +1,13 @@
 export async function assertBrowserStage3GoldenJourney(page) {
+  const captureCalculation = async () => {
+    const dashboard = await page.locator(".performance-dashboard").innerText();
+    const provenance = await page.locator("#performance-provenance").innerText();
+    if (!dashboard.trim() || !provenance.includes("performance.calculation.v1")) {
+      throw new Error("stage3_golden_journey_calculation_or_provenance_not_rendered");
+    }
+    return { dashboard, provenance };
+  };
+  const calculationBeforeRestore = await captureCalculation();
   // Stage 3 same-record golden journey: the records entered through the rendered
   // Admin/Work UI above feed the production Performance calculation, then the
   // production encrypted Browser backup/restore adapter. Compare the complete
@@ -85,8 +94,23 @@ export async function assertBrowserStage3GoldenJourney(page) {
     }
     await runtime.markRestoreVerified(restore.checkpointId);
     await runtime.discardVerifiedRecoveryCheckpoint(restore.checkpointId);
-    return { sourceRecordCount: before.length, uiSourceCount: uiSourceIds.length,
+    return { sourceRecordCount: before.length, uiSourceCount: uiSourceIds.length, uiSourceIds,
       restoreProbeId, restoredCount: restore.restoredCount };
   });
-  console.log("Stage 3 same-record golden journey passed:", JSON.stringify(goldenJourney));
+  await page.locator(".performance-period-form").getByRole("button", {
+    name: /Refresh performance|Calculating/, exact: false,
+  }).click();
+  await page.waitForFunction(() => {
+    const dashboard = document.querySelector(".performance-dashboard");
+    return Boolean(dashboard && !document.querySelector(".performance-loading"));
+  }, undefined, { timeout: 30000 });
+  const calculationAfterRestore = await captureCalculation();
+  if (JSON.stringify(calculationBeforeRestore) !== JSON.stringify(calculationAfterRestore)) {
+    throw new Error("stage3_golden_journey_calculation_output_or_provenance_changed_after_restore:" +
+      JSON.stringify({ before: calculationBeforeRestore, after: calculationAfterRestore }));
+  }
+  console.log("Stage 3 same-record golden journey passed:", JSON.stringify({
+    ...goldenJourney, calculationOutputAndProvenanceStable: true,
+    calculationSourceRecords: goldenJourney.uiSourceIds,
+  }));
  }
