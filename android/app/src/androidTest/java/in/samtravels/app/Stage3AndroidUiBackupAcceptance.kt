@@ -12,6 +12,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         db: LocalDatabase,
         vehicleRecordId: String,
         fuelRecordId: String? = null,
+        fuelRecordIds: List<String> = emptyList(),
         adminFeeRecordId: String? = null,
         evaluate: (String) -> Unit,
         waitFor: (String, Long) -> Boolean,
@@ -58,10 +59,9 @@ internal object Stage3AndroidUiBackupAcceptance {
         val calculationBeforeRestore = readCalculation()
         assertTrue("Pre-restore calculation snapshot includes the production provenance contract: " + calculationBeforeRestore,
             calculationBeforeRestore.contains("Calculation ID"))
-        fuelRecordId?.let { id ->
-            assertTrue("Performance provenance names the exact UI-created Fuel record: " + calculationBeforeRestore,
-                calculationBeforeRestore.contains(id))
-        }
+        val fuelSources = (fuelRecordIds + listOfNotNull(fuelRecordId)).distinct()
+        assertTrue("Performance provenance names a UI-created Fuel source " + fuelSources,
+            fuelSources.any(calculationBeforeRestore::contains))
         adminFeeRecordId?.let { id ->
             assertTrue("Performance provenance names the exact UI-created Admin expense record",
                 calculationBeforeRestore.contains(id))
