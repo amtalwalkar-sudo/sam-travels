@@ -155,7 +155,9 @@ internal object AdminEntryPathAuditTestSupport {
         setFuelField("Odometer (km)", "55123")
         setFuelField("Price per kg (₹)", "82.50")
         setFuelField("Amount paid (₹)", "825")
-        assertTrue("Fuel draft inputs reflect the entered values before interruption",
+        val fuelInputSnapshot = support.javascriptValue(activity,
+            """(()=>{const p=document.querySelector('.fuel-entry-panel');return JSON.stringify([...p.querySelectorAll('label')].map(l=>({label:l.textContent.trim(),value:l.querySelector('input,select')?.value})))})()""")
+        assertTrue("Fuel draft inputs reflect the entered values before interruption: " + fuelInputSnapshot,
             support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');const value=t=>[...p.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 10000))
         val workingCopyPrefix = "__sam_travels_form_working_copy__:work.fuel-entry:"
         val draftDeadline = SystemClock.uptimeMillis() + 15000
