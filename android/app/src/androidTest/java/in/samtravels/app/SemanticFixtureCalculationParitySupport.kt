@@ -81,10 +81,22 @@ internal object SemanticFixtureCalculationParitySupport {
             }
             assertEquals("Android production calculation runner failed at $progress: $error", "", error)
             assertTrue("Android production calculation runner timed out at progress=$progress", raw.isNotBlank())
-            val calculationEnvelope = JSONObject(raw)
-            assertEquals("Android calculation runner completed", "complete", calculationEnvelope.optString("progress"))
-            assertEquals("Android calculation runner returned no error", "", calculationEnvelope.optString("error"))
-            val actual = JSONObject(calculationEnvelope.getString("result"))
+            // The WebView bridge serializes the Promise value, while the
+            // production runner may itself return a completion envelope.
+            // Unwrap only explicit completion envelopes.
+            var actual = JSONObject(raw)
+            var unwrapped = 0
+            while (actual.optString("progress") == "complete" && actual.has("result")) {
+                assertEquals("Android calculation runner returned no error", "", actual.optString("error"))
+                val nested = actual.get("result")
+                actual = when (nested) {
+                    is JSONObject -> nested
+                    is String -> JSONObject(nested)
+                    else -> throw AssertionError("Android calculation runner result must be a JSON object")
+                }
+                unwrapped += 1
+                assertTrue("Android calculation runner returned nested completion envelopes", unwrapped <= 3)
+            }
             val expected = fixture.getJSONObject("expectedBusinessResults")
             val expectedExpenses = expected.getJSONObject("dailyExpenses")
             val actualExpenses = actual.getJSONObject("dailyExpenses")
