@@ -360,6 +360,10 @@ class SharedSevenDomainBackupLifecycleTest {
                 tsExpected.getJSONArray("records"),
                 tsReopened.snapshot.getJSONArray("records"),
             )
+            // Execute production calculations independently in Android WebView over the exact Room graph after encrypted restore, reopen and recovery.
+            SemanticFixtureCalculationParitySupport.assertProductionCalculationsMatchFixture(
+                context, InstrumentationRegistry.getInstrumentation().context, database.records().list(), fixture,
+            )
         } finally {
             database.close()
             context.deleteDatabase(name)

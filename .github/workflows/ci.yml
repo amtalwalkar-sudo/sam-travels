@@ -153,8 +153,6 @@ jobs:
         run: npm run build:timeline-parity
       - name: Build the shared Full-cost Work-distance projection for Android parity tests
         run: npm run build:full-cost-distance-parity
-      - name: Build the shared production semantic calculation parity bundle for Android WebView
-        run: npm run build:semantic-fixture-parity
       - name: Stage the shared workflow parity contract for Android tests
         run: mkdir -p android/app/src/androidTest/assets && cp tests/fixtures/driver-workflow-parity-v1.json android/app/src/androidTest/assets/driver-workflow-parity-v1.json
       - name: Download the exact Dexie projection oracle for Android comparison
