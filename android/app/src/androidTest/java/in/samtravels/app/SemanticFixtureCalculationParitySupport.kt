@@ -74,7 +74,7 @@ internal object SemanticFixtureCalculationParitySupport {
                     })
                 """.trimIndent())))
                 raw = state.optString("result")
-                error = state.optString("error")
+                error = if (state.isNull("error")) "" else state.optString("error")
                 progress = state.optString("progress")
                 if (raw.isNotBlank() || error.isNotBlank()) break
                 SystemClock.sleep(100)
