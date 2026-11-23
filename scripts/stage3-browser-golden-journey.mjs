@@ -199,8 +199,15 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
     if (!golden.uiSourceIds.includes(purchase.id)) {
       throw new Error("stage3_backup_restore_lost_ui_fuel_source:" + purchase.id);
     }
+  }
+  // The opening full-tank checkpoint is a baseline, not consumed interval
+  // spend. The partial refill and closing full checkpoint fund the rate.
+  if (golden.calculationSnapshot.provenance.includes(purchases[0].id)) {
+    throw new Error("stage3_fuel_opening_baseline_must_not_be_interval_spend:" + purchases[0].id);
+  }
+  for (const purchase of purchases.slice(1)) {
     if (!golden.calculationSnapshot.provenance.includes(purchase.id)) {
-      throw new Error("stage3_calculation_provenance_missing_fuel_source:" + purchase.id);
+      throw new Error("stage3_calculation_provenance_missing_fuel_interval_source:" + purchase.id);
     }
   }
   console.log("PWA Fuel → confirmed Work distance → Performance → encrypted restore passed:",
