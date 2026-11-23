@@ -112,7 +112,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             "(()=>{const s=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Renewing previous record'))?.querySelector('select');return !!s&&[...s.options].some(o=>o.value==='" + initialCompliance.id + "')})()", 10000))
         support.set(activity, "Renewing previous record", initialCompliance.id)
         support.click(activity, "Save record")
-        assertTrue("Compliance renewal saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
+        assertTrue("Renewal saved", support.await(activity, "document.body.innerText.includes('Compliance record saved')", 15000))
         val renewalRows = db.records().list().filter { row ->
             row.id.startsWith("feature:compliance:") &&
                 JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == initialCompliance.id
@@ -128,7 +128,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
         AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
-        assertTrue("Traffic Challan submitted", support.await(activity,
+        assertTrue("Challan saved", support.await(activity,
             "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 15000))
         val challanRows = db.records().list().filter { row ->
             row.id.startsWith("feature:business-expenses:entry:") &&
@@ -174,7 +174,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.set(activity, "Prepayment date", "2026-01-15")
         support.set(activity, "Principal amount (₹)", "30000")
         support.click(activity, "Preview prepayment")
-        assertTrue("Prepayment preview shown", support.await(activity, "document.body.innerText.includes('Review before confirmation')", 15000))
+        assertTrue("Prepayment preview", support.await(activity, "document.body.innerText.includes('Review before confirmation')", 15000))
         support.click(activity, "Confirm prepayment")
         assertTrue("Prepayment committed", support.await(activity,
             "document.body.innerText.includes('Principal prepayment and revised schedule committed atomically')", 15000))
@@ -211,12 +211,12 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         val payment = paymentRows.single()
         assertEquals("Payment uses revised schedule", 2, payment.getInt("scheduleVersion"))
         AdminEntryPathAuditTestSupport.assertAdminActor(payment.optJSONObject("createdBy"), "Payment")
-        assertEquals("Payment allocation retains regular EMI amount", emiPaise,
+        assertEquals("EMI allocation", emiPaise,
             payment.getJSONArray("allocations").getJSONObject(0).getInt("amountPaise"))
         support.click(activity, "Settle & close")
         support.set(activity, "Settlement date", "2026-02-01")
         support.click(activity, "Check settlement amount")
-        assertTrue("Settlement preview shown", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
+        assertTrue("Settlement preview", support.await(activity, "document.body.innerText.includes('Settlement amount:')", 15000))
         support.eval(activity, "window.confirm = () => true")
         AdminEntryPathAuditTestSupport.clickEnabled(activity, support, "Confirm settlement and close Loan")
         assertTrue("Settlement committed", support.await(activity, "document.body.innerText.includes('Final settlement recorded and Loan closed')", 15000))
@@ -232,7 +232,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.set(activity, "Monthly Driver Target (₹)", "9000")
         support.click(activity, "Save monthly target")
         assertTrue("Performance target saved", support.await(activity, "document.body.innerText.includes('Monthly Driver Target saved')", 15000))
-        assertEquals("Performance target persisted in Room", 900000,
+        assertEquals("Target in Room", 900000,
             JSONObject(db.records().get("feature:performance:settings")!!.json).getJSONObject("data").getInt("monthlyDriverTargetPaise"))
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "Amount (₹)", "200")
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "div.admin-capability-panel", "Pre-business costs", "What was this cost for?", marker + " pre-business cost")
@@ -242,7 +242,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         val preBusinessCost = db.records().list().singleOrNull {
             it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
         }
-        assertNotNull("Pre-business cost source persisted in Room", preBusinessCost)
+        assertNotNull("Pre-business in Room", preBusinessCost)
         support.click(activity, "＋ Fuel entry")
         assertTrue("Fuel form ready", support.await(activity,
             "!!document.querySelector('.fuel-entry-panel button[type=submit]:not(:disabled)')", 15000))
