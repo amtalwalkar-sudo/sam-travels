@@ -22,7 +22,12 @@ internal object SemanticFixtureCalculationParitySupport {
         val bundle = assetContext.assets.open("generated/semantic-fixture-calculation-parity.js")
             .bufferedReader().use { it.readText() }
         val inputRows = JSONArray()
-        roomRows.forEach { inputRows.put(JSONObject(it.json)) }
+        roomRows.forEach { stored ->
+            // Room's driver-state and a few workflow-owned rows store a value
+            // envelope without an embedded id; the Room primary key remains
+            // authoritative and must be supplied to the shared domain runner.
+            inputRows.put(JSONObject(stored.json).put("id", stored.id))
+        }
         val inputJson = inputRows.toString()
         val webViewRef = AtomicReference<WebView>()
         val loaded = CountDownLatch(1)
