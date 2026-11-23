@@ -109,8 +109,10 @@ export async function assertBrowserStage3GoldenJourney(page) {
     throw new Error("stage3_golden_journey_calculation_output_or_provenance_changed_after_restore:" +
       JSON.stringify({ before: calculationBeforeRestore, after: calculationAfterRestore }));
   }
-  console.log("Stage 3 same-record golden journey passed:", JSON.stringify({
+  const evidence = {
     ...goldenJourney, calculationOutputAndProvenanceStable: true,
     calculationSourceRecords: goldenJourney.uiSourceIds,
-  }));
- }
+  };
+  console.log("Stage 3 same-record golden journey passed:", JSON.stringify(evidence));
+  return evidence;
+}
