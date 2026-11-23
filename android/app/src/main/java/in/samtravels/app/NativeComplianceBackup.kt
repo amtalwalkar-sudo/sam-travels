@@ -17,7 +17,9 @@ internal object NativeComplianceBackup {
 
     @Synchronized
     fun ensureRegistered() {
-        if (processRegistration == null) processRegistration = register()
+        if (processRegistration == null || PARTICIPANT_ID !in NativeBackupCoverage.registeredParticipantIds()) {
+            processRegistration = register()
+        }
     }
 
     fun register(): AutoCloseable = NativeBackupCoverage.registerFeatureRecordParticipant(
