@@ -10,6 +10,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         db: LocalDatabase,
         vehicleRecordId: String,
         fuelRecordId: String? = null,
+        adminFeeRecordId: String? = null,
         evaluate: (String) -> Unit,
         waitFor: (String, Long) -> Boolean,
         click: (String) -> Unit,
@@ -26,6 +27,10 @@ internal object Stage3AndroidUiBackupAcceptance {
             calculationBeforeRestore.contains("performance.calculation.v1"))
         fuelRecordId?.let { id ->
             assertTrue("Performance provenance names the exact UI-created Fuel record",
+                calculationBeforeRestore.contains(id))
+        }
+        adminFeeRecordId?.let { id ->
+            assertTrue("Performance provenance names the exact UI-created Admin expense record",
                 calculationBeforeRestore.contains(id))
         }
         fuelRecordId?.let { assertNotNull("The rendered Fuel purchase is persisted before backup", db.records().get(it)) }
