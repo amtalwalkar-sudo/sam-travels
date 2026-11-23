@@ -387,7 +387,7 @@ try {
   }
   await page.getByText(/Expected cumulative surplus/).waitFor();
   await page.getByText(/Actual cumulative surplus/).waitFor();
-  console.log("Driver Passbook cumulative target, actual surplus and remaining balance rendered.");
+  console.log("Driver Passbook totals and provenance rendered.");
 
   const provenance = page.locator("#performance-provenance");
   await provenance.locator("summary").first().click();
