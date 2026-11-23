@@ -81,7 +81,10 @@ internal object SemanticFixtureCalculationParitySupport {
             }
             assertEquals("Android production calculation runner failed at $progress: $error", "", error)
             assertTrue("Android production calculation runner timed out at progress=$progress", raw.isNotBlank())
-            val actual = JSONObject(raw)
+            val calculationEnvelope = JSONObject(raw)
+            assertEquals("Android calculation runner completed", "complete", calculationEnvelope.optString("progress"))
+            assertEquals("Android calculation runner returned no error", "", calculationEnvelope.optString("error"))
+            val actual = JSONObject(calculationEnvelope.getString("result"))
             val expected = fixture.getJSONObject("expectedBusinessResults")
             val expectedExpenses = expected.getJSONObject("dailyExpenses")
             val actualExpenses = actual.getJSONObject("dailyExpenses")
