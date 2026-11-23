@@ -220,23 +220,12 @@ describe("shared form recovery against the production Dexie adapter", () => {
         workingCopyRepository: copies,
       });
     const instanceId = "dxe-platform-fee-retry-001";
-    const operationId = "dxe-platform-fee-operation-001";
     const firstRuntime = makeRuntime(repository, workingCopies, handler);
     let copy = await firstRuntime.open(PLATFORM_FEE_FORM_V1, instanceId);
     for (const [field, value] of Object.entries({
       businessDate: "2026-11-19", vehicleId, amountRupees: 125.5, reference: "settlement-dxe-001",
     })) copy = await firstRuntime.update(PLATFORM_FEE_FORM_V1, copy, field, value);
-    // Preserve a deterministic operation ID through the durable working-copy record.
-    await repository.compareAndSet(
-      "__sam_travels_form_working_copy__:" + encodeURIComponent(PLATFORM_FEE_FORM_V1.id) + ":" + encodeURIComponent(instanceId),
-      1 + 4,
-      {
-        id: "__sam_travels_form_working_copy__:" + encodeURIComponent(PLATFORM_FEE_FORM_V1.id) + ":" + encodeURIComponent(instanceId),
-        schemaVersion: 1, createdAt: copy.updatedAt, updatedAt: copy.updatedAt, source: "web",
-        revision: 5, data: { ...copy, operationId },
-      },
-    );
-    copy = (await workingCopies.get(PLATFORM_FEE_FORM_V1.id, instanceId))!;
+    const operationId = copy.operationId;
     await expect(firstRuntime.save(PLATFORM_FEE_FORM_V1, copy))
       .rejects.toThrow("simulated_process_death_after_domain_commit");
     const pending = await workingCopies.get(PLATFORM_FEE_FORM_V1.id, instanceId);
