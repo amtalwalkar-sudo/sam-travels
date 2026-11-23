@@ -164,8 +164,8 @@ internal object AdminEntryPathAuditTestSupport {
             }
             SystemClock.sleep(100)
         }
-        assertNotNull("Fuel draft values are durably committed to Room before interruption", fuelWorkingCopyId)
-        val fuelWorkingCopyId = fuelWorkingCopyId
+        assertNotNull("Fuel draft values are durably committed to Room before interruption", workingCopyId)
+        val fuelWorkingCopyId = workingCopyId!!
         activity.finish()
         instrumentation.waitForIdleSync()
         activity = instrumentation.startActivitySync(
