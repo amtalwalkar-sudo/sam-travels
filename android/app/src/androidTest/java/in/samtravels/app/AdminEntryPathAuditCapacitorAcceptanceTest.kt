@@ -270,7 +270,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             click = { label -> support.clickMatching(activity, label) },
             readCalculation = {
                 support.javascriptValue(activity,
-                    "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})").orEmpty()
+                    "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.textContent??''})").orEmpty()
             },
         )
     } finally {
