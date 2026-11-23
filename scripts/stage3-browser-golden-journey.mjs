@@ -121,10 +121,10 @@ export async function assertBrowserStage3GoldenJourney(page) {
 export async function assertBrowserWorkDistanceThroughUi(page) {
   await page.getByRole("button", { name: "Drive", exact: true }).click();
   await page.evaluate(() => { window.__fuel_allow_work_gps = true; });
-  await page.getByLabel("Shift-start odometer (km)").fill("12346");
+  await page.getByLabel("Shift-start odometer (km)").fill("12387");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
-  await page.getByLabel("Shift-end odometer (km)").fill("12388");
+  await page.getByLabel("Shift-end odometer (km)").fill("12429");
   await page.getByText("Business kilometres: 42 km", { exact: true }).waitFor();
   await page.getByRole("button", { name: "End shift", exact: true }).click();
   await page.getByRole("heading", { name: "Idle", exact: true }).waitFor({ timeout: 30000 });
@@ -166,7 +166,24 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
   const period = page.locator(".performance-period-form");
   await period.getByLabel("Period from").fill("2024-01-01");
-  await period.getByLabel("Period to").fill(new Date().toISOString().slice(0, 10));
+  const confirmedOperationalDate = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const read = db.transaction("records", "readonly").objectStore("records").getAll();
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    const daily = rows.find(row => row.id.startsWith("work:daily-business-km:") &&
+      row.data?.kind === "daily_business_kilometres" && row.data?.operationalDate);
+    if (!daily) throw new Error("stage3_performance_period_missing_confirmed_operational_date");
+    return daily.data.operationalDate;
+  });
+  await period.getByLabel("Period to").fill(confirmedOperationalDate);
   await period.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
   await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
   await page.locator("#performance-provenance > summary").first().click();
