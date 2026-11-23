@@ -259,6 +259,16 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
             assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
             assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
+            // Carry these exact rendered Admin/Fuel record identities through the production
+            // Performance calculation and encrypted Room restore before test cleanup.
+            Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
+                db,
+                vehicleRecordId!!,
+                fuelRecordId!!,
+                { script -> support.eval(activity, script) },
+                { script, timeout -> support.await(activity, script, timeout) },
+                { label -> support.click(activity, label) },
+            )
         } finally {
             db.records().list().filter { it.json.contains(marker) || it.id == fuelRecordId ||
                 it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId }.forEach { db.records().remove(it.id) }
