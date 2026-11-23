@@ -362,7 +362,7 @@ try {
     "closing full-tank checkpoint must not request geolocation");
   // A completed full-tank interval becomes effective on the following
   // operational date; advance the browser clock before confirming Work km.
-  await page.clock.fastForward(18000000);
+  await page.clock.fastForward(100800000);
   const workDistance = await assertBrowserWorkDistanceThroughUi(page);
   assert.equal(workDistance.businessKilometres, 42,
     "Performance must consume a confirmed Work odometer allocation from the rendered UI");
