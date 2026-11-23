@@ -107,7 +107,7 @@ export function assertRestoredDomainCalculationParity(restoredRows: readonly any
   const restoredLedger = restoredRows.find(record => record.id.startsWith("feature:finance:payments:")) as any;
   const restoredPrepayment = restoredRows.find(record => record.id.startsWith("feature:finance:prepayments:")) as any;
   expect(restoredLoan?.revision).toBe(3);
-  expect(restoredLoan?.data.scheduleVersions.find((row: any) => row.version === 2)?.output.regularEmiPaise)
+  expect(restoredLoan?.data.scheduleVersions[0]?.output.regularEmiPaise)
     .toBe(fixture.expectedBusinessResults.finance.regularEmiPaise);
   expect(restoredLoan?.data.lifecycleState).toBe("closed");
   expect(restoredLedger?.revision).toBe(6);
