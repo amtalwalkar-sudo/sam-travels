@@ -154,9 +154,26 @@ internal object AdminEntryPathAuditTestSupport {
         support: AdminFormsCapacitorAcceptanceTest,
         db: LocalDatabase,
         vehicleRecordId: String,
+        adminDisplayName: String,
     ): Pair<MainActivity, String> {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         var activity = startingActivity
+        val adminPerson = db.records().list().firstOrNull { row ->
+            row.id.startsWith("identity:person:") &&
+                JSONObject(row.json).getJSONObject("data").optString("displayName") == adminDisplayName
+        } ?: error("stage3_admin_identity_missing")
+        val adminPersonId = JSONObject(adminPerson.json).getJSONObject("data").getString("personId")
+        fun reactivateAdmin() {
+            support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
+            assertTrue("Admin workspace returns after WebView recreation",
+                support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+            support.set(activity, "Select person", adminPersonId)
+            support.set(activity, "Active role", "admin")
+            support.set(activity, "Admin PIN", "4831")
+            support.click(activity, "Activate role")
+            assertTrue("Admin session is reactivated after WebView recreation",
+                support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
+        }
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
         assertTrue("Work screen exposes Fuel Entry without an active shift",
             support.await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
@@ -207,8 +224,9 @@ internal object AdminEntryPathAuditTestSupport {
         activity = instrumentation.startActivitySync(
             Intent(activity.applicationContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         ) as MainActivity
-        assertTrue("WebView restarts and restores the Work screen",
+        assertTrue("WebView restarts and restores navigation",
             support.await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
+        reactivateAdmin()
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
         assertTrue("Fuel launcher survives WebView recreation",
             support.await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
@@ -266,6 +284,7 @@ internal object AdminEntryPathAuditTestSupport {
         ) as MainActivity
         assertTrue("WebView restarts after the post-commit interruption",
             support.await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
+        reactivateAdmin()
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
         assertTrue("Fuel launcher is available for pending submission recovery",
             support.await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
