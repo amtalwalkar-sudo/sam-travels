@@ -1,5 +1,6 @@
 package `in`.samtravels.app
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 
