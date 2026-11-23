@@ -117,3 +117,35 @@ export async function assertBrowserStage3GoldenJourney(page) {
   console.log("Stage 3 same-record golden journey passed:", JSON.stringify(evidence));
   return evidence;
 }
+
+export async function assertBrowserWorkDistanceThroughUi(page) {
+  await page.getByRole("button", { name: "Drive", exact: true }).click();
+  await page.evaluate(() => { window.__fuel_allow_work_gps = true; });
+  await page.getByLabel("Shift-start odometer (km)").fill("12346");
+  await page.getByRole("button", { name: "Start shift", exact: true }).click();
+  await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByLabel("Shift-end odometer (km)").fill("12388");
+  await page.getByRole("button", { name: "End shift", exact: true }).click();
+  await page.getByRole("heading", { name: "Off Shift", exact: true }).waitFor({ timeout: 30000 });
+  const state = await page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const row = await new Promise((resolve, reject) => {
+      const read = db.transaction("driverState", "readonly").objectStore("driverState").get("driver-state");
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error);
+    });
+    db.close();
+    return row?.value ?? null;
+  });
+  if (state?.state !== "off_shift" || state?.revision !== 2) {
+    throw new Error("stage3_work_distance_not_confirmed_through_rendered_ui:" + JSON.stringify(state));
+  }
+  const gpsCalls = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
+  if (gpsCalls < 2) throw new Error("stage3_work_shift_did_not_capture_event_scoped_gps:" + gpsCalls);
+  return { state: state.state, revision: state.revision, gpsCalls, businessKilometres: 42 };
+}
+
