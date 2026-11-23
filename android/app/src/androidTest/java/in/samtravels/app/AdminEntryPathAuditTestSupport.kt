@@ -248,7 +248,7 @@ internal object AdminEntryPathAuditTestSupport {
                     JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
             }
         }
-        assertEquals("The feature record commits before working-copy completion failure is observed", 1, beforeRetry.size)
+        assertEquals("Fuel commit missing; records=" + db.records().list().filter { it.id.startsWith("feature:business-expenses:") }.joinToString { it.json } + "; status=" + support.javascriptValue(activity, "document.querySelector('.fuel-entry-panel [role=status]')?.textContent"), 1, beforeRetry.size)
         val original = beforeRetry.single()
         val originalCreatedAt = JSONObject(original.json).getString("createdAt")
         val receiptCount = db.records().list().count { row ->
