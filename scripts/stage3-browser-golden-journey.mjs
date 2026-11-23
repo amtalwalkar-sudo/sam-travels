@@ -73,7 +73,12 @@ export async function assertBrowserStage3GoldenJourney(page) {
     }
     const after = canonicalRows(await readRecords());
     if (JSON.stringify(before) !== JSON.stringify(after)) {
-      throw new Error("stage3_golden_journey_record_identity_revision_or_payload_changed_after_restore");
+      const afterById = new Map(after.map(row => [row.id, row]));
+      const mismatches = before.filter(row => JSON.stringify(row) !== JSON.stringify(afterById.get(row.id)))
+        .slice(0, 5).map(row => ({ before: row, after: afterById.get(row.id) ?? null }));
+      const missing = after.filter(row => !before.some(source => source.id === row.id)).map(row => row.id).slice(0, 5);
+      throw new Error("stage3_golden_journey_record_identity_revision_or_payload_changed_after_restore:" +
+        JSON.stringify({ mismatches, missing }));
     }
     if (!uiSourceIds.every(id => after.some(row => row.id === id))) {
       throw new Error("stage3_golden_journey_ui_record_missing_after_restore");
