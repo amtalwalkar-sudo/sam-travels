@@ -110,7 +110,8 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
                     )
                 },
             ) { ui, db ->
-                assertTrue("Overlay must refresh from the PWA's committed Room event", waitUntil(15_000) {
+                assertTrue("Overlay must refresh from the PWA's committed Room event; room=" +
+                    DriverWorkflowStore.snapshot(db) + "; hierarchy=" + describeNodes(ui), waitUntil(15_000) {
                     findNode(ui) {
                         it.text?.toString() == "Sam Travels · going to pickup · r2"
                     } != null && findNode(ui) {
