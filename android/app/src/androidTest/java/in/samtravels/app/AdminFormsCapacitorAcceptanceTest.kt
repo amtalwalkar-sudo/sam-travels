@@ -80,13 +80,13 @@ class AdminFormsCapacitorAcceptanceTest {
                 val data = org.json.JSONObject(row.json).getJSONObject("data")
                 row.id == vehicleRecordId && data.optString("lifecycleState") == "active"
             }
-            assertEquals("Admin acceptance configures one active vehicle", 1, configuredVehicleRows.size)
+            assertEquals("One active vehicle", 1, configuredVehicleRows.size)
             val configuredDriverRows = db.records().list().filter { row ->
                 val data = org.json.JSONObject(row.json).getJSONObject("data")
                 data.optString("name") == marker + " Driver" &&
                     data.optString("lifecycleState") == "active"
             }
-            assertEquals("Admin acceptance configures one active driver", 1, configuredDriverRows.size)
+            assertEquals("One active driver", 1, configuredDriverRows.size)
             val driverRecordId = configuredDriverRows.single().id
             assertRoomOperationReceiptExists(db, driverRecordId)
             click(activity, "Configure for Work")
@@ -213,8 +213,8 @@ class AdminFormsCapacitorAcceptanceTest {
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
             val businessSettings = db.records().get("feature:business-settings:business")
-            assertNotNull("Business start date record survives Room close/reopen", businessSettings)
-            assertEquals("Business start date value survives Room close/reopen", "2024-01-01",
+            assertNotNull("Business date survives Room reopen", businessSettings)
+            assertEquals("Business date value survives reopen", "2024-01-01",
                 org.json.JSONObject(businessSettings!!.json).getJSONObject("data").getString("businessStartDate"))
             val records = db.records().list().joinToString("\n") { it.json }
             listOf(registration, marker + " Driver", marker + " Insurance",
