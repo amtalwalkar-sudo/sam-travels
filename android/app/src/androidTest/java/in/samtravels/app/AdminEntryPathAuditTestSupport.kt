@@ -53,6 +53,7 @@ internal object AdminEntryPathAuditTestSupport {
         support: AdminFormsCapacitorAcceptanceTest,
         db: LocalDatabase,
         marker: String,
+        adminDisplayName: String,
     ): Pair<MainActivity, String> {
         var activity = startingActivity
         support.eval(activity, "window.Capacitor?.Plugins?.RoomStore?.armWorkingCopyCompletionFailure?.().then(()=>window.__stage3AdminRoomFailureArmed=true)")
@@ -106,6 +107,17 @@ internal object AdminEntryPathAuditTestSupport {
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
         assertTrue("Admin workspace returns after restart",
             support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+        val adminPerson = db.records().list().firstOrNull { row ->
+            row.id.startsWith("identity:person:") &&
+                JSONObject(row.json).getJSONObject("data").optString("displayName") == adminDisplayName
+        } ?: error("stage3_admin_identity_missing")
+        val adminPersonId = JSONObject(adminPerson.json).getJSONObject("data").getString("personId")
+        support.set(activity, "Select person", adminPersonId)
+        support.set(activity, "Active role", "admin")
+        support.set(activity, "Admin PIN", "4831")
+        support.click(activity, "Activate role")
+        assertTrue("Admin session is reactivated after Platform Fee recovery restart",
+            support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
         support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
         assertTrue("Pending Platform Fee draft is recovered in the rendered Admin form",
             support.await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return !!s&&s.textContent.includes('Draft · pending')&&s.textContent.includes('FEE-$marker')})()""", 15000))
