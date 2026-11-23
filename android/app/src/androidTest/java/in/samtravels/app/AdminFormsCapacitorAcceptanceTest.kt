@@ -31,7 +31,7 @@ class AdminFormsCapacitorAcceptanceTest {
         try {
             assertTrue("Drive loads", await(activity, "!!document.querySelector('.driver-card')", 30000))
             eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
-            assertTrue("Admin shell loads", await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
+            assertTrue("Admin loads", await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
             check(javascriptValue(activity, """(()=>{const set=(labelText,value)=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes(labelText));const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,value);i.dispatchEvent(new Event('input',{bubbles:true}));return true};const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Admin role'));const i=l?.querySelector('input[type=checkbox]');if(!i)return false;i.click();return set('Person name','$marker Admin')&&set('Set initial Admin PIN','4831')})()""")=="true") { "Admin enrollment fields unavailable" }
             eval(activity, "document.querySelector('form button')?.click()")
             assertTrue("Admin enrollment", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Person enrolled')", 15000))
@@ -49,10 +49,10 @@ class AdminFormsCapacitorAcceptanceTest {
                     "(()=>{const p=document.getElementById('admin-section-panel-$id');return !!p&&!p.hidden&&p.textContent.includes('$expected')})()", 10000))
             }
             eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
-            assertTrue("Business settings form loads", await(activity, "document.body.innerText.includes('Business start date')", 15000))
+            assertTrue("Settings form", await(activity, "document.body.innerText.includes('Business start date')", 15000))
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
-            assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
+            assertTrue("Setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
             assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             click(activity, "Add vehicle")
