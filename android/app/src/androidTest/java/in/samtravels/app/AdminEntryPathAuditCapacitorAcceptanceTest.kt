@@ -273,6 +273,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             db,
             vehicleRecordId!!,
             fuelRecordId = fuelRecordId!!,
+            fuelRecordIds = fuelRecordIds,
             evaluate = { script -> support.eval(activity, script) },
             waitFor = { script, timeout -> support.await(activity, script, timeout) },
             click = { label -> support.clickMatching(activity, label) },
