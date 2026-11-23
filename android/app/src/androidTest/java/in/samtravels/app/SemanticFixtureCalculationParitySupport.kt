@@ -91,10 +91,26 @@ internal object SemanticFixtureCalculationParitySupport {
 
             val expectedIntervals = expected.getJSONArray("fuelIntervals")
             val actualIntervals = actual.getJSONArray("fuelIntervals")
-            assertEquals("Android calculates full-to-full intervals", expectedIntervals.length(), actualIntervals.length())
+            // The fixture oracle lists completed full-to-full measurements only.
+            // Production also emits one trailing incomplete interval while waiting
+            // for the next full checkpoint; that is valid state, not an extra
+            // completed mileage interval.
+            val availableIntervals = (0 until actualIntervals.length())
+                .map { actualIntervals.getJSONObject(it) }
+                .filter { it.optString("status") == "available" }
+            val pendingIntervals = (0 until actualIntervals.length())
+                .map { actualIntervals.getJSONObject(it) }
+                .filter { it.optString("status") == "incomplete" }
+            assertEquals("Android calculates full-to-full intervals",
+                expectedIntervals.length(), availableIntervals.size)
+            assertEquals("Android retains one pending interval after the latest full checkpoint",
+                1, pendingIntervals.size)
+            assertEquals("Pending fuel interval starts at the latest full checkpoint",
+                "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174076",
+                pendingIntervals.single().getString("startCheckpointId"))
             for (index in 0 until expectedIntervals.length()) {
                 val expectedInterval = expectedIntervals.getJSONObject(index)
-                val actualInterval = actualIntervals.getJSONObject(index)
+                val actualInterval = availableIntervals[index]
                 listOf("startCheckpointId", "endCheckpointId", "distanceKm", "quantityMilliKg", "spendPaise")
                     .forEach { key -> assertEquals("Fuel interval $index $key", expectedInterval.get(key), actualInterval.get(key)) }
                 assertEquals("Fuel interval $index source IDs",
