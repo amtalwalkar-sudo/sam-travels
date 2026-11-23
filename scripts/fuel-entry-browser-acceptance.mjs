@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
-
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 const registration = "MH00AA0091";
@@ -10,7 +9,6 @@ const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port"
   stdio: "ignore",
 });
 let browser;
-
 async function waitForServer() {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     try {
@@ -22,7 +20,6 @@ async function waitForServer() {
   }
   throw new Error("fuel_entry_browser_server_did_not_start");
 }
-
 async function readBrowserRecords(page) {
   return page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
@@ -44,7 +41,6 @@ async function readBrowserRecords(page) {
     return rows;
   });
 }
-
 try {
   await waitForServer();
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
@@ -74,7 +70,6 @@ try {
   await page.getByLabel("Admin PIN").fill(adminPin);
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-
   await page.getByRole("button", { name: "Business setup", exact: true }).click();
   await page.getByLabel("Business start date").fill("2024-01-01");
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
