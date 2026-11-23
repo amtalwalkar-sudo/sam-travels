@@ -98,8 +98,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = instrumentation.context.assets.open("performance-calculation-v1-parity.json")
             .bufferedReader().use { JSONObject(it.readText()) }
-        val fixtureRecords = fixture.getJSONArray("records")
-        val expected = fixture.getJSONObject("expected")
+        val fixtureRecords = fixture.getJSONArray("records"); val expected = fixture.getJSONObject("expected")
         fun expectedRupees(key: String): String { val paise = expected.getInt(key); return "₹" + String.format(java.util.Locale.US, "%,d.%02d", paise / 100, paise % 100) }
         val vehicleId = "feature:vehicle:MH01AB1234"
         val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
