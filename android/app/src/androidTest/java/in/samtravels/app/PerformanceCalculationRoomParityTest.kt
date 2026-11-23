@@ -121,6 +121,49 @@ class PerformanceCalculationRoomParityTest {
             assertEquals(expected.getInt("recoveryTotalPaise"), totals.values.sum())
 
 
+            // These expected values are consumed by the TypeScript browser test,
+            // which runs the shared platform-neutral calculation against this
+            // same fixture. Room must preserve the exact source records supplied
+            // to that calculation, including source revisions.
+            assertEquals(23_400, expected.getInt("recoveryTotalPaise"))
+            assertEquals("2027-09-15", expected.getString("recoveryToExclusive"))
+            assertEquals(2_600, expected.getInt("lifetimeProfitPaise"))
+            assertEquals(902_419, expected.getInt("lifetimeTargetPaise"))
+            assertEquals(27_400, expected.getInt("lifetimeCostPaise"))
+            assertEquals(-899_819, expected.getInt("lifetimeTargetPositionPaise"))
+        } finally {
+            backupParticipants.asReversed().forEach { it.close() }
+            db.close()
+        }
+    }
+
+    @Test fun roomPreservesSemanticFixtureCalculationAndCorrectionLineage() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val fixture = InstrumentationRegistry.getInstrumentation().context.assets
+            .open("semantic-backup-lifecycle-v1.json")
+            .bufferedReader().use { JSONObject(it.readText()) }
+        val records = fixture.getJSONObject("populatedGraph").getJSONArray("records")
+        val db = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val recordsById = mutableMapOf<String, JSONObject>()
+            for (index in 0 until records.length()) {
+                val source = records.getJSONObject(index)
+                RecordEnvelopeContract.validate(source)
+                db.records().put(StoredRecord(
+                    source.getString("id"), source.toString(),
+                    source.getInt("schemaVersion"), source.getString("updatedAt"),
+                ))
+            }
+            for (index in 0 until records.length()) {
+                val source = records.getJSONObject(index)
+                val restored = db.records().get(source.getString("id"))
+                    ?: throw AssertionError("missing semantic Room record ${source.getString("id")}")
+                val envelope = JSONObject(restored.json)
+                assertEquals(source.getInt("revision"), envelope.getInt("revision"))
+                assertEquals(source.getJSONObject("data").toString(), envelope.getJSONObject("data").toString())
+                recordsById[envelope.getString("id")] = envelope
+            }
             // Verify every persisted correction chain against its restored target,
             // correction sequence and authoritative chain-head record.
             val correctionHeads = fixture.getJSONObject("populatedGraph").getJSONObject("lineage")
@@ -192,20 +235,9 @@ class PerformanceCalculationRoomParityTest {
             }
             assertEquals(financeLineage.getString("settlementEntryId"), settlement.getString("id"))
             assertEquals(financeLineage.getInt("settlementScheduleVersion"), settlement.getInt("scheduleVersion"))
-
-            // These expected values are consumed by the TypeScript browser test,
-            // which runs the shared platform-neutral calculation against this
-            // same fixture. Room must preserve the exact source records supplied
-            // to that calculation, including source revisions.
-            assertEquals(23_400, expected.getInt("recoveryTotalPaise"))
-            assertEquals("2027-09-15", expected.getString("recoveryToExclusive"))
-            assertEquals(2_600, expected.getInt("lifetimeProfitPaise"))
-            assertEquals(902_419, expected.getInt("lifetimeTargetPaise"))
-            assertEquals(27_400, expected.getInt("lifetimeCostPaise"))
-            assertEquals(-899_819, expected.getInt("lifetimeTargetPositionPaise"))
         } finally {
-            backupParticipants.asReversed().forEach { it.close() }
             db.close()
         }
     }
+
 }
