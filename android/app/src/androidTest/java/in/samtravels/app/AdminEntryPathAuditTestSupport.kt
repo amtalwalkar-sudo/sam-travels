@@ -145,10 +145,18 @@ internal object AdminEntryPathAuditTestSupport {
         support.eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
         assertTrue("Fuel form opens while no shift is active",
             support.await(activity, "!!document.querySelector('.fuel-entry-panel')", 10000))
-        support.set(activity, "Vehicle", vehicleRecordId)
-        support.set(activity, "Odometer (km)", "55123")
-        support.set(activity, "Price per kg (₹)", "82.50")
-        support.set(activity, "Amount paid (₹)", "825")
+        fun setFuelField(label: String, value: String) {
+            val safeLabel = label.replace("'", "\\'")
+            val safeValue = value.replace("'", "\\'")
+            val script = """(()=>{const p=document.querySelector('.fuel-entry-panel');const l=[...p.querySelectorAll('label')].find(n=>n.textContent.trim().startsWith('$safeLabel'));const c=l?.querySelector('input,select');if(!c)return false;const proto=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(c,'$safeValue');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
+            check(support.javascriptValue(activity, script) == "true") { "Fuel field missing: $label" }
+        }
+        setFuelField("Vehicle", vehicleRecordId)
+        setFuelField("Odometer (km)", "55123")
+        setFuelField("Price per kg (₹)", "82.50")
+        setFuelField("Amount paid (₹)", "825")
+        assertTrue("Fuel draft inputs reflect the entered values before interruption",
+            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');const value=t=>[...p.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 10000))
         val workingCopyPrefix = "__sam_travels_form_working_copy__:work.fuel-entry:"
         val draftDeadline = SystemClock.uptimeMillis() + 15000
         var workingCopyId: String? = null
