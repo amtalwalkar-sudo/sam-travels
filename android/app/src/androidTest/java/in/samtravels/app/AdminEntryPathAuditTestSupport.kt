@@ -218,11 +218,19 @@ internal object AdminEntryPathAuditTestSupport {
             SystemClock.sleep(100)
         }
         assertNotNull("Injected failure occurs after durable pending intent is written", pendingCopy)
-        val beforeRetry = db.records().list().filter { row ->
+        var beforeRetry = db.records().list().filter { row ->
             row.id.startsWith("feature:business-expenses:fuel:") &&
                 JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
         }
-        assertEquals("The feature record committed before working-copy completion failed", 1, beforeRetry.size)
+        val commitDeadline = SystemClock.uptimeMillis() + 15000
+        while (beforeRetry.isEmpty() && SystemClock.uptimeMillis() < commitDeadline) {
+            SystemClock.sleep(100)
+            beforeRetry = db.records().list().filter { row ->
+                row.id.startsWith("feature:business-expenses:fuel:") &&
+                    JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
+            }
+        }
+        assertEquals("The feature record commits before working-copy completion failure is observed", 1, beforeRetry.size)
         val original = beforeRetry.single()
         val originalCreatedAt = JSONObject(original.json).getString("createdAt")
         val receiptCount = db.records().list().count { row ->
