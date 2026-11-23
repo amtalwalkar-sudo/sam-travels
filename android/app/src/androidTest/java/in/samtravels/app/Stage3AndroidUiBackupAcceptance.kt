@@ -29,20 +29,25 @@ internal object Stage3AndroidUiBackupAcceptance {
         stage3RecoveryKey,
         )
         val stage3VehicleId = vehicleRecordId
-        // Remove the Vehicle together with its dependent assignment history so the
-        // checkpoint remains a valid graph; the encrypted source must restore both.
-        val stage3AssignmentIds = db.records().list().filter { row ->
-            row.id.startsWith("feature:driver-records:assignment:") &&
-                org.json.JSONObject(row.json).getJSONObject("data").getJSONArray("assignments").let { assignments ->
-                    (0 until assignments.length()).any { assignments.getJSONObject(it).optString("vehicleId") == stage3VehicleId }
-                }
+        // Remove the Vehicle and every persisted record that refers to it. The
+        // restore destination must itself remain a valid graph while the source
+        // package proves that all removed identities are reinstated.
+        val stage3DependentRows = db.records().list().filter { row ->
+            row.id != stage3VehicleId && row.json.contains(stage3VehicleId)
+        }
+        val stage3AssignmentIds = stage3DependentRows.filter {
+            it.id.startsWith("feature:driver-records:assignment:")
         }.map { it.id }
-        assertTrue("Golden journey must include the Vehicle assignment that depends on the Vehicle", stage3AssignmentIds.isNotEmpty())
-        stage3AssignmentIds.forEach(db.records()::remove)
+        assertTrue("Golden journey must include the Driver–Vehicle assignment", stage3AssignmentIds.isNotEmpty())
+        assertTrue("Golden journey must include dependent Compliance records",
+            stage3DependentRows.any { it.id.startsWith("feature:compliance:") })
+        stage3DependentRows.forEach { db.records().remove(it.id) }
         db.records().remove(stage3VehicleId)
         assertEquals("Golden journey probe proves restore must reinstate the UI-created Vehicle",
             null, db.records().get(stage3VehicleId))
-        stage3AssignmentIds.forEach { id -> assertEquals("Dependent assignment removed before restore", null, db.records().get(id)) }
+        (stage3DependentRows.map { it.id } + stage3VehicleId).forEach { id ->
+            assertEquals("Dependent record removed before restore: " + id, null, db.records().get(id))
+        }
         val stage3Restored = NativeBackupRestoreCoordinator.restoreEncrypted(
         db, stage3Encrypted, stage3RecoveryKey,
         { NativeSnapshotBuilder.build(db, NativeBackupRecovery::isInternalRecord, "stage3-android-readback") },
@@ -58,7 +63,9 @@ internal object Stage3AndroidUiBackupAcceptance {
         stage3Readback.snapshot.getJSONArray("records"),
         )
         assertNotNull("The exact UI-created Vehicle identity is restored", db.records().get(stage3VehicleId))
-        stage3AssignmentIds.forEach { id -> assertNotNull("The exact dependent Driver–Vehicle assignment is restored", db.records().get(id)) }
+        (stage3DependentRows.map { it.id } + stage3VehicleId).forEach { id ->
+            assertNotNull("The exact dependent record identity is restored: " + id, db.records().get(id))
+        }
         NativeBackupRestoreCoordinator.markVerified(db, stage3Restored.checkpointId)
         NativeBackupRestoreCoordinator.discardVerified(db, stage3Restored.checkpointId)
         
