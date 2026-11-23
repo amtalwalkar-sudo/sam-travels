@@ -200,7 +200,7 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
-                db, vehicleRecordId, fuelRecordId, adminFeeRecordId,
+                db, vehicleRecordId, fuelRecordId, listOf(fuelRecordId), adminFeeRecordId,
                 evaluate = { script -> eval(activity, script) },
                 waitFor = { script, timeout -> await(activity, script, timeout) },
                 click = { label -> clickMatching(activity, label) },
