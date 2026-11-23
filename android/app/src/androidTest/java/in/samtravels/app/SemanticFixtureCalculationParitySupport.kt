@@ -23,7 +23,7 @@ internal object SemanticFixtureCalculationParitySupport {
             .bufferedReader().use { it.readText() }
         val inputRows = JSONArray()
         roomRows.forEach { inputRows.put(JSONObject(it.json)) }
-        val inputLiteral = JSONObject.quote(inputRows.toString())
+        val inputJson = inputRows.toString()
         val webViewRef = AtomicReference<WebView>()
         val loaded = CountDownLatch(1)
         instrumentation.runOnMainSync {
@@ -33,20 +33,20 @@ internal object SemanticFixtureCalculationParitySupport {
                 override fun onPageFinished(view: WebView?, url: String?) { loaded.countDown() }
             }
             webViewRef.set(webView)
-            webView.loadDataWithBaseURL("https://localhost/",
-                "<html><body><script>$bundle</script></body></html>", "text/html", "UTF-8", null)
+            val html = "<html><body><script>$bundle</script><script>window.__semanticParityInput = $inputJson;</script></body></html>"
+            webView.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null)
         }
         val webView = webViewRef.get() ?: throw AssertionError("Android parity WebView was not created")
         try {
             assertTrue("Android production calculation bundle did not load", loaded.await(20, TimeUnit.SECONDS))
-            val readiness = decodeJsString(evaluate(webView, "typeof window.SemanticFixtureCalculationParity"))
-            assertEquals("Android semantic calculation bundle must be callable", "object", readiness)
+            val readiness = decodeJsString(evaluate(webView, "typeof window.SemanticFixtureCalculationParity.run"))
+            assertEquals("Android semantic calculation bundle must expose its production runner", "function", readiness)
             val startResult = evaluate(webView, """
                 try {
                   window.__semanticParityResult = null;
                   window.__semanticParityError = null;
                   window.__semanticParityProgress = "starting";
-                  Promise.resolve(window.SemanticFixtureCalculationParity.run(JSON.parse($inputLiteral)))
+                  Promise.resolve(window.SemanticFixtureCalculationParity.run(window.__semanticParityInput))
                     .then(value => { window.__semanticParityResult = JSON.stringify(value); })
                     .catch(error => { window.__semanticParityError = String(error && error.stack || error); });
                   "started"
