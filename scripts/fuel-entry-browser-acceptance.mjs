@@ -356,7 +356,21 @@ try {
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await page.waitForTimeout(1000);
   const closingCheckpointStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
-  assert.equal(closingCheckpointStatus, "Fuel purchase saved.", "closing full-tank checkpoint failed: " + closingCheckpointStatus);
+  const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({
+    valid: form.checkValidity(),
+    invalid: [...form.querySelectorAll(":invalid")].map(control => ({
+      label: control.closest("label")?.textContent?.trim(),
+      value: control.value,
+      validationMessage: control.validationMessage,
+    })),
+    fields: [...form.querySelectorAll("input,select")].map(control => ({
+      name: control.getAttribute("aria-label") || control.name || control.id,
+      value: control.value,
+      checked: control.checked,
+    })),
+  }));
+  assert.equal(closingCheckpointStatus, "Fuel purchase saved.",
+    "closing full-tank checkpoint failed: " + closingCheckpointStatus + " " + JSON.stringify(closingFormDiagnostic));
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
     "closing full-tank checkpoint must not request geolocation");
   // A completed full-tank interval becomes effective on the following
