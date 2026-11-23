@@ -14,6 +14,10 @@ android {
     namespace 'in.samtravels.app'
     compileSdk 35
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId 'in.samtravels.app'
         minSdk 23
