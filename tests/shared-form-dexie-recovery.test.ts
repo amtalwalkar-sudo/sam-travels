@@ -212,6 +212,7 @@ describe("shared form recovery against the production Dexie adapter", () => {
       createAdminFormRuntimeV1({
         repository: records, recordSource: "web",
         performanceAdminSettings: new PerformanceAdminSettingsServiceV1(records),
+        vehicleService: new VehicleService(records, assertVehicleRecordV1),
         handleBusinessExpenseSubmission: async command => {
           const result = await submitHandler(command);
           if (result === undefined) throw new Error("platform_fee_handler_not_found");
