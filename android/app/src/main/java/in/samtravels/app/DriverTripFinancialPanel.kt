@@ -64,6 +64,8 @@ class DriverTripFinancialPanel(
   private var suppress=false
   /** Keep active edits authoritative while asynchronous Room invalidations rerender this panel. */
   private var hasLocalEdits=false
+  // A periodic Room refresh must not collapse an optional section the driver opened.
+  private var optionalVisibilityTouched=false
 
   init {
    root.addView(title);root.addView(fare,LinearLayout.LayoutParams(-1,dp(visual.fieldHeight)))
@@ -71,7 +73,7 @@ class DriverTripFinancialPanel(
    optional.addView(toll,LinearLayout.LayoutParams(-1,dp(48)));optional.addView(tollPayer)
    optional.addView(parking,LinearLayout.LayoutParams(-1,dp(48)));optional.addView(parkingPayer)
    root.addView(submit)
-   optionalToggle.setOnClickListener{optional.visibility=if(optional.visibility==View.VISIBLE)View.GONE else View.VISIBLE}
+   optionalToggle.setOnClickListener{optionalVisibilityTouched=true;optional.visibility=if(optional.visibility==View.VISIBLE)View.GONE else View.VISIBLE}
    listOf(fare,toll,parking).forEach{it.addTextChangedListener(object:TextWatcher{
     override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int){}
     override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int){}
@@ -90,7 +92,7 @@ class DriverTripFinancialPanel(
     suppress=true
     setText(fare,format(values,"farePaise"));setText(toll,format(values,"tollPaise"));setText(parking,format(values,"parkingPaise"))
     selectPayer(tollPayer,values.optString("tollPayer"));selectPayer(parkingPayer,values.optString("parkingPayer"))
-    optional.visibility=if(values.has("tollPaise")||values.has("parkingPaise"))View.VISIBLE else View.GONE
+    if(!optionalVisibilityTouched)optional.visibility=if(values.has("tollPaise")||values.has("parkingPaise"))View.VISIBLE else View.GONE
     suppress=false
    }
    refreshSubmitState()
