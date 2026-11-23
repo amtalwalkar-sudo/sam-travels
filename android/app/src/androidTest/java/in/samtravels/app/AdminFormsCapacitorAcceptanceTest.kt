@@ -1,5 +1,4 @@
 package `in`.samtravels.app
-
 import android.content.Intent
 import android.os.SystemClock
 import android.webkit.WebView
@@ -17,7 +16,6 @@ import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
-
 @RunWith(AndroidJUnit4::class)
 class AdminFormsCapacitorAcceptanceTest {
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
@@ -42,7 +40,6 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Admin PIN appears", await(activity, "[...document.querySelectorAll('label')].some(n=>n.textContent.trim()==='Admin PIN')", 5000))
             check(javascriptValue(activity, """(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.trim()==='Admin PIN');const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'4831');i.dispatchEvent(new Event('input',{bubbles:true}));l.closest('form')?.querySelector('button')?.click();return true})()""")=="true") { "Admin PIN input unavailable" }
             assertTrue("Admin activation", await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
-
             val sections = listOf("business-setup" to "Business start date", "vehicle" to "Add vehicle",
                 "driver" to "Add driver", "compliance" to "Configure exactly one active Vehicle before recording compliance.",
                 "finance" to "Platform Fees", "maintenance" to "Add a vehicle before recording maintenance.")
@@ -51,14 +48,12 @@ class AdminFormsCapacitorAcceptanceTest {
                 assertTrue("Section $id", await(activity,
                     "(()=>{const p=document.getElementById('admin-section-panel-$id');return !!p&&!p.hidden&&p.textContent.includes('$expected')})()", 10000))
             }
-
             eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
             assertTrue("Business settings form loads", await(activity, "document.body.innerText.includes('Business start date')", 15000))
             set(activity, "Business start date", "2024-01-01")
             clickMatching(activity, "Set business start date|Save changes")
             assertTrue("Business setting saved", await(activity, "document.body.innerText.includes('Business start date saved')", 15000))
             assertRoomOperationReceiptExists(db, "feature:business-settings:business", setOf("create", "update"))
-
             eval(activity, "document.getElementById('admin-section-trigger-vehicle')?.click()")
             click(activity, "Add vehicle")
             val registration = "MH" + UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
