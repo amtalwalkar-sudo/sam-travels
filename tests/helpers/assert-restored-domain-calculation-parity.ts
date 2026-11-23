@@ -118,4 +118,9 @@ export function assertRestoredDomainCalculationParity(restoredRows: readonly any
     prepaymentAmountPaise: fixture.expectedBusinessResults.finance.prepaymentPaise,
     version: fixture.expectedBusinessResults.finance.prepaymentScheduleVersion,
   });
+  expect(restoredPrepayment?.data.revisions[0]?.output).toMatchObject({
+    regularEmiPaise: fixture.expectedBusinessResults.finance.regularEmiPaise,
+    remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments,
+    finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate,
+  });
 }
