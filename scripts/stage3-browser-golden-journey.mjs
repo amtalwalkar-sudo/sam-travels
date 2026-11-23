@@ -26,14 +26,14 @@ export async function assertBrowserStage3GoldenJourney(page) {
       .map(row => normalize({ id: row.id, revision: row.revision, schemaVersion: row.schemaVersion,
         updatedAt: row.updatedAt, data: row.data, createdBy: row.createdBy }))
       .sort((a, b) => a.id.localeCompare(b.id));
-    const before = canonicalRows(await readRecords());
-    const uiSourceIds = before.filter(row =>
+    const isUiSource = row =>
       row.id.startsWith("feature:business-settings:") ||
       row.id.startsWith("feature:performance:") ||
       row.id.startsWith("feature:business-expenses:") ||
       row.id.startsWith("feature:vehicle:") ||
-      row.id.startsWith("feature:driver-records:")
-    ).map(row => row.id);
+      row.id.startsWith("feature:driver-records:");
+    const before = canonicalRows((await readRecords()).filter(isUiSource));
+    const uiSourceIds = before.map(row => row.id);
     if (uiSourceIds.length < 5) throw new Error("stage3_golden_journey_missing_ui_source_records");
     const runtime = await import("/apps/web/src/backup-runtime.ts");
     const recoveryBytes = crypto.getRandomValues(new Uint8Array(32));
