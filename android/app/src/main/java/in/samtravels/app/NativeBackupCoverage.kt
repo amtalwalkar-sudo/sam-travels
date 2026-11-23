@@ -217,6 +217,7 @@ internal object NativeBackupCoverage {
     fun exportBusinessRecords(database: LocalDatabase, isInternal: (String) -> Boolean): JSONArray {
         NativeVehicleBackup.ensureRegistered()
         NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
         assertRoomSchemaCovered(database)
         database.records().list().filter { it.id.startsWith("feature:") }.forEach { row ->
             require(isFeatureOwnedRecord(row.id)) { "backup_unregistered_feature_record:" + row.id }
@@ -262,6 +263,7 @@ internal object NativeBackupCoverage {
     fun validateBusinessRecords(records: JSONArray, requireExplicitOwnerTags: Boolean = false) {
         NativeVehicleBackup.ensureRegistered()
         NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
         // The interchange wire format has one Finance owner. Split that owner
         // back into Room's internal loan/payment/prepayment validators before
         // applying platform-specific validation and relationship checks.
