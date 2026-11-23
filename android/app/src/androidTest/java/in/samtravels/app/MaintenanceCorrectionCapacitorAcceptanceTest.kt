@@ -26,6 +26,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   val suffix = UUID.randomUUID().toString()
   val previousSelectedDriver = database.records().get("work:selected-driver")
   val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
+  val previousBusinessExpenseRecords = database.records().list().filter { it.id.startsWith("feature:business-expenses:") }
   val previousAssignmentRecords = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
   val previousMaintenanceRecords = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
   val vehicleId = "feature:vehicle:MH01AB1234"
@@ -53,6 +54,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   try {
     previousAssignmentRecords.forEach { database.records().remove(it.id) }
     previousMaintenanceRecords.forEach { database.records().remove(it.id) }
+    previousBusinessExpenseRecords.forEach { database.records().remove(it.id) }
     previousVehicleRecords.forEach { database.records().remove(it.id) }
     database.records().put(vehicle)
     database.records().put(expense)
@@ -335,6 +337,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     database.records().remove(otherExpenseId)
     database.records().remove(vehicleId)
     previousVehicleRecords.forEach { database.records().put(it) }
+    previousBusinessExpenseRecords.forEach { database.records().put(it) }
     previousMaintenanceRecords.forEach { database.records().put(it) }
     previousAssignmentRecords.forEach { database.records().put(it) }
     database.records().remove(chainId)
