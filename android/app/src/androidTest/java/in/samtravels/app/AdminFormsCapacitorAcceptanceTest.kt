@@ -76,7 +76,6 @@ class AdminFormsCapacitorAcceptanceTest {
             set(activity, "Mobile number", "9990001111")
             click(activity, "Save driver")
             assertTrue("Driver saved", await(activity, "document.body.innerText.includes('Driver created')", 15000))
-
             val configuredVehicleRows = db.records().list().filter { row ->
                 val data = org.json.JSONObject(row.json).getJSONObject("data")
                 row.id == vehicleRecordId && data.optString("lifecycleState") == "active"
