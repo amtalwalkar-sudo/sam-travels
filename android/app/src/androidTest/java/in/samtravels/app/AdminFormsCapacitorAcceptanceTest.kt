@@ -69,7 +69,6 @@ class AdminFormsCapacitorAcceptanceTest {
             val vehicleRecordId = "feature:vehicle:" + registration
             assertTrue("Vehicle Room identity", db.records().get(vehicleRecordId) != null)
             assertRoomOperationReceiptExists(db, vehicleRecordId)
-
             eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
             click(activity, "Add driver")
             set(activity, "Driver name", marker + " Driver")
