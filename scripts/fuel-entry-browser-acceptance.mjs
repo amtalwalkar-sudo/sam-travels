@@ -248,7 +248,6 @@ try {
   }, vehicleId);
   await toggle.click();
   const firstFuelPurchaseId = purchases[0].id;
-
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   const reloadedPurchase = await page.evaluate(async id => {
@@ -336,7 +335,6 @@ try {
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
-
   const fuelGeoCallsBeforeSecondSubmit = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
@@ -356,19 +354,7 @@ try {
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await page.waitForTimeout(1000);
   const closingCheckpointStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
-  const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({
-    valid: form.checkValidity(),
-    invalid: [...form.querySelectorAll(":invalid")].map(control => ({
-      label: control.closest("label")?.textContent?.trim(),
-      value: control.value,
-      validationMessage: control.validationMessage,
-    })),
-    fields: [...form.querySelectorAll("input,select")].map(control => ({
-      name: control.getAttribute("aria-label") || control.name || control.id,
-      value: control.value,
-      checked: control.checked,
-    })),
-  }));
+  const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({ valid: form.checkValidity(), invalid: [...form.querySelectorAll(":invalid")].map(control => ({ label: control.closest("label")?.textContent?.trim(), value: control.value, validationMessage: control.validationMessage })), fields: [...form.querySelectorAll("input,select")].map(control => ({ name: control.getAttribute("aria-label") || control.name || control.id, value: control.value, checked: control.checked })) }));
   assert.equal(closingCheckpointStatus, "Fuel purchase saved.",
     "closing full-tank checkpoint failed: " + closingCheckpointStatus + " " + JSON.stringify(closingFormDiagnostic));
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
@@ -401,9 +387,7 @@ try {
     assert.equal(Object.hasOwn(purchase.data, "locationEvidence"), false);
   }
   await context.setOffline(false);
-
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, three purchases including a completed full-tank interval, offline submission committed once, derived quantity preview verified, Fuel submission requested no GPS, and next-day Work distance was confirmed through GPS-backed shift events.");
-
   await assertBrowserFuelPerformanceAndBackupJourney(page, adminPin, purchases);
 } finally {
   await browser?.close();
