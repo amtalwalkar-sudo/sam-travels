@@ -8,6 +8,38 @@ const fixture = JSON.parse(readFileSync(new URL("../fixtures/semantic-backup-lif
 describe("Shared semantic fixture calculation expectations", () => {
   it("pins expected business calculations to the shared synthetic source graph", () => {
     const rows = fixture.populatedGraph.records as Array<{ id: string; data: any }>;
+    const projectTarget = (targetRecordId: string, featureId: string) => {
+      const original = rows.find(row => row.id === targetRecordId);
+      expect(original).toBeDefined();
+      const corrections = rows.filter(item => item.id.startsWith("historical-correction:") &&
+        item.data.featureId === featureId && item.data.targetRecordId === targetRecordId)
+        .map(item => item.data).sort((a, b) => a.chainRevision - b.chainRevision);
+      const projection = projectHistoricalCorrectionsV1(original!.data, corrections as never);
+      expect(projection.status).toBe("valid");
+      const persistedHead = rows.find(item =>
+        item.id === "historical-correction-chain:" + encodeURIComponent(targetRecordId))?.data;
+      expect(persistedHead).toMatchObject({
+        chainRevision: projection.chainRevision,
+        headCorrectionId: projection.headCorrectionId,
+      });
+      return { original: original!.data, projection };
+    };
+    const maintenanceCorrection = projectTarget(
+      "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050", "maintenance",
+    );
+    expect(maintenanceCorrection.original.amountPaise).toBe(10000);
+    expect(maintenanceCorrection.projection).toMatchObject({
+      status: "valid", chainRevision: 2, headCorrectionId: "maintenance-fix-2",
+      data: { amountPaise: 13000 },
+    });
+    const complianceCorrection = projectTarget(
+      "feature:compliance:123e4567-e89b-42d3-a456-426614174010", "compliance",
+    );
+    expect(complianceCorrection.original.totalCostPaise).toBe(365000);
+    expect(complianceCorrection.projection).toMatchObject({
+      status: "valid", chainRevision: 1, headCorrectionId: "compliance-fix-1",
+      data: { totalCostPaise: 366000 },
+    });
     const rawFuel = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:"));
     const fuel = rawFuel.map(row => {
       const corrections = rows.filter(item => item.id.startsWith("historical-correction:") &&
