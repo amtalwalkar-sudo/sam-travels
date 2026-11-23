@@ -24,6 +24,10 @@ internal object Stage3AndroidUiBackupAcceptance {
         val calculationBeforeRestore = readCalculation()
         assertTrue("Pre-restore calculation snapshot includes the production provenance contract",
             calculationBeforeRestore.contains("performance.calculation.v1"))
+        fuelRecordId?.let { id ->
+            assertTrue("Performance provenance names the exact UI-created Fuel record",
+                calculationBeforeRestore.contains(id))
+        }
         fuelRecordId?.let { assertNotNull("The rendered Fuel purchase is persisted before backup", db.records().get(it)) }
         val stage3Source = NativeSnapshotBuilder.build(
         db, NativeBackupRecovery::isInternalRecord, "stage3-android-ui-golden-journey",
