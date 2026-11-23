@@ -187,6 +187,7 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   await period.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
   await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
   await page.locator("#performance-provenance > summary").first().click();
+  await page.locator("#performance-provenance > details > summary").click();
   await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
   const golden = await assertBrowserStage3GoldenJourney(page);
   const eligibleCosts = await page.getByRole("button", { name: "Explain Eligible period costs", exact: true }).innerText();
