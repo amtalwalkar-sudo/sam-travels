@@ -85,7 +85,6 @@ try {
   await page.getByLabel("Business start date").fill("2024-01-01");
   await page.getByRole("button", { name: /Set business start date|Save changes/, exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Business start date saved." }).waitFor({ state: "visible" });
-
   await page.getByRole("button", { name: "Vehicle", exact: true }).click();
   await page.getByRole("button", { name: "Add vehicle", exact: true }).click();
   await page.getByLabel("Registration number").fill(registration);
@@ -134,7 +133,6 @@ try {
   await page.getByLabel("Active role").selectOption("driver");
   await page.getByRole("button", { name: "Activate role", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
-
   const initialShiftState = await page.evaluate(async () => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
@@ -222,7 +220,6 @@ try {
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
   await context.setOffline(false);
   await page.clock.fastForward("00:01");
-
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12346");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
@@ -249,7 +246,6 @@ try {
       row.data?.values?.partialRefill === true
     );
   }, vehicleId);
-
   await toggle.click();
   const firstFuelPurchaseId = purchases[0].id;
 
