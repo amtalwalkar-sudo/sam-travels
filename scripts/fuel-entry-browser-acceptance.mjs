@@ -221,6 +221,7 @@ try {
   assert.equal(purchases[0].createdBy?.role, "driver", "Fuel purchase must retain the active Driver actor");
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
   await context.setOffline(false);
+  await page.clock.fastForward("00:01");
 
   await panel.getByLabel("Vehicle").selectOption(vehicleId);
   await panel.getByLabel("Odometer (km)").fill("12346");
@@ -354,9 +355,12 @@ try {
   await resumed.getByLabel("Price per kg (₹)").fill("82.50");
   await resumed.getByLabel("Amount paid (₹)").fill("825");
   await resumed.getByLabel("Partial refill").uncheck();
+  await page.clock.fastForward("00:01");
   const fuelGeoCallsBeforeClosingCheckpoint = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
-  await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  await page.waitForTimeout(1000);
+  const closingCheckpointStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
+  assert.equal(closingCheckpointStatus, "Fuel purchase saved.", "closing full-tank checkpoint failed: " + closingCheckpointStatus);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
     "closing full-tank checkpoint must not request geolocation");
   // A completed full-tank interval becomes effective on the following
