@@ -376,7 +376,10 @@ try {
   await page.getByRole("navigation", { name: "Primary navigation" })
     .getByRole("button", { name: "Performance", exact: true }).click();
   await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
-  await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
+  const performancePeriod = page.locator(".performance-period-form");
+  await performancePeriod.getByLabel("Period from").fill("2024-01-01");
+  await performancePeriod.getByLabel("Period to").fill(new Date().toISOString().slice(0, 10));
+  await performancePeriod.getByRole("button", { name: /Refresh performance|Calculating/, exact: false }).click();
   await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
   await page.locator("#performance-provenance > summary").first().click();
   await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
