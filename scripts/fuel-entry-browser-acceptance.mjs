@@ -46,6 +46,7 @@ try {
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext();
   const page = await context.newPage();
+  await page.clock.install({ time: new Date(Date.now() - 86_400_000) });
   page.on("pageerror", error => console.error("BROWSER PAGE ERROR", error.stack ?? error.message));
   await page.addInitScript(() => {
     Object.defineProperty(navigator, "geolocation", {
@@ -277,9 +278,6 @@ try {
   assert.equal(typeof reloadedPurchase.data.businessDate, "string");
   assert.equal(Object.hasOwn(reloadedPurchase.data, "locationEvidence"), false,
     "new Fuel purchases do not capture or persist GPS evidence");
-  const workDistance = await assertBrowserWorkDistanceThroughUi(page);
-  assert.equal(workDistance.businessKilometres, 42,
-    "Performance must consume a confirmed Work odometer allocation from the rendered UI");
   await page.waitForTimeout(500);
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   await page.getByRole("heading", { name: "Admin", exact: true }).waitFor();
@@ -350,6 +348,23 @@ try {
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit,
     "offline Fuel submission must not request geolocation");
+  await context.setOffline(false);
+  await resumed.getByLabel("Vehicle").selectOption(vehicleId);
+  await resumed.getByLabel("Odometer (km)").fill("12387");
+  await resumed.getByLabel("Price per kg (₹)").fill("82.50");
+  await resumed.getByLabel("Amount paid (₹)").fill("825");
+  await resumed.getByLabel("Partial refill").uncheck();
+  const fuelGeoCallsBeforeClosingCheckpoint = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
+  await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
+  await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
+    "closing full-tank checkpoint must not request geolocation");
+  // A completed full-tank interval becomes effective on the following
+  // operational date; advance the browser clock before confirming Work km.
+  await page.clock.fastForward("24:00");
+  const workDistance = await assertBrowserWorkDistanceThroughUi(page);
+  assert.equal(workDistance.businessKilometres, 42,
+    "Performance must consume a confirmed Work odometer allocation from the rendered UI");
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -357,11 +372,13 @@ try {
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
   ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
-  assert.equal(purchases.length, 2, "both full and partial purchases must commit offline");
+  assert.equal(purchases.length, 3, "opening full, partial, and closing full purchases must commit");
   assert.equal(purchases[0].data.odometerKm, 12345);
   assert.equal(purchases[0].data.partialRefill, false);
   assert.equal(purchases[1].data.odometerKm, 12346);
   assert.equal(purchases[1].data.partialRefill, true);
+  assert.equal(purchases[2].data.odometerKm, 12387);
+  assert.equal(purchases[2].data.partialRefill, false);
   for (const purchase of purchases) {
     assert.equal(purchase.data.pricePaisePerKg, 8250);
     assert.equal(purchase.data.amountPaise, 82500);
@@ -371,7 +388,7 @@ try {
   }
   await context.setOffline(false);
 
-  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and Fuel itself requested no GPS; Work distance was confirmed separately through GPS-backed shift events.");
+  console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, three purchases including a completed full-tank interval, offline submission committed once, derived quantity preview verified, Fuel submission requested no GPS, and next-day Work distance was confirmed through GPS-backed shift events.");
 
   await assertBrowserFuelPerformanceAndBackupJourney(page, adminPin, purchases);
 } finally {
