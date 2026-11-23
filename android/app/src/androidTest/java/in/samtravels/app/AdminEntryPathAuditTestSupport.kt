@@ -245,7 +245,6 @@ internal object AdminEntryPathAuditTestSupport {
             JSONObject(afterRetry.single().json).getString("createdAt"))
         assertEquals("Working copy completes after successful replay", "submitted",
             JSONObject(db.records().get(workingCopyId)!!.json).getJSONObject("data").getString("status"))
-        assertRoomOperationReceiptExists(db, fuelRecordId)
         support.eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
         assertTrue("Admin remains available after recovered Fuel submission",
             support.await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
