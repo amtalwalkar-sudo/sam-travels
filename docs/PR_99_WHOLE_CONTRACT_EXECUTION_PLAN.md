@@ -60,7 +60,7 @@ Execute these stages in order. Only one stage may be active at a time. Each stag
 
 **Work:**
 - Reuse existing rendered PWA and Android Admin/Fuel acceptance; do not rebuild already-proven entry paths.
-- Close direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility.
+- Retain the already-proven direct two-way PWA ↔ Android overlay committed Driver Workflow event/state/revision visibility and stale-write rejection as closed; the exact rendered instrumentation assertion is recorded in the Stage 3 evidence revalidation below.
 - Prove the stale-write interleaving: PWA reads revision N, overlay commits N+1, stale PWA write is rejected, and both surfaces converge on the authoritative state.
 - Verify any remaining contract-required Admin/Fuel form recovery and durable retry/idempotency cases on Dexie and Room, including stable operation identity, payload fingerprint and first-submit timestamp.
 - Verify pending Android outbox recovery after process death only where existing assertions do not already prove it.
