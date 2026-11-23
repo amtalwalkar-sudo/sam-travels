@@ -99,7 +99,8 @@ export function FuelEntryPanel() {
       }
       setMessage("Fuel purchase saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
-      const next = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      const opened = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      const next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, opened, "partialRefill", false);
       copyRef.current = next; setCopy(next); setValues({ partialRefill: false });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Fuel purchase could not be saved.");
