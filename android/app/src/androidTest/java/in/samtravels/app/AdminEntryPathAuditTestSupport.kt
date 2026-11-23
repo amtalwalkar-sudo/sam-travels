@@ -53,7 +53,7 @@ internal object AdminEntryPathAuditTestSupport {
         support: AdminFormsCapacitorAcceptanceTest,
         db: LocalDatabase,
         marker: String,
-    ): MainActivity {
+    ): Pair<MainActivity, String> {
         var activity = startingActivity
         support.eval(activity, "window.Capacitor?.Plugins?.RoomStore?.armWorkingCopyCompletionFailure?.().then(()=>window.__stage3AdminRoomFailureArmed=true)")
         assertTrue("Debug Room fault injector arms for the Admin form completion boundary",
@@ -120,7 +120,7 @@ internal object AdminEntryPathAuditTestSupport {
         assertEquals("Admin retry preserves exactly one feature receipt", receiptCount, receiptsAfter)
         assertEquals("Admin working copy completes after receipt replay", "saved",
             JSONObject(db.records().get(copyId!!)!!.json).getJSONObject("data").getString("status"))
-        return activity
+        return activity to recordId
     }
 
 
