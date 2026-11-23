@@ -104,7 +104,7 @@ class AdminFormsCapacitorAcceptanceTest {
             assertEquals("Active Vehicle assigned", vehicleRecordId, assignment.getString("vehicleId"))
             assertFalse("Current assignment remains open", assignment.has("unassignedAt"))
             val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
-                activity, this, db, vehicleRecordId,
+                activity, this, db, vehicleRecordId, marker + " Admin",
             )
             activity = fuelRecovery.first
             val fuelRecordId = fuelRecovery.second
