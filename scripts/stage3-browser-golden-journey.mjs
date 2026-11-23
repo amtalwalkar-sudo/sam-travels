@@ -125,6 +125,7 @@ export async function assertBrowserWorkDistanceThroughUi(page) {
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ timeout: 30000 });
   await page.getByLabel("Shift-end odometer (km)").fill("12388");
+  await page.getByText("Business kilometres: 42 km", { exact: true }).waitFor();
   await page.getByRole("button", { name: "End shift", exact: true }).click();
   await page.getByRole("heading", { name: "Off Shift", exact: true }).waitFor({ timeout: 30000 });
   const state = await page.evaluate(async () => {
