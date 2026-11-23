@@ -160,17 +160,72 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             assertNotNull("Recovered draft remains durable in Room", recoveredFuelDraft)
             assertEquals("Interruption did not submit the Fuel draft", "in_progress",
                 org.json.JSONObject(recoveredFuelDraft!!.json).getJSONObject("data").getString("status"))
+            eval(activity, "window.Capacitor?.Plugins?.RoomStore?.armWorkingCopyCompletionFailure?.().then(()=>window.__stage3RoomFailureArmed=true)")
+            assertTrue("Debug Room fault injector is armed through the native WebView bridge",
+                await(activity, "window.__stage3RoomFailureArmed===true", 10000))
             click(activity, "Submit fuel purchase")
-            assertTrue("Recovered Fuel draft submits through the production handler",
-                await(activity, "document.body.innerText.includes('Fuel purchase saved.')", 20000))
-            val fuelRows = db.records().list().filter { row ->
+            val interruptedSubmitDeadline = SystemClock.uptimeMillis() + 20000
+            var pendingFuelCopy: org.json.JSONObject? = null
+            while (SystemClock.uptimeMillis() < interruptedSubmitDeadline) {
+                val row = db.records().get(fuelWorkingCopyId)
+                if (row != null) {
+                    val data = org.json.JSONObject(row.json).getJSONObject("data")
+                    if (data.optString("status") == "pending") {
+                        pendingFuelCopy = data
+                        break
+                    }
+                }
+                SystemClock.sleep(100)
+            }
+            assertNotNull("Injected failure occurs after durable pending intent is written", pendingFuelCopy)
+            val fuelRowsBeforeRetry = db.records().list().filter { row ->
                 row.id.startsWith("feature:business-expenses:fuel:") &&
                     org.json.JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
             }
-            assertEquals("Recovered UI draft creates exactly one authoritative Fuel purchase", 1, fuelRows.size)
-            val fuelRecordId = fuelRows.single().id
-            assertRoomOperationReceiptExists(db, fuelRecordId)
+            assertEquals("The feature record committed before the working-copy completion failure", 1, fuelRowsBeforeRetry.size)
+            val originalFuelRecord = fuelRowsBeforeRetry.single()
+            val originalFuelCreatedAt = org.json.JSONObject(originalFuelRecord.json).getString("createdAt")
+            val originalFuelReceiptCount = db.records().list().count { row ->
+                row.id.startsWith("__sam_travels_feature_operation__:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == originalFuelRecord.id
+            }
+            assertEquals("Feature record and operation receipt committed atomically before interruption", 1, originalFuelReceiptCount)
 
+            // Recreate the WebView after the post-commit interruption. The pending
+            // intent must replay the exact original Room receipt, not create a new purchase.
+            activity.finish()
+            instrumentation.waitForIdleSync()
+            activity = instrumentation.startActivitySync(
+                Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as MainActivity
+            assertTrue("WebView restarts after the post-commit interruption",
+                await(activity, "!!document.querySelector('.bottom-navigation-item')", 30000))
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Drive')n.click()})")
+            assertTrue("Fuel launcher is available for pending submission recovery",
+                await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
+            eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
+            assertTrue("Pending Fuel intent is recovered with its original values",
+                await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'&&p.textContent.includes('Draft · pending')})()""", 15000))
+            click(activity, "Submit fuel purchase")
+            assertTrue("Pending Fuel operation replays the original Room receipt",
+                await(activity, "document.body.innerText.includes('Fuel purchase saved.')", 20000))
+            val fuelRowsAfterRetry = db.records().list().filter { row ->
+                row.id.startsWith("feature:business-expenses:fuel:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 55123
+            }
+            assertEquals("Post-commit retry leaves exactly one Fuel purchase", 1, fuelRowsAfterRetry.size)
+            assertEquals("Retry returns the exact original record envelope", originalFuelRecord.json, fuelRowsAfterRetry.single().json)
+            val fuelRecordId = fuelRowsAfterRetry.single().id
+            val fuelReceiptsAfterRetry = db.records().list().count { row ->
+                row.id.startsWith("__sam_travels_feature_operation__:") &&
+                    org.json.JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == fuelRecordId
+            }
+            assertEquals("Post-commit retry leaves exactly one operation receipt", originalFuelReceiptCount, fuelReceiptsAfterRetry)
+            assertEquals("First-submit timestamp is preserved across Room replay", originalFuelCreatedAt,
+                org.json.JSONObject(fuelRowsAfterRetry.single().json).getString("createdAt"))
+            assertEquals("Working copy completes after successful replay", "submitted",
+                org.json.JSONObject(db.records().get(fuelWorkingCopyId)!!.json).getJSONObject("data").getString("status"))
+            assertRoomOperationReceiptExists(db, fuelRecordId)
             eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
             assertTrue("Admin remains available after recovered Fuel submission",
                 await(activity, "!!document.querySelector('.admin-replacement-shell')", 15000))
