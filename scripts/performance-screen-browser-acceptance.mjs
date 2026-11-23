@@ -18,7 +18,7 @@ const recoveryToExclusive = (() => {
 const targetRupees = "30000";
 const preBusinessAmount = "1800";
 const note = "Performance screen acceptance pre-business cost";
-const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
+const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
   detached: true, stdio: "ignore",
 });
 let browser;
