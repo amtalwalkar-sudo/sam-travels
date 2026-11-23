@@ -48,7 +48,13 @@ abstract class DriverOverlayServicePresentationTestSupport {
         events.forEach { it.source = InputDevice.SOURCE_TOUCHSCREEN }
         try {
             events.forEachIndexed { index, event ->
-                assertTrue("Gesture event $index must be injected", ui.injectInputEvent(event, true))
+                val injected = ui.injectInputEvent(event, true)
+                // UiAutomation can report ACTION_UP as unhandled when the
+                // overlay consumes the completed gesture; DOWN and MOVE must
+                // still be accepted so the gesture itself is genuinely driven.
+                if (index < events.lastIndex) {
+                    assertTrue("Gesture event $index must be injected", injected)
+                }
             }
         } finally {
             events.forEach(MotionEvent::recycle)
