@@ -161,9 +161,11 @@ class AdminFormsCapacitorAcceptanceTest {
             set(activity, "Note", marker + " platform fee")
             assertTrue("Platform fee inputs valid: " + javascriptValue(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const f=s?.querySelector('form');return [...(f?.querySelectorAll(':invalid')??[])].map(e=>e.closest('label')?.textContent||e.name||e.type).join(',')})()"), await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('form')?.checkValidity()", 10000))
             assertTrue("Platform Fee submit enabled", await(activity, "[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees')?.querySelector('button[type=submit]')?.disabled===false", 15000))
-            activity = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
-                activity, this, db, app, marker,
+            val adminFeeRecovery = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
+                activity, this, db, marker,
             )
+            activity = adminFeeRecovery.first
+            val adminFeeRecordId = adminFeeRecovery.second
             set(activity, "Expense date", "2026-11-15")
             set(activity, "Category", "Parking " + marker)
             set(activity, "Amount (₹)", "50")
@@ -198,7 +200,7 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
-                db, vehicleRecordId, fuelRecordId,
+                db, vehicleRecordId, fuelRecordId, adminFeeRecordId,
                 evaluate = { script -> eval(activity, script) },
                 waitFor = { script, timeout -> await(activity, script, timeout) },
                 click = { label -> clickMatching(activity, label) },
