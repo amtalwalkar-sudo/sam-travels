@@ -206,7 +206,7 @@ class AdminFormsCapacitorAcceptanceTest {
                 click = { label -> clickMatching(activity, label) },
                 readCalculation = {
                     javascriptValue(activity,
-                        "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})")
+                        "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})").orEmpty()
                 },
             )
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
