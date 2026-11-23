@@ -143,11 +143,25 @@ This plan does not authorize:
 - Treating a green stage CI run as whole-contract completion.
 - Merging or closing PR #99 before whole-contract acceptance and explicit owner authorization.
 
-## 5. Current status
+## 5. Current status — reconciled 2026-11-23
 
-- Original four-stage closeout tracker: **COMPLETE**.
-- Six-stage whole-contract execution: **NOT STARTED**; Stage 1 is next.
+- Original four-stage closeout tracker: **COMPLETE** (subordinate only).
+- Stage 1 — shared populated semantic fixture: **INCOMPLETE**. The currently evidenced 29-record graph still lacks Finance prepayment and settlement transaction lineage.
+- Stage 2 — production Browser/Dexie and Android/Room lifecycle: **PARTIAL**. Both encrypted restore directions and reopen/recovery/re-export are covered for the current graph, not the complete required source lineage.
+- Stage 3 — UI-originated lifecycle and cross-surface parity: **PARTIAL**. Direct two-way PWA ↔ overlay committed workflow visibility and the stale-write interleaving remain open.
+- Stage 4 — calculation and correction lineage: **PARTIAL**. Domain tests exist, but complete same-fixture source/revision/correction parity through both production restore lifecycles is not established.
+- Stage 5 — backup/restore negative, boundary and interruption proof: **PARTIAL; prior conversational completion claim superseded**. Existing rollback, invalid-reference, participant and replay tests prove important slices; the complete requirement-to-test map, including backup exclusions, zero-record participants and snapshot/record-count boundaries, is not closed.
+- Stage 6 — whole-contract reconciliation and final acceptance: **IN PROGRESS — ACCEPTANCE BLOCKED**. The evidence matrix records the §1A disposition and exact remaining blockers.
 - Whole-contract status: **INCOMPLETE**.
 - PR #99: **OPEN · DRAFT · UNMERGED**.
 
-The first action is Stage 1 inspection and a precise fixture gap inventory. No Stage 1 implementation should begin until that inventory is checked against the current fixture, validators and owning contracts.
+The active next implementation gate is the earliest unmet sequential stage, Stage 1. Do not skip its fixture completion gate because later-stage tests exist or CI is green. Stage 6 cannot pass until all applicable earlier gates and all eight §1A conditions are satisfied.
+
+
+### Stage 6 reconciliation checkpoint — 2026-11-23
+
+The reconciliation baseline was PR head `34e01756922985ecfb1ba69a2b438d884efe7d8b`, with successful required CI run [45154128872](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45154128872). That run is not evidence for later documentation commits. The required final-head run remains pending.
+
+The Stage 6 audit found that the six-stage status had not been maintained in this plan and that the Stage 5 completion statement had not been accompanied by a complete exit-evidence mapping. The evidence matrix now records the exact limitation: the populated graph does not include Finance prepayment/settlement transaction lineage; the cross-surface PWA/overlay stale-write proof remains open; and backup exclusion, zero-record participant and snapshot-boundary assertions still need requirement-level reconciliation.
+
+**Stage 6 is not accepted as complete.** The §1A gate remains blocked by the unmet Stage 1–5 acceptance requirements. Return to Stage 1 and complete its fixture/validator gate before claiming Stage 2–5 completion. Retain physical OEM/device certification, full OS reboot where nondeterministic, live Dropbox account delivery and final owner visual approval as external/manual gates; do not imply they passed CI.
