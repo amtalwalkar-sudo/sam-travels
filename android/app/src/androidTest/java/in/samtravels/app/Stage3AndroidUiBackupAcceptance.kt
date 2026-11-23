@@ -18,7 +18,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         click: (String) -> Unit,
         readCalculation: () -> String,
     ) {
-        val fuelData = JSONObject(db.records().get(fuelRecordId)!!.json).getJSONObject("data")
+        val fuelData = JSONObject(db.records().get(fuelRecordId ?: error("stage3_fuel_record_id_missing"))!!.json).getJSONObject("data")
         val nextDate = java.time.LocalDate.parse(fuelData.getString("businessDate")).plusDays(1).toString()
         val shiftStart = nextDate + "T05:00:00+05:30"
         val shiftEnd = nextDate + "T06:00:00+05:30"
