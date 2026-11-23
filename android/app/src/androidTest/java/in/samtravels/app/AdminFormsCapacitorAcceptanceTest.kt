@@ -206,6 +206,47 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
 
+            // Run the production Performance projection over the records created
+            // by this rendered Android Admin workflow before exporting those exact
+            // Room identities through the authenticated encrypted restore path.
+            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
+            assertTrue("Performance screen consumes UI-created Admin sources",
+                await(activity, "!!document.querySelector('.performance-dashboard')", 20000))
+            clickMatching(activity, "Refresh performance|Calculating")
+            assertTrue("Performance calculation completes before same-record backup",
+                await(activity, "!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
+
+            val stage3Source = NativeSnapshotBuilder.build(
+                db, NativeBackupRecovery::isInternalRecord, "stage3-android-ui-golden-journey",
+            )
+            val stage3RecoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+            val stage3Encrypted = NativeBackupV2Package.create(
+                stage3Source.snapshot.toString().toByteArray(Charsets.UTF_8),
+                stage3Source.manifest,
+                stage3RecoveryKey,
+            )
+            val stage3VehicleId = vehicleRecordId
+            db.records().remove(stage3VehicleId)
+            assertEquals("Golden journey probe proves restore must reinstate the UI-created Vehicle",
+                null, db.records().get(stage3VehicleId))
+            val stage3Restored = NativeBackupRestoreCoordinator.restoreEncrypted(
+                db, stage3Encrypted, stage3RecoveryKey,
+                { NativeSnapshotBuilder.build(db, NativeBackupRecovery::isInternalRecord, "stage3-android-readback") },
+            )
+            assertTrue("Production encrypted restore reports the populated Room graph",
+                stage3Restored.restoredCount >= stage3Source.snapshot.getJSONArray("records").length())
+            val stage3Readback = NativeSnapshotBuilder.build(
+                db, NativeBackupRecovery::isInternalRecord, "stage3-android-restored",
+            )
+            SharedBackupFixtureAssertions.assertCanonicalRecordsEqual(
+                "Android UI-created records survive production calculation and encrypted restore",
+                stage3Source.snapshot.getJSONArray("records"),
+                stage3Readback.snapshot.getJSONArray("records"),
+            )
+            assertNotNull("The exact UI-created Vehicle identity is restored", db.records().get(stage3VehicleId))
+            NativeBackupRestoreCoordinator.markVerified(db, stage3Restored.checkpointId)
+            NativeBackupRestoreCoordinator.discardVerified(db, stage3Restored.checkpointId)
+
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
