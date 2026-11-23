@@ -5,7 +5,19 @@ import org.junit.Assert.assertTrue
 
 /** Same-record Stage 3 proof for records created by the rendered Android Admin UI. */
 internal object Stage3AndroidUiBackupAcceptance {
-    fun assertSameUiRecordsSurviveEncryptedRestore(db: LocalDatabase, vehicleRecordId: String) {
+    fun assertPerformanceAndRestore(
+        db: LocalDatabase,
+        vehicleRecordId: String,
+        evaluate: (String) -> Unit,
+        waitFor: (String, Long) -> Boolean,
+        click: (String) -> Unit,
+    ) {
+        evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
+        org.junit.Assert.assertTrue("Performance screen consumes UI-created Admin sources",
+            waitFor("!!document.querySelector('.performance-dashboard')", 20000))
+        click("Refresh performance|Calculating")
+        org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
+            waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
         val stage3Source = NativeSnapshotBuilder.build(
         db, NativeBackupRecovery::isInternalRecord, "stage3-android-ui-golden-journey",
         )
