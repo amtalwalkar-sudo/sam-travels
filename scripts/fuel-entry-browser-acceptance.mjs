@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { assertBrowserStage3GoldenJourney } from "./stage3-browser-golden-journey.mjs";
 
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
@@ -359,6 +360,32 @@ try {
   await context.setOffline(false);
 
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and no GPS request made.");
+
+  // Carry those exact UI-created Fuel IDs into Performance and the production
+  // encrypted Browser backup/restore path in this same browser lifecycle.
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  await page.getByLabel("Person name").fill("Fuel Entry Browser Admin");
+  await page.getByLabel("Admin role").check();
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click().catch(() => {});
+  await page.getByLabel("Select person").selectOption({ label: "Fuel Entry Browser Admin" });
+  await page.getByLabel("Active role").selectOption("admin");
+  await page.getByLabel("Admin PIN").fill(adminPin);
+  await page.getByRole("button", { name: "Activate role", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+  await page.getByRole("navigation", { name: "Primary navigation" })
+    .getByRole("button", { name: "Performance", exact: true }).click();
+  await page.getByRole("heading", { name: "Performance overview", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Refresh performance", exact: true }).click();
+  await page.getByText("Lifetime breakeven & target position", { exact: true }).waitFor({ timeout: 30000 });
+  await page.locator("#performance-provenance > summary").first().click();
+  await page.locator("#performance-provenance").getByText("performance.calculation.v1", { exact: false }).waitFor();
+  const goldenJourney = await assertBrowserStage3GoldenJourney(page);
+  for (const purchase of purchases) {
+    assert.ok(goldenJourney.uiSourceIds.includes(purchase.id),
+      "The exact UI-created Fuel purchase must survive the same Performance-to-encrypted-restore journey: " + purchase.id);
+  }
+  console.log("PWA Fuel → Performance → production encrypted backup/restore same-record journey passed for:",
+    purchases.map(purchase => purchase.id).join(", "));
 } finally {
   await browser?.close();
   try { process.kill(-server.pid, "SIGTERM"); } catch { server.kill("SIGTERM"); }
