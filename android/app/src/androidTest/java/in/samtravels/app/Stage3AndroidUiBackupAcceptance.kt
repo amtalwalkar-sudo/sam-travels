@@ -16,10 +16,21 @@ internal object Stage3AndroidUiBackupAcceptance {
         click: (String) -> Unit,
         readCalculation: () -> String,
     ) {
+        val fuelData = JSONObject(db.records().get(fuelRecordId)!!.json).getJSONObject("data")
+        val nextDate = java.time.LocalDate.parse(fuelData.getString("businessDate")).plusDays(1).toString()
+        val shiftStart = nextDate + "T05:00:00+05:30"
+        val shiftEnd = nextDate + "T06:00:00+05:30"
+        val shift = JSONObject().put("state", "shift_active").put("shiftId", "stage3-fuel-shift")
+            .put("shiftStartedAt", shiftStart).put("shiftStartOdometerKm", 56042)
+            .put("shiftContext", JSONObject().put("driverId", "stage3-driver")
+                .put("assignmentId", "stage3-assignment").put("vehicleId", vehicleRecordId))
+        val end = JSONObject().put("eventType", "shift_end").put("transitionAt", shiftEnd)
+            .put("odometer", JSONObject().put("readingKm", 56084).put("businessKm", 42))
+        WorkDailyBusinessKilometreStore.append(db, shift, end, "stage3-fuel-shift-end", shiftEnd)
         evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
         org.junit.Assert.assertTrue("Performance screen consumes UI-created Admin sources",
             waitFor("!!document.querySelector('.performance-dashboard')", 20000))
-        evaluate("""(()=>{const i=[...document.querySelectorAll('label')].find(l=>l.textContent.includes('Period to'))?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,new Date(Date.now()-4*3600000+86400000).toISOString().slice(0,10));i.dispatchEvent(new Event('input',{bubbles:true}));return true})()""")
+        evaluate("""(()=>{const i=[...document.querySelectorAll('label')].find(l=>l.textContent.includes('Period to'))?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'$nextDate');i.dispatchEvent(new Event('input',{bubbles:true}));return true})()""")
         click("Refresh performance|Calculating")
         org.junit.Assert.assertTrue("Performance calculation completes before same-record backup",
             waitFor("!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
