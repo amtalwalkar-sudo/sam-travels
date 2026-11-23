@@ -81,22 +81,7 @@ internal object SemanticFixtureCalculationParitySupport {
             }
             assertEquals("Android production calculation runner failed at $progress: $error", "", error)
             assertTrue("Android production calculation runner timed out at progress=$progress", raw.isNotBlank())
-            // The WebView bridge serializes the Promise value, while the
-            // production runner may itself return a completion envelope.
-            // Unwrap only explicit completion envelopes.
-            var actual = JSONObject(raw)
-            var unwrapped = 0
-            while (actual.optString("progress") == "complete" && actual.has("result")) {
-                assertEquals("Android calculation runner returned no error", "", actual.optString("error"))
-                val nested = actual.get("result")
-                actual = when (nested) {
-                    is JSONObject -> nested
-                    is String -> JSONObject(nested)
-                    else -> throw AssertionError("Android calculation runner result must be a JSON object")
-                }
-                unwrapped += 1
-                assertTrue("Android calculation runner returned nested completion envelopes", unwrapped <= 3)
-            }
+            val actual = unwrapCalculationResult(raw)
             val expected = fixture.getJSONObject("expectedBusinessResults")
             val expectedExpenses = expected.getJSONObject("dailyExpenses")
             val actualExpenses = actual.getJSONObject("dailyExpenses")
@@ -168,6 +153,30 @@ internal object SemanticFixtureCalculationParitySupport {
         } finally {
             instrumentation.runOnMainSync { webView.destroy() }
         }
+    }
+
+
+    private fun unwrapCalculationResult(raw: String): JSONObject {
+        var value: Any? = JSONTokener(raw).nextValue()
+        var unwrapped = 0
+        while (unwrapped < 4) {
+            value = when (value) {
+                is String -> JSONTokener(value).nextValue()
+                is JSONObject -> {
+                    if (value.optString("progress") == "complete" && value.has("result")) {
+                        val error = value.opt("error")
+                        assertTrue("Android calculation runner returned an error: $error",
+                            error == null || error == JSONObject.NULL || error == "")
+                        value.get("result")
+                    } else {
+                        return value
+                    }
+                }
+                else -> throw AssertionError("Android calculation runner result must be a JSON object")
+            }
+            unwrapped += 1
+        }
+        throw AssertionError("Android calculation runner returned too many nested completion envelopes")
     }
 
     private fun evaluate(webView: WebView, script: String): String {
