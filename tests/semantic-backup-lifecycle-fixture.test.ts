@@ -349,7 +349,7 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(await browserDatabase.records.get("work:selected-driver")).toBeDefined();
 
       expect(reopenedExport.data).toEqual(exported.data);
-      assertRestoredDomainCalculationParity(await browserDatabase.records.toArray(), fixture);
+      await assertRestoredDomainCalculationParity(await browserDatabase.records.toArray(), fixture);
       await discardVerifiedBrowserCheckpoint(restored.checkpointId);
 
       // Repeat the same production restore against a clean business-data
