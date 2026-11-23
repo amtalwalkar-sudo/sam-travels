@@ -66,13 +66,13 @@ internal object SemanticFixtureCalculationParitySupport {
             var error = ""
             val deadline = SystemClock.elapsedRealtime() + TimeUnit.SECONDS.toMillis(120)
             while (SystemClock.elapsedRealtime() < deadline) {
-                val state = JSONObject(evaluate(webView, """
+                val state = JSONObject(decodeJsString(evaluate(webView, """
                     JSON.stringify({
                       result: window.__semanticParityResult,
                       error: window.__semanticParityError,
                       progress: window.__semanticParityProgress
                     })
-                """.trimIndent()))
+                """.trimIndent())))
                 raw = state.optString("result")
                 error = state.optString("error")
                 progress = state.optString("progress")
