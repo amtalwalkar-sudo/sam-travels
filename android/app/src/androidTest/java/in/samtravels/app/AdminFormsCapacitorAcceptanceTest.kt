@@ -206,9 +206,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
 
-            // Run the production Performance projection over the records created
-            // by this rendered Android Admin workflow before exporting those exact
-            // Room identities through the authenticated encrypted restore path.
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
                 db, vehicleRecordId,
                 evaluate = { script -> eval(activity, script) },
@@ -238,7 +235,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
                 "FEE-" + marker, "PARK-" + marker, marker + " service visit")
                 .forEach { assertTrue("Room backup restores " + it, restoredJson.contains(it)) }
         } finally {
-            // Keep shared emulator state isolated even when an assertion fails midway.
             db.records().list().filter { it.json.contains(marker) }.forEach { db.records().remove(it.id) }
             runCatching { SecureCredentialVault(app).remove("sam-travels-admin-pin-v1") }
             NativeStartupRecovery.invalidate(db)
@@ -265,8 +261,6 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
     }
 
     internal fun clickMatching(activity: MainActivity, pattern: String) {
-        // A pipe-delimited label is an explicit set of acceptable rendered button
-        // labels (for example, older and newer copy for the same action).
         val alternatives = pattern.split('|').map(String::trim).filter(String::isNotEmpty)
         require(alternatives.isNotEmpty()) { "At least one Admin action label is required" }
         val jsLabels = alternatives.joinToString(",") { label ->
