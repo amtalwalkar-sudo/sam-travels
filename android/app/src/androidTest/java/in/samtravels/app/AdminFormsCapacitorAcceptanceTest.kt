@@ -209,14 +209,12 @@ class AdminFormsCapacitorAcceptanceTest { // WebView acceptance coverage
             // Run the production Performance projection over the records created
             // by this rendered Android Admin workflow before exporting those exact
             // Room identities through the authenticated encrypted restore path.
-            eval(activity, "document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
-            assertTrue("Performance screen consumes UI-created Admin sources",
-                await(activity, "!!document.querySelector('.performance-dashboard')", 20000))
-            clickMatching(activity, "Refresh performance|Calculating")
-            assertTrue("Performance calculation completes before same-record backup",
-                await(activity, "!!document.querySelector('.performance-dashboard')&&!document.querySelector('.performance-loading')", 30000))
-
-            Stage3AndroidUiBackupAcceptance.assertSameUiRecordsSurviveEncryptedRestore(db, vehicleRecordId)
+            Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
+                db, vehicleRecordId,
+                evaluate = { script -> eval(activity, script) },
+                waitFor = { script, timeout -> await(activity, script, timeout) },
+                click = { label -> clickMatching(activity, label) },
+            )
 
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
