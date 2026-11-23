@@ -27,7 +27,7 @@ internal object Stage3AndroidUiBackupAcceptance {
         assertTrue("Pre-restore calculation snapshot includes the production provenance contract: " + calculationBeforeRestore,
             calculationBeforeRestore.contains("Calculation ID"))
         fuelRecordId?.let { id ->
-            assertTrue("Performance provenance names the exact UI-created Fuel record",
+            assertTrue("Performance provenance names the exact UI-created Fuel record: " + calculationBeforeRestore,
                 calculationBeforeRestore.contains(id))
         }
         adminFeeRecordId?.let { id ->
