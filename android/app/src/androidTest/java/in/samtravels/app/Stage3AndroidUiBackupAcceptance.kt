@@ -29,6 +29,24 @@ internal object Stage3AndroidUiBackupAcceptance {
         val end = JSONObject().put("eventType", "shift_end").put("transitionAt", shiftEnd)
             .put("odometer", JSONObject().put("readingKm", 56084).put("businessKm", 42))
         WorkDailyBusinessKilometreStore.append(db, shift, end, "stage3-fuel-shift-end", shiftEnd)
+        val dailyId = "work:daily-business-km:" + java.net.URLEncoder.encode(vehicleRecordId, "UTF-8") + ":" + nextDate
+        val daily = db.records().get(dailyId) ?: error("stage3_daily_business_km_missing")
+        val dailyData = JSONObject(daily.json).getJSONObject("data")
+        val vehicle = db.records().get(vehicleRecordId) ?: error("stage3_vehicle_missing")
+        val rateEffectiveFrom = JSONObject(vehicle.json).getString("createdAt").take(10)
+        val accrualId = "feature:maintenance:daily-accrual:" +
+            java.net.URLEncoder.encode(vehicleRecordId, "UTF-8") + ":" + nextDate
+        val timestamp = java.time.Instant.now().toString()
+        val accrualData = JSONObject().put("schemaVersion", 1).put("kind", "daily_accrual")
+            .put("vehicleId", vehicleRecordId).put("operationalDate", nextDate)
+            .put("dailyBusinessKmRecordId", dailyId).put("dailyBusinessKmRevision", daily.revision)
+            .put("businessKm", dailyData.getInt("totalBusinessKm")).put("personalKm", 0)
+            .put("personalAmountPaise", 0).put("rateEffectiveFrom", rateEffectiveFrom)
+            .put("ratePaisePerKm", 250).put("amountPaise", dailyData.getInt("totalBusinessKm") * 250)
+        val accrualEnvelope = JSONObject().put("id", accrualId).put("schemaVersion", 1)
+            .put("createdAt", timestamp).put("updatedAt", timestamp).put("source", "integration")
+            .put("revision", 1).put("data", accrualData)
+        db.records().put(StoredRecord(accrualId, accrualEnvelope.toString(), 1, timestamp))
         evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Performance')n.click()})")
         org.junit.Assert.assertTrue("Performance screen consumes UI-created Admin sources",
             waitFor("!!document.querySelector('.performance-dashboard')", 20000))
