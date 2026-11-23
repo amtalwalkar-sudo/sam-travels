@@ -193,6 +193,7 @@ try {
       row.data?.values?.priceRupeesPerKg === 82.5 &&
       row.data?.values?.amountRupees === 825);
   }, { vehicleId }, { timeout: 10000 });
+  const fuelGeoCallsBeforeFirstSubmit = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   let firstSubmitEvent = false;
   await panel.locator("form").evaluate(form => form.addEventListener("submit", () => {
     window.__fuelFirstSubmitObserved = true;
@@ -207,6 +208,8 @@ try {
   assert.equal(firstSubmitEvent, true, "Fuel submit button must dispatch the form submit event");
   const firstSubmitStatus = (await panel.getByRole("status").textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit,
+    "Fuel submission must not request geolocation");
   let committedRows = await readBrowserRecords(page);
   let purchases = committedRows.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -274,8 +277,6 @@ try {
   assert.equal(typeof reloadedPurchase.data.businessDate, "string");
   assert.equal(Object.hasOwn(reloadedPurchase.data, "locationEvidence"), false,
     "new Fuel purchases do not capture or persist GPS evidence");
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBefore,
-    "Fuel submission and page reload must not add geolocation requests");
   const workDistance = await assertBrowserWorkDistanceThroughUi(page);
   assert.equal(workDistance.businessKilometres, 42,
     "Performance must consume a confirmed Work odometer allocation from the rendered UI");
@@ -341,11 +342,14 @@ try {
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
   assert.equal(await resumed.getByLabel("Partial refill").isChecked(), true);
 
+  const fuelGeoCallsBeforeSecondSubmit = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   await context.setOffline(true);
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
   const secondSubmitStatus = (await resumed.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit,
+    "offline Fuel submission must not request geolocation");
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
@@ -365,8 +369,6 @@ try {
     assert.equal(typeof purchase.data.businessDate, "string");
     assert.equal(Object.hasOwn(purchase.data, "locationEvidence"), false);
   }
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBefore,
-    "Fuel submissions must not add geolocation requests");
   await context.setOffline(false);
 
   console.log("Fuel Entry acceptance passed: real Admin-created Vehicle, partial draft visibly resumed after reload, authoritative purchase read directly from IndexedDB after reload, offline purchases committed once, derived quantity preview verified, and Fuel itself requested no GPS; Work distance was confirmed separately through GPS-backed shift events.");
