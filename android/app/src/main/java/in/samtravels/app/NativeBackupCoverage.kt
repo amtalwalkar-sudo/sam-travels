@@ -222,31 +222,10 @@ internal object NativeBackupCoverage {
             require(isFeatureOwnedRecord(row.id)) { "backup_unregistered_feature_record:" + row.id }
         }
         val result = JSONArray()
-        val exportedFeatureKeys = mutableSetOf<String>()
         discoverParticipants().forEach { participant ->
-            adapter(participant).export(database, participant.id, isInternal).forEach { row ->
-                result.put(row)
-                if (row.optString("participantId") == participant.id) {
-                    exportedFeatureKeys.add(participant.id + ":" + row.optString("id"))
-                }
-            }
+            adapter(participant).export(database, participant.id, isInternal).forEach { result.put(it) }
         }
-        // Dynamic feature participants share Room's StoredRecord table. Preserve
-        // every non-internal record in a registered feature namespace even if a
-        // participant adapter was installed/recovered after the adapter snapshot
-        // was assembled. This closes the export/relationship-validation gap:
-        // assignment references must be checked against the same complete set
-        // of feature-owned records that will be written into the package.
-        dynamicFeatureRecordPrefixes.forEach { (participantId, prefix) ->
-            database.records().list()
-                .filter { !isInternal(it.id) && it.id.startsWith(prefix) &&
-                    (participantId + ":" + it.id) !in exportedFeatureKeys }
-                .forEach { row ->
-                    result.put(JSONObject().put("id", row.id).put("json", row.json)
-                        .put("schemaVersion", row.schemaVersion).put("updatedAt", row.updatedAt)
-                        .put("participantId", participantId))
-                }
-        }
+        NativeBackupFeatureRecordExport.appendMissingRegisteredRecords(database, isInternal, result)
         validateBusinessRecords(result, requireExplicitOwnerTags = true)
         return result
     }
