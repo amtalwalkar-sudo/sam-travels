@@ -1,9 +1,22 @@
 import { expect } from "vitest";
 import { calculateFuelIntervals, calculateDailyBusinessExpenses, calculateFuelCostRateHistory } from "../../packages/features/business-expenses";
 import { projectHistoricalCorrectionsV1 } from "../../packages/domain/src/historical-correction";
+import { runSemanticFixtureProductionCalculations } from "./semantic-fixture-calculation-parity";
 
 /** Recomputes business-domain outputs using only records read back from Browser storage after restore/reopen. */
-export function assertRestoredDomainCalculationParity(restoredRows: readonly any[], fixture: any): void {
+export async function assertRestoredDomainCalculationParity(restoredRows: readonly any[], fixture: any): Promise<void> {
+  const production = await runSemanticFixtureProductionCalculations(restoredRows as never);
+  expect(production.fuelIntervals.filter(row => row.status === "available")).toHaveLength(4);
+  expect(production.fuelCostRateHistory).toEqual(fixture.expectedBusinessResults.fuelCostRateHistory);
+  expect(production.dailyExpenses).toEqual(fixture.expectedBusinessResults.dailyExpenses);
+  expect(production.maintenanceAccruals.map(row => row.data)).toEqual(fixture.expectedBusinessResults.maintenanceAccruals.map((expected: any) => expect.objectContaining(expected)));
+  expect(production.finance.prepayment).toMatchObject({
+    regularEmiPaise: fixture.expectedBusinessResults.finance.regularEmiPaise,
+    remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments,
+    finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate,
+  });
+  expect(production.compliance).toMatchObject({ status: "available", date: "2026-11-01", total: { numeratorPaise: "1000", denominator: "1" } });
+  expect(production.provenance.length).toBeGreaterThan(0);
   // Re-run the owning domain projections from the records read back after
   // production restore, verification, database close/reopen and re-export.
   // This prevents the fixture's precomputed input objects from acting as
