@@ -4,7 +4,7 @@ import { SamTravelsDatabase } from "../packages/storage-browser/src/database";
 import { DexieRecordRepository } from "../packages/storage-browser/src";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import {
-  RecordFormWorkingCopyRepository, SharedFormRuntime, VEHICLE_FORM_V1, FUEL_ENTRY_FORM_V1,
+  RecordFormWorkingCopyRepository, SharedFormRuntime, VEHICLE_FORM_V1, FUEL_ENTRY_FORM_V1, PLATFORM_FEE_FORM_V1,
   PerformanceAdminSettingsServiceV1,
   type FormWorkingCopy, type FormWorkingCopyRepository,
 } from "../packages/application/src";
@@ -191,4 +191,81 @@ describe("shared form recovery against the production Dexie adapter", () => {
     expect(replay).toEqual(beforeRetry[0]);
     expect((await reopenedService.listAll()).filter(row => row.id.includes(fuelInstanceId))).toEqual(beforeRetry);
   });
+
+  it("reopens and replays an Admin Platform Fee create after the Dexie feature commit but before working-copy completion", async () => {
+    const { database, repository } = await openStore();
+    const vehicleId = "feature:vehicle:DXEADMINFEE01";
+    await repository.put({
+      id: vehicleId, schemaVersion: 1, createdAt: "2026-11-19T08:00:00.000Z",
+      updatedAt: "2026-11-19T08:00:00.000Z", source: "web", revision: 1,
+      data: vehicleData("DXEADMINFEE01"),
+    } satisfies RecordEnvelope<unknown>);
+    const makeService = (records: DexieRecordRepository) => new BusinessExpensesService(records, {
+      validateRecord: assertBusinessExpenseRecordV1, validateFuelPurchase: assertFuelPurchaseV1,
+      validateExpenseEntry: assertBusinessExpenseEntryV1, calculateDailyExpenses: calculateDailyBusinessExpenses,
+      calculateFuelIntervals, calculateFuelCostRateHistory,
+    }, { async getById(id) { return id === vehicleId ? await records.get(id) as RecordEnvelope<{ lifecycleState: string }> : undefined; } });
+    const service = makeService(repository);
+    const handler = createBusinessExpenseFormSubmissionHandler(service, "web");
+    const workingCopies = new InterruptCompletionOnce(new RecordFormWorkingCopyRepository(repository, "web"));
+    const makeRuntime = (records: DexieRecordRepository, copies: FormWorkingCopyRepository, submitHandler: typeof handler) =>
+      createAdminFormRuntimeV1({
+        repository: records, recordSource: "web",
+        performanceAdminSettings: new PerformanceAdminSettingsServiceV1(records),
+        handleBusinessExpenseSubmission: async command => {
+          const result = await submitHandler(command);
+          if (result === undefined) throw new Error("platform_fee_handler_not_found");
+          return result;
+        },
+        workingCopyRepository: copies,
+      });
+    const instanceId = "dxe-platform-fee-retry-001";
+    const operationId = "dxe-platform-fee-operation-001";
+    const firstRuntime = makeRuntime(repository, workingCopies, handler);
+    let copy = await firstRuntime.open(PLATFORM_FEE_FORM_V1, instanceId);
+    for (const [field, value] of Object.entries({
+      businessDate: "2026-11-19", vehicleId, amountRupees: 125.5, reference: "settlement-dxe-001",
+    })) copy = await firstRuntime.update(PLATFORM_FEE_FORM_V1, copy, field, value);
+    // Preserve a deterministic operation ID through the durable working-copy record.
+    await repository.compareAndSet(
+      "__sam_travels_form_working_copy__:" + encodeURIComponent(PLATFORM_FEE_FORM_V1.id) + ":" + encodeURIComponent(instanceId),
+      1 + 4,
+      {
+        id: "__sam_travels_form_working_copy__:" + encodeURIComponent(PLATFORM_FEE_FORM_V1.id) + ":" + encodeURIComponent(instanceId),
+        schemaVersion: 1, createdAt: copy.updatedAt, updatedAt: copy.updatedAt, source: "web",
+        revision: 5, data: { ...copy, operationId },
+      },
+    );
+    copy = (await workingCopies.get(PLATFORM_FEE_FORM_V1.id, instanceId))!;
+    await expect(firstRuntime.save(PLATFORM_FEE_FORM_V1, copy))
+      .rejects.toThrow("simulated_process_death_after_domain_commit");
+    const pending = await workingCopies.get(PLATFORM_FEE_FORM_V1.id, instanceId);
+    expect(pending).toMatchObject({
+      status: "pending", operationId,
+      submission: { action: "save", submittedAt: expect.any(String) },
+    });
+    const committed = (await service.listAll()).filter(row => row.id.includes(instanceId));
+    expect(committed).toHaveLength(1);
+    const original = committed[0];
+    const firstSubmittedAt = pending!.submission!.submittedAt;
+    database.close();
+
+    const reopenedStore = await openStore(database.name);
+    const reopenedService = makeService(reopenedStore.repository);
+    const reopenedHandler = createBusinessExpenseFormSubmissionHandler(reopenedService, "web");
+    const reopenedCopies = new RecordFormWorkingCopyRepository(reopenedStore.repository, "web");
+    const retryRuntime = makeRuntime(reopenedStore.repository, reopenedCopies, reopenedHandler);
+    const reopened = await retryRuntime.open(PLATFORM_FEE_FORM_V1, instanceId);
+    const replay = await retryRuntime.save(PLATFORM_FEE_FORM_V1, reopened);
+    expect(replay).toEqual(original);
+    expect((await reopenedService.listAll()).filter(row => row.id.includes(instanceId))).toEqual([original]);
+    expect((await reopenedCopies.get(PLATFORM_FEE_FORM_V1.id, instanceId))?.status).toBe("saved");
+    const receipts = (await reopenedStore.repository.list()).filter(row =>
+      row.id.startsWith("__sam_travels_feature_operation__:") &&
+      (row.data as { targetRecordId?: string }).targetRecordId === original.id
+    );
+    expect(receipts).toHaveLength(1);
+    expect(original.createdAt).toBe(firstSubmittedAt);
+  });
+
 });
