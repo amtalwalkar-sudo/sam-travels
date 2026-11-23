@@ -130,10 +130,8 @@ class AdminFormsCapacitorAcceptanceTest {
             assertEquals("Compliance persists the configured operating Vehicle", vehicleRecordId,
                 savedComplianceData.getString("vehicleId"))
             assertRoomOperationReceiptExists(db, savedCompliance!!.id)
-
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
-
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
             assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
             eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
@@ -156,7 +154,6 @@ class AdminFormsCapacitorAcceptanceTest {
             assertRoomOperationReceiptExists(db, loanRecord!!.id)
             assertTrue("Loan payment, prepayment and settlement actions render", await(activity,
                 "document.body.innerText.includes('Record payment')&&document.body.innerText.includes('Prepay principal')&&document.body.innerText.includes('Settle & close')", 15000))
-
             set(activity, "Fee date", "2026-11-15")
             set(activity, "Vehicle", vehicleRecordId)
             set(activity, "Fee amount (₹)", "120")
@@ -175,7 +172,6 @@ class AdminFormsCapacitorAcceptanceTest {
             set(activity, "Receipt / source reference", "PARK-" + marker)
             click(activity, "Save expense")
             assertTrue("Misc expense saved", await(activity, "document.body.innerText.includes('Saved.')", 15000))
-
             eval(activity, "document.getElementById('admin-section-trigger-maintenance')?.click()")
             click(activity, "Start service visit")
             set(activity, "Maintenance type", marker + " service")
@@ -201,7 +197,6 @@ class AdminFormsCapacitorAcceptanceTest {
             set(activity, "New rate (₹ per km)", "2.50")
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
-
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
                 db, vehicleRecordId, fuelRecordId,
                 evaluate = { script -> eval(activity, script) },
@@ -212,7 +207,6 @@ class AdminFormsCapacitorAcceptanceTest {
                         "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.innerText??''})")
                 },
             )
-
             db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
                 .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
                 .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
@@ -242,7 +236,6 @@ class AdminFormsCapacitorAcceptanceTest {
             db.close()
         }
     }
-
     internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin field loads: " + label, await(activity,
@@ -251,7 +244,6 @@ class AdminFormsCapacitorAcceptanceTest {
         val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
         check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
     }
-
     internal fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin action loads: " + label, await(activity,
@@ -259,7 +251,6 @@ class AdminFormsCapacitorAcceptanceTest {
         val js = """(()=>{const a=[...document.querySelectorAll('button')].filter(n=>n.textContent.trim()==='$name');if(!a[$index])return false;a[$index].click();return true})()"""
         check(javascriptValue(activity, js) == "true") { "Missing Admin action: " + label }
     }
-
     internal fun clickMatching(activity: MainActivity, pattern: String) {
         val alternatives = pattern.split('|').map(String::trim).filter(String::isNotEmpty)
         require(alternatives.isNotEmpty()) { "At least one Admin action label is required" }
@@ -274,7 +265,6 @@ class AdminFormsCapacitorAcceptanceTest {
             error("Missing enabled Admin action: " + alternatives.joinToString(", ") + "; buttons=" + diagnostic)
         }
     }
-
     internal fun eval(activity: MainActivity, script: String) {
         val webView = activity.getBridge().getWebView()
         val latch = CountDownLatch(1)
@@ -283,7 +273,6 @@ class AdminFormsCapacitorAcceptanceTest {
         }
         check(latch.await(15, TimeUnit.SECONDS))
     }
-
     internal fun javascriptValue(activity: MainActivity, expression: String): String? {
         val webView = activity.getBridge().getWebView()
         val result = AtomicReference<String?>()
@@ -293,7 +282,6 @@ class AdminFormsCapacitorAcceptanceTest {
         }
         return if (latch.await(15, TimeUnit.SECONDS)) result.get() else null
     }
-
     internal fun await(activity: MainActivity, expression: String, timeoutMs: Long): Boolean {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
