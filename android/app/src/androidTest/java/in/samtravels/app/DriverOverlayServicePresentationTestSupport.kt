@@ -36,17 +36,25 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val downTime = SystemClock.uptimeMillis()
         val down = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_DOWN,
             fromX.toFloat(), fromY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val move = MotionEvent.obtain(downTime, downTime + 120, MotionEvent.ACTION_MOVE,
-            toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-        val up = MotionEvent.obtain(downTime, downTime + 240, MotionEvent.ACTION_UP,
+        val moves = (1..8).map { step ->
+            val fraction = step / 8f
+            MotionEvent.obtain(
+                downTime, downTime + step * 35L, MotionEvent.ACTION_MOVE,
+                fromX + (toX - fromX) * fraction,
+                fromY + (toY - fromY) * fraction, 0,
+            ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+        }
+        val up = MotionEvent.obtain(downTime, downTime + 320, MotionEvent.ACTION_UP,
             toX.toFloat(), toY.toFloat(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
         try {
             assertTrue("Gesture down must be injected", ui.injectInputEvent(down, true))
-            assertTrue("Gesture move must be injected", ui.injectInputEvent(move, true))
+            moves.forEach { move ->
+                assertTrue("Gesture move must be injected", ui.injectInputEvent(move, true))
+            }
             assertTrue("Gesture up must be injected", ui.injectInputEvent(up, true))
         } finally {
             down.recycle()
-            move.recycle()
+            moves.forEach { it.recycle() }
             up.recycle()
         }
     }
