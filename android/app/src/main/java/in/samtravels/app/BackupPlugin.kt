@@ -252,7 +252,7 @@ internal object NativeBackupRestoreCoordinator {
         NativeBackupCoverage.validateParticipantManifest(snapshot.optJSONArray("participants"), rawRecords)
         NativeBackupCoverage.validateParticipantManifest(manifest.optJSONArray("participants"), rawRecords)
         val records = if (snapshot.optJSONArray("participants") == null)
-            NativeBackupCoverage.normalizeLegacyRecords(rawRecords)
+            NativeFeatureBackupManifestCompatibility.normalizeLegacyRecords(rawRecords)
         else NativeFeatureBackupManifestCompatibility.normalizeCanonicalInterchangeRecords(rawRecords)
         NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
         NativeBackupCoverage.validateSnapshotRevision(records, snapshot.optInt("snapshotRevision", -1))
