@@ -100,6 +100,14 @@ class DriverWorkflowCrossSurfaceEventParityTest : DriverOverlayServicePresentati
                         "document.querySelector('.driver-head h2')?.textContent?.trim() === 'Going To Pickup'",
                         20_000,
                     ))
+                    assertTrue(
+                        "PWA plugin and overlay fixture must share the same Room projection; fixture=" +
+                            DriverWorkflowStore.snapshot(db).toString(),
+                        waitUntil(10_000) {
+                            DriverWorkflowStore.snapshot(db).optString("state") == "going_to_pickup" &&
+                                DriverWorkflowStore.snapshot(db).optInt("revision") == 2
+                        },
+                    )
                 },
             ) { ui, db ->
                 assertTrue("Overlay must refresh from the PWA's committed Room event", waitUntil(15_000) {
