@@ -184,6 +184,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
 
 declare global {
   interface Window {
+    __semanticParityProgress?: string;
     SemanticFixtureCalculationParity?: {
       run: typeof runSemanticFixtureProductionCalculations;
     };
