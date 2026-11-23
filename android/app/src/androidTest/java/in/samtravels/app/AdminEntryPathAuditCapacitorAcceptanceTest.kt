@@ -59,7 +59,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.eval(activity, "document.getElementById('admin-section-trigger-business-setup')?.click()")
         support.set(activity, "Business start date", "2026-11-15")
         support.click(activity, "Set business start date")
-        assertTrue("Business start date is configured for the Performance calculation",
+        assertTrue("Business start date saved",
             support.await(activity, "document.body.innerText.includes('Business start date saved.')", 15000))
         support.eval(activity, "document.getElementById('admin-section-trigger-driver')?.click()")
         support.click(activity, "Add driver")
@@ -264,8 +264,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
         assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
         assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
-        // Carry these exact rendered Admin/Fuel record identities through the production
-        // Performance calculation and encrypted Room restore before test cleanup.
         Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
             db,
             vehicleRecordId!!,
