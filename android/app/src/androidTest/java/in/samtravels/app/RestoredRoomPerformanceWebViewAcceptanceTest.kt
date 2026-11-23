@@ -16,7 +16,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -101,10 +100,7 @@ class RestoredRoomPerformanceWebViewAcceptanceTest {
             .bufferedReader().use { JSONObject(it.readText()) }
         val fixtureRecords = fixture.getJSONArray("records")
         val expected = fixture.getJSONObject("expected")
-        fun expectedRupees(key: String): String {
-            val paise = expected.getInt(key)
-            return "₹" + String.format(Locale.US, "%,d.%02d", paise / 100, paise % 100)
-        }
+        fun expectedRupees(key: String): String { val paise = expected.getInt(key); return "₹" + String.format(java.util.Locale.US, "%,d.%02d", paise / 100, paise % 100) }
         val vehicleId = "feature:vehicle:MH01AB1234"
         val businessStartDate = fixture.getJSONObject("input").getString("businessStartDate")
         val periodFrom = fixture.getJSONObject("input").getString("periodFrom")
