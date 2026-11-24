@@ -12,7 +12,6 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-
 @RunWith(AndroidJUnit4::class)
 class NativeBackupRestoreCoordinatorTest {
     private fun envelope(id: String, data: JSONObject, at: String, revision: Int = 1) = StoredRecord(
