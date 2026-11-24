@@ -16,6 +16,14 @@ internal object Stage3AdminFuelRecoveryAcceptance {
         vehicleRecordId: String,
         registration: String,
     ): Stage3AdminFuelRecoveryResult {
+        support.eval(startingActivity, "(()=>{const p=document.getElementById('admin-section-panel-finance');if(p?.hidden)document.getElementById('admin-section-trigger-finance')?.click()})()")
+        check(support.await(startingActivity, "!!document.querySelector('#admin-vehicle')", 10000)) {
+            "Finance Vehicle selector must be visible before Admin expense entry"
+        }
+        check(support.javascriptValue(startingActivity,
+            """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""") == "true") {
+            "Finance Vehicle must be selected before Admin expense entry"
+        }
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Fee date", "2026-11-15")
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Vehicle", vehicleRecordId)
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Fee amount (₹)", "150")
