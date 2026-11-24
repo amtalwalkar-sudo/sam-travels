@@ -50,6 +50,26 @@ describe("backup-encryption-v1", () => {
     expect(new TextDecoder().decode(await decryptBackupWithRecoveryKey(second.backup, recoveryKey))).toBe("second");
   });
 
+  it("rejects malformed and truncated serialized packages before restore", async () => {
+    const { backup } = await createEncryptedBackup({
+      plaintext: new TextEncoder().encode("{\\"records\\":[] ,\\"snapshotRevision\\":0,\\"schemaVersion\\":1}"),
+      manifest: { ...manifest, recordCounts: { records: 0 } },
+      mode: "recovery-key-only", recoveryKey: generateBackupRecoveryKey(),
+    });
+    const serialized = serializeBackupPackage(backup);
+    expect(() => parseBackupPackage(new TextEncoder().encode("{\\"manifest\\":"))).toThrow();
+    expect(() => parseBackupPackage(serialized.slice(0, serialized.length - 9))).toThrow();
+    expect(() => parseBackupPackage(new Uint8Array([0xff, 0xfe, 0xfd]))).toThrow();
+    const missingPayload = structuredClone(backup) as any;
+    delete missingPayload.payload;
+    expect(() => parseBackupPackage(new TextEncoder().encode(JSON.stringify(missingPayload)))).toThrow("backup_invalid_envelope");
+    const truncatedCiphertext = structuredClone(backup);
+    truncatedCiphertext.payload.ciphertext = "AA==";
+    const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(truncatedCiphertext)));
+    await expect(decryptBackupWithRecoveryKey(parsed, backup.keyEnvelopes.recovery.wrappedDek.ciphertext
+      ? generateBackupRecoveryKey() : generateBackupRecoveryKey())).rejects.toBeTruthy();
+  });
+
   it("round-trips with either independent recovery method", async () => {
     const plaintext = new TextEncoder().encode('{"records":[1,2,3]}');
     const { backup, recoveryKey } = await createEncryptedBackup({ plaintext, manifest, passphrase: "correct horse battery", argon2id: testKdf });
