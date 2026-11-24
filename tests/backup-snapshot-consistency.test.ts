@@ -58,7 +58,7 @@ describe("consistent Browser backup snapshot under concurrent writes", () => {
         await browserDatabase.table("driverState").put({
           id: "driver-state", value: { schemaVersion: 1, revision: 2, state: "shift_active" },
         });
-      ]));
+      }));
       releaseRead();
       const snapshot = await exportPromise;
       await writePromise;
