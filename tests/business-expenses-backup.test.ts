@@ -49,11 +49,11 @@ describe("Business Expenses browser backup participant", () => {
     const id = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000";
     await browserDatabase.records.put({
       id, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
-      source: "web", revision: 1, businessDate: "2026-11-15",
+      source: "web", revision: 1, businessDate: "2026-11-14",
       createdBy: { personId: "driver-1", role: "driver" },
       data: {
         schemaVersion: 1, kind: "fuel_purchase", id, revision: 1,
-        businessDate: "2026-11-15", occurredAt: timestamp, vehicleId,
+        businessDate: "2026-11-14", occurredAt: timestamp, vehicleId,
         odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000, partialRefill: true,
       },
     });
