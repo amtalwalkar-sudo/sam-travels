@@ -51,10 +51,11 @@ describe("backup-encryption-v1", () => {
   });
 
   it("rejects malformed and truncated serialized packages before restore", async () => {
+    const recoveryKey = generateBackupRecoveryKey();
     const { backup } = await createEncryptedBackup({
-      plaintext: new TextEncoder().encode("{\\"records\\":[] ,\\"snapshotRevision\\":0,\\"schemaVersion\\":1}"),
+      plaintext: new TextEncoder().encode("{\\"records\\":[],\\"snapshotRevision\\":0,\\"schemaVersion\\":1}"),
       manifest: { ...manifest, recordCounts: { records: 0 } },
-      mode: "recovery-key-only", recoveryKey: generateBackupRecoveryKey(),
+      mode: "recovery-key-only", recoveryKey,
     });
     const serialized = serializeBackupPackage(backup);
     expect(() => parseBackupPackage(new TextEncoder().encode("{\\"manifest\\":"))).toThrow();
@@ -66,8 +67,7 @@ describe("backup-encryption-v1", () => {
     const truncatedCiphertext = structuredClone(backup);
     truncatedCiphertext.payload.ciphertext = "AA==";
     const parsed = parseBackupPackage(new TextEncoder().encode(JSON.stringify(truncatedCiphertext)));
-    await expect(decryptBackupWithRecoveryKey(parsed, backup.keyEnvelopes.recovery.wrappedDek.ciphertext
-      ? generateBackupRecoveryKey() : generateBackupRecoveryKey())).rejects.toBeTruthy();
+    await expect(decryptBackupWithRecoveryKey(parsed, recoveryKey)).rejects.toBeTruthy();
   });
 
   it("round-trips with either independent recovery method", async () => {
