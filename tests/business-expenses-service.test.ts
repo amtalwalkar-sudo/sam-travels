@@ -46,6 +46,7 @@ const domain = {
   calculateDailyExpenses: calculateDailyBusinessExpenses,
   calculateFuelIntervals,
   calculateFuelCostRateHistory,
+  fuelBusinessDateFromInstant,
 };
 function setup() {
   const repository = new MemoryRepository();
@@ -61,7 +62,7 @@ describe("BusinessExpensesService", () => {
     const purchase = await service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174000", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
@@ -69,12 +70,12 @@ describe("BusinessExpensesService", () => {
     expect(purchase.id).toBe("feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000");
     expect(purchase.businessDate).toBe("2026-11-15");
     expect((await service.listDailyExpenseOutputs())[0]).toMatchObject({
-      businessDate: "2026-11-15", fuelPaise: 18000, normalOperatingExpensePaise: 18000,
+      businessDate: "2026-11-14", fuelPaise: 18000, normalOperatingExpensePaise: 18000,
     });
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174000", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
@@ -131,7 +132,7 @@ describe("BusinessExpensesService", () => {
       ["123e4567-e89b-42d3-a456-426614174042","2026-11-10T09:00:00.000Z",120,false,30_000],
     ] as const) {
       await service.createFuelPurchase({ uuid, source:"web", data: {
-        businessDate: new Date(Date.parse(occurredAt)+330*60_000).toISOString().slice(0,10),
+        businessDate: fuelBusinessDateFromInstant(occurredAt),
         occurredAt, vehicleId, odometerKm, pricePaisePerKg:10_000, amountPaise, partialRefill,
       }});
     }
@@ -164,7 +165,7 @@ describe("BusinessExpensesService", () => {
     await service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174030", source: "web",
       data: {
-        businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000,
         partialRefill: true,
       },
@@ -239,7 +240,7 @@ describe("BusinessExpensesService", () => {
     ] as const;
     for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of purchases) {
       await service.createFuelPurchase({ uuid, source: "web", data: {
-        businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10),
+        businessDate: fuelBusinessDateFromInstant(occurredAt),
         occurredAt, vehicleId, odometerKm, pricePaisePerKg: 10_000, amountPaise, partialRefill,
       }});
     }
@@ -384,7 +385,7 @@ describe("BusinessExpensesService", () => {
     const { service } = setup();
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174020", source: "web",
-      data: { businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
+      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId: "feature:vehicle:UNKNOWN", odometerKm: 10, pricePaisePerKg: 9000,
         amountPaise: 1000, partialRefill: false },
     })).rejects.toThrow("business_expense_vehicle_not_found");
