@@ -50,12 +50,14 @@ internal object Stage3AndroidUiBackupAcceptance {
             .put("revision", 1).put("data", accrualData)
         db.records().put(StoredRecord(accrualId, accrualEnvelope.toString(), 1, timestamp))
         // A real Performance calculation requires the Admin-configured monthly Driver Target.
-        evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin')n.click()})")
+        evaluate("document.querySelectorAll('.bottom-navigation-item').forEach(n=>{if(n.textContent.trim()==='Admin'&&!n.classList.contains('active'))n.click()})")
         org.junit.Assert.assertTrue("Admin workspace remains available for Performance setup",
             waitFor("!!document.querySelector('.admin-replacement-shell')", 20000))
-        evaluate("document.getElementById('admin-section-trigger-performance')?.click()")
+        evaluate("""(()=>{const b=document.getElementById('admin-section-trigger-performance');if(b&&b.getAttribute('aria-expanded')!=='true')b.click()})()""")
+        org.junit.Assert.assertTrue("Admin Performance section expands before calculation",
+            waitFor("document.getElementById('admin-section-trigger-performance')?.getAttribute('aria-expanded')==='true'&&!document.getElementById('admin-section-panel-performance')?.hidden", 15000))
         org.junit.Assert.assertTrue("Admin Performance settings render before calculation",
-            waitFor("[...document.querySelectorAll('label')].some(l=>l.textContent.includes('Monthly Driver Target'))", 15000))
+            waitFor("[...document.querySelectorAll('#admin-section-panel-performance label')].some(l=>l.textContent.includes('Monthly Driver Target'))", 20000))
         evaluate("""(()=>{const l=[...document.querySelectorAll('label')].find(n=>n.textContent.includes('Monthly Driver Target'));const i=l?.querySelector('input');if(!i)return false;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'5000');i.dispatchEvent(new Event('input',{bubbles:true}));return true})()""")
         click("Save monthly target")
         org.junit.Assert.assertTrue("Monthly Driver Target is saved through the rendered Admin form",
