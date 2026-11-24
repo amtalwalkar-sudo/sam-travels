@@ -95,7 +95,7 @@ class NativeBackupV2PackageTest {
         val packageJson = fixture.getJSONObject("backup")
         val recoveryKey = fixture.getString("recoveryKey")
 
-        assertThrows(Exception::class.java) { JSONObject("{\\"manifest\\":") }
+        assertThrows(Exception::class.java) { JSONObject("{\"manifest\":") }
         val missingPayload = JSONObject(packageJson.toString()).also { it.remove("payload") }
         assertThrows(Exception::class.java) { NativeBackupV2Package.decrypt(missingPayload, recoveryKey) }
 
