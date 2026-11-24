@@ -8,6 +8,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.security.SecureRandom
@@ -86,6 +87,25 @@ class NativeBackupV2PackageTest {
         } catch (error: Exception) {
             assertTrue(error !is AssertionError)
         }
+    }
+
+    @Test fun rejectsMalformedAndTruncatedEncryptedPackagesBeforeRestore() {
+        val context = InstrumentationRegistry.getInstrumentation().context
+        val fixture = JSONObject(context.assets.open("cross-platform-backup-v2.json").bufferedReader().use { it.readText() })
+        val packageJson = fixture.getJSONObject("backup")
+        val recoveryKey = fixture.getString("recoveryKey")
+
+        assertThrows(Exception::class.java) { JSONObject("{\\"manifest\\":") }
+        val missingPayload = JSONObject(packageJson.toString()).also { it.remove("payload") }
+        assertThrows(Exception::class.java) { NativeBackupV2Package.decrypt(missingPayload, recoveryKey) }
+
+        val truncatedCiphertext = JSONObject(packageJson.toString())
+        truncatedCiphertext.getJSONObject("payload").put("ciphertext", "AA==")
+        assertThrows(Exception::class.java) { NativeBackupV2Package.decrypt(truncatedCiphertext, recoveryKey) }
+
+        val truncatedNonce = JSONObject(packageJson.toString())
+        truncatedNonce.getJSONObject("payload").put("nonce", Base64.encodeToString(byteArrayOf(1, 2, 3), Base64.NO_WRAP))
+        assertThrows(Exception::class.java) { NativeBackupV2Package.decrypt(truncatedNonce, recoveryKey) }
     }
 
     private fun canonicalJson(value: Any?): String = when (value) {
