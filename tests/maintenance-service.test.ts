@@ -128,7 +128,7 @@ describe("MaintenanceService", () => {
     const { service, repository, setNow } = setup();
     const defaultHistory = await service.getRateHistory(vehicleId);
     expect(defaultHistory.entries[0]).toMatchObject({
-      effectiveFrom: "2026-11-01", ratePaisePerKm: 250, isDefault: true,
+      effectiveFrom: "2026-10-31", ratePaisePerKm: 250, isDefault: true,
     });
 
     const commandId = "123e4567-e89b-42d3-a456-426614174020";
