@@ -309,9 +309,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
                     data?.optJSONObject("submission")?.optJSONObject("values")?.optString("reference") == "FEE-" + marker)
             val fuelDraft = row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
                 data?.optJSONObject("values")?.optString("vehicleId") == vehicleRecordId &&
-                data.optJSONObject("values")?.optInt("odometerKm") == 55123
+                data?.optJSONObject("values")?.optInt("odometerKm") == 55123
             val expenseReceipt = row.id.startsWith("__sam_travels_feature_operation__:") &&
-                data?.optString("targetRecordId") in recoveredExpenseRecordIds
+                data?.optString("targetRecordId")?.let { it in recoveredExpenseRecordIds } == true
             row.json.contains(marker) || row.id in fuelRecordIds || row.id == adminFeeRecordId ||
                 row.id == vehicleRecordId || row.id in financeRecordIds || row.id == assignmentRecordId ||
                 row.id == "feature:business-settings:business" || platformFeeDraft || fuelDraft || expenseReceipt ||
