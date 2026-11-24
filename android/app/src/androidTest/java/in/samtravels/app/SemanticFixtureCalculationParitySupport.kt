@@ -165,7 +165,15 @@ internal object SemanticFixtureCalculationParitySupport {
             }
             val work = actual.getJSONArray("workAllocations")
             assertEquals(3, work.length())
+            assertEquals(10, work.getJSONObject(0).getInt("totalBusinessKm"))
+            assertEquals(0, work.getJSONObject(0).getInt("unallocatedBusinessKm"))
+            assertEquals(2, work.getJSONObject(0).getJSONArray("entries").getJSONObject(0).getInt("personalKm"))
+            assertEquals(10, work.getJSONObject(0).getJSONArray("entries").getJSONObject(0).getInt("businessKm"))
+            assertEquals(8, work.getJSONObject(1).getInt("totalBusinessKm"))
+            assertEquals(1, work.getJSONObject(1).getJSONArray("entries").getJSONObject(0).getInt("personalKm"))
             assertEquals(5, work.getJSONObject(2).getInt("unallocatedBusinessKm"))
+            assertEquals("awaiting_operational_boundary",
+                work.getJSONObject(2).getJSONArray("entries").getJSONObject(0).getString("allocationStatus"))
             return actual
         } finally {
             instrumentation.runOnMainSync { webView.destroy() }
