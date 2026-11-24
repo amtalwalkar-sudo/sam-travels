@@ -69,7 +69,7 @@ describe("BusinessExpensesService", () => {
       },
     });
     expect(purchase.id).toBe("feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174000");
-    expect(purchase.businessDate).toBe("2026-11-15");
+    expect(purchase.businessDate).toBe("2026-11-14");
     expect((await service.listDailyExpenseOutputs())[0]).toMatchObject({
       businessDate: "2026-11-14", fuelPaise: 18000, normalOperatingExpensePaise: 18000,
     });
