@@ -21,13 +21,14 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
     val support = AdminFormsCapacitorAcceptanceTest()
     val marker = "Entry audit " + UUID.randomUUID().toString().take(8)
     var fuelRecordId: String? = null
+    var adminFeeRecordId: String? = null
     val fuelRecordIds = mutableListOf<String>()
     var vehicleRecordId: String? = null
     val previousPerformanceSettings = db.records().get("feature:performance:settings")
     val financeRecordIds = mutableListOf<String>()
     var assignmentRecordId: String? = null
     val previousWorkSelection = db.records().get("work:selected-driver")
-    val activity = instrumentation.startActivitySync(
+    var activity = instrumentation.startActivitySync(
         Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     ) as MainActivity
     try {
@@ -147,6 +148,32 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         support.eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
         assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
         support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+
+        // Exercise a rendered Admin expense submit through the exact Room
+        // domain-commit / working-copy-completion interruption boundary.
+        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Fee date", "2026-11-15")
+        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Vehicle", vehicleRecordId!!)
+        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Fee amount (₹)", "150")
+        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Trip / settlement reference", "FEE-" + marker)
+        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Note", marker + " platform fee")
+        val platformFeeRecovery = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
+            activity, support, db, marker, marker + " Admin",
+        )
+        activity = platformFeeRecovery.first
+        adminFeeRecordId = platformFeeRecovery.second
+
+        // Exercise Fuel draft persistence and post-commit receipt replay through
+        // the rendered Work form, including a full WebView recreation.
+        val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
+            activity, support, db, vehicleRecordId!!, marker + " Admin",
+        )
+        activity = fuelRecovery.first
+        fuelRecordId = fuelRecovery.second
+        fuelRecordIds.add(fuelRecordId!!)
+
+        assertTrue("Finance Vehicle selector survives both form recovery journeys",
+            support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
+        support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
         support.click(activity, "Add loan")
         support.set(activity, "Loan name", marker + " Loan")
         support.set(activity, "Lender name", "Acceptance Bank")
@@ -243,26 +270,9 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             it.id.startsWith("feature:performance:pre-business-cost:") && it.json.contains(marker)
         }
         assertNotNull("Pre-business in Room", preBusinessCost)
-        support.click(activity, "＋ Fuel entry")
-        assertTrue("Fuel form ready", support.await(activity,
-            "!!document.querySelector('.fuel-entry-panel button[type=submit]:not(:disabled)')", 15000))
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleRecordId!!)
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56000")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
-        assertTrue("Full refill default", support.await(activity,
-            "!document.querySelector('.fuel-entry-panel label.fuel-partial-choice input')?.checked", 5000))
-        AdminEntryPathAuditTestSupport.clickInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Submit fuel purchase")
-        assertTrue("Fuel saved", support.await(activity,
-            "document.querySelector('.fuel-entry-panel [role=status]')?.textContent.includes('Fuel purchase saved')", 15000))
-        val fuel = db.records().list().singleOrNull { row ->
-            row.id.startsWith("feature:business-expenses:fuel:") &&
-                JSONObject(row.json).getJSONObject("data").optInt("odometerKm") == 56000
-        }
-        assertNotNull("First Fuel checkpoint",fuel)
-        fuelRecordId = fuel!!.id
-        fuelRecordIds.add(fuelRecordId!!)
+        assertNotNull("Recovered UI Fuel purchase remains in Room before calculation", fuelRecordId)
         assertRoomOperationReceiptExists(db, fuelRecordId!!)
+        val fuel = db.records().get(fuelRecordId!!) ?: error("stage3_recovered_fuel_record_missing")
         val fuelData = JSONObject(fuel.json).getJSONObject("data")
         assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
         assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
@@ -274,6 +284,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             vehicleRecordId!!,
             fuelRecordId = fuelRecordId!!,
             fuelRecordIds = fuelRecordIds,
+            adminFeeRecordId = adminFeeRecordId,
             evaluate = { script -> support.eval(activity, script) },
             waitFor = { script, timeout -> support.await(activity, script, timeout) },
             click = { label -> support.clickMatching(activity, label) },
