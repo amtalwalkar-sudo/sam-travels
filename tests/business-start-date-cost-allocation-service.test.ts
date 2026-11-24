@@ -103,6 +103,22 @@ describe("BusinessStartDateCostAllocationService", () => {
     expect([...records.values()][0].data.canonicalInputs).toContain("historical-correction:compliance-premium");
   });
 
+  it("uses the corrected Compliance premium in the pre-business pool without mutating the source record", async () => {
+    const corrected = {
+      ...complianceRecord,
+      data: { ...complianceRecord.data, totalCostPaise: 1_200 },
+    };
+    const report = await createService({ records: [corrected] }).getReport();
+    const source = report.result.sources.find(item => item.sourceId === complianceRecord.id)!;
+    expect(source.sourceAmountPaise).toBe(1_200);
+    expect(source.daily.reduce((sum, row) => sum + row.amountPaise, 0)).toBe(1_200);
+    expect(report.sourceCorrectionRefs).toContainEqual({
+      sourceId: complianceRecord.id,
+      refs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }],
+    });
+    expect(complianceRecord.data.totalCostPaise).toBe(1_000);
+  });
+
   it("keeps a pre-start Compliance source in the pool and allocates a post-start renewal normally", async () => {
     const renewal = {
       ...complianceRecord,
