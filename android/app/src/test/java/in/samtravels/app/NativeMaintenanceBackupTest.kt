@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeMaintenanceBackupTest {
-    private val timestamp = "2026-10-31T20:00:00Z"
+    private val timestamp = "2026-10-31T23:00:00Z"
     private val vehicleId = "feature:vehicle:MH01AB1234"
     private val rateId = "feature:maintenance:rate:feature%3Avehicle%3AMH01AB1234"
 
