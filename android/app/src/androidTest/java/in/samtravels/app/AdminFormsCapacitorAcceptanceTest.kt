@@ -108,6 +108,12 @@ class AdminFormsCapacitorAcceptanceTest {
             )
             activity = fuelRecovery.first
             val fuelRecordId = fuelRecovery.second
+            // A second UI-created full-tank purchase closes the odometer interval.
+            // Performance can then attribute fuel cost/mileage to the same two
+            // source identities instead of expecting a one-refill estimate.
+            val closingFuelRecordId = AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(
+                activity, this, db, vehicleRecordId,
+            )
             eval(activity, "document.getElementById('admin-section-trigger-compliance')?.click()")
             assertTrue("Compliance uses configured Vehicle", await(activity,
                 "document.querySelector('#admin-section-panel-compliance .admin-operating-vehicle-context')?.textContent.includes('$registration')", 10000))
@@ -200,7 +206,7 @@ class AdminFormsCapacitorAcceptanceTest {
             click(activity, "Save rate")
             assertTrue("Maintenance rate saved", await(activity, "document.body.innerText.includes('Per-kilometre rate saved with effective-date history')", 15000))
             Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
-                db, vehicleRecordId, fuelRecordId, listOf(fuelRecordId), adminFeeRecordId,
+                db, vehicleRecordId, fuelRecordId, listOf(fuelRecordId, closingFuelRecordId), adminFeeRecordId,
                 evaluate = { script -> eval(activity, script) },
                 waitFor = { script, timeout -> await(activity, script, timeout) },
                 click = { label -> clickMatching(activity, label) },
