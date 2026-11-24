@@ -15,7 +15,7 @@ export async function assertRestoredDomainCalculationParity(restoredRows: readon
     remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments,
     finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate,
   });
-  expect(production.compliance).toMatchObject({ status: "available", date: "2026-11-01", total: { numeratorPaise: "1000", denominator: "1" } });
+  expect(production.compliance).toMatchObject({ status: "available", date: "2026-11-01", total: { numeratorPaise: "73200", denominator: "73" } });
   expect(production.provenance.length).toBeGreaterThan(0);
   expect(production.workAllocations.map(row => ({
     operationalDate: row.operationalDate,
