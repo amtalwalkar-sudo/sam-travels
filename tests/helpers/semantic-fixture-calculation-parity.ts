@@ -5,6 +5,7 @@ import { projectHistoricalCorrectionsV1 } from "../../packages/domain/src/histor
 import { buildLoanAmortizationSchedule, calculateLoanPrepaymentReamortizationV1 } from "../../packages/features/finance";
 import { calculateDailyComplianceCost } from "../../packages/features/compliance";
 import { MaintenanceService } from "../../packages/application/src/maintenance-service";
+import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../../apps/web/src/maintenance-expense-correction-runtime";
 import { assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant } from "../../packages/features/maintenance";
 
 type Row = RecordEnvelope<any>;
@@ -88,6 +89,20 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
   const vehicle = rows.find(row => row.id.startsWith("feature:vehicle:"));
   if (!vehicle) throw new Error("semantic_parity_vehicle_missing");
   const repository = makeRepository(rows.filter(row => !row.id.startsWith("feature:maintenance:daily-accrual:")));
+  const maintenanceExpense = required(rows, "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050");
+  const maintenanceCorrectionAdapter = createMaintenanceExpenseCorrectionAdapter(
+    repository as never,
+    "integration",
+    { currentActor: async () => ({ role: "admin", actorId: "semantic-fixture" }) } as never,
+  );
+  const maintenanceExpenseProjection = (await projectMaintenanceExpenseRecords(
+    [maintenanceExpense as never], maintenanceCorrectionAdapter,
+  ))[0];
+  if (maintenanceExpenseProjection.data.amountPaise !== 13000 ||
+      maintenanceExpenseProjection.correctionChainRevision !== 2 ||
+      maintenanceExpenseProjection.correctionRefs.length !== 2) {
+    throw new Error("semantic_parity_maintenance_expense_correction_mismatch");
+  }
   const maintenance = new MaintenanceService(repository, assertMaintenanceRecordV1,
     { getById: async (id: string) => id === vehicle.id ? vehicle : undefined },
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant);
@@ -178,7 +193,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
   }
   mark("complete");
   return {
-    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses, maintenanceAccruals: calculatedAccruals,
+    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses,\n    maintenanceExpenseProjection: { recordId: maintenanceExpenseProjection.id, sourceRevision: maintenanceExpenseProjection.revision,\n      amountPaise: maintenanceExpenseProjection.data.amountPaise,\n      correctionChainRevision: maintenanceExpenseProjection.correctionChainRevision,\n      correctionRefs: maintenanceExpenseProjection.correctionRefs },\n    maintenanceAccruals: calculatedAccruals,
     finance: { loanSourceId: loan.id, loanRevision: loan.revision, originalScheduleVersion: storedSchedule.version,
       originalSchedule, prepaymentSourceId: prepayment.id, prepaymentRevision: prepayment.revision,
       prepaymentScheduleVersion: prepaymentRevision.version, prepayment: recalculatedPrepayment },
