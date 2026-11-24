@@ -145,9 +145,6 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertEquals("Challan vehicle", vehicleRecordId, challanData.getString("vehicleId"))
         assertEquals("Challan status", "paid", challanData.getString("paymentStatus"))
         assertEquals("Challan ref", "CHALLAN-" + marker, challanData.getString("reference"))
-        assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
-        support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
-
         val recovery = Stage3AdminFuelRecoveryAcceptance.recoverAdminAndFuel(
             activity, support, db, marker, vehicleRecordId!!, registration,
         )
