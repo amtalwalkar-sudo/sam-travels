@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { browserDatabase } from "../packages/storage-browser/src/database";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
 import { exportBrowserSnapshot } from "../packages/storage-browser/src";
+import { toCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/canonical-backup-snapshot";
 
 describe("portable browser backup exclusions", () => {
   let unregister: (() => void) | undefined;
@@ -33,7 +34,12 @@ describe("portable browser backup exclusions", () => {
       "portable-business-record", "work:selected-driver", "identity:driver-person-link:driver-1",
     ]));
     expect(snapshot.data.records).toHaveLength(3);
-    const serialized = new TextDecoder().decode(snapshot.plaintext);
+    const canonical = toCanonicalBackupSnapshotV1(snapshot.data, snapshot.manifest as never);
+    expect(canonical.records.map(row => row.id)).toContain("portable-business-record");
+    expect(canonical.records.map(row => row.id)).not.toEqual(expect.arrayContaining([
+      "work:selected-driver", "identity:driver-person-link:driver-1",
+    ]));
+    const serialized = JSON.stringify(canonical);
     for (const secret of ["secret-nonce", "secret-ciphertext", "secret-salt", "secret-proof", "diagnostic-1", "checkpoint-1", "restore-1", "Local only"]) {
       expect(serialized).not.toContain(secret);
     }
