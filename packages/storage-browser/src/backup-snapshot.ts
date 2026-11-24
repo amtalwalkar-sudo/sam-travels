@@ -391,7 +391,6 @@ export async function rollbackBrowserRecoveryCheckpoint(checkpointId: string): P
   }
 }
 
-
 /** Validate before converting to the cross-platform canonical interchange envelope. */
 export function assertBrowserSnapshotForCanonical(data: BrowserSnapshotData, manifest: SnapshotManifest): void {
   const canonical = (items: NonNullable<SnapshotManifest["participants"]>) => items.map(item => [item.id, item.featureId, item.snapshotVersion, item.restoreValidatorId].join("|")).sort();
