@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeMaintenanceBackupTest {
@@ -129,7 +130,7 @@ class NativeMaintenanceBackupTest {
         val failure = assertThrows(IllegalStateException::class.java) {
             NativeBackupCoverage.validateBusinessRecords(records, requireExplicitOwnerTags = true)
         }
-        assertEquals("maintenance_vehicle_not_found", failure.message)
+        assertTrue(failure.message.orEmpty().startsWith("maintenance_vehicle_not_found: requested=$vehicleId; available="))
     }
 
     @Test
