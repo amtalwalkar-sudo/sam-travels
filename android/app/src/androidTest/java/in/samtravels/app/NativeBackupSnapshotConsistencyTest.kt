@@ -16,6 +16,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @RunWith(AndroidJUnit4::class)
 class NativeBackupSnapshotConsistencyTest {
+    @org.junit.Before fun registerParticipants() {
+        NativeBusinessSettingsBackup.ensureRegistered()
+        NativeVehicleBackup.ensureRegistered()
+        NativeDriverRecordsBackup.ensureRegistered()
+        NativeComplianceBackup.ensureRegistered()
+        NativeMaintenanceBackup.ensureRegistered()
+        NativeFinanceBackup.ensureRegistered()
+        NativeBusinessExpensesBackup.ensureRegistered()
+        NativePerformanceBackup.ensureRegistered()
+    }
+
     @Test fun snapshotAndManifestShareOneRoomTransactionBoundaryDuringConcurrentWrite() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
