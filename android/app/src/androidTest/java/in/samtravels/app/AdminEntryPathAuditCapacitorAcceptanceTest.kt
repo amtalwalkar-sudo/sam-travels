@@ -283,11 +283,18 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
             },
         )
     } finally {
-        db.records().list().filter { it.json.contains(marker) || it.id in fuelRecordIds ||
+        // If an assertion aborts the post-restore journey before explicit
+        // markVerified/discardVerified, restore the checkpoint before fixture
+        // cleanup. Never delete an internal checkpoint by matching user data
+        // inside its serialized snapshot: the next process must be able to
+        // recover it rather than being stranded with a journal-only marker.
+        runCatching { NativeBackupRecovery.recoverPending(db) }
+        db.records().list().filter { !NativeBackupRecovery.isInternalRecord(it.id) &&
+            (it.json.contains(marker) || it.id in fuelRecordIds ||
             it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId ||
             it.id == "feature:business-settings:business" ||
             (it.id.startsWith("__sam_travels_feature_operation__:") &&
-                JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == "feature:business-settings:business") }.forEach { db.records().remove(it.id) }
+                JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == "feature:business-settings:business")) }.forEach { db.records().remove(it.id) }
         if (previousWorkSelection != null) db.records().put(previousWorkSelection)
         else db.records().remove("work:selected-driver")
         if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
