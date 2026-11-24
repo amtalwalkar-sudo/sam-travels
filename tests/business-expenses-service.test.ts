@@ -391,7 +391,7 @@ describe("BusinessExpensesService", () => {
     })).rejects.toThrow("business_expense_vehicle_not_found");
     await expect(service.createFuelPurchase({
       uuid: "123e4567-e89b-42d3-a456-426614174021", source: "web",
-      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
+      data: { businessDate: "2026-11-15", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 10, pricePaisePerKg: 9000,
         amountPaise: 1000, partialRefill: false },
     })).rejects.toThrow("fuel_purchase_invalid");
