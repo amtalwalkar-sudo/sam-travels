@@ -128,7 +128,11 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
 
   mark("finance");
   const complianceRows = rows.filter(row => row.id.startsWith("feature:compliance:") && row.data.vehicleId)
-    .map(row => ({ id: row.id, revision: row.revision, data: row.data }));
+    .map(row => ({
+      id: row.id,
+      revision: row.revision,
+      data: corrections.find(item => item.targetRecordId === row.id)?.data ?? row.data,
+    }));
   const complianceDaily = calculateDailyComplianceCost(complianceRows as never, vehicle.id, "2026-11-01");
   if (complianceDaily.status !== "available" || !complianceDaily.total) {
     throw new Error("semantic_parity_compliance_calculation_unavailable");
