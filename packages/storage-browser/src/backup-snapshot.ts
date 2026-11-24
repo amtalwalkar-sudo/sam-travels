@@ -269,7 +269,7 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
   // Runtime identity and restore-recovery material is local state, not portable business data.
   data.records = data.records.filter(row => {
     const id = String((row as { id?: unknown } | null)?.id ?? "");
-    return !isPreservedLocalRecord(id) && !id.startsWith("identity:person:");
+    return !isNonRestorableImportedRecord(id);
   });
   assertBackupRecordCount(Object.values(data).reduce((total, rows) => total + rows.length, 0));
   data.records.forEach(assertRecordEnvelope);

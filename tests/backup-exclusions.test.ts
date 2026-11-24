@@ -13,7 +13,7 @@ describe("portable browser backup exclusions", () => {
   });
   afterEach(() => { unregister?.(); unregister = undefined; });
 
-  it("excludes local credentials, diagnostics, recovery material and runtime identity from portable snapshots", async () => {
+  it("excludes local credentials, diagnostics, recovery material and non-portable person identity from portable snapshots", async () => {
     const timestamp = "2026-11-24T00:00:00.000Z";
     await browserDatabase.records.bulkPut([
       { id: "portable-business-record", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1, data: { value: "portable" } },
@@ -29,7 +29,10 @@ describe("portable browser backup exclusions", () => {
     await browserDatabase.table("diagnostics").put({ id: "diagnostic-1", timestamp, subsystem: "backup", operation: "restore", outcome: "failure", failureCategory: "test", recoveryResult: "none", appVersion: "test", schemaVersion: 1 });
 
     const snapshot = await exportBrowserSnapshot("0.1.0");
-    expect(snapshot.data.records.map((row: any) => row.id)).toEqual(["portable-business-record"]);
+    expect(snapshot.data.records.map((row: any) => row.id)).toEqual(expect.arrayContaining([
+      "portable-business-record", "work:selected-driver", "identity:driver-person-link:driver-1",
+    ]));
+    expect(snapshot.data.records).toHaveLength(3);
     const serialized = new TextDecoder().decode(snapshot.plaintext);
     for (const secret of ["secret-nonce", "secret-ciphertext", "secret-salt", "secret-proof", "diagnostic-1", "checkpoint-1", "restore-1", "Local only"]) {
       expect(serialized).not.toContain(secret);
