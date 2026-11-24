@@ -34,7 +34,11 @@ internal object NativeMaintenanceBackup {
         snapshotVersion = 1,
         recordIdPrefix = PREFIX,
         validateRelationships = { rows, allRows ->
-            val vehicles = allRows.filter { it.optString("participantId") == "vehicle-records" }
+            // Canonical interchange normalization can remap a Room participant
+            // owner tag while preserving the Vehicle's stable record identity.
+            // Resolve the relationship by its authoritative record namespace,
+            // not by the transport-layer participant label.
+            val vehicles = allRows.filter { it.optString("id").startsWith("feature:vehicle:") }
                 .associate { row ->
                     val id = row.optString("id")
                     val envelope = JSONObject(row.getString("json"))
