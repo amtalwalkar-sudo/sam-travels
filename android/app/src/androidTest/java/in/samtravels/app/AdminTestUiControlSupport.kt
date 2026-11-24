@@ -8,7 +8,7 @@ internal object AdminTestUiControlSupport {
         value: String,
         index: Int = 0,
         await: (String, Long) -> Boolean,
-        javascriptValue: (String) -> String,
+        javascriptValue: (String) -> String?,
     ) {
         val name = label.replace("'", "\\'")
         val text = value.replace("'", "\\'")
