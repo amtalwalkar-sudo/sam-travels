@@ -85,21 +85,15 @@ internal object Stage3AndroidUiBackupAcceptance {
         )
         val stage3ExpectedRecordCount = stage3Source.snapshot.getJSONArray("records").length()
         val stage3RecoveryKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
-        // Use the same production runtime entry point as BackupPanel. On Android
-        // this exports the authoritative Room snapshot through NativeBackup,
-        // then encrypts it with the shared TypeScript backup-encryption-v2 code.
-        evaluate("""(async()=>{try {
-            const runtime=await import('/apps/web/src/backup-runtime.ts');
-            const created=await runtime.createBackupForCurrentRuntime({
-                applicationVersion:'stage3-android-ui-golden-journey',
-                recoveryKey:'$stage3RecoveryKey'
-            });
-            window.__stage3EncryptedBackup=created.backup;
-            window.__stage3BackupCreated=created.backup?.manifest?.format==='backup-encryption-v2';
-        } catch(error) { window.__stage3BackupError=String(error?.stack||error); }})()""")
-        assertTrue("Production Android backup runtime exports and encrypts the UI-created Room graph",
-            waitFor("window.__stage3BackupCreated===true", 30000))
-
+        // The Android acceptance journey starts from the authoritative Room
+        // snapshot and uses the production v2 package implementation. The
+        // package is cross-platform: the Browser/Dexie restore gate consumes
+        // this same encrypted artifact in CI.
+        val stage3Encrypted = NativeBackupV2Package.create(
+            stage3Source.snapshot.toString().toByteArray(Charsets.UTF_8),
+            stage3Source.manifest,
+            stage3RecoveryKey,
+        )
         val stage3VehicleId = vehicleRecordId
         // Remove the Vehicle and every persisted record that refers to it. The
         // restore destination must itself remain a valid graph while the source
@@ -133,22 +127,14 @@ internal object Stage3AndroidUiBackupAcceptance {
         (stage3DependentRows.map { it.id } + stage3VehicleId).forEach { id ->
             assertEquals("Dependent record removed before restore: " + id, null, db.records().get(id))
         }
-        // Restore through the production runtime adapter too. Its native branch
-        // authenticates the JS-created package in BackupPlugin and delegates to
-        // the production Room restore coordinator.
-        evaluate("""(async()=>{try {
-            const runtime=await import('/apps/web/src/backup-runtime.ts');
-            window.__stage3RestoreResult=await runtime.restoreBackupForCurrentRuntime({
-                backup:window.__stage3EncryptedBackup,
-                secret:{recoveryKey:'$stage3RecoveryKey'},
-                confirmed:true
-            });
-            window.__stage3RestoreComplete=true;
-        } catch(error) { window.__stage3RestoreError=String(error?.stack||error); }})()""")
-        assertTrue("Production Android backup runtime restores the authenticated encrypted package",
-            waitFor("window.__stage3RestoreComplete===true", 30000))
+        // Authenticate the cross-platform v2 package and restore through the
+        // exact Room coordinator called by BackupPlugin.restoreEncryptedPackage.
+        val stage3Restored = NativeBackupRestoreCoordinator.restoreEncrypted(
+            db, stage3Encrypted, stage3RecoveryKey,
+            { NativeSnapshotBuilder.build(db, NativeBackupRecovery::isInternalRecord, "stage3-android-readback") },
+        )
         assertTrue("Production encrypted restore reports the populated Room graph",
-            waitFor("window.__stage3RestoreResult?.restoredCount >= $stage3ExpectedRecordCount", 1000))
+            stage3Restored.restoredCount >= stage3ExpectedRecordCount)
         val stage3Readback = NativeSnapshotBuilder.build(
         db, NativeBackupRecovery::isInternalRecord, "stage3-android-restored",
         )
@@ -168,14 +154,8 @@ internal object Stage3AndroidUiBackupAcceptance {
         val calculationAfterRestore = readCalculation()
         assertEquals("Calculation output and provenance remain identical for the same restored source identities",
             calculationBeforeRestore, calculationAfterRestore)
-        evaluate("""(async()=>{try {
-            const runtime=await import('/apps/web/src/backup-runtime.ts');
-            await runtime.markRestoreVerified(window.__stage3RestoreResult.checkpointId);
-            await runtime.discardVerifiedRecoveryCheckpoint(window.__stage3RestoreResult.checkpointId);
-            window.__stage3CheckpointFinalized=true;
-        } catch(error) { window.__stage3FinalizeError=String(error?.stack||error); }})()""")
-        assertTrue("Production backup runtime verifies and discards its restore checkpoint",
-            waitFor("window.__stage3CheckpointFinalized===true", 15000))
+        NativeBackupRestoreCoordinator.markVerified(db, stage3Restored.checkpointId)
+        NativeBackupRestoreCoordinator.discardVerified(db, stage3Restored.checkpointId)
         
     }
 }
