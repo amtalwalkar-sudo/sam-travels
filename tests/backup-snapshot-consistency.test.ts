@@ -32,13 +32,17 @@ describe("consistent Browser backup snapshot under concurrent writes", () => {
     let markReadStarted!: () => void;
     const gate = new Promise<void>(resolve => { releaseRead = resolve; });
     const readStarted = new Promise<void>(resolve => { markReadStarted = resolve; });
-    const originalToArray = browserDatabase.records.toArray.bind(browserDatabase.records);
-    const spy = vi.spyOn(browserDatabase.records, "toArray").mockImplementation(async (...args) => {
-      const rows = await originalToArray(...args);
-      markReadStarted();
-      await Dexie.waitFor(gate);
-      return rows;
-    });
+    const originalTransaction = browserDatabase.transaction.bind(browserDatabase);
+    const spy = vi.spyOn(browserDatabase, "transaction").mockImplementation(((mode: any, tables: any, scope: any) => {
+      if (mode === "r" && Array.isArray(tables) && tables.some((table: any) => table.name === "records")) {
+        return originalTransaction(mode, tables, async () => {
+          markReadStarted();
+          await Dexie.waitFor(gate);
+          return scope();
+        });
+      }
+      return originalTransaction(mode, tables, scope);
+    }) as any);
 
     try {
       const exportPromise = exportBrowserSnapshot("0.1.0");
