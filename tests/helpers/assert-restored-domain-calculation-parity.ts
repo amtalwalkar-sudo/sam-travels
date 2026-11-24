@@ -10,6 +10,16 @@ export async function assertRestoredDomainCalculationParity(restoredRows: readon
   expect(production.fuelCostRateHistory).toEqual(fixture.expectedBusinessResults.fuelCostRateHistory);
   expect(production.dailyExpenses).toEqual(fixture.expectedBusinessResults.dailyExpenses);
   expect(production.maintenanceAccruals.map(row => row.data)).toEqual(fixture.expectedBusinessResults.maintenanceAccruals.map((expected: any) => expect.objectContaining(expected)));
+  expect(production.maintenanceExpenseProjection).toMatchObject({
+    recordId: "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174050",
+    sourceRevision: 1,
+    amountPaise: 13000,
+    correctionChainRevision: 2,
+    correctionRefs: [
+      { sourceId: "historical-correction:maintenance-fix-1", revision: 1, chainRevision: 1 },
+      { sourceId: "historical-correction:maintenance-fix-2", revision: 1, chainRevision: 2 },
+    ],
+  });
   expect(production.finance.prepayment).toMatchObject({
     regularEmiPaise: fixture.expectedBusinessResults.finance.regularEmiPaise,
     remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments,
