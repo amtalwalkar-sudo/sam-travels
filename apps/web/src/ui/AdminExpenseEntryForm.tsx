@@ -25,7 +25,8 @@ function ExpenseEntryForm({ definition, heading, description }: {
     const next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
     copyRef.current = next;
     setCopy(next);
-    setValues({ ...next.values });
+    // A pending intent is immutable; render the exact payload that will be replayed.
+    setValues({ ...(next.status === "pending" && next.submission ? next.submission.values : next.values) });
   }, [definition, services]);
 
   useEffect(() => { void start().catch(error => setMessage(error instanceof Error ? error.message : "Could not open the expense form.")); }, [start]);
@@ -65,15 +66,15 @@ function ExpenseEntryForm({ definition, heading, description }: {
       <div className="loan-form-grid">
         {definition.fields.map(field => <label key={field.id}>
           {field.label}
-          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true}
+          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true} disabled={busy || copy?.status === "pending"}
             onChange={event => change(field, event.target.checked)} /> :
-          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")}
+          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")} disabled={busy || copy?.status === "pending"}
             onChange={event => change(field, event.target.value)}>
               <option value="">Select</option>
               {(field.options ?? []).map(option => <option key={option} value={option}>{option}</option>)}
             </select> :
           <input type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-            required={field.required} maxLength={field.maxLength}
+            required={field.required} maxLength={field.maxLength} disabled={busy || copy?.status === "pending"}
             min={field.type === "number" ? "0.01" : undefined}
             step={field.type === "number" ? "0.01" : undefined}
             value={String(values[field.id] ?? "")}
