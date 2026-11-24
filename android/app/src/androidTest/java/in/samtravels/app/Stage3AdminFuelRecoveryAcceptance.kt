@@ -17,9 +17,10 @@ internal object Stage3AdminFuelRecoveryAcceptance {
         registration: String,
     ): Stage3AdminFuelRecoveryResult {
         support.eval(startingActivity, "(()=>{const p=document.getElementById('admin-section-panel-finance');if(p?.hidden)document.getElementById('admin-section-trigger-finance')?.click()})()")
-        check(support.await(startingActivity, "!!document.querySelector('#admin-vehicle')", 10000)) {
-            "Finance Vehicle selector must be visible before Admin expense entry"
-        }
+        check(support.await(startingActivity,
+            """(()=>{const s=document.querySelector('#admin-vehicle');return !!s&&[...s.options].some(o=>o.textContent.includes('$registration'))})()""",
+            15000,
+        )) { "Finance Vehicle option must load before Admin expense entry" }
         check(support.javascriptValue(startingActivity,
             """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""") == "true") {
             "Finance Vehicle must be selected before Admin expense entry"
@@ -39,10 +40,14 @@ internal object Stage3AdminFuelRecoveryAcceptance {
         val fuel = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
             platformFee.first, support, db, vehicleRecordId, marker + " Admin",
         )
-        check(support.await(fuel.first, "!!document.querySelector('#admin-vehicle')", 10000)) {
-            "Finance Vehicle selector must survive both form recovery journeys"
+        check(support.await(fuel.first,
+            """(()=>{const s=document.querySelector('#admin-vehicle');return !!s&&[...s.options].some(o=>o.textContent.includes('$registration'))})()""",
+            15000,
+        )) { "Finance Vehicle option must survive both form recovery journeys" }
+        check(support.javascriptValue(fuel.first,
+            """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""") == "true") {
+            "Finance Vehicle must be selected after both recovery journeys"
         }
-        support.eval(fuel.first, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
         return Stage3AdminFuelRecoveryResult(fuel.first, platformFee.second, fuel.second)
     }
 
