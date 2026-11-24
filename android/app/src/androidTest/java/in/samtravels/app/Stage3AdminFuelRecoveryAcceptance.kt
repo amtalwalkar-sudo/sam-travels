@@ -21,6 +21,10 @@ internal object Stage3AdminFuelRecoveryAcceptance {
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Fee amount (₹)", "150")
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Trip / settlement reference", "FEE-" + marker)
         AdminEntryPathAuditTestSupport.setInPanel(startingActivity, support, "section.admin-capability-panel", "Platform Fees", "Note", marker + " platform fee")
+        check(support.await(startingActivity,
+            """(()=>{const p=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');const b=p?.querySelector('form button[type=submit]');return !!b&&!b.disabled})()""",
+            15000,
+        )) { "Platform Fee form must be ready before the injected completion failure" }
         val platformFee = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
             startingActivity, support, db, marker, marker + " Admin",
         )
