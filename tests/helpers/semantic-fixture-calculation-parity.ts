@@ -193,7 +193,12 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
   }
   mark("complete");
   return {
-    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses,\n    maintenanceExpenseProjection: { recordId: maintenanceExpenseProjection.id, sourceRevision: maintenanceExpenseProjection.revision,\n      amountPaise: maintenanceExpenseProjection.data.amountPaise,\n      correctionChainRevision: maintenanceExpenseProjection.correctionChainRevision,\n      correctionRefs: maintenanceExpenseProjection.correctionRefs },\n    maintenanceAccruals: calculatedAccruals,
+    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses,
+    maintenanceExpenseProjection: { recordId: maintenanceExpenseProjection.id, sourceRevision: maintenanceExpenseProjection.revision,
+      amountPaise: maintenanceExpenseProjection.data.amountPaise,
+      correctionChainRevision: maintenanceExpenseProjection.correctionChainRevision,
+      correctionRefs: maintenanceExpenseProjection.correctionRefs },
+    maintenanceAccruals: calculatedAccruals,
     finance: { loanSourceId: loan.id, loanRevision: loan.revision, originalScheduleVersion: storedSchedule.version,
       originalSchedule, prepaymentSourceId: prepayment.id, prepaymentRevision: prepayment.revision,
       prepaymentScheduleVersion: prepaymentRevision.version, prepayment: recalculatedPrepayment },
