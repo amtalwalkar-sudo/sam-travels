@@ -149,31 +149,13 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertTrue("Finance Vehicle selector", support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
         support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
 
-        // Exercise a rendered Admin expense submit through the exact Room
-        // domain-commit / working-copy-completion interruption boundary.
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Fee date", "2026-11-15")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Vehicle", vehicleRecordId!!)
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Fee amount (₹)", "150")
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Trip / settlement reference", "FEE-" + marker)
-        AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Platform Fees", "Note", marker + " platform fee")
-        val platformFeeRecovery = AdminEntryPathAuditTestSupport.assertPlatformFeePostCommitRecovery(
-            activity, support, db, marker, marker + " Admin",
+        val recovery = Stage3AdminFuelRecoveryAcceptance.recoverAdminAndFuel(
+            activity, support, db, marker, vehicleRecordId!!, registration,
         )
-        activity = platformFeeRecovery.first
-        adminFeeRecordId = platformFeeRecovery.second
-
-        // Exercise Fuel draft persistence and post-commit receipt replay through
-        // the rendered Work form, including a full WebView recreation.
-        val fuelRecovery = AdminEntryPathAuditTestSupport.assertFuelDraftAndPostCommitRecovery(
-            activity, support, db, vehicleRecordId!!, marker + " Admin",
-        )
-        activity = fuelRecovery.first
-        fuelRecordId = fuelRecovery.second
+        activity = recovery.activity
+        adminFeeRecordId = recovery.adminFeeRecordId
+        fuelRecordId = recovery.fuelRecordId
         fuelRecordIds.add(fuelRecordId!!)
-
-        assertTrue("Finance Vehicle selector survives both form recovery journeys",
-            support.await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
-        support.eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
         support.click(activity, "Add loan")
         support.set(activity, "Loan name", marker + " Loan")
         support.set(activity, "Lender name", "Acceptance Bank")
@@ -279,19 +261,8 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         assertEquals("Odometer", 55123, fuelData.getInt("odometerKm"))
         assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
         fuelRecordIds.add(AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(activity, support, db, vehicleRecordId!!))
-        Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
-            db,
-            vehicleRecordId!!,
-            fuelRecordId = fuelRecordId!!,
-            fuelRecordIds = fuelRecordIds,
-            adminFeeRecordId = adminFeeRecordId,
-            evaluate = { script -> support.eval(activity, script) },
-            waitFor = { script, timeout -> support.await(activity, script, timeout) },
-            click = { label -> support.clickMatching(activity, label) },
-            readCalculation = {
-                support.javascriptValue(activity,
-                    "JSON.stringify({dashboard:document.querySelector('.performance-dashboard')?.innerText??'',provenance:document.querySelector('#performance-provenance')?.textContent??''})").orEmpty()
-            },
+        Stage3AdminFuelRecoveryAcceptance.assertPerformanceAndRestore(
+            activity, support, db, vehicleRecordId!!, fuelRecordId!!, fuelRecordIds, adminFeeRecordId,
         )
     } finally {
         // If an assertion aborts the post-restore journey before explicit
