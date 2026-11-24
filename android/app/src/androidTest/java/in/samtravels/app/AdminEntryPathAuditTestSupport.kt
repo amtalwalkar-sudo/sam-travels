@@ -112,7 +112,7 @@ internal object AdminEntryPathAuditTestSupport {
             support.await(activity, "document.querySelector('[role=status]')?.textContent.includes('Role activated')", 15000))
         support.eval(activity, "(()=>{const p=document.getElementById('admin-section-panel-finance');if(p?.hidden)document.getElementById('admin-section-trigger-finance')?.click()})()")
         assertTrue("Pending Platform Fee draft is recovered in the rendered Admin form",
-            support.await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return !!s&&s.textContent.includes('Draft · pending')&&s.textContent.includes('FEE-$marker')})()""", 15000))
+            support.await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return s?.textContent.includes('Draft · pending')&&[...s.querySelectorAll('input')].some(i=>i.value==='FEE-$marker')})()""", 15000))
         support.eval(activity, "(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');s?.querySelector('form button[type=submit]')?.click()})()")
         assertTrue("Pending Admin Platform Fee replays the original Room receipt",
             support.await(activity, """(()=>{const s=[...document.querySelectorAll('.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent==='Platform Fees');return s?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()""", 20000))
