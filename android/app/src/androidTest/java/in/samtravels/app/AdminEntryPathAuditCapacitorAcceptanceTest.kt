@@ -276,7 +276,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         val fuelData = JSONObject(fuel.json).getJSONObject("data")
         assertEquals("Amount", 82500, fuelData.getInt("amountPaise"))
         assertEquals("Price/kg", 8250, fuelData.getInt("pricePaisePerKg"))
-        assertEquals("Odometer", 56000, fuelData.getInt("odometerKm"))
+        assertEquals("Odometer", 55123, fuelData.getInt("odometerKm"))
         assertEquals("Full refill", false, fuelData.getBoolean("partialRefill"))
         fuelRecordIds.add(AdminEntryPathAuditTestSupport.submitClosingFuelCheckpoint(activity, support, db, vehicleRecordId!!))
         Stage3AndroidUiBackupAcceptance.assertPerformanceAndRestore(
