@@ -6,6 +6,7 @@ import {
   calculateFuelIntervals,
   calculateFuelCostRateHistory,
   deriveFuelQuantityMilliKg,
+  fuelBusinessDateFromInstant,
   type BusinessExpenseEntryV1,
   type FuelPurchaseV1,
 } from "../packages/features/business-expenses";
@@ -14,7 +15,7 @@ const vehicleId = "feature:vehicle:MH01AB1234";
 function fuel(id: string, occurredAt: string, odometerKm: number, partialRefill: boolean, amountPaise: number): FuelPurchaseV1 {
   return {
     schemaVersion: 1, kind: "fuel_purchase", id, revision: 1,
-    businessDate: new Date(Date.parse(occurredAt) + 330 * 60_000).toISOString().slice(0, 10), occurredAt, vehicleId, odometerKm,
+    businessDate: fuelBusinessDateFromInstant(occurredAt), occurredAt, vehicleId, odometerKm,
     pricePaisePerKg: 10_000, amountPaise, partialRefill,
   };
 }
@@ -38,6 +39,13 @@ describe("Business expense source contracts", () => {
         capturedAt: "2026-11-14T19:59:30.000Z", provider: "device",
       },
     })).toThrow("fuel_purchase_invalid");
+  });
+
+  it("assigns Fuel purchases to the Asia/Kolkata 04:00 operational date", () => {
+    expect(fuelBusinessDateFromInstant("2026-11-14T22:29:59.000Z")).toBe("2026-11-14");
+    expect(fuelBusinessDateFromInstant("2026-11-14T22:30:00.000Z")).toBe("2026-11-15");
+    expect(fuelBusinessDateFromInstant("2026-11-14T20:00:00.000Z")).toBe("2026-11-14");
+    expect(() => fuelBusinessDateFromInstant("not-an-instant")).toThrow("fuel_timestamp_invalid");
   });
 
   it("derives fuel quantity to the nearest gram without changing source money", () => {
