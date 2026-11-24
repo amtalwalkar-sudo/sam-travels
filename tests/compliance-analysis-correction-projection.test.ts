@@ -38,6 +38,15 @@ function service(corrections: HistoricalCorrectionV1[], identity = { async curre
   );
 }
 
+const amountCorrection: HistoricalCorrectionV1 = {
+  ...correction,
+  correctionId: "fix-total-cost",
+  fieldPath: "totalCostPaise",
+  beforeValue: 10_000,
+  afterValue: 12_000,
+  reason: "Correct source premium against verified receipt",
+};
+
 describe("Compliance historical correction projection", () => {
   it("feeds corrected immutable source values into Compliance overview reads", async () => {
     const overview = await service([correction]).getOverview();
@@ -52,6 +61,14 @@ describe("Compliance historical correction projection", () => {
     await expect(analysis.getOverview()).rejects.toThrow("business_actor_not_active");
     const overview = await analysis.getAllocationOverview();
     expect(overview.records[0].data.validTo).toBe("2026-02-28");
+  });
+
+  it("feeds corrected immutable premium amounts into Performance allocation reads", async () => {
+    const overview = await service([amountCorrection], {
+      async currentActor() { throw new Error("business_actor_not_active"); },
+    }).getAllocationOverview();
+    expect(overview.records[0].data.totalCostPaise).toBe(12_000);
+    expect(record.data.totalCostPaise).toBe(10_000);
   });
 
   it("fails closed when a correction chain cannot be projected", async () => {
