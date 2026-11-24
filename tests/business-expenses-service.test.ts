@@ -131,12 +131,10 @@ describe("BusinessExpensesService", () => {
       ["123e4567-e89b-42d3-a456-426614174040","2026-11-01T09:00:00.000Z",100,false,50_000],
       ["123e4567-e89b-42d3-a456-426614174041","2026-11-05T09:00:00.000Z",110,true,20_000],
       ["123e4567-e89b-42d3-a456-426614174042","2026-11-10T09:00:00.000Z",120,false,30_000],
-    ] as const) {
-      await service.createFuelPurchase({ uuid, source:"web", data: {
-        businessDate: fuelBusinessDateFromInstant(occurredAt),
-        occurredAt, vehicleId, odometerKm, pricePaisePerKg:10_000, amountPaise, partialRefill,
-      }});
-    }
+    ] as const) await service.createFuelPurchase({ uuid, source:"web", data: {
+      businessDate: fuelBusinessDateFromInstant(occurredAt), occurredAt, vehicleId, odometerKm,
+      pricePaisePerKg:10_000, amountPaise, partialRefill,
+    }});
     const history = await service.listFuelCostRateHistory();
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ effectiveFrom:"2026-11-11",
