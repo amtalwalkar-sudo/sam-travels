@@ -4,6 +4,7 @@ import type { RecordEnvelope } from "../packages/core/src/types";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
   calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
+  fuelBusinessDateFromInstant,
 } from "../packages/features/business-expenses";
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 
