@@ -53,12 +53,12 @@ describe("backup-encryption-v1", () => {
   it("rejects malformed and truncated serialized packages before restore", async () => {
     const recoveryKey = generateBackupRecoveryKey();
     const { backup } = await createEncryptedBackup({
-      plaintext: new TextEncoder().encode("{\\"records\\":[],\\"snapshotRevision\\":0,\\"schemaVersion\\":1}"),
+      plaintext: new TextEncoder().encode('{"records":[],"snapshotRevision":0,"schemaVersion":1}'),
       manifest: { ...manifest, recordCounts: { records: 0 } },
       mode: "recovery-key-only", recoveryKey,
     });
     const serialized = serializeBackupPackage(backup);
-    expect(() => parseBackupPackage(new TextEncoder().encode("{\\"manifest\\":"))).toThrow();
+    expect(() => parseBackupPackage(new TextEncoder().encode('{"manifest":'))).toThrow();
     expect(() => parseBackupPackage(serialized.slice(0, serialized.length - 9))).toThrow();
     expect(() => parseBackupPackage(new Uint8Array([0xff, 0xfe, 0xfd]))).toThrow();
     const missingPayload = structuredClone(backup) as any;
