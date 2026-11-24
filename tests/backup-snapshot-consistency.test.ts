@@ -47,7 +47,7 @@ describe("consistent Browser backup snapshot under concurrent writes", () => {
     try {
       const exportPromise = exportBrowserSnapshot("0.1.0");
       await readStarted;
-      const writePromise = browserDatabase.transaction("rw", [
+      const writePromise = Dexie.ignoreTransaction(() => browserDatabase.transaction("rw", [
         browserDatabase.records, browserDatabase.driverState,
       ], async () => {
         await browserDatabase.records.put({
@@ -58,7 +58,7 @@ describe("consistent Browser backup snapshot under concurrent writes", () => {
         await browserDatabase.table("driverState").put({
           id: "driver-state", value: { schemaVersion: 1, revision: 2, state: "shift_active" },
         });
-      });
+      ]));
       releaseRead();
       const snapshot = await exportPromise;
       await writePromise;
