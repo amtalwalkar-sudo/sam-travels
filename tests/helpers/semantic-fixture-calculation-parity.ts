@@ -162,7 +162,11 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
       sourceId: item.recordId, revision: required(rows, item.recordId).revision,
     })),
     ...workAllocations.map(item => ({ sourceId: item.sourceId, revision: item.revision })),
-    ...corrections.map(item => ({ sourceId: item.targetRecordId, revision: item.targetRevision })),
+    ...corrections.flatMap(item => [
+      { sourceId: item.targetRecordId, revision: item.targetRevision },
+      { sourceId: "historical-correction:" + item.headCorrectionId, revision: 1 },
+      { sourceId: "historical-correction-chain:" + encodeURIComponent(item.targetRecordId), revision: item.chainRevision },
+    ]),
   ];
   const uniqueProvenance = [...new Map(provenance.map(item =>
     [item.sourceId + "@" + item.revision + (item.scheduleVersion ? "#" + item.scheduleVersion : ""), item],
