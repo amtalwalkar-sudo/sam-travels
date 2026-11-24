@@ -269,7 +269,7 @@ internal object NativeMaintenanceBackup {
                     }
                 }
             }
-            val defaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+            val defaultDate = operationalDateAt(vehicleCreatedAt)
             val expectedEffectiveFrom = effective?.optString("effectiveFrom") ?: defaultDate
             val expectedRate = effective?.optLong("ratePaisePerKm") ?: DEFAULT_RATE
             require(expectedEffectiveFrom <= operationalDate &&
