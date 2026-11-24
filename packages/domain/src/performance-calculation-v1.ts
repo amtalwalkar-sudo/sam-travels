@@ -173,10 +173,8 @@ export function allocatePreBusinessRecoveryV1(
     sourceRefs?: readonly PerformanceSourceRefV1[];
   }>[];
 }> {
-  const startDay = assertDate(businessStartDate);
-  const toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
-  const orderedSources = [...sources].sort((left, right) => left.sourceId.localeCompare(right.sourceId));
-  const seen = new Set<string>();
+  const startDay = assertDate(businessStartDate), toExclusive = addMonthsClamped(businessStartDate, PRE_BUSINESS_RECOVERY_MONTHS_V1);
+  const orderedSources = [...sources].sort((left, right) => left.sourceId.localeCompare(right.sourceId)), seen = new Set<string>();
   let totalPaise = 0;
   for (const source of orderedSources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
@@ -195,10 +193,8 @@ export function allocatePreBusinessRecoveryV1(
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
   // Cumulative source apportionment preserves provenance while each monthly pool instalment reconciles exactly.
-  const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1);
-  const monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
-  const monthTotal = (monthIndex: number): number =>
-    monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
+  const monthlyBase = Math.floor(totalPaise / PRE_BUSINESS_RECOVERY_MONTHS_V1), monthlyRemainder = totalPaise % PRE_BUSINESS_RECOVERY_MONTHS_V1;
+  const monthTotal = (monthIndex: number): number => monthlyBase + (monthIndex < monthlyRemainder ? 1 : 0);
   let cumulativePoolAllocated = 0;
   let previousSourceShares = orderedSources.map(() => 0);
   const cumulativeSourceShares = (monthlyAmount: number): number[] => {
@@ -217,21 +213,17 @@ export function allocatePreBusinessRecoveryV1(
     return monthlyShares;
   };
   for (let monthIndex = 0; monthIndex < PRE_BUSINESS_RECOVERY_MONTHS_V1; monthIndex++) {
-    const monthStart = addMonthsClamped(businessStartDate, monthIndex);
-    const monthEndExclusive = addMonthsClamped(businessStartDate, monthIndex + 1);
-    const start = Math.max(startDay, assertDate(monthStart));
-    const end = assertDate(monthEndExclusive);
+    const monthStart = addMonthsClamped(businessStartDate, monthIndex), monthEndExclusive = addMonthsClamped(businessStartDate, monthIndex + 1);
+    const start = Math.max(startDay, assertDate(monthStart)), end = assertDate(monthEndExclusive);
     const dayCount = end - start;
     if (dayCount <= 0) throw new Error("performance_recovery_period_invalid");
     const instalment = monthTotal(monthIndex);
     const sourceShares = cumulativeSourceShares(instalment);
     orderedSources.forEach((source, sourceIndex) => {
       const amount = sourceShares[sourceIndex];
-      const quotient = Math.floor(amount / dayCount);
-      const remainder = amount % dayCount;
+      const quotient = Math.floor(amount / dayCount), remainder = amount % dayCount;
       for (let offset = 0; offset < dayCount; offset++) {
-        const amountPaise = quotient + (offset < remainder ? 1 : 0);
-        if (amountPaise > 0) daily.push({
+        const amountPaise = quotient + (offset < remainder ? 1 : 0); if (amountPaise > 0) daily.push({
           date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
           revision: source.revision, origin: source.origin, note: source.note,
           ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
@@ -240,8 +232,7 @@ export function allocatePreBusinessRecoveryV1(
       }
     });
   }
-  const allocated = daily.reduce((sum, row) => add(sum, row.amountPaise), 0);
-  if (allocated !== totalPaise) throw new Error("performance_recovery_reconciliation_failed");
+  const allocated = daily.reduce((sum, row) => add(sum, row.amountPaise), 0); if (allocated !== totalPaise) throw new Error("performance_recovery_reconciliation_failed");
   return Object.freeze({
     from: businessStartDate, toExclusive,
     totalPaise,
