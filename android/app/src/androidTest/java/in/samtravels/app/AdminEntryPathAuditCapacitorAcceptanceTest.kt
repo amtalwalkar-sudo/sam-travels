@@ -300,12 +300,24 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         // inside its serialized snapshot: the next process must be able to
         // recover it rather than being stranded with a journal-only marker.
         runCatching { NativeBackupRecovery.recoverPending(db) }
-        db.records().list().filter { !NativeBackupRecovery.isInternalRecord(it.id) &&
-            (it.json.contains(marker) || it.id in fuelRecordIds ||
-            it.id == vehicleRecordId || it.id in financeRecordIds || it.id == assignmentRecordId ||
-            it.id == "feature:business-settings:business" ||
-            (it.id.startsWith("__sam_travels_feature_operation__:") &&
-                JSONObject(it.json).getJSONObject("data").optString("targetRecordId") == "feature:business-settings:business")) }.forEach { db.records().remove(it.id) }
+        val recoveredExpenseRecordIds = fuelRecordIds + listOfNotNull(adminFeeRecordId)
+        db.records().list().filter { row ->
+            if (NativeBackupRecovery.isInternalRecord(row.id)) return@filter false
+            val data = runCatching { JSONObject(row.json).optJSONObject("data") }.getOrNull()
+            val platformFeeDraft = row.id.startsWith("__sam_travels_form_working_copy__:admin.platform-fee:") &&
+                (data?.optJSONObject("values")?.optString("reference") == "FEE-" + marker ||
+                    data?.optJSONObject("submission")?.optJSONObject("values")?.optString("reference") == "FEE-" + marker)
+            val fuelDraft = row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") &&
+                data?.optJSONObject("values")?.optString("vehicleId") == vehicleRecordId &&
+                data.optJSONObject("values")?.optInt("odometerKm") == 55123
+            val expenseReceipt = row.id.startsWith("__sam_travels_feature_operation__:") &&
+                data?.optString("targetRecordId") in recoveredExpenseRecordIds
+            row.json.contains(marker) || row.id in fuelRecordIds || row.id == adminFeeRecordId ||
+                row.id == vehicleRecordId || row.id in financeRecordIds || row.id == assignmentRecordId ||
+                row.id == "feature:business-settings:business" || platformFeeDraft || fuelDraft || expenseReceipt ||
+                (row.id.startsWith("__sam_travels_feature_operation__:") &&
+                    data?.optString("targetRecordId") == "feature:business-settings:business")
+        }.forEach { db.records().remove(it.id) }
         if (previousWorkSelection != null) db.records().put(previousWorkSelection)
         else db.records().remove("work:selected-driver")
         if (previousPerformanceSettings != null) db.records().put(previousPerformanceSettings)
