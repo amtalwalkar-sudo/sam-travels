@@ -72,7 +72,8 @@ describe("PerformanceCalculationServiceV1", () => {
       { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
         note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
       { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
-        note: "Pre-start insurance", origin: "compliance" as const },
+        note: "Pre-start insurance", origin: "compliance" as const,
+        sourceRefs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }] },
     ]);
     const result = await new PerformanceCalculationServiceV1(readModels).calculate("2026-03-15", "2026-04-14");
     expect(result.recovery.totalPaise).toBe(8_400);
@@ -80,6 +81,14 @@ describe("PerformanceCalculationServiceV1", () => {
     expect(new Set(result.recovery.daily.map(row => row.origin)))
       .toEqual(new Set(["manual", "emi", "compliance"]));
     expect(result.recovery.daily.find(row => row.sourceId === "emi-before-start")?.scheduleVersion).toBe(3);
+    expect(result.recovery.daily.find(row => row.sourceId === "compliance-before-start")?.sourceRefs).toContainEqual({
+      sourceId: "historical-correction:compliance-premium", revision: 1,
+    });
+    expect(result.provenance.sourceRefs).toContainEqual({
+      sourceId: "historical-correction:compliance-premium", revision: 1,
+    });
+    expect(result.passbook.daily.some(day => day.sourceRefs.some(ref =>
+      ref.sourceId === "historical-correction:compliance-premium" && ref.revision === 1))).toBe(true);
     expect(result.provenance.sourceRefs).toContainEqual(expect.objectContaining({
       sourceId: "emi-before-start", revision: 2, scheduleVersion: 3,
     }));
@@ -89,7 +98,8 @@ describe("PerformanceCalculationServiceV1", () => {
     const reversedModels = sources();
     reversedModels.emi.listPreBusinessRecoveryEntries = vi.fn(async () => [
       { sourceId: "compliance-before-start", revision: 4, amountPaise: 3_600,
-        note: "Pre-start insurance", origin: "compliance" as const },
+        note: "Pre-start insurance", origin: "compliance" as const,
+        sourceRefs: [{ sourceId: "historical-correction:compliance-premium", revision: 1 }] },
       { sourceId: "emi-before-start", revision: 2, amountPaise: 1_800,
         note: "Pre-start EMI", origin: "emi" as const, scheduleVersion: 3 },
     ]);

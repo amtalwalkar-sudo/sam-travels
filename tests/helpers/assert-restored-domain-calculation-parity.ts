@@ -26,6 +26,34 @@ export async function assertRestoredDomainCalculationParity(restoredRows: readon
     finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate,
   });
   expect(production.compliance).toMatchObject({ status: "available", date: "2026-11-01", total: { numeratorPaise: "73200", denominator: "73" } });
+  expect(production.integratedCalculations.dailyExpenseClassification).toMatchObject({
+    trafficChallansPaise: 2000, operatingExcludesTrafficChallans: true,
+  });
+  expect(production.integratedCalculations.dailyExpenseClassification.fullCostExpensePaise -
+    production.integratedCalculations.dailyExpenseClassification.normalOperatingExpensePaise).toBe(2000);
+  expect(production.integratedCalculations.fullCost.daily.find(row => row.date === "2026-11-01")?.costs["traffic-challan"]).toBe(2000);
+  expect(production.integratedCalculations.performance.monthlyDriverTargetPaise).toBe(50000);
+  expect(production.integratedCalculations.performance.daily.find(row => row.date === "2026-11-01")?.costs["traffic-challan"]).toBe(2000);
+  expect(production.integratedCalculations.complianceRecovery).toMatchObject({
+    sourceId: "feature:compliance:123e4567-e89b-42d3-a456-426614174010",
+    sourceRevision: 1, sourceAmountPaise: 366000, disposition: "allocated",
+    eligibleFrom: "2026-11-01", eligibleTo: "2028-04-30", allocatedDailyPaise: 366000,
+    correctionRefs: [{ sourceId: "historical-correction:compliance-fix-1", revision: 1 }],
+    originalAmountPaise: 365000, correctedAmountPaise: 366000,
+  });
+  expect(production.integratedCalculations.performance.recovery.complianceSourcePaise).toBe(366000);
+  expect(production.integratedCalculations.performance.recovery.complianceDaily[0].sourceRefs).toContainEqual({
+    sourceId: "historical-correction:compliance-fix-1", revision: 1,
+  });
+  expect(production.integratedCalculations.performance.provenance).toContainEqual({
+    sourceId: "feature:compliance:123e4567-e89b-42d3-a456-426614174010", revision: 1,
+  });
+  expect(production.integratedCalculations.performance.provenance).toContainEqual({
+    sourceId: "historical-correction:compliance-fix-1", revision: 1,
+  });
+  expect(production.integratedCalculations.performance.passbook.daily.some(day => day.sourceRefs.some(ref =>
+    ref.sourceId === "historical-correction:compliance-fix-1" && ref.revision === 1))).toBe(true);
+  expect(production.integratedCalculations.fullCost.totalCostPaise).toBeGreaterThan(0);
   expect(production.provenance.length).toBeGreaterThan(0);
   expect(production.workAllocations.map(row => ({
     operationalDate: row.operationalDate,

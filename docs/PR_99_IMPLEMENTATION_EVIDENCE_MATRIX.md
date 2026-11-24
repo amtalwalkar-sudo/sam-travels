@@ -600,3 +600,25 @@ The earlier 9.47 Stage 3 disposition (PARTIAL/ACTIVE) predates the connected fau
 **CI boundary:** the earlier green Stage 3 run [4398](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45478433937) is on the Stage 3 acceptance head only. It does not validate the Stage 4 additions. The new Maintenance correction integration assertions and this evidence update require all required CI jobs to pass on the final resulting PR head.
 
 **Stage 4 disposition: ACTIVE — NOT ACCEPTED.** The remaining integrated Performance/full-cost calculation and Compliance-correction-to-recovery-pool assertions are explicit exit gates. Stage 5 must not begin until those assertions pass and the exact-head CI is green.
+
+
+## 9.50 — Stage 4 integrated Performance/full-cost and Compliance recovery assertions — 2026-11-25
+
+The two remaining Stage 4 assertions from §9.49 are now wired into the shared populated-fixture calculation bundle. This entry supersedes the §9.49 remaining-assertion rows; it does not waive the exact-head CI gate.
+
+| Requirement | Integrated assertion added | Restore parity |
+|---|---|---|
+| Operating vs full-cost treatment of Traffic Challans | The production FullCostBreakevenService and PerformanceCalculationServiceV1 are composed over the populated repository-read graph. The normal operating expense classification excludes the paid challan; full-cost classification and full-cost breakeven include the paid amount. The unpaid challan remains excluded from recognized expense. | The shared runner returns complete daily/period outputs and source revisions; Browser/Dexie and Android/Room compare the full result before backup and after production restore/reopen/recovery. |
+| Driver Target | The production Performance composition reads the fixture's revisioned Admin Driver Target and asserts the configured target value in the result. | Target snapshot and full Performance result/provenance are part of the same before/after comparison. |
+| Exact Compliance correction → Business Start Date pool | The exact Compliance target from the fixture is projected through compliance-fix-1, then passed to the production BusinessStartDateCostAllocationService. The corrected source amount (366000 paise) is allocated once across the 18-month recovery window; the immutable source remains 365000 paise. The corrected source's original ID/revision and correction event ref are asserted. The fixture's separate renewal/overlap chain is retained and remains covered by Compliance overlap tests; the recovery assertion isolates this corrected historical source. | The shared result includes the Business Start Date pool and Performance recovery rows. Correction refs are carried by PerformanceFixedCostAllocationAdapterV1 into recovery daily rows, top-level Performance provenance and passbook refs, then compared after Browser and Android restore. |
+
+**Named assertions:**
+- tests/helpers/semantic-fixture-calculation-parity.ts — production full-cost + Performance composition and exact Compliance recovery-pool path.
+- tests/helpers/assert-restored-domain-calculation-parity.ts — expected challan treatment, full-cost output, fixed Driver Target, Compliance corrected amount, original immutability and correction provenance.
+- tests/performance-calculation-service.test.ts — correction refs remain attached to pre-business recovery daily rows and Performance provenance.
+- tests/semantic-backup-lifecycle-fixture.test.ts — Browser/Dexie complete pre/post restore calculation/provenance equality.
+- SharedSevenDomainBackupLifecycleTest.sharedSevenDomainFixtureSurvivesProductionRoomRestoreReopenAndReexport — Android/Room complete pre/post restore calculation/provenance equality.
+
+**Production provenance change:** PreBusinessRecoverySourceV1 now accepts explicit correction refs; the recovery allocator preserves them in each daily source row; PerformanceFixedCostAllocationAdapterV1 sources them from BusinessStartDateCostAllocationReportV1.sourceCorrectionRefs; and PerformanceCalculationServiceV1 includes them in the source snapshot fence. This prevents a corrected Compliance amount from entering recovery while its correction identity disappears at the adapter boundary.
+
+**Stage 4 disposition: IMPLEMENTATION/EVIDENCE COMPLETE — REQUIRED EXACT-HEAD CI PENDING.** Do not accept Stage 4 or begin Stage 5 unless the five required CI jobs pass on the exact resulting PR head. The prior Stage 3 run [4398](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45478433937) is not evidence for this Stage 4 implementation.

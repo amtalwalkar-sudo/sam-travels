@@ -44,6 +44,8 @@ export type PreBusinessRecoverySourceV1 = Readonly<{
   note: string;
   origin: "manual" | "emi" | "compliance";
   scheduleVersion?: number;
+  /** Append-only correction records that explain the projected source amount. */
+  sourceRefs?: readonly PerformanceSourceRefV1[];
 }>;
 export type PerformanceCompletenessV1 = Readonly<{
   source: string;
@@ -102,7 +104,7 @@ export type PerformanceCalculationResultV1 = Readonly<{
     from: string;
     toExclusive: string;
     totalPaise: number;
-    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }>[];
+    daily: readonly Readonly<{ date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number; sourceRefs?: readonly PerformanceSourceRefV1[] }>[];
   }>;
   provenance: Readonly<{
     sourceRefs: readonly PerformanceSourceRefV1[];
@@ -168,6 +170,7 @@ export function allocatePreBusinessRecoveryV1(
     origin: "manual" | "emi" | "compliance";
     note: string;
     scheduleVersion?: number;
+    sourceRefs?: readonly PerformanceSourceRefV1[];
   }>[];
 }> {
   const startDay = assertDate(businessStartDate);
@@ -177,6 +180,7 @@ export function allocatePreBusinessRecoveryV1(
   let totalPaise = 0;
   for (const source of orderedSources) {
     safeAmount(source.amountPaise, "performance_recovery_amount_invalid");
+    validateRefs(source.sourceRefs ?? []);
     if (!source.sourceId.trim() || !Number.isSafeInteger(source.revision) || source.revision < 1 ||
         typeof source.note !== "string" || !source.note.trim() ||
         !["manual", "emi", "compliance"].includes(source.origin) ||
@@ -187,7 +191,7 @@ export function allocatePreBusinessRecoveryV1(
     seen.add(source.sourceId);
     totalPaise = add(totalPaise, source.amountPaise);
   }
-  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number }[] = [];
+  const daily: { date: string; amountPaise: number; sourceId: string; revision: number; origin: "manual" | "emi" | "compliance"; note: string; scheduleVersion?: number; sourceRefs?: readonly PerformanceSourceRefV1[] }[] = [];
   if (totalPaise === 0) return Object.freeze({ from: businessStartDate, toExclusive, totalPaise, daily: Object.freeze(daily) });
 
   // Cumulative source apportionment preserves provenance while each monthly pool instalment reconciles exactly.
@@ -231,6 +235,7 @@ export function allocatePreBusinessRecoveryV1(
           date: dateAt(start + offset), amountPaise, sourceId: source.sourceId,
           revision: source.revision, origin: source.origin, note: source.note,
           ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
+          ...(source.sourceRefs?.length ? { sourceRefs: Object.freeze(source.sourceRefs.map(ref => Object.freeze({ ...ref }))) } : {}),
         });
       }
     });
@@ -302,10 +307,14 @@ export function calculatePerformanceV1(input: PerformanceCalculationInputV1): Pe
     bucket[recoveryKind] = add(bucket[recoveryKind], row.amountPaise);
     costsByDate.set(row.date, bucket);
     addPassbookSourceRefs(row.date, [{ sourceId: row.sourceId, revision: row.revision,
-      ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) }]);
+      ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) },
+      ...(row.sourceRefs ?? [])]);
   }
-  for (const source of input.preBusinessRecovery) refs.push({ sourceId: source.sourceId, revision: source.revision,
-    ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}) });
+  for (const source of input.preBusinessRecovery) {
+    refs.push({ sourceId: source.sourceId, revision: source.revision,
+      ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}) });
+    refs.push(...(source.sourceRefs ?? []));
+  }
 
   const lifetimeTo = input.periodTo;
   const lifetimeDays = assertDate(lifetimeTo) - businessStartDay + 1;

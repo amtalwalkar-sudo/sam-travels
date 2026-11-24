@@ -153,8 +153,11 @@ export class PerformanceCalculationServiceV1 {
       ...operatingCosts.flatMap(row => row.sourceRefs),
       ...emiCosts.flatMap(row => row.sourceRefs),
       ...complianceCosts.flatMap(row => row.sourceRefs),
-      ...preBusinessRecovery.map(row => ({ sourceId: row.sourceId, revision: row.revision,
-        ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) })),
+      ...preBusinessRecovery.flatMap(row => [
+        { sourceId: row.sourceId, revision: row.revision,
+          ...(row.scheduleVersion !== undefined ? { scheduleVersion: row.scheduleVersion } : {}) },
+        ...(row.sourceRefs ?? []),
+      ]),
     ];
     for (const ref of sourceRefs) {
       if (!ref.sourceId.trim() || !Number.isSafeInteger(ref.revision) || ref.revision < 1 ||

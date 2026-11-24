@@ -5,6 +5,10 @@ import { projectHistoricalCorrectionsV1 } from "../../packages/domain/src/histor
 import { buildLoanAmortizationSchedule, calculateLoanPrepaymentReamortizationV1 } from "../../packages/features/finance";
 import { calculateDailyComplianceCost } from "../../packages/features/compliance";
 import { MaintenanceService } from "../../packages/application/src/maintenance-service";
+import { BusinessStartDateCostAllocationService } from "../../packages/application/src/business-start-date-cost-allocation-service";
+import { FullCostBreakevenService } from "../../packages/application/src/full-cost-breakeven-service";
+import { createPerformanceCalculationServiceV1 } from "../../packages/application/src/performance-calculation-runtime";
+import { PerformanceAdminSettingsServiceV1 } from "../../packages/application/src/performance-admin-settings-service";
 import { createMaintenanceExpenseCorrectionAdapter, projectMaintenanceExpenseRecords } from "../../apps/web/src/maintenance-expense-correction-runtime";
 import { assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant } from "../../packages/features/maintenance";
 
@@ -154,6 +158,143 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
   }
 
   mark("compliance");
+
+  // Compose the production full-cost and Performance services over the same
+  // repository-read fixture graph. Compliance is scoped to the corrected
+  // historical source here so its recovery path is independently observable;
+  // the fixture's separate renewal/overlap chain remains in the restored graph
+  // and its withholding behavior is covered by Compliance contract tests.
+  const businessStartDate = "2026-11-01";
+  const complianceTargetId = "feature:compliance:123e4567-e89b-42d3-a456-426614174010";
+  const complianceTarget = required(rows, complianceTargetId);
+  const correctedCompliance = project(rows, complianceTargetId, "compliance");
+  const correctedComplianceRecord = { ...complianceTarget, data: correctedCompliance.data };
+  const complianceCorrectionRefs = rows
+    .filter(row => row.id.startsWith("historical-correction:") && row.data.targetRecordId === complianceTargetId)
+    .map(row => ({ sourceId: row.id, revision: row.data.chainRevision }));
+  const paymentRecord = required(rows, "feature:finance:payments:123e4567-e89b-42d3-a456-426614174000");
+  const originalScheduleOutput = storedSchedule.output;
+  const revisedScheduleOutput = prepaymentRevision.output;
+  const scheduleHistory = {
+    currentScheduleVersion: prepayment.data.currentScheduleVersion,
+    versions: [
+      { version: storedSchedule.version, effectiveDate: storedSchedule.effectiveDate,
+        createdAt: storedSchedule.createdAt, label: "Original schedule",
+        rows: originalScheduleOutput.rows, regularEmiPaise: originalScheduleOutput.regularEmiPaise,
+        principalPaise: originalScheduleOutput.principalPaise,
+        totalInterestPaise: originalScheduleOutput.totalInterestPaise,
+        totalScheduledPaymentsPaise: originalScheduleOutput.totalScheduledPaymentsPaise },
+      { version: prepaymentRevision.version, effectiveDate: prepaymentRevision.effectiveDate,
+        createdAt: prepaymentRevision.createdAt, label: "Prepayment · Reduce Tenure",
+        rows: revisedScheduleOutput.rows, regularEmiPaise: revisedScheduleOutput.regularEmiPaise,
+        principalPaise: revisedScheduleOutput.openingPrincipalPaise,
+        totalInterestPaise: revisedScheduleOutput.totalInterestPaise,
+        totalScheduledPaymentsPaise: revisedScheduleOutput.totalScheduledPaymentsPaise },
+    ],
+    prepayments: prepayment.data.revisions,
+  };
+  const businessSettings = {
+    get: async () => ({
+      id: "feature:business-settings:business", schemaVersion: 1,
+      createdAt: "2026-11-18T00:00:00.000Z", updatedAt: "2026-11-18T00:00:00.000Z",
+      source: "integration" as const, revision: 1,
+      data: { schemaVersion: 1 as const, businessStartDate },
+    }),
+  };
+  const allocation = new BusinessStartDateCostAllocationService(
+    businessSettings as never,
+    {
+      getAllocationOverview: async () => ({
+        records: [correctedComplianceRecord], reviews: [], gaps: [], overlaps: [],
+      }),
+      listCorrectionReferences: async (targetRecordId: string) =>
+        targetRecordId === complianceTargetId ? complianceCorrectionRefs : [],
+    } as never,
+    { list: async () => [loan] } as never,
+    { getScheduleHistory: async () => scheduleHistory } as never,
+    { list: async () => paymentRecord.data.entries } as never,
+    () => "2026-11-25T00:00:00.000Z",
+    undefined,
+    "integration",
+  );
+  const allocationReport = await allocation.getReport();
+  const complianceRecoverySource = allocationReport.result.sources.find(source =>
+    source.sourceId === complianceTargetId);
+  if (!complianceRecoverySource || complianceRecoverySource.disposition !== "allocated" ||
+      complianceRecoverySource.sourceAmountPaise !== 366000 ||
+      complianceRecoverySource.daily.reduce((sum, item) => sum + item.amountPaise, 0) !== 366000) {
+    throw new Error("semantic_parity_compliance_recovery_pool_mismatch");
+  }
+  if (complianceTarget.data.totalCostPaise !== 365000 ||
+      !allocationReport.sourceCorrectionRefs?.some(item => item.sourceId === complianceTargetId &&
+        item.refs.some(ref => ref.sourceId === "historical-correction:compliance-fix-1" && ref.revision === 1))) {
+    throw new Error("semantic_parity_compliance_recovery_correction_provenance_mismatch");
+  }
+  const expenseRecords = rows.filter(row => row.id.startsWith("feature:business-expenses:entry:"))
+    .map(row => ({ ...row, data: corrections.find(item => item.targetRecordId === row.id)?.data ?? row.data }));
+  const fuelRecords = rows.filter(row => row.id.startsWith("feature:business-expenses:fuel:"))
+    .map(row => ({ ...row, data: corrections.find(item => item.targetRecordId === row.id)?.data ?? row.data }));
+  const tripFinancials = {
+    submittedTripFinancialRecords: async () => rows.filter(row => row.id.startsWith("work:trip-financial-obligation:")),
+  };
+  const expensesPort = {
+    listExpenseEntries: async () => expenseRecords,
+    listDailyExpenseOutputs: async () => dailyExpenseRows,
+    listFuelPurchases: async () => fuelRecords,
+    listFuelCostRateHistory: async () => fuelCostRateHistory,
+    listCorrectionReferences: async (targetRecordId: string) =>
+      rows.filter(row => row.id.startsWith("historical-correction:") && row.data.targetRecordId === targetRecordId)
+        .map(row => ({ sourceId: row.id, revision: row.data.chainRevision })),
+  };
+  const fullCost = new FullCostBreakevenService(
+    { list: async () => [vehicle] } as never, maintenance, expensesPort as never,
+    allocation, tripFinancials as never, repository as never,
+  );
+  const fullCostResult = await fullCost.calculate(businessStartDate, "2026-11-03");
+  const performanceAdmin = new PerformanceAdminSettingsServiceV1(repository);
+  const performance = await createPerformanceCalculationServiceV1({
+    businessSettings: businessSettings as never, adminSettings: performanceAdmin, fullCost, allocation,
+    tripFinancials: tripFinancials as never, recordRepository: repository as never,
+  }).calculate(businessStartDate, "2026-11-03");
+  const complianceRecoveryDaily = performance.recovery.daily.filter(item => item.sourceId === complianceTargetId);
+  const complianceRecoveryDailyPaise = complianceRecoveryDaily.reduce((sum, item) => sum + item.amountPaise, 0);
+  const dailyExpenseClassification = dailyExpenseRows.reduce((total, item) => ({
+    normalOperatingExpensePaise: total.normalOperatingExpensePaise + item.normalOperatingExpensePaise,
+    fullCostExpensePaise: total.fullCostExpensePaise + item.fullCostExpensePaise,
+    trafficChallansPaise: total.trafficChallansPaise + item.trafficChallansPaise,
+  }), { normalOperatingExpensePaise: 0, fullCostExpensePaise: 0, trafficChallansPaise: 0 });
+  const integratedCalculations = {
+    dateRange: { from: businessStartDate, to: "2026-11-03" },
+    dailyExpenseClassification: {
+      ...dailyExpenseClassification,
+      operatingExcludesTrafficChallans: dailyExpenseClassification.fullCostExpensePaise -
+        dailyExpenseClassification.normalOperatingExpensePaise === dailyExpenseClassification.trafficChallansPaise,
+    },
+    fullCost: {
+      calculationId: fullCostResult.calculationId, totalCostPaise: fullCostResult.totalCostPaise,
+      daily: fullCostResult.daily.map(item => ({ date: item.date, totalCostPaise: item.totalCostPaise, costs: item.costs })),
+      provenance: fullCostResult.provenance.sourceRevisions,
+    },
+    performance: {
+      calculationId: performance.calculationId,
+      monthlyDriverTargetPaise: performance.period.monthlyDriverTargetPaise,
+      period: performance.period, daily: performance.daily,
+      recovery: { totalPaise: performance.recovery.totalPaise,
+        complianceSourcePaise: complianceRecoveryDailyPaise, complianceDaily: complianceRecoveryDaily },
+      provenance: performance.provenance.sourceRefs,
+      completeness: performance.provenance.completeness, passbook: performance.passbook,
+    },
+    complianceRecovery: {
+      sourceId: complianceRecoverySource.sourceId, sourceRevision: complianceRecoverySource.sourceVersion,
+      sourceAmountPaise: complianceRecoverySource.sourceAmountPaise, disposition: complianceRecoverySource.disposition,
+      eligibleFrom: complianceRecoverySource.eligibleFrom, eligibleTo: complianceRecoverySource.eligibleTo,
+      allocatedDailyPaise: complianceRecoverySource.daily.reduce((sum, item) => sum + item.amountPaise, 0),
+      correctionRefs: allocationReport.sourceCorrectionRefs?.find(item => item.sourceId === complianceTargetId)?.refs ?? [],
+      originalAmountPaise: complianceTarget.data.totalCostPaise,
+      correctedAmountPaise: correctedCompliance.data.totalCostPaise,
+    },
+  };
+
   const workAllocations = dailyKmRows.map(row => ({
     sourceId: row.id, revision: row.revision, operationalDate: row.data.operationalDate,
     totalBusinessKm: row.data.totalBusinessKm, unallocatedBusinessKm: row.data.unallocatedBusinessKm,
@@ -193,7 +334,7 @@ export async function runSemanticFixtureProductionCalculations(inputRows: readon
   }
   mark("complete");
   return {
-    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses,
+    corrections, fuelIntervals, fuelCostRateHistory, dailyExpenses, integratedCalculations,
     maintenanceExpenseProjection: { recordId: maintenanceExpenseProjection.id, sourceRevision: maintenanceExpenseProjection.revision,
       amountPaise: maintenanceExpenseProjection.data.amountPaise,
       correctionChainRevision: maintenanceExpenseProjection.correctionChainRevision,

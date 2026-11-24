@@ -103,6 +103,9 @@ implements PerformanceEmiReadModel, PerformanceComplianceReadModel, PerformanceC
         amountPaise: source.sourceAmountPaise, note: source.sourcePeriod.label,
         origin: source.sourceKind,
         ...(source.scheduleVersion !== undefined ? { scheduleVersion: source.scheduleVersion } : {}),
+        ...((report.sourceCorrectionRefs?.find(item => item.sourceId === source.sourceId)?.refs.length ?? 0) > 0
+          ? { sourceRefs: Object.freeze(report.sourceCorrectionRefs!.find(item => item.sourceId === source.sourceId)!.refs.map(ref => Object.freeze({ ...ref }))) }
+          : {}),
       })];
     }));
   }
