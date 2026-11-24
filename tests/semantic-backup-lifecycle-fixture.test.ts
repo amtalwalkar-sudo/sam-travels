@@ -18,6 +18,7 @@ import { registerPerformanceBrowserBackupParticipant } from "../apps/web/src/per
 import { toCanonicalBackupSnapshotV1, fromCanonicalBackupSnapshotV1 } from "../packages/storage-browser/src/canonical-backup-snapshot";
 import { seedSemanticBackupWorkFixture } from "./helpers/seed-semantic-backup-work-fixture";
 import { assertRestoredDomainCalculationParity } from "./helpers/assert-restored-domain-calculation-parity";
+import { runSemanticFixtureProductionCalculations } from "./helpers/semantic-fixture-calculation-parity";
 
 type Fixture = {
   schemaVersion: number;
@@ -202,6 +203,8 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       rebuildTripHistoryProjection(sourceEvents);
       const expectedProjection = readTripHistoryProjection();
 
+      const preBackupCalculation = await runSemanticFixtureProductionCalculations(await browserDatabase.records.toArray());
+
       const exported = await exportBrowserSnapshot("0.1.0");
       const canonical = toCanonicalBackupSnapshotV1(exported.data, exported.manifest as never);
       expect(canonical.format).toBe(fixture.canonicalSnapshotContract.format);
@@ -349,7 +352,8 @@ describe("shared cross-platform semantic backup fixture contract", () => {
       expect(await browserDatabase.records.get("work:selected-driver")).toBeDefined();
 
       expect(reopenedExport.data).toEqual(exported.data);
-      await assertRestoredDomainCalculationParity(await browserDatabase.records.toArray(), fixture);
+      const restoredCalculation = await assertRestoredDomainCalculationParity(await browserDatabase.records.toArray(), fixture);
+      expect(restoredCalculation).toEqual(preBackupCalculation);
       await discardVerifiedBrowserCheckpoint(restored.checkpointId);
 
       // Repeat the same production restore against a clean business-data
