@@ -74,6 +74,16 @@ class NativeBusinessExpensesBackupTest {
     }
 
     @Test
+    fun assignsFuelToTheAsiaKolkataFourAmOperationalDate() {
+        assertEquals("2026-11-14",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-14T22:29:59.000Z"))
+        assertEquals("2026-11-15",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-14T22:30:00.000Z"))
+        assertEquals("2026-11-15",
+            NativeBusinessExpensesBackup.operationalDateFromInstant("2026-11-15T05:00:00.000Z"))
+    }
+
+    @Test
     fun acceptsFuelPlatformFeeMiscellaneousAndTrafficChallanRecords() = withParticipants {
         val records = JSONArray().put(vehicleRow()).put(fuelRow())
             .put(expenseRow("platform_fee", "123e4567-e89b-42d3-a456-426614174001",
