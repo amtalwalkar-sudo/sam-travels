@@ -110,7 +110,13 @@ class RoomStorePlugin : Plugin() {
     }
 
     // Reads preserve historical rows; application services validate typed records before use.
-    private fun decodeStoredRow(row: StoredRecord): JSONObject = JSONObject(row.json)
+    private fun decodeStoredRow(row: StoredRecord): JSONObject = JSONObject(row.json).apply {
+        // Work's legacy state/intent rows are keyed by the Room primary key but
+        // intentionally are not RecordEnvelope payloads. The shared repository
+        // list contract still needs a stable id for snapshot fences and source
+        // enumeration; expose the storage identity without rewriting the payload.
+        if (!has("id")) put("id", row.id)
+    }
 
     @PluginMethod
     fun get(call: PluginCall) {
