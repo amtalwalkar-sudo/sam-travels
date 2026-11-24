@@ -56,11 +56,13 @@ describe("Maintenance v1 record contract", () => {
 });
 
 describe("Maintenance rate history", () => {
-  it("uses the Asia/Kolkata business date for the initial default rate", () => {
-    expect(maintenanceBusinessDateFromInstant("2026-10-31T20:00:00.000Z")).toBe("2026-11-01");
+  it("uses the Asia/Kolkata 04:00 operational date for the initial default rate", () => {
+    expect(maintenanceBusinessDateFromInstant("2026-10-31T20:00:00.000Z")).toBe("2026-10-31");
+    expect(maintenanceBusinessDateFromInstant("2026-10-31T22:29:59.000Z")).toBe("2026-10-31");
+    expect(maintenanceBusinessDateFromInstant("2026-10-31T22:30:00.000Z")).toBe("2026-11-01");
     const history = buildMaintenanceRateHistory("2026-10-31T20:00:00.000Z");
     expect(history).toEqual([{
-      effectiveFrom: "2026-11-01", ratePaisePerKm: 250, savedAt: "2026-10-31T20:00:00.000Z",
+      effectiveFrom: "2026-10-31", ratePaisePerKm: 250, savedAt: "2026-10-31T20:00:00.000Z",
       isDefault: true,
     }]);
   });
