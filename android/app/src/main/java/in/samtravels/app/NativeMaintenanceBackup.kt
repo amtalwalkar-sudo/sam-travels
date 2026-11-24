@@ -58,7 +58,7 @@ internal object NativeMaintenanceBackup {
                 val data = envelope.getJSONObject("data")
                 val kind = data.optString("kind")
                 val vehicleId = data.optString("vehicleId")
-                val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found")
+                val vehicle = vehicles[vehicleId] ?: error("maintenance_vehicle_not_found: requested=" + vehicleId + "; available=" + vehicles.keys.sorted().joinToString(","))
                 validatePayload(id, data, kind, vehicle.second, allRows)
             }
             validateEffectiveRateSnapshots(rows, vehicles)
