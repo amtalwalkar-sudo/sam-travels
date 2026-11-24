@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class NativeMaintenanceBackupRoomTest {
-    private val timestamp = "2026-10-31T20:00:00.000Z"
+    private val timestamp = "2026-10-31T23:00:00.000Z"
     private val vehicleId = "feature:vehicle:MH01AB1234"
     private val visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000"
     private val rateId = "feature:maintenance:rate:feature%3Avehicle%3AMH01AB1234"
