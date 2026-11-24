@@ -266,6 +266,11 @@ export async function exportBrowserSnapshot(applicationVersion: string): Promise
 }> {
   const tables = liveTables();
   const data = await browserDatabase.transaction("r", tables, () => readSnapshotTables(tables));
+  // Runtime identity and restore-recovery material is local state, not portable business data.
+  data.records = data.records.filter(row => {
+    const id = String((row as { id?: unknown } | null)?.id ?? "");
+    return !isNonPortableIdentityRecord(id) && !isRuntimeLocalRecord(id);
+  });
   assertBackupRecordCount(Object.values(data).reduce((total, rows) => total + rows.length, 0));
   data.records.forEach(assertRecordEnvelope);
   validateSnapshotRows(data);
