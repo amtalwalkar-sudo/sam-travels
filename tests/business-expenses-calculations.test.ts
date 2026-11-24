@@ -62,7 +62,7 @@ describe("Business expense source contracts", () => {
   it("rejects invalid fuel facts, mismatched India business dates, and malformed expense entries", () => {
     expect(() => assertFuelPurchaseV1({ ...fuel("f1", "2026-11-14T09:00:00.000Z", 10, false, 1000), amountPaise: 0 }))
       .toThrow("fuel_purchase_invalid");
-    expect(() => assertFuelPurchaseV1({ ...fuel("f2", "2026-11-14T20:00:00.000Z", 10, false, 1000), businessDate: "2026-11-14" }))
+    expect(() => assertFuelPurchaseV1({ ...fuel("f2", "2026-11-14T20:00:00.000Z", 10, false, 1000), businessDate: "2026-11-15" }))
       .toThrow("fuel_purchase_invalid");
     expect(() => assertBusinessExpenseEntryV1({ ...expense("e1", "traffic_challan", 100), currencyCode: "USD" }))
       .toThrow("business_expense_entry_invalid");
