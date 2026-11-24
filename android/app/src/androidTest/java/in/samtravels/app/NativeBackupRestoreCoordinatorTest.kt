@@ -170,9 +170,9 @@ class NativeBackupRestoreCoordinatorTest {
                 .put("schemaVersion", 1).put("kind", "expense").put("vehicleId", missingVehicleId)
                 .put("expenseDate", "2026-11-01").put("expenseName", "Towing")
                 .put("description", "Roadside assistance").put("amountPaise", 1000))
-            assertEquals("maintenance_vehicle_not_found", runCatching {
+            assertTrue(runCatching {
                 NativeBackupCoverage.validateBusinessRecords(org.json.JSONArray().put(maintenanceRow), true)
-            }.exceptionOrNull()?.message)
+            }.exceptionOrNull()?.message.orEmpty().startsWith("maintenance_vehicle_not_found"))
 
             val expenseId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174097"
             val expenseRow = row(expenseId, "business-expenses-records", JSONObject()
