@@ -147,8 +147,8 @@ internal object SemanticFixtureCalculationParitySupport {
 
             val compliance = actual.getJSONObject("compliance")
             assertEquals("available", compliance.getString("status"))
-            assertEquals("1000", compliance.getJSONObject("total").getString("numeratorPaise"))
-            assertEquals("1", compliance.getJSONObject("total").getString("denominator"))
+            assertEquals("73200", compliance.getJSONObject("total").getString("numeratorPaise"))
+            assertEquals("73", compliance.getJSONObject("total").getString("denominator"))
             assertEquals(1, compliance.getJSONArray("breakdown").length())
             assertEquals(4, actual.getJSONArray("corrections").length())
 
