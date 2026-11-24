@@ -68,6 +68,11 @@ internal object NativeMaintenanceBackup {
         },
     )
 
+    private fun operationalDateAt(value: String): String {
+        val local = OffsetDateTime.parse(value).atZoneSameInstant(zone)
+        return (if (local.hour < 4) local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
+    }
+
     private fun validDate(value: String): Boolean =
         runCatching { LocalDate.parse(value).toString() == value }.getOrDefault(false)
 
@@ -151,7 +156,7 @@ internal object NativeMaintenanceBackup {
                 assertExactKeys(data, setOf("schemaVersion", "kind", "vehicleId", "entries"))
                 val entries = data.optJSONArray("entries") ?: error("maintenance_rate_history_invalid")
                 require(entries.length() > 0) { "maintenance_rate_history_invalid" }
-                val expectedDefaultDate = OffsetDateTime.parse(vehicleCreatedAt).toInstant().atZone(zone).toLocalDate().toString()
+                val expectedDefaultDate = operationalDateAt(vehicleCreatedAt)
                 var previousDate = ""
                 var previousSavedAt = ""
                 val commandIds = mutableSetOf<String>()
