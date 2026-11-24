@@ -49,6 +49,11 @@ class SharedSevenDomainBackupLifecycleTest {
             }
 
             SharedFixtureWorkSeeder.seed(database, workFixture)
+            // Capture the production calculation/provenance vector from the
+            // source Room graph before any backup or restore mutation.
+            val beforeRestoreCalculation = SemanticFixtureCalculationParitySupport.assertProductionCalculationsMatchFixture(
+                context, InstrumentationRegistry.getInstrumentation().context, database.records().list(), fixture,
+            )
 
             val source = NativeSnapshotBuilder.build(
                 database, NativeBackupRecovery::isInternalRecord, "shared-seven-domain-fixture",
@@ -361,8 +366,13 @@ class SharedSevenDomainBackupLifecycleTest {
                 tsReopened.snapshot.getJSONArray("records"),
             )
             // Execute production calculations independently in Android WebView over the exact Room graph after encrypted restore, reopen and recovery.
-            SemanticFixtureCalculationParitySupport.assertProductionCalculationsMatchFixture(
+            val afterRestoreCalculation = SemanticFixtureCalculationParitySupport.assertProductionCalculationsMatchFixture(
                 context, InstrumentationRegistry.getInstrumentation().context, database.records().list(), fixture,
+            )
+            assertEquals(
+                "Android production calculations and source provenance are identical before and after encrypted restore/reopen",
+                canonicalJson(beforeRestoreCalculation),
+                canonicalJson(afterRestoreCalculation),
             )
         } finally {
             database.close()
