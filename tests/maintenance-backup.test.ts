@@ -58,7 +58,7 @@ describe("Maintenance browser backup participant", () => {
       data: {
         schemaVersion: 1, kind: "rate_history", vehicleId,
         entries: [
-          { effectiveFrom: "2026-11-01", ratePaisePerKm: 250, savedAt: timestamp, isDefault: true },
+          { effectiveFrom: "2026-10-31", ratePaisePerKm: 250, savedAt: timestamp, isDefault: true },
           {
             effectiveFrom: "2026-11-02", ratePaisePerKm: 300,
             savedAt: "2026-11-02T10:00:00.000Z", isDefault: false,
