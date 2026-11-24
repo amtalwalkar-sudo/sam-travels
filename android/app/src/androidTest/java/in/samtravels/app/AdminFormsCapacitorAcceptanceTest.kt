@@ -238,14 +238,12 @@ class AdminFormsCapacitorAcceptanceTest {
             db.close()
         }
     }
-    internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) {
-        val name = label.replace("'", "\\'")
-        assertTrue("Admin field loads: " + label, await(activity,
-            "[...document.querySelectorAll('label')].some(n=>n.textContent.includes('$name'))", 15000))
-        val text = value.replace("'", "\\'")
-        val js = """(()=>{let a=[...document.querySelectorAll('label')].filter(n=>n.textContent.trim()==='$name');if(!a.length)a=[...document.querySelectorAll('label')].filter(n=>n.textContent.includes('$name'));const c=a[$index]?.querySelector('input,select,textarea');if(!c)return false;const p=c instanceof HTMLSelectElement?HTMLSelectElement.prototype:c instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(p,'value').set.call(c,'$text');c.dispatchEvent(new Event(c instanceof HTMLSelectElement?'change':'input',{bubbles:true}));return true})()"""
-        check(javascriptValue(activity, js) == "true") { "Missing Admin field: " + label }
-    }
+    internal fun set(activity: MainActivity, label: String, value: String, index: Int = 0) =
+        AdminTestUiControlSupport.set(
+            activity, label, value, index,
+            await = { script, timeout -> await(activity, script, timeout) },
+            javascriptValue = { script -> javascriptValue(activity, script) },
+        )
     internal fun click(activity: MainActivity, label: String, index: Int = 0) {
         val name = label.replace("'", "\\'")
         assertTrue("Admin action loads: " + label, await(activity,
