@@ -1,7 +1,5 @@
 package `in`.samtravels.app
 
-import androidx.test.ext.junit.runners.AndroidJUnit4
-
 /** DOM controls used by the Admin acceptance journeys; waits for async select options before setting. */
 internal object AdminTestUiControlSupport {
     fun set(
