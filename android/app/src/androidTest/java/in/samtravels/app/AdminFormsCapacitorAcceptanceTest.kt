@@ -21,6 +21,11 @@ class AdminFormsCapacitorAcceptanceTest {
     @Test fun replacementAdminFormsUseRoomBackedWebView() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext
+        // This WebView acceptance journey owns the app database for its full
+        // lifecycle. Start from an isolated Room graph so records left by an
+        // earlier instrumentation test cannot retain references to a deleted
+        // fixture Vehicle and poison whole-graph backup validation.
+        app.deleteDatabase("sam-travels.db")
         var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
