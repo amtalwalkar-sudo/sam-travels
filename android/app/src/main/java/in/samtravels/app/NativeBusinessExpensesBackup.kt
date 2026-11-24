@@ -2,7 +2,7 @@ package `in`.samtravels.app
 
 import org.json.JSONObject
 import java.time.Instant
-import java.time.ZoneOffset
+import java.time.ZoneId
 import java.util.UUID
 
 /** Native backup/restore validation for the shared Business Expenses source records. */
@@ -30,6 +30,11 @@ internal object NativeBusinessExpensesBackup {
     private fun validDate(value: String): Boolean =
         runCatching { java.time.LocalDate.parse(value).toString() == value }.getOrDefault(false)
 
+    internal fun operationalDateFromInstant(value: String): String {
+        val local = Instant.parse(value).atZone(ZoneId.of("Asia/Kolkata"))
+        return (if (local.hour < 4) local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
+    }
+
     private fun validUuid(value: String): Boolean =
         runCatching { UUID.fromString(value).toString() == value.lowercase() }.getOrDefault(false)
 
@@ -47,8 +52,9 @@ internal object NativeBusinessExpensesBackup {
             "fuel_purchase_invalid"
         }
         val instant = Instant.parse(data.optString("occurredAt"))
-        require(instant.plusSeconds(330L * 60L).atZone(ZoneOffset.UTC).toLocalDate().toString() ==
-            data.optString("businessDate")) { "fuel_purchase_business_date_invalid" }
+        require(operationalDateFromInstant(instant.toString()) == data.optString("businessDate")) {
+            "fuel_purchase_business_date_invalid"
+        }
         integer(data, "odometerKm")
         integer(data, "pricePaisePerKg")
         integer(data, "amountPaise")
