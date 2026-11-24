@@ -4,7 +4,7 @@ import { projectHistoricalCorrectionsV1 } from "../../packages/domain/src/histor
 import { runSemanticFixtureProductionCalculations } from "./semantic-fixture-calculation-parity";
 
 /** Recomputes business-domain outputs using only records read back from Browser storage after restore/reopen. */
-export async function assertRestoredDomainCalculationParity(restoredRows: readonly any[], fixture: any): Promise<void> {
+export async function assertRestoredDomainCalculationParity(restoredRows: readonly any[], fixture: any): Promise<Awaited<ReturnType<typeof runSemanticFixtureProductionCalculations>>> {
   const production = await runSemanticFixtureProductionCalculations(restoredRows as never);
   expect(production.fuelIntervals.filter(row => row.status === "available")).toHaveLength(4);
   expect(production.fuelCostRateHistory).toEqual(fixture.expectedBusinessResults.fuelCostRateHistory);
@@ -17,6 +17,31 @@ export async function assertRestoredDomainCalculationParity(restoredRows: readon
   });
   expect(production.compliance).toMatchObject({ status: "available", date: "2026-11-01", total: { numeratorPaise: "1000", denominator: "1" } });
   expect(production.provenance.length).toBeGreaterThan(0);
+  expect(production.workAllocations.map(row => ({
+    operationalDate: row.operationalDate,
+    totalBusinessKm: row.totalBusinessKm,
+    unallocatedBusinessKm: row.unallocatedBusinessKm,
+    entries: row.entries.map((entry: any) => ({
+      shiftId: entry.shiftId,
+      businessKm: entry.businessKm,
+      personalKm: entry.personalKm ?? 0,
+      allocationStatus: entry.allocationStatus,
+    })),
+  }))).toEqual([
+    { operationalDate: "2026-11-01", totalBusinessKm: 10, unallocatedBusinessKm: 0,
+      entries: [{ shiftId: "shift-001", businessKm: 10, personalKm: 2, allocationStatus: "allocated" }] },
+    { operationalDate: "2026-11-02", totalBusinessKm: 8, unallocatedBusinessKm: 0,
+      entries: [{ shiftId: "shift-002", businessKm: 8, personalKm: 1, allocationStatus: "allocated" }] },
+    { operationalDate: "2026-11-03", totalBusinessKm: 0, unallocatedBusinessKm: 5,
+      entries: [{ shiftId: "shift-boundary-001", businessKm: 5, personalKm: 0,
+        allocationStatus: "awaiting_operational_boundary" }] },
+  ]);
+  expect(production.provenance).toEqual([...production.provenance].sort((left, right) =>
+    left.sourceId.localeCompare(right.sourceId) || left.revision - right.revision ||
+    (left.scheduleVersion ?? 0) - (right.scheduleVersion ?? 0)));
+  for (const row of production.workAllocations) {
+    expect(production.provenance).toContainEqual({ sourceId: row.sourceId, revision: row.revision });
+  }
   // Re-run the owning domain projections from the records read back after
   // production restore, verification, database close/reopen and re-export.
   // This prevents the fixture's precomputed input objects from acting as
@@ -136,4 +161,5 @@ export async function assertRestoredDomainCalculationParity(restoredRows: readon
     remainingInstallmentCount: fixture.expectedBusinessResults.finance.prepaymentRemainingInstallments,
     finalDueDate: fixture.expectedBusinessResults.finance.prepaymentFinalDueDate,
   });
+  return production;
 }
