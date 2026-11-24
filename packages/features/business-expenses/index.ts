@@ -22,3 +22,5 @@ export type {
 
 export { calculateFuelCostRateHistory } from "./fuel-cost-rate-history";
 export type { FuelCostRateHistoryEntryV1 } from "./fuel-cost-rate-history";
+
+export { fuelBusinessDateFromInstant } from "./calculations";
