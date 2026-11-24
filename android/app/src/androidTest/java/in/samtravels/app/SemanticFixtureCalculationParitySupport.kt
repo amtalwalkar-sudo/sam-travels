@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 internal object SemanticFixtureCalculationParitySupport {
     fun assertProductionCalculationsMatchFixture(context: Context, assetContext: Context,
-        roomRows: List<StoredRecord>, fixture: JSONObject) {
+        roomRows: List<StoredRecord>, fixture: JSONObject): JSONObject {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bundle = assetContext.assets.open("generated/semantic-fixture-calculation-parity.js")
             .bufferedReader().use { it.readText() }
@@ -166,6 +166,7 @@ internal object SemanticFixtureCalculationParitySupport {
             val work = actual.getJSONArray("workAllocations")
             assertEquals(3, work.length())
             assertEquals(5, work.getJSONObject(2).getInt("unallocatedBusinessKm"))
+            return actual
         } finally {
             instrumentation.runOnMainSync { webView.destroy() }
         }
