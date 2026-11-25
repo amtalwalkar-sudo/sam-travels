@@ -2,6 +2,7 @@ import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectMaintenanceCorrectedRecord } from "./maintenance-correction-projection";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 export type MaintenanceExpenseItemV1 = Readonly<{ id: string; description: string; amountPaise: number }>;
 export type MaintenanceVisitV1 = Readonly<{
