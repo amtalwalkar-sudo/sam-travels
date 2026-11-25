@@ -91,7 +91,7 @@ export class FinanceLoanSettlementService {
 
   async preview(input: { loanId: string; businessDate: string }): Promise<SettlementPreview> {
     if (!validDate(input.businessDate)) throw new Error("finance_payment_settlement_input_invalid");
-    const { loan, ledger } = await this.load(input.loanId);
+    const { loan, ledger, operating } = await this.load(input.loanId);
     const entries = ledger?.data.entries ?? [];
     await this.assertDateNotBeforeHistory(input.loanId, input.businessDate, entries);
     if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
@@ -115,7 +115,7 @@ export class FinanceLoanSettlementService {
       amountPaise: settlementRow.closingPrincipalPaise as number,
       scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
       loanRevision: loan.revision, paymentLedgerRevision: ledger?.revision ?? null,
-      ...(this.operatingConfiguration ? { operatingConfiguration: await this.operatingConfiguration.get() } : {}),
+      ...(operating ? { operatingConfiguration: operating } : {}),
     };
   }
 
