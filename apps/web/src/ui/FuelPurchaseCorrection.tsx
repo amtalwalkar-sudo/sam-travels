@@ -21,14 +21,14 @@ function rupeesToPaise(value: string): number {
 /** Append-only correction UI. The original purchase remains immutable. */
 export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
   purchase: RecordEnvelope<FuelPurchaseV1>;
-  service: Pick<BusinessExpensesService, "correctSource" | "listCorrectionReferences">;
+  service: Pick<BusinessExpensesService, "correctSource" | "listCorrectionHistory">;
   onCorrected: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [field, setField] = useState<FuelCorrectionField>("amountPaise");
   const [value, setValue] = useState((purchase.data.amountPaise / 100).toFixed(2));
   const [reason, setReason] = useState("");
-  const [history, setHistory] = useState<Awaited<ReturnType<BusinessExpensesService["listCorrectionReferences"]>>>([]);
+  const [history, setHistory] = useState<Awaited<ReturnType<BusinessExpensesService["listCorrectionHistory"]>>>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const correctionId = useRef<string | null>(null);
@@ -36,7 +36,7 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
 
   useEffect(() => {
     let live = true;
-    void service.listCorrectionReferences(purchase.id).then(rows => {
+    void service.listCorrectionHistory(purchase.id).then(rows => {
       if (live) { setHistory(rows); expectedChainRevision.current = rows.length; }
     }).catch(error => {
       if (live) setMessage(error instanceof Error ? error.message : "Correction history unavailable.");
@@ -51,8 +51,8 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
     setBusy(true); setMessage("");
     try {
       const afterValue = rupeesToPaise(value);
-      const refs = await service.listCorrectionReferences(purchase.id);
-      const chainRevision = expectedChainRevision.current ?? refs.length;
+      const rows = await service.listCorrectionHistory(purchase.id);
+      const chainRevision = expectedChainRevision.current ?? rows.length;
       const id = correctionId.current ?? (correctionId.current = crypto.randomUUID().replaceAll("-", ""));
       await service.correctSource({
         correctionId: id,
@@ -65,7 +65,7 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
       });
       correctionId.current = null;
       expectedChainRevision.current = null;
-      const updatedHistory = await service.listCorrectionReferences(purchase.id);
+      const updatedHistory = await service.listCorrectionHistory(purchase.id);
       setHistory(updatedHistory);
       expectedChainRevision.current = updatedHistory.length;
       setOpen(false);
@@ -82,7 +82,9 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
       {open ? "Close correction" : "Correct amount / price"}
     </button>
     <small>Current amount: {money(purchase.data.amountPaise)} · Current price: {money(purchase.data.pricePaisePerKg)}/kg</small>
-    {history.map(item => <small key={item.sourceId}>{item.sourceId} · revision {item.revision}</small>)}
+    {history.map(item => <small key={item.correctionId}>
+      {item.recordedAt} · {field === "amountPaise" ? money(Number(item.beforeValue)) : money(Number(item.beforeValue))} → {money(Number(item.afterValue))} · {item.actor.role} · {item.reason}
+    </small>)}
     {open && <form className="admin-capability-form" onSubmit={submit}>
       <label>Field to correct
         <select value={field} disabled={busy} onChange={event => {
