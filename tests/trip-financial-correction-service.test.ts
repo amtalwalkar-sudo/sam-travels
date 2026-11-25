@@ -59,7 +59,7 @@ describe("trip financial append-only corrections", () => {
       reason: "Correct fare transcribed from the trip receipt",
       businessEffectiveDate: "2026-11-10",
     });
-    expect(submitted.currentData).toMatchObject({ farePaise: 12500, endRideEventId: "immutable-end-event" });
+    expect(submitted.currentData as CompletedTripFinancialObligation).toMatchObject({ farePaise: 12500, endRideEventId: "immutable-end-event" });
     expect((await records.get<CompletedTripFinancialObligation>(original.id))?.data.farePaise).toBe(10000);
     expect((await records.get<CompletedTripFinancialObligation>(original.id))?.data.tripContext).toEqual(original.data.tripContext);
 
