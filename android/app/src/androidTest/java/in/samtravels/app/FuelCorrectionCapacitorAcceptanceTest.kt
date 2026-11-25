@@ -143,21 +143,82 @@ class FuelCorrectionCapacitorAcceptanceTest {
                 awaitMaintenanceJavascript(startedActivity,
                     "document.querySelector('[aria-label=\"Fuel calculation readback\"]')?.textContent.includes('25000 paise')",
                     15000))
+            assertTrue("Price correction action reopens", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const card = [...document.querySelectorAll('.fuel-entry-panel article')]
+                    .find(node => node.textContent.includes('45,000 km'));
+                  const button = [...(card?.querySelectorAll('button') ?? [])]
+                    .find(node => node.textContent.includes('Correct amount / price'));
+                  button?.click();
+                  return Boolean(button);
+                })()
+            """))
+            assertTrue("Price correction field is selected", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const label = [...document.querySelectorAll('.fuel-entry-panel label')]
+                    .find(node => node.textContent.includes('Field to correct'));
+                  const select = label?.querySelector('select');
+                  if (!select) return false;
+                  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'pricePaisePerKg');
+                  select.dispatchEvent(new Event('change', { bubbles: true }));
+                  return true;
+                })()
+            """))
+            assertTrue("Corrected price and reason are entered", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const set = (labelText, value) => {
+                    const label = [...document.querySelectorAll('.fuel-entry-panel label')]
+                      .find(node => node.textContent.includes(labelText));
+                    const input = label?.querySelector('input');
+                    if (!input) return false;
+                    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    return true;
+                  };
+                  return set('Corrected value', '100.00') && set('Reason for correction', 'Room unit price verified');
+                })()
+            """))
+            assertTrue("Price correction submit is available", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const button = [...document.querySelectorAll('.fuel-entry-panel button')]
+                    .find(node => node.textContent.includes('Append correction'));
+                  if (!button || button.disabled) return false;
+                  button.click();
+                  return true;
+                })()
+            """))
+            assertTrue("Price correction is confirmed in WebView", awaitMaintenanceJavascript(startedActivity,
+                "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 20000))
             val original = JSONObject(database.records().get(fuelId)!!.json).getJSONObject("data")
             assertEquals("Original Room fuel amount remains immutable", 18000, original.getInt("amountPaise"))
+            assertEquals("Original Room fuel price remains immutable", 9000, original.getInt("pricePaisePerKg"))
             val corrections = database.records().list().filter { row ->
                 if (!row.id.startsWith("historical-correction:")) false
                 else JSONObject(row.json).getJSONObject("data").optString("targetRecordId") == fuelId
             }
-            assertEquals("Exactly one append-only correction is stored in Room", 1, corrections.size)
-            val correction = JSONObject(corrections.single().json).getJSONObject("data")
-            assertEquals(18000, correction.getInt("beforeValue"))
-            assertEquals(25000, correction.getInt("afterValue"))
-            assertEquals("Room receipt verified", correction.getString("reason"))
-            assertEquals("driver", correction.getJSONObject("actor").getString("role"))
+            assertEquals("Amount and price corrections append independently in Room", 2, corrections.size)
+            val correctionValues = corrections.associate { row ->
+                val data = JSONObject(row.json).getJSONObject("data")
+                data.getString("fieldPath") to data.getInt("afterValue")
+            }
+            assertEquals(mapOf("amountPaise" to 25000, "pricePaisePerKg" to 10000), correctionValues)
+            assertTrue("Corrected amount remains projected after price correction",
+                awaitMaintenanceJavascript(startedActivity,
+                    "document.querySelector('[aria-label=\"Fuel calculation readback\"]')?.textContent.includes('25000 paise')",
+                    15000))
+            val amountCorrection = corrections.map { JSONObject(it.json).getJSONObject("data") }
+                .first { it.getString("fieldPath") == "amountPaise" }
+            assertEquals(18000, amountCorrection.getInt("beforeValue"))
+            assertEquals("Room receipt verified", amountCorrection.getString("reason"))
+            assertEquals("driver", amountCorrection.getJSONObject("actor").getString("role"))
+            val priceCorrection = corrections.map { JSONObject(it.json).getJSONObject("data") }
+                .first { it.getString("fieldPath") == "pricePaisePerKg" }
+            assertEquals(9000, priceCorrection.getInt("beforeValue"))
+            assertEquals("Room unit price verified", priceCorrection.getString("reason"))
+            assertEquals("driver", priceCorrection.getJSONObject("actor").getString("role"))
             val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(fuelId, "UTF-8")
             val chain = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
-            assertEquals(1, chain.getInt("chainRevision"))
+            assertEquals(2, chain.getInt("chainRevision"))
         } finally {
             activity?.finish()
             database.records().remove(fuelId)
