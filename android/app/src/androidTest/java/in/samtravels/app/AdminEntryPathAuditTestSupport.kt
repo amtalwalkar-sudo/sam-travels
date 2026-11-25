@@ -189,8 +189,12 @@ internal object AdminEntryPathAuditTestSupport {
             check(support.javascriptValue(activity, script) == "true") { "Fuel field missing: $label" }
         }
         assertTrue("Fuel form is fully loaded and its controls are enabled",
-            support.await(activity, "!!document.querySelector('.fuel-entry-panel select:not(:disabled)') && !!document.querySelector('.fuel-entry-panel input:not(:disabled)')", 15000))
-        setFuelField("Vehicle", vehicleRecordId)
+            support.await(activity, "!!document.querySelector('.fuel-entry-panel input:not(:disabled)') && " +
+                "document.querySelector('.fuel-entry-panel .admin-vehicle-context')?.textContent.includes('" +
+                vehicleRecordId.substringAfter("feature:vehicle:") + "') === true && " +
+                "!document.querySelector('.fuel-entry-panel select')", 15000))
+        // Fuel is bound to the configured operating Vehicle; it is intentionally
+        // not a driver-selectable field. The durable draft must still snapshot its ID.
         setFuelField("Odometer (km)", "55123")
         setFuelField("Price per kg (₹)", "82.50")
         setFuelField("Amount paid (₹)", "825")
