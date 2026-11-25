@@ -736,3 +736,28 @@ The §9.44 finding that G-18's populated fixture was a 29-record graph without F
 **Disposition:** The specific shared-fixture-completeness blocker is **CLOSED for Stage 1**; the corresponding same-populated-graph production lifecycle gate is **CLOSED for Stage 2**, on the evidence scope above. Do not retain the stale 29-record/no-prepayment finding as a current gap. This does not close all of G-18 or the whole contract: direct PWA/Android overlay stale-write parity (Stage 3), broader consumer-level correction/recalculation proof (Stage 4), and complete negative/boundary/interruption requirement mapping (Stage 5) remain open and must be tracked against their own normative requirements. The whole-contract status remains **INCOMPLETE**.
 
 The run validates only the evidence SHA above. The documentation reconciliation commits create a newer PR head, which requires fresh exact-head CI. PR #99 remains open, draft and unmerged.
+
+
+### 9.47 — PR #99 Stage 4 acceptance and Stage 5 evidence reconciliation — 2026-11-25
+
+This checkpoint reconciles the repository-wide register with the current PR #99 execution plan and implementation evidence matrix §§9.50–9.51. It supersedes earlier Stage 4/5 status descriptions in this register only for the scoped requirements and evidence stated here; historical audit findings remain preserved.
+
+**Stage 4 — ACCEPTED (scoped stage exit).** The integrated 46-record Browser/Dexie and Android/Room calculation runner composes the production FullCostBreakevenService and PerformanceCalculationServiceV1, verifies paid Traffic Challan exclusion from operating breakeven and inclusion in full-cost breakeven, consumes the revisioned fixed daily Driver Target, and carries the exact historical Compliance correction through Business Start Date recovery allocation and Performance provenance. The complete calculation/provenance result is compared before backup and after production encrypted restore/reopen/recovery on both runtimes. Exact accepted implementation head: `f7b49970728a3991623c398f32630498a9f6cd58`; required CI run [45501365286](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45501365286) passed Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate.
+
+**Stage 5 — IMPLEMENTATION AND REQUIREMENT-TO-TEST EVIDENCE COMPLETE; FINAL DOCUMENTATION-HEAD CI GATE PENDING.** The current evidence matrix §9.51 maps the applicable requirements to named Browser/Dexie and Android/Room assertions:
+- malformed and truncated encrypted-package rejection before restore;
+- pending Work intent replay after encrypted restore, with one committed business event and one outbox effect after close/reopen and retry/replay;
+- consistent multi-table snapshot boundaries under concurrent writes;
+- portable exclusion rules;
+- zero-record participant handling, ownership and unknown-participant rejection;
+- inclusive record/package count boundaries and rejection before destination mutation;
+- dangling-reference, malformed-row and participant-mismatch rejection;
+- interrupted restore rollback and startup recovery.
+
+The evidence includes `tests/stage5-work-outbox-encrypted-restore.test.ts`, `tests/backup-crypto.test.ts`, `tests/backup-snapshot-consistency.test.ts`, `tests/backup-exclusions.test.ts`, `tests/semantic-backup-lifecycle-fixture-inventory.test.ts`, `tests/backup-snapshot.test.ts`, `tests/backup-limits.test.ts`, `tests/backup-invalid-reference-restore.test.ts`, `tests/backup-restore-failure-recovery.test.ts`, and the corresponding Android Room instrumentation tests listed in matrix §9.51.
+
+Implementation-head CI run [45512816930](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45512816930) passed the five required jobs on `d13a2862e2fd41e822d0781ce10b5eba81080252`. The subsequent documentation-updated PR head requires its own complete required CI run before Stage 5 is formally accepted. Do not treat a successful run on an earlier implementation or documentation head as validation of a later commit.
+
+**Whole-contract status remains INCOMPLETE.** Stage 5 acceptance is a scoped execution-stage exit, not PR #99 whole-contract acceptance. Stage 6 reconciliation and any remaining owner-contract, operating-configuration, external/manual or repository-administration gates remain separately tracked. Physical OEM/device certification, nondeterministic full-OS reboot acceptance, live Dropbox account delivery and final owner visual approval are not CI passes.
+
+PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge or close is authorized by this checkpoint.
