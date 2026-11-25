@@ -3,6 +3,7 @@ export type PerformancePassbookSourceRefV1 = Readonly<{
   sourceId: string;
   revision: number;
   scheduleVersion?: number;
+  attribution?: "work_event" | "admin_declared";
 }>;
 
 /** Pure cumulative Driver Target Passbook projection. */
