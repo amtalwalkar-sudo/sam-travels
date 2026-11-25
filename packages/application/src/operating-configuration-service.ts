@@ -28,6 +28,19 @@ export class OperatingConfigurationServiceV1 {
     return resolveOperatingConfiguration(snapshot, undefined, lockedShiftId);
   }
 
+  async assertCurrentForReadOnly(expected: OperatingConfigurationV1): Promise<OperatingConfigurationV1> {
+    const current = await this.getForReadOnly();
+    if (current.driverId !== expected.driverId || current.vehicleId !== expected.vehicleId ||
+        current.assignmentId !== expected.assignmentId ||
+        current.selectionRevision !== expected.selectionRevision ||
+        current.driverRevision !== expected.driverRevision ||
+        current.vehicleRevision !== expected.vehicleRevision ||
+        current.assignmentRevision !== expected.assignmentRevision) {
+      throw new Error("operating_configuration_stale");
+    }
+    return current;
+  }
+
   async assertCurrent(expected: OperatingConfigurationV1): Promise<OperatingConfigurationV1> {
     const current = await this.get();
     if (current.driverId !== expected.driverId || current.vehicleId !== expected.vehicleId ||
