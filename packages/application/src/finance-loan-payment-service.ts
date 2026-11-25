@@ -211,7 +211,7 @@ export class FinanceLoanPaymentService {
     return revised;
   }
 
-  private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
+  private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1>; operating?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>> }> {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
     const operating = await this.operatingConfiguration?.get();
@@ -239,7 +239,7 @@ export class FinanceLoanPaymentService {
     }
     if (!Array.isArray(input.allocations)) throw new Error("finance_payment_allocations_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { loan, ledger } = await this.load(input.loanId);
+      const { loan, ledger, operating } = await this.load(input.loanId);
       await this.assertScheduleVersionForDate(input.loanId, input.scheduleVersion, input.businessDate);
       const rows = await this.resolveScheduleRows(input.loanId, loan.data, input.scheduleVersion);
       const entries = ledger?.data.entries ?? [];
@@ -295,7 +295,6 @@ export class FinanceLoanPaymentService {
         ...loan, updatedAt: createdAt, revision: loan.revision + 1,
       };
       if (operating) await this.operatingConfiguration?.assertCurrent(operating);
-      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       if (await this.repository.compareAndSetMany([
         { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
         { id, expectedRevision: ledger?.revision ?? null, next },
@@ -307,7 +306,7 @@ export class FinanceLoanPaymentService {
     reason: string; source: RecordEnvelope<unknown>["source"] }) {
     if (!input.id.trim() || !input.commandId.trim() || !validDate(input.businessDate) || !input.reason.trim()) throw new Error("finance_payment_reversal_input_invalid");
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { loan, ledger } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
+      const { loan, ledger, operating } = await this.load(input.loanId), entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
         if (replay.kind !== "reversal" || replay.id !== input.id || replay.paymentId !== input.paymentId ||
@@ -335,6 +334,7 @@ export class FinanceLoanPaymentService {
       const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
         ...loan, updatedAt: createdAt, revision: loan.revision + 1,
       };
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       if (await this.repository.compareAndSetMany([
         { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
         { id, expectedRevision: ledger?.revision ?? null, next },
