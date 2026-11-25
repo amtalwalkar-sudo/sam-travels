@@ -9,7 +9,7 @@ import { MaintenanceService } from "../packages/application/src/maintenance-serv
 import { FinanceLoanService } from "../packages/application/src/finance-loan-service";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
-  calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory, fuelBusinessDateFromInstant,
+  calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
 } from "../packages/features/business-expenses";
 import { assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant } from "../packages/features/maintenance";
 import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../packages/features/finance";
@@ -59,7 +59,7 @@ async function setup() {
   const expenses = new BusinessExpensesService(repository, {
     validateRecord: assertBusinessExpenseRecordV1, validateFuelPurchase: assertFuelPurchaseV1,
     validateExpenseEntry: assertBusinessExpenseEntryV1, calculateDailyExpenses: calculateDailyBusinessExpenses,
-    calculateFuelIntervals, calculateFuelCostRateHistory, fuelBusinessDateFromInstant,
+    calculateFuelIntervals, calculateFuelCostRateHistory,
   }, vehicles, () => at, undefined, configuration);
   const maintenance = new MaintenanceService(repository, assertMaintenanceRecordV1, vehicles,
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => at, configuration);
