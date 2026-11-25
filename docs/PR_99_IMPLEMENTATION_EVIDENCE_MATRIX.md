@@ -680,3 +680,19 @@ Exact PR head: ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Required CI [run #45514
 - Repository branch-protection/ruleset enforcement verification.
 
 These are not represented as passed by CI. Stage 6 remains **ACTIVE / NOT ACCEPTED** until critical items are closed or explicitly owner-accepted as scoped deferrals, all project records are reconciled, and required CI passes on the exact final head.
+
+
+## 9.53 — Stage 6 focused slice 1: Fuel amount/price correction — 2026-11-25
+
+**Scope:** Close only the user-facing correction entry path and immediate derived readback for immutable fuel purchase records. Does not close other Stage 6 gaps.
+
+| Requirement | Implementation | Authored verification | Current disposition |
+|---|---|---|---|
+| Driver/admin can correct total amount or price/kg with a reason without mutating the original purchase | FuelPurchaseCorrection mounted from FuelEntryPanel; shared append-only BusinessExpensesService.correctSource() | tests/fuel-purchase-correction-presentation.test.tsx | Added; CI pending |
+| Interrupted correction submission can retry with original target and chain revisions | Optional expected revisions passed through BusinessExpensesService.correctSource() into HistoricalCorrectionService.submit() | tests/business-expense-correction-retry.test.ts | Added; CI pending |
+| Corrected amount and price rebuild daily totals, fuel quantity, full-to-full intervals and effective cost/km | Corrected-projection read path plus interval/rate history and daily expense readback refresh | Existing amount-correction coverage in tests/business-expenses-service.test.ts; price/kg interval assertion in tests/business-expense-correction-retry.test.ts | Added; CI pending |
+| Android WebView uses the same correction UI with Room as authority and proves immutable original plus one correction event | Shared FuelPurchaseCorrection UI over Android's Room-backed application repository | FuelCorrectionCapacitorAcceptanceTest.driverCorrectsFuelAmountThroughWebViewAndRoomReadModelsRefresh | Authored; Android CI pending |
+
+The implementation exposes correction history values, actor role, reason and timestamp; a successful correction refreshes the fuel source projection, fuel interval/rate history and daily expense outputs. The UI preserves the initial target revision and correction-chain revision while retrying an ambiguous submission.
+
+**Important:** This is not yet an accepted Stage 6 closure. Wait for all required jobs on the final exact PR head and inspect any failing Browser/Android evidence. Stage 6 remains active; trip/fare, Maintenance, Compliance, operating-context, historical-integrity and remaining device/form gaps remain open.
