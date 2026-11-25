@@ -27,7 +27,7 @@ function ExpenseEntryForm({ definition, heading, description }: {
     let next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
     for (const field of ["vehicleId"] as const) {
       if (!definition.fields.some(item => item.id === field)) continue;
-      const expected = operatingVehicle.id;
+      const expected = operatingVehicle.vehicleId;
       if (next.values[field] !== undefined && next.values[field] !== expected) {
         throw new Error("business_expense_draft_operating_context_mismatch");
       }
@@ -82,7 +82,7 @@ function ExpenseEntryForm({ definition, heading, description }: {
       const nextVehicle = await services.operatingConfiguration.getVehicleForReadOnly();
       let next = await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
       if (definition.fields.some(item => item.id === "vehicleId")) {
-        next = await services.formRuntime.update(definition as FormDefinition, next, "vehicleId", nextVehicle.id);
+        next = await services.formRuntime.update(definition as FormDefinition, next, "vehicleId", nextVehicle.vehicleId);
       }
       copyRef.current = next; setCopy(next); setValues({ ...next.values });
     } catch (error) {
