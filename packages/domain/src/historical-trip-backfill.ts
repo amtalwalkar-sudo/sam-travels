@@ -28,6 +28,7 @@ export function assertHistoricalTripBackfillV1(value: unknown): asserts value is
       typeof row.vehicleId !== "string" || !row.vehicleId.trim() ||
       typeof row.operationalDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.operationalDate) ||
       !Number.isFinite(start) || !Number.isFinite(end) || end <= start ||
+      new Date(start + 90 * 60_000).toISOString().slice(0, 10) !== row.operationalDate ||
       !Number.isSafeInteger(row.farePaise) || (row.farePaise as number) < 0 ||
       typeof row.reason !== "string" || !row.reason.trim() || row.reason.length > 1000 ||
       typeof row.recordedAt !== "string" || !Number.isFinite(Date.parse(row.recordedAt)) ||
