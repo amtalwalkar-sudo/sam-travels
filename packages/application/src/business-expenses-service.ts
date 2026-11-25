@@ -84,7 +84,7 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -249,7 +249,11 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
 
   async listFuelPurchases(): Promise<readonly RecordEnvelope<FuelPurchaseV1>[]> {
     const records = await this.records.list();
-    const operating = await this.operatingConfiguration?.get();
+    const operating = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : undefined;
     const fuel = records.filter(item => item.data.kind === "fuel_purchase" &&
       (!operating || item.data.vehicleId === operating.vehicleId)) as RecordEnvelope<FuelPurchaseV1>[];
     return await this.projectCorrections(fuel);
@@ -257,7 +261,11 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
 
   async listExpenseEntries(): Promise<readonly RecordEnvelope<BusinessExpenseEntryV1>[]> {
     const records = await this.records.list();
-    const operating = await this.operatingConfiguration?.get();
+    const operating = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : undefined;
     const expenses = records.filter(item => item.data.kind === "business_expense" &&
       (!operating || (item.data.vehicleId === undefined || item.data.vehicleId === operating.vehicleId) &&
         (item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId)))) as RecordEnvelope<BusinessExpenseEntryV1>[];
