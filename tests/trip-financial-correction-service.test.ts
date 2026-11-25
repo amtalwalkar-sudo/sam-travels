@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { AtomicRecordBatchRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
 import { TripFinancialCorrectionServiceV1 } from "../packages/application/src/trip-financial-correction-service";
-import type { CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
+import { TripFinancialService, type CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
+import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
 
 class Records implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -104,6 +105,33 @@ describe("trip financial append-only corrections", () => {
       expectedTargetRevision: 2, expectedChainRevision: 0,
       fieldPath: "tollPayer", afterValue: "operator", reason: "Invalid payer",
     })).rejects.toThrow("trip_financial_correction_projection_invalid");
+  });
+
+
+  it("refreshes the production daily-revenue projection and provenance after a fare correction", async () => {
+    const records = new Records();
+    const original = sourceRecord();
+    await records.put(original);
+    const corrections = new TripFinancialCorrectionServiceV1(records, {
+      currentActor: async () => ({ role: "driver", actorId: "driver-person" }),
+    }, "web", () => "2026-11-11T01:00:00.000Z");
+    await corrections.submit({
+      correctionId: "fare-correction-revenue",
+      targetRecordId: original.id, expectedTargetRevision: 2, expectedChainRevision: 0,
+      fieldPath: "farePaise", afterValue: 17500, reason: "Correct fare from receipt",
+      businessEffectiveDate: "2026-11-10",
+    });
+    const financials = new TripFinancialService(records, "web", undefined, undefined, corrections);
+    const revenue = new PerformanceTripRevenueAdapterV1(financials);
+    const rows = await revenue.listVerifiedDailyRevenue("2026-11-10", "2026-11-10");
+    expect(rows).toEqual([expect.objectContaining({
+      date: "2026-11-10", grossFarePaise: 17500, cancellationFeePaise: 0, verified: true,
+      sourceRefs: [
+        { sourceId: original.id, revision: 2 },
+        { sourceId: "historical-correction:fare-correction-revenue", revision: 1 },
+      ],
+    })]);
+    expect(await revenue.getSourceSnapshotIdentity()).toContain("historical-correction:fare-correction-revenue@1");
   });
 
   it("rejects a stale chain revision rather than applying competing corrections", async () => {
