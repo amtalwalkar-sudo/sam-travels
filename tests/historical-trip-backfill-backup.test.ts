@@ -42,7 +42,7 @@ describe("historical trip backfill backup portability", () => {
 
     await browserDatabase.records.delete(id);
     const restored = await restoreBrowserSnapshot({
-      data: exported.data, manifest: { ...exported.manifest, format: "sam-travels-backup-v2", plaintextSha256: "0".repeat(64) },
+      data: exported.data, manifest: exported.manifest,
       confirmed: true,
     });
     expect(await browserDatabase.records.get(id)).toMatchObject({ id, revision: 1, data });
