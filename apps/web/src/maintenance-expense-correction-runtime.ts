@@ -3,6 +3,7 @@ import type { RecordEnvelope } from "../../../packages/core/src/types";
 import { HistoricalCorrectionService } from "../../../packages/application/src/historical-correction-service";
 import { projectHistoricalCorrectionsV1 } from "../../../packages/domain/src/historical-correction";
 import type { PersonIdentityService } from "../../../packages/application/src/person-identity-service";
+import type { OperatingConfigurationServiceV1 } from "../../../packages/application/src/operating-configuration-service";
 
 export type MaintenanceExpenseCorrectionReferenceV1 = Readonly<{
   sourceId: string;
@@ -36,6 +37,7 @@ export function createMaintenanceExpenseCorrectionAdapter(
   records: AtomicRecordBatchRepository,
   source: RecordEnvelope<unknown>["source"],
   identity: PersonIdentityService,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
 ): MaintenanceExpenseCorrectionAdapter {
   const corrections = new HistoricalCorrectionService(records, identity, {
     resolve: async (record: RecordEnvelope<unknown>) => {
@@ -70,7 +72,15 @@ export function createMaintenanceExpenseCorrectionAdapter(
 
   return Object.freeze({
     listForTarget: (targetRecordId: string) => corrections.listForTarget(targetRecordId),
-    submit: (input: Parameters<HistoricalCorrectionService["submit"]>[0]) => corrections.submit(input),
+    submit: async (input: Parameters<HistoricalCorrectionService["submit"]>[0]) => {
+      if (operatingConfiguration) {
+        const target = await records.get(input.targetRecordId);
+        if (!target || (target.data as { vehicleId?: string }).vehicleId !== (await operatingConfiguration.get()).vehicleId) {
+          throw new Error("maintenance_correction_operating_vehicle_mismatch");
+        }
+      }
+      return corrections.submit(input);
+    },
     projectExpense: async (expense: RecordEnvelope<
       import("../../../packages/application/src/maintenance-service").GeneralMaintenanceExpenseV1
     >) => {
