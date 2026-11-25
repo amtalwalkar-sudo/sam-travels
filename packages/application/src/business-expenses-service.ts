@@ -84,7 +84,7 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -249,26 +249,39 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
 
   async listFuelPurchases(): Promise<readonly RecordEnvelope<FuelPurchaseV1>[]> {
     const records = await this.records.list();
-    const operating = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
+    const operatingVehicle = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
       : undefined;
     const fuel = records.filter(item => item.data.kind === "fuel_purchase" &&
-      (!operating || item.data.vehicleId === operating.vehicleId)) as RecordEnvelope<FuelPurchaseV1>[];
+      (!operatingVehicle || item.data.vehicleId === operatingVehicle.vehicleId)) as RecordEnvelope<FuelPurchaseV1>[];
     return await this.projectCorrections(fuel);
   }
 
   async listExpenseEntries(): Promise<readonly RecordEnvelope<BusinessExpenseEntryV1>[]> {
     const records = await this.records.list();
-    const operating = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
-      : undefined;
+    const [operatingVehicle, operating] = this.operatingConfiguration
+      ? await Promise.all([
+          this.operatingConfiguration.getVehicleForReadOnly
+            ? this.operatingConfiguration.getVehicleForReadOnly()
+            : this.operatingConfiguration.getForReadOnly
+              ? this.operatingConfiguration.getForReadOnly()
+              : this.operatingConfiguration.get(),
+          this.operatingConfiguration.getForReadOnly
+            ? this.operatingConfiguration.getForReadOnly().catch(error => {
+                if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+                throw error;
+              })
+            : this.operatingConfiguration.get(),
+        ])
+      : [undefined, undefined];
     const expenses = records.filter(item => item.data.kind === "business_expense" &&
-      (!operating || (item.data.vehicleId === undefined || item.data.vehicleId === operating.vehicleId) &&
-        (item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId)))) as RecordEnvelope<BusinessExpenseEntryV1>[];
+      (!operatingVehicle || (item.data.vehicleId === undefined || item.data.vehicleId === operatingVehicle.vehicleId)) &&
+      (!operating || item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId))
+    ) as RecordEnvelope<BusinessExpenseEntryV1>[];
     return await this.projectCorrections(expenses);
   }
 
