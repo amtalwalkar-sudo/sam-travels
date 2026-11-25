@@ -36,21 +36,21 @@ export function AdminFinanceSection() {
   const refresh = useCallback(async () => {
     if (!hasLoaded.current) setLoading(true);
     try {
-      const [vehicleRecords, loanRecords, configuration] = await Promise.all([
-        services.vehicles.list(), services.financeLoans.list(), services.operatingConfiguration.get(),
+      const [vehicleRecords, loanRecords, operatingVehicle] = await Promise.all([
+        services.vehicles.list(), services.financeLoans.list(), services.operatingConfiguration.getVehicleForReadOnly(),
       ]);
       const histories = await Promise.all(loanRecords.map(async loan =>
         [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
       const activeVehicles = vehicleRecords.filter(item => item.data.lifecycleState === "active");
-      const configuredVehicle = activeVehicles.find(item => item.id === configuration.vehicleId);
-      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== configuration.vehicleRevision) {
+      const configuredVehicle = activeVehicles.find(item => item.id === operatingVehicle.id);
+      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.revision) {
         setSelectedVehicleId("");
         throw new Error("operating_configuration_stale");
       }
       setVehicles([configuredVehicle]);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
-      setSelectedVehicleId(configuration.vehicleId);
+      setSelectedVehicleId(operatingVehicle.id);
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Finance records.");
