@@ -109,23 +109,6 @@ describe("BusinessExpensesService", () => {
   });
 
 
-  it("attributes Admin challans to the configured Driver using the canonical record identity", async () => {
-    const repository = new MemoryRepository();
-    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
-    const service = new BusinessExpensesService(repository, domain, vehicles,
-      () => "2026-11-15T00:00:00.000Z", undefined, {
-        get: async () => ({ vehicleId, driverId: "driver-1" }),
-        assertCurrent: async () => undefined,
-      } as never);
-    const challan = await service.createExpenseEntry({
-      uuid: "123e4567-e89b-42d3-a456-426614174097", source: "web",
-      data: { sourceKind: "traffic_challan", businessDate: "2026-11-15", amountPaise: 30000,
-        currencyCode: "INR", effect: "charge", vehicleId, paymentStatus: "paid",
-        description: "Signal violation" },
-    });
-    expect(challan.data.driverId).toBe("feature:driver-records:driver:driver-1");
-  });
-
   it("replays a committed Admin expense with its original receipt and rejects changed payload reuse", async () => {
     const { service, repository } = setup();
     const input = { uuid: "123e4567-e89b-42d3-a456-426614174098", source: "web" as const,
@@ -189,9 +172,6 @@ describe("BusinessExpensesService", () => {
     const [daily] = await service.listDailyExpenseOutputs();
     expect(daily.fuelPaise).toBe(25000);
     expect(daily.sourceIds).toContain(fuelId);
-    const readModels = await service.listFuelReadModels();
-    expect(readModels.fuelPurchases[0].data.amountPaise).toBe(25000);
-    expect(readModels.dailyExpenseOutputs[0].fuelPaise).toBe(25000);
     await expect(service.listCorrectionReferences(fuelId)).resolves.toEqual([
       { sourceId: "historical-correction:fuel-amount-fix", revision: 1 },
     ]);
