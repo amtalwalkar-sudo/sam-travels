@@ -354,3 +354,41 @@ describe("Maintenance corrected actual-expense projections", () => {
       .rejects.toThrow("maintenance_correction_chain_head_invalid");
   });
 });
+
+
+describe("Maintenance corrected service visit totals", () => {
+  it("propagates a corrected visit total into actual expenses while retaining the original itemised record", async () => {
+    const { service, repository } = setup();
+    const original = await service.createVisit({
+      uuid: "123e4567-e89b-42d3-a456-426614174097",
+      data: visitInput, source: "web",
+    });
+    const recordedAt = "2026-11-20T08:00:00.000Z";
+    const correction = {
+      schemaVersion: 1, correctionId: "maintenance-visit-total-fix",
+      targetRecordId: original.id, targetRecordRevision: original.revision,
+      featureId: "maintenance", chainRevision: 1, fieldPath: "totalPaise",
+      beforeValue: 250000, afterValue: 275000, reason: "Verified final service invoice",
+      actor: { role: "admin", actorId: "admin-person", adminPinVerifiedAt: recordedAt },
+      recordedAt,
+    } as const;
+    await repository.put({
+      id: "historical-correction:" + correction.correctionId,
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration", revision: 1, data: correction,
+    });
+    await repository.put({
+      id: "historical-correction-chain:" + encodeURIComponent(original.id),
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration", revision: 1,
+      data: { schemaVersion: 1, targetRecordId: original.id, chainRevision: 1,
+        headCorrectionId: correction.correctionId },
+    });
+    const history = await service.listVehicleRecords(vehicleId);
+    expect(history.visits.find(row => row.id === original.id)?.data.totalPaise).toBe(275000);
+    expect(await service.getActualExpenseTotal(vehicleId)).toBe(275000);
+    const unchanged = await repository.get<typeof original.data>(original.id);
+    expect(unchanged?.data.totalPaise).toBe(250000);
+    expect(unchanged?.data.items).toEqual(original.data.items);
+  });
+});
