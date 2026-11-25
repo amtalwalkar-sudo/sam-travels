@@ -300,11 +300,13 @@ export class FullCostBreakevenService {
               ]
             : [];
         });
-        amountPaise = refs.reduce((sum, ref) => {
-          const source = expenseById.get(ref.sourceId)!;
-          const sign = source.data.effect === "reversal" ? -1 : 1;
-          return sum + sign * source.data.amountPaise;
-        }, 0);
+        if (category.sourceKind === "miscellaneous") {
+          amountPaise = refs.reduce((sum, ref) => {
+            const source = expenseById.get(ref.sourceId)!;
+            const sign = source.data.effect === "reversal" ? -1 : 1;
+            return sum + sign * source.data.amountPaise;
+          }, 0);
+        }
         if (!Number.isSafeInteger(amountPaise)) throw new Error("breakeven_expense_amount_invalid");
         if (amountPaise !== 0 && !refs.length) {
           completeness.push({ source: "business-expenses", status: "incomplete",
