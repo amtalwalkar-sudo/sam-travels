@@ -1,5 +1,5 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
-import { resolveOperatingConfiguration, type OperatingConfigurationV1, WORK_SELECTED_DRIVER_RECORD_ID } from "../../domain/src/work-driver-context";
+import { resolveOperatingConfiguration, resolveOperatingVehicle, type OperatingConfigurationV1, type OperatingVehicleV1, WORK_SELECTED_DRIVER_RECORD_ID } from "../../domain/src/work-driver-context";
 
 /** Resolves and revalidates the configured single Driver–Vehicle pair for dependent commands. */
 export class OperatingConfigurationServiceV1 {
@@ -15,6 +15,11 @@ export class OperatingConfigurationServiceV1 {
    * shift. This does not unlock or mutate Work selection; command paths must keep
    * using get(), which rejects a locked selection.
    */
+  /** Vehicle-only read context for projections that do not require a selected Work Driver. */
+  async getVehicleForReadOnly(): Promise<OperatingVehicleV1> {
+    return resolveOperatingVehicle(await this.records.list());
+  }
+
   async getForReadOnly(): Promise<OperatingConfigurationV1> {
     const snapshot = await this.records.list();
     const selection = snapshot.find(record =>
