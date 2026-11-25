@@ -51,6 +51,10 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
 
   const currentValue = field === "amountPaise" ? purchase.data.amountPaise : purchase.data.pricePaisePerKg;
 
+  useEffect(() => {
+    setValue((currentValue / 100).toFixed(2));
+  }, [currentValue]);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true); setMessage("");
