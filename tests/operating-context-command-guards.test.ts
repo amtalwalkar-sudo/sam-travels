@@ -129,7 +129,7 @@ describe("operating-context command guards", () => {
     await expect(expenses.createExpenseEntry({
       uuid: "123e4567-e89b-42d3-a456-426614174045", source: "web",
       data: { sourceKind: "miscellaneous", businessDate: "2026-11-20", amountPaise: 10000,
-        currencyCode: "INR", effect: "charge", vehicleId, driverId: "driver-1",
+        currencyCode: "INR", effect: "charge", vehicleId, driverId: driverRecordId("driver-1"),
         category: "Cleaning", description: "Configured operating context changed before commit" },
     })).rejects.toThrow("operating_configuration_stale");
     await expect(maintenance.createExpense({
