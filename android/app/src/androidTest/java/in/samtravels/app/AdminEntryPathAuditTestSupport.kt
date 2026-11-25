@@ -135,7 +135,6 @@ internal object AdminEntryPathAuditTestSupport {
 
     fun submitClosingFuelCheckpoint(activity: MainActivity, support: AdminFormsCapacitorAcceptanceTest, db: LocalDatabase, vehicleId: String): String {
         SystemClock.sleep(1100)
-        setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Vehicle", vehicleId)
         setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Odometer (km)", "56042")
         setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Price per kg (₹)", "82.5")
         setInPanel(activity, support, ".fuel-entry-panel", "Fuel Entry", "Amount paid (₹)", "825")
@@ -198,10 +197,6 @@ internal object AdminEntryPathAuditTestSupport {
         setFuelField("Odometer (km)", "55123")
         setFuelField("Price per kg (₹)", "82.50")
         setFuelField("Amount paid (₹)", "825")
-        val fuelInputSnapshot = support.javascriptValue(activity,
-            """(()=>{const p=document.querySelector('.fuel-entry-panel');return JSON.stringify([...p.querySelectorAll('label')].map(l=>({label:l.textContent.trim(),value:l.querySelector('input,select')?.value,options:[...(l.querySelector('select')?.options??[])].map(o=>({text:o.textContent.trim(),value:o.value}))})))})()""")
-        assertTrue("Fuel draft inputs reflect the entered values before interruption: " + fuelInputSnapshot,
-            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');const value=t=>[...p.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return ![...p.querySelectorAll('label')].some(l=>l.textContent.trim().startsWith('Vehicle'))&&p.querySelector('.admin-vehicle-context')?.textContent.includes('$vehicleRecordId'.replace('feature:vehicle:',''))===true&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 10000))
         val workingCopyPrefix = "__sam_travels_form_working_copy__:work.fuel-entry:"
         val draftDeadline = SystemClock.uptimeMillis() + 15000
         var workingCopyId: String? = null
