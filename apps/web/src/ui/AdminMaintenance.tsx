@@ -8,9 +8,7 @@ import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
 import { MaintenanceVisitCorrection } from "./MaintenanceVisitCorrection";
 import { projectMaintenanceExpenseRecords, projectMaintenanceVisitRecords } from "../maintenance-expense-correction-runtime";
 import "./AdminFormControls.css";
-import { today, money, newItem, type ItemDraft, type Vehicle, type Maintenance } from "./admin-maintenance-helpers";
-type RecordMode = "visit" | "expense";
-type ActiveForm = RecordMode | "rate" | null;
+import { today, money, newItem, type ItemDraft, type Vehicle, type Maintenance, type RecordMode, type ActiveForm } from "./admin-maintenance-helpers";
 export function MaintenanceSection() {
   const services = useAdminMaintenanceServices();
   const correctionService = useAdminMaintenanceCorrectionAdapter();
