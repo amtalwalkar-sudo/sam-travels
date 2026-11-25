@@ -60,8 +60,11 @@ describe("Fuel correction command retry", () => {
     };
     const service = new BusinessExpensesService(repository, domain, vehicles,
       () => "2026-11-15T00:00:00.000Z", undefined, operating);
-    await service.createFuelPurchase({ uuid: "123e4567-e89b-42d3-a456-426614174031", source: "web",
-      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
+    const fuelId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174031";
+    await repository.put({ id: fuelId, schemaVersion: 1, createdAt: "2026-11-14T20:00:00.000Z",
+      updatedAt: "2026-11-14T20:00:00.000Z", source: "web", revision: 1,
+      data: { schemaVersion: 1, kind: "fuel_purchase", id: fuelId, revision: 1,
+        businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
         vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 25000, partialRefill: true } });
     const entryId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174032";
     await repository.put({ id: entryId, schemaVersion: 1, createdAt: "2026-11-14T20:00:00.000Z",
