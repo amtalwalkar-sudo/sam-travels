@@ -5,7 +5,8 @@ import {
 } from "../../../../packages/application/src";
 import { useAdminMaintenanceServices, useAdminMaintenanceCorrectionAdapter } from "./admin-services-context";
 import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
-import { projectMaintenanceExpenseRecords } from "../maintenance-expense-correction-runtime";
+import { MaintenanceVisitCorrection } from "./MaintenanceVisitCorrection";
+import { projectMaintenanceExpenseRecords, projectMaintenanceVisitRecords } from "../maintenance-expense-correction-runtime";
 import "./AdminFormControls.css";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
@@ -68,8 +69,11 @@ export function MaintenanceSection() {
       services.maintenance.listVehicleRecords(id),
       services.maintenance.getServiceReminderStates(id, today()),
     ]);
-    const expenses = await projectMaintenanceExpenseRecords(history.expenses, correctionService);
-    setRecords({ ...history, expenses });
+    const [expenses, visits] = await Promise.all([
+      projectMaintenanceExpenseRecords(history.expenses, correctionService),
+      projectMaintenanceVisitRecords(history.visits, correctionService),
+    ]);
+    setRecords({ ...history, expenses, visits });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
   }, [services, correctionService]);
 
@@ -379,6 +383,7 @@ export function MaintenanceSection() {
           <strong>{visit.data.maintenanceType} · {money(visit.data.totalPaise)}</strong>
           <small>{visit.data.maintenanceDate} · {visit.data.provider ?? "No provider"} · {visit.data.odometerKm ?? "No odometer"} km</small>
           <small>{visit.data.items.map(item => item.description + " " + money(item.amountPaise)).join(" · ")}</small>
+          <MaintenanceVisitCorrection visit={visit} service={correctionService} onCorrected={() => loadVehicleRecords(vehicleId)} />
         </div></article>)}
         {records?.expenses.map(expense => <article className="admin-capability-record" key={expense.id}><div>
           <strong>{expense.data.expenseName} · {money(expense.data.amountPaise)}</strong>
