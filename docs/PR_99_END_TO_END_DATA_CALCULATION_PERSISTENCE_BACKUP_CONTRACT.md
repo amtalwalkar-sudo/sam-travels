@@ -662,3 +662,12 @@ The current evidence audit identifies unresolved critical implementation/test wo
 External/manual gates remain physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where deterministic emulator proof is unavailable; and live Dropbox account authentication/upload/download/scheduled-backup/restore. Repository branch-protection/ruleset enforcement is a separate repository-administration check. None is counted as a CI pass.
 
 The evidence matrix §9.52 contains the initial eight-condition assessment, the explicit remaining-gap list and external-gate classification. No scoped deferral is treated as owner-accepted unless the owner explicitly accepts it. Stage 6 and whole-contract status remain **INCOMPLETE** until all applicable critical requirements are proven or explicitly owner-accepted, the four project records agree, required CI passes on the exact final PR head, and PR metadata is verified. PR #99 remains open, draft and unmerged.
+
+
+## 17. Stage 6 focused implementation checkpoint — Fuel correction — 2026-11-25
+
+Stages 1–5 remain accepted. Stage 6 remains active and is the only stage being worked. The first focused slice adds a rendered, append-only correction path for immutable Fuel purchases: the driver/admin can correct amount paid or price/kg with a reason; the original source remains unchanged; correction history exposes timestamp, field, before/after values, actor role and reason; and the Fuel panel refreshes corrected source, interval/rate history and daily expense readback.
+
+The application service accepts the original target revision and correction-chain revision from the UI so retry after an ambiguous commit reuses the same command intent. Browser presentation/service tests and an Android WebView + Room instrumentation acceptance test have been authored. See implementation evidence matrix §9.53 for exact files and test names.
+
+**Disposition: IMPLEMENTATION ADDED — NOT YET ACCEPTED.** Test source is not passing evidence. Acceptance requires all five required CI jobs to pass on the final exact PR head, including Web and Android execution of the new tests. No other Stage 6 requirement is closed by this slice.
