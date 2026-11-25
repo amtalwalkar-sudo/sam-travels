@@ -253,7 +253,12 @@ try {
   await insuranceCard.getByLabel("Corrected total cost (₹)").fill("6200.00");
   await insuranceCard.getByLabel("Reason for correction").fill("Final premium verified against insurer receipt.");
   await insuranceCard.getByRole("button", { name: "Append correction" }).click();
-  await insuranceCard.getByText("Correction appended. The original Compliance record remains unchanged.", { exact: true }).waitFor();
+  const correctionStatus = insuranceCard.locator('[role="status"]');
+  await correctionStatus.waitFor({ timeout: 10000 });
+  const correctionStatusText = await correctionStatus.innerText();
+  if (correctionStatusText !== "Correction appended. The original Compliance record remains unchanged.") {
+    throw new Error("compliance_insurance_correction_rejected:" + correctionStatusText);
+  }
   await primaryCost.getByText("Combined daily allocation: 40000 ÷ 1 paise", { exact: true }).waitFor();
   const correctedPremium = await page.evaluate(async ({ insuranceId }) => {
     const request = indexedDB.open("sam-travels-browser");
