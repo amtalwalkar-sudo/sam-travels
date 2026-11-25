@@ -185,6 +185,10 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       assertEquals("Renewal lineage survives Room backup/restore", complianceId,
         JSONObject(database.records().get(renewal.id)!!.json).getJSONObject("data").getString("renewedFromRecordId"))
     } finally {
+      database.records().list().filter { row ->
+        row.id.startsWith("feature:compliance:") &&
+          runCatching { JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == complianceId }.getOrDefault(false)
+      }.forEach { database.records().remove(it.id) }
       database.records().remove(complianceId)
       database.records().remove(chainId)
       database.records().list().filter { it.id.startsWith("historical-correction:") }
