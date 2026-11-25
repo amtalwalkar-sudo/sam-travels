@@ -14,8 +14,9 @@ export function createApplicationMaintenanceService(
   calculateVisitTotal: MaintenanceVisitTotalCalculator,
   businessDateFromInstant: MaintenanceBusinessDateResolver,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
 ): MaintenanceService {
-  return new MaintenanceService(repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now);
+  return new MaintenanceService(repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now, operatingConfiguration);
 }
 
 let applicationMaintenanceService: MaintenanceService | undefined;
@@ -27,10 +28,11 @@ export function initializeApplicationMaintenanceService(
   calculateVisitTotal: MaintenanceVisitTotalCalculator,
   businessDateFromInstant: MaintenanceBusinessDateResolver,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
 ): MaintenanceService {
   if (applicationMaintenanceService) throw new Error("Application Maintenance service is already initialized");
   applicationMaintenanceService = createApplicationMaintenanceService(
-    repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now,
+    repository, validate, vehicles, calculateVisitTotal, businessDateFromInstant, now, operatingConfiguration,
   );
   return applicationMaintenanceService;
 }
