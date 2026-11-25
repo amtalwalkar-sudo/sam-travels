@@ -301,6 +301,7 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
       throw new Error("business_expense_operating_context_mismatch");
     }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.historicalCorrections.submit({
       correctionId: input.correctionId,
       targetRecordId: input.targetRecordId,
