@@ -80,7 +80,7 @@ function scheduleFrom(snapshot: Snapshot) {
 }
 export class FinanceLoanPrepaymentService {
   constructor(private readonly repository: AtomicRecordBatchRepository,
-    private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
+    private readonly loans: { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined>; getForReadOnly?(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> },
     private readonly validateState: FinanceLoanPrepaymentStateValidator,
     private readonly buildRevision: FinanceLoanPrepaymentRevisionBuilder,
     private readonly now: () => string = () => new Date().toISOString(),
@@ -106,6 +106,26 @@ export class FinanceLoanPrepaymentService {
     }
     return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
       state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined, operating };
+  }
+
+  /** Read-only schedule projections must remain available when Work has no selected Driver. */
+  private async loadForReadOnly(loanId: string): Promise<Snapshot> {
+    const loan = await (this.loans.getForReadOnly ? this.loans.getForReadOnly(loanId) : this.loans.get(loanId));
+    if (!loan) throw new Error("finance_loan_not_found");
+    const [rawLedger, rawState] = await Promise.all([
+      this.repository.get<unknown>(paymentRecordId(loanId)),
+      this.repository.get<unknown>(prepaymentRecordId(loanId)),
+    ]);
+    if (rawLedger) assertFinancePaymentLedgerV1(rawLedger.data, loanId);
+    if (rawState) {
+      this.validateState(rawState.data, loan.data, loanId);
+      const state = rawState.data as FinanceLoanPrepaymentStateV1;
+      if (state.baseScheduleVersion !== loan.data.currentScheduleVersion) {
+        throw new Error("finance_loan_prepayment_base_schedule_changed");
+      }
+    }
+    return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
+      state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined };
   }
 
   private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
