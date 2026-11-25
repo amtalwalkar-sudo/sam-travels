@@ -84,7 +84,8 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> &
+      Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly" | "assertCurrentForReadOnly" | "assertVehicleCurrentForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -316,14 +317,28 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
     if (!this.historicalCorrections?.submit) throw new Error("business_expense_historical_correction_unavailable");
     const target = await this.records.get(input.targetRecordId);
     if (!target) throw new Error("historical_correction_target_unavailable");
-    const operating = await this.operatingConfiguration?.get();
     const targetData = target.data as BusinessExpenseRecordV1;
-    if (operating && (targetData.vehicleId !== operating.vehicleId ||
-        (targetData.kind === "business_expense" && targetData.driverId !== undefined && targetData.driverId !== driverRecordId(operating.driverId)))) {
+    const vehicle = await this.operatingConfiguration?.getVehicleForReadOnly?.();
+    if (vehicle && targetData.vehicleId !== vehicle.vehicleId) {
+      throw new Error("business_expense_operating_context_mismatch");
+    }
+    const operating = targetData.kind === "business_expense" && targetData.driverId !== undefined
+      ? await (this.operatingConfiguration?.getForReadOnly?.() ?? this.operatingConfiguration?.get())
+      : undefined;
+    if (operating && targetData.driverId !== driverRecordId(operating.driverId)) {
       throw new Error("business_expense_operating_context_mismatch");
     }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
-    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+    if (vehicle && this.operatingConfiguration?.assertVehicleCurrentForReadOnly) {
+      await this.operatingConfiguration.assertVehicleCurrentForReadOnly(vehicle);
+    }
+    if (operating) {
+      if (this.operatingConfiguration?.assertCurrentForReadOnly) {
+        await this.operatingConfiguration.assertCurrentForReadOnly(operating);
+      } else {
+        await this.operatingConfiguration?.assertCurrent(operating);
+      }
+    }
     return this.historicalCorrections.submit({
       correctionId: input.correctionId,
       targetRecordId: input.targetRecordId,
