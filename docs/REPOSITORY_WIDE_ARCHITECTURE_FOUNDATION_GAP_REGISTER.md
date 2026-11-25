@@ -761,3 +761,25 @@ Implementation-head CI run [45512816930](https://github.com/amtalwalkar-sudo/sam
 **Whole-contract status remains INCOMPLETE.** Stage 5 acceptance is a scoped execution-stage exit, not PR #99 whole-contract acceptance. Stage 6 reconciliation and any remaining owner-contract, operating-configuration, external/manual or repository-administration gates remain separately tracked. Physical OEM/device certification, nondeterministic full-OS reboot acceptance, live Dropbox account delivery and final owner visual approval are not CI passes.
 
 PR #99 remains **OPEN · DRAFT · UNMERGED**. No merge or close is authorized by this checkpoint.
+
+
+### 9.48 — PR #99 Stage 5 exact-head acceptance and Stage 6 audit — 2026-11-25
+
+This addendum supersedes the Stage 5 documentation-head CI pending wording in §9.47. Earlier audit history remains preserved.
+
+**Stage 5 — ACCEPTED (scoped exit).** Exact PR head ae59d7a77e079f31c9e14048c6dffbd0efb680ff; required CI [#45514874954](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45514874954) completed successfully on that exact SHA. Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate passed. Optional Production geocoder verification was skipped. The exact Browser/Dexie and Android/Room requirement mapping is in PR #99 implementation evidence matrix §9.51.
+
+**Stage 6 — ACTIVE; whole-contract acceptance remains BLOCKED.** The current 46-record fixture, production Browser/Room lifecycle, same-record UI golden journeys, integrated calculation/provenance and Stage 5 negative/recovery evidence close the corresponding scoped stages. They do not close every supported entry path or owner-contract obligation in PR #99 §1A.
+
+**Critical unresolved items carried forward from the current evidence matrix:**
+- Fuel amount/price correction UI and immediate recalculation of derived quantity, full-to-full mileage, effective rate history, daily costs and Performance on both runtimes.
+- Trip/fare correction and missing-trip insertion, preserving immutable Work events and linked fare/toll/parking lineage.
+- Maintenance correction propagation into actual-expense and applicable downstream read models; current audit identifies getActualExpenseTotal() reading original values, and visit correction is not available in the audited path.
+- Compliance correction/renewal readback and immediate consumer refresh across supported surfaces, including Android WebView where supported.
+- Full §3.0.1 operating-pair context binding for Fuel, Maintenance, Finance, Business Expenses and Performance, plus stale-revision/no-write parity; the Compliance Vehicle-only resolver slice is not a substitute.
+- Historical deletion/deletedAt call-site and compatibility audit; update-actor provenance where required; complete domain correction-authority mapping.
+- Remaining rendered device-readiness handoff/return/recheck, Work event-specific GPS and form-definition/accessibility conformance required by the owning contracts.
+
+**External/manual gates (not CI passes):** physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where not deterministic in emulator CI; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification.
+
+No unapproved deferral is treated as accepted. Stage 6 is not accepted until each critical item is closed with named evidence or explicitly owner-accepted as a scoped deferral, all records agree, exact-final-head required CI passes, and PR metadata is verified. PR #99 remains open, draft and unmerged.
