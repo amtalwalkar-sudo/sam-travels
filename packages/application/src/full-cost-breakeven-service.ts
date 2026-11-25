@@ -49,7 +49,7 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
@@ -70,10 +70,18 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    const operating = await this.operatingConfiguration?.getForReadOnly();
-    const operatingVehicles = operating
-      ? vehicles.filter(vehicle => vehicle.id === operating.vehicleId &&
-          vehicle.data?.lifecycleState === "active" && vehicle.revision === operating.vehicleRevision)
+    const operating = await this.operatingConfiguration?.getForReadOnly().catch(error => {
+      if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+      throw error;
+    });
+    const operatingVehicle = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : operating)
+      : undefined;
+    const operatingVehicles = operatingVehicle
+      ? vehicles.filter(vehicle => vehicle.id === operatingVehicle.vehicleId &&
+          vehicle.data?.lifecycleState === "active" && vehicle.revision === operatingVehicle.vehicleRevision)
       : vehicles;
     if (operating && operatingVehicles.length !== 1) throw new Error("operating_configuration_stale");
     if (!operating && operatingVehicles.length !== 1) {
