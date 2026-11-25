@@ -136,6 +136,22 @@ export class FinanceLoanService {
     });
   }
 
+  async getForReadOnly(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
+    assertRecordId(id);
+    const record = await this.records.get(id);
+    if (!record) return undefined;
+    const operatingVehicle = await this.operatingConfiguration?.getVehicleForReadOnly?.();
+    if (operatingVehicle && operatingVehicle.vehicleId !== record.data.details.vehicleId) {
+      throw new Error("finance_loan_operating_vehicle_mismatch");
+    }
+    const vehicle = await this.vehicles.getById(record.data.details.vehicleId);
+    if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
+    if (vehicle.id !== record.data.details.vehicleId || !record.data.details.vehicleId.startsWith("feature:vehicle:")) {
+      throw new Error("finance_loan_vehicle_identity_invalid");
+    }
+    return record;
+  }
+
   async get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
     assertRecordId(id);
     const record = await this.records.get(id);
