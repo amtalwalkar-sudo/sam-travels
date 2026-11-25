@@ -247,7 +247,7 @@ try {
   }
 
   const insuranceCard = overview.locator(".compliance-overview-section").filter({ hasText: "Expiry status" })
-    .locator("article.admin-capability-record").filter({ hasText: "Insurance · Valid" }).first();
+    .locator("article.admin-capability-record").filter({ hasText: "Insurance · Valid" }).nth(1);
   await insuranceCard.locator("button", { hasText: "Correct details / history" }).click();
   await insuranceCard.getByLabel("Field to correct").selectOption("totalCostPaise");
   await insuranceCard.getByLabel("Corrected total cost (₹)").fill("6200.00");
