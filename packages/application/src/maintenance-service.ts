@@ -3,7 +3,6 @@ import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectMaintenanceCorrectedRecord } from "./maintenance-correction-projection";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
-
 export type MaintenanceExpenseItemV1 = Readonly<{ id: string; description: string; amountPaise: number }>;
 export type MaintenanceVisitV1 = Readonly<{
   schemaVersion: 1; kind: "visit"; vehicleId: string; maintenanceDate: string;
@@ -39,7 +38,6 @@ export type MaintenanceBusinessDateResolver = (instant: string) => string;
 export type MaintenanceVisitInput = Omit<MaintenanceVisitV1, "schemaVersion" | "kind" | "totalPaise">;
 export type MaintenanceExpenseInput = Omit<GeneralMaintenanceExpenseV1, "schemaVersion" | "kind">;
 export type MaintenanceRateHistoryEntry = MaintenanceRateEntryV1;
-
 const PREFIX = "feature:maintenance:";
 const VISIT_PREFIX = PREFIX + "visit:";
 const EXPENSE_PREFIX = PREFIX + "expense:";
