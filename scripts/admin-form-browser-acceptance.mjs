@@ -159,7 +159,7 @@ try {
   await page.getByRole("button", { name: "Save expense", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Finance", exact: true }).click();
-  await page.getByText("MH01AB1234", { exact: true }).waitFor();
+  await page.getByText(registration, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Add loan", exact: true }).click();
   await page.getByLabel("Loan name").fill("Admin Browser Loan");
   await page.getByLabel("Lender name").fill("Acceptance Bank");
