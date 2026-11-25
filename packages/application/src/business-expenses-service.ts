@@ -245,13 +245,18 @@ export class BusinessExpensesService {
 
   async listFuelPurchases(): Promise<readonly RecordEnvelope<FuelPurchaseV1>[]> {
     const records = await this.records.list();
-    const fuel = records.filter(item => item.data.kind === "fuel_purchase") as RecordEnvelope<FuelPurchaseV1>[];
+    const operating = await this.operatingConfiguration?.get();
+    const fuel = records.filter(item => item.data.kind === "fuel_purchase" &&
+      (!operating || item.data.vehicleId === operating.vehicleId)) as RecordEnvelope<FuelPurchaseV1>[];
     return await this.projectCorrections(fuel);
   }
 
   async listExpenseEntries(): Promise<readonly RecordEnvelope<BusinessExpenseEntryV1>[]> {
     const records = await this.records.list();
-    const expenses = records.filter(item => item.data.kind === "business_expense") as RecordEnvelope<BusinessExpenseEntryV1>[];
+    const operating = await this.operatingConfiguration?.get();
+    const expenses = records.filter(item => item.data.kind === "business_expense" &&
+      (!operating || (item.data.vehicleId === undefined || item.data.vehicleId === operating.vehicleId) &&
+        (item.data.driverId === undefined || item.data.driverId === operating.driverId))) as RecordEnvelope<BusinessExpenseEntryV1>[];
     return await this.projectCorrections(expenses);
   }
 
@@ -286,6 +291,12 @@ export class BusinessExpensesService {
     if (!this.historicalCorrections?.submit) throw new Error("business_expense_historical_correction_unavailable");
     const target = await this.records.get(input.targetRecordId);
     if (!target) throw new Error("historical_correction_target_unavailable");
+    const operating = await this.operatingConfiguration?.get();
+    const targetData = target.data as BusinessExpenseRecordV1;
+    if (operating && (targetData.vehicleId !== operating.vehicleId ||
+        (targetData.kind === "business_expense" && targetData.driverId !== undefined && targetData.driverId !== operating.driverId))) {
+      throw new Error("business_expense_operating_context_mismatch");
+    }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
     return this.historicalCorrections.submit({
       correctionId: input.correctionId,
