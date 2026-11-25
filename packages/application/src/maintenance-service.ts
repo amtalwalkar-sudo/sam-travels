@@ -74,6 +74,7 @@ export class MaintenanceService {
     private readonly calculateVisitTotal: MaintenanceVisitTotalCalculator,
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -84,6 +85,8 @@ export class MaintenanceService {
   }
 
   private async requireVehicle(vehicleId: string): Promise<RecordEnvelope<{ lifecycleState: string }>> {
+    const configuration = await this.operatingConfiguration?.get();
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("maintenance_vehicle_not_found");
     return vehicle;
