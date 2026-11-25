@@ -246,6 +246,36 @@ try {
     throw new Error("compliance_correction_audit_or_original_immutability_invalid:" + JSON.stringify(correctionAudit));
   }
 
+  await insuranceCard.locator("button", { hasText: "Correct details / history" }).click();
+  await insuranceCard.getByLabel("Field to correct").selectOption("totalCostPaise");
+  await insuranceCard.getByLabel("Corrected total cost (₹)").fill("6200.00");
+  await insuranceCard.getByLabel("Reason for correction").fill("Final premium verified against insurer receipt.");
+  await insuranceCard.getByRole("button", { name: "Append correction" }).click();
+  await insuranceCard.getByText("Correction appended. The original Compliance record remains unchanged.", { exact: true }).waitFor();
+  await primaryCost.getByText("Combined daily allocation: 40000 ÷ 1 paise", { exact: true }).waitFor();
+  const correctedPremium = await page.evaluate(async ({ insuranceId }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const original = rows.find(row => row.id === insuranceId);
+    const correction = rows.find(row => row.id.startsWith("historical-correction:") &&
+      row.data.targetRecordId === insuranceId && row.data.fieldPath === "totalCostPaise");
+    return { original: original?.data?.totalCostPaise, correction: correction?.data };
+  }, { insuranceId: seeded.insuranceIds[0] });
+  if (correctedPremium.original !== 310000 || correctedPremium.correction?.afterValue !== 620000 ||
+      correctedPremium.correction?.actor?.role !== "admin") {
+    throw new Error("compliance_corrected_premium_source_or_provenance_invalid:" + JSON.stringify(correctedPremium));
+  }
+
   console.log("PASS: rendered Admin Compliance PWA shows fleet counts, separate gaps/overlaps, vehicle filtering, expiry states and append-only Compliance corrections; reject/confirm reviews persist exact source provenance; daily costs remain withheld or aggregate exactly as expected.");
 } finally {
   if (browser) await browser.close();
