@@ -170,7 +170,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
       assertTrue("$id", awaitMaintenanceJavascript(activity,
         "(() => { const panel = document.getElementById('admin-section-panel-$id'); return !!panel && !panel.hidden && panel.textContent.includes('$expected'); })()", 10_000))
     }
-    assertTrue("Maintenance load", awaitMaintenanceJavascript(activity,
+    assertTrue("Maintenance load; panel=" + evaluateMaintenanceWebView(activity, "document.getElementById('admin-section-panel-maintenance')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(activity,
         "document.body.textContent.includes('Accept tyre repair')", 15_000))
     evaluateMaintenanceWebView(activity, """
         (() => {
