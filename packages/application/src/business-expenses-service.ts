@@ -273,7 +273,12 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
               : this.operatingConfiguration.get(),
           this.operatingConfiguration.getForReadOnly
             ? this.operatingConfiguration.getForReadOnly().catch(error => {
-                if (error instanceof Error && error.message === "work_driver_not_selected") return undefined;
+                // Vehicle expense projections remain useful without a complete
+                // Work assignment. Driver-attributed entries stay excluded below
+                // until a valid operating Driver–Vehicle pair exists.
+                if (error instanceof Error && [
+                  "work_driver_not_selected", "operating_driver_missing", "operating_assignment_missing",
+                ].includes(error.message)) return undefined;
                 throw error;
               })
             : this.operatingConfiguration.get(),
@@ -281,7 +286,9 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
       : [undefined, undefined];
     const expenses = records.filter(item => item.data.kind === "business_expense" &&
       (!operatingVehicle || (item.data.vehicleId === undefined || item.data.vehicleId === operatingVehicle.vehicleId)) &&
-      (!operating || item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId))
+      (operating
+        ? item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId)
+        : item.data.driverId === undefined)
     ) as RecordEnvelope<BusinessExpenseEntryV1>[];
     return await this.projectCorrections(expenses);
   }
