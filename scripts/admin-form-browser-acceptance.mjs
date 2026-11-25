@@ -180,7 +180,6 @@ try {
   await paymentPanel.getByText("Review allocation", { exact: false }).waitFor({ state: "visible" });
   await paymentPanel.getByRole("button", { name: "Save payment", exact: true }).click();
   await paymentPanel.getByRole("status").filter({ hasText: "Payment recorded atomically." }).waitFor({ state: "visible" });
-  console.log("Payment allocated oldest-due-first to all currently due EMIs.");
   await paymentPanel.getByRole("button", { name: "Record payment", exact: true }).click();
   await paymentPanel.getByLabel("Payment date").fill(today);
   await paymentPanel.getByLabel("Amount paid (₹)").fill("50");
