@@ -53,6 +53,39 @@ class FuelCorrectionCapacitorAcceptanceTest {
             activity = startedActivity
             assertTrue("Drive workspace loads", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.driver-card') !== null", 30000))
+            assertTrue("Admin navigation is available for driver role activation",
+                awaitMaintenanceJavascript(startedActivity,
+                    "[...document.querySelectorAll('.bottom-navigation-item')].some(n=>n.textContent.trim()==='Admin')", 10000))
+            evaluateMaintenanceWebView(startedActivity,
+                "[...document.querySelectorAll('.bottom-navigation-item')].find(n=>n.textContent.trim()==='Admin')?.click()")
+            assertTrue("People and roles panel loads", awaitMaintenanceJavascript(startedActivity,
+                "document.querySelector('.admin-replacement-shell')?.textContent.includes('People & roles')", 15000))
+            assertTrue("Seeded driver identity can be selected", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const labels = [...document.querySelectorAll('.admin-replacement-shell label')];
+                  const person = labels.find(n=>n.textContent.includes('Select person'))?.querySelector('select');
+                  const role = labels.find(n=>n.textContent.includes('Active role'))?.querySelector('select');
+                  if (!person || !role) return false;
+                  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(person,'$personId');
+                  person.dispatchEvent(new Event('change',{bubbles:true}));
+                  Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(role,'driver');
+                  role.dispatchEvent(new Event('change',{bubbles:true}));
+                  return true;
+                })()
+            """))
+            assertTrue("Driver role activation succeeds", evaluateMaintenanceWebView(startedActivity, """
+                (() => {
+                  const button = [...document.querySelectorAll('.admin-replacement-shell button')]
+                    .find(n=>n.textContent.includes('Activate role'));
+                  if (!button || button.disabled) return false;
+                  button.click();
+                  return true;
+                })()
+            """))
+            assertTrue("Driver actor is active", awaitMaintenanceJavascript(startedActivity,
+                "document.querySelector('.admin-replacement-shell [role=status]')?.textContent.includes('Role activated')", 10000))
+            evaluateMaintenanceWebView(startedActivity,
+                "[...document.querySelectorAll('.bottom-navigation-item')].find(n=>n.textContent.trim()==='Drive')?.click()")
             assertTrue("Fuel entry launcher is visible", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-toggle') !== null", 10000))
             assertTrue("Fuel entry opens", evaluateMaintenanceWebView(startedActivity,
