@@ -26,6 +26,13 @@ export function MaintenanceExpenseCorrection({ expense, service, onCorrected }: 
       .catch(error => { if (live) setMessage(error instanceof Error ? error.message : "Correction history unavailable."); });
     return () => { live = false; };
   }, [expense.id, service]);
+
+  // Reconcile the editable amount with the latest corrected projection when
+  // the record refreshes or the correction panel is closed/reopened. Without
+  // this, a successful correction leaves the next edit seeded from stale data.
+  useEffect(() => {
+    if (!open) setAmount((expense.data.amountPaise / 100).toFixed(2));
+  }, [expense.id, expense.revision, expense.data.amountPaise, open]);
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
