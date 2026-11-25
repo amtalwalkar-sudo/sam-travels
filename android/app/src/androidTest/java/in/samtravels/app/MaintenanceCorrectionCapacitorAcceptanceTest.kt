@@ -316,37 +316,11 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     """))
     assertTrue("Other rejected", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
-    val visitCardReady = awaitMaintenanceJavascript(activity,
-        "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept service visit'))",
-        10_000)
+    val visitCardReady = awaitMaintenanceJavascript(activity, "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept service visit'))", 10_000)
     assertTrue("Visit history", visitCardReady)
-    assertTrue("Visit correction opens", evaluateMaintenanceWebView(activity, """
-        (() => {
-          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'));
-          const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct visit total / view history'));
-          button?.click();
-          return Boolean(button);
-        })()
-    """))
-    assertTrue("Visit correction fields", evaluateMaintenanceWebView(activity, """
-        (() => {
-          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'));
-          const set = (labelText, value) => {
-            const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
-            const input = label?.querySelector('input');
-            if (!input) return false;
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-            setter.call(input, value);
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            return true;
-          };
-          return set('Corrected visit total', '225.00') &&
-            set('Reason for correction', 'Final visit invoice verified');
-        })()
-    """))
-    assertTrue("Visit correction committed", awaitMaintenanceJavascript(activity,
-        "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'))?.textContent.includes('Visit correction appended')",
-        15_000))
+    assertTrue("Visit correction opens", evaluateMaintenanceWebView(activity, """(() => { const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit')); const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct visit total / view history')); button?.click(); return Boolean(button); })()"""))
+    assertTrue("Visit correction fields", evaluateMaintenanceWebView(activity, """(() => { const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit')); const set = (labelText, value) => { const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText)); const input = label?.querySelector('input'); if (!input) return false; const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); return true; }; return set('Corrected visit total', '225.00') && set('Reason for correction', 'Final visit invoice verified'); })()"""))
+    assertTrue("Visit correction committed", awaitMaintenanceJavascript(activity, "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'))?.textContent.includes('Visit correction appended')", 15_000))
     val originalVisit = JSONObject(database.records().get(visitId)!!.json).getJSONObject("data")
     assertEquals("Original visit total", 20000L, originalVisit.getLong("totalPaise"))
     assertEquals("Original visit item amount", 20000L,
