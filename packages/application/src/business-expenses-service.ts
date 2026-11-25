@@ -4,6 +4,7 @@ import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type Featu
 import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import type { SubmitHistoricalCorrectionV1 } from "./historical-correction-service";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import { driverRecordId } from "../../domain/src/driver-record-identity";
 
 export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1; kind: "fuel_purchase"; id: string; revision: number;
@@ -135,7 +136,7 @@ export class BusinessExpensesService {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
     const operating = await this.operatingConfiguration?.get();
-    if (operating && data.driverId !== undefined && data.driverId !== operating.driverId) {
+    if (operating && data.driverId !== undefined && data.driverId !== driverRecordId(operating.driverId)) {
       throw new Error("business_expense_operating_driver_mismatch");
     }
     this.domain.validateExpenseEntry(data);
@@ -259,7 +260,7 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
     const operating = await this.operatingConfiguration?.get();
     const expenses = records.filter(item => item.data.kind === "business_expense" &&
       (!operating || (item.data.vehicleId === undefined || item.data.vehicleId === operating.vehicleId) &&
-        (item.data.driverId === undefined || item.data.driverId === operating.driverId))) as RecordEnvelope<BusinessExpenseEntryV1>[];
+        (item.data.driverId === undefined || item.data.driverId === driverRecordId(operating.driverId)))) as RecordEnvelope<BusinessExpenseEntryV1>[];
     return await this.projectCorrections(expenses);
   }
 
@@ -297,7 +298,7 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
     const operating = await this.operatingConfiguration?.get();
     const targetData = target.data as BusinessExpenseRecordV1;
     if (operating && (targetData.vehicleId !== operating.vehicleId ||
-        (targetData.kind === "business_expense" && targetData.driverId !== undefined && targetData.driverId !== operating.driverId))) {
+        (targetData.kind === "business_expense" && targetData.driverId !== undefined && targetData.driverId !== driverRecordId(operating.driverId)))) {
       throw new Error("business_expense_operating_context_mismatch");
     }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
