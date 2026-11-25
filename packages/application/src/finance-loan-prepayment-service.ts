@@ -43,6 +43,7 @@ export type FinanceLoanPrepaymentPreviewV1 = Readonly<{
   currentScheduleVersion: number; nextScheduleVersion: number; remainingInstallmentCount: number;
   regularEmiPaise: number; finalDueDate: string; interestSavedPaise: number;
   loanRevision: number; paymentLedgerRevision: number | null; prepaymentStateRevision: number | null;
+  operatingConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>;
   revision: FinanceLoanPrepaymentRevisionV1;
 }>;
 function validDate(value: string): boolean {
@@ -165,6 +166,7 @@ export class FinanceLoanPrepaymentService {
       regularEmiPaise: revision.output.regularEmiPaise, finalDueDate: revision.output.finalDueDate,
       interestSavedPaise: revision.output.interestSavedPaise, loanRevision: snapshot.loan.revision,
       paymentLedgerRevision: snapshot.ledger?.revision ?? null, prepaymentStateRevision: snapshot.state?.revision ?? null,
+      ...(snapshot.operating ? { operatingConfiguration: snapshot.operating } : {}),
       revision,
     };
   }
@@ -228,6 +230,9 @@ export class FinanceLoanPrepaymentService {
         if (replay.prepaymentAmountPaise !== requested.amountPaise || replay.mode !== requested.mode ||
             replay.effectiveDate !== requested.businessDate || replay.source !== requested.source) throw new Error("finance_loan_prepayment_idempotency_conflict");
         return replay;
+      }
+      if (JSON.stringify(snapshot.operating ?? null) !== JSON.stringify(requested.operatingConfiguration ?? null)) {
+        throw new Error("finance_loan_prepayment_operating_context_stale");
       }
       if (snapshot.loan.revision !== requested.loanRevision ||
           (snapshot.ledger?.revision ?? null) !== requested.paymentLedgerRevision ||
