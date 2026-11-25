@@ -76,6 +76,7 @@ export function TripFinancialCorrectionSection() {
         <article className="admin-capability-record">
           <strong>Source revision {selected.revision} · correction chain {selected.correctionChainRevision ?? 0}</strong>
           <small>Trip {selected.data.tripId} · {selected.data.kind}</small>
+          {selected.data.kind === "cancellation_fee" && <small>Cancellation fee ₹{rupees(selected.data.feePaise)}</small>}
           {selected.data.kind === "completed_ride_financials" && <>
             <small>Fare ₹{rupees(selected.data.farePaise)} · Toll ₹{rupees(selected.data.tollPaise)} ({selected.data.tollPayer ?? "payer unset"}) · Parking ₹{rupees(selected.data.parkingPaise)} ({selected.data.parkingPayer ?? "payer unset"})</small>
           </>}
