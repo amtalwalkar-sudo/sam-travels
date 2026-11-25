@@ -218,11 +218,11 @@ try {
   await pucCard.getByLabel("Corrected valid-until date").fill(correctedValidTo);
   await pucCard.getByLabel("Reason for correction").fill("Corrected against the original PUC certificate.");
   await pucCard.getByRole("button", { name: "Append correction" }).click();
-  const correctionStatus = pucCard.locator(".compliance-correction [role=status]");
-  await correctionStatus.waitFor({ state: "visible", timeout: 10000 });
-  const correctionMessage = (await correctionStatus.textContent())?.trim() ?? "";
-  if (!correctionMessage.includes("Correction appended")) {
-    throw new Error("compliance_correction_submit_failed:" + correctionMessage);
+  const pucCorrectionStatus = pucCard.locator(".compliance-correction [role=status]");
+  await pucCorrectionStatus.waitFor({ state: "visible", timeout: 10000 });
+  const pucCorrectionMessage = (await pucCorrectionStatus.textContent())?.trim() ?? "";
+  if (!pucCorrectionMessage.includes("Correction appended")) {
+    throw new Error("compliance_correction_submit_failed:" + pucCorrectionMessage);
   }
   await pucCard.locator("details.compliance-correction-history > summary").click();
   await pucCard.getByText("valid To · admin", { exact: true }).waitFor();
