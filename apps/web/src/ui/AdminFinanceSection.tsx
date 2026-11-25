@@ -43,7 +43,7 @@ export function AdminFinanceSection() {
         [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
       const activeVehicles = vehicleRecords.filter(item => item.data.lifecycleState === "active");
       const configuredVehicle = activeVehicles.find(item => item.id === operatingVehicle.vehicleId);
-      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
+      if (!configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
         setSelectedVehicleId("");
         throw new Error("operating_configuration_stale");
       }
