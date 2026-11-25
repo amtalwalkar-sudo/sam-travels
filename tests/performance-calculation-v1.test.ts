@@ -36,6 +36,24 @@ function fixture(overrides: Partial<PerformanceCalculationInputV1> = {}): Perfor
 }
 
 describe("Performance Calculation Contract v1.0", () => {
+  it("includes Admin-declared historical fare in revenue while retaining attribution in provenance", () => {
+    const sourceId = "historical-trip-backfill:paper-trip-1";
+    const result = calculatePerformanceV1(fixture({
+      revenue: [{
+        date: "2026-04-07", grossFarePaise: 8_750, cancellationFeePaise: 0, verified: true,
+        attribution: "admin_declared",
+        sourceRefs: [{ sourceId, revision: 4, attribution: "admin_declared" }],
+      }],
+    }));
+    expect(result.period.revenuePaise).toBe(8_750);
+    expect(result.provenance.sourceRefs).toContainEqual({
+      sourceId, revision: 4, attribution: "admin_declared",
+    });
+    expect(result.passbook.daily.find(row => row.date === "2026-04-07")?.sourceRefs)
+      .toContainEqual({ sourceId, revision: 4, attribution: "admin_declared" });
+  });
+
+
   it("recovers each pre-business source over exactly 18 months from business start", () => {
     const result = allocatePreBusinessRecoveryV1("2026-03-15", [
       { sourceId: "pre-1", revision: 1, amountPaise: 18_000, note: "setup", origin: "manual" },
