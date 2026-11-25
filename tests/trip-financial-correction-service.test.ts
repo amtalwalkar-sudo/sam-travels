@@ -4,6 +4,7 @@ import type { RecordEnvelope } from "../packages/core/src/types";
 import { TripFinancialCorrectionServiceV1 } from "../packages/application/src/trip-financial-correction-service";
 import { TripFinancialService, type CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
 import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
+import { createTripFinancialFormRuntimeV1 } from "../packages/application/src/trip-financial-form-runtime";
 
 class Records implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
