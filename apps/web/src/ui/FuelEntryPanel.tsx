@@ -20,7 +20,6 @@ export function FuelEntryPanel() {
   const services = useAdminFuelEntryServices();
   const [open, setOpen] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const [latestOdometerByVehicle, setLatestOdometerByVehicle] = useState<Record<string, number>>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
@@ -54,7 +53,7 @@ export function FuelEntryPanel() {
         services.vehicles.list(),
         services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
         services.businessExpenses.listFuelPurchases(),
-        services.operatingConfiguration.get(),
+        services.operatingConfiguration.getVehicleForReadOnly(),
       ]);
       setFuelPurchases(purchases);
       const [rates, daily] = await Promise.all([
@@ -72,12 +71,11 @@ export function FuelEntryPanel() {
       }
       setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
       const activeVehicles = availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
-      const operatingVehicle = activeVehicles.find(vehicle => vehicle.id === configuration.vehicleId);
-      if (activeVehicles.length !== 1 || !operatingVehicle || operatingVehicle.revision !== configuration.vehicleRevision) {
+      const operatingVehicle = activeVehicles.find(vehicle => vehicle.id === configuration.id);
+      if (activeVehicles.length !== 1 || !operatingVehicle || operatingVehicle.revision !== configuration.revision) {
         setVehicles([]);
         throw new Error("operating_configuration_stale");
       }
-      setOperatingSnapshot(configuration);
       setVehicles(activeVehicles);
       const resumable = [...drafts].sort((a, b) =>
         b.updatedAt.localeCompare(a.updatedAt) || b.revision - a.revision || b.instanceId.localeCompare(a.instanceId)
@@ -130,8 +128,9 @@ export function FuelEntryPanel() {
       await queue.current;
       const current = copyRef.current;
       if (!current) throw new Error("fuel_entry_form_not_ready");
-      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
-      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
+      const commandSnapshot = await services.operatingConfiguration.get();
+      if (commandSnapshot.vehicleId !== current.values.vehicleId) throw new Error("operating_configuration_stale");
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
       await services.formRuntime.submit(FUEL_ENTRY_FORM_V1, current);
       if (typeof current.values.vehicleId === "string" && typeof current.values.odometerKm === "number") {
         const vehicleId = current.values.vehicleId;
@@ -142,7 +141,7 @@ export function FuelEntryPanel() {
       await refreshFuelReadModels();
       setMessage("Fuel purchase saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
-      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
       const opened = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
       const withVehicle = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, opened, "vehicleId", vehicles[0]?.id);
       const next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, withVehicle, "partialRefill", false);
