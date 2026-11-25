@@ -97,7 +97,7 @@ function ExpenseEntryForm({ definition, heading, description }: {
       <div className="loan-form-grid">
         {definition.fields.map(field => <label key={field.id}>
           {field.label}
-          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true} disabled={busy || copy?.status === "pending"}
+          {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true} disabled={busy || !copy || copy.status === "pending"}
             onChange={event => change(field, event.target.checked)} /> :
           field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")} disabled={busy || copy?.status === "pending"}
             onChange={event => change(field, event.target.value)}>
