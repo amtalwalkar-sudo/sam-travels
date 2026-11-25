@@ -65,11 +65,11 @@ export function MaintenanceSection() {
       const operatingVehicle = await services.operatingConfiguration.getVehicleForReadOnly();
       const v = await services.vehicles.list();
       const active = v.filter(item => item.data.lifecycleState === "active");
-      const configuredVehicle = active.find(item => item.id === operatingVehicle.id);
-      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.revision) {
+      const configuredVehicle = active.find(item => item.id === operatingVehicle.vehicleId);
+      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
         throw new Error("operating_configuration_stale");
       }
-      const chosen = operatingVehicle.id;
+      const chosen = operatingVehicle.vehicleId;
       setOperatingSnapshot(undefined);
       setVehicles([configuredVehicle]);
       setVehicleId(chosen);
