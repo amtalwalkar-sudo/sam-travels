@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,6 +27,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val driverId = "fuel-correction-$suffix"
         val previousSelectedDriver = database.records().get("work:selected-driver")
         val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
+        val previousAssignments = database.records().list().filter { it.id.startsWith("feature:driver-records:assignment:") }
         val previousDriver = database.records().get("feature:driver-records:driver:$driverId")
         val previousLink = database.records().get("identity:driver-person-link:$driverId")
         val previousPerson = database.records().get("identity:person:$personId")
@@ -39,6 +41,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val now = "2026-11-15T05:00:00.000Z"
         var activity: MainActivity? = null
         try {
+            previousAssignments.forEach { database.records().remove(it.id) }
             previousVehicleRecords.forEach { database.records().remove(it.id) }
             previousFuelRecords.forEach { database.records().remove(it.id) }
             previousFuelDrafts.forEach { database.records().remove(it.id) }
@@ -48,6 +51,15 @@ class FuelCorrectionCapacitorAcceptanceTest {
                 .put("fuelType", "CNG").put("yearOfManufacture", 2022)
                 .put("ownership", "Owned").put("lifecycleState", "active")))
             DriverWorkflowIdentityTestFixtures.seed(database, driverId, personId)
+            // Fuel read models are scoped to the authoritative Driver–Vehicle pair. A selected
+            // driver and active vehicle alone are not a valid operating context.
+            val assignment = JSONObject().put("schemaVersion", 1).put("driverId", driverId)
+                .put("assignments", JSONArray().put(JSONObject()
+                    .put("assignmentId", "fuel-correction-assignment-$suffix")
+                    .put("vehicleId", vehicleId).put("assignedAt", "2026-11-01T00:00:00.000Z")))
+            database.records().put(maintenanceEnvelope(
+                "feature:driver-records:assignment:$driverId", now, assignment,
+            ))
             val fuelData = JSONObject().put("schemaVersion", 1).put("kind", "fuel_purchase")
                 .put("id", fuelId).put("revision", 1).put("vehicleId", vehicleId)
                 .put("odometerKm", 45000).put("pricePaisePerKg", 9000)
@@ -239,6 +251,8 @@ class FuelCorrectionCapacitorAcceptanceTest {
             activity?.finish()
             database.records().remove(fuelId)
             database.records().remove(vehicleId)
+            database.records().remove("feature:driver-records:assignment:$driverId")
+            previousAssignments.forEach { database.records().put(it) }
             database.records().remove("feature:driver-records:driver:$driverId")
             database.records().remove("identity:driver-person-link:$driverId")
             database.records().remove("identity:person:$personId")
