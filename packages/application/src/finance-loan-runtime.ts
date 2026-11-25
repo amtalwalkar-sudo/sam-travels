@@ -15,7 +15,7 @@ export function createApplicationFinanceLoanService(
   buildScheduleVersion: FinanceLoanScheduleBuilder,
   calculationInputsChanged: FinanceLoanInputsChanged,
   now?: () => string,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): FinanceLoanService {
   return new FinanceLoanService(repository, vehicles, validate, buildScheduleVersion, calculationInputsChanged, now, operatingConfiguration);
 }
@@ -29,7 +29,7 @@ export function initializeApplicationFinanceLoanService(
   buildScheduleVersion: FinanceLoanScheduleBuilder,
   calculationInputsChanged: FinanceLoanInputsChanged,
   now?: () => string,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): FinanceLoanService {
   if (applicationFinanceLoanService) throw new Error("Application Finance Loan service is already initialized");
   applicationFinanceLoanService = createApplicationFinanceLoanService(
