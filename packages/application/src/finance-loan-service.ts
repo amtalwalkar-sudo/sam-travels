@@ -88,7 +88,7 @@ export class FinanceLoanService {
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
     _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "finance",
@@ -145,13 +145,15 @@ export class FinanceLoanService {
 
   async list(): Promise<Array<RecordEnvelope<FinanceLoanRecordV1>>> {
     const records = await this.records.list();
-    const operating = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
+    const operatingVehicle = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
       : undefined;
-    const scoped = operating
-      ? records.filter(record => record.data.details.vehicleId === operating.vehicleId)
+    const scoped = operatingVehicle
+      ? records.filter(record => record.data.details.vehicleId === operatingVehicle.vehicleId)
       : records;
     for (const record of scoped) {
       assertRecordId(record.id);
