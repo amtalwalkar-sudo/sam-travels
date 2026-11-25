@@ -159,6 +159,14 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return true;
         })()
       """))
+      assertTrue("Renewal form is ready to submit", awaitMaintenanceJavascript(page, """
+        (() => {
+          const form = document.querySelector('.admin-capability-form');
+          const button = [...(form?.querySelectorAll('button') ?? [])]
+            .find(node => node.textContent.includes('Save record'));
+          return !!button && !button.disabled;
+        })()
+      """, 10_000))
       evaluateMaintenanceWebView(page, """
         (() => {
           const form = document.querySelector('.admin-capability-form');
@@ -168,7 +176,14 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return Boolean(button);
         })()
       """)
-      assertTrue("Compliance renewal saved", awaitMaintenanceJavascript(page,
+      assertTrue("Compliance renewal saved; rendered state=" + readMaintenanceWebViewText(page, """
+        JSON.stringify({
+          status: document.querySelector('.admin-capability-panel [role=status]')?.textContent ?? null,
+          form: document.querySelector('.admin-capability-form')?.innerText ?? null,
+          values: [...(document.querySelectorAll('.admin-capability-form input') ?? [])].map(input => ({name:input.previousSibling?.textContent ?? input.type,value:input.value})),
+          buttons: [...(document.querySelectorAll('.admin-capability-form button') ?? [])].map(button => ({text:button.textContent,disabled:button.disabled}))
+        })
+      """), awaitMaintenanceJavascript(page,
         "document.querySelector('.admin-capability-panel [role=status]')?.textContent.includes('Compliance record saved')",
         45_000))
       val renewal = database.records().list().firstOrNull { row ->
