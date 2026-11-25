@@ -68,7 +68,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
         if (!Number.isSafeInteger(data.farePaise) || (data.farePaise ?? -1) < 0) continue;
         result.push(Object.freeze({
           date: context.operationalDate, grossFarePaise: data.farePaise!, cancellationFeePaise: 0,
-          verified: true, attribution: "work_event",
+          verified: true,
           sourceRefs: Object.freeze([
             { sourceId: record.id, revision: record.revision },
             ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
@@ -114,7 +114,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
        !Number.isSafeInteger(record.data.farePaise) || record.data.farePaise < 0));
     if (!unresolved.length && !invalidBackfills.length) return Object.freeze([
       Object.freeze({ source: "trip-financials", status: "complete" as const }),
-      Object.freeze({ source: "historical-trip-backfills", status: "complete" as const }),
+      ...(this.backfillReader ? [Object.freeze({ source: "historical-trip-backfills", status: "complete" as const })] : []),
     ]);
     return Object.freeze([Object.freeze({
       source: "trip-financials-and-backfills", status: "incomplete" as const,
