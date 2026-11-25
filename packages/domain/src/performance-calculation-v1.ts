@@ -4,7 +4,6 @@ import {
   type PerformancePassbookV1,
   type PerformancePassbookSourceRefV1,
 } from "./performance-passbook-v1";
-
 /**
  * Performance Calculation Contract v1.0.
  *
@@ -16,12 +15,10 @@ export const PERFORMANCE_CALCULATION_ID_V1 = "performance.calculation.v1" as con
 export const PERFORMANCE_CALCULATION_VERSION_V1 = 1 as const;
 export const PERFORMANCE_BUSINESS_DAY_BOUNDARY = "04:00" as const;
 export const PRE_BUSINESS_RECOVERY_MONTHS_V1 = 18 as const;
-
 export type PerformanceCostKindV1 =
   | "fuel" | "maintenance" | "emi" | "compliance" | "platform-fee"
   | "traffic-challan" | "toll-parking" | "miscellaneous"
   | "pre-business-manual-recovery";
-
 export type PerformanceSourceRefV1 = Readonly<{ sourceId: string; revision: number; scheduleVersion?: number; attribution?: "work_event" | "admin_declared" }>;
 export type PerformanceDailyRevenueInputV1 = Readonly<{
   date: string;
@@ -66,7 +63,6 @@ export type PerformanceCalculationInputV1 = Readonly<{
   /** Shared Business Start Date source revision identity captured for this calculation. */
   sourceSnapshotId?: string;
 }>;
-
 export type PerformanceDailyResultV1 = Readonly<{
   date: string;
   grossRevenuePaise: number;
