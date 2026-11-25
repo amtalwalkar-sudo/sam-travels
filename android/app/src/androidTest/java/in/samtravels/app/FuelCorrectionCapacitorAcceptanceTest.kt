@@ -25,7 +25,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val personId = "person-fuel-correction-$suffix"
         val driverId = "fuel-correction-$suffix"
         val previousSelectedDriver = database.records().get("work:selected-driver")
-        val previousVehicle = database.records().get(vehicleId)
+        val previousVehicleRecords = database.records().list().filter { it.id.startsWith("feature:vehicle:") }
         val previousDriver = database.records().get("feature:driver-records:driver:$driverId")
         val previousLink = database.records().get("identity:driver-person-link:$driverId")
         val previousPerson = database.records().get("identity:person:$personId")
@@ -33,6 +33,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val now = "2026-11-15T05:00:00.000Z"
         var activity: MainActivity? = null
         try {
+            previousVehicleRecords.forEach { database.records().remove(it.id) }
             database.records().put(maintenanceEnvelope(vehicleId, now, JSONObject()
                 .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
                 .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
@@ -237,7 +238,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
                 JSONObject(it.json).optJSONObject("data")?.optString("targetRecordId") == fuelId }
                 .forEach { database.records().remove(it.id) }
             previousSelectedDriver?.let { database.records().put(it) } ?: database.records().remove("work:selected-driver")
-            previousVehicle?.let { database.records().put(it) }
+            previousVehicleRecords.forEach { database.records().put(it) }
             previousDriver?.let { database.records().put(it) }
             previousLink?.let { database.records().put(it) }
             previousPerson?.let { database.records().put(it) }
