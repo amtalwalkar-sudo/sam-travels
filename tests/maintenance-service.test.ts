@@ -7,6 +7,7 @@ import {
   maintenanceBusinessDateFromInstant,
 } from "../packages/features/maintenance";
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
+import { createMaintenanceExpenseCorrectionAdapter } from "../apps/web/src/maintenance-expense-correction-runtime";
 import { accrueMaintenanceForCompletedWorkDay } from "../packages/application/src/maintenance-daily-accrual-integration";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
@@ -122,6 +123,46 @@ describe("MaintenanceService", () => {
     expect(history.visits).toHaveLength(1);
     expect(history.expenses).toHaveLength(1);
     expect(history.rateHistory[0].ratePaisePerKm).toBe(250);
+  });
+
+  it("propagates corrected expense and visit totals into actual-expense reads without rewriting source evidence", async () => {
+    const { service, repository } = setup();
+    const visit = await service.createVisit({
+      uuid: "123e4567-e89b-42d3-a456-426614174040", data: visitInput, source: "web",
+    });
+    const expense = await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174041",
+      data: { vehicleId, expenseDate: "2026-10-06", expenseName: "Towing",
+        description: "Original receipt", amountPaise: 120000 }, source: "web",
+    });
+    expect(await service.getActualExpenseTotal(vehicleId)).toBe(370000);
+    const corrections = createMaintenanceExpenseCorrectionAdapter(repository, "web", {
+      currentActor: async () => ({ role: "admin", actorId: "maintenance-admin",
+        adminPinVerifiedAt: "2026-11-03T08:00:00.000Z" }),
+    });
+    await corrections.submit({
+      correctionId: "maintenance-expense-total-integration",
+      targetRecordId: expense.id, expectedTargetRevision: expense.revision, expectedChainRevision: 0,
+      fieldPath: "amountPaise", afterValue: 130000, reason: "Verified final towing invoice",
+      businessEffectiveDate: expense.data.expenseDate,
+    });
+    await corrections.submit({
+      correctionId: "maintenance-visit-total-integration",
+      targetRecordId: visit.id, expectedTargetRevision: visit.revision, expectedChainRevision: 0,
+      fieldPath: "totalPaise", afterValue: 275000, reason: "Verified final service invoice",
+      businessEffectiveDate: visit.data.maintenanceDate,
+    });
+
+    expect(await service.getActualExpenseTotal(vehicleId)).toBe(405000);
+    const history = await service.listVehicleRecords(vehicleId);
+    expect(history.expenses[0].data.amountPaise).toBe(130000);
+    expect(history.visits[0].data.totalPaise).toBe(275000);
+    expect((await repository.get(expense.id))?.data).toMatchObject({ amountPaise: 120000 });
+    expect((await repository.get(visit.id))?.data).toMatchObject({
+      totalPaise: 250000,
+      items: visitInput.items,
+    });
+    expect((await repository.list()).filter(row => row.id.startsWith("historical-correction:"))).toHaveLength(2);
   });
 
   it("starts each vehicle at ₹2.50/km and appends idempotent effective-date rate changes", async () => {
