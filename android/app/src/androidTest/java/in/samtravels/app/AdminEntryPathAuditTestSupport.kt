@@ -201,7 +201,7 @@ internal object AdminEntryPathAuditTestSupport {
         val fuelInputSnapshot = support.javascriptValue(activity,
             """(()=>{const p=document.querySelector('.fuel-entry-panel');return JSON.stringify([...p.querySelectorAll('label')].map(l=>({label:l.textContent.trim(),value:l.querySelector('input,select')?.value,options:[...(l.querySelector('select')?.options??[])].map(o=>({text:o.textContent.trim(),value:o.value}))})))})()""")
         assertTrue("Fuel draft inputs reflect the entered values before interruption: " + fuelInputSnapshot,
-            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');const value=t=>[...p.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 10000))
+            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');const value=t=>[...p.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return ![...p.querySelectorAll('label')].some(l=>l.textContent.trim().startsWith('Vehicle'))&&p.querySelector('.admin-vehicle-context')?.textContent.includes('$vehicleRecordId'.replace('feature:vehicle:',''))===true&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 10000))
         val workingCopyPrefix = "__sam_travels_form_working_copy__:work.fuel-entry:"
         val draftDeadline = SystemClock.uptimeMillis() + 15000
         var workingCopyId: String? = null
@@ -238,7 +238,7 @@ internal object AdminEntryPathAuditTestSupport {
             support.await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
         support.eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
         assertTrue("Fuel draft is recovered into the rendered form after WebView recreation",
-            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 15000))
+            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return ![...p.querySelectorAll('label')].some(l=>l.textContent.trim().startsWith('Vehicle'))&&p.querySelector('.admin-vehicle-context')?.textContent.includes('$vehicleRecordId'.replace('feature:vehicle:',''))===true&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'})()""", 15000))
         val recoveredDraft = db.records().get(fuelWorkingCopyId)
         assertNotNull("Recovered draft remains durable in Room", recoveredDraft)
         assertEquals("Interruption did not submit the Fuel draft", "in_progress",
@@ -294,7 +294,7 @@ internal object AdminEntryPathAuditTestSupport {
             support.await(activity, "!!document.querySelector('.fuel-entry-toggle')", 15000))
         support.eval(activity, "document.querySelector('.fuel-entry-toggle')?.click()")
         assertTrue("Pending Fuel intent is recovered with its original values",
-            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return value('Vehicle')==='$vehicleRecordId'&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'&&p.textContent.includes('Draft · pending')})()""", 15000))
+            support.await(activity, """(()=>{const p=document.querySelector('.fuel-entry-panel');if(!p)return false;const labels=[...p.querySelectorAll('label')];const value=t=>labels.find(l=>l.textContent.trim().startsWith(t))?.querySelector('input,select')?.value;return ![...p.querySelectorAll('label')].some(l=>l.textContent.trim().startsWith('Vehicle'))&&p.querySelector('.admin-vehicle-context')?.textContent.includes('$vehicleRecordId'.replace('feature:vehicle:',''))===true&&value('Odometer (km)')==='55123'&&value('Price per kg')==='82.5'&&value('Amount paid')==='825'&&p.textContent.includes('Draft · pending')})()""", 15000))
         support.click(activity, "Submit fuel purchase")
         assertTrue("Pending Fuel operation replays the original Room receipt",
             support.await(activity, "document.body.innerText.includes('Fuel purchase saved.')", 20000))
