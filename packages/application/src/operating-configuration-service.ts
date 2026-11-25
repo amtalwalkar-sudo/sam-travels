@@ -46,6 +46,14 @@ export class OperatingConfigurationServiceV1 {
     return current;
   }
 
+  async assertVehicleCurrentForReadOnly(expected: OperatingVehicleV1): Promise<OperatingVehicleV1> {
+    const current = await this.getVehicleForReadOnly();
+    if (current.vehicleId !== expected.vehicleId || current.vehicleRevision !== expected.vehicleRevision) {
+      throw new Error("operating_configuration_stale");
+    }
+    return current;
+  }
+
   async assertCurrent(expected: OperatingConfigurationV1): Promise<OperatingConfigurationV1> {
     const current = await this.get();
     if (current.driverId !== expected.driverId || current.vehicleId !== expected.vehicleId ||
