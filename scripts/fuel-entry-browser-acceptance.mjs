@@ -317,6 +317,15 @@ try {
   const workDistance = await assertBrowserWorkDistanceThroughUi(page);
   assert.equal(workDistance.businessKilometres, 42,
     "Performance must consume a confirmed Work odometer allocation from the rendered UI");
+  // The initial snapshot above is intentionally captured after the first
+  // purchase only. Re-read the authoritative Dexie records after the second
+  // and closing full-tank submissions before selecting the partial refill.
+  purchases = (await readBrowserRecords(page)).filter(row =>
+    row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
+  ).sort((a, b) => a.data.odometerKm - b.data.odometerKm);
+  assert.equal(purchases.length, 3, "opening full, partial, and closing full purchases must commit before correction");
+  assert.equal(purchases[1].data.odometerKm, 12346);
+  assert.equal(purchases[1].data.partialRefill, true);
   const correctedRows = await correctFuelPurchaseThroughUi(page, purchases[1].id);
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
