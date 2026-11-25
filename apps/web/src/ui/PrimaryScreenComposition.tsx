@@ -22,7 +22,7 @@ const ADMIN_SCREEN_CONTRACT = Object.freeze({
 
 export type PrimaryScreenWorkspace = Readonly<DriveScreenWorkspaceV1 & {
   loadTimeline: TimelineScreenContext["loadTimeline"];
-  tripHistory: readonly TripHistoryRecord[];
+  tripHistory?: readonly TripHistoryRecord[];
 }>;
 
 export type PrimaryScreenCompositionProps = Readonly<{
