@@ -26,9 +26,11 @@ export type AppProps = Readonly<{
 /** Application composition owns shared services, dependency injection, and replaceable shell selection. */
 export function App(props: AppProps) {
   const tripFinancialForms = useMemo(() => createTripFinancialFormRuntimeV1(
-    props.platformRepository, getPlatformRecordSource(), async () => {
-      const actor = await getPersonIdentityService().currentActor();
-      return { personId: actor.actorId, role: actor.role };
+    props.platformRepository, getPlatformRecordSource(), async (tripId: string) => {
+      const obligation = await props.platformRepository.get(cancellationFeeObligationId(tripId));
+      const driverId = (obligation?.data as { tripContext?: { driverId?: string } } | undefined)?.tripContext?.driverId;
+      if (typeof driverId !== "string" || !driverId.trim()) throw new Error("trip_financial_driver_context_missing");
+      return resolveDriverRecordAuthor(props.platformRepository, driverId);
     },
   ), [props.platformRepository]);
   return <TripFinancialFormRuntimeProvider value={tripFinancialForms}>

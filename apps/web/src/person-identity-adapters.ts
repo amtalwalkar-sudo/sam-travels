@@ -1,7 +1,9 @@
 import type { AtomicRecordRepository } from "../../../packages/core/src/repositories";
-import type { RecordEnvelope } from "../../../packages/core/src/types";
+import type { RecordAuthorV1, RecordEnvelope } from "../../../packages/core/src/types";
 import type { CredentialVault } from "../../../packages/core/src/credentials";
 import { assertBusinessPersonV1, type BusinessPersonV1 } from "../../../packages/domain/src/person-identity";
+import { driverRecordId } from "../../../packages/domain/src/driver-record-identity";
+import { assertDriverRecordV1, type DriverRecordV1 } from "../../../packages/features/driver-records/records";
 import type { BusinessPersonRepository, AdminPinVerifier } from "../../../packages/application/src/person-identity-service";
 
 const PERSON_PREFIX = "identity:person:";
@@ -17,7 +19,7 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
 
   async get(personId: string): Promise<BusinessPersonV1 | undefined> {
     const row = await this.records.get<BusinessPersonV1>(PERSON_PREFIX + personId);
-    if (!row) return undefined;
+    if (!row || row.deletedAt) return undefined;
     try { assertBusinessPersonV1(row.data); }
     catch { throw new Error("business_person_record_invalid"); }
     if (row.data.personId !== personId) throw new Error("business_person_record_invalid");
@@ -26,7 +28,7 @@ export class PersistentBusinessPersonRepository implements BusinessPersonReposit
 
   async list(): Promise<BusinessPersonV1[]> {
     const rows = await this.records.list<BusinessPersonV1>();
-    return rows.filter(row => row.id.startsWith(PERSON_PREFIX)).map(row => {
+    return rows.filter(row => row.id.startsWith(PERSON_PREFIX) && !row.deletedAt).map(row => {
       try { assertBusinessPersonV1(row.data); }
       catch { throw new Error("business_person_record_invalid"); }
       if (row.id !== PERSON_PREFIX + row.data.personId) throw new Error("business_person_record_invalid");
@@ -127,6 +129,28 @@ export async function getDriverPersonLink(records: AtomicRecordRepository, drive
   if (row.data.schemaVersion !== 1 || row.data.driverId !== driverId || !row.data.personId) throw new Error("driver_person_link_invalid");
   return row.data;
 }
+/** Resolve the same linked Driver actor used by the Android native Work overlay. */
+export async function resolveDriverRecordAuthor(
+  records: AtomicRecordRepository, driverId: string,
+): Promise<RecordAuthorV1> {
+  let id: string;
+  try { id = driverRecordId(driverId); } catch { throw new Error("driver_person_profile_missing"); }
+  const driverRow = await records.get<DriverRecordV1>(id);
+  if (!driverRow || driverRow.deletedAt) throw new Error("driver_person_profile_missing");
+  try { assertDriverRecordV1(driverRow.data); } catch { throw new Error("driver_person_profile_invalid"); }
+  if (driverRow.data.driverId !== driverId || driverRow.data.lifecycleState !== "active") {
+    throw new Error("driver_person_profile_invalid");
+  }
+  const link = await getDriverPersonLink(records, driverId);
+  if (!link) throw new Error("driver_person_link_missing");
+  const personRow = await records.get<BusinessPersonV1>(PERSON_PREFIX + link.personId);
+  if (!personRow || personRow.deletedAt) throw new Error("driver_person_identity_missing");
+  try { assertBusinessPersonV1(personRow.data); } catch { throw new Error("driver_person_identity_invalid"); }
+  if (personRow.data.personId !== link.personId || personRow.data.status !== "active" ||
+      !personRow.data.roles.includes("driver")) throw new Error("driver_person_identity_inactive");
+  return { personId: link.personId, role: "driver" };
+}
+
 export async function saveDriverPersonLink(records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], driverId: string, personId: string): Promise<void> {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(driverId) || !/^[A-Za-z0-9_-]{1,128}$/.test(personId)) throw new Error("driver_person_link_invalid");
   const id = DRIVER_PERSON_LINK_PREFIX + driverId;
