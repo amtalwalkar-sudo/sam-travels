@@ -40,7 +40,7 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
   identityAdapter: AdminIdentityPresentationAdapter;
   maintenanceCorrections: MaintenanceExpenseCorrectionAdapter;
   complianceCorrections: ComplianceHistoricalCorrectionAdapter;
-  historicalTripBackfills: HistoricalTripBackfillServiceV1;
+  historicalTripBackfills?: HistoricalTripBackfillServiceV1;
   children: ReactNode;
 }) {
   const adapters = useMemo<AdminSectionAdapters>(() => ({
@@ -65,7 +65,7 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
   return <AdminServicesContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
       <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>
-        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}><HistoricalTripBackfillContext.Provider value={historicalTripBackfills}>{children}</HistoricalTripBackfillContext.Provider></AdminComplianceCorrectionContext.Provider>
+        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}><HistoricalTripBackfillContext.Provider value={historicalTripBackfills ?? null}>{children}</HistoricalTripBackfillContext.Provider></AdminComplianceCorrectionContext.Provider>
       </AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
   </AdminServicesContext.Provider>;
