@@ -39,6 +39,8 @@ export async function assertBrowserStage3GoldenJourney(page) {
       row.id.startsWith("feature:business-settings:") ||
       row.id.startsWith("feature:performance:") ||
       row.id.startsWith("feature:business-expenses:") ||
+      row.id.startsWith("historical-correction:") ||
+      row.id.startsWith("historical-correction-chain:") ||
       row.id.startsWith("feature:vehicle:") ||
       row.id.startsWith("feature:driver-records:");
     const before = canonicalRows((await readRecords()).filter(isUiSource));
