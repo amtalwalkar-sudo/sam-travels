@@ -287,13 +287,11 @@ try {
       const panel = document.querySelector(".fuel-entry-panel");
       const labels = [...(panel?.querySelectorAll("label") ?? [])];
       const control = name => labels.find(label => label.textContent?.trim().startsWith(name))?.querySelector("input, select");
-      const vehicle = control("Vehicle");
       const odometer = control("Odometer (km)");
       const price = control("Price per kg");
       const amount = control("Amount paid");
       const partial = control("Partial refill");
-      return vehicle?.value === expected.vehicleId &&
-        odometer?.value === "12346" && price?.value === "82.5" &&
+      return odometer?.value === "12346" && price?.value === "82.5" &&
         amount?.value === "825" && partial?.checked === true;
     }, { vehicleId }, { timeout: 15000 });
   } catch (error) {
@@ -326,7 +324,10 @@ try {
     });
     throw new Error("Fuel draft did not visibly recover: " + JSON.stringify(diagnostic) + "; " + error.message);
   }
-  assert.equal(await resumed.getByLabel("Vehicle").inputValue(), vehicleId);
+  const resumedWorkingCopy = (await readBrowserRecords(page)).find(row =>
+    row.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:") && row.data?.status === "in_progress");
+  assert.equal(resumedWorkingCopy?.data?.values?.vehicleId, vehicleId,
+    "recovered Fuel draft must retain its configured vehicle attribution");
   assert.equal(await resumed.getByLabel("Odometer (km)").inputValue(), "12346");
   assert.equal(await resumed.getByLabel("Price per kg (₹)").inputValue(), "82.5");
   assert.equal(await resumed.getByLabel("Amount paid (₹)").inputValue(), "825");
