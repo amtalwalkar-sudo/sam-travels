@@ -192,7 +192,7 @@ export class FinanceLoanPrepaymentService {
   }
 
   async getScheduleHistory(loanId: string) {
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const versions = snapshot.loan.data.scheduleVersions.map(item => {
       const output = item.output as { rows?: readonly ScheduleRow[]; regularEmiPaise?: number };
       return { version: item.version, effectiveDate: item.effectiveDate, createdAt: item.createdAt,
@@ -215,7 +215,7 @@ export class FinanceLoanPrepaymentService {
 
   async getScheduleVersionForDate(loanId: string, businessDate: string): Promise<number | undefined> {
     if (!validDate(businessDate)) throw new Error("finance_payment_amount_or_date_invalid");
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const versions = snapshot.loan.data.scheduleVersions.map(item => ({
       version: item.version, effectiveDate: item.effectiveDate,
     }));
@@ -227,7 +227,7 @@ export class FinanceLoanPrepaymentService {
   }
 
   async getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined> {
-    const snapshot = await this.load(loanId);
+    const snapshot = await this.loadForReadOnly(loanId);
     const state = snapshot.state?.data;
     if (!state || scheduleVersion <= state.baseScheduleVersion) return undefined;
     return state.revisions.find(item => item.version === scheduleVersion)?.output.rows;
