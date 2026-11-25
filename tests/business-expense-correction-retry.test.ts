@@ -76,4 +76,45 @@ describe("Fuel correction command retry", () => {
       expectedChainRevision: 0, fieldPath: "amountPaise", afterValue: 25000,
     });
   });
+  it("rebuilds fuel quantity and cost-per-km intervals from a corrected price per kg", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const correctedId = "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174091";
+    const corrections = {
+      async listForTarget(targetRecordId: string) {
+        if (targetRecordId !== correctedId) return [];
+        return [{
+          schemaVersion: 1 as const, correctionId: "fuel-price-fix", targetRecordId: correctedId,
+          targetRecordRevision: 1, featureId: "business-expenses", chainRevision: 1,
+          fieldPath: "pricePaisePerKg", beforeValue: 10000, afterValue: 12500,
+          reason: "Receipt rate verified", actor: { role: "driver" as const, actorId: "driver-1" },
+          recordedAt: "2026-11-21T10:00:00.000Z",
+        }];
+      },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-21T10:00:00.000Z", corrections);
+    const purchases = [
+      ["123e4567-e89b-42d3-a456-426614174092", "2026-11-01T09:00:00.000Z", 100, false, 50000],
+      ["123e4567-e89b-42d3-a456-426614174091", "2026-11-05T09:00:00.000Z", 110, true, 20000],
+      ["123e4567-e89b-42d3-a456-426614174093", "2026-11-10T09:00:00.000Z", 120, false, 30000],
+    ] as const;
+    for (const [uuid, occurredAt, odometerKm, partialRefill, amountPaise] of purchases) {
+      await service.createFuelPurchase({ uuid, source: "web", data: {
+        businessDate: fuelBusinessDateFromInstant(occurredAt), occurredAt, vehicleId,
+        odometerKm, pricePaisePerKg: 10000, amountPaise, partialRefill,
+      }});
+    }
+    const intervals = await service.listFuelIntervalOutputs();
+    expect(intervals[0]).toMatchObject({
+      status: "available", distanceKm: 20, quantityMilliKg: 4600, spendPaise: 50000,
+      sourcePurchaseIds: [correctedId, "feature:business-expenses:fuel:123e4567-e89b-42d3-a456-426614174093"],
+    });
+    const rates = await service.listFuelCostRateHistory();
+    expect(rates[0]).toMatchObject({
+      cumulativeDistanceKm: 20, cumulativeSpendPaise: 50000,
+      costPaisePerKm: { numerator: "50000", denominator: "20" },
+    });
+  });
+
 });
