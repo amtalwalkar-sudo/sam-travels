@@ -25,6 +25,7 @@ export function MaintenanceSection() {
   const correctionService = useAdminMaintenanceCorrectionAdapter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [vehicleId, setVehicleId] = useState("");
+  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const [records, setRecords] = useState<Maintenance | null>(null);
   const [reminders, setReminders] = useState<Awaited<ReturnType<AdminPresentationServices["maintenance"]["getServiceReminderStates"]>>>([]);
   const [drafts, setDrafts] = useState<readonly FormWorkingCopy[]>([]);
@@ -72,11 +73,16 @@ export function MaintenanceSection() {
   }, [services, correctionService]);
   const refresh = useCallback(async (requestedId: string) => {
     try {
+      const configuration = await services.operatingConfiguration.get();
       const v = await services.vehicles.list();
       const active = v.filter(item => item.data.lifecycleState === "active");
-      if (active.length !== 1) throw new Error(active.length === 0 ? "operating_vehicle_missing" : "operating_vehicle_ambiguous");
-      const chosen = active[0].id;
-      setVehicles(active);
+      const configuredVehicle = active.find(item => item.id === configuration.vehicleId);
+      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== configuration.vehicleRevision) {
+        throw new Error("operating_configuration_stale");
+      }
+      const chosen = configuration.vehicleId;
+      setOperatingSnapshot(configuration);
+      setVehicles([configuredVehicle]);
       setVehicleId(chosen);
       await Promise.all([loadVehicleRecords(chosen), loadDrafts()]);
     } catch (e) {
@@ -123,10 +129,11 @@ export function MaintenanceSection() {
     setMessage("");
   }
   async function startNew(form: Exclude<ActiveForm, null>) {
-    if (!vehicleId) return;
+    if (!vehicleId || !operatingSnapshot) return;
     setBusy(true);
     setMessage("");
     try {
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       const definition = definitionFor(form)!;
       // The same UUID is the durable draft identity and the owning service command ID.
       let workingCopy = await services.formRuntime.open(definition, crypto.randomUUID());
@@ -224,6 +231,8 @@ export function MaintenanceSection() {
     try {
       await updateQueue.current;
       if (updateError.current) throw updateError.current;
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       let current = copyRef.current;
       if (!current) throw new Error("maintenance_form_not_ready");
       if (form === "visit") {
@@ -258,6 +267,8 @@ export function MaintenanceSection() {
     try {
       await updateQueue.current;
       if (updateError.current) throw updateError.current;
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       const current = copyRef.current;
       if (!current) throw new Error("maintenance_rate_form_not_ready");
       await services.formRuntime.save(MAINTENANCE_RATE_FORM_V1, current);
