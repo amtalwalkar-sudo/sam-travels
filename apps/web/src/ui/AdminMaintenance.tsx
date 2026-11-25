@@ -127,7 +127,6 @@ export function MaintenanceSection() {
       await services.operatingConfiguration.assertCurrent(commandSnapshot);
       setOperatingSnapshot(commandSnapshot);
       const definition = definitionFor(form)!;
-      // The same UUID is the durable draft identity and the owning service command ID.
       let workingCopy = await services.formRuntime.open(definition, crypto.randomUUID());
       const initial: Record<string, unknown> = form === "visit" ? {
         vehicleId, maintenanceDate: today(), maintenanceType: "", description: "",
