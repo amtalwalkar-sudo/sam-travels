@@ -40,6 +40,8 @@ export function TripHistory({ trips }: { trips: readonly TripHistoryRecord[] }) 
         {trip.source === "historical_backfill" && <div className="trip-history-evidence">
           <div><small>FARE</small><span>₹{((trip.farePaise ?? 0) / 100).toFixed(2)}</span></div>
           <div><small>RECORD TYPE</small><span>Admin-declared historical trip</span></div>
+          <div><small>OPERATIONAL DATE</small><span>{trip.operationalDate ?? "Not available"}</span></div>
+          <div><small>DRIVER / VEHICLE</small><span>{trip.driverId ?? "—"} / {trip.vehicleId ?? "—"}</span></div>
         </div>}
         {trip.reason && <p className={trip.status === "needs_attention" ? "trip-history-error" : "trip-history-note"}>{trip.reason.replaceAll("_", " ")}</p>}
         <small className="trip-history-id">{trip.source === "historical_backfill"
