@@ -162,6 +162,13 @@ export function FuelEntryPanel() {
   const enteredOdometer = typeof values.odometerKm === "number" ? values.odometerKm : undefined;
   const odometerRegression = latestOdometer !== undefined && enteredOdometer !== undefined &&
     Number.isSafeInteger(enteredOdometer) && enteredOdometer < latestOdometer;
+  // Keep historical fuel-purchase dates visible after a correction. A five-day
+  // recent window alone can hide the recalculated daily total for an older
+  // purchase that the driver has just corrected.
+  const visibleExpenseDates = useMemo(() => new Set([
+    ...dailyExpenseOutputs.slice(-5).map(output => output.businessDate),
+    ...fuelPurchases.map(purchase => purchase.data.businessDate),
+  ]), [dailyExpenseOutputs, fuelPurchases]);
 
   return <aside className="fuel-entry-launcher" aria-label="Fuel entry">
     <button className="fuel-entry-toggle" type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>
@@ -210,7 +217,7 @@ export function FuelEntryPanel() {
       <section aria-label="Fuel calculation readback">
         <h3>Recalculated fuel outputs</h3>
         {fuelCostRates.map(rate => <small key={rate.effectiveFrom}>Cost/km effective {rate.effectiveFrom}: {rate.costPaisePerKm.numerator}/{rate.costPaisePerKm.denominator} paise per km</small>)}
-        {dailyExpenseOutputs.slice(-5).map(output => <small key={output.businessDate}>{output.businessDate}: fuel {output.fuelPaise} paise</small>)}
+        {dailyExpenseOutputs.filter(output => visibleExpenseDates.has(output.businessDate)).map(output => <small key={output.businessDate}>{output.businessDate}: fuel {output.fuelPaise} paise</small>)}
       </section>
     </section>}
   </aside>;
