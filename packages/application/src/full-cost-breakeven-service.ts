@@ -288,7 +288,7 @@ export class FullCostBreakevenService {
           const source = expenseById.get(sourceId);
           const assignedToOperatingPair = source && (source.data.vehicleId === undefined ||
             source.data.vehicleId === vehicleId) && (source.data.driverId === undefined ||
-            source.data.driverId === configuredDriverId);
+            !operating || source.data.driverId === configuredDriverId);
           return source?.data.sourceKind === category.sourceKind && assignedToOperatingPair &&
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
             !withheldTripLinkedExpenseIds.has(sourceId) &&
@@ -322,7 +322,6 @@ export class FullCostBreakevenService {
     for (const record of tripFinancialRecords) {
       if (record.data.kind !== "completed_ride_financials") continue;
       const context = record.data.tripContext;
-      if (!context || context.vehicleId !== vehicleId) continue;
       const driverExpenses = (record.data.tollPayer === "driver" ? record.data.tollPaise ?? 0 : 0) +
         (record.data.parkingPayer === "driver" ? record.data.parkingPaise ?? 0 : 0);
       if (!context) {
@@ -330,6 +329,7 @@ export class FullCostBreakevenService {
           detail: "Driver-paid parking/toll has no recoverable immutable trip context: " + record.id });
         continue;
       }
+      if (context.vehicleId !== vehicleId) continue;
       if (driverExpenses > 0) datedCosts.push({
         date: context.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
         sourceId: record.id, sourceRevision: record.revision,
