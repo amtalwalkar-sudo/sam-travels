@@ -193,7 +193,7 @@ class AdminFormsCapacitorAcceptanceTest {
             set(activity, "Amount (₹)", "1200")
             click(activity, "Save maintenance record")
             assertTrue("Maintenance visit saved", await(activity, "document.body.innerText.includes('Service visit saved')", 15000))
-            eval(activity, """(()=>{const s=document.querySelectorAll('#admin-section-panel-maintenance .admin-vehicle-context select')[1];if(!s)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'expense');s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            eval(activity, """(()=>{const s=document.querySelectorAll('#admin-section-panel-maintenance .admin-vehicle-context select')[0];if(!s)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'expense');s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
             click(activity, "Start general expense")
             set(activity, "Expense name", marker + " tyre repair")
             set(activity, "Date", "2026-11-15")
