@@ -15,6 +15,10 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
 @Test fun calculationAndExpenseEntryPathsCommitThroughRoomBackedWebView() {
     val instrumentation = InstrumentationRegistry.getInstrumentation()
     val app = instrumentation.targetContext.applicationContext
+    // This end-to-end journey follows isolated parity/restart phases in the same
+    // emulator. Start from a clean Room store so stale fleet fixtures cannot
+    // make the single operating vehicle ambiguous.
+    app.deleteDatabase("sam-travels.db")
     var db = Room.databaseBuilder(app, LocalDatabase::class.java, "sam-travels.db")
         .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
         .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
