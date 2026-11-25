@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import type { FormWorkingCopy, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
+import type { AdminPresentationServices, FormWorkingCopy, MaintenanceExpenseItemV1 } from "../../../../packages/application/src";
 import {
   MAINTENANCE_VISIT_FORM_V1, MAINTENANCE_EXPENSE_FORM_V1, MAINTENANCE_RATE_FORM_V1,
 } from "../../../../packages/application/src";
@@ -60,7 +60,7 @@ export function MaintenanceSection() {
     setRecords({ ...history, expenses, visits });
     setReminders(states.filter(item => item.dateDue || item.kilometreStatus === "due" || item.kilometreStatus === "odometer_unavailable"));
   }, [services, correctionService]);
-  const refresh = useCallback(async (requestedId: string) => {
+  const refresh = useCallback(async () => {
     try {
       const configuration = await services.operatingConfiguration.get();
       const v = await services.vehicles.list();
