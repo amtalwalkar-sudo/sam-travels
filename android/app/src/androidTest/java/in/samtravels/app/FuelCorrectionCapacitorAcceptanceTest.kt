@@ -60,6 +60,14 @@ class FuelCorrectionCapacitorAcceptanceTest {
                 "[...document.querySelectorAll('.bottom-navigation-item')].find(n=>n.textContent.trim()==='Admin')?.click()")
             assertTrue("People and roles panel loads", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.admin-replacement-shell')?.textContent.includes('People & roles')", 15000))
+            // The panel heading renders before its asynchronous identity snapshot. Wait for the
+            // seeded person option before setting the controlled React select; otherwise the
+            // browser correctly normalizes a value with no matching option back to empty.
+            assertTrue("Seeded driver identity option loads", awaitMaintenanceJavascript(startedActivity, """
+                [...document.querySelectorAll('.admin-replacement-shell label')]
+                  .find(n=>n.textContent.includes('Select person'))
+                  ?.querySelector('select')?.querySelector('option[value='$personId']') !== null
+            """, 15000))
             assertTrue("Seeded driver identity can be selected", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const labels = [...document.querySelectorAll('.admin-replacement-shell label')];
