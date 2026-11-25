@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SubmittedTripFinancialRecordV1 } from "../../../../packages/application/src/trip-financial-service";
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
 
-type Field = "farePaise" | "tollPaise" | "tollPayer" | "parkingPaise" | "parkingPayer";
+type Field = "feePaise" | "farePaise" | "tollPaise" | "tollPayer" | "parkingPaise" | "parkingPayer";
 const fields: readonly { value: Field; label: string; kind: "money" | "payer" }[] = [
+  { value: "feePaise", label: "Cancellation fee", kind: "money" },
   { value: "farePaise", label: "Fare", kind: "money" },
   { value: "tollPaise", label: "Toll amount", kind: "money" },
   { value: "tollPayer", label: "Toll payer", kind: "payer" },
@@ -28,8 +29,8 @@ export function TripFinancialCorrectionSection() {
   }, [runtime]);
   useEffect(() => { void refresh().catch(error => setMessage(error instanceof Error ? error.message : "Unable to load trip financial records")); }, [refresh]);
   const selected = useMemo(() => rows.find(row => row.id === selectedId), [rows, selectedId]);
+  useEffect(() => { setField(selected?.data.kind === "cancellation_fee" ? "feePaise" : "farePaise"); setAfter(""); }, [selectedId]);
   const selectedField = fields.find(item => item.value === field)!;
-  const currentValue = selected ? (selected.data as unknown as Record<string, unknown>)[field] : undefined;
 
   async function submit() {
     if (!selected || !runtime.corrections) return;
@@ -84,7 +85,7 @@ export function TripFinancialCorrectionSection() {
       <div className="loan-form-grid">
         <label>Field to correct
           <select value={field} onChange={event => { setField(event.target.value as Field); setAfter(""); }}>
-            {fields.filter(item => selected?.data.kind === "completed_ride_financials" || item.value === "farePaise").map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+            {fields.filter(item => selected?.data.kind === "completed_ride_financials" ? item.value !== "feePaise" : item.value === "feePaise").map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
         <label>Correct value
