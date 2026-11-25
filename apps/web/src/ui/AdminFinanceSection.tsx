@@ -29,7 +29,6 @@ export function AdminFinanceSection() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loanScheduleHistories, setLoanScheduleHistories] = useState<Record<string, LoanScheduleHistory>>({});
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
-  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const hasLoaded = useRef(false);
@@ -48,7 +47,6 @@ export function AdminFinanceSection() {
         setSelectedVehicleId("");
         throw new Error("operating_configuration_stale");
       }
-      setOperatingSnapshot(configuration);
       setVehicles([configuredVehicle]);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
