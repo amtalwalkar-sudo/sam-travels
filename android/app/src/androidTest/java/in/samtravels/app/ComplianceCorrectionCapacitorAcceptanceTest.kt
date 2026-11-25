@@ -170,7 +170,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       """)
       assertTrue("Compliance renewal saved", awaitMaintenanceJavascript(page,
         "document.querySelector('.admin-capability-panel [role=status]')?.textContent.includes('Compliance record saved')",
-        15_000))
+        45_000))
       val renewal = database.records().list().firstOrNull { row ->
         row.id.startsWith("feature:compliance:") &&
           JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == complianceId

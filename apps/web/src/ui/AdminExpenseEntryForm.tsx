@@ -59,24 +59,16 @@ function ExpenseEntryForm({ definition, heading, description }: {
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage("Saving draft changes…");
     try {
       await queue.current;
       const current = copyRef.current;
       if (!current) throw new Error("business_expense_form_not_ready");
-      const commandSnapshot = await services.operatingConfiguration.get();
-      if (definition.fields.some(item => item.id === "vehicleId") && commandSnapshot.vehicleId !== current.values.vehicleId) {
-        throw new Error("operating_configuration_stale");
-      }
-      let commandCopy = current;
-      if (definition.fields.some(item => item.id === "driverId") && current.status !== "pending" &&
-          current.values.driverId !== commandSnapshot.driverId) {
-        commandCopy = await services.formRuntime.update(definition as FormDefinition, current, "driverId", commandSnapshot.driverId);
-        copyRef.current = commandCopy;
-        setCopy(commandCopy);
-      }
-      await services.operatingConfiguration.assertCurrent(commandSnapshot);
-      await services.formRuntime.save(definition as FormDefinition, commandCopy);
+      // The feature service is the authority for the current vehicle/driver pair
+      // and adds the canonical operating Driver ID. Avoid a second context read
+      // and working-copy write in the presentation layer.
+      setMessage("Saving expense record…");
+      await services.formRuntime.save(definition as FormDefinition, current);
       setMessage("Saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
       const nextVehicle = await services.operatingConfiguration.getVehicleForReadOnly();

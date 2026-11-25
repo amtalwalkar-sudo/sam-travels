@@ -48,7 +48,9 @@ export function ComplianceSection() {
     updateQueue.current=Promise.resolve();
     const instanceId=crypto.randomUUID();
     let workingCopy=await services.formRuntime.open(COMPLIANCE_FORM_V1,instanceId);
-    const initial:Record<string,unknown>={complianceName:"",validFrom:today(),validTo:"",totalCostPaise:undefined,supportingDocumentRef:"",renewedFromRecordId:"",vehicleId};
+    // Persist only authoritative defaults. Empty fields stay absent until the
+    // admin actually enters them, avoiding needless Room draft writes.
+    const initial:Record<string,unknown>={validFrom:today(),vehicleId};
     for(const [field,value] of Object.entries(initial)){
       if(value!==undefined&&workingCopy.values[field]===undefined) workingCopy=await services.formRuntime.update(COMPLIANCE_FORM_V1,workingCopy,field,value);
     }
@@ -71,7 +73,7 @@ export function ComplianceSection() {
     setForm({complianceName:"",validFrom:today(),validTo:"",cost:"",supportingDocumentRef:"",renewedFromRecordId:""});
   }
   async function save(e:FormEvent){
-    e.preventDefault();setBusy(true);setMessage("");
+    e.preventDefault();setBusy(true);setMessage("Saving Compliance draft changes…");
     try{
       await updateQueue.current;
       const current=copyRef.current;if(!current)throw new Error("compliance_form_not_ready");
@@ -79,6 +81,7 @@ export function ComplianceSection() {
       if(form.validTo<form.validFrom)throw new Error("compliance_validity_period_invalid");
       const paise=Math.round(Number(form.cost)*100);
       if(!Number.isSafeInteger(paise)||paise<0)throw new Error("Enter a valid compliance cost.");
+      setMessage("Committing Compliance record…");
       await services.formRuntime.save(COMPLIANCE_FORM_V1,current);
       closeForm();setMessage("Compliance record saved.");await refresh();
     }catch(e){setMessage(e instanceof Error?e.message:"Compliance record could not be saved.");}

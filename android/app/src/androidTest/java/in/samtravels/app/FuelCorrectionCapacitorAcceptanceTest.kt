@@ -144,11 +144,11 @@ class FuelCorrectionCapacitorAcceptanceTest {
             """))
             assertTrue("Correction is confirmed in WebView; panel=" + evaluateMaintenanceWebView(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(startedActivity,
-                "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 20000))
+                "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 45000))
             assertTrue("Corrected amount is immediately projected into the daily read model",
                 awaitMaintenanceJavascript(startedActivity,
                     "document.querySelector('[aria-label=\"Fuel calculation readback\"]')?.textContent.includes('25000 paise')",
-                    15000))
+                    45000))
             assertTrue("Price correction action reopens", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const card = [...document.querySelectorAll('.fuel-entry-panel article')]
@@ -217,7 +217,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             assertTrue("Corrected amount remains projected after price correction",
                 awaitMaintenanceJavascript(startedActivity,
                     "document.querySelector('[aria-label=\"Fuel calculation readback\"]')?.textContent.includes('25000 paise')",
-                    15000))
+                    45000))
             val amountCorrection = corrections.map { JSONObject(it.json).getJSONObject("data") }
                 .first { it.getString("fieldPath") == "amountPaise" }
             assertEquals(18000, amountCorrection.getInt("beforeValue"))

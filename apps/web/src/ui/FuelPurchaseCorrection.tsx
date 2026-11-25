@@ -78,9 +78,13 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
       setHistory(updatedHistory);
       expectedChainRevision.current = updatedHistory.length;
       setOpen(false);
-      setMessage("Correction appended. The original fuel purchase remains unchanged.");
-      try { await onCorrected(); }
-      catch { setMessage("Correction saved. Reload the fuel list to refresh calculated values."); }
+      try {
+        await onCorrected();
+        setMessage("Correction appended. The original fuel purchase remains unchanged.");
+      } catch (error) {
+        setMessage("Correction saved, but calculated outputs could not be refreshed: " +
+          (error instanceof Error ? error.message : "unknown_error"));
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Correction could not be saved.");
     } finally { setBusy(false); }

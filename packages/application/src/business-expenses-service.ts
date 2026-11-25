@@ -45,6 +45,11 @@ export type DailyBusinessExpenseV1 = Readonly<{
   normalOperatingExpensePaise: number; fullCostExpensePaise: number;
   sourceIds: readonly string[]; sourceRevisions: readonly number[];
 }>;
+export type FuelReadModelsV1 = Readonly<{
+  fuelPurchases: readonly RecordEnvelope<FuelPurchaseV1>[];
+  fuelCostRates: readonly FuelCostRateHistoryEntryV1[];
+  dailyExpenseOutputs: readonly DailyBusinessExpenseV1[];
+}>;
 
 export type BusinessExpensesDomain = Readonly<{
   validateRecord(value: unknown): asserts value is BusinessExpenseRecordV1;
@@ -122,8 +127,17 @@ export class BusinessExpensesService {
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<BusinessExpenseEntryV1>> {
     const id = sourceId(ENTRY_PREFIX, input.uuid);
+    const operating = await this.operatingConfiguration?.get();
+    const driverId = input.data.driverId ?? (
+      operating && input.data.effect === "charge" &&
+      (input.data.sourceKind === "traffic_challan" || input.data.sourceKind === "miscellaneous")
+        ? driverRecordId(operating.driverId)
+        : undefined
+    );
     const data: BusinessExpenseEntryV1 = {
-      ...input.data, schemaVersion: 1, kind: "business_expense", id, revision: 1,
+      ...input.data,
+      ...(driverId ? { driverId } : {}),
+      schemaVersion: 1, kind: "business_expense", id, revision: 1,
     };
     if (data.sourceKind === "platform_fee" && !data.vehicleId) {
       throw new Error("platform_fee_vehicle_required");
@@ -136,7 +150,6 @@ export class BusinessExpensesService {
         data.tripExpenseTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
-    const operating = await this.operatingConfiguration?.get();
     if (operating && data.driverId !== undefined && data.driverId !== driverRecordId(operating.driverId)) {
       throw new Error("business_expense_operating_driver_mismatch");
     }
@@ -296,6 +309,18 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
   async listDailyExpenseOutputs(): Promise<readonly DailyBusinessExpenseV1[]> {
     const [fuel, expenses] = await Promise.all([this.listFuelPurchases(), this.listExpenseEntries()]);
     return this.domain.calculateDailyExpenses(fuel.map(item => item.data), expenses.map(item => item.data));
+  }
+
+  /** Builds all Fuel screen readbacks from one projected purchase snapshot. */
+  async listFuelReadModels(): Promise<FuelReadModelsV1> {
+    const [fuel, expenses] = await Promise.all([this.listFuelPurchases(), this.listExpenseEntries()]);
+    const purchases = fuel.map(item => item.data);
+    const intervals = this.domain.calculateFuelIntervals(purchases);
+    return Object.freeze({
+      fuelPurchases: fuel,
+      fuelCostRates: this.domain.calculateFuelCostRateHistory(purchases, intervals),
+      dailyExpenseOutputs: this.domain.calculateDailyExpenses(purchases, expenses.map(item => item.data)),
+    });
   }
 
   async listFuelIntervalOutputs(): Promise<readonly FuelIntervalV1[]> {

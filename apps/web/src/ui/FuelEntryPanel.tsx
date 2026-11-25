@@ -33,14 +33,10 @@ export function FuelEntryPanel() {
   const [dailyExpenseOutputs, setDailyExpenseOutputs] = useState<Awaited<ReturnType<typeof services.businessExpenses.listDailyExpenseOutputs>>>([]);
 
   const refreshFuelReadModels = useCallback(async () => {
-    const [purchases, rates, daily] = await Promise.all([
-      services.businessExpenses.listFuelPurchases(),
-      services.businessExpenses.listFuelCostRateHistory(),
-      services.businessExpenses.listDailyExpenseOutputs(),
-    ]);
-    setFuelPurchases(purchases);
-    setFuelCostRates(rates);
-    setDailyExpenseOutputs(daily);
+    const readModels = await services.businessExpenses.listFuelReadModels();
+    setFuelPurchases(readModels.fuelPurchases);
+    setFuelCostRates(readModels.fuelCostRates);
+    setDailyExpenseOutputs(readModels.dailyExpenseOutputs);
   }, [services]);
 
   const start = useCallback(async () => {
@@ -49,19 +45,16 @@ export function FuelEntryPanel() {
     // and leave the populated draft hidden behind a newer blank one.
     if (startInFlight.current) return startInFlight.current;
     const pending = (async () => {
-      const [availableVehicles, drafts, purchases, configuration] = await Promise.all([
+      const [availableVehicles, drafts, readModels, configuration] = await Promise.all([
         services.vehicles.list(),
         services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
-        services.businessExpenses.listFuelPurchases(),
+        services.businessExpenses.listFuelReadModels(),
         services.operatingConfiguration.getVehicleForReadOnly(),
       ]);
+      const purchases = readModels.fuelPurchases;
       setFuelPurchases(purchases);
-      const [rates, daily] = await Promise.all([
-        services.businessExpenses.listFuelCostRateHistory(),
-        services.businessExpenses.listDailyExpenseOutputs(),
-      ]);
-      setFuelCostRates(rates);
-      setDailyExpenseOutputs(daily);
+      setFuelCostRates(readModels.fuelCostRates);
+      setDailyExpenseOutputs(readModels.dailyExpenseOutputs);
       const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
       for (const purchase of purchases) {
         const previous = latest.get(purchase.data.vehicleId);

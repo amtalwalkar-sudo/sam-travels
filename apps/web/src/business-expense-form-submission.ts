@@ -8,6 +8,7 @@ import {
   TRAFFIC_CHALLAN_FORM_V1,
 } from "../../../packages/application/src";
 import { maintenanceBusinessDateFromInstant } from "../../../packages/features/maintenance";
+import { driverRecordId } from "../../../packages/domain/src/driver-record-identity";
 
 function positiveRupeesToPaise(value: unknown, code: string): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) throw new Error(code);
@@ -28,6 +29,11 @@ function requiredString(value: unknown, code: string): string {
 }
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+function optionalDriverRecordId(value: unknown): string | undefined {
+  const id = optionalString(value);
+  if (!id) return undefined;
+  return id.startsWith("feature:driver-records:driver:") ? id : driverRecordId(id);
 }
 
 
@@ -83,6 +89,7 @@ export function createBusinessExpenseFormSubmissionHandler(
     const tripTreatment = optionalString(values.tripExpenseTreatment);
     const hasTripLink = !!optionalString(values.tripFinancialSourceId) || !!optionalString(values.tripFinancialComponent);
     const tollOrParking = /\b(tolls?|parking)\b/i.test(category);
+    const driverId = optionalDriverRecordId(values.driverId);
     if (tollOrParking && tripTreatment !== "standalone" && tripTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
@@ -110,7 +117,7 @@ export function createBusinessExpenseFormSubmissionHandler(
           ? { tripExpenseTreatment: tripTreatment as "standalone" | "already-in-trip-closeout" }
           : {}),
         ...(optionalString(values.vehicleId) ? { vehicleId: optionalString(values.vehicleId) } : {}),
-        ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
+        ...(driverId ? { driverId } : {}),
         ...(optionalString(values.description) ? { description: optionalString(values.description) } : {}),
         ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
         ...(tripTreatment === "already-in-trip-closeout"
@@ -126,6 +133,7 @@ export function createBusinessExpenseFormSubmissionHandler(
   }
   const paymentStatus = values.paymentStatus;
   if (paymentStatus !== "unpaid" && paymentStatus !== "paid") throw new Error("traffic_challan_payment_status_required");
+  const driverId = optionalDriverRecordId(values.driverId);
   return service.createExpenseEntry({
     uuid: command.instanceId, source,
     operation: { operationId: command.operationId, payloadFingerprint: command.payloadFingerprint },
@@ -135,7 +143,7 @@ export function createBusinessExpenseFormSubmissionHandler(
       vehicleId: requiredString(values.vehicleId, "traffic_challan_vehicle_required"),
       paymentStatus,
       description: requiredString(values.description, "traffic_challan_reason_required"),
-      ...(optionalString(values.driverId) ? { driverId: optionalString(values.driverId) } : {}),
+      ...(driverId ? { driverId } : {}),
       ...(optionalString(values.reference) ? { reference: optionalString(values.reference) } : {}),
     },
   });
