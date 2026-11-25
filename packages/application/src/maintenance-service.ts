@@ -90,14 +90,15 @@ export class MaintenanceService {
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("maintenance_vehicle_not_found");
-    return { vehicle, configuration };
+    return vehicle;
   }
 
   async createVisit(input: {
     uuid: string; data: MaintenanceVisitInput; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
-    const { configuration: operating } = await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.data.vehicleId, operating);
     const data: MaintenanceVisitV1 = {
       ...input.data, schemaVersion: 1, kind: "visit",
       totalPaise: this.calculateVisitTotal(input.data.items),
