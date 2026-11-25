@@ -78,7 +78,6 @@ describe("TripFinancialService cancellation fee closeout", () => {
     const submitted = await service.submitCancellationFee("trip_author", 2500, "operation_author");
     expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
     expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
-    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
   });
 
 
@@ -154,6 +153,7 @@ describe("completed-trip financial concurrent submission", () => {
       () => "2026-11-10T01:00:00.000Z", { personId: "person-driver-1", role: "driver" },
     );
     expect(submitted.createdBy).toEqual({ personId: "person-driver-1", role: "driver" });
+    expect(submitted.updatedBy).toEqual({ personId: "person-driver-1", role: "driver" });
   });
 
 
