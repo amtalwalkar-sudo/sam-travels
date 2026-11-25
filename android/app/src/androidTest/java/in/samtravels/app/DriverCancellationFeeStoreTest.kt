@@ -97,6 +97,7 @@ class DriverCancellationFeeStoreTest {
         assertEquals("submitted",saved.getJSONObject("data").getString("status"))
         assertEquals(0L,saved.getJSONObject("data").getLong("feePaise"))
         assertEquals("person-1", saved.getJSONObject("createdBy").getString("personId"))
+        assertEquals("person-1", saved.getJSONObject("updatedBy").getString("personId"))
         assertEquals("submitted",JSONObject(db.records().get(
             "__sam_travels_form_working_copy__:work.trip-cancellation-fee:trip-1")!!.json)
             .getJSONObject("data").getString("status"))
