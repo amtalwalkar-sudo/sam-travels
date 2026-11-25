@@ -123,6 +123,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return Boolean(button);
         })()
       """))
+      assertTrue("Renewal form controls finish loading", awaitMaintenanceJavascript(page,
+        "Array.from(document.querySelectorAll('.admin-capability-form label')).some(node => node.textContent.includes('Compliance type / name') && node.querySelector('input'))",
+        10_000))
       assertTrue("Renewal fields entered", evaluateMaintenanceWebView(page, """
         (() => {
           const labels = [...document.querySelectorAll('.admin-capability-form label')];
