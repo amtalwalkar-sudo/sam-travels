@@ -345,6 +345,7 @@ try {
   const operatingVehicleContext = resumed.locator(".admin-vehicle-context");
   await operatingVehicleContext.filter({ hasText: registration }).waitFor({ state: "visible" });
   assert((await operatingVehicleContext.innerText()).includes(registration), "Fuel draft must stay bound to the configured operating vehicle");
+  assert.equal(await resumed.getByLabel("Vehicle").count(), 0, "Fuel must use the configured operating Vehicle rather than a per-entry selector");
   await resumed.getByLabel("Odometer (km)").fill("12387");
   await resumed.getByLabel("Price per kg (₹)").fill("82.50");
   await resumed.getByLabel("Amount paid (₹)").fill("825");
