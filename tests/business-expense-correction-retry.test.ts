@@ -48,6 +48,32 @@ const domain = {
 };
 
 describe("Fuel correction command retry", () => {
+  it("calculates vehicle fuel totals without a Work assignment and excludes driver-attributed expenses", async () => {
+    const repository = new MemoryRepository();
+    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
+    const operating = {
+      async get() { throw new Error("operating_assignment_missing"); },
+      async getForReadOnly() { throw new Error("operating_assignment_missing"); },
+      async getVehicleForReadOnly() { return { schemaVersion: 1 as const, vehicleId, vehicleRevision: 1 }; },
+      async assertCurrent() { throw new Error("operating_assignment_missing"); },
+      async assertVehicleCurrentForReadOnly() { return { schemaVersion: 1 as const, vehicleId, vehicleRevision: 1 }; },
+    };
+    const service = new BusinessExpensesService(repository, domain, vehicles,
+      () => "2026-11-15T00:00:00.000Z", undefined, operating);
+    await service.createFuelPurchase({ uuid: "123e4567-e89b-42d3-a456-426614174031", source: "web",
+      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
+        vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 25000, partialRefill: true } });
+    const entryId = "feature:business-expenses:entry:123e4567-e89b-42d3-a456-426614174032";
+    await repository.put({ id: entryId, schemaVersion: 1, createdAt: "2026-11-14T20:00:00.000Z",
+      updatedAt: "2026-11-14T20:00:00.000Z", source: "web", revision: 1,
+      data: { schemaVersion: 1, kind: "business_expense", id: entryId, revision: 1,
+        sourceKind: "miscellaneous", businessDate: "2026-11-14", amountPaise: 5000,
+        currencyCode: "INR", effect: "charge", driverId: "feature:driver-records:driver:driver-one" } });
+    await expect(service.listDailyExpenseOutputs()).resolves.toEqual([expect.objectContaining({
+      businessDate: "2026-11-14", fuelPaise: 25000, miscellaneousPaise: 0, normalOperatingExpensePaise: 25000,
+    })]);
+  });
+
   it("preserves target and chain revisions so an ambiguous UI retry replays the same intent", async () => {
     const repository = new MemoryRepository();
     const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
