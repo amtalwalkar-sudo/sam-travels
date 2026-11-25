@@ -7,7 +7,7 @@ import { PerformanceScreenControllerV1, PerformanceScreenServicesAdapterV1, type
 import type { AdminPresentationContextV1 } from "../../../../packages/features/admin";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
-import { TripHistory } from "../../../../packages/features/logbook/presentation/TripHistory";
+import { TripHistory } from "../../../../packages/features/logbook";
 import type { TripHistoryRecord } from "../../../../packages/domain/src/trip-history";
 import type { PrimaryScreen } from "./ApplicationShell";
 
