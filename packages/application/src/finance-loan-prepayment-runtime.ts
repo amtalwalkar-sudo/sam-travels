@@ -1,6 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1 } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { FinanceLoanPrepaymentService, type FinanceLoanPrepaymentRevisionBuilder,
   type FinanceLoanPrepaymentStateValidator } from "./finance-loan-prepayment-service";
 
@@ -10,8 +11,9 @@ export function createApplicationFinanceLoanPrepaymentService(
   validateState: FinanceLoanPrepaymentStateValidator,
   buildRevision: FinanceLoanPrepaymentRevisionBuilder,
   now?: () => string, currentAuthor?: () => Promise<RecordAuthorV1>,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ) {
-  return new FinanceLoanPrepaymentService(repository, loans, validateState, buildRevision, now, currentAuthor);
+  return new FinanceLoanPrepaymentService(repository, loans, validateState, buildRevision, now, currentAuthor, operatingConfiguration);
 }
 let applicationFinanceLoanPrepaymentService: FinanceLoanPrepaymentService | undefined;
 export function initializeApplicationFinanceLoanPrepaymentService(
@@ -20,10 +22,11 @@ export function initializeApplicationFinanceLoanPrepaymentService(
   validateState: FinanceLoanPrepaymentStateValidator,
   buildRevision: FinanceLoanPrepaymentRevisionBuilder,
   now?: () => string, currentAuthor?: () => Promise<RecordAuthorV1>,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ) {
   if (applicationFinanceLoanPrepaymentService) throw new Error("Application Finance Loan Prepayment service is already initialized");
   applicationFinanceLoanPrepaymentService = createApplicationFinanceLoanPrepaymentService(
-    repository, loans, validateState, buildRevision, now, currentAuthor,
+    repository, loans, validateState, buildRevision, now, currentAuthor, operatingConfiguration,
   );
   return applicationFinanceLoanPrepaymentService;
 }
