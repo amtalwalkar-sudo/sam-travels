@@ -49,7 +49,7 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly">,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
@@ -70,7 +70,7 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    const operating = await this.operatingConfiguration?.get();
+    const operating = await this.operatingConfiguration?.getForReadOnly();
     const operatingVehicles = operating
       ? vehicles.filter(vehicle => vehicle.id === operating.vehicleId &&
           vehicle.data?.lifecycleState === "active" && vehicle.revision === operating.vehicleRevision)
