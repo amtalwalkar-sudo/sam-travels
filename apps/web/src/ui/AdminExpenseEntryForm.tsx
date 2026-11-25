@@ -99,13 +99,13 @@ function ExpenseEntryForm({ definition, heading, description }: {
           {field.label}
           {field.type === "checkbox" ? <input type="checkbox" checked={values[field.id] === true} disabled={busy || !copy || copy.status === "pending"}
             onChange={event => change(field, event.target.checked)} /> :
-          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")} disabled={busy || copy?.status === "pending"}
+          field.type === "select" ? <select required={field.required} value={String(values[field.id] ?? "")} disabled={busy || !copy || copy.status === "pending"}
             onChange={event => change(field, event.target.value)}>
               <option value="">Select</option>
               {(field.options ?? []).map(option => <option key={option} value={option}>{option}</option>)}
             </select> :
           <input type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"}
-            required={field.required} maxLength={field.maxLength} disabled={busy || copy?.status === "pending"}
+            required={field.required} maxLength={field.maxLength} disabled={busy || !copy || copy.status === "pending"}
             min={field.type === "number" ? "0.01" : undefined}
             step={field.type === "number" ? "0.01" : undefined}
             value={String(values[field.id] ?? "")}
