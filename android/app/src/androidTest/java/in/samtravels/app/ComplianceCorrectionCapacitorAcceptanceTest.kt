@@ -115,7 +115,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
       NativeBackupCoverage.replaceBusinessRecords(database, backup)
       assertEquals(36500L, JSONObject(database.records().get(complianceId)!!.json).getJSONObject("data").getLong("totalCostPaise"))
-      assertEquals(73000L, JSONObject(database.records().get(corrections.single().getString("id"))!!.json)
+      assertEquals(73000L, JSONObject(database.records().get("historical-correction:" + corrections.single().getString("correctionId"))!!.json)
         .getJSONObject("data").getLong("afterValue"))
     } finally {
       database.records().remove(complianceId)
