@@ -3,6 +3,7 @@ import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { resolveOperatingVehicle } from "../../domain/src/work-driver-context";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
+import type { OperatingConfigurationV1 } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -93,9 +94,9 @@ export class ComplianceService {
     }
     if (this.operatingConfiguration) {
       if (this.operatingConfiguration.assertCurrentForReadOnly) {
-        await this.operatingConfiguration.assertCurrentForReadOnly(operating);
+        await this.operatingConfiguration.assertCurrentForReadOnly(operating as OperatingConfigurationV1);
       } else {
-        await this.operatingConfiguration.assertCurrent(operating);
+        await this.operatingConfiguration.assertCurrent(operating as OperatingConfigurationV1);
       }
     } else {
       const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
