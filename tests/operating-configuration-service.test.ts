@@ -50,6 +50,21 @@ describe("versioned operating configuration service", () => {
     });
   });
 
+  it("allows read-only pair resolution during an active shift while command resolution stays locked", async () => {
+    const records = configuredRepository();
+    const selected = await records.get<{ schemaVersion: 1; driverId: string }>("work:selected-driver");
+    await records.put({
+      ...selected!, revision: 3, updatedAt: "2026-11-20T09:00:00.000Z",
+      data: { schemaVersion: 1, driverId: "driver-1", lockedShiftId: "active-shift-1" },
+    });
+    const service = new OperatingConfigurationServiceV1(records);
+    await expect(service.get()).rejects.toThrow("operating_driver_selection_locked");
+    await expect(service.getForReadOnly()).resolves.toMatchObject({
+      driverId: "driver-1", vehicleId, assignmentId: "assignment-1", selectionRevision: 3,
+    });
+    expect((await records.get("work:selected-driver"))?.revision).toBe(3);
+  });
+
   it("rejects a stale form snapshot before a dependent command can write", async () => {
     const records = configuredRepository();
     const service = new OperatingConfigurationServiceV1(records);
