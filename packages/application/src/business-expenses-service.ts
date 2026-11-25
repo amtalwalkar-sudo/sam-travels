@@ -325,7 +325,8 @@ return this.records.create({ id, data, source: input.source, businessDate: data.
     const operating = targetData.kind === "business_expense" && targetData.driverId !== undefined
       ? await (this.operatingConfiguration?.getForReadOnly?.() ?? this.operatingConfiguration?.get())
       : undefined;
-    if (operating && targetData.driverId !== driverRecordId(operating.driverId)) {
+    if (operating && targetData.kind === "business_expense" &&
+        targetData.driverId !== driverRecordId(operating.driverId)) {
       throw new Error("business_expense_operating_context_mismatch");
     }
     const corrections = await this.historicalCorrections.listForTarget(input.targetRecordId);
