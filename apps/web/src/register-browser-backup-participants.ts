@@ -8,13 +8,16 @@ import { registerBusinessExpensesBrowserBackupParticipant } from "./business-exp
 import { registerPerformanceBrowserBackupParticipant } from "./performance-backup";
 
 /** Register every browser backup adapter before opening the persistent repository. */
-export function registerBrowserBackupParticipants(): void {
-  registerBusinessSettingsBrowserBackupParticipant();
-  registerVehicleBrowserBackupParticipant();
-  registerDriverRecordsBrowserBackupParticipant();
-  registerComplianceBrowserBackupParticipant();
-  registerMaintenanceBrowserBackupParticipant();
-  registerFinanceBrowserBackupParticipant();
-  registerBusinessExpensesBrowserBackupParticipant();
-  registerPerformanceBrowserBackupParticipant();
+export function registerBrowserBackupParticipants(): () => void {
+  const unregister = [
+    registerBusinessSettingsBrowserBackupParticipant(),
+    registerVehicleBrowserBackupParticipant(),
+    registerDriverRecordsBrowserBackupParticipant(),
+    registerComplianceBrowserBackupParticipant(),
+    registerMaintenanceBrowserBackupParticipant(),
+    registerFinanceBrowserBackupParticipant(),
+    registerBusinessExpensesBrowserBackupParticipant(),
+    registerPerformanceBrowserBackupParticipant(),
+  ];
+  return () => unregister.reverse().forEach(dispose => dispose());
 }
