@@ -56,3 +56,33 @@ export async function installFuelGeolocationStub(page) {
     });
   });
 }
+
+export async function correctFuelPurchaseThroughUi(page, purchaseId) {
+  const card = page.locator(".fuel-entry-panel article").filter({ hasText: "12,346 km" });
+  const correctionButton = card.getByRole("button", { name: "Correct amount / price", exact: true });
+  await correctionButton.click();
+  await card.getByLabel("Corrected value (₹)").fill("900.00");
+  await card.getByLabel("Reason for correction").fill("Pump receipt amount verified");
+  await card.getByRole("button", { name: "Append correction", exact: true }).click();
+  await card.getByRole("status").filter({ hasText: "Correction appended" }).waitFor({ timeout: 15000 });
+  await correctionButton.click();
+  await card.getByLabel("Field to correct").selectOption("pricePaisePerKg");
+  await card.getByLabel("Corrected value (₹)").fill("90.00");
+  await card.getByLabel("Reason for correction").fill("Pump unit price verified");
+  await card.getByRole("button", { name: "Append correction", exact: true }).click();
+  await card.getByRole("status").filter({ hasText: "Correction appended" }).waitFor({ timeout: 15000 });
+  const readback = page.locator('[aria-label="Fuel calculation readback"]');
+  await readback.getByText(/255000 paise/, { exact: false }).waitFor({ timeout: 15000 });
+  await readback.getByText(/172500\\/42 paise per km/, { exact: false }).waitFor({ timeout: 15000 });
+  const rows = await readBrowserRecords(page);
+  const original = rows.find(row => row.id === purchaseId);
+  assert.equal(original?.data?.amountPaise, 82500, "original amount must remain immutable");
+  assert.equal(original?.data?.pricePaisePerKg, 8250, "original price must remain immutable");
+  const corrections = rows.filter(row =>
+    row.id.startsWith("historical-correction:") && row.data?.targetRecordId === purchaseId
+  );
+  assert.equal(corrections.length, 2, "amount and price corrections must each append one immutable record");
+  assert.deepEqual(corrections.map(row => [row.data.fieldPath, row.data.afterValue]).sort(),
+    [["amountPaise", 90000], ["pricePaisePerKg", 9000]]);
+  return rows;
+}
