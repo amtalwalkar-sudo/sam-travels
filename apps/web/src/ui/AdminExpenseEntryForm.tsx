@@ -84,7 +84,7 @@ function ExpenseEntryForm({ definition, heading, description }: {
       if (definition.fields.some(item => item.id === "vehicleId")) {
         next = await services.formRuntime.update(definition as FormDefinition, next, "vehicleId", nextVehicle.id);
       }
-      copyRef.current = next; setCopy(next);
+      copyRef.current = next; setCopy(next); setValues({ ...next.values });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save this expense.");
     } finally { setBusy(false); }
