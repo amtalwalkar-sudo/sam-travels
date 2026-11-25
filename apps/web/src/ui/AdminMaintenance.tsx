@@ -334,7 +334,7 @@ export function MaintenanceSection() {
       </form>}
       {activeForm === "rate" && <form className="admin-capability-form" onSubmit={saveRate}>
         <strong>Per-kilometre rate</strong>
-        <p className="admin-hint">This is an Admin-entered rate with effective-date history. It is not automatically calculated from actual maintenance expenses.</p>
+        <p className="admin-hint">Admin-entered rate with effective-date history; not calculated from actual expenses.</p>
         <label>New rate (₹ per km)<input required type="number" min="0" step="0.01" value={rate} onChange={e => {
           setRate(e.target.value);
           queueFieldUpdate("ratePaisePerKm", e.target.value.trim() ? Math.round(Number(e.target.value) * 100) : undefined);
