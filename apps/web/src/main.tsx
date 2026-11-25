@@ -75,10 +75,10 @@ async function bootstrap(): Promise<void> {
   );
   const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, undefined, operatingConfiguration);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
-    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor,
+    repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor, operatingConfiguration,
   );
-  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor);
-  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor);
+  initializeApplicationFinanceLoanPaymentService(repository, financeLoans, undefined, financePrepayments, currentAuthor, operatingConfiguration);
+  initializeApplicationFinanceLoanSettlementService(repository, financeLoans, financePrepayments, undefined, currentAuthor, operatingConfiguration);
   initializeApplicationComplianceService(repository, assertComplianceRecordV1, vehicles, undefined, operatingConfiguration);
   const complianceReviewEvents = new ComplianceOverlapReviewService(repository, {
     currentActor: async () => {
