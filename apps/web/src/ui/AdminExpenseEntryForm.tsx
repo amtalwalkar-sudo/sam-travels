@@ -14,15 +14,32 @@ function ExpenseEntryForm({ definition, heading, description }: {
   const services = useAdminFormRuntime();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [copy, setCopy] = useState<Awaited<ReturnType<typeof services.formRuntime.open>>>();
+  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const copyRef = useRef<typeof copy>(undefined);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   const start = useCallback(async () => {
-    const drafts = await services.formRuntime.listDrafts(definition as FormDefinition);
+    const [drafts, configuration] = await Promise.all([
+      services.formRuntime.listDrafts(definition as FormDefinition), services.operatingConfiguration.get(),
+    ]);
     const resumable = [...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    const next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+    let next = resumable ?? await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+    for (const field of ["vehicleId", "driverId"] as const) {
+      if (!definition.fields.some(item => item.id === field)) continue;
+      const expected = field === "vehicleId" ? configuration.vehicleId : configuration.driverId;
+      if (next.values[field] !== undefined && next.values[field] !== expected) {
+        throw new Error("business_expense_draft_operating_context_mismatch");
+      }
+      if (next.status !== "pending" && next.values[field] === undefined) {
+        next = await services.formRuntime.update(definition as FormDefinition, next, field, expected);
+      }
+      if (next.status === "pending" && next.values[field] !== expected) {
+        throw new Error("business_expense_pending_operating_context_mismatch");
+      }
+    }
+    setOperatingSnapshot(configuration);
     copyRef.current = next;
     setCopy(next);
     // A pending intent is immutable; render the exact payload that will be replayed.
@@ -49,10 +66,20 @@ function ExpenseEntryForm({ definition, heading, description }: {
       await queue.current;
       const current = copyRef.current;
       if (!current) throw new Error("business_expense_form_not_ready");
+      if (!operatingSnapshot) throw new Error("operating_configuration_unavailable");
+      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
       await services.formRuntime.save(definition as FormDefinition, current);
       setMessage("Saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
-      const next = await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+      const configuration = await services.operatingConfiguration.get();
+      let next = await services.formRuntime.open(definition as FormDefinition, crypto.randomUUID());
+      for (const field of ["vehicleId", "driverId"] as const) {
+        if (definition.fields.some(item => item.id === field)) {
+          next = await services.formRuntime.update(definition as FormDefinition, next, field,
+            field === "vehicleId" ? configuration.vehicleId : configuration.driverId);
+        }
+      }
+      setOperatingSnapshot(configuration);
       copyRef.current = next; setCopy(next);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save this expense.");
