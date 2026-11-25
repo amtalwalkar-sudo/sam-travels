@@ -145,12 +145,12 @@ try {
   await overview.locator(".compliance-daily-cost").filter({ hasText: "MH02CD5678" }).getByText("Combined amount withheld until every affected overlap is currently confirmed.", { exact: true }).waitFor();
 
   await filter.selectOption("all");
-  const insuranceCard = overview.locator(".compliance-overlap-card").filter({ hasText: "Insurance" });
-  await insuranceCard.waitFor();
-  await insuranceCard.getByLabel("Review reason").fill("Both original insurance documents were checked; confirm the exact source overlap.");
-  await insuranceCard.getByRole("button", { name: "Confirm overlap" }).click();
-  await insuranceCard.getByText("confirmed", { exact: true }).waitFor();
-  await insuranceCard.getByText("Confirmed for these exact source revisions. Dates and overlap are retained.", { exact: true }).waitFor();
+  const insuranceOverlapCard = overview.locator(".compliance-overlap-card").filter({ hasText: "Insurance" });
+  await insuranceOverlapCard.waitFor();
+  await insuranceOverlapCard.getByLabel("Review reason").fill("Both original insurance documents were checked; confirm the exact source overlap.");
+  await insuranceOverlapCard.getByRole("button", { name: "Confirm overlap" }).click();
+  await insuranceOverlapCard.getByText("confirmed", { exact: true }).waitFor();
+  await insuranceOverlapCard.getByText("Confirmed for these exact source revisions. Dates and overlap are retained.", { exact: true }).waitFor();
 
   const primaryCost = overview.locator(".compliance-daily-cost").filter({ hasText: "MH01AB1234" });
   await primaryCost.getByText("Combined daily allocation: 30000 ÷ 1 paise", { exact: true }).waitFor();
@@ -246,6 +246,8 @@ try {
     throw new Error("compliance_correction_audit_or_original_immutability_invalid:" + JSON.stringify(correctionAudit));
   }
 
+  const insuranceCard = overview.locator(".compliance-overview-section").filter({ hasText: "Expiry status" })
+    .locator("article.admin-capability-record").filter({ hasText: "Insurance · Valid" }).first();
   await insuranceCard.locator("button", { hasText: "Correct details / history" }).click();
   await insuranceCard.getByLabel("Field to correct").selectOption("totalCostPaise");
   await insuranceCard.getByLabel("Corrected total cost (₹)").fill("6200.00");
