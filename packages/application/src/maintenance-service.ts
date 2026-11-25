@@ -116,12 +116,12 @@ export class MaintenanceService {
       throw new Error("maintenance_correction_chain_invalid");
     }
     const projection = projectHistoricalCorrectionsV1(record.data, corrections);
+    const projected = projection.data as MaintenanceVisitV1 | GeneralMaintenanceExpenseV1;
+    const projectedAmount = projected.kind === "visit" ? projected.totalPaise : projected.amountPaise;
     if (projection.status !== "valid" ||
-        projection.data.kind !== record.data.kind ||
-        projection.data.vehicleId !== record.data.vehicleId ||
-        !Number.isSafeInteger(record.data.kind === "visit"
-          ? projection.data.totalPaise : projection.data.amountPaise) ||
-        (record.data.kind === "visit" ? projection.data.totalPaise : projection.data.amountPaise) < 0) {
+        projected.kind !== record.data.kind ||
+        projected.vehicleId !== record.data.vehicleId ||
+        !Number.isSafeInteger(projectedAmount) || projectedAmount < 0) {
       throw new Error("maintenance_correction_projection_invalid");
     }
     if (!head || head.data.schemaVersion !== 1 || head.data.targetRecordId !== record.id ||
@@ -130,7 +130,7 @@ export class MaintenanceService {
         head.revision !== projection.chainRevision) {
       throw new Error("maintenance_correction_chain_head_invalid");
     }
-    return Object.freeze({ ...record, data: projection.data });
+    return Object.freeze({ ...record, data: projected as T });
   }
 
   async createVisit(input: {
