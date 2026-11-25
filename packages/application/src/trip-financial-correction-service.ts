@@ -9,7 +9,7 @@ import {
 } from "./trip-financial-service";
 import { validateCancellationFeeSubmission, validateCompletedTripFinancialSubmission } from "./driver-form-definitions";
 
-export type TripFinancialCorrectionReferenceV1 = Readonly<{
+export type TripFinancialCorrectionRefV1 = Readonly<{
   sourceId: string;
   revision: number;
   chainRevision: number;
@@ -18,7 +18,7 @@ export type TripFinancialCorrectionReferenceV1 = Readonly<{
 export type TripFinancialCorrectionProjectionV1 = Readonly<{
   data: CancellationFeeObligation | CompletedTripFinancialObligation;
   correctionChainRevision: number;
-  correctionRefs: readonly TripFinancialCorrectionReferenceV1[];
+  correctionRefs: readonly TripFinancialCorrectionRefV1[];
 }>;
 
 type ChainHeadV1 = Readonly<{
