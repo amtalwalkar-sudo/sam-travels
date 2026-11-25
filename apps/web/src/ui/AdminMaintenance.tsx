@@ -8,16 +8,7 @@ import { MaintenanceExpenseCorrection } from "./MaintenanceExpenseCorrection";
 import { MaintenanceVisitCorrection } from "./MaintenanceVisitCorrection";
 import { projectMaintenanceExpenseRecords, projectMaintenanceVisitRecords } from "../maintenance-expense-correction-runtime";
 import "./AdminFormControls.css";
-type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
-type Maintenance = Awaited<ReturnType<AdminPresentationServices["maintenance"]["listVehicleRecords"]>>;
-const today = () => {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const part = (type: string) => parts.find(item => item.type === type)?.value ?? "";
-  return part("year") + "-" + part("month") + "-" + part("day");
-};
-const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
-type ItemDraft = { id: string; description: string; amount: string };
-const newItem = (): ItemDraft => ({ id: crypto.randomUUID(), description: "", amount: "" });
+import { today, money, newItem, type ItemDraft, type Vehicle, type Maintenance } from "./admin-maintenance-helpers";
 type RecordMode = "visit" | "expense";
 type ActiveForm = RecordMode | "rate" | null;
 export function MaintenanceSection() {
