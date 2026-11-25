@@ -46,6 +46,19 @@ describe("separately attributed historical trip backfill", () => {
     expect(await service.list()).toHaveLength(1);
   });
 
+  it("replays the same backfill command idempotently without changing its recorded timestamp", async () => {
+    const records = new Records();
+    let instant = "2026-11-11T10:00:00.000Z";
+    const service = new HistoricalTripBackfillServiceV1(records, {
+      currentActor: async () => ({ role: "admin", actorId: "admin-person" }),
+    }, "web", () => instant);
+    const first = await service.submit(input);
+    instant = "2026-11-12T10:00:00.000Z";
+    const replay = await service.submit(input);
+    expect(replay).toEqual(first);
+    expect(await records.list()).toHaveLength(1);
+  });
+
   it("rejects Driver authority and invalid intervals", async () => {
     const records = new Records();
     const driverService = new HistoricalTripBackfillServiceV1(records, {
