@@ -139,7 +139,7 @@ describe("MaintenanceService", () => {
     const corrections = createMaintenanceExpenseCorrectionAdapter(repository, "web", {
       currentActor: async () => ({ role: "admin", actorId: "maintenance-admin",
         adminPinVerifiedAt: "2026-11-03T08:00:00.000Z" }),
-    });
+    } as never);
     await corrections.submit({
       correctionId: "maintenance-expense-total-integration",
       targetRecordId: expense.id, expectedTargetRevision: expense.revision, expectedChainRevision: 0,
