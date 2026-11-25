@@ -75,7 +75,7 @@ export class MaintenanceService {
     private readonly calculateVisitTotal: MaintenanceVisitTotalCalculator,
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">>,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -87,9 +87,11 @@ export class MaintenanceService {
 
   private async requireVehicleReadOnly(vehicleId: string) {
     const configuration = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
       : undefined;
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
