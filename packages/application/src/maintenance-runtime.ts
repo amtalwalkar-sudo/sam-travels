@@ -1,4 +1,5 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import {
   MaintenanceService,
   type MaintenanceBusinessDateResolver,
