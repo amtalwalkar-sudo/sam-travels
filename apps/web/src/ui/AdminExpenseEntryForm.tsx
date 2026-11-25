@@ -65,7 +65,9 @@ function ExpenseEntryForm({ definition, heading, description }: {
       const current = copyRef.current;
       if (!current) throw new Error("business_expense_form_not_ready");
       const commandSnapshot = await services.operatingConfiguration.get();
-      if (commandSnapshot.vehicleId !== current.values.vehicleId) throw new Error("operating_configuration_stale");
+      if (definition.fields.some(item => item.id === "vehicleId") && commandSnapshot.vehicleId !== current.values.vehicleId) {
+        throw new Error("operating_configuration_stale");
+      }
       let commandCopy = current;
       if (definition.fields.some(item => item.id === "driverId") && current.status !== "pending" &&
           current.values.driverId !== commandSnapshot.driverId) {
