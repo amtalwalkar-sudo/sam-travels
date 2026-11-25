@@ -1,4 +1,5 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import {
   ComplianceService,
   type ComplianceRecordValidator,
@@ -10,8 +11,9 @@ export function createApplicationComplianceService(
   validate: ComplianceRecordValidator,
   vehicles: import("./compliance-service").VehicleDirectory,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): ComplianceService {
-  return new ComplianceService(repository, validate, vehicles, now);
+  return new ComplianceService(repository, validate, vehicles, now, operatingConfiguration);
 }
 
 let applicationComplianceService: ComplianceService | undefined;
@@ -21,11 +23,12 @@ export function initializeApplicationComplianceService(
   validate: ComplianceRecordValidator,
   vehicles: import("./compliance-service").VehicleDirectory,
   now?: () => string,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): ComplianceService {
   if (applicationComplianceService) {
     throw new Error("Application Compliance service is already initialized");
   }
-  applicationComplianceService = createApplicationComplianceService(repository, validate, vehicles, now);
+  applicationComplianceService = createApplicationComplianceService(repository, validate, vehicles, now, operatingConfiguration);
   return applicationComplianceService;
 }
 
