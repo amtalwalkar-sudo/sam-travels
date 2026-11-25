@@ -3,6 +3,7 @@ import type { AdminPresentationServices } from "../../../../packages/application
 import type { AdminIdentityPresentationAdapter } from "../admin-identity-presentation-adapter";
 import type { MaintenanceExpenseCorrectionAdapter } from "../maintenance-expense-correction-runtime";
 import type { ComplianceHistoricalCorrectionAdapter } from "../compliance-historical-correction";
+import type { HistoricalTripBackfillServiceV1 } from "../../../../packages/application/src/historical-trip-backfill-service";
 
 type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "businessSettings" | "costAllocation">;
 type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
@@ -32,12 +33,14 @@ const AdminServicesContext = createContext<AdminSectionAdapters | null>(null);
 const AdminIdentityContext = createContext<AdminIdentityPresentationAdapter | null>(null);
 const AdminMaintenanceCorrectionContext = createContext<MaintenanceExpenseCorrectionAdapter | null>(null);
 const AdminComplianceCorrectionContext = createContext<ComplianceHistoricalCorrectionAdapter | null>(null);
+const HistoricalTripBackfillContext = createContext<HistoricalTripBackfillServiceV1 | null>(null);
 
-export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, complianceCorrections, children }: {
+export function AdminServicesProvider({ services, identityAdapter, maintenanceCorrections, complianceCorrections, historicalTripBackfills, children }: {
   services: AdminPresentationServices;
   identityAdapter: AdminIdentityPresentationAdapter;
   maintenanceCorrections: MaintenanceExpenseCorrectionAdapter;
   complianceCorrections: ComplianceHistoricalCorrectionAdapter;
+  historicalTripBackfills: HistoricalTripBackfillServiceV1;
   children: ReactNode;
 }) {
   const adapters = useMemo<AdminSectionAdapters>(() => ({
@@ -62,7 +65,7 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
   return <AdminServicesContext.Provider value={adapters}>
     <AdminIdentityContext.Provider value={identityAdapter}>
       <AdminMaintenanceCorrectionContext.Provider value={maintenanceCorrections}>
-        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}>{children}</AdminComplianceCorrectionContext.Provider>
+        <AdminComplianceCorrectionContext.Provider value={complianceCorrections}><HistoricalTripBackfillContext.Provider value={historicalTripBackfills}>{children}</HistoricalTripBackfillContext.Provider></AdminComplianceCorrectionContext.Provider>
       </AdminMaintenanceCorrectionContext.Provider>
     </AdminIdentityContext.Provider>
   </AdminServicesContext.Provider>;
@@ -101,4 +104,10 @@ export function useAdminComplianceCorrectionAdapter(): ComplianceHistoricalCorre
   const adapter = useContext(AdminComplianceCorrectionContext);
   if (!adapter) throw new Error("Compliance correction adapter was not supplied by the composition root.");
   return adapter;
+}
+
+export function useHistoricalTripBackfillService(): HistoricalTripBackfillServiceV1 {
+  const service = useContext(HistoricalTripBackfillContext);
+  if (!service) throw new Error("Historical trip backfill service was not supplied by the composition root.");
+  return service;
 }
