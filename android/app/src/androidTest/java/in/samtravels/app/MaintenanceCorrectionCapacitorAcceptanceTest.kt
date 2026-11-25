@@ -201,7 +201,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
           const button = Array.from(document.querySelectorAll('button')).find(node => node.textContent.includes('Append correction'));
           if (!button) return false;
           button.click();
-          button.click();
           return true;
         })()
     """)
