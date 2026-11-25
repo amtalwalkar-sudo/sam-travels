@@ -56,6 +56,12 @@ export class HistoricalTripBackfillServiceV1 {
     const id = HISTORICAL_TRIP_BACKFILL_PREFIX + input.backfillId;
     const existing = await this.records.get<HistoricalTripBackfillV1>(id);
     const recordedAt = this.now();
+    const sameIntent = (value: HistoricalTripBackfillV1) =>
+      value.backfillId === input.backfillId && value.driverId === input.driverId.trim() &&
+      value.vehicleId === input.vehicleId.trim() && value.operationalDate === input.operationalDate &&
+      value.startedAt === new Date(start).toISOString() && value.endedAt === new Date(end).toISOString() &&
+      value.farePaise === input.farePaise && value.reason === input.reason.trim() &&
+      value.actor.role === actor.role && value.actor.actorId === actor.actorId;
     const data: HistoricalTripBackfillV1 = Object.freeze({
       schemaVersion: 1, kind: "historical_trip_backfill", backfillId: input.backfillId,
       status: "submitted", attribution: "admin_declared",
@@ -68,8 +74,7 @@ export class HistoricalTripBackfillServiceV1 {
     assertHistoricalTripBackfillV1(data);
     if (existing) {
       assertHistoricalTripBackfillV1(existing.data);
-      const same = JSON.stringify(existing.data) === JSON.stringify(data);
-      if (same) return existing;
+      if (sameIntent(existing.data)) return existing;
       throw new Error("historical_trip_backfill_id_reused");
     }
     const envelope: RecordEnvelope<HistoricalTripBackfillV1> = {
@@ -79,7 +84,7 @@ export class HistoricalTripBackfillServiceV1 {
     };
     if (!await this.records.compareAndSet(id, null, envelope)) {
       const replay = await this.records.get<HistoricalTripBackfillV1>(id);
-      if (replay && JSON.stringify(replay.data) === JSON.stringify(data)) return replay;
+      if (replay && sameIntent(replay.data)) return replay;
       throw new Error("historical_trip_backfill_conflict");
     }
     return envelope;
