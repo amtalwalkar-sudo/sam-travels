@@ -211,4 +211,36 @@ describe("operating-context command guards", () => {
     expect(await repository.list()).toEqual(beforeSettlement);
   });
 
+
+  it("rejects a prepayment preview when the configured pair revision changes before commit", async () => {
+    const { repository, finance } = await setup();
+    const loan = await finance.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174051", source: "web",
+      details: { loanName: "Configured vehicle loan", lenderName: "Lender", vehicleId,
+        principalPaise: 1000000, annualInterestRateBasisPoints: 1200, loanStartDate: "2026-11-20",
+        tenureMonths: 12, firstEmiDate: "2026-12-01" },
+    });
+    const base = new OperatingConfigurationServiceV1(repository);
+    let changed = false;
+    const configuration = {
+      get: async () => {
+        const snapshot = await base.get();
+        return changed ? { ...snapshot, selectionRevision: snapshot.selectionRevision + 1 } : snapshot;
+      },
+      assertCurrent: async (snapshot: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) => snapshot,
+    };
+    const admin = async () => ({ personId: "admin-1", role: "admin" as const });
+    const prepayments = new FinanceLoanPrepaymentService(repository, finance,
+      assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, () => at, admin, configuration);
+    const preview = await prepayments.preview({
+      loanId: loan.id, commandId: "prepayment-context-change", businessDate: "2026-11-20",
+      amountPaise: 100, mode: "reduce_tenure", source: "web",
+    });
+    changed = true;
+    const before = await repository.list();
+    await expect(prepayments.commit({ preview, source: "web" }))
+      .rejects.toThrow("finance_loan_prepayment_operating_context_stale");
+    expect(await repository.list()).toEqual(before);
+  });
+
 });
