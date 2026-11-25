@@ -47,7 +47,7 @@ export class ComplianceService {
     validate: ComplianceRecordValidator,
     private readonly vehicles: VehicleDirectory,
     private readonly now: () => string = () => new Date().toISOString(),
-    _operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "assertCurrentForReadOnly">>,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -70,7 +70,11 @@ export class ComplianceService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
-    const operating = resolveOperatingVehicle(await this.repository.list());
+    const operating = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : resolveOperatingVehicle(await this.repository.list());
     const operatingVehicleId = operating.vehicleId;
     if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(operatingVehicleId);
@@ -87,10 +91,18 @@ export class ComplianceService {
       // Do not compare validity dates here: early renewal may create a legitimate
       // overlap, and late renewal must preserve the actual historical gap.
     }
-    const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
-    if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
-        currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {
-      throw new Error("operating_configuration_stale");
+    if (this.operatingConfiguration) {
+      if (this.operatingConfiguration.assertCurrentForReadOnly) {
+        await this.operatingConfiguration.assertCurrentForReadOnly(operating);
+      } else {
+        await this.operatingConfiguration.assertCurrent(operating);
+      }
+    } else {
+      const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
+      if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
+          currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {
+        throw new Error("operating_configuration_stale");
+      }
     }
     return this.records.create({
       id, data: input.data, source: input.source, businessDate: input.businessDate,
