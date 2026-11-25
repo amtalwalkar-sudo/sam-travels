@@ -118,7 +118,7 @@ export function MaintenanceSection() {
     setMessage("");
   }
   async function startNew(form: Exclude<ActiveForm, null>) {
-    if (!vehicleId || !operatingSnapshot) return;
+    if (!vehicleId) return;
     setBusy(true);
     setMessage("");
     try {
