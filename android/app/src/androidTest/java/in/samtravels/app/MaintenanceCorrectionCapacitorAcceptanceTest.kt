@@ -31,6 +31,8 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   val previousMaintenanceRecords = database.records().list().filter { it.id.startsWith("feature:maintenance:") }
   val vehicleId = "feature:vehicle:MH01AB1234"
   val expenseId = "feature:maintenance:expense:$suffix"
+  val visitId = "feature:maintenance:visit:$suffix"
+  val visitChainId = "historical-correction-chain:" + java.net.URLEncoder.encode(visitId, "UTF-8")
   val chainId = "historical-correction-chain:" + java.net.URLEncoder.encode(expenseId, "UTF-8")
   val correctionPrefix = "historical-correction:"
   val now = Instant.now().toString()
@@ -50,6 +52,14 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     .put("expenseDate", "2026-10-11").put("expenseName", "Other Driver tyre")
     .put("description", "Other Driver receipt").put("amountPaise", 20000L),
     JSONObject().put("personId", "person-driver-two").put("role", "driver"))
+  val visit = maintenanceEnvelope(visitId, now, JSONObject()
+    .put("schemaVersion", 1).put("kind", "visit").put("vehicleId", vehicleId)
+    .put("maintenanceDate", "2026-10-10").put("maintenanceType", "Accept service visit")
+    .put("description", "Original itemised service receipt")
+    .put("items", JSONArray().put(JSONObject().put("id", UUID.randomUUID().toString())
+      .put("description", "Oil service").put("amountPaise", 20000L)))
+    .put("totalPaise", 20000L).put("odometerKm", 45000L),
+    JSONObject().put("personId", "person-driver-one").put("role", "driver"))
   lateinit var activity: MainActivity
   try {
     previousAssignmentRecords.forEach { database.records().remove(it.id) }
@@ -59,6 +69,7 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     database.records().put(vehicle)
     database.records().put(expense)
     database.records().put(otherExpense)
+    database.records().put(visit)
     DriverWorkflowIdentityTestFixtures.seed(database, "driver-one", "person-driver-one")
     DriverWorkflowIdentityTestFixtures.seedLink(database, "driver-two", "person-driver-two")
     listOf("person-driver-one" to "Driver One", "person-driver-two" to "Driver Two").forEach { (personId, name) ->
@@ -305,6 +316,53 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     """))
     assertTrue("Other rejected", awaitMaintenanceJavascript(activity,
         "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Other Driver tyre'))?.textContent.includes('historical_correction_forbidden')", 15_000))
+    val visitCardReady = awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).some(node => node.textContent.includes('Accept service visit'))",
+        10_000)
+    assertTrue("Visit history", visitCardReady)
+    assertTrue("Visit correction opens", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'));
+          const button = Array.from(card?.querySelectorAll('button') ?? []).find(node => node.textContent.includes('Correct visit total / view history'));
+          button?.click();
+          return Boolean(button);
+        })()
+    """))
+    assertTrue("Visit correction fields", evaluateMaintenanceWebView(activity, """
+        (() => {
+          const card = Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'));
+          const set = (labelText, value) => {
+            const label = Array.from(card?.querySelectorAll('label') ?? []).find(node => node.textContent.includes(labelText));
+            const input = label?.querySelector('input');
+            if (!input) return false;
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          return set('Corrected visit total', '225.00') &&
+            set('Reason for correction', 'Final visit invoice verified');
+        })()
+    """))
+    assertTrue("Visit correction committed", awaitMaintenanceJavascript(activity,
+        "Array.from(document.querySelectorAll('.admin-capability-record')).find(node => node.textContent.includes('Accept service visit'))?.textContent.includes('Visit correction appended')",
+        15_000))
+    val originalVisit = JSONObject(database.records().get(visitId)!!.json).getJSONObject("data")
+    assertEquals("Original visit total", 20000L, originalVisit.getLong("totalPaise"))
+    assertEquals("Original visit item amount", 20000L,
+        originalVisit.getJSONArray("items").getJSONObject(0).getLong("amountPaise"))
+    val visitCorrections = database.records().list().filter { it.id.startsWith(correctionPrefix) }
+        .map { JSONObject(it.json).getJSONObject("data") }
+        .filter { it.optString("targetRecordId") == visitId }
+    assertEquals("One visit correction", 1, visitCorrections.size)
+    assertEquals("totalPaise", visitCorrections.single().getString("fieldPath"))
+    assertEquals(20000L, visitCorrections.single().getLong("beforeValue"))
+    assertEquals(22500L, visitCorrections.single().getLong("afterValue"))
+    assertEquals("admin", visitCorrections.single().getJSONObject("actor").getString("role"))
+    val visitHead = JSONObject(database.records().get(visitChainId)!!.json).getJSONObject("data")
+    assertEquals(1, visitHead.getInt("chainRevision"))
+    assertEquals(visitCorrections.single().getString("correctionId"), visitHead.getString("headCorrectionId"))
+
     val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
         .map { JSONObject(it.json).getJSONObject("data") }
         .filter { it.optString("targetRecordId") == expenseId }
@@ -335,19 +393,21 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
   } finally {
     database.records().remove(expenseId)
     database.records().remove(otherExpenseId)
+    database.records().remove(visitId)
     database.records().remove(vehicleId)
     previousVehicleRecords.forEach { database.records().put(it) }
     previousBusinessExpenseRecords.forEach { database.records().put(it) }
     previousMaintenanceRecords.forEach { database.records().put(it) }
     previousAssignmentRecords.forEach { database.records().put(it) }
     database.records().remove(chainId)
+    database.records().remove(visitChainId)
     listOf("identity:driver-person-link:driver-one", "identity:driver-person-link:driver-two",
         "feature:driver-records:driver:driver-one", "feature:driver-records:driver:driver-two").forEach { database.records().remove(it) }
     listOf("person-driver-one", "person-driver-two").forEach { database.records().remove("identity:person:$it") }
     if (previousSelectedDriver != null) database.records().put(previousSelectedDriver)
     else database.records().remove("work:selected-driver")
     database.records().list().filter { it.id.startsWith(correctionPrefix) }
-        .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId }.getOrDefault(false) }
+        .filter { runCatching { val target = JSONObject(it.json).getJSONObject("data").optString("targetRecordId"); target == expenseId || target == otherExpenseId || target == visitId }.getOrDefault(false) }
         .forEach { database.records().remove(it.id) }
     database.records().list().filter { it.id.startsWith("identity:person:") }
         .filter { runCatching { JSONObject(it.json).getJSONObject("data").optString("displayName") in setOf("Correction Admin", "Driver One", "Driver Two") }.getOrDefault(false) }
