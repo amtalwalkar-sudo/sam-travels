@@ -102,7 +102,7 @@ describe("trip financial append-only corrections", () => {
     await expect(owner.submit({
       correctionId: "invalid-toll-correction", targetRecordId: original.id,
       expectedTargetRevision: 2, expectedChainRevision: 0,
-      fieldPath: "tollPayer", afterValue: "customer", reason: "Change payer",
+      fieldPath: "tollPayer", afterValue: "operator", reason: "Invalid payer",
     })).rejects.toThrow("trip_financial_correction_projection_invalid");
   });
 
