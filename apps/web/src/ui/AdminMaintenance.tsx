@@ -66,7 +66,7 @@ export function MaintenanceSection() {
       const v = await services.vehicles.list();
       const active = v.filter(item => item.data.lifecycleState === "active");
       const configuredVehicle = active.find(item => item.id === operatingVehicle.vehicleId);
-      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
+      if (!configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
         throw new Error("operating_configuration_stale");
       }
       const chosen = operatingVehicle.vehicleId;
