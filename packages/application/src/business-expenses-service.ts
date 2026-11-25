@@ -3,6 +3,7 @@ import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import type { SubmitHistoricalCorrectionV1 } from "./historical-correction-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 export type FuelPurchaseV1 = Readonly<{
   schemaVersion: 1; kind: "fuel_purchase"; id: string; revision: number;
@@ -82,6 +83,7 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -91,6 +93,8 @@ export class BusinessExpensesService {
   }
 
   private async requireVehicle(vehicleId: string): Promise<void> {
+    const configuration = await this.operatingConfiguration?.get();
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("business_expense_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("business_expense_vehicle_not_found");
   }
@@ -129,6 +133,10 @@ export class BusinessExpensesService {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
     this.domain.validateExpenseEntry(data);
+    if (this.operatingConfiguration && data.driverId !== undefined) {
+      const configuration = await this.operatingConfiguration.get();
+      if (data.driverId !== configuration.driverId) throw new Error("business_expense_operating_driver_mismatch");
+    }
     if (data.vehicleId) await this.requireVehicle(data.vehicleId);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
       throw new Error("traffic_challan_vehicle_required");
