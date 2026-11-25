@@ -3,7 +3,8 @@ import type { FullCostBreakevenService, PerformanceCalculationServiceV1 } from "
 import type { AtomicRecordBatchRepository, RuntimeRegistry, PolicyRepository, RecordRepository } from "../../../../packages/core/src";
 import { BackupPanel } from "./BackupPanel";
 import { getPlatformRecordSource } from "../native-store";
-import { createTripFinancialFormRuntimeV1, cancellationFeeObligationId } from "../../../../packages/application/src/trip-financial-form-runtime";
+import { createTripFinancialFormRuntimeV1 } from "../../../../packages/application/src/trip-financial-form-runtime";
+import { cancellationFeeObligationId } from "../../../../packages/application/src/trip-financial-service";
 import { resolveDriverRecordAuthor } from "../person-identity-adapters";
 import { TripFinancialFormRuntimeProvider } from "./trip-financial-form-context";
 import { DeviceReadinessPrompt } from "./DeviceReadinessPrompt";
