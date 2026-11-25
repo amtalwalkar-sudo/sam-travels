@@ -131,7 +131,7 @@ export class FinanceLoanSettlementService {
       throw new Error("finance_payment_settlement_preview_invalid");
     }
     for (let attempt = 0; attempt < 12; attempt++) {
-      const { loan, ledger } = await this.load(input.loanId);
+      const { loan, ledger, operating } = await this.load(input.loanId);
       const entries = ledger?.data.entries ?? [];
       const replay = entries.find(entry => entry.commandId === input.commandId);
       if (replay) {
