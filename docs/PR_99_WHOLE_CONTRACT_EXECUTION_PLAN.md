@@ -325,3 +325,16 @@ The two Stage 4 implementation gaps identified in the preceding checkpoint now h
 **External/manual or repository-administration gates (not CI passes):** physical OEM/device certification and owner usability approval; full OS reboot persistence where not deterministic in CI; live Dropbox account authentication/upload/download/scheduled-backup/restore; final owner visual approval; and repository branch-protection/ruleset verification.
 
 **Stage 6 exit rule:** Do not declare whole-contract completion until each applicable critical requirement is supported by named passing implementation evidence or explicitly accepted by the owner as a scoped deferral, the five required CI jobs pass on the exact final documentation/code head, and PR #99 metadata is verified open/draft/unmerged (unless separately authorized).
+
+
+### Stage 6 focused implementation checkpoint — Fuel correction path — 2026-11-25
+
+Stages 1–5 remain closed and accepted; Stage 6 is the only active stage. The first focused Stage 6 slice now has implementation and test changes on this branch:
+
+- apps/web/src/ui/FuelEntryPanel.tsx exposes previously recorded fuel purchases and corrected calculation readback.
+- apps/web/src/ui/FuelPurchaseCorrection.tsx provides append-only amount and price/kg correction, reason capture, correction history, and immediate readback refresh.
+- packages/application/src/business-expenses-service.ts exposes correction history and allows the UI to preserve target/chain revisions across an ambiguous retry.
+- tests/fuel-purchase-correction-presentation.test.tsx and tests/business-expense-correction-retry.test.ts cover the rendered entry point and retry revision contract; corrected price/kg interval recalculation is covered in the latter.
+- Android FuelCorrectionCapacitorAcceptanceTest drives the rendered WebView correction flow against the Room-backed repository and asserts the immutable original, correction chain, actor and refreshed daily read model.
+
+**Disposition: IMPLEMENTATION ADDED — VERIFICATION PENDING.** The Android test and Browser tests are authored but are not accepted evidence until the required CI jobs complete successfully on the final exact head. The slice is not marked closed yet. Continue with this evidence before moving to Stage 6 slice 2 (trip/fare correction and missing-trip entry).
