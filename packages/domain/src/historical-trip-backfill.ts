@@ -34,7 +34,9 @@ export function assertHistoricalTripBackfillV1(value: unknown): asserts value is
       typeof row.recordedAt !== "string" || !Number.isFinite(Date.parse(row.recordedAt)) ||
       !actor || actor.role !== "admin" || typeof actor.actorId !== "string" || !actor.actorId.trim() ||
       "eventId" in row || "startEventId" in row || "endEventId" in row || "gps" in row ||
-      "startGps" in row || "endGps" in row || "shiftId" in row) {
+      "startGps" in row || "endGps" in row || "shiftId" in row || "tripContext" in row ||
+      "driverContext" in row || "odometer" in row || "odometerKm" in row ||
+      "shiftStartOdometerKm" in row || "lastConfirmedOdometerKm" in row) {
     throw new Error("historical_trip_backfill_invalid");
   }
 }
