@@ -66,7 +66,9 @@ try {
       id: "feature:compliance:" + uuid, schemaVersion: 1, createdAt: now, updatedAt: now,
       source: "web", revision: 1, businessDate: from,
       createdBy: { personId: "browser-acceptance-admin", role: "admin" },
-      data: { schemaVersion: 1, vehicleId, complianceName, validFrom: from, validTo: to, totalCostPaise },
+      data: { schemaVersion: 1, vehicleId, complianceName, validFrom: from, validTo: to, totalCostPaise,
+        ...(uuid === uuids.insuranceA ? { supportingDocumentRef: "insurance-a-reference" } :
+          uuid === uuids.insuranceB ? { supportingDocumentRef: "insurance-b-reference" } : {}) },
     });
     const rows = [
       vehicle(primaryVehicleId, "MH01AB1234"),
@@ -247,7 +249,7 @@ try {
   }
 
   const insuranceCard = overview.locator(".compliance-overview-section").filter({ hasText: "Expiry status" })
-    .locator("article.admin-capability-record").filter({ hasText: "Insurance · Valid" }).nth(1);
+    .locator("article.admin-capability-record").filter({ hasText: "insurance-a-reference" }).first();
   await insuranceCard.locator("button", { hasText: "Correct details / history" }).click();
   await insuranceCard.getByLabel("Field to correct").selectOption("totalCostPaise");
   await insuranceCard.getByLabel("Corrected total cost (₹)").fill("6200.00");
