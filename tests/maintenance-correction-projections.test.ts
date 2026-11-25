@@ -7,6 +7,7 @@ import {
   maintenanceBusinessDateFromInstant,
 } from "../packages/features/maintenance";
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
+import { createMaintenanceExpenseCorrectionAdapter } from "../apps/web/src/maintenance-expense-correction-runtime";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -93,6 +94,31 @@ describe("Maintenance corrected actual-expense projections", () => {
     expect(history.expenses.find(row => row.id === original.id)?.data.amountPaise).toBe(150000);
     expect(await service.getActualExpenseTotal(vehicleId)).toBe(150000);
     expect((await repository.get<typeof original.data>(original.id))?.data.amountPaise).toBe(120000);
+  });
+
+
+  it("rejects an actual-expense correction when the operating configuration revision is stale", async () => {
+    const { service, repository } = setup();
+    const original = await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174096",
+      data: { vehicleId, expenseDate: "2026-10-06", expenseName: "Towing",
+        description: "Roadside towing", amountPaise: 120000 },
+      source: "web",
+    });
+    const corrections = createMaintenanceExpenseCorrectionAdapter(repository, "web", {
+      currentActor: async () => ({ role: "admin", actorId: "admin-person", adminPinVerifiedAt: "2026-11-20T08:00:00.000Z" }),
+    } as never, {
+      get: async () => ({ vehicleId }),
+      assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
+    } as never);
+    const before = await repository.list();
+    await expect(corrections.submit({
+      correctionId: "maintenance-stale-correction",
+      targetRecordId: original.id, expectedTargetRevision: original.revision,
+      expectedChainRevision: 0, fieldPath: "amountPaise", afterValue: 150000,
+      reason: "Corrected receipt amount",
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(before);
   });
 
   it("fails closed when a correction chain head does not match its append-only records", async () => {
