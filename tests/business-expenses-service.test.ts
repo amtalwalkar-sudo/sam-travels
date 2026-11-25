@@ -398,10 +398,10 @@ describe("BusinessExpensesService", () => {
   it("preserves the original correction revisions so an ambiguous UI retry is idempotent", async () => {
     const repository = new MemoryRepository();
     const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
-    let submitted: Record<string, unknown> | undefined;
+    let submitted: import("../packages/application/src/historical-correction-service").SubmitHistoricalCorrectionV1 | undefined;
     const corrections = {
       async listForTarget() { return []; },
-      async submit(input: Record<string, unknown>) {
+      async submit(input: import("../packages/application/src/historical-correction-service").SubmitHistoricalCorrectionV1) {
         submitted = input;
         return { correction: {} as never, currentData: {}, chainRevision: Number(input.expectedChainRevision) + 1 };
       },
