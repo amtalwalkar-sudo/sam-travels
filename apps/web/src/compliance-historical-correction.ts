@@ -1,7 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../../packages/core/src/repositories";
 import type { RecordEnvelope } from "../../../packages/core/src/types";
-import type { OperatingConfigurationServiceV1 } from "../../../packages/application/src/operating-configuration-service";
 import { HistoricalCorrectionService, type HistoricalCorrectionActorProvider } from "../../../packages/application/src/historical-correction-service";
+import { resolveOperatingVehicle } from "../../../packages/domain/src/work-driver-context";
 
 export type ComplianceHistoricalCorrectionAdapter = Pick<HistoricalCorrectionService, "listForTarget" | "submit">;
 import { assertComplianceRecordIdentity, assertComplianceRecordV1 } from "../../../packages/features/compliance";
@@ -25,7 +25,6 @@ export function createComplianceHistoricalCorrectionService(
   actorProvider: HistoricalCorrectionActorProvider,
   source: RecordEnvelope<unknown>["source"] = "web",
   now?: () => string,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): ComplianceHistoricalCorrectionAdapter {
   const corrections = new HistoricalCorrectionService(
     repository,
@@ -52,14 +51,20 @@ export function createComplianceHistoricalCorrectionService(
   return Object.freeze({
     listForTarget: (targetRecordId: string) => corrections.listForTarget(targetRecordId),
     submit: async (input: Parameters<HistoricalCorrectionService["submit"]>[0]) => {
-      if (operatingConfiguration) {
-        const [target, configuration] = await Promise.all([
-          repository.get(input.targetRecordId), operatingConfiguration.get(),
-        ]);
-        if (!target || (target.data as { vehicleId?: string }).vehicleId !== configuration.vehicleId) {
-          throw new Error("compliance_correction_operating_vehicle_mismatch");
-        }
-        await operatingConfiguration.assertCurrent(configuration);
+      // Compliance is vehicle-scoped, not Work/Driver-scoped. Resolve the one
+      // active vehicle without requiring work:selected-driver or an assignment.
+      const [target, records] = await Promise.all([
+        repository.get(input.targetRecordId), repository.list(),
+      ]);
+      if (!target || (target.data as { vehicleId?: string }).vehicleId !==
+          resolveOperatingVehicle(records).vehicleId) {
+        throw new Error("compliance_correction_operating_vehicle_mismatch");
+      }
+      const expectedVehicle = resolveOperatingVehicle(records);
+      const currentVehicle = resolveOperatingVehicle(await repository.list());
+      if (currentVehicle.vehicleId !== expectedVehicle.vehicleId ||
+          currentVehicle.vehicleRevision !== expectedVehicle.vehicleRevision) {
+        throw new Error("operating_configuration_stale");
       }
       return corrections.submit(input);
     },
