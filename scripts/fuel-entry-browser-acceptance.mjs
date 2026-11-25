@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { assertBrowserFuelPerformanceAndBackupJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
-import { installFuelGeolocationStub, readBrowserRecords, waitForServer } from "./fuel-entry-browser-helpers.mjs";
+import { correctFuelPurchaseThroughUi, installFuelGeolocationStub, readBrowserRecords, waitForServer } from "./fuel-entry-browser-helpers.mjs";
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 const registration = "MH00AA0091";
@@ -317,27 +317,7 @@ try {
   const workDistance = await assertBrowserWorkDistanceThroughUi(page);
   assert.equal(workDistance.businessKilometres, 42,
     "Performance must consume a confirmed Work odometer allocation from the rendered UI");
-  // Correct the intervening partial refill through the rendered form. This
-  // source contributes to the completed interval, unlike the opening baseline.
-  const partialPurchaseCard = page.locator(".fuel-entry-panel article").filter({ hasText: "12,346 km" });
-  await partialPurchaseCard.getByRole("button", { name: "Correct amount / price", exact: true }).click();
-  await partialPurchaseCard.getByLabel("Corrected value (₹)").fill("900.00");
-  await partialPurchaseCard.getByLabel("Reason for correction").fill("Pump receipt amount verified");
-  await partialPurchaseCard.getByRole("button", { name: "Append correction", exact: true }).click();
-  await partialPurchaseCard.getByRole("status").filter({ hasText: "Correction appended" }).waitFor({ timeout: 15000 });
-  const fuelReadback = page.locator('[aria-label="Fuel calculation readback"]');
-  await fuelReadback.getByText(/255000 paise/, { exact: false }).waitFor({ timeout: 15000 });
-  await fuelReadback.getByText(/172500\/42 paise per km/, { exact: false }).waitFor({ timeout: 15000 });
-  const correctedRows = await readBrowserRecords(page);
-  const correctedPartial = correctedRows.find(row => row.id === purchases[1].id);
-  assert.equal(correctedPartial?.data?.amountPaise, 82500,
-    "the original partial-refill source remains immutable after correction");
-  const fuelCorrectionRows = correctedRows.filter(row =>
-    row.id.startsWith("historical-correction:") &&
-    row.data?.targetRecordId === purchases[1].id
-  );
-  assert.equal(fuelCorrectionRows.length, 1, "one append-only correction must be recorded for the partial refill");
-  assert.equal(fuelCorrectionRows[0].data.afterValue, 90000);
+  const correctedRows = await correctFuelPurchaseThroughUi(page, purchases[1].id);
   const committedBeforeEnrichment = await readBrowserRecords(page);
   purchases = committedBeforeEnrichment.filter(row =>
     row.id.startsWith("feature:business-expenses:fuel:") && row.data?.vehicleId === vehicleId
