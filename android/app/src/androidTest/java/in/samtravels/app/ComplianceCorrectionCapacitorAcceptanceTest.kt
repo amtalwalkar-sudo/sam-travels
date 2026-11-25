@@ -111,12 +111,79 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
       val head = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
       assertEquals(1, head.getInt("chainRevision"))
       assertEquals(corrections.single().getString("correctionId"), head.getString("headCorrectionId"))
+
+      // Exercise the rendered Room-backed renewal form, not just the repository service.
+      val renewalFrom = today.plusDays(1).toString()
+      val renewalTo = today.plusDays(365).toString()
+      assertTrue("Renewal form opens", evaluateMaintenanceWebView(page, """
+        (() => {
+          const button = [...document.querySelectorAll('.admin-capability-panel button')]
+            .find(node => node.textContent.includes('Add compliance / renewal'));
+          button?.click();
+          return Boolean(button);
+        })()
+      """))
+      assertTrue("Renewal fields entered", evaluateMaintenanceWebView(page, """
+        (() => {
+          const labels = [...document.querySelectorAll('.admin-capability-form label')];
+          const label = text => labels.find(node => node.textContent.includes(text));
+          const setInput = (text, value) => {
+            const input = label(text)?.querySelector('input');
+            if (!input) return false;
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          };
+          return setInput('Compliance type / name', 'Acceptance insurance') &&
+            setInput('Valid from', '$renewalFrom') &&
+            setInput('Valid until', '$renewalTo') &&
+            setInput('Total cost (₹)', '810.00');
+        })()
+      """))
+      assertTrue("Previous Compliance record is offered for renewal", awaitMaintenanceJavascript(page,
+        "Array.from(document.querySelector('.admin-capability-form select')?.options ?? []).some(option => option.value === '$complianceId')",
+        10_000))
+      assertTrue("Renewal links to the previous record", evaluateMaintenanceWebView(page, """
+        (() => {
+          const label = [...document.querySelectorAll('.admin-capability-form label')]
+            .find(node => node.textContent.includes('Renewing previous record'));
+          const select = label?.querySelector('select');
+          if (!select || ![...select.options].some(option => option.value === '$complianceId')) return false;
+          select.value = '$complianceId';
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          return true;
+        })()
+      """))
+      evaluateMaintenanceWebView(page, """
+        (() => {
+          const form = document.querySelector('.admin-capability-form');
+          const button = [...(form?.querySelectorAll('button') ?? [])]
+            .find(node => node.textContent.includes('Save record'));
+          button?.click();
+          return Boolean(button);
+        })()
+      """)
+      assertTrue("Compliance renewal saved", awaitMaintenanceJavascript(page,
+        "document.querySelector('.admin-capability-panel [role=status]')?.textContent.includes('Compliance record saved')",
+        15_000))
+      val renewal = database.records().list().firstOrNull { row ->
+        row.id.startsWith("feature:compliance:") &&
+          JSONObject(row.json).getJSONObject("data").optString("renewedFromRecordId") == complianceId
+      } ?: throw AssertionError("Linked Room Compliance renewal was not committed")
+      val renewalData = JSONObject(renewal.json).getJSONObject("data")
+      assertEquals("Renewal retains its previous-record lineage", complianceId, renewalData.getString("renewedFromRecordId"))
+      assertEquals(renewalFrom, renewalData.getString("validFrom"))
+      assertEquals(renewalTo, renewalData.getString("validTo"))
+      assertEquals(81000L, renewalData.getLong("totalCostPaise"))
+
       val backup = NativeBackupCoverage.exportBusinessRecords(database, NativeBackupRecovery::isInternalRecord)
       NativeBackupCoverage.replaceBusinessRecords(database, JSONArray())
       NativeBackupCoverage.replaceBusinessRecords(database, backup)
       assertEquals(36500L, JSONObject(database.records().get(complianceId)!!.json).getJSONObject("data").getLong("totalCostPaise"))
       assertEquals(73000L, JSONObject(database.records().get("historical-correction:" + corrections.single().getString("correctionId"))!!.json)
         .getJSONObject("data").getLong("afterValue"))
+      assertEquals("Renewal lineage survives Room backup/restore", complianceId,
+        JSONObject(database.records().get(renewal.id)!!.json).getJSONObject("data").getString("renewedFromRecordId"))
     } finally {
       database.records().remove(complianceId)
       database.records().remove(chainId)
