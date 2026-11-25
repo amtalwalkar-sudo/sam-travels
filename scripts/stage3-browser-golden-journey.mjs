@@ -195,8 +195,8 @@ export async function assertBrowserFuelPerformanceAndBackupJourney(page, adminPi
   const eligibleCosts = await page.getByRole("button", { name: "Explain Eligible period costs", exact: true }).innerText();
   const match = eligibleCosts.match(/₹([\d,]+\.\d{2})/);
   const paise = Math.round(Number((match?.[1] ?? "0").replaceAll(",", "")) * 100);
-  if (paise < 165000) {
-    throw new Error("stage3_performance_excludes_ui_created_fuel_expenses:" + eligibleCosts);
+  if (paise < 172500) {
+    throw new Error("stage3_performance_does_not_include_corrected_fuel_interval_spend:" + eligibleCosts);
   }
   for (const purchase of purchases) {
     if (!golden.uiSourceIds.includes(purchase.id)) {
