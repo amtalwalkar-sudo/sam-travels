@@ -91,7 +91,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
       result.push(Object.freeze({
         date: data.operationalDate, grossFarePaise: data.farePaise, cancellationFeePaise: 0,
         verified: true, attribution: "admin_declared",
-        sourceRefs: Object.freeze([{ sourceId: record.id, revision: record.revision }]),
+        sourceRefs: Object.freeze([{ sourceId: record.id, revision: record.revision, attribution: "admin_declared" as const }]),
       }));
     }
     return Object.freeze(result.sort((a,b)=>a.date.localeCompare(b.date) ||
