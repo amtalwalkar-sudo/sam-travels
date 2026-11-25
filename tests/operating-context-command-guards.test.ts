@@ -68,7 +68,8 @@ async function setup(configurationOverride?: (base: OperatingConfigurationServic
     calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => at, operatingConfiguration);
   const finance = new FinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1,
     createLoanScheduleVersion, loanCalculationInputsChanged, () => at, operatingConfiguration);
-  return { repository, expenses, maintenance, finance };
+  const compliance = new ComplianceService(repository, assertComplianceRecordV1, vehicles, () => at, operatingConfiguration);
+  return { repository, expenses, maintenance, finance, compliance };
 }
 
 describe("operating-context command guards", () => {
@@ -97,6 +98,11 @@ describe("operating-context command guards", () => {
       data: { vehicleId: otherVehicleId, expenseDate: "2026-11-20",
         expenseName: "Tyre", description: "Other vehicle expense", amountPaise: 10000 },
     })).rejects.toThrow("maintenance_operating_vehicle_mismatch");
+    await expect(compliance.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174048", source: "web",
+      data: { schemaVersion: 1, vehicleId: otherVehicleId, complianceName: "Insurance",
+        validFrom: "2026-11-20", validTo: "2027-11-19", totalCostPaise: 100000 },
+    })).rejects.toThrow("compliance_operating_vehicle_mismatch");
     await expect(finance.create({
       uuid: "123e4567-e89b-42d3-a456-426614174043", source: "web",
       details: { loanName: "Other vehicle loan", lenderName: "Lender", vehicleId: otherVehicleId,
@@ -126,6 +132,11 @@ describe("operating-context command guards", () => {
       uuid: "123e4567-e89b-42d3-a456-426614174046", source: "web",
       data: { vehicleId, expenseDate: "2026-11-20",
         expenseName: "Tyre", description: "Configured operating context changed before commit", amountPaise: 10000 },
+    })).rejects.toThrow("operating_configuration_stale");
+    await expect(compliance.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174049", source: "web",
+      data: { schemaVersion: 1, vehicleId, complianceName: "Insurance",
+        validFrom: "2026-11-20", validTo: "2027-11-19", totalCostPaise: 100000 },
     })).rejects.toThrow("operating_configuration_stale");
     await expect(finance.create({
       uuid: "123e4567-e89b-42d3-a456-426614174047", source: "web",
