@@ -17,6 +17,19 @@ export type CancellationFeeObligation = Readonly<{
 
 export const TRIP_FINANCIAL_OBLIGATION_PREFIX = "work:trip-financial-obligation:";
 
+export type TripFinancialCorrectionReferenceV1 = Readonly<{ sourceId: string; revision: number; chainRevision: number }>;
+export type TripFinancialCorrectionReaderV1 = Readonly<{
+  project(record: RecordEnvelope<CancellationFeeObligation | CompletedTripFinancialObligation>): Promise<Readonly<{
+    data: CancellationFeeObligation | CompletedTripFinancialObligation;
+    correctionChainRevision: number;
+    correctionRefs: readonly TripFinancialCorrectionReferenceV1[];
+  }>>;
+}>;
+export type SubmittedTripFinancialRecordV1 = RecordEnvelope<CancellationFeeObligation | CompletedTripFinancialObligation> & Readonly<{
+  correctionChainRevision?: number;
+  correctionRefs?: readonly TripFinancialCorrectionReferenceV1[];
+}>;
+
 export function cancellationFeeObligationId(tripId: string): string {
   return TRIP_FINANCIAL_OBLIGATION_PREFIX + tripId;
 }
@@ -28,6 +41,7 @@ export class TripFinancialService {
     private readonly source: RecordEnvelope<unknown>["source"],
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly currentAuthor?: (tripId: string) => Promise<RecordAuthorV1>,
+    private readonly correctionReader?: TripFinancialCorrectionReaderV1,
   ) {}
 
   async pendingCancellationFees(): Promise<readonly RecordEnvelope<CancellationFeeObligation>[]> {
@@ -45,11 +59,9 @@ export class TripFinancialService {
    * Returns only submitted source events; callers must treat missing tripContext
    * as unresolved legacy attribution rather than infer the currently selected vehicle.
    */
-  async submittedTripFinancialRecords(): Promise<readonly RecordEnvelope<
-    CancellationFeeObligation | CompletedTripFinancialObligation
-  >[]> {
+  async submittedTripFinancialRecords(): Promise<readonly SubmittedTripFinancialRecordV1[]> {
     const rows = await this.records.list<CancellationFeeObligation | CompletedTripFinancialObligation>();
-    return rows.filter(row =>
+    const submitted = rows.filter(row =>
       row.id.startsWith(TRIP_FINANCIAL_OBLIGATION_PREFIX) &&
       !row.deletedAt &&
       row.data.schemaVersion === 1 &&
@@ -58,6 +70,16 @@ export class TripFinancialService {
     ).sort((left, right) =>
       left.data.createdAt.localeCompare(right.data.createdAt) || left.id.localeCompare(right.id)
     );
+    if (!this.correctionReader) return submitted;
+    return Promise.all(submitted.map(async row => {
+      const projection = await this.correctionReader!.project(row);
+      return {
+        ...row,
+        data: projection.data,
+        correctionChainRevision: projection.correctionChainRevision,
+        correctionRefs: projection.correctionRefs,
+      };
+    }));
   }
 
   async submitCancellationFee(tripId: string, feePaise: number, operationId: string): Promise<RecordEnvelope<CancellationFeeObligation>> {
