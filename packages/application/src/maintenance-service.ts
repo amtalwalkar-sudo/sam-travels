@@ -354,7 +354,9 @@ export class MaintenanceService {
     kilometreStatus: "not_applicable" | "odometer_unavailable" | "not_due" | "due";
     latestOdometerKm?: number;
   }>[]> {
-    await this.requireVehicle(vehicleId);
+    // This is a read-only projection used while Work may hold the selected
+    // Driver–Vehicle pair. Do not apply the stricter command resolver here.
+    await this.requireVehicleReadOnly(vehicleId);
     if (!isValidDate(asOf)) throw new Error("maintenance_business_date_invalid");
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
