@@ -56,11 +56,11 @@ try {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
-    const vehicle = (id, registrationNumber) => ({
+    const vehicle = (id, registrationNumber, lifecycleState = "active") => ({
       id, schemaVersion: 1, createdAt: now, updatedAt: now, source: "web", revision: 1,
       data: { schemaVersion: 1, registrationNumber, make: "Tata", model: "Ace",
         vehicleType: "LCV", fuelType: "Diesel", yearOfManufacture: 2022,
-        ownership: "Owned", lifecycleState: "active" },
+        ownership: "Owned", lifecycleState },
     });
     const compliance = (uuid, vehicleId, complianceName, from, to, totalCostPaise) => ({
       id: "feature:compliance:" + uuid, schemaVersion: 1, createdAt: now, updatedAt: now,
@@ -70,7 +70,7 @@ try {
     });
     const rows = [
       vehicle(primaryVehicleId, "MH01AB1234"),
-      vehicle(secondaryVehicleId, "MH02CD5678"),
+      vehicle(secondaryVehicleId, "MH02CD5678", "inactive"),
       compliance(uuids.insuranceA, primaryVehicleId, "Insurance", date(-20), date(10), 310000),
       compliance(uuids.insuranceB, primaryVehicleId, "Insurance", date(-10), date(20), 620000),
       compliance(uuids.pucA, secondaryVehicleId, "PUC", date(-30), date(-26), 50000),
@@ -274,6 +274,65 @@ try {
   if (correctedPremium.original !== 310000 || correctedPremium.correction?.afterValue !== 620000 ||
       correctedPremium.correction?.actor?.role !== "admin") {
     throw new Error("compliance_corrected_premium_source_or_provenance_invalid:" + JSON.stringify(correctedPremium));
+  }
+
+  await complianceSection.getByRole("button", { name: "Add compliance / renewal" }).click();
+  await page.getByLabel("Compliance type / name").fill("Insurance");
+  const renewalFrom = seededDateOffset(seeded.today, 1);
+  const renewalTo = seededDateOffset(seeded.today, 365);
+  await page.getByLabel("Valid from").fill(renewalFrom);
+  await page.getByLabel("Valid until").fill(renewalTo);
+  await page.getByLabel("Total cost (₹)").fill("6200.00");
+  await page.getByLabel("Renewing previous record").selectOption({
+    label: "Insurance · valid to " + seededDateOffset(seeded.today, 10),
+  });
+  await page.getByRole("button", { name: "Save record" }).click();
+  await page.getByRole("status").filter({ hasText: "Compliance record saved." }).waitFor();
+  const renewalId = await page.evaluate(async ({ sourceId }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const renewal = rows.find(row => row.id.startsWith("feature:compliance:") &&
+      row.data?.renewedFromRecordId === sourceId);
+    return renewal?.id ?? null;
+  }, { sourceId: seeded.insuranceIds[0] });
+  if (!renewalId) throw new Error("linked_compliance_renewal_not_committed");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("button", { name: "Admin", exact: true }).click();
+  const reopenedCompliance = page.locator(".admin-replacement-section").filter({ hasText: "Compliance" });
+  await reopenedCompliance.locator(".admin-replacement-section-trigger").click();
+  await reopenedCompliance.getByText("Renewal linked to previous record", { exact: true }).waitFor();
+  const renewalReadback = await page.evaluate(async ({ renewalId, sourceId }) => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    const renewal = rows.find(row => row.id === renewalId);
+    const source = rows.find(row => row.id === sourceId);
+    return { renewal: renewal?.data, sourceCost: source?.data?.totalCostPaise };
+  }, { renewalId, sourceId: seeded.insuranceIds[0] });
+  if (renewalReadback.renewal?.renewedFromRecordId !== seeded.insuranceIds[0] ||
+      renewalReadback.renewal?.validFrom !== renewalFrom ||
+      renewalReadback.renewal?.validTo !== renewalTo || renewalReadback.sourceCost !== 310000) {
+    throw new Error("compliance_renewal_reopen_readback_invalid:" + JSON.stringify(renewalReadback));
   }
 
   console.log("PASS: rendered Admin Compliance PWA shows fleet counts, separate gaps/overlaps, vehicle filtering, expiry states and append-only Compliance corrections; reject/confirm reviews persist exact source provenance; daily costs remain withheld or aggregate exactly as expected.");
