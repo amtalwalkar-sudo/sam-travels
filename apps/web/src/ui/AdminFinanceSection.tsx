@@ -29,6 +29,7 @@ export function AdminFinanceSection() {
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loanScheduleHistories, setLoanScheduleHistories] = useState<Record<string, LoanScheduleHistory>>({});
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [operatingSnapshot, setOperatingSnapshot] = useState<Awaited<ReturnType<typeof services.operatingConfiguration.get>>>();
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const hasLoaded = useRef(false);
@@ -36,20 +37,22 @@ export function AdminFinanceSection() {
   const refresh = useCallback(async () => {
     if (!hasLoaded.current) setLoading(true);
     try {
-      const [vehicleRecords, loanRecords] = await Promise.all([
-        services.vehicles.list(), services.financeLoans.list(),
+      const [vehicleRecords, loanRecords, configuration] = await Promise.all([
+        services.vehicles.list(), services.financeLoans.list(), services.operatingConfiguration.get(),
       ]);
       const histories = await Promise.all(loanRecords.map(async loan =>
         [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
       const activeVehicles = vehicleRecords.filter(item => item.data.lifecycleState === "active");
-      setVehicles(activeVehicles);
+      const configuredVehicle = activeVehicles.find(item => item.id === configuration.vehicleId);
+      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== configuration.vehicleRevision) {
+        setSelectedVehicleId("");
+        throw new Error("operating_configuration_stale");
+      }
+      setOperatingSnapshot(configuration);
+      setVehicles([configuredVehicle]);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
-      if (activeVehicles.length !== 1) {
-        setSelectedVehicleId("");
-        throw new Error(activeVehicles.length === 0 ? "operating_vehicle_missing" : "operating_vehicle_ambiguous");
-      }
-      setSelectedVehicleId(activeVehicles[0].id);
+      setSelectedVehicleId(configuration.vehicleId);
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Finance records.");
