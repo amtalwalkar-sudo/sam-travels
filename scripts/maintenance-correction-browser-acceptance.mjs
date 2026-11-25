@@ -3,8 +3,8 @@ import { spawn } from "node:child_process";
 
 const baseUrl = "http://127.0.0.1:4173";
 const vehicleId = "feature:vehicle:MH01AB1234";
-const expenseId = "feature:maintenance:expense:browser-acceptance";
-const visitId = "feature:maintenance:visit:browser-acceptance";
+const expenseId = "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174013";
+const visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174012";
 const timestamp = "2026-10-10T09:00:00.000Z";
 
 const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"], {
@@ -73,7 +73,7 @@ try {
       data: { schemaVersion: 1, kind: "visit", vehicleId,
         maintenanceDate: "2026-10-10", maintenanceType: "Browser acceptance visit",
         description: "Service visit for rendered correction acceptance",
-        items: [{ id: "browser-visit-item", description: "Oil service", amountPaise: 20000 }],
+        items: [{ id: "123e4567-e89b-42d3-a456-426614174014", description: "Oil service", amountPaise: 20000 }],
         totalPaise: 20000 },
     };
     await new Promise((resolve, reject) => {
