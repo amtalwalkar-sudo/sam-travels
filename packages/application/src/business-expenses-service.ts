@@ -132,11 +132,11 @@ export class BusinessExpensesService {
         data.tripExpenseTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
-    this.domain.validateExpenseEntry(data);
     if (this.operatingConfiguration && data.driverId !== undefined) {
       const configuration = await this.operatingConfiguration.get();
       if (data.driverId !== configuration.driverId) throw new Error("business_expense_operating_driver_mismatch");
     }
+    this.domain.validateExpenseEntry(data);
     if (data.vehicleId) await this.requireVehicle(data.vehicleId);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
       throw new Error("traffic_challan_vehicle_required");
