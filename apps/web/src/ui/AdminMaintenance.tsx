@@ -73,8 +73,10 @@ export function MaintenanceSection() {
   const refresh = useCallback(async (requestedId: string) => {
     try {
       const v = await services.vehicles.list();
-      setVehicles(v);
-      const chosen = requestedId || v.find(x => x.data.lifecycleState === "active")?.id || v[0]?.id || "";
+      const active = v.filter(item => item.data.lifecycleState === "active");
+      if (active.length !== 1) throw new Error(active.length === 0 ? "operating_vehicle_missing" : "operating_vehicle_ambiguous");
+      const chosen = active[0].id;
+      setVehicles(active);
       setVehicleId(chosen);
       await Promise.all([loadVehicleRecords(chosen), loadDrafts()]);
     } catch (e) {
@@ -82,10 +84,6 @@ export function MaintenanceSection() {
     }
   }, [services, loadVehicleRecords, loadDrafts]);
   useEffect(() => { void refresh(""); }, [refresh]);
-  async function changeVehicle(id: string) {
-    setVehicleId(id);
-    await loadVehicleRecords(id);
-  }
   function activateDraft(workingCopy: FormWorkingCopy, form: Exclude<ActiveForm, null>) {
     copyRef.current = workingCopy;
     setCopy(workingCopy);
@@ -158,7 +156,7 @@ export function MaintenanceSection() {
     const definition = definitionFor(form);
     if (!definition) return;
     if (draft.values.vehicleId !== vehicleId) {
-      setMessage("Select the vehicle belonging to this draft before resuming it.");
+      setMessage("This draft belongs to a different vehicle and cannot be resumed under the current operating configuration.");
       return;
     }
     setBusy(true);
@@ -277,7 +275,7 @@ export function MaintenanceSection() {
   const vehicleDrafts = drafts.filter(draft => draft.values.vehicleId === vehicleId);
   return <div className="admin-capability-panel">
     <p className="admin-hint">Record actual service visits and itemised costs, general expenses, odometer readings and next-service reminders. Historical dates are accepted. In-progress forms are saved as recoverable drafts and can be resumed after reopening the app.</p>
-    <div className="admin-vehicle-context"><label>Vehicle</label><select value={vehicleId} onChange={e => void changeVehicle(e.target.value)}><option value="">Select vehicle</option>{vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber}</option>)}</select></div>
+    <div className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0]?.data.registrationNumber ?? "Configuration unavailable"}</span></div>
     {vehicleId && <>
       <div className="loan-metrics">
         <div><small>Total recorded maintenance cost</small><strong>{money(total)}</strong></div>
