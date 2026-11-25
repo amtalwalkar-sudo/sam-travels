@@ -83,7 +83,7 @@ export class BusinessExpensesService {
     private readonly vehicles: BusinessExpenseVehicleDirectory,
     now: () => string = () => new Date().toISOString(),
     private readonly historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "business-expenses",
@@ -92,11 +92,12 @@ export class BusinessExpensesService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<void> {
-    const configuration = await this.operatingConfiguration?.get();
+  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
+    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("business_expense_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("business_expense_vehicle_not_found");
+    return configuration;
   }
 
   async createFuelPurchase(input: {
@@ -104,10 +105,11 @@ export class BusinessExpensesService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<FuelPurchaseV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.requireVehicle(input.data.vehicleId);
     const id = sourceId(FUEL_PREFIX, input.uuid);
     const data: FuelPurchaseV1 = { ...input.data, schemaVersion: 1, kind: "fuel_purchase", id, revision: 1 };
     this.domain.validateFuelPurchase(data);
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({ id, data, source: input.source, businessDate: data.businessDate, operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<FuelPurchaseV1>>;
   }
@@ -132,12 +134,12 @@ export class BusinessExpensesService {
         data.tripExpenseTreatment !== "already-in-trip-closeout") {
       throw new Error("business_expense_toll_parking_treatment_required");
     }
-    if (this.operatingConfiguration && data.driverId !== undefined) {
-      const configuration = await this.operatingConfiguration.get();
-      if (data.driverId !== configuration.driverId) throw new Error("business_expense_operating_driver_mismatch");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && data.driverId !== undefined && data.driverId !== operating.driverId) {
+      throw new Error("business_expense_operating_driver_mismatch");
     }
     this.domain.validateExpenseEntry(data);
-    if (data.vehicleId) await this.requireVehicle(data.vehicleId);
+    if (data.vehicleId) await this.requireVehicle(data.vehicleId, operating);
     if (data.sourceKind === "traffic_challan" && !data.vehicleId) {
       throw new Error("traffic_challan_vehicle_required");
     }
@@ -208,7 +210,8 @@ export class BusinessExpensesService {
         throw new Error("business_expense_source_already_reversed");
       }
     }
-    return this.records.create({ id, data, source: input.source, businessDate: data.businessDate,
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+return this.records.create({ id, data, source: input.source, businessDate: data.businessDate,
       operation: input.operation, now: input.now }) as
       Promise<RecordEnvelope<BusinessExpenseEntryV1>>;
   }
