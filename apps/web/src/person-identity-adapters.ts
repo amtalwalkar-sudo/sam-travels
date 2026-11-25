@@ -3,7 +3,7 @@ import type { RecordAuthorV1, RecordEnvelope } from "../../../packages/core/src/
 import type { CredentialVault } from "../../../packages/core/src/credentials";
 import { assertBusinessPersonV1, type BusinessPersonV1 } from "../../../packages/domain/src/person-identity";
 import { driverRecordId } from "../../../packages/domain/src/driver-record-identity";
-import { assertDriverRecordV1, type DriverRecordV1 } from "../../../packages/features/driver-records/records";
+import { assertDriverRecordV1, type DriverRecordV1 } from "../../../packages/features/driver-records";
 import type { BusinessPersonRepository, AdminPinVerifier } from "../../../packages/application/src/person-identity-service";
 
 const PERSON_PREFIX = "identity:person:";
