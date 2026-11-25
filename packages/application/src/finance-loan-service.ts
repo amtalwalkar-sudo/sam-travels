@@ -88,7 +88,7 @@ export class FinanceLoanService {
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
     _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "finance",
@@ -145,13 +145,21 @@ export class FinanceLoanService {
 
   async list(): Promise<Array<RecordEnvelope<FinanceLoanRecordV1>>> {
     const records = await this.records.list();
-    const operating = await this.operatingConfiguration?.get();
+    const operating = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : undefined;
     const scoped = operating
       ? records.filter(record => record.data.details.vehicleId === operating.vehicleId)
       : records;
     for (const record of scoped) {
       assertRecordId(record.id);
-      await this.requireVehicle(record.data.details.vehicleId);
+      const vehicle = await this.vehicles.getById(record.data.details.vehicleId);
+      if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
+      if (vehicle.id !== record.data.details.vehicleId || !vehicle.id.startsWith("feature:vehicle:")) {
+        throw new Error("finance_loan_vehicle_identity_invalid");
+      }
     }
     return scoped;
   }
