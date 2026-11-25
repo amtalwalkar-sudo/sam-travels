@@ -638,3 +638,27 @@ The stages below are the only planned closeout sequence for the currently identi
 
 
 **Stage 4 CI reconciliation (supersedes the provisional status above):** The evidence/documentation commits were created after run 45034254979. That run is green on source head `68fa1233a7d84df0ef77c35e95b1a353085750c5`, but the current PR head is `f2efeb74ff8a383d3d572d7acae3b668c51c8336`. Because the contract requires CI after the final evidence/documentation changes, Stage 4 is **IMPLEMENTATION/EVIDENCE RECONCILIATION COMPLETE — EXACT-HEAD CI PENDING**, not complete. Do not use run 45034254979 as final-head validation. The workflow supports manual dispatch; the available GitHub connection in this session exposes no workflow-dispatch action, so a run on the current head could not be started here.
+
+
+## 16. Stage 5 acceptance and Stage 6 whole-contract audit — 2026-11-25
+
+### Stage 5 scoped acceptance
+
+Stage 5 is **ACCEPTED** on exact PR head ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Required CI [Sam Travels CI run #45514874954](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45514874954) completed successfully on that exact SHA. Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate passed; optional Production geocoder verification was skipped. The requirement-level Browser/Dexie and Android/Room assertions are mapped in docs/PR_99_IMPLEMENTATION_EVIDENCE_MATRIX.md §9.51. This is not whole-contract acceptance under §1A.
+
+### Stage 6 initial §1A audit
+
+Stage 6 is **ACTIVE — NOT ACCEPTED**. The populated 46-record production lifecycle, cross-runtime restore directions, same-record UI-originated golden journeys, Stage 4 integrated calculation/provenance assertions and Stage 5 negative/boundary/interruption evidence are scoped proof, not a waiver of remaining entry-path and owner-contract requirements.
+
+The current evidence audit identifies unresolved critical implementation/test work:
+- Fuel amount/price correction UI and immediate downstream recalculation/provenance on Browser and Android.
+- Trip/fare correction and missing-trip insertion with linked fare/toll/parking lineage, while preserving immutable Work/GPS/odometer events.
+- Maintenance correction propagation into actual-expense and applicable downstream read models; visit correction is not proven in the audited path.
+- Compliance correction/renewal readback and immediate consumer refresh across supported surfaces.
+- Complete one-Vehicle/one-Driver operating-context binding for dependent Fuel, Maintenance, Finance, Business Expenses and Performance commands, plus stale-revision/no-write parity.
+- Historical deletion/legacy deletedAt audit, update-actor provenance where required, and complete domain correction-authority mapping.
+- Remaining rendered device-readiness, event-specific GPS and form conformance/accessibility assertions required by the referenced owner contracts.
+
+External/manual gates remain physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where deterministic emulator proof is unavailable; and live Dropbox account authentication/upload/download/scheduled-backup/restore. Repository branch-protection/ruleset enforcement is a separate repository-administration check. None is counted as a CI pass.
+
+The evidence matrix §9.52 contains the initial eight-condition assessment, the explicit remaining-gap list and external-gate classification. No scoped deferral is treated as owner-accepted unless the owner explicitly accepts it. Stage 6 and whole-contract status remain **INCOMPLETE** until all applicable critical requirements are proven or explicitly owner-accepted, the four project records agree, required CI passes on the exact final PR head, and PR metadata is verified. PR #99 remains open, draft and unmerged.
