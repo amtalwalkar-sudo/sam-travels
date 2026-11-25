@@ -154,7 +154,7 @@ export function MaintenanceSection() {
     const definition = definitionFor(form);
     if (!definition) return;
     if (draft.values.vehicleId !== vehicleId) {
-      setMessage("This draft belongs to a different vehicle and cannot be resumed under the current operating configuration.");
+      setMessage("Draft belongs to a different vehicle and cannot be resumed.");
       return;
     }
     setBusy(true);
