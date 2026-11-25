@@ -783,3 +783,12 @@ This addendum supersedes the Stage 5 documentation-head CI pending wording in §
 **External/manual gates (not CI passes):** physical OEM/device certification and owner usability/visual approval; full OS reboot persistence where not deterministic in emulator CI; live Dropbox account authentication/upload/download/scheduled-backup/restore; repository branch-protection/ruleset verification.
 
 No unapproved deferral is treated as accepted. Stage 6 is not accepted until each critical item is closed with named evidence or explicitly owner-accepted as a scoped deferral, all records agree, exact-final-head required CI passes, and PR metadata is verified. PR #99 remains open, draft and unmerged.
+
+
+### 9.49 — PR #99 Stage 6 focused slice 1 implementation: Fuel correction — 2026-11-25
+
+Stages 1–5 remain accepted and are not reopened. Stage 6 remains the sole active stage. The Fuel correction slice has implementation changes on the PR branch: the shared Work-screen Fuel panel now lists recorded purchases, offers append-only amount/price-per-kg corrections with a reason and correction history, and refreshes the corrected fuel projection, interval/rate history and daily expense readback. BusinessExpensesService.correctSource() now accepts the original target and chain revisions so an ambiguous retry can reuse the same correction intent.
+
+Authored evidence: tests/fuel-purchase-correction-presentation.test.tsx; tests/business-expense-correction-retry.test.ts (retry revisions and corrected price/kg interval recalculation); and Android FuelCorrectionCapacitorAcceptanceTest.driverCorrectsFuelAmountThroughWebViewAndRoomReadModelsRefresh (rendered WebView over Room, immutable original, correction actor/chain and immediate daily readback).
+
+**Status: IMPLEMENTATION ADDED; REQUIRED CI / TEST EXECUTION PENDING.** Do not count the Android instrumentation source or Browser test source as passing evidence until the final exact-head workflow reports success. This slice does not close the other six Stage 6 areas or whole-contract §1A.
