@@ -59,7 +59,11 @@ export class ComplianceService {
   }
 
   async getOperatingVehicleId(): Promise<string> {
-    const configuration = resolveOperatingVehicle(await this.repository.list());
+    const configuration = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : resolveOperatingVehicle(await this.repository.list());
     return configuration.vehicleId;
   }
 
