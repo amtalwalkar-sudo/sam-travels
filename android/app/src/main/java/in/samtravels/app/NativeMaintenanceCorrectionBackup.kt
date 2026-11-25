@@ -9,14 +9,18 @@ import java.time.OffsetDateTime
 internal object NativeMaintenanceCorrectionBackup {
     private const val FEATURE_ID = "maintenance"
     private const val EXPENSE_PREFIX = "feature:maintenance:expense:"
+    private const val VISIT_PREFIX = "feature:maintenance:visit:"
     private const val CORRECTION_PREFIX = "historical-correction:"
     private const val CHAIN_PREFIX = "historical-correction-chain:"
     private val actorIdPattern = Regex("[A-Za-z0-9_-]{1,128}")
     private val correctionIdPattern = Regex("[A-Za-z0-9_-]{1,128}")
 
     fun validate(maintenanceRows: List<JSONObject>, allRows: List<JSONObject>) {
-        val expenses = maintenanceRows.filter { it.optString("id").startsWith(EXPENSE_PREFIX) }
-            .associateBy { it.optString("id") }
+        val originals = maintenanceRows.filter {
+            val id = it.optString("id")
+            id.startsWith(EXPENSE_PREFIX) || id.startsWith(VISIT_PREFIX)
+        }.associateBy { it.optString("id") }
+        fun isMaintenanceTarget(id: String) = id.startsWith(EXPENSE_PREFIX) || id.startsWith(VISIT_PREFIX)
         val correctionsByTarget = mutableMapOf<String, MutableList<Pair<JSONObject, JSONObject>>>()
         val headsByTarget = mutableMapOf<String, Pair<JSONObject, JSONObject>>()
 
@@ -26,7 +30,7 @@ internal object NativeMaintenanceCorrectionBackup {
             val data = envelope.optJSONObject("data") ?: return@forEach
             val targetId = data.optString("targetRecordId")
             val featureId = data.optString("featureId")
-            if (id.startsWith(CHAIN_PREFIX) && targetId.startsWith(EXPENSE_PREFIX)) {
+            if (id.startsWith(CHAIN_PREFIX) && isMaintenanceTarget(targetId)) {
                 require(id == CHAIN_PREFIX + URLEncoder.encode(targetId, "UTF-8").replace("+", "%20")) {
                     "maintenance_correction_chain_head_identity_invalid"
                 }
@@ -35,7 +39,7 @@ internal object NativeMaintenanceCorrectionBackup {
                 }
             } else if (id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID) {
                 require(id.startsWith(CORRECTION_PREFIX) && featureId == FEATURE_ID &&
-                    targetId.startsWith(EXPENSE_PREFIX)) {
+                    isMaintenanceTarget(targetId)) {
                     "maintenance_correction_identity_invalid"
                 }
                 correctionsByTarget.getOrPut(targetId) { mutableListOf() }.add(row to envelope)
@@ -44,11 +48,15 @@ internal object NativeMaintenanceCorrectionBackup {
 
         val targetIds = correctionsByTarget.keys + headsByTarget.keys
         targetIds.forEach { targetId ->
-            val originalRow = expenses[targetId] ?: error("maintenance_correction_target_missing")
+            val originalRow = originals[targetId] ?: error("maintenance_correction_target_missing")
             val originalEnvelope = JSONObject(originalRow.getString("json"))
             val originalData = originalEnvelope.getJSONObject("data")
-            require(originalData.optString("kind") == "expense" &&
-                validInteger(originalData.opt("amountPaise"))) {
+            val isVisit = targetId.startsWith(VISIT_PREFIX)
+            val expectedKind = if (isVisit) "visit" else "expense"
+            val expectedField = if (isVisit) "totalPaise" else "amountPaise"
+            val amountField = expectedField
+            require(originalData.optString("kind") == expectedKind &&
+                validInteger(originalData.opt(amountField))) {
                 "maintenance_correction_target_invalid"
             }
             val ordered = correctionsByTarget[targetId].orEmpty().sortedBy {
@@ -59,7 +67,7 @@ internal object NativeMaintenanceCorrectionBackup {
                 "maintenance_correction_chain_head_missing"
             }
 
-            var projectedAmount = originalData.getLong("amountPaise")
+            var projectedAmount = originalData.getLong(amountField)
             var previousCorrectionId: String? = null
             ordered.forEachIndexed { index, (row, envelope) ->
                 RecordEnvelopeContract.validate(envelope)
@@ -82,7 +90,7 @@ internal object NativeMaintenanceCorrectionBackup {
                     data.optLong("targetRecordRevision", -1L) == originalEnvelope.optLong("revision", -2L) &&
                     data.optString("featureId") == FEATURE_ID &&
                     validInteger(data.opt("chainRevision")) && data.optInt("chainRevision", -1) == index + 1 &&
-                    data.optString("fieldPath") == "amountPaise" &&
+                    data.optString("fieldPath") == expectedField &&
                     data.optString("reason").isNotBlank() && data.optString("reason").length <= 1000 &&
                     validInstant(data.optString("recordedAt")) &&
                     (!data.has("businessEffectiveDate") || validDate(data.optString("businessEffectiveDate")))) {
