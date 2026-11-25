@@ -35,7 +35,8 @@ export type FinanceLoanPrepaymentRevisionBuilder = (input: {
 }) => FinanceLoanPrepaymentRevisionV1;
 export type FinanceLoanPrepaymentStateValidator = (value: unknown, loan: FinanceLoanRecordV1, loanId: string) => void;
 type Snapshot = { loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1>;
-  state?: RecordEnvelope<FinanceLoanPrepaymentStateV1> };
+  state?: RecordEnvelope<FinanceLoanPrepaymentStateV1>;
+  operating?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>> };
 export type FinanceLoanPrepaymentPreviewV1 = Readonly<{
   loanId: string; commandId: string; businessDate: string; source: string; mode: FinanceLoanPrepaymentModeV1;
   amountPaise: number; principalBeforePaise: number; principalAfterPaise: number;
