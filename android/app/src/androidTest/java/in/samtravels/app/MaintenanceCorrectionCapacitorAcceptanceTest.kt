@@ -362,7 +362,6 @@ class MaintenanceCorrectionCapacitorAcceptanceTest {
     val visitHead = JSONObject(database.records().get(visitChainId)!!.json).getJSONObject("data")
     assertEquals(1, visitHead.getInt("chainRevision"))
     assertEquals(visitCorrections.single().getString("correctionId"), visitHead.getString("headCorrectionId"))
-
     val driverOneChain = database.records().list().filter { it.id.startsWith(correctionPrefix) }
         .map { JSONObject(it.json).getJSONObject("data") }
         .filter { it.optString("targetRecordId") == expenseId }
