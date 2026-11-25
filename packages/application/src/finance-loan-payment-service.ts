@@ -21,7 +21,7 @@ export type FinancePaymentEntryV1 =
       businessDate: string; reason: string; amountPaise: number; createdAt: string;
       source: RecordEnvelope<unknown>["source"]; createdBy?: RecordAuthorV1; status: "committed" }>;
 export type FinancePaymentLedgerV1 = Readonly<{ schemaVersion: 1; loanId: string; entries: readonly FinancePaymentEntryV1[] }>;
-type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> };
+type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined>; getForReadOnly?(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> };
 type ScheduleRow = { installmentNumber: number; dueDate: string; installmentAmountPaise: number; closingPrincipalPaise?: number };
 export type FinanceLoanScheduleResolver = {
   getScheduleRows(loanId: string, scheduleVersion: number): Promise<readonly ScheduleRow[] | undefined>;
@@ -220,8 +220,17 @@ export class FinanceLoanPaymentService {
     if (raw) assertLedger(raw.data, loanId);
     return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined, operating };
   }
+  private async loadForReadOnly(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
+    const loan = await (this.loans.getForReadOnly ? this.loans.getForReadOnly(loanId) : this.loans.get(loanId));
+    if (!loan) throw new Error("finance_payment_loan_not_found");
+    const id = ledgerId(loanId), raw = await this.repository.get<unknown>(id);
+    if (raw) assertLedger(raw.data, loanId);
+    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined };
+  }
+
   async list(loanId: string): Promise<readonly FinancePaymentEntryV1[]> {
-    const { ledger } = await this.load(loanId); return ledger?.data.entries ?? [];
+    const { ledger } = await this.loadForReadOnly(loanId);
+    return ledger?.data.entries ?? [];
   }
   async propose(input: { loanId: string; scheduleVersion: number; businessDate: string; amountPaise: number }) {
     const { loan, ledger } = await this.load(input.loanId);
