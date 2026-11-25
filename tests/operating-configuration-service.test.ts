@@ -65,6 +65,21 @@ describe("versioned operating configuration service", () => {
     expect((await records.get("work:selected-driver"))?.revision).toBe(3);
   });
 
+  it("provides vehicle-only read context when no Work Driver is selected without relaxing command resolution", async () => {
+    const records = new MemoryRepository();
+    records.put(row(vehicleId, 4, {
+      schemaVersion: 1, registrationNumber: "MH01AB1234", make: "Tata", model: "Ace",
+      vehicleType: "LCV", fuelType: "CNG", yearOfManufacture: 2022,
+      ownership: "Owned", lifecycleState: "active",
+    }));
+    const service = new OperatingConfigurationServiceV1(records);
+    await expect(service.get()).rejects.toThrow("work_driver_not_selected");
+    await expect(service.getForReadOnly()).rejects.toThrow("work_driver_not_selected");
+    await expect(service.getVehicleForReadOnly()).resolves.toEqual({
+      schemaVersion: 1, vehicleId, vehicleRevision: 4,
+    });
+  });
+
   it("rejects a stale form snapshot before a dependent command can write", async () => {
     const records = configuredRepository();
     const service = new OperatingConfigurationServiceV1(records);
