@@ -141,8 +141,8 @@ class AdminFormsCapacitorAcceptanceTest {
             assertTrue("Traffic challan form fields render", await(activity,
                 "document.body.innerText.includes('Challan amount (₹)')&&document.body.innerText.includes('Save expense')", 15000))
             eval(activity, "document.getElementById('admin-section-trigger-finance')?.click()")
-            assertTrue("Finance vehicle selector", await(activity, "!!document.querySelector('#admin-vehicle')", 10000))
-            eval(activity, """(()=>{const s=document.querySelector('#admin-vehicle');const o=[...s.options].find(x=>x.textContent.includes('$registration'));if(!o)return false;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,o.value);s.dispatchEvent(new Event('change',{bubbles:true}));return true})()""")
+            assertTrue("Finance uses configured operating vehicle", await(activity,
+                "document.querySelector('#admin-section-panel-finance .admin-vehicle-context')?.textContent.includes('$registration') && !document.querySelector('#admin-section-panel-finance #admin-vehicle')", 10000))
             click(activity, "Add loan")
             set(activity, "Loan name", marker + " Loan")
             set(activity, "Lender name", "Acceptance Bank")
