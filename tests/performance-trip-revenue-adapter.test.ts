@@ -59,7 +59,7 @@ describe("Performance trip revenue adapter v1", () => {
     await expect(adapter.listVerifiedDailyRevenue("2026-04-01", "2026-04-30")).resolves.toEqual([
       { date: "2026-04-07", grossFarePaise: 8750, cancellationFeePaise: 0,
         verified: true, attribution: "admin_declared",
-        sourceRefs: [{ sourceId: backfill.id, revision: 4 }] },
+        sourceRefs: [{ sourceId: backfill.id, revision: 4, attribution: "admin_declared" }] },
     ]);
     await expect(adapter.getCompleteness("2026-04-01", "2026-04-30")).resolves.toEqual([
       { source: "trip-financials", status: "complete" },
