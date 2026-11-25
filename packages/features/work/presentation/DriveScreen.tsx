@@ -3,7 +3,7 @@ import { WorkScreenHeading } from "./WorkScreenHeading";
 import { WorkScreenShell } from "./WorkScreenShell";
 import { WorkScreenStatus } from "./WorkScreenStatus";
 import { DriverWorkflowPanel } from "./DriverWorkflowPanel";
-import { TripHistory } from "../../../../apps/web/src/ui/TripHistory";
+import { TripHistory } from "../../logbook/presentation/TripHistory";
 
 /** Feature-owned Work screen. It receives a versioned view/action model and an extension slot. */
 export function DriveScreen({ context }: { context: DriveScreenContextV1 }) {
