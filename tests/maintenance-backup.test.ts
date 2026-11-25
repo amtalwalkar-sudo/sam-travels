@@ -4,7 +4,7 @@ import { browserDatabase } from "../packages/storage-browser/src/database";
 import { exportBrowserSnapshot, restoreBrowserSnapshot } from "../packages/storage-browser/src";
 import { maintenanceRateHistoryRecordId } from "../packages/features/maintenance";
 import { registerVehicleBrowserBackupParticipant } from "../apps/web/src/vehicle-backup";
-import { registerMaintenanceBrowserBackupParticipant } from "../apps/web/src/maintenance-backup";
+import { registerMaintenanceBrowserBackupParticipant, validateMaintenanceCorrectionSnapshot } from "../apps/web/src/maintenance-backup";
 
 describe("Maintenance browser backup participant", () => {
   let unregisterVehicle: (() => void) | undefined;
@@ -149,8 +149,7 @@ describe("Maintenance browser backup participant", () => {
       items: [{ description: "Oil", amountPaise: 200000 }],
     });
     const rows = await browserDatabase.records.toArray();
-    expect(() => import("../apps/web/src/maintenance-backup").then(module =>
-      module.validateMaintenanceCorrectionSnapshot(rows))).not.toThrow();
+    expect(() => validateMaintenanceCorrectionSnapshot(rows)).not.toThrow();
     expect(rows.find(row => row.id === "historical-correction:" + correctionId)?.data).toMatchObject({
       fieldPath: "totalPaise", beforeValue: 200000, afterValue: 225000,
     });
