@@ -11,6 +11,9 @@ import { useCompletedTripFinancialsWorkspace } from "./use-completed-trip-financ
 import { TimelineProjectionService, TimelineEnrichmentQueue, GeoapifyProxyReverseGeocoder } from "../../../../packages/features/timeline";
 
 import { useTripFinancialFormRuntime } from "./trip-financial-form-context";
+import { buildTripHistoryWithBackfills, type TripHistoryRecord } from "../../../../packages/features/logbook";
+import { assertHistoricalTripBackfillV1, type HistoricalTripBackfillV1 } from "../../../../packages/domain/src/historical-trip-backfill";
+import { HISTORICAL_TRIP_BACKFILL_PREFIX } from "../../../../packages/application/src/historical-trip-backfill-service";
 import { recordBrowserDiagnostic } from "../diagnostics";
 import { isNativeTimelineEnrichmentPlatform, listenForNativeTimelineEnrichment, scheduleNativeTimelineEnrichment } from "../timeline-enrichment-native";
 
@@ -31,6 +34,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
   const [driverMessage, setDriverMessage] = useState("Restoring driver state…");
   const [hasWorkDriverSelection, setHasWorkDriverSelection] = useState(false);
   const [workspaceRefreshKey, setWorkspaceRefreshKey] = useState(0);
+  const [tripHistory, setTripHistory] = useState<TripHistoryRecord[]>([]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -73,6 +77,22 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const refreshWorkSelection = () => refreshWorkDriverSelection(selection, setHasWorkDriverSelection, () => live);
         window.addEventListener("work-operating-configuration-updated", refreshWorkSelection);
         setWorkflow(service);
+        const refreshTripHistory = async () => {
+          const [events, records] = await Promise.all([
+            service.events(), platformRepository.list<HistoricalTripBackfillV1>(),
+          ]);
+          if (!live) return;
+          const backfills = records.filter(record =>
+            record.id.startsWith(HISTORICAL_TRIP_BACKFILL_PREFIX) && !record.deletedAt,
+          ).map(record => {
+            assertHistoricalTripBackfillV1(record.data);
+            return record.data;
+          });
+          setTripHistory(buildTripHistoryWithBackfills(events, backfills));
+        };
+        void refreshTripHistory();
+        const refreshBackfills = () => { void refreshTripHistory(); };
+        window.addEventListener("historical-trip-backfill-updated", refreshBackfills);
         setDriver(restored.snapshot);
         const pendingItems = restored.pending;
         setPending(pendingItems);
@@ -103,6 +123,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         const unsubscribeState = service.subscribe((snapshot) => {
           if (live) {
             setDriver(snapshot);
+            void refreshTripHistory();
             // Native Room invalidation can represent financial/form record changes even when
             // the driver workflow revision is unchanged. Refresh record-backed workspaces too.
             setWorkspaceRefreshKey(current => current + 1);
@@ -126,6 +147,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
         unsubscribe = () => {
           unsubscribeState();
           unsubscribeStatus();
+          window.removeEventListener("historical-trip-backfill-updated", refreshBackfills);
           window.removeEventListener("work-operating-configuration-updated", refreshWorkSelection);
           window.removeEventListener("focus", resumeWorkflow);
           document.removeEventListener("visibilitychange", resumeWorkflow);
@@ -336,7 +358,7 @@ export function useDriverWorkspace(runtime: RuntimeRegistry, platformRepository:
 
 
   return {
-    repo, enabled, error, ready, driver, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy, driverMessage,
+    repo, enabled, error, ready, driver, tripHistory, pending, pendingBlocksWorkflow, pendingBoundary, boundaryAt, driverBusy, driverMessage,
     ...cancellationFees,
     ...completedTripFinancials,
     shiftOn, tripOn, localClock, elapsed,
