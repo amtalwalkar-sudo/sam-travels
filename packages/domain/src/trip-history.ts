@@ -4,6 +4,9 @@ export type TripHistoryStatus = "active" | "completed" | "cancelled" | "needs_at
 export interface TripHistoryRecord {
  source?: "work_event" | "historical_backfill";
  farePaise?: number;
+ driverId?: string;
+ vehicleId?: string;
+ operationalDate?: string;
  attribution?: "admin_declared";
  actor?: HistoricalTripBackfillV1["actor"];
  id:string; creationEventId?:string; createdAt?:string; startEventId?:string; startedAt?:string;
@@ -69,11 +72,14 @@ export function buildTripHistoryWithBackfills(
   status: "completed" as const,
   reason: row.reason,
   farePaise: row.farePaise,
+  driverId: row.driverId,
+  vehicleId: row.vehicleId,
+  operationalDate: row.operationalDate,
   attribution: row.attribution,
   actor: row.actor,
  }));
  return [...eventTrips, ...manualTrips].sort((a, b) =>
-  Date.parse(b.createdAt ?? b.startedAt ?? b.endedAt ?? "") -
-  Date.parse(a.createdAt ?? a.startedAt ?? a.endedAt ?? "") || a.id.localeCompare(b.id)
+  Date.parse(b.startedAt ?? b.createdAt ?? b.endedAt ?? "") -
+  Date.parse(a.startedAt ?? a.createdAt ?? a.endedAt ?? "") || a.id.localeCompare(b.id)
  );
 }
