@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AtomicRecordRepository } from "../packages/core/src/repositories";
 import type { RecordEnvelope } from "../packages/core/src/types";
-import { HistoricalTripBackfillServiceV1 } from "../packages/application/src/historical-trip-backfill-service";
+import { HistoricalTripBackfillServiceV1, historicalTripOperationalDateFromInstant } from "../packages/application/src/historical-trip-backfill-service";
 
 class Records implements AtomicRecordRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -24,6 +24,11 @@ const input = {
 };
 
 describe("separately attributed historical trip backfill", () => {
+  it("applies the Asia/Kolkata 04:00 operational-day boundary", () => {
+    expect(historicalTripOperationalDateFromInstant("2026-11-10T22:29:59.999Z")).toBe("2026-11-10");
+    expect(historicalTripOperationalDateFromInstant("2026-11-10T22:30:00.000Z")).toBe("2026-11-11");
+  });
+
   it("stores a distinct admin-attributed record without manufacturing Work, GPS, odometer or shift evidence", async () => {
     const records = new Records();
     const service = new HistoricalTripBackfillServiceV1(records, {
