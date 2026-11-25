@@ -235,7 +235,6 @@ export class MaintenanceService {
     return eligible[eligible.length - 1];
   }
 
-
   async accrueDailyBusinessKilometres(input: { vehicleId: string; operationalDate: string; source: FeatureRecordSource }): Promise<RecordEnvelope<MaintenanceDailyAccrualV1>> {
     await this.requireVehicle(input.vehicleId);
     if (!isValidDate(input.operationalDate)) throw new Error("maintenance_business_date_invalid");
