@@ -138,7 +138,8 @@ class FuelCorrectionCapacitorAcceptanceTest {
                   return true;
                 })()
             """))
-            assertTrue("Correction is confirmed in WebView", awaitMaintenanceJavascript(startedActivity,
+            assertTrue("Correction is confirmed in WebView; panel=" + evaluateMaintenanceWebView(startedActivity,
+                "document.querySelector('.fuel-entry-panel')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 20000))
             assertTrue("Corrected amount is immediately projected into the daily read model",
                 awaitMaintenanceJavascript(startedActivity,
