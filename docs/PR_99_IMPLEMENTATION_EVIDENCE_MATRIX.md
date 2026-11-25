@@ -641,3 +641,42 @@ This entry supersedes stale Stage 4 and Stage 5 status statements in the earlier
 **Implementation-head CI:** [Run #45512816930](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45512816930) passed on exact implementation head `d13a2862e2fd41e822d0781ce10b5eba81080252`: Architecture, Web (including rendered PWA acceptance), Android (including the required Room/workflow/backup reliability instrumentation gate), Cross-platform encrypted backup restore and Integrated regression gate. Optional Production geocoder verification was skipped.
 
 **Stage 5 disposition:** Implementation and requirement-to-test evidence are complete. The documentation update creates a newer PR head; all required CI jobs must pass on that exact documentation-updated head before formal Stage 5 acceptance. No Stage 6 or unrelated work is included in this closeout. PR #99 remains open, draft and unmerged.
+
+
+## 9.52 — Stage 5 exact-head acceptance and Stage 6 requirement audit — 2026-11-25
+
+### Stage 5 — ACCEPTED
+
+Exact PR head: ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Required CI [run #45514874954](https://github.com/amtalwalkar-sudo/sam-travels/actions/runs/45514874954) completed successfully on that exact SHA. Architecture, Web, Android, Cross-platform encrypted backup restore and Integrated regression gate all passed. Optional Production geocoder verification was skipped and is not a required PR gate. The Stage 5 Browser/Dexie and Android/Room assertions remain mapped in §9.51; this is a scoped stage acceptance, not whole-contract acceptance.
+
+### Stage 6 — initial eight-condition §1A audit
+
+| Contract §1A condition | Current assessment | Evidence / remaining work |
+|---|---|---|
+| 1. Every supported entry path audited at real UI/action-to-command boundary | **PARTIAL** | Rendered PWA/Android Admin, Fuel and Work journeys and Stage 3 same-record golden journeys pass. Still open: Fuel correction UI and downstream recalculation; trip/fare correction and missing-trip insertion with linked obligations; Maintenance correction propagation into actual-expense/service read models; Compliance correction/renewal readback and immediate consumer refresh across supported surfaces; remaining form-definition/handler/accessibility conformance. |
+| 2. Independent Dexie/Room authority, validation, calculations, corrections, revisions and recovery | **PARTIAL** | Production authority and restore/recovery paths are proven for the shared populated graph. §6 still records incomplete dependent vehicle-context binding for Fuel, Maintenance, Finance, Business Expenses and Performance, plus stale-configuration revision/no-write parity. Compliance vehicle-only resolver is not proof for all dependent commands. |
+| 3. Populated production cross-runtime semantic and calculation/provenance parity | **SCOPED CORE PROVEN; NOT ALL ENTRY-PATH LINEAGE** | The 46-record fixture, Browser/Dexie and Android/Room production restore/reopen/recovery/re-export, reverse package direction, and same-record UI-originated golden journeys are evidenced in Stages 1–4. These do not prove the still-missing edit/correction UI paths or data they cannot yet create. |
+| 4. Every critical gap closed or explicitly owner-accepted | **OPEN** | Critical code/test gaps above remain. Finance actor attribution and Stage 4 correction/full-cost/Performance lineage are closed within their stated scope. No unapproved deferral is treated as owner-accepted. |
+| 5. Applicable negative, boundary, interruption and recovery proof | **ACCEPTED FOR STAGE 5** | §9.51 maps malformed/truncated package rejection, exactly-once Work replay after restore on both runtimes, snapshot consistency, exclusions, zero-record participants, count limits, ownership/dangling-reference rejection and interrupted restore recovery. Exact-head CI passed on ae59d7a77e079f31c9e14048c6dffbd0efb680ff. |
+| 6. Evidence matrix, gap register, contract closeout, plan and PR description agree | **IN PROGRESS** | This checkpoint and Stage 5 acceptance addenda are being reconciled across the project records. Historical findings remain preserved; superseded statuses must not be read as current. |
+| 7. Required CI green on exact final PR head | **PASS AT THIS CHECKPOINT ONLY** | Run #45514874954 passed all five required jobs on ae59d7a77e079f31c9e14048c6dffbd0efb680ff. Any subsequent commit requires a fresh exact-head run. |
+| 8. PR open, draft and unmerged | **VERIFIED** | PR #99 metadata: open, draft, unmerged. No merge/close authorization. |
+
+### Current critical code/test gaps (not Stage 5 gaps)
+
+1. **Fuel correction:** no user-facing supported edit path is proven for amount/price-per-kg corrections; prove derived quantity, full-to-full intervals, km/kg, effective cost/kg, cost/km, weighted rate history, daily costs, full-cost breakeven and Performance refresh immediately and preserve correction lineage on PWA and Android/Room.
+2. **Trip/fare correction and missing-trip entry:** audited path has no trip/fare correction adapter/UI or manual missing-trip backfill. Add only as required by the existing owner contract; preserve immutable Work/GPS/odometer events and prove linked fare/toll/parking plus downstream revenue/expense/Performance recalculation.
+3. **Maintenance correction consumers:** amount correction exists on PWA and Android, but the evidence matrix records that MaintenanceService.getActualExpenseTotal() reads original records rather than the corrected projection. Prove corrected actual-expense and applicable downstream read models; do not mutate immutable daily accrual snapshots. Visit correction is not available in the audited path.
+4. **Compliance correction/renewal:** PWA append-only correction and production allocation/Performance source lineage exist; still prove immediate end-to-end consumer refresh without manual navigation/refresh, Android WebView correction where supported, and linked renewal readback after reopen.
+5. **Single operating pair:** complete §3.0.1 dependent command binding for Fuel, Maintenance, Finance, Business Expenses and Performance, remove routine selectors where required, and prove Dexie/Room stale-revision rejection/no-write parity. Compliance Vehicle-only binding is intentionally separate.
+6. **Historical integrity/provenance:** finish the production RecordRepository.remove / deletedAt call-site audit and legacy compatibility; verify update actor provenance (updatedBy) where required; complete per-domain correction authority and immediate recalculation mapping.
+7. **Remaining entry/device/form conformance:** complete any remaining rendered Android device-readiness settings handoff/return/recheck, event-specific GPS assertions required by the owning Work contract, and registered/specialized form requiredness/type/option/accessibility conformance. Keep OEM-specific behaviour separate from deterministic emulator assertions.
+
+### External/manual and repository-administration gates
+
+- Physical OEM/device certification and final owner usability/visual approval.
+- Full OS reboot persistence where deterministic emulator coverage is unavailable.
+- Live Dropbox account authentication, upload, download, scheduled backup and restore; mocked OAuth/API acceptance is not live-account evidence.
+- Repository branch-protection/ruleset enforcement verification.
+
+These are not represented as passed by CI. Stage 6 remains **ACTIVE / NOT ACCEPTED** until critical items are closed or explicitly owner-accepted as scoped deferrals, all project records are reconciled, and required CI passes on the exact final head.
