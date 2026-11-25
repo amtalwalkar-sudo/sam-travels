@@ -1,6 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX, requireFinanceAdminAuthor,
   type FinancePaymentEntryV1, type FinancePaymentLedgerV1 } from "./finance-loan-payment-service";
 
@@ -81,11 +82,14 @@ export class FinanceLoanPrepaymentService {
     private readonly validateState: FinanceLoanPrepaymentStateValidator,
     private readonly buildRevision: FinanceLoanPrepaymentRevisionBuilder,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly currentAuthor?: () => Promise<RecordAuthorV1>) {}
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">) {}
 
   private async load(loanId: string): Promise<Snapshot> {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_loan_not_found");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && operating.vehicleId !== loan.data.details.vehicleId) throw new Error("finance_loan_prepayment_operating_vehicle_mismatch");
     const [rawLedger, rawState] = await Promise.all([
       this.repository.get<unknown>(paymentRecordId(loanId)),
       this.repository.get<unknown>(prepaymentRecordId(loanId)),
@@ -99,7 +103,7 @@ export class FinanceLoanPrepaymentService {
       }
     }
     return { loan, ledger: rawLedger as RecordEnvelope<FinancePaymentLedgerV1> | undefined,
-      state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined };
+      state: rawState as RecordEnvelope<FinanceLoanPrepaymentStateV1> | undefined, operating };
   }
 
   private previewFrom(snapshot: Snapshot, input: { loanId: string; commandId: string; businessDate: string;
@@ -267,6 +271,7 @@ export class FinanceLoanPrepaymentService {
         updatedAt: createdAt, businessDate: requested.businessDate, source: input.source,
         revision: (snapshot.ledger?.revision ?? 0) + 1, data: ledgerData,
       };
+      if (snapshot.operating) await this.operatingConfiguration?.assertCurrent(snapshot.operating);
       if (await this.repository.compareAndSetMany([
         { id: snapshot.loan.id, expectedRevision: snapshot.loan.revision, next: loanNext },
         { id: ledgerId, expectedRevision: snapshot.ledger?.revision ?? null, next: ledgerNext },
