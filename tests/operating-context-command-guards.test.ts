@@ -7,11 +7,13 @@ import { OperatingConfigurationServiceV1 } from "../packages/application/src/ope
 import { BusinessExpensesService } from "../packages/application/src/business-expenses-service";
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
 import { FinanceLoanService } from "../packages/application/src/finance-loan-service";
+import { ComplianceService } from "../packages/application/src/compliance-service";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
   calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
 } from "../packages/features/business-expenses";
 import { assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant } from "../packages/features/maintenance";
+import { assertComplianceRecordV1 } from "../packages/features/compliance";
 import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../packages/features/finance";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
@@ -88,7 +90,7 @@ describe("operating-context command guards", () => {
   });
 
   it("rejects Maintenance and Finance writes for a vehicle outside the configured pair", async () => {
-    const { repository, maintenance, finance } = await setup();
+    const { repository, maintenance, finance, compliance } = await setup();
     const before = await repository.list();
     await expect(maintenance.createExpense({
       uuid: "123e4567-e89b-42d3-a456-426614174042", source: "web",
@@ -104,7 +106,7 @@ describe("operating-context command guards", () => {
     expect(await repository.list()).toEqual(before);
   });
   it("rejects stale operating-configuration revisions before Fuel, expense, Maintenance and Finance writes", async () => {
-    const { repository, expenses, maintenance, finance } = await setup(base => ({
+    const { repository, expenses, maintenance, finance, compliance } = await setup(base => ({
       get: () => base.get(),
       assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
     }));
