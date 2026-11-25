@@ -42,15 +42,15 @@ export function AdminFinanceSection() {
       const histories = await Promise.all(loanRecords.map(async loan =>
         [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
       const activeVehicles = vehicleRecords.filter(item => item.data.lifecycleState === "active");
-      const configuredVehicle = activeVehicles.find(item => item.id === operatingVehicle.id);
-      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.revision) {
+      const configuredVehicle = activeVehicles.find(item => item.id === operatingVehicle.vehicleId);
+      if (activeVehicles.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.vehicleRevision) {
         setSelectedVehicleId("");
         throw new Error("operating_configuration_stale");
       }
       setVehicles([configuredVehicle]);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
-      setSelectedVehicleId(operatingVehicle.id);
+      setSelectedVehicleId(operatingVehicle.vehicleId);
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Finance records.");
