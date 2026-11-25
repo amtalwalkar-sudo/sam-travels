@@ -69,11 +69,26 @@ export function FuelEntryPanel() {
         }
       }
       setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
-      setVehicles(availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active"));
+      const activeVehicles = availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
+      if (activeVehicles.length !== 1) {
+        setVehicles([]);
+        throw new Error(activeVehicles.length === 0 ? "operating_vehicle_missing" : "operating_vehicle_ambiguous");
+      }
+      const operatingVehicle = activeVehicles[0];
+      setVehicles(activeVehicles);
       const resumable = [...drafts].sort((a, b) =>
         b.updatedAt.localeCompare(a.updatedAt) || b.revision - a.revision || b.instanceId.localeCompare(a.instanceId)
       )[0];
       let next = resumable ?? await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
+      if (next.values.vehicleId !== undefined && next.values.vehicleId !== operatingVehicle.id) {
+        throw new Error("fuel_entry_draft_operating_vehicle_mismatch");
+      }
+      if (next.status !== "pending" && next.values.vehicleId === undefined) {
+        next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "vehicleId", operatingVehicle.id);
+      }
+      if (next.status === "pending" && next.values.vehicleId !== operatingVehicle.id) {
+        throw new Error("fuel_entry_pending_operating_vehicle_mismatch");
+      }
       if (next.status !== "pending" && next.values.partialRefill === undefined) {
         next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, next, "partialRefill", false);
       }
@@ -123,8 +138,9 @@ export function FuelEntryPanel() {
       setMessage("Fuel purchase saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
       const opened = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
-      const next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, opened, "partialRefill", false);
-      copyRef.current = next; setCopy(next); setValues({ partialRefill: false });
+      const withVehicle = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, opened, "vehicleId", vehicles[0]?.id);
+      const next = await services.formRuntime.update(FUEL_ENTRY_FORM_V1, withVehicle, "partialRefill", false);
+      copyRef.current = next; setCopy(next); setValues({ vehicleId: vehicles[0]?.id, partialRefill: false });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Fuel purchase could not be saved.");
     } finally { setBusy(false); }
@@ -149,14 +165,9 @@ export function FuelEntryPanel() {
     {open && <section className="fuel-entry-panel">
       <h2>Fuel Entry</h2>
       <p>Record a fuel purchase at any time. A shift or trip does not need to be active.</p>
-      {!vehicles.length && <p role="status">Add an active vehicle in Admin before recording fuel.</p>}
+      {!vehicles.length && <p role="status">{message || "Configure exactly one active vehicle in Admin before recording fuel."}</p>}
+      {vehicles.length === 1 && <p className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0].data.registrationNumber} · {vehicles[0].data.make} {vehicles[0].data.model}</span></p>}
       <form onSubmit={submit}>
-        <label>Vehicle
-          <select required disabled={!copy || copy.status === "pending"} value={String(values.vehicleId ?? "")} onChange={event => change("vehicleId", event.target.value)}>
-            <option value="">Select vehicle</option>
-            {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber} · {vehicle.data.make} {vehicle.data.model}</option>)}
-          </select>
-        </label>
         <label>Odometer (km)
           <input required disabled={!copy || copy.status === "pending"} type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
             onChange={event => change("odometerKm", event.target.value === "" ? undefined : Number(event.target.value))} />
