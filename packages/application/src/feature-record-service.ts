@@ -59,7 +59,7 @@ function canonicalJson(value: unknown): string {
  */
 export class FeatureRecordService<Data> {
   private static authorResolver?: FeatureRecordAuthorResolver;
-  static setAuthorResolver(resolver: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
+  static setAuthorResolver(resolver?: FeatureRecordAuthorResolver): void { FeatureRecordService.authorResolver = resolver; }
   constructor(
     private readonly repository: AtomicRecordRepository,
     private readonly definition: FeatureRecordDefinition<Data>,
@@ -207,6 +207,7 @@ export class FeatureRecordService<Data> {
     data: Data;
     now?: string;
     operation?: FeatureRecordOperationIdentityV1;
+    updatedBy?: RecordAuthorV1;
   }): Promise<RecordEnvelope<Data>> {
     this.assertOwnedId(input.id);
     if (input.operation) {
@@ -219,14 +220,19 @@ export class FeatureRecordService<Data> {
     this.definition.validate(input.data);
     const current = await this.repository.get<unknown>(input.id);
     if (!current) throw new Error("feature_record_not_found:" + input.id);
+    if (current.deletedAt) throw new Error("feature_record_deleted:" + input.id);
     this.assertOwnedRecord(current);
     if (current.revision !== input.expectedRevision) {
       throw new Error("feature_record_stale_revision:" + input.id);
     }
+    const updatedBy = input.updatedBy ?? (FeatureRecordService.authorResolver
+      ? await FeatureRecordService.authorResolver() : undefined);
+    if (FeatureRecordService.authorResolver && !updatedBy) throw new Error("business_actor_not_active");
     const next: RecordEnvelope<Data> = {
       ...current,
       updatedAt: input.now ?? this.now(),
       revision: current.revision + 1,
+      ...(updatedBy ? { updatedBy } : {}),
       data: input.data,
     };
     assertRecordEnvelope(next);
@@ -239,7 +245,7 @@ export class FeatureRecordService<Data> {
   async get(id: string): Promise<RecordEnvelope<Data> | undefined> {
     this.assertOwnedId(id);
     const record = await this.repository.get<unknown>(id);
-    if (!record) return undefined;
+    if (!record || record.deletedAt) return undefined;
     this.assertOwnedRecord(record);
     return record;
   }
@@ -247,7 +253,7 @@ export class FeatureRecordService<Data> {
   async list(): Promise<Array<RecordEnvelope<Data>>> {
     const records = await this.repository.list<unknown>();
     return records
-      .filter(record => record.id.startsWith(this.definition.recordIdPrefix))
+      .filter(record => record.id.startsWith(this.definition.recordIdPrefix) && !record.deletedAt)
       .map(record => {
         this.assertOwnedRecord(record);
         return record;

@@ -77,4 +77,21 @@ describe("authoritative single operating configuration resolver", () => {
     });
     fails(rows, "operating_driver_invalid");
   });
+
+  it("ignores legacy soft-deleted selection, Driver, Vehicle and assignment records", () => {
+    const rows = valid();
+    const deleted = (record: Row): Row => ({ ...record, deletedAt: at });
+    fails(rows.map(record => record.id === "work:selected-driver" ? deleted(record) : record),
+      "work_driver_not_selected");
+    fails(rows.map(record => record.id.startsWith("feature:driver-records:driver:") ? deleted(record) : record),
+      "operating_driver_missing");
+    fails(rows.map(record => record.id.startsWith("feature:vehicle:") ? deleted(record) : record),
+      "operating_vehicle_missing");
+    fails(rows.map(record => record.id.startsWith("feature:driver-records:assignment:") ? deleted(record) : record),
+      "operating_assignment_missing");
+    const deletedDuplicateVehicle = { ...vehicle("MH02CD5678"), deletedAt: at };
+    expect(resolveOperatingConfiguration([...rows, deletedDuplicateVehicle], at).vehicleId)
+      .toBe("feature:vehicle:MH01AB1234");
+  });
+
 });

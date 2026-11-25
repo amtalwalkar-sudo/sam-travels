@@ -58,6 +58,14 @@ export function assertRecordEnvelope(value: unknown): asserts value is RecordEnv
       throw new Error("record_invalid_author_provenance");
     }
   }
+  if (record.updatedBy !== undefined) {
+    const author = record.updatedBy as Record<string, unknown> | null;
+    if (!author || typeof author !== "object" || Array.isArray(author) ||
+        typeof author.personId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(author.personId) ||
+        (author.role !== "driver" && author.role !== "admin")) {
+      throw new Error("record_invalid_update_author_provenance");
+    }
+  }
   if (record.businessDate !== undefined && !isBusinessDate(record.businessDate)) {
     throw new Error("record_invalid_business_date");
   }

@@ -66,8 +66,9 @@ export type OperatingVehicleV1 = Readonly<{
 export function resolveOperatingVehicle(
   records: readonly RecordEnvelope<unknown>[],
 ): OperatingVehicleV1 {
+  const liveRecords = records.filter(record => !record.deletedAt);
   const activeVehicles: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
-  for (const record of records.filter(item => item.id.startsWith(VEHICLE_PREFIX))) {
+  for (const record of liveRecords.filter(item => item.id.startsWith(VEHICLE_PREFIX))) {
     const data = dataOf(record);
     if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive" && data.lifecycleState !== "sold") {
       throw new Error("operating_vehicle_invalid");
@@ -103,7 +104,8 @@ export function resolveOperatingConfiguration(
   transitionAt?: string,
   allowLockedShiftId?: string,
 ): OperatingConfigurationV1 {
-  const selections = records.filter(record => record.id === WORK_SELECTED_DRIVER_RECORD_ID);
+  const liveRecords = records.filter(record => !record.deletedAt);
+  const selections = liveRecords.filter(record => record.id === WORK_SELECTED_DRIVER_RECORD_ID);
   if (selections.length === 0) throw new Error("work_driver_not_selected");
   if (selections.length !== 1) throw new Error("operating_driver_selection_ambiguous");
   const selectionRecord = selections[0];
@@ -112,7 +114,7 @@ export function resolveOperatingConfiguration(
   if (selection.lockedShiftId !== undefined && selection.lockedShiftId !== allowLockedShiftId) throw new Error("operating_driver_selection_locked");
 
   const activeDrivers: Array<{ record: RecordEnvelope<unknown>; data: Record<string, unknown> }> = [];
-  for (const record of records.filter(item => item.id.startsWith(DRIVER_PREFIX))) {
+  for (const record of liveRecords.filter(item => item.id.startsWith(DRIVER_PREFIX))) {
     const data = dataOf(record);
     if (data.lifecycleState !== "active" && data.lifecycleState !== "inactive") throw new Error("operating_driver_invalid");
     if (data.lifecycleState === "active") {
@@ -129,12 +131,12 @@ export function resolveOperatingConfiguration(
   const driverId = String(driver.data.driverId);
   if (driverId !== selection.driverId) throw new Error("operating_driver_selection_mismatch");
 
-  const vehicle = resolveOperatingVehicle(records);
+  const vehicle = resolveOperatingVehicle(liveRecords);
   const vehicleId = vehicle.vehicleId;
 
 
   const activeAssignments: Array<{ record: RecordEnvelope<unknown>; assignment: { assignmentId: string; vehicleId: string; assignedAt: string } }> = [];
-  for (const record of records.filter(item => item.id.startsWith(ASSIGNMENT_PREFIX))) {
+  for (const record of liveRecords.filter(item => item.id.startsWith(ASSIGNMENT_PREFIX))) {
     const data = dataOf(record);
     try { assertDriverAssignmentHistoryV1(data); } catch { throw new Error("operating_assignment_invalid"); }
     if (record.id !== driverAssignmentHistoryId(data.driverId)) throw new Error("operating_assignment_invalid");

@@ -105,8 +105,10 @@ describe("atomic feature-owned record service", () => {
     const updated = await service.update({
       id: created.id, expectedRevision: 1,
       data: { label: "Maintenance corrected", amountPaise: 5500 },
+      updatedBy: { personId: "person-editor", role: "admin" },
     });
     expect(updated.createdBy).toEqual({ personId: "person-owner", role: "admin" });
+    expect(updated.updatedBy).toEqual({ personId: "person-editor", role: "admin" });
   });
 
   it("updates only at the expected revision and preserves immutable creation metadata", async () => {
@@ -238,4 +240,51 @@ describe("atomic feature-owned record service", () => {
       validate: validateSample,
     })).toThrow("feature_record_definition_invalid");
   });
+
+  it("records the authenticated updater and clears the resolver after the update", async () => {
+    const { service } = setup();
+    const created = await service.create({
+      id: "feature:sample:actor-update", data: { label: "Original", amountPaise: 100 }, source: "web",
+    });
+    FeatureRecordService.setAuthorResolver(async () => ({ personId: "person-editor", role: "admin" }));
+    try {
+      const updated = await service.update({
+        id: created.id, expectedRevision: 1, data: { label: "Edited", amountPaise: 150 },
+      });
+      expect(updated.updatedBy).toEqual({ personId: "person-editor", role: "admin" });
+      expect(updated.createdBy).toBeUndefined();
+    } finally {
+      FeatureRecordService.setAuthorResolver(undefined);
+    }
+  });
+
+  it("excludes legacy soft-deleted records from current reads and refuses to update them", async () => {
+    const { service, repository } = setup();
+    const id = "feature:sample:legacy-deleted";
+    const deletedAt = "2026-11-07T00:00:00.000Z";
+    await repository.put({
+      id, schemaVersion: 1, createdAt: deletedAt, updatedAt: deletedAt,
+      source: "web", revision: 2, deletedAt,
+      data: { label: "Legacy row", amountPaise: 500 },
+    });
+    expect(await service.get(id)).toBeUndefined();
+    expect(await service.list()).toEqual([]);
+    await expect(service.update({
+      id, expectedRevision: 2, data: { label: "Resurrected", amountPaise: 500 },
+    })).rejects.toThrow("feature_record_deleted");
+    expect((await repository.get(id))?.deletedAt).toBe(deletedAt);
+  });
+
+  it("rejects malformed update actor provenance at the persistence boundary", async () => {
+    const { service, repository } = setup();
+    await repository.put({
+      id: "feature:sample:bad-updated-by", schemaVersion: 1,
+      createdAt: "2026-11-07T00:00:00.000Z", updatedAt: "2026-11-07T00:00:00.000Z",
+      source: "web", revision: 1, updatedBy: { personId: "invalid person id", role: "admin" },
+      data: { label: "Valid", amountPaise: 1 },
+    });
+    await expect(service.get("feature:sample:bad-updated-by"))
+      .rejects.toThrow("record_invalid_update_author_provenance");
+  });
+
 });

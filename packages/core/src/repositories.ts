@@ -1,6 +1,7 @@
 import type { RecordEnvelope } from "./types";
 
 export interface RecordRepository {
+  /** Hard-delete only transient drafts or failed-bootstrap rollback records; submitted business history is immutable. */
   get<T>(id: string): Promise<RecordEnvelope<T> | undefined>;
   put<T>(record: RecordEnvelope<T>): Promise<void>;
   list<T>(): Promise<Array<RecordEnvelope<T>>>;
