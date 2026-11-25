@@ -1,5 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type FinanceLoanDetailsV1 = Readonly<{
@@ -87,6 +88,7 @@ export class FinanceLoanService {
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
     _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "finance",
@@ -96,6 +98,8 @@ export class FinanceLoanService {
   }
 
   private async requireVehicle(vehicleId: string): Promise<void> {
+    const configuration = await this.operatingConfiguration?.get();
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("finance_loan_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
     if (vehicle.id !== vehicleId || !vehicleId.startsWith("feature:vehicle:")) {
