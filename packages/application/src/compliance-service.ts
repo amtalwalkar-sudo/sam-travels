@@ -3,7 +3,7 @@ import type { RecordEnvelope } from "../../core/src/types";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 import { resolveOperatingVehicle } from "../../domain/src/work-driver-context";
 import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
-import type { OperatingConfigurationV1 } from "../../domain/src/work-driver-context";
+import type { OperatingConfigurationV1, OperatingVehicleV1 } from "../../domain/src/work-driver-context";
 
 export type ComplianceRecordV1 = Readonly<{
   schemaVersion: 1;
@@ -48,7 +48,7 @@ export class ComplianceService {
     validate: ComplianceRecordValidator,
     private readonly vehicles: VehicleDirectory,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "assertCurrentForReadOnly">>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "assertCurrentForReadOnly" | "getVehicleForReadOnly" | "assertVehicleCurrentForReadOnly">>,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -60,9 +60,11 @@ export class ComplianceService {
 
   async getOperatingVehicleId(): Promise<string> {
     const configuration = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
       : resolveOperatingVehicle(await this.repository.list());
     return configuration.vehicleId;
   }
@@ -75,10 +77,14 @@ export class ComplianceService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
+    // Compliance is Vehicle-owned. Resolve and revalidate the configured
+    // Vehicle without requiring an active Work Driver or Driver–Vehicle assignment.
     const operating = this.operatingConfiguration
-      ? await (this.operatingConfiguration.getForReadOnly
-        ? this.operatingConfiguration.getForReadOnly()
-        : this.operatingConfiguration.get())
+      ? await (this.operatingConfiguration.getVehicleForReadOnly
+        ? this.operatingConfiguration.getVehicleForReadOnly()
+        : this.operatingConfiguration.getForReadOnly
+          ? this.operatingConfiguration.getForReadOnly()
+          : this.operatingConfiguration.get())
       : resolveOperatingVehicle(await this.repository.list());
     const operatingVehicleId = operating.vehicleId;
     if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
@@ -97,9 +103,11 @@ export class ComplianceService {
       // overlap, and late renewal must preserve the actual historical gap.
     }
     if (this.operatingConfiguration) {
-      if (this.operatingConfiguration.assertCurrentForReadOnly) {
+      if ("vehicleRevision" in operating && this.operatingConfiguration.assertVehicleCurrentForReadOnly) {
+        await this.operatingConfiguration.assertVehicleCurrentForReadOnly(operating as OperatingVehicleV1);
+      } else if (this.operatingConfiguration.assertCurrentForReadOnly && "driverId" in operating) {
         await this.operatingConfiguration.assertCurrentForReadOnly(operating as OperatingConfigurationV1);
-      } else {
+      } else if ("driverId" in operating) {
         await this.operatingConfiguration.assertCurrent(operating as OperatingConfigurationV1);
       }
     } else {

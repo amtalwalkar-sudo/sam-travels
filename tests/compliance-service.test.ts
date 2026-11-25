@@ -81,6 +81,38 @@ describe("ComplianceService", () => {
     expect((await service.get(previous.id))?.data.validTo).toBe("2024-12-31");
   });
 
+  it("uses vehicle-only operating context when Work Driver assignment is unavailable", async () => {
+    const { repository } = setup();
+    const expected = { schemaVersion: 1 as const, vehicleId: first.vehicleId, vehicleRevision: 1 };
+    let asserted = false;
+    const operatingConfiguration = {
+      async get() { throw new Error("compliance_must_not_require_work_driver"); },
+      async assertCurrent() { throw new Error("compliance_must_not_require_work_driver"); },
+      async getVehicleForReadOnly() { return expected; },
+      async assertVehicleCurrentForReadOnly(actual: typeof expected) {
+        expect(actual).toEqual(expected);
+        asserted = true;
+        return expected;
+      },
+    };
+    const vehicles = {
+      async getById(id: string) {
+        return id === first.vehicleId ? {
+          id, schemaVersion: 1, createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z", source: "web" as const,
+          revision: 1, data: { lifecycleState: "active" },
+        } : undefined;
+      },
+    };
+    const service = new ComplianceService(repository, assertComplianceRecordV1, vehicles,
+      () => "2026-11-19T08:00:00.000Z", operatingConfiguration);
+    const created = await service.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174099", data: first, source: "web",
+    });
+    expect(created.data.vehicleId).toBe(first.vehicleId);
+    expect(asserted).toBe(true);
+  });
+
   it("replays the same Compliance create receipt after interruption and rejects changed payload reuse", async () => {
     const { repository, service } = setup();
     const operation = { operationId: "compliance-create-operation", payloadFingerprint: "compliance-payload-v1" };

@@ -33,11 +33,15 @@ class FuelCorrectionCapacitorAcceptanceTest {
             row.id.startsWith("feature:business-expenses:fuel:") &&
                 JSONObject(row.json).optJSONObject("data")?.optString("vehicleId") == vehicleId
         }
+        val previousFuelDrafts = database.records().list().filter {
+            it.id.startsWith("__sam_travels_form_working_copy__:work.fuel-entry:")
+        }
         val now = "2026-11-15T05:00:00.000Z"
         var activity: MainActivity? = null
         try {
             previousVehicleRecords.forEach { database.records().remove(it.id) }
             previousFuelRecords.forEach { database.records().remove(it.id) }
+            previousFuelDrafts.forEach { database.records().remove(it.id) }
             database.records().put(maintenanceEnvelope(vehicleId, now, JSONObject()
                 .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
                 .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
@@ -248,6 +252,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             previousLink?.let { database.records().put(it) }
             previousPerson?.let { database.records().put(it) }
             previousFuelRecords.forEach { database.records().put(it) }
+            previousFuelDrafts.forEach { database.records().put(it) }
             database.close()
         }
     }
