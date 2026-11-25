@@ -62,15 +62,15 @@ export function MaintenanceSection() {
   }, [services, correctionService]);
   const refresh = useCallback(async () => {
     try {
-      const configuration = await services.operatingConfiguration.get();
+      const operatingVehicle = await services.operatingConfiguration.getVehicleForReadOnly();
       const v = await services.vehicles.list();
       const active = v.filter(item => item.data.lifecycleState === "active");
-      const configuredVehicle = active.find(item => item.id === configuration.vehicleId);
-      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== configuration.vehicleRevision) {
+      const configuredVehicle = active.find(item => item.id === operatingVehicle.id);
+      if (active.length !== 1 || !configuredVehicle || configuredVehicle.revision !== operatingVehicle.revision) {
         throw new Error("operating_configuration_stale");
       }
-      const chosen = configuration.vehicleId;
-      setOperatingSnapshot(configuration);
+      const chosen = operatingVehicle.id;
+      setOperatingSnapshot(undefined);
       setVehicles([configuredVehicle]);
       setVehicleId(chosen);
       await Promise.all([loadVehicleRecords(chosen), loadDrafts()]);
@@ -122,7 +122,10 @@ export function MaintenanceSection() {
     setBusy(true);
     setMessage("");
     try {
-      await services.operatingConfiguration.assertCurrent(operatingSnapshot);
+      const commandSnapshot = await services.operatingConfiguration.get();
+      if (commandSnapshot.vehicleId !== vehicleId) throw new Error("operating_configuration_stale");
+      await services.operatingConfiguration.assertCurrent(commandSnapshot);
+      setOperatingSnapshot(commandSnapshot);
       const definition = definitionFor(form)!;
       // The same UUID is the durable draft identity and the owning service command ID.
       let workingCopy = await services.formRuntime.open(definition, crypto.randomUUID());
