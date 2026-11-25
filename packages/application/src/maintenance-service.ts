@@ -313,8 +313,15 @@ export class MaintenanceService {
 
   async getActualExpenseTotal(vehicleId: string): Promise<number> {
     await this.requireVehicle(vehicleId);
-    const history = await this.listVehicleRecords(vehicleId);
-    return [...history.visits, ...history.expenses].reduce((total, record) => {
+    const records = await this.records.list();
+    const owned = records.filter(record => record.data.vehicleId === vehicleId);
+    const [visits, expenses] = await Promise.all([
+      Promise.all(owned.filter(record => record.data.kind === "visit")
+        .map(record => projectMaintenanceCorrectedRecord(this.repository, record as RecordEnvelope<MaintenanceVisitV1>))),
+      Promise.all(owned.filter(record => record.data.kind === "expense")
+        .map(record => projectMaintenanceCorrectedRecord(this.repository, record as RecordEnvelope<GeneralMaintenanceExpenseV1>))),
+    ]);
+    return [...visits, ...expenses].reduce((total, record) => {
       const amount = record.data.kind === "visit" ? record.data.totalPaise : record.data.amountPaise;
       const next = total + amount;
       if (!Number.isSafeInteger(next)) throw new Error("maintenance_actual_expense_total_out_of_range");
