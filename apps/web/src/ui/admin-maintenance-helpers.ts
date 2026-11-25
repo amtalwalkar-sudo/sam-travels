@@ -9,3 +9,6 @@ export const today = () => {
 };
 export const money = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(paise / 100);
 export const newItem = (): ItemDraft => ({ id: crypto.randomUUID(), description: "", amount: "" });
+
+export type RecordMode = "visit" | "expense";
+export type ActiveForm = RecordMode | "rate" | null;
