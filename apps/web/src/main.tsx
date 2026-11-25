@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService
+  TripFinancialService, TripFinancialCorrectionServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -110,7 +110,12 @@ async function bootstrap(): Promise<void> {
     getApplicationFinanceLoanService(), getApplicationFinanceLoanPrepaymentService(),
     getApplicationFinanceLoanPaymentService(), undefined, repository, getApplicationRecordSource(),
   );
-  const tripFinancials = new TripFinancialService(repository, getApplicationRecordSource());
+  const tripFinancialCorrections = new TripFinancialCorrectionServiceV1(
+    repository, getPersonIdentityService(), getApplicationRecordSource(),
+  );
+  const tripFinancials = new TripFinancialService(
+    repository, getApplicationRecordSource(), undefined, currentAuthor, tripFinancialCorrections,
+  );
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository,
