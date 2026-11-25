@@ -27,6 +27,34 @@ export async function exerciseComplianceRenewalEntryPath(page, monthDateOffset, 
 
 
 
+
+export async function enrollAndLinkDriverPerson(page, driverName) {
+  await page.getByLabel("Person name").fill(driverName);
+  await page.getByLabel("Driver role").check();
+  await page.getByRole("button", { name: "Enroll person", exact: true }).click();
+  await page.getByRole("status").filter({ hasText: "Person enrolled." }).last().waitFor({ state: "visible" });
+  await page.getByLabel("Link " + driverName + " to person").selectOption({ label: driverName });
+  await page.getByRole("status").filter({ hasText: "Driver profile link saved." }).waitFor({ state: "visible" });
+}
+
+async function readDriverPersonLink(page, driverId) {
+  return page.evaluate(async id => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return rows.find(row => row.id === "identity:driver-person-link:" + id && !row.deletedAt)?.data?.personId ?? null;
+  }, driverId);
+}
+
 async function readTripObligation(page, kind, status) {
   return page.evaluate(async ({ kind, status }) => {
     const request = indexedDB.open("sam-travels-browser");
@@ -108,7 +136,9 @@ export async function exerciseWorkTripEntryPaths(page) {
   if (!completedSaved || completedSaved.id !== completedPending.id ||
       completedSaved.data.farePaise !== 15000 || completedSaved.data.tollPaise !== 2000 ||
       completedSaved.data.tollPayer !== "driver" || completedSaved.data.parkingPaise !== 1000 ||
-      completedSaved.data.parkingPayer !== "customer" || !completedSaved.createdBy?.personId) {
+      completedSaved.data.parkingPayer !== "customer" || !completedSaved.createdBy?.personId ||
+      completedSaved.createdBy.personId === completedPending.data.tripContext.driverId ||
+      completedSaved.updatedBy?.personId !== await readDriverPersonLink(page, completedPending.data.tripContext.driverId)) {
     throw new Error("completed_trip_financial_entry_readback_or_actor_provenance_mismatch: " +
       JSON.stringify({id:completedSaved?.id,data:completedSaved?.data,createdBy:completedSaved?.createdBy}));
   }
@@ -126,7 +156,9 @@ export async function exerciseWorkTripEntryPaths(page) {
   await page.getByRole("button", { name: "Save cancellation fee", exact: true }).click();
   const cancellationSaved = await waitForTripObligation(page, "cancellation_fee", "submitted");
   if (!cancellationSaved || cancellationSaved.id !== cancellationPending.id ||
-      cancellationSaved.data.feePaise !== 1250 || !cancellationSaved.createdBy?.personId) {
+      cancellationSaved.data.feePaise !== 1250 || !cancellationSaved.createdBy?.personId ||
+      cancellationSaved.createdBy.personId === cancellationPending.data.tripContext.driverId ||
+      cancellationSaved.updatedBy?.personId !== await readDriverPersonLink(page, cancellationPending.data.tripContext.driverId)) {
     throw new Error("cancellation_fee_entry_readback_or_actor_provenance_mismatch");
   }
 
