@@ -78,7 +78,7 @@ export function MaintenanceSection() {
       setMessage(e instanceof Error ? e.message : "Could not load maintenance records.");
     }
   }, [services, loadVehicleRecords, loadDrafts]);
-  useEffect(() => { void refresh(""); }, [refresh]);
+  useEffect(() => { void refresh(); }, [refresh]);
   function activateDraft(workingCopy: FormWorkingCopy, form: Exclude<ActiveForm, null>) {
     copyRef.current = workingCopy;
     setCopy(workingCopy);
