@@ -136,16 +136,22 @@ export class FinanceLoanService {
 
   async get(id: string): Promise<RecordEnvelope<FinanceLoanRecordV1> | undefined> {
     assertRecordId(id);
-    return this.records.get(id);
+    const record = await this.records.get(id);
+    if (record) await this.requireVehicle(record.data.details.vehicleId);
+    return record;
   }
 
   async list(): Promise<Array<RecordEnvelope<FinanceLoanRecordV1>>> {
     const records = await this.records.list();
-    for (const record of records) {
+    const operating = await this.operatingConfiguration?.get();
+    const scoped = operating
+      ? records.filter(record => record.data.details.vehicleId === operating.vehicleId)
+      : records;
+    for (const record of scoped) {
       assertRecordId(record.id);
       await this.requireVehicle(record.data.details.vehicleId);
     }
-    return records;
+    return scoped;
   }
 
   async update(_input: {
