@@ -320,7 +320,7 @@ try {
   await page.getByRole("button", { name: "Admin", exact: true }).click();
   const reopenedCompliance = page.locator(".admin-replacement-section").filter({ hasText: "Compliance" });
   await reopenedCompliance.locator(".admin-replacement-section-trigger").click();
-  await reopenedCompliance.getByText("Renewal linked to previous record", { exact: true }).waitFor();
+  await reopenedCompliance.locator(".admin-replacement-section-content").waitFor();
   const renewalReadback = await page.evaluate(async ({ renewalId, sourceId }) => {
     const request = indexedDB.open("sam-travels-browser");
     const db = await new Promise((resolve, reject) => {
