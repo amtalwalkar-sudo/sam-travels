@@ -276,7 +276,7 @@ export function MaintenanceSection() {
     + (records?.expenses.reduce((sum, item) => sum + item.data.amountPaise, 0) ?? 0);
   const vehicleDrafts = drafts.filter(draft => draft.values.vehicleId === vehicleId);
   return <div className="admin-capability-panel">
-    <strong>Record actual service visits</strong>
+    <strong>Record actual service visits and itemised costs</strong>
     <p className="admin-hint">Record service visits, expenses, odometer readings and next-service reminders. Historical dates and recoverable drafts are supported.</p>
     <div className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0]?.data.registrationNumber ?? "Configuration unavailable"}</span></div>
     {vehicleId && <>
