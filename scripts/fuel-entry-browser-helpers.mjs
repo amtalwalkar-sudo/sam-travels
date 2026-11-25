@@ -1,3 +1,5 @@
+import assert from "node:assert/strict";
+
 export async function waitForServer(baseUrl) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
     try {
@@ -73,7 +75,7 @@ export async function correctFuelPurchaseThroughUi(page, purchaseId) {
   await card.getByRole("status").filter({ hasText: "Correction appended" }).waitFor({ timeout: 15000 });
   const readback = page.locator('[aria-label="Fuel calculation readback"]');
   await readback.getByText(/255000 paise/, { exact: false }).waitFor({ timeout: 15000 });
-  await readback.getByText(/172500\\/42 paise per km/, { exact: false }).waitFor({ timeout: 15000 });
+  await readback.getByText(/172500\/42 paise per km/, { exact: false }).waitFor({ timeout: 15000 });
   const rows = await readBrowserRecords(page);
   const original = rows.find(row => row.id === purchaseId);
   assert.equal(original?.data?.amountPaise, 82500, "original amount must remain immutable");
