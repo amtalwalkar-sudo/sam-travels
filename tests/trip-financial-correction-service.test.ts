@@ -64,7 +64,7 @@ describe("trip financial append-only corrections", () => {
     expect((await records.get<CompletedTripFinancialObligation>(original.id))?.data.tripContext).toEqual(original.data.tripContext);
 
     const projected = await service.project(original);
-    expect(projected.data.farePaise).toBe(12500);
+    expect((projected.data as CompletedTripFinancialObligation).farePaise).toBe(12500);
     expect(projected.correctionChainRevision).toBe(1);
     expect(projected.correctionRefs).toHaveLength(1);
     expect(projected.correctionRefs[0]).toMatchObject({ sourceId: "historical-correction:fare-correction-1", revision: 1, chainRevision: 1 });
