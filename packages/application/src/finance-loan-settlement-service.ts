@@ -1,6 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import {
   assertFinancePaymentLedgerV1, FINANCE_PAYMENT_RECORD_PREFIX,
   type FinanceLoanScheduleResolver, type FinancePaymentEntryV1, type FinancePaymentLedgerV1,
@@ -49,14 +50,17 @@ export class FinanceLoanSettlementService {
     private readonly schedules: FinanceLoanScheduleResolver,
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {}
 
   private async load(loanId: string) {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && operating.vehicleId !== loan.data.details.vehicleId) throw new Error("finance_payment_settlement_operating_vehicle_mismatch");
     const raw = await this.repository.get<unknown>(ledgerId(loanId));
     if (raw) assertFinancePaymentLedgerV1(raw.data, loanId);
-    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined };
+    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined, operating };
   }
 
   private async rows(loanId: string, loan: FinanceLoanRecordV1, version: number): Promise<readonly ScheduleRow[]> {
@@ -188,6 +192,7 @@ export class FinanceLoanSettlementService {
         ...loan, updatedAt: createdAt, revision: loan.revision + 1,
         data: { ...loan.data, lifecycleState: "closed" },
       };
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       if (await this.repository.compareAndSetMany([
         { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
         { id, expectedRevision: ledger?.revision ?? null, next: nextLedger },
