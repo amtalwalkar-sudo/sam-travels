@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, foundation/native-android-architecture, 'phase-*/*', fix/performance-calculation-contract-v1]
+    branches: [main, foundation/native-android-architecture, 'phase-*/*', fix/performance-calculation-contract-v1, 'docs/**']
 concurrency:
   group: sam-travels-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
