@@ -272,8 +272,7 @@ try {
   await page.getByRole("status").filter({ hasText: "Saved." }).last().waitFor({ state: "visible" });
   console.log("Finance and expense Admin workflows submitted.");
   await page.getByRole("button", { name: "Maintenance", exact: true }).click();
-  const maintenanceVehicle = page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first();
-  await maintenanceVehicle.selectOption(vehicleId);
+  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context").filter({ hasText: registration }).waitFor();
   await page.getByRole("button", { name: "Start service visit", exact: true }).click();
   await page.getByLabel("Maintenance type").fill("Scheduled service");
   await page.getByLabel("Date", { exact: true }).fill(today);
@@ -286,7 +285,7 @@ try {
   await page.getByLabel("Amount (₹)").fill("1200");
   await page.getByRole("button", { name: "Save maintenance record", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Service visit saved." }).waitFor({ state: "visible" });
-  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").nth(1).selectOption("expense");
+  await page.locator("#admin-section-panel-maintenance .admin-vehicle-context select").first().selectOption("expense");
   await page.getByRole("button", { name: "Start general expense", exact: true }).click();
   await page.getByLabel("Expense name").fill("Acceptance tyre repair");
   await page.getByLabel("Date", { exact: true }).fill(today);
