@@ -36,7 +36,7 @@ const otherVehicleId = "feature:vehicle:MH02CD5678";
 function row<T>(id: string, data: T): RecordEnvelope<T> {
   return { id, schemaVersion: 1, createdAt: at, updatedAt: at, source: "web", revision: 1, data };
 }
-async function setup() {
+async function setup(configurationOverride?: (base: OperatingConfigurationServiceV1) => Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">) {
   const repository = new MemoryRepository();
   await repository.put(row("work:selected-driver", { schemaVersion: 1, driverId: "driver-1" }));
   await repository.put(row(driverRecordId("driver-1"), {
@@ -55,16 +55,17 @@ async function setup() {
     vehicleType: "LCV", fuelType: "CNG", yearOfManufacture: 2022, ownership: "Owned", lifecycleState: "inactive",
   }));
   const configuration = new OperatingConfigurationServiceV1(repository);
+  const operatingConfiguration = configurationOverride?.(configuration) ?? configuration;
   const vehicles = { async getById(id: string) { return repository.get<{ lifecycleState: string }>(id); } };
   const expenses = new BusinessExpensesService(repository, {
     validateRecord: assertBusinessExpenseRecordV1, validateFuelPurchase: assertFuelPurchaseV1,
     validateExpenseEntry: assertBusinessExpenseEntryV1, calculateDailyExpenses: calculateDailyBusinessExpenses,
     calculateFuelIntervals, calculateFuelCostRateHistory,
-  }, vehicles, () => at, undefined, configuration);
+  }, vehicles, () => at, undefined, operatingConfiguration);
   const maintenance = new MaintenanceService(repository, assertMaintenanceRecordV1, vehicles,
-    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => at, configuration);
+    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, () => at, operatingConfiguration);
   const finance = new FinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1,
-    createLoanScheduleVersion, loanCalculationInputsChanged, () => at, configuration);
+    createLoanScheduleVersion, loanCalculationInputsChanged, () => at, operatingConfiguration);
   return { repository, expenses, maintenance, finance };
 }
 
@@ -102,4 +103,35 @@ describe("operating-context command guards", () => {
     })).rejects.toThrow("finance_loan_operating_vehicle_mismatch");
     expect(await repository.list()).toEqual(before);
   });
+  it("rejects stale operating-configuration revisions before Fuel, expense, Maintenance and Finance writes", async () => {
+    const { repository, expenses, maintenance, finance } = await setup(base => ({
+      get: () => base.get(),
+      assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
+    }));
+    const before = await repository.list();
+    await expect(expenses.createFuelPurchase({
+      uuid: "123e4567-e89b-42d3-a456-426614174044", source: "web",
+      data: { businessDate: "2026-11-20", occurredAt: at, vehicleId,
+        odometerKm: 45001, pricePaisePerKg: 9000, amountPaise: 18000, partialRefill: false },
+    })).rejects.toThrow("operating_configuration_stale");
+    await expect(expenses.createExpenseEntry({
+      uuid: "123e4567-e89b-42d3-a456-426614174045", source: "web",
+      data: { sourceKind: "miscellaneous", businessDate: "2026-11-20", amountPaise: 10000,
+        currencyCode: "INR", effect: "charge", vehicleId, driverId: "driver-1",
+        category: "Cleaning", description: "Configured operating context changed before commit" },
+    })).rejects.toThrow("operating_configuration_stale");
+    await expect(maintenance.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174046", source: "web",
+      data: { vehicleId, expenseDate: "2026-11-20",
+        expenseName: "Tyre", description: "Configured operating context changed before commit", amountPaise: 10000 },
+    })).rejects.toThrow("operating_configuration_stale");
+    await expect(finance.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174047", source: "web",
+      details: { loanName: "Configured vehicle loan", lenderName: "Lender", vehicleId,
+        principalPaise: 100000, annualInterestRateBasisPoints: 1200, loanStartDate: "2026-11-20",
+        tenureMonths: 12, firstEmiDate: "2026-12-01" },
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(before);
+  });
+
 });
