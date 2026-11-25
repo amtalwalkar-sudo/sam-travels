@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1
+  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1, OperatingConfigurationServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -45,6 +45,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationRecordSource(getPlatformRecordSource());
   registerBrowserBackupParticipants();
   const repository = await createPlatformRepository();
+  const operatingConfiguration = new OperatingConfigurationServiceV1(repository);
   const performanceAdminSettings = new PerformanceAdminSettingsServiceV1(repository);
   const identityService = await initializePersonIdentityRuntime(repository, getPlatformRecordSource());
   const currentAuthor = async () => {
@@ -137,6 +138,7 @@ async function bootstrap(): Promise<void> {
   });
   const adminServices = Object.freeze({
     formRuntime,
+    operatingConfiguration,
     businessSettings: getApplicationBusinessSettingsService(),
     costAllocation,
     vehicles: getApplicationVehicleService(),
