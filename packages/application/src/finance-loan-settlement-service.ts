@@ -15,6 +15,7 @@ type LoanDirectory = { get(id: string): Promise<RecordEnvelope<FinanceLoanRecord
 type SettlementPreview = Readonly<{
   amountPaise: number; scheduleVersion: number; paidThroughInstallment: number;
   loanRevision: number; paymentLedgerRevision: number | null;
+  operatingConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>;
 }>;
 const METHODS = new Set<FinancePaymentMethodV1>(["cash", "bank_transfer", "cheque", "upi", "other"]);
 const DATE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/;
@@ -114,6 +115,7 @@ export class FinanceLoanSettlementService {
       amountPaise: settlementRow.closingPrincipalPaise as number,
       scheduleVersion: version, paidThroughInstallment: settlementRow.installmentNumber,
       loanRevision: loan.revision, paymentLedgerRevision: ledger?.revision ?? null,
+      ...(this.operatingConfiguration ? { operatingConfiguration: await this.operatingConfiguration.get() } : {}),
     };
   }
 
@@ -146,6 +148,9 @@ export class FinanceLoanSettlementService {
       }
       if (loan.data.lifecycleState === "closed" || entries.some(entry => entry.kind === "settlement")) {
         throw new Error("finance_loan_already_settled");
+      }
+      if (JSON.stringify(operating ?? null) !== JSON.stringify(input.preview.operatingConfiguration ?? null)) {
+        throw new Error("finance_payment_settlement_operating_context_stale");
       }
       if (loan.revision !== input.preview.loanRevision ||
           (ledger?.revision ?? null) !== input.preview.paymentLedgerRevision) {
