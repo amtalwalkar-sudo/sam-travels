@@ -37,7 +37,7 @@ export function createMaintenanceExpenseCorrectionAdapter(
   records: AtomicRecordBatchRepository,
   source: RecordEnvelope<unknown>["source"],
   identity: PersonIdentityService,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): MaintenanceExpenseCorrectionAdapter {
   const corrections = new HistoricalCorrectionService(records, identity, {
     resolve: async (record: RecordEnvelope<unknown>) => {
@@ -74,10 +74,13 @@ export function createMaintenanceExpenseCorrectionAdapter(
     listForTarget: (targetRecordId: string) => corrections.listForTarget(targetRecordId),
     submit: async (input: Parameters<HistoricalCorrectionService["submit"]>[0]) => {
       if (operatingConfiguration) {
-        const target = await records.get(input.targetRecordId);
-        if (!target || (target.data as { vehicleId?: string }).vehicleId !== (await operatingConfiguration.get()).vehicleId) {
+        const [target, configuration] = await Promise.all([
+          records.get(input.targetRecordId), operatingConfiguration.get(),
+        ]);
+        if (!target || (target.data as { vehicleId?: string }).vehicleId !== configuration.vehicleId) {
           throw new Error("maintenance_correction_operating_vehicle_mismatch");
         }
+        await operatingConfiguration.assertCurrent(configuration);
       }
       return corrections.submit(input);
     },
