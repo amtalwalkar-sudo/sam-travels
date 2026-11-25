@@ -189,6 +189,12 @@ class FuelCorrectionCapacitorAcceptanceTest {
             """))
             assertTrue("Price correction is confirmed in WebView", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 20000))
+            assertTrue("Corrected price is immediately visible in the Room-backed purchase list",
+                awaitMaintenanceJavascript(startedActivity, """
+                    [...document.querySelectorAll('.fuel-entry-panel article')]
+                      .some(node => node.textContent.includes('Amount ₹250.00') &&
+                        node.textContent.includes('Price ₹100.00/kg'))
+                """, 15000))
             val original = JSONObject(database.records().get(fuelId)!!.json).getJSONObject("data")
             assertEquals("Original Room fuel amount remains immutable", 18000, original.getInt("amountPaise"))
             assertEquals("Original Room fuel price remains immutable", 9000, original.getInt("pricePaisePerKg"))
