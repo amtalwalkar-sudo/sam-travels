@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTripHistory, type DriverEvent } from "../packages/features/work-shift";
+import { buildTripHistory, buildTripHistoryWithBackfills, type DriverEvent } from "../packages/features/work-shift";
 
 const event = (id: string, revision: number, eventType: DriverEvent["command"]["eventType"], at: string, expectedPriorState: DriverEvent["command"]["expectedPriorState"] = "trip_active"): DriverEvent => ({
   eventId: id,
@@ -20,6 +20,29 @@ const event = (id: string, revision: number, eventType: DriverEvent["command"]["
 });
 
 describe("durable trip history projection", () => {
+  it("merges separately attributed historical trips without manufacturing event or GPS evidence", () => {
+    const backfill = {
+      schemaVersion: 1 as const, kind: "historical_trip_backfill" as const,
+      backfillId: "paper-trip-1", status: "submitted" as const, attribution: "admin_declared" as const,
+      driverId: "driver-1", vehicleId: "vehicle-1", operationalDate: "2026-11-10",
+      startedAt: "2026-11-10T08:00:00.000Z", endedAt: "2026-11-10T08:35:00.000Z",
+      farePaise: 12500, reason: "Omitted during offline entry",
+      recordedAt: "2026-11-11T10:00:00.000Z",
+      actor: { role: "admin" as const, actorId: "admin-1" },
+    };
+    const [trip] = buildTripHistoryWithBackfills([], [backfill]);
+    expect(trip).toMatchObject({
+      id: "historical-backfill:paper-trip-1", source: "historical_backfill",
+      status: "completed", farePaise: 12500, attribution: "admin_declared",
+      actor: { role: "admin", actorId: "admin-1" },
+    });
+    expect(trip).not.toHaveProperty("startEventId");
+    expect(trip).not.toHaveProperty("endEventId");
+    expect(trip).not.toHaveProperty("startGps");
+    expect(trip).not.toHaveProperty("endGps");
+    expect(trip).not.toHaveProperty("tripContext");
+  });
+
   it("pairs completed and cancelled trips from immutable events", () => {
     const trips = buildTripHistory([
       event("start-1", 2, "trip_start", "2026-11-04T09:00:00.000Z"),
