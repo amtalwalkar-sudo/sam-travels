@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -100,6 +101,25 @@ class OperatingConfigurationResolverTest {
             put(missing, "feature:driver-records:assignment:driver-1", assignment())
             failure(missing, "work_driver_not_selected")
         } finally { missing.close() }
+    }
+
+
+    @Test fun roomResolverRevisionSnapshotDetectsChangedConfiguredPairSources() {
+        val db = db()
+        try {
+            seed(db)
+            val before = WorkDriverContextResolver.resolve(db, at)
+            put(db, "feature:vehicle:MH01AB1234", vehicle(), 5)
+            val afterVehicle = WorkDriverContextResolver.resolve(db, at)
+            assertEquals(before.getString("driverId"), afterVehicle.getString("driverId"))
+            assertEquals(before.getString("assignmentId"), afterVehicle.getString("assignmentId"))
+            assertNotEquals(before.getInt("vehicleRevision"), afterVehicle.getInt("vehicleRevision"))
+
+            put(db, "feature:driver-records:assignment:driver-1",
+                assignment(assignmentId = "assignment-2"), 6)
+            val afterAssignment = WorkDriverContextResolver.resolve(db, at)
+            assertNotEquals(afterVehicle.getInt("assignmentRevision"), afterAssignment.getInt("assignmentRevision"))
+        } finally { db.close() }
     }
 
     @Test fun rejectsAssignmentNotEffectiveAtTransition() {
