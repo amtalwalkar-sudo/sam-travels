@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { assertBrowserFuelPerformanceAndBackupJourney, assertBrowserWorkDistanceThroughUi } from "./stage3-browser-golden-journey.mjs";
+import { installFuelGeolocationStub, readBrowserRecords, waitForServer } from "./fuel-entry-browser-helpers.mjs";
 const baseUrl = "http://127.0.0.1:4175";
 const adminPin = String(Math.floor(1000 + Math.random() * 9000));
 const registration = "MH00AA0091";
@@ -9,64 +10,14 @@ const server = spawn("npm", ["run", "dev", "--", "--host", "127.0.0.1", "--port"
   stdio: "ignore",
 });
 let browser;
-async function waitForServer() {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    try {
-      const response = await fetch(baseUrl);
-      if (response.ok) return;
-    } catch {
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error("fuel_entry_browser_server_did_not_start");
-}
-async function readBrowserRecords(page) {
-  return page.evaluate(async () => {
-    const request = indexedDB.open("sam-travels-browser");
-    const db = await new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const rows = await new Promise((resolve, reject) => {
-      const transaction = db.transaction("records", "readonly");
-      const read = transaction.objectStore("records").getAll();
-      let result;
-      read.onsuccess = () => { result = read.result; };
-      read.onerror = () => reject(read.error);
-      transaction.oncomplete = () => resolve(result ?? []);
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error("browser_records_read_aborted"));
-    });
-    db.close();
-    return rows;
-  });
-}
 try {
-  await waitForServer();
+  await waitForServer(baseUrl);
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.clock.install({ time: new Date(Date.now() - 86_400_000) });
   page.on("pageerror", error => console.error("BROWSER PAGE ERROR", error.stack ?? error.message));
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition(success) {
-          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
-          localStorage.setItem("__fuel_geo_calls", String(calls));
-          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
-        },
-        watchPosition(success) {
-          const calls = Number(localStorage.getItem("__fuel_geo_calls") || "0") + 1;
-          localStorage.setItem("__fuel_geo_calls", String(calls));
-          if (window.__fuel_allow_work_gps) success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
-          return 1;
-        },
-        clearWatch() {},
-      },
-    });
-  });
+  await installFuelGeolocationStub(page);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.getByText("Local workspace ready", { exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("button", { name: "Admin", exact: true }).click();
