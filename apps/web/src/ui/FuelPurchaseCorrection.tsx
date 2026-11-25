@@ -10,6 +10,11 @@ const money = (paise: number) => new Intl.NumberFormat("en-IN", {
   style: "currency", currency: "INR", maximumFractionDigits: 2,
 }).format(paise / 100);
 
+function correctionValue(fieldPath: string, value: unknown): string {
+  if (fieldPath === "amountPaise" || fieldPath === "pricePaisePerKg") return money(Number(value));
+  return String(value);
+}
+
 function rupeesToPaise(value: string): number {
   if (!/^[0-9]+(?:[.][0-9]{1,2})?$/.test(value)) throw new Error("Enter a valid amount.");
   const [whole, fraction = ""] = value.split(".");
@@ -83,7 +88,7 @@ export function FuelPurchaseCorrection({ purchase, service, onCorrected }: {
     </button>
     <small>Current amount: {money(purchase.data.amountPaise)} · Current price: {money(purchase.data.pricePaisePerKg)}/kg</small>
     {history.map(item => <small key={item.correctionId}>
-      {item.recordedAt} · {field === "amountPaise" ? money(Number(item.beforeValue)) : money(Number(item.beforeValue))} → {money(Number(item.afterValue))} · {item.actor.role} · {item.reason}
+      {item.recordedAt} · {item.fieldPath}: {correctionValue(item.fieldPath, item.beforeValue)} → {correctionValue(item.fieldPath, item.afterValue)} · {item.actor.role} · {item.reason}
     </small>)}
     {open && <form className="admin-capability-form" onSubmit={submit}>
       <label>Field to correct
