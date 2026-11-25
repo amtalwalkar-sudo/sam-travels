@@ -266,6 +266,8 @@ export class BusinessExpensesService {
     afterValue: import("../../domain/src/historical-correction").CorrectionJsonValue;
     reason: string;
     businessEffectiveDate?: string;
+    expectedTargetRevision?: number;
+    expectedChainRevision?: number;
   }>) {
     if (!this.historicalCorrections?.submit) throw new Error("business_expense_historical_correction_unavailable");
     const target = await this.records.get(input.targetRecordId);
@@ -274,8 +276,8 @@ export class BusinessExpensesService {
     return this.historicalCorrections.submit({
       correctionId: input.correctionId,
       targetRecordId: input.targetRecordId,
-      expectedTargetRevision: target.revision,
-      expectedChainRevision: corrections.length,
+      expectedTargetRevision: input.expectedTargetRevision ?? target.revision,
+      expectedChainRevision: input.expectedChainRevision ?? corrections.length,
       fieldPath: input.fieldPath,
       afterValue: input.afterValue,
       reason: input.reason,
