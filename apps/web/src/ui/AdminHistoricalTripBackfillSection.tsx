@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { HistoricalTripBackfillV1 } from "../../../../packages/domain/src/historical-trip-backfill";
 import type { RecordEnvelope } from "../../../../packages/core/src/types";
-import { useHistoricalTripBackfillService } from "./admin-services-context";
+import { useHistoricalTripBackfillService, useAdminDriverServices } from "./admin-services-context";
 import "./AdminFormControls.css";
 
 type BackfillRecord = RecordEnvelope<HistoricalTripBackfillV1>;
@@ -25,7 +25,10 @@ const displayTime = (value: string) => new Intl.DateTimeFormat("en-IN", { timeZo
 
 export function AdminHistoricalTripBackfillSection() {
   const service = useHistoricalTripBackfillService();
+  const { driverRecords, vehicles } = useAdminDriverServices();
   const [records, setRecords] = useState<BackfillRecord[]>([]);
+  const [drivers, setDrivers] = useState<Awaited<ReturnType<typeof driverRecords.list>>>([]);
+  const [vehicleRecords, setVehicleRecords] = useState<Awaited<ReturnType<typeof vehicles.list>>>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,9 +37,13 @@ export function AdminHistoricalTripBackfillSection() {
     endedAt: "", fare: "", reason: "",
   });
   const refresh = useCallback(async () => {
-    try { setRecords([...(await service.list())]); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Could not load historical trips."); }
-  }, [service]);
+    try {
+      const [backfills, driverRows, vehicleRows] = await Promise.all([
+        service.list(), driverRecords.list(), vehicles.list(),
+      ]);
+      setRecords([...backfills]); setDrivers(driverRows); setVehicleRecords(vehicleRows);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load historical trips."); }
+  }, [service, driverRecords, vehicles]);
   useEffect(() => { void refresh(); }, [refresh]);
   function change(field: keyof typeof form, value: string) { setForm(previous => ({ ...previous, [field]: value })); }
   async function save(event: FormEvent) {
@@ -64,8 +71,14 @@ export function AdminHistoricalTripBackfillSection() {
     {!open && <button className="admin-primary" type="button" onClick={() => { setOpen(true); setMessage(""); }}>Add missing historical trip</button>}
     {open && <form className="admin-capability-form" onSubmit={save}>
       <div className="loan-form-grid">
-        <label>Driver record ID<input required maxLength={128} value={form.driverId} onChange={e => change("driverId", e.target.value)} placeholder="Driver ID" /></label>
-        <label>Vehicle record ID<input required maxLength={128} value={form.vehicleId} onChange={e => change("vehicleId", e.target.value)} placeholder="Vehicle ID" /></label>
+        <label>Driver<select required value={form.driverId} onChange={e => change("driverId", e.target.value)}>
+          <option value="">Select historical Driver</option>
+          {drivers.map(driver => <option key={driver.id} value={driver.data.driverId}>{driver.data.name} · {driver.data.lifecycleState}</option>)}
+        </select></label>
+        <label>Vehicle<select required value={form.vehicleId} onChange={e => change("vehicleId", e.target.value)}>
+          <option value="">Select historical Vehicle</option>
+          {vehicleRecords.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber} · {vehicle.data.lifecycleState}</option>)}
+        </select></label>
         <label>Trip started (India time)<input required type="datetime-local" value={form.startedAt} onChange={e => change("startedAt", e.target.value)} /></label>
         <label>Trip ended (India time)<input required type="datetime-local" min={form.startedAt} value={form.endedAt} onChange={e => change("endedAt", e.target.value)} /></label>
         <label>Fare (₹)<input required type="number" min="0" step="0.01" value={form.fare} onChange={e => change("fare", e.target.value)} /></label>
