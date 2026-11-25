@@ -75,7 +75,7 @@ export class MaintenanceService {
     private readonly calculateVisitTotal: MaintenanceVisitTotalCalculator,
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent"> & Partial<Pick<OperatingConfigurationServiceV1, "getForReadOnly">>,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -83,6 +83,18 @@ export class MaintenanceService {
       recordIdPrefix: PREFIX,
       validate,
     }, now);
+  }
+
+  private async requireVehicleReadOnly(vehicleId: string) {
+    const configuration = this.operatingConfiguration
+      ? await (this.operatingConfiguration.getForReadOnly
+        ? this.operatingConfiguration.getForReadOnly()
+        : this.operatingConfiguration.get())
+      : undefined;
+    if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
+    const vehicle = await this.vehicles.getById(vehicleId);
+    if (!vehicle) throw new Error("maintenance_vehicle_not_found");
+    return vehicle;
   }
 
   private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
@@ -131,7 +143,7 @@ export class MaintenanceService {
     record?: RecordEnvelope<MaintenanceRateHistoryV1>;
     entries: readonly MaintenanceRateHistoryEntry[];
   }> {
-    const vehicle = await this.requireVehicle(vehicleId);
+    const vehicle = await this.requireVehicleReadOnly(vehicleId);
     const id = rateHistoryId(vehicleId);
     const storedRecord = await this.records.get(id);
     let record: RecordEnvelope<MaintenanceRateHistoryV1> | undefined;
@@ -299,7 +311,7 @@ export class MaintenanceService {
     rateHistory: readonly MaintenanceRateHistoryEntry[];
     rateHistoryRecord?: RecordEnvelope<MaintenanceRateHistoryV1>;
   }> {
-    await this.requireVehicle(vehicleId);
+    await this.requireVehicleReadOnly(vehicleId);
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
     const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];
