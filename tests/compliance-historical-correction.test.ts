@@ -66,6 +66,32 @@ describe("Compliance historical correction policy", () => {
       .toMatchObject({ featureId: "compliance", fieldPath: "totalCostPaise" });
   });
 
+
+  it("rejects a Compliance correction when the operating configuration revision is stale", async () => {
+    const repository = new MemoryRepository();
+    await repository.put({
+      id: targetId, schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1, createdBy: { personId: "admin-1", role: "admin" },
+      data: originalData,
+    });
+    const service = createComplianceHistoricalCorrectionService(repository, {
+      async currentActor() {
+        return { role: "admin" as const, actorId: "admin-1", adminPinVerifiedAt: timestamp };
+      },
+    }, "web", () => timestamp, {
+      get: async () => ({ vehicleId: originalData.vehicleId }),
+      assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
+    } as never);
+    const before = await repository.list();
+    await expect(service.submit({
+      correctionId: "stale-compliance-correction", targetRecordId: targetId,
+      expectedTargetRevision: 1, expectedChainRevision: 0,
+      fieldPath: "totalCostPaise", afterValue: 366000,
+      reason: "Corrected from receipt",
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(before);
+  });
+
   it("rejects changes to vehicle identity and renewal linkage", async () => {
     const { service } = setup();
     await expect(service.submit({
