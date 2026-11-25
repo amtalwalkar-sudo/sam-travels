@@ -6,11 +6,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.time.Instant
 import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
@@ -33,7 +31,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val previousPerson = database.records().get("identity:person:$personId")
         val previousFuel = database.records().get(fuelId)
         val now = "2026-11-15T05:00:00.000Z"
-        lateinit var activity: MainActivity
+        var activity: MainActivity? = null
         try {
             database.records().put(maintenanceEnvelope(vehicleId, now, JSONObject()
                 .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
@@ -49,18 +47,19 @@ class FuelCorrectionCapacitorAcceptanceTest {
             database.records().put(maintenanceEnvelope(fuelId, now, fuelData,
                 JSONObject().put("personId", personId).put("role", "driver")))
             NativeStartupRecovery.invalidate(database)
-            activity = instrumentation.startActivitySync(
+            val startedActivity = instrumentation.startActivitySync(
                 Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             ) as MainActivity
-            assertTrue("Drive workspace loads", awaitMaintenanceJavascript(activity,
+            activity = startedActivity
+            assertTrue("Drive workspace loads", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.driver-card') !== null", 30000))
-            assertTrue("Fuel entry launcher is visible", awaitMaintenanceJavascript(activity,
+            assertTrue("Fuel entry launcher is visible", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-toggle') !== null", 10000))
-            assertTrue("Fuel entry opens", evaluateMaintenanceWebView(activity,
+            assertTrue("Fuel entry opens", evaluateMaintenanceWebView(startedActivity,
                 "document.querySelector('.fuel-entry-toggle')?.click();true"))
-            assertTrue("Existing fuel purchase is listed", awaitMaintenanceJavascript(activity,
+            assertTrue("Existing fuel purchase is listed", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.textContent.includes('45000 km')", 15000))
-            assertTrue("Correction action opens", evaluateMaintenanceWebView(activity, """
+            assertTrue("Correction action opens", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const card = [...document.querySelectorAll('.fuel-entry-panel article')]
                     .find(node => node.textContent.includes('45000 km'));
@@ -70,11 +69,11 @@ class FuelCorrectionCapacitorAcceptanceTest {
                   return Boolean(button);
                 })()
             """))
-            assertTrue("Correction fields are rendered", awaitMaintenanceJavascript(activity,
+            assertTrue("Correction fields are rendered", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel label input[type=number]') !== null && " +
                     "[...document.querySelectorAll('.fuel-entry-panel label')].some(n=>n.textContent.includes('Reason for correction'))",
                 10000))
-            assertTrue("Correction values are entered", evaluateMaintenanceWebView(activity, """
+            assertTrue("Correction values are entered", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const set = (labelText, value) => {
                     const label = [...document.querySelectorAll('.fuel-entry-panel label')]
@@ -88,7 +87,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
                   return set('Corrected value', '250.00') && set('Reason for correction', 'Room receipt verified');
                 })()
             """))
-            assertTrue("Correction submit is available", evaluateMaintenanceWebView(activity, """
+            assertTrue("Correction submit is available", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const button = [...document.querySelectorAll('.fuel-entry-panel button')]
                     .find(node => node.textContent.includes('Append correction'));
@@ -97,10 +96,10 @@ class FuelCorrectionCapacitorAcceptanceTest {
                   return true;
                 })()
             """))
-            assertTrue("Correction is confirmed in WebView", awaitMaintenanceJavascript(activity,
+            assertTrue("Correction is confirmed in WebView", awaitMaintenanceJavascript(startedActivity,
                 "document.querySelector('.fuel-entry-panel')?.textContent.includes('Correction appended')", 20000))
             assertTrue("Corrected amount is immediately projected into the daily read model",
-                awaitMaintenanceJavascript(activity,
+                awaitMaintenanceJavascript(startedActivity,
                     "document.querySelector('[aria-label=\"Fuel calculation readback\"]')?.textContent.includes('25000 paise')",
                     15000))
             val original = JSONObject(database.records().get(fuelId)!!.json).getJSONObject("data")
@@ -119,7 +118,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             val chain = JSONObject(database.records().get(chainId)!!.json).getJSONObject("data")
             assertEquals(1, chain.getInt("chainRevision"))
         } finally {
-            if (::activity.isInitialized) activity.finish()
+            activity?.finish()
             database.records().remove(fuelId)
             database.records().remove(vehicleId)
             database.records().remove("feature:driver-records:driver:$driverId")
