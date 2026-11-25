@@ -76,9 +76,29 @@ try {
         items: [{ id: "123e4567-e89b-42d3-a456-426614174014", description: "Oil service", amountPaise: 20000 }],
         totalPaise: 20000 },
     };
+    const driverId = "browser-driver";
+    const driver = {
+      id: "feature:driver-records:driver:" + driverId, schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId, name: "Browser Acceptance Driver", lifecycleState: "active" },
+    };
+    const selection = {
+      id: "work:selected-driver", schemaVersion: 1, createdAt: timestamp, updatedAt: timestamp,
+      source: "web", revision: 1, data: { schemaVersion: 1, driverId },
+    };
+    const assignment = {
+      id: "feature:driver-records:assignment:" + driverId, schemaVersion: 1,
+      createdAt: timestamp, updatedAt: timestamp, source: "web", revision: 1,
+      data: { schemaVersion: 1, driverId, assignments: [
+        { assignmentId: "browser-assignment", vehicleId, assignedAt: timestamp },
+      ] },
+    };
     await new Promise((resolve, reject) => {
       const tx = db.transaction("records", "readwrite");
       tx.objectStore("records").put(vehicle);
+      tx.objectStore("records").put(driver);
+      tx.objectStore("records").put(selection);
+      tx.objectStore("records").put(assignment);
       tx.objectStore("records").put(expense);
       tx.objectStore("records").put(visit);
       tx.oncomplete = resolve;
@@ -108,8 +128,7 @@ try {
   await maintenanceSection.locator(".admin-replacement-section-content").waitFor();
   const maintenancePanel = maintenanceSection.locator(".admin-capability-panel").filter({ hasText: "Record actual service visits" });
   await maintenancePanel.waitFor();
-  const vehicleSelect = maintenancePanel.locator("select").first();
-  await vehicleSelect.selectOption({ label: "MH01AB1234" });
+  await maintenancePanel.locator(".admin-vehicle-context").filter({ hasText: "MH01AB1234" }).waitFor();
   await maintenancePanel.locator("details.loan-schedule > summary").click();
   await page.getByText("Browser acceptance repair", { exact: false }).waitFor();
   const expenseCard = page.locator(".admin-capability-record").filter({ hasText: "Browser acceptance repair" });
