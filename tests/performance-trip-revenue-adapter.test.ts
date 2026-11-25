@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PerformanceTripRevenueAdapterV1 } from "../packages/application/src/performance-trip-revenue-adapter";
 import type { RecordEnvelope } from "../packages/core/src/types";
+import type { HistoricalTripBackfillV1 } from "../packages/domain/src/historical-trip-backfill";
 import type { CancellationFeeObligation, CompletedTripFinancialObligation } from "../packages/application/src/trip-financial-service";
 
 function envelope<T>(id: string, data: T, revision = 1): RecordEnvelope<T> {
@@ -52,7 +53,7 @@ describe("Performance trip revenue adapter v1", () => {
       farePaise: 8750, reason: "Reconciled from the paper trip sheet",
       recordedAt: "2026-04-08T10:00:00.000Z",
       actor: { role: "admin", actorId: "admin-1" },
-    }, 4);
+    } satisfies HistoricalTripBackfillV1, 4);
     const adapter = new PerformanceTripRevenueAdapterV1({
       submittedTripFinancialRecords: async () => [],
     }, { list: async () => [backfill] });
