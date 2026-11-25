@@ -135,6 +135,49 @@ describe("trip financial append-only corrections", () => {
     expect(await revenue.getSourceSnapshotIdentity()).toContain("historical-correction:fare-correction-revenue@1");
   });
 
+
+  it("wires append-only corrections through the production form runtime readback", async () => {
+    const records = new Records();
+    const original = sourceRecord();
+    await records.put(original);
+    const corrections = new TripFinancialCorrectionServiceV1(records, {
+      currentActor: async () => ({ role: "driver", actorId: "driver-person" }),
+    }, "web", () => "2026-11-11T01:00:00.000Z");
+    const runtime = createTripFinancialFormRuntimeV1(
+      records, "web",
+      async () => ({ personId: "driver-person", role: "driver" }),
+      corrections,
+    );
+
+    const initial = await runtime.listSubmittedTripFinancialRecords();
+    expect(initial).toHaveLength(1);
+    expect(initial[0].data).toMatchObject({ farePaise: 10000, tollPaise: 500 });
+    expect(initial[0].correctionChainRevision).toBe(0);
+    expect(initial[0].correctionRefs).toEqual([]);
+
+    await runtime.corrections!.submit({
+      correctionId: "runtime-toll-correction",
+      targetRecordId: original.id,
+      expectedTargetRevision: original.revision,
+      expectedChainRevision: 0,
+      fieldPath: "tollPaise",
+      afterValue: 900,
+      reason: "Corrected toll from the original receipt",
+      businessEffectiveDate: "2026-11-10",
+    });
+
+    const refreshed = await runtime.listSubmittedTripFinancialRecords();
+    expect(refreshed[0].data).toMatchObject({
+      farePaise: 10000, tollPaise: 900, tollPayer: "driver",
+    });
+    expect(refreshed[0].correctionChainRevision).toBe(1);
+    expect(refreshed[0].correctionRefs).toEqual([{
+      sourceId: "historical-correction:runtime-toll-correction",
+      revision: 1, chainRevision: 1,
+    }]);
+    expect((await records.get<CompletedTripFinancialObligation>(original.id))?.data.tollPaise).toBe(500);
+  });
+
   it("rejects a stale chain revision rather than applying competing corrections", async () => {
     const records = new Records();
     const original = sourceRecord();
