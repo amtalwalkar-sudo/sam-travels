@@ -66,7 +66,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             assertTrue("Seeded driver identity option loads", awaitMaintenanceJavascript(startedActivity, """
                 [...document.querySelectorAll('.admin-replacement-shell label')]
                   .find(n=>n.textContent.includes('Select person'))
-                  ?.querySelector('select')?.querySelector('option[value='$personId']') !== null
+                  ?.querySelector("select")?.querySelector("option[value='$personId']") !== null
             """, 15000))
             assertTrue("Seeded driver identity can be selected", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
