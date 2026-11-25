@@ -1,6 +1,7 @@
 import type { AtomicRecordBatchRepository } from "../../core/src/repositories";
 import type { RecordAuthorV1, RecordEnvelope } from "../../core/src/types";
 import type { FinanceLoanRecordV1 } from "./finance-loan-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 export const FINANCE_PAYMENT_RECORD_PREFIX = "feature:finance:payments:";
 export type FinancePaymentMethodV1 = "cash" | "bank_transfer" | "cheque" | "upi" | "other";
@@ -194,7 +195,8 @@ export class FinanceLoanPaymentService {
   constructor(private readonly repository: AtomicRecordBatchRepository, private readonly loans: LoanDirectory,
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly scheduleResolver?: FinanceLoanScheduleResolver,
-    private readonly currentAuthor?: () => Promise<RecordAuthorV1>) {}
+    private readonly currentAuthor?: () => Promise<RecordAuthorV1>,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">) {}
 
   private async assertScheduleVersionForDate(loanId: string, version: number, businessDate: string): Promise<void> {
     const expected = await this.scheduleResolver?.getScheduleVersionForDate(loanId, businessDate);
@@ -212,9 +214,11 @@ export class FinanceLoanPaymentService {
   private async load(loanId: string): Promise<{ loan: RecordEnvelope<FinanceLoanRecordV1>; ledger?: RecordEnvelope<FinancePaymentLedgerV1> }> {
     const loan = await this.loans.get(loanId);
     if (!loan) throw new Error("finance_payment_loan_not_found");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && operating.vehicleId !== loan.data.details.vehicleId) throw new Error("finance_payment_operating_vehicle_mismatch");
     const id = ledgerId(loanId), raw = await this.repository.get<unknown>(id);
     if (raw) assertLedger(raw.data, loanId);
-    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined };
+    return { loan, ledger: raw as RecordEnvelope<FinancePaymentLedgerV1> | undefined, operating };
   }
   async list(loanId: string): Promise<readonly FinancePaymentEntryV1[]> {
     const { ledger } = await this.load(loanId); return ledger?.data.entries ?? [];
@@ -290,6 +294,8 @@ export class FinanceLoanPaymentService {
       const nextLoan: RecordEnvelope<FinanceLoanRecordV1> = {
         ...loan, updatedAt: createdAt, revision: loan.revision + 1,
       };
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+      if (operating) await this.operatingConfiguration?.assertCurrent(operating);
       if (await this.repository.compareAndSetMany([
         { id: loan.id, expectedRevision: loan.revision, next: nextLoan },
         { id, expectedRevision: ledger?.revision ?? null, next },
