@@ -47,7 +47,7 @@ export class ComplianceService {
     validate: ComplianceRecordValidator,
     private readonly vehicles: VehicleDirectory,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
+    _operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -58,7 +58,6 @@ export class ComplianceService {
   }
 
   async getOperatingVehicleId(): Promise<string> {
-    if (this.operatingConfiguration) return (await this.operatingConfiguration.get()).vehicleId;
     const configuration = resolveOperatingVehicle(await this.repository.list());
     return configuration.vehicleId;
   }
@@ -71,8 +70,8 @@ export class ComplianceService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<ComplianceRecordV1>> {
-    const operating = await this.operatingConfiguration?.get();
-    const operatingVehicleId = operating?.vehicleId ?? await this.getOperatingVehicleId();
+    const operating = resolveOperatingVehicle(await this.repository.list());
+    const operatingVehicleId = operating.vehicleId;
     if (input.data.vehicleId !== operatingVehicleId) throw new Error("compliance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(operatingVehicleId);
     if (!vehicle) throw new Error("compliance_vehicle_not_found");
@@ -88,7 +87,11 @@ export class ComplianceService {
       // Do not compare validity dates here: early renewal may create a legitimate
       // overlap, and late renewal must preserve the actual historical gap.
     }
-    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
+    const currentOperatingVehicle = resolveOperatingVehicle(await this.repository.list());
+    if (currentOperatingVehicle.vehicleId !== operating.vehicleId ||
+        currentOperatingVehicle.vehicleRevision !== operating.vehicleRevision) {
+      throw new Error("operating_configuration_stale");
+    }
     return this.records.create({
       id, data: input.data, source: input.source, businessDate: input.businessDate,
       operation: input.operation, now: input.now,
