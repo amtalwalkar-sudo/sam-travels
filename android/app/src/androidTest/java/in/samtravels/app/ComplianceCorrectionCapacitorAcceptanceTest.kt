@@ -146,7 +146,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
         })()
       """))
       assertTrue("Previous Compliance record is offered for renewal; form=" + evaluateMaintenanceWebView(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
-        "Array.from(document.querySelector('.admin-capability-form select')?.options ?? []).some(option => option.value === '$complianceId')",
+        "Array.from(document.querySelectorAll('.admin-capability-form label')).some(label => label.textContent.includes('Renewing previous record') && Array.from(label.querySelectorAll('option')).some(option => option.value === '$complianceId'))",
         10_000))
       assertTrue("Renewal links to the previous record", evaluateMaintenanceWebView(page, """
         (() => {

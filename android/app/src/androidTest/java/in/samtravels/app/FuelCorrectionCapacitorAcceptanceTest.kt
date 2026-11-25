@@ -29,11 +29,15 @@ class FuelCorrectionCapacitorAcceptanceTest {
         val previousDriver = database.records().get("feature:driver-records:driver:$driverId")
         val previousLink = database.records().get("identity:driver-person-link:$driverId")
         val previousPerson = database.records().get("identity:person:$personId")
-        val previousFuel = database.records().get(fuelId)
+        val previousFuelRecords = database.records().list().filter { row ->
+            row.id.startsWith("feature:business-expenses:fuel:") &&
+                JSONObject(row.json).optJSONObject("data")?.optString("vehicleId") == vehicleId
+        }
         val now = "2026-11-15T05:00:00.000Z"
         var activity: MainActivity? = null
         try {
             previousVehicleRecords.forEach { database.records().remove(it.id) }
+            previousFuelRecords.forEach { database.records().remove(it.id) }
             database.records().put(maintenanceEnvelope(vehicleId, now, JSONObject()
                 .put("schemaVersion", 1).put("registrationNumber", "MH01AB1234")
                 .put("make", "Tata").put("model", "Ace").put("vehicleType", "LCV")
@@ -243,7 +247,7 @@ class FuelCorrectionCapacitorAcceptanceTest {
             previousDriver?.let { database.records().put(it) }
             previousLink?.let { database.records().put(it) }
             previousPerson?.let { database.records().put(it) }
-            previousFuel?.let { database.records().put(it) }
+            previousFuelRecords.forEach { database.records().put(it) }
             database.close()
         }
     }
