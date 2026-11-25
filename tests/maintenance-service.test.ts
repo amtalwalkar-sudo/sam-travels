@@ -295,3 +295,62 @@ describe("MaintenanceService", () => {
   });
 
 });
+
+
+describe("Maintenance corrected actual-expense projections", () => {
+  it("uses append-only expense corrections in history and actual-expense totals without rewriting the source", async () => {
+    const { service, repository } = setup();
+    const original = await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174099",
+      data: { vehicleId, expenseDate: "2026-10-06", expenseName: "Towing",
+        description: "Roadside towing", amountPaise: 120000 },
+      source: "web",
+    });
+    const recordedAt = "2026-11-20T08:00:00.000Z";
+    const correction = {
+      schemaVersion: 1, correctionId: "maintenance-amount-fix",
+      targetRecordId: original.id, targetRecordRevision: original.revision,
+      featureId: "maintenance", chainRevision: 1, fieldPath: "amountPaise",
+      beforeValue: 120000, afterValue: 150000, reason: "Verified garage receipt",
+      actor: { role: "admin", actorId: "admin-person", adminPinVerifiedAt: recordedAt },
+      recordedAt,
+    } as const;
+    await repository.put({
+      id: "historical-correction:" + correction.correctionId,
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration", revision: 1, data: correction,
+    });
+    await repository.put({
+      id: "historical-correction-chain:" + encodeURIComponent(original.id),
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration", revision: 1,
+      data: { schemaVersion: 1, targetRecordId: original.id, chainRevision: 1,
+        headCorrectionId: correction.correctionId },
+    });
+
+    const history = await service.listVehicleRecords(vehicleId);
+    expect(history.expenses.find(row => row.id === original.id)?.data.amountPaise).toBe(150000);
+    expect(await service.getActualExpenseTotal(vehicleId)).toBe(150000);
+    expect((await repository.get<typeof original.data>(original.id))?.data.amountPaise).toBe(120000);
+  });
+
+  it("fails closed when a correction chain head does not match its append-only records", async () => {
+    const { service, repository } = setup();
+    const original = await service.createExpense({
+      uuid: "123e4567-e89b-42d3-a456-426614174098",
+      data: { vehicleId, expenseDate: "2026-10-06", expenseName: "Towing",
+        description: "Roadside towing", amountPaise: 120000 },
+      source: "web",
+    });
+    const recordedAt = "2026-11-20T08:00:00.000Z";
+    await repository.put({
+      id: "historical-correction-chain:" + encodeURIComponent(original.id),
+      schemaVersion: 1, createdAt: recordedAt, updatedAt: recordedAt,
+      source: "integration", revision: 1,
+      data: { schemaVersion: 1, targetRecordId: original.id, chainRevision: 1,
+        headCorrectionId: "missing-correction" },
+    });
+    await expect(service.getActualExpenseTotal(vehicleId))
+      .rejects.toThrow("maintenance_correction_chain_head_invalid");
+  });
+});
