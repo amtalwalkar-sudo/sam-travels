@@ -81,6 +81,43 @@ class NativeMaintenanceBackupTest {
     }
 
     @Test
+    fun acceptsAppendOnlyServiceVisitTotalCorrectionInBackup() {
+        val visitId = "feature:maintenance:visit:123e4567-e89b-42d3-a456-426614174000"
+        val visit = visitRow()
+        val correctionId = "visit-total-correction-1"
+        val recordedAt = "2026-11-03T08:00:00Z"
+        val correctionData = JSONObject()
+            .put("schemaVersion", 1).put("correctionId", correctionId)
+            .put("targetRecordId", visitId).put("targetRecordRevision", 1)
+            .put("featureId", "maintenance").put("chainRevision", 1)
+            .put("fieldPath", "totalPaise").put("beforeValue", 200000L)
+            .put("afterValue", 225000L).put("reason", "Final garage invoice verified")
+            .put("actor", JSONObject().put("role", "admin").put("actorId", "maintenance-admin")
+                .put("adminPinVerifiedAt", recordedAt))
+            .put("recordedAt", recordedAt).put("businessEffectiveDate", "2026-10-05")
+        val correctionEnvelope = JSONObject()
+            .put("id", "historical-correction:$correctionId").put("schemaVersion", 1)
+            .put("createdAt", recordedAt).put("updatedAt", recordedAt)
+            .put("source", "web").put("revision", 1)
+            .put("createdBy", JSONObject().put("personId", "maintenance-admin").put("role", "admin"))
+            .put("data", correctionData)
+        val correction = JSONObject().put("id", correctionEnvelope.getString("id"))
+            .put("json", correctionEnvelope.toString()).put("schemaVersion", 1)
+            .put("updatedAt", recordedAt).put("participantId", "maintenance-records")
+        val headId = "historical-correction-chain:" + java.net.URLEncoder.encode(visitId, "UTF-8")
+        val headEnvelope = JSONObject()
+            .put("id", headId).put("schemaVersion", 1)
+            .put("createdAt", recordedAt).put("updatedAt", recordedAt)
+            .put("source", "web").put("revision", 1)
+            .put("data", JSONObject().put("schemaVersion", 1).put("targetRecordId", visitId)
+                .put("chainRevision", 1).put("headCorrectionId", correctionId))
+        val head = JSONObject().put("id", headId).put("json", headEnvelope.toString())
+            .put("schemaVersion", 1).put("updatedAt", recordedAt).put("participantId", "maintenance-records")
+
+        NativeMaintenanceCorrectionBackup.validate(listOf(visit), listOf(visit, correction, head))
+    }
+
+    @Test
     fun ignoresOtherFeaturesHistoricalCorrectionRecords() {
         val expense = row(
             "feature:maintenance:expense:123e4567-e89b-42d3-a456-426614174003",
