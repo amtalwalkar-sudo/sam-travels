@@ -7,6 +7,7 @@ export * from "./admin-form-definitions";
 export * from "./driver-form-definitions";
 export * from "./form-definition-inventory";
 export * from "./trip-financial-service";
+export * from "./trip-financial-correction-service";
 export * from "./shared-form-runtime";
 export * from "./record-form-working-copy-repository";
 
