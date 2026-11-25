@@ -64,6 +64,20 @@ describe("separately attributed historical trip backfill", () => {
     expect(await records.list()).toHaveLength(1);
   });
 
+  it("rejects backfill payloads that attempt to attach Work, GPS, shift or odometer evidence", async () => {
+    const { assertHistoricalTripBackfillV1 } = await import("../packages/domain/src/historical-trip-backfill");
+    const valid = {
+      schemaVersion: 1, kind: "historical_trip_backfill", backfillId: "paper-trip",
+      status: "submitted", attribution: "admin_declared", driverId: "driver-1", vehicleId: "vehicle-1",
+      operationalDate: "2026-11-10", startedAt: "2026-11-10T08:00:00.000Z",
+      endedAt: "2026-11-10T08:30:00.000Z", farePaise: 1000, reason: "Paper log",
+      recordedAt: "2026-11-11T10:00:00.000Z", actor: { role: "admin", actorId: "admin-1" },
+    };
+    expect(() => assertHistoricalTripBackfillV1({ ...valid, odometerKm: 550 })).toThrow("historical_trip_backfill_invalid");
+    expect(() => assertHistoricalTripBackfillV1({ ...valid, tripContext: { shiftId: "made-up" } })).toThrow("historical_trip_backfill_invalid");
+    expect(() => assertHistoricalTripBackfillV1({ ...valid, startGps: { latitude: 0, longitude: 0 } })).toThrow("historical_trip_backfill_invalid");
+  });
+
   it("rejects Driver authority and invalid intervals", async () => {
     const records = new Records();
     const driverService = new HistoricalTripBackfillServiceV1(records, {
