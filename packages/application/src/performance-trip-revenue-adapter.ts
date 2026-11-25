@@ -3,6 +3,7 @@ import type {
   CancellationFeeObligation,
   CompletedTripFinancialObligation,
   TripFinancialService,
+  type SubmittedTripFinancialRecordV1,
 } from "./trip-financial-service";
 import type {
   PerformanceCompletenessV1,
@@ -13,9 +14,7 @@ import type {
   PerformanceRevenueReadModel,
 } from "./performance-calculation-service";
 
-type SubmittedTripFinancialRecord = RecordEnvelope<
-  CancellationFeeObligation | CompletedTripFinancialObligation
->;
+type SubmittedTripFinancialRecord = SubmittedTripFinancialRecordV1;
 
 function validOperationalDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -49,7 +48,10 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
   async getSourceSnapshotIdentity(): Promise<string> {
     const records = await this.records();
     return "performance-trip-revenue-sources:" + records
-      .map(record => record.id + "@" + record.revision)
+      .flatMap(record => [
+        record.id + "@" + record.revision,
+        ...(record.correctionRefs ?? []).map(ref => ref.sourceId + "@" + ref.revision),
+      ])
       .sort()
       .join("|");
   }
@@ -73,7 +75,10 @@ implements PerformanceRevenueReadModel, PerformanceCompletenessReadModel {
           grossFarePaise: data.farePaise!,
           cancellationFeePaise: 0,
           verified: true,
-          sourceRefs: Object.freeze([{ sourceId: record.id, revision: record.revision }]),
+          sourceRefs: Object.freeze([
+            { sourceId: record.id, revision: record.revision },
+            ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
+          ]),
         }));
       } else if (data.kind === "cancellation_fee") {
         if (!Number.isSafeInteger(data.feePaise) || (data.feePaise ?? -1) < 0) continue;
