@@ -88,7 +88,7 @@ export class FinanceLoanService {
     private readonly buildScheduleVersion: FinanceLoanScheduleBuilder,
     _calculationInputsChanged: FinanceLoanInputsChanged,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {
     this.records = new FeatureRecordService(repository, {
       featureId: "finance",
@@ -97,14 +97,15 @@ export class FinanceLoanService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<void> {
-    const configuration = await this.operatingConfiguration?.get();
+  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
+    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("finance_loan_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("finance_loan_vehicle_not_found");
     if (vehicle.id !== vehicleId || !vehicleId.startsWith("feature:vehicle:")) {
       throw new Error("finance_loan_vehicle_identity_invalid");
     }
+    return configuration;
   }
 
   async create(input: {
@@ -114,7 +115,7 @@ export class FinanceLoanService {
     operation?: FeatureRecordOperationIdentityV1;
     now?: string;
   }): Promise<RecordEnvelope<FinanceLoanRecordV1>> {
-    await this.requireVehicle(input.details.vehicleId);
+    const operating = await this.requireVehicle(input.details.vehicleId);
     const createdAt = input.now ?? this.now();
     const data: FinanceLoanRecordV1 = {
       schemaVersion: 1,
@@ -124,6 +125,7 @@ export class FinanceLoanService {
       scheduleVersions: [this.buildScheduleVersion(1, input.details, createdAt)],
       lifecycleState: "active",
     };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId(input.uuid),
       data,
