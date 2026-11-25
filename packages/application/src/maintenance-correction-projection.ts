@@ -15,10 +15,13 @@ export async function projectMaintenanceCorrectedRecord<T extends CorrectableMai
   record: RecordEnvelope<T>,
 ): Promise<RecordEnvelope<T>> {
   const correctionRows = await repository.list<HistoricalCorrectionV1>();
-  const corrections = correctionRows
-    .filter(row => row.id.startsWith("historical-correction:") &&
-      row.data?.schemaVersion === 1 && row.data.targetRecordId === record.id)
-    .map(row => row.data);
+  const matchingRows = correctionRows.filter(row => row.id.startsWith("historical-correction:") &&
+    row.data?.schemaVersion === 1 && row.data.targetRecordId === record.id);
+  if (matchingRows.some(row => row.revision !== 1 ||
+      row.id !== "historical-correction:" + row.data.correctionId)) {
+    throw new Error("maintenance_correction_record_invalid");
+  }
+  const corrections = matchingRows.map(row => row.data);
   const headId = "historical-correction-chain:" + encodeURIComponent(record.id);
   const head = await repository.get<{
     schemaVersion: number; targetRecordId: string; chainRevision: number; headCorrectionId?: string;
