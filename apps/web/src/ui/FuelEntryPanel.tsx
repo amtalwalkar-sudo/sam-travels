@@ -3,6 +3,7 @@ import "./AdminFormControls.css";
 import { FUEL_ENTRY_FORM_V1, type AdminPresentationServices } from "../../../../packages/application/src";
 import { deriveFuelQuantityMilliKg } from "../../../../packages/features/business-expenses";
 import { useAdminFuelEntryServices } from "./admin-services-context";
+import { FuelPurchaseCorrection } from "./FuelPurchaseCorrection";
 
 type Vehicle = Awaited<ReturnType<AdminPresentationServices["vehicles"]["list"]>>[number];
 
@@ -27,6 +28,20 @@ export function FuelEntryPanel() {
   const startInFlight = useRef<Promise<void> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [fuelPurchases, setFuelPurchases] = useState<Awaited<ReturnType<typeof services.businessExpenses.listFuelPurchases>>>([]);
+  const [fuelCostRates, setFuelCostRates] = useState<Awaited<ReturnType<typeof services.businessExpenses.listFuelCostRateHistory>>>([]);
+  const [dailyExpenseOutputs, setDailyExpenseOutputs] = useState<Awaited<ReturnType<typeof services.businessExpenses.listDailyExpenseOutputs>>>([]);
+
+  const refreshFuelReadModels = useCallback(async () => {
+    const [purchases, rates, daily] = await Promise.all([
+      services.businessExpenses.listFuelPurchases(),
+      services.businessExpenses.listFuelCostRateHistory(),
+      services.businessExpenses.listDailyExpenseOutputs(),
+    ]);
+    setFuelPurchases(purchases);
+    setFuelCostRates(rates);
+    setDailyExpenseOutputs(daily);
+  }, [services]);
 
   const start = useCallback(async () => {
     // Opening can be retriggered by provider updates while the async load is
@@ -34,13 +49,20 @@ export function FuelEntryPanel() {
     // and leave the populated draft hidden behind a newer blank one.
     if (startInFlight.current) return startInFlight.current;
     const pending = (async () => {
-      const [availableVehicles, drafts, fuelPurchases] = await Promise.all([
+      const [availableVehicles, drafts, purchases] = await Promise.all([
         services.vehicles.list(),
         services.formRuntime.listDrafts(FUEL_ENTRY_FORM_V1),
         services.businessExpenses.listFuelPurchases(),
       ]);
+      setFuelPurchases(purchases);
+      const [rates, daily] = await Promise.all([
+        services.businessExpenses.listFuelCostRateHistory(),
+        services.businessExpenses.listDailyExpenseOutputs(),
+      ]);
+      setFuelCostRates(rates);
+      setDailyExpenseOutputs(daily);
       const latest = new Map<string, { occurredAt: string; odometerKm: number }>();
-      for (const purchase of fuelPurchases) {
+      for (const purchase of purchases) {
         const previous = latest.get(purchase.data.vehicleId);
         if (!previous || purchase.data.occurredAt > previous.occurredAt) {
           latest.set(purchase.data.vehicleId, { occurredAt: purchase.data.occurredAt, odometerKm: purchase.data.odometerKm });
@@ -97,6 +119,7 @@ export function FuelEntryPanel() {
           ...previous, [vehicleId]: Math.max(previous[vehicleId] ?? 0, current.values.odometerKm as number),
         }));
       }
+      await refreshFuelReadModels();
       setMessage("Fuel purchase saved.");
       copyRef.current = undefined; setCopy(undefined); setValues({});
       const opened = await services.formRuntime.open(FUEL_ENTRY_FORM_V1, crypto.randomUUID());
@@ -159,6 +182,20 @@ export function FuelEntryPanel() {
       {!copy && <p role="status">Loading fuel entry…</p>}
       {copy && <small>Draft · {copy.status.replaceAll("_", " ")}</small>}
       {message && <p role="status">{message}</p>}
+      <section aria-label="Recorded fuel purchases">
+        <h3>Recorded fuel purchases</h3>
+        {!fuelPurchases.length && <small>No fuel purchases recorded yet.</small>}
+        {fuelPurchases.map(purchase => <article key={purchase.id} className="admin-capability-panel">
+          <strong>{purchase.data.businessDate} · {purchase.data.odometerKm.toLocaleString("en-IN")} km</strong>
+          <small>Amount {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(purchase.data.amountPaise / 100)} · Price {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(purchase.data.pricePaisePerKg / 100)}/kg · {purchase.data.partialRefill ? "Partial refill" : "Full-tank checkpoint"}</small>
+          <FuelPurchaseCorrection purchase={purchase} service={services.businessExpenses} onCorrected={refreshFuelReadModels} />
+        </article>)}
+      </section>
+      <section aria-label="Fuel calculation readback">
+        <h3>Recalculated fuel outputs</h3>
+        {fuelCostRates.map(rate => <small key={rate.effectiveFrom}>Cost/km effective {rate.effectiveFrom}: {rate.costPaisePerKm.numerator}/{rate.costPaisePerKm.denominator} paise per km</small>)}
+        {dailyExpenseOutputs.slice(-5).map(output => <small key={output.businessDate}>{output.businessDate}: fuel {output.fuelPaise} paise</small>)}
+      </section>
     </section>}
   </aside>;
 }
