@@ -99,11 +99,11 @@ class FuelCorrectionCapacitorAcceptanceTest {
             assertTrue("Fuel entry opens", evaluateMaintenanceWebView(startedActivity,
                 "document.querySelector('.fuel-entry-toggle')?.click();true"))
             assertTrue("Existing fuel purchase is listed", awaitMaintenanceJavascript(startedActivity,
-                "document.querySelector('.fuel-entry-panel')?.textContent.includes('45000 km')", 15000))
+                "document.querySelector('.fuel-entry-panel')?.textContent.includes('45,000 km')", 15000))
             assertTrue("Correction action opens", evaluateMaintenanceWebView(startedActivity, """
                 (() => {
                   const card = [...document.querySelectorAll('.fuel-entry-panel article')]
-                    .find(node => node.textContent.includes('45000 km'));
+                    .find(node => node.textContent.includes('45,000 km'));
                   const button = [...(card?.querySelectorAll('button') ?? [])]
                     .find(node => node.textContent.includes('Correct amount / price'));
                   button?.click();
