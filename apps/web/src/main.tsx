@@ -68,12 +68,12 @@ async function bootstrap(): Promise<void> {
     calculateDailyExpenses: calculateDailyBusinessExpenses,
     calculateFuelIntervals,
     calculateFuelCostRateHistory,
-  }, vehicles, undefined, historicalCorrections);
+  }, vehicles, undefined, historicalCorrections, operatingConfiguration);
   initializeApplicationDriverAssignmentService(repository, driverRecords, vehicles);
   const handleBusinessExpenseSubmission = createBusinessExpenseFormSubmissionHandler(
     getApplicationBusinessExpensesService(), getApplicationRecordSource(),
   );
-  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged);
+  const financeLoans = initializeApplicationFinanceLoanService(repository, vehicles, assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged, undefined, operatingConfiguration);
   const financePrepayments = initializeApplicationFinanceLoanPrepaymentService(
     repository, financeLoans, assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, undefined, currentAuthor,
   );
@@ -97,7 +97,7 @@ async function bootstrap(): Promise<void> {
   );
   initializeApplicationMaintenanceService(
     repository, assertMaintenanceRecordV1, vehicles,
-    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant,
+    calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant, undefined, operatingConfiguration,
   );
   initializeApplicationFeatureLifecycle(repository);
   const formRuntime = createAdminFormRuntimeV1({
@@ -125,7 +125,7 @@ async function bootstrap(): Promise<void> {
   }, getApplicationRecordSource());
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
-    getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository,
+    getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository, operatingConfiguration,
   );
   const performanceCalculation = createPerformanceCalculationServiceV1({
     businessSettings: getApplicationBusinessSettingsService(),
