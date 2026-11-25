@@ -30,6 +30,13 @@ export function MaintenanceVisitCorrection({ visit, service, onCorrected }: {
     return () => { live = false; };
   }, [visit.id, service]);
 
+  // Reconcile the editable amount with the latest corrected projection when
+  // the record refreshes or the correction panel is closed/reopened. Without
+  // this, a successful correction leaves the next edit seeded from stale data.
+  useEffect(() => {
+    if (!open) setAmount((visit.data.totalPaise / 100).toFixed(2));
+  }, [visit.id, visit.revision, visit.data.totalPaise, open]);
+
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
