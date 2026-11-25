@@ -55,7 +55,7 @@ async function bootstrap(): Promise<void> {
   initializeApplicationBusinessSettingsService(repository, assertBusinessSettingsRecordV1);
   const driverRecords = initializeApplicationDriverRecordsService(repository, assertDriverRecordV1);
   const vehicles = initializeApplicationVehicleService(repository, assertVehicleRecordV1);
-  const workDriverSelection = new WorkDriverSelectionService(repository);
+  const workDriverSelection = new WorkDriverSelectionService(repository, undefined, undefined, currentAuthor);
   const adminAdapters = createAdminPresentationAdapters({ identity: identityService, records: repository, source: getPlatformRecordSource(), driverRecords });
   const historicalCorrections = createBusinessExpenseHistoricalCorrections(
     repository, getApplicationRecordSource(), getPersonIdentityService(),

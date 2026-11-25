@@ -10,6 +10,48 @@ const driverRecord = (lifecycleState = "active") => ({
   id: driverRecordId("configured-driver"), schemaVersion: 1, createdAt: at, updatedAt: at,
   source: "web" as const, revision: 1,
   data: { schemaVersion: 1, driverId: "configured-driver", name: "Configured Driver", lifecycleState },
+
+  it("ignores legacy soft-deleted selections and Driver profiles, and only repairs the selection explicitly", async () => {
+    const records = new DexieRecordRepository();
+    await browserDatabase.records.put(driverRecord());
+    await browserDatabase.records.put({
+      id: "work:selected-driver", schemaVersion: 1, createdAt: at, updatedAt: at,
+      source: "web" as const, revision: 3, deletedAt: at,
+      data: { schemaVersion: 1, driverId: "configured-driver" },
+    });
+    const service = new WorkDriverSelectionService(records, undefined, () => at,
+      async () => ({ personId: "person-admin", role: "admin" }));
+    expect(await service.getSelectedDriver()).toBeUndefined();
+    await service.selectDriver("configured-driver");
+    const repaired = await records.get("work:selected-driver");
+    expect(repaired?.revision).toBe(4);
+    expect(repaired?.deletedAt).toBeUndefined();
+    expect(repaired?.updatedBy).toEqual({ personId: "person-admin", role: "admin" });
+
+    const deletedDriverRecords = new DexieRecordRepository();
+    await browserDatabase.records.put({ ...driverRecord(), deletedAt: at });
+    await expect(new WorkDriverSelectionService(deletedDriverRecords).selectDriver("configured-driver"))
+      .rejects.toThrow("driver_not_active");
+    expect(await deletedDriverRecords.get("work:selected-driver")).toBeUndefined();
+  });
+
+  it("preserves original selection creator and records the authenticated updater", async () => {
+    const records = new DexieRecordRepository();
+    await browserDatabase.records.bulkPut([
+      driverRecord(),
+      { id: driverRecordId("second-driver"), schemaVersion: 1, createdAt: at, updatedAt: at,
+        source: "web" as const, revision: 1,
+        data: { schemaVersion: 1, driverId: "second-driver", name: "Second Driver", lifecycleState: "active" } },
+    ]);
+    const service = new WorkDriverSelectionService(records, undefined, () => at,
+      async () => ({ personId: "person-admin", role: "admin" }));
+    await service.selectDriver("configured-driver");
+    await service.selectDriver("second-driver");
+    const selected = await records.get("work:selected-driver");
+    expect(selected?.createdBy).toEqual({ personId: "person-admin", role: "admin" });
+    expect(selected?.updatedBy).toEqual({ personId: "person-admin", role: "admin" });
+  });
+
 });
 
 describe("Admin operating Driver configuration", () => {

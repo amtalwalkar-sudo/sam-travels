@@ -81,14 +81,15 @@ export class TripFinancialService {
     if (current.data.status !== "pending") throw new Error("cancellation_fee_obligation_invalid");
 
     const submittedAt = this.now();
-    const createdBy = this.currentAuthor ? await this.currentAuthor(tripId) : undefined;
-    if (this.currentAuthor && !createdBy) throw new Error("business_actor_not_active");
+    const actor = this.currentAuthor ? await this.currentAuthor(tripId) : undefined;
+    if (this.currentAuthor && !actor) throw new Error("business_actor_not_active");
     const next: RecordEnvelope<CancellationFeeObligation> = {
       ...current,
       revision: current.revision + 1,
       updatedAt: submittedAt,
       source: this.source,
-      ...(createdBy ? { createdBy } : {}),
+      ...(current.createdBy ? {} : actor ? { createdBy: actor } : {}),
+      ...(actor ? { updatedBy: actor } : {}),
       data: {
         ...current.data,
         status: "submitted",
@@ -131,7 +132,7 @@ export function calculateTripFinancialSummary(values: CompletedTripFinancialValu
 export async function submitCompletedTripFinancials(
   records: AtomicRecordRepository, source: RecordEnvelope<unknown>["source"], tripId: string,
   values: CompletedTripFinancialValues, operationId: string, now: () => string = () => new Date().toISOString(),
-  createdBy?: RecordAuthorV1,
+  actor?: RecordAuthorV1,
 ): Promise<RecordEnvelope<CompletedTripFinancialObligation>> {
   const issues = validateCompletedTripFinancialSubmission({ tripId, ...values });
   if (issues.length) throw new Error(issues[0]);
@@ -151,7 +152,8 @@ export async function submitCompletedTripFinancials(
   const submittedAt = now();
   const next: RecordEnvelope<CompletedTripFinancialObligation> = {
     ...current, revision: current.revision + 1, updatedAt: submittedAt, source,
-    ...(createdBy ? { createdBy } : {}),
+    ...(current.createdBy ? {} : actor ? { createdBy: actor } : {}),
+    ...(actor ? { updatedBy: actor } : {}),
     data: { ...current.data, ...values, status: "submitted", operationId, submittedAt },
   };
   if (!await records.compareAndSet(id, current.revision, next)) {
