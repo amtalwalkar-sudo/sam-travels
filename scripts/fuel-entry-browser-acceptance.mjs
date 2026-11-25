@@ -342,7 +342,7 @@ try {
     "offline Fuel submission must not request geolocation");
   await context.setOffline(false);
   await resumed.getByText(/^Draft · /).waitFor({ state: "visible" });
-  await resumed.getByLabel("Vehicle").selectOption(vehicleId);
+  await resumed.locator(".admin-vehicle-context").filter({ hasText: registration }).waitFor({ state: "visible" });
   await resumed.getByLabel("Odometer (km)").fill("12387");
   await resumed.getByLabel("Price per kg (₹)").fill("82.50");
   await resumed.getByLabel("Amount paid (₹)").fill("825");
