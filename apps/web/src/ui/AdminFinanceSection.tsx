@@ -41,10 +41,15 @@ export function AdminFinanceSection() {
       ]);
       const histories = await Promise.all(loanRecords.map(async loan =>
         [loan.id, await services.financeLoanPrepayments.getScheduleHistory(loan.id)] as const));
-      setVehicles(vehicleRecords);
+      const activeVehicles = vehicleRecords.filter(item => item.data.lifecycleState === "active");
+      setVehicles(activeVehicles);
       setLoans(loanRecords);
       setLoanScheduleHistories(Object.fromEntries(histories));
-      setSelectedVehicleId(current => current || vehicleRecords.find(item => item.data.lifecycleState === "active")?.id || vehicleRecords[0]?.id || "");
+      if (activeVehicles.length !== 1) {
+        setSelectedVehicleId("");
+        throw new Error(activeVehicles.length === 0 ? "operating_vehicle_missing" : "operating_vehicle_ambiguous");
+      }
+      setSelectedVehicleId(activeVehicles[0].id);
       setMessage("");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not load Finance records.");
@@ -64,17 +69,10 @@ export function AdminFinanceSection() {
 
   return <section className="admin-finance-section" aria-label="Finance workflows">
     <div className="admin-vehicle-context">
-      <label htmlFor="admin-vehicle">Selected vehicle</label>
-      <select id="admin-vehicle" value={selectedVehicleId} onChange={event => setSelectedVehicleId(event.target.value)}>
-        <option value="">Select vehicle</option>
-        {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>
-          {vehicle.data.registrationNumber} · {vehicle.data.make} {vehicle.data.model} ({vehicle.data.lifecycleState})
-        </option>)}
-      </select>
+      <strong>Configured operating vehicle</strong>
+      <span>{selectedVehicle ? selectedVehicle.data.registrationNumber + " · " + selectedVehicle.data.make + " " + selectedVehicle.data.model : "Configuration unavailable"}</span>
     </div>
-    {loading ? <p className="admin-hint">Loading loan records…</p> : !vehicles.length
-      ? <p className="admin-hint">Add a vehicle in Vehicle before creating a loan.</p>
-      : !selectedVehicle ? <p className="admin-hint">Select a vehicle to view its loans.</p> : <>
+    {loading ? <p className="admin-hint">Loading loan records…</p> : !selectedVehicle ? <p className="admin-hint">Configure exactly one active operating vehicle before creating a loan.</p> : <>
         <div className="loan-section-heading">
           <div><strong>{selectedVehicle.data.registrationNumber}</strong><small>{selectedVehicle.data.make} {selectedVehicle.data.model}</small></div>
           <span>{selectedVehicle.data.lifecycleState}</span>
