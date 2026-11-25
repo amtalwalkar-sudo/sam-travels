@@ -70,15 +70,16 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    const activeVehicles = vehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
-    if (activeVehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     const operating = await this.operatingConfiguration?.get();
-    if (operating && (operating.vehicleId !== activeVehicles[0].id ||
-        operating.vehicleRevision !== activeVehicles[0].revision)) {
-      throw new Error("operating_configuration_stale");
+    const operatingVehicles = operating
+      ? vehicles.filter(vehicle => vehicle.id === operating.vehicleId &&
+          vehicle.data?.lifecycleState === "active" && vehicle.revision === operating.vehicleRevision)
+      : vehicles;
+    if (operating && operatingVehicles.length !== 1) throw new Error("operating_configuration_stale");
+    if (!operating && operatingVehicles.length !== 1) {
+      throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     }
     const configuredDriverId = operating?.driverId;
-    const operatingVehicles = [activeVehicles[0]];
 
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
