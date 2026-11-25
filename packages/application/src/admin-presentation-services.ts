@@ -16,6 +16,7 @@ import type { getApplicationBusinessExpensesService } from "./business-expenses-
 import type { PerformanceAdminSettingsServiceV1 } from "./performance-admin-settings-service";
 import type { PerformanceCalculationServiceV1 } from "./performance-calculation-service";
 import type { WorkDriverSelectionService } from "./work-driver-selection-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 
 /**
  * Explicit application-service dependencies supplied by the composition root
@@ -23,6 +24,7 @@ import type { WorkDriverSelectionService } from "./work-driver-selection-service
  */
 export type AdminPresentationServices = Readonly<{
   formRuntime: SharedFormRuntime;
+  operatingConfiguration: OperatingConfigurationServiceV1;
   businessSettings: ReturnType<typeof getApplicationBusinessSettingsService>;
   costAllocation: BusinessStartDateCostAllocationService;
   vehicles: ReturnType<typeof getApplicationVehicleService>;
