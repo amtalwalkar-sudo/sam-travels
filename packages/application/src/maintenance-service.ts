@@ -117,7 +117,8 @@ export class MaintenanceService {
     uuid: string; data: MaintenanceExpenseInput; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
-    const { configuration: operating } = await this.requireVehicle(input.data.vehicleId);
+    const operating = await this.operatingConfiguration?.get();
+    await this.requireVehicle(input.data.vehicleId, operating);
     const data: GeneralMaintenanceExpenseV1 = { ...input.data, schemaVersion: 1, kind: "expense" };
     if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
