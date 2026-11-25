@@ -129,7 +129,7 @@ class AdminEntryPathAuditCapacitorAcceptanceTest {
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Challan / transaction reference", "CHALLAN-" + marker)
         AdminEntryPathAuditTestSupport.setInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Payment status", "paid")
         AdminEntryPathAuditTestSupport.clickInPanel(activity, support, "section.admin-capability-panel", "Traffic Challans", "Save expense")
-        assertTrue("Challan saved", support.await(activity,
+        assertTrue("Challan saved; page=" + support.javascriptValue(activity, "document.body.innerText"), support.await(activity,
             "(()=>{const p=[...document.querySelectorAll('section.admin-capability-panel')].find(n=>n.querySelector('h3')?.textContent.trim()==='Traffic Challans');return p?.querySelector('[role=status]')?.textContent.includes('Saved.')===true})()", 15000))
         val challanRows = db.records().list().filter { row ->
             row.id.startsWith("feature:business-expenses:entry:") &&
