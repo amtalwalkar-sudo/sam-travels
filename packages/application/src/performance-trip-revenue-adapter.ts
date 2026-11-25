@@ -78,7 +78,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
         if (!Number.isSafeInteger(data.feePaise) || (data.feePaise ?? -1) < 0) continue;
         result.push(Object.freeze({
           date: context.operationalDate, grossFarePaise: 0, cancellationFeePaise: data.feePaise!,
-          verified: true, attribution: "work_event",
+          verified: true,
           sourceRefs: Object.freeze([{ sourceId: record.id, revision: record.revision }]),
         }));
       }
@@ -117,7 +117,7 @@ export class PerformanceTripRevenueAdapterV1 implements PerformanceRevenueReadMo
       ...(this.backfillReader ? [Object.freeze({ source: "historical-trip-backfills", status: "complete" as const })] : []),
     ]);
     return Object.freeze([Object.freeze({
-      source: "trip-financials-and-backfills", status: "incomplete" as const,
+      source: this.backfillReader ? "trip-financials-and-backfills" : "trip-financials", status: "incomplete" as const,
       detail: unresolved.length + " submitted Work trip financial record(s) lack valid immutable revenue attribution or amount." +
         (invalidBackfills.length ? " " + invalidBackfills.length + " historical backfill record(s) are invalid." : ""),
     })]);
