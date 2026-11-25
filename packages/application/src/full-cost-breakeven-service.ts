@@ -321,7 +321,10 @@ export class FullCostBreakevenService {
       if (driverExpenses > 0) datedCosts.push({
         date: context.operationalDate, amountPaise: driverExpenses, kind: "miscellaneous",
         sourceId: record.id, sourceRevision: record.revision,
-        sourceRefs: [{ sourceId: record.id, revision: record.revision }],
+        sourceRefs: [
+          { sourceId: record.id, revision: record.revision },
+          ...(record.correctionRefs ?? []).map(ref => ({ sourceId: ref.sourceId, revision: ref.revision })),
+        ],
       });
     }
 
