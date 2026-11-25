@@ -1,5 +1,6 @@
 import type { AtomicRecordRepository } from "../../core/src/repositories";
 import type { RecordEnvelope } from "../../core/src/types";
+import { projectHistoricalCorrectionsV1, type HistoricalCorrectionV1 } from "../../domain/src/historical-correction";
 import { FeatureRecordService, type FeatureRecordOperationIdentityV1, type FeatureRecordSource } from "./feature-record-service";
 
 export type MaintenanceExpenseItemV1 = Readonly<{ id: string; description: string; amountPaise: number }>;
@@ -86,6 +87,50 @@ export class MaintenanceService {
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("maintenance_vehicle_not_found");
     return vehicle;
+  }
+
+  /**
+   * Read-only corrected projection for actual Maintenance records. The source
+   * envelope and its revision remain immutable; the append-only correction
+   * chain is the sole authority for corrected amounts.
+   */
+  private async projectCorrectedRecord<T extends MaintenanceVisitV1 | GeneralMaintenanceExpenseV1>(
+    record: RecordEnvelope<T>,
+  ): Promise<RecordEnvelope<T>> {
+    const correctionRows = await this.repository.list<HistoricalCorrectionV1>();
+    const corrections = correctionRows
+      .filter(row => row.id.startsWith("historical-correction:") &&
+        row.data?.schemaVersion === 1 && row.data.targetRecordId === record.id)
+      .map(row => row.data);
+    const headId = "historical-correction-chain:" + encodeURIComponent(record.id);
+    const head = await this.repository.get<{
+      schemaVersion: number; targetRecordId: string; chainRevision: number; headCorrectionId?: string;
+    }>(headId);
+    if (corrections.length === 0) {
+      if (head) throw new Error("maintenance_correction_chain_head_invalid");
+      return record;
+    }
+    const expectedField = record.data.kind === "visit" ? "totalPaise" : "amountPaise";
+    if (corrections.some(item => item.featureId !== "maintenance" ||
+        item.targetRecordRevision !== record.revision || item.fieldPath !== expectedField)) {
+      throw new Error("maintenance_correction_chain_invalid");
+    }
+    const projection = projectHistoricalCorrectionsV1(record.data, corrections);
+    if (projection.status !== "valid" ||
+        projection.data.kind !== record.data.kind ||
+        projection.data.vehicleId !== record.data.vehicleId ||
+        !Number.isSafeInteger(record.data.kind === "visit"
+          ? projection.data.totalPaise : projection.data.amountPaise) ||
+        (record.data.kind === "visit" ? projection.data.totalPaise : projection.data.amountPaise) < 0) {
+      throw new Error("maintenance_correction_projection_invalid");
+    }
+    if (!head || head.data.schemaVersion !== 1 || head.data.targetRecordId !== record.id ||
+        head.data.chainRevision !== projection.chainRevision ||
+        head.data.headCorrectionId !== projection.headCorrectionId ||
+        head.revision !== projection.chainRevision) {
+      throw new Error("maintenance_correction_chain_head_invalid");
+    }
+    return Object.freeze({ ...record, data: projection.data });
   }
 
   async createVisit(input: {
@@ -294,9 +339,13 @@ export class MaintenanceService {
     const records = await this.records.list();
     const owned = records.filter(record => record.data.vehicleId === vehicleId);
     const accruals = owned.filter(record => record.data.kind === "daily_accrual") as RecordEnvelope<MaintenanceDailyAccrualV1>[];
-    const visits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
-    const expenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
-    const rate = await this.getRateHistory(vehicleId);
+    const sourceVisits = owned.filter(record => record.data.kind === "visit") as RecordEnvelope<MaintenanceVisitV1>[];
+    const sourceExpenses = owned.filter(record => record.data.kind === "expense") as RecordEnvelope<GeneralMaintenanceExpenseV1>[];
+    const [visits, expenses, rate] = await Promise.all([
+      Promise.all(sourceVisits.map(record => this.projectCorrectedRecord(record))),
+      Promise.all(sourceExpenses.map(record => this.projectCorrectedRecord(record))),
+      this.getRateHistory(vehicleId),
+    ]);
     return {
       accruals: Object.freeze(accruals.sort((a, b) => b.data.operationalDate.localeCompare(a.data.operationalDate))),
       visits: Object.freeze(visits.sort((a, b) => b.data.maintenanceDate.localeCompare(a.data.maintenanceDate))),
@@ -308,11 +357,9 @@ export class MaintenanceService {
 
   async getActualExpenseTotal(vehicleId: string): Promise<number> {
     await this.requireVehicle(vehicleId);
-    const records = await this.records.list();
-    const owned = records.filter(record => record.data.vehicleId === vehicleId);
-    return owned.reduce((total, record) => {
-      const amount = record.data.kind === "visit" ? record.data.totalPaise
-        : record.data.kind === "expense" ? record.data.amountPaise : 0;
+    const history = await this.listVehicleRecords(vehicleId);
+    return [...history.visits, ...history.expenses].reduce((total, record) => {
+      const amount = record.data.kind === "visit" ? record.data.totalPaise : record.data.amountPaise;
       const next = total + amount;
       if (!Number.isSafeInteger(next)) throw new Error("maintenance_actual_expense_total_out_of_range");
       return next;
