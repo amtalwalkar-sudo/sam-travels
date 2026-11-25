@@ -28,6 +28,8 @@ export type PerformanceDailyRevenueInputV1 = Readonly<{
   grossFarePaise: number;
   cancellationFeePaise: number;
   verified: boolean;
+  /** Admin-declared backfills are included while retaining their distinct provenance. */
+  attribution?: "work_event" | "admin_declared";
   sourceRefs: readonly PerformanceSourceRefV1[];
 }>;
 export type PerformanceDailyCostInputV1 = Readonly<{
