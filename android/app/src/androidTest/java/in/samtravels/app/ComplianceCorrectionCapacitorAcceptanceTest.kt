@@ -143,7 +143,7 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
             setInput('Total cost (₹)', '810.00');
         })()
       """))
-      assertTrue("Previous Compliance record is offered for renewal", awaitMaintenanceJavascript(page,
+      assertTrue("Previous Compliance record is offered for renewal; form=" + evaluateMaintenanceWebView(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
         "Array.from(document.querySelector('.admin-capability-form select')?.options ?? []).some(option => option.value === '$complianceId')",
         10_000))
       assertTrue("Renewal links to the previous record", evaluateMaintenanceWebView(page, """
