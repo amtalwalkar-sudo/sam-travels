@@ -18,6 +18,6 @@ export function createAdminPresentationAdapters(input: {
   return Object.freeze({
     identity: createAdminIdentityPresentationAdapter(input),
     maintenance: createMaintenanceExpenseCorrectionAdapter(input.records, input.source, input.identity, input.operatingConfiguration),
-    compliance: createComplianceHistoricalCorrectionService(input.records, input.identity, input.source, undefined, input.operatingConfiguration),
+    compliance: createComplianceHistoricalCorrectionService(input.records, input.identity, input.source),
   });
 }
