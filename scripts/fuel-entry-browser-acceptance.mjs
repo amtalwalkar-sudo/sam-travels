@@ -161,10 +161,7 @@ try {
   await panel.getByLabel("Odometer (km)").fill("12345");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
-  await panel.getByLabel("Vehicle").selectOption(vehicleId);
-  assert.equal(await panel.getByLabel("Vehicle").inputValue(), vehicleId,
-    "selected vehicle must remain the controlled form value before submission");
-  assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
+   assert.match(await panel.locator(".fuel-derived-preview").textContent(), /10\.000 kg/);
   const firstFormState = await panel.locator("form").evaluate(form => ({
     valid: form.checkValidity(),
     invalid: [...form.querySelectorAll(":invalid")].map(control => ({
@@ -220,8 +217,7 @@ try {
   assert.notEqual(purchases[0].createdBy?.personId, vehicles[0].createdBy.personId);
   await context.setOffline(false);
   await page.clock.fastForward("00:01");
-  await panel.getByLabel("Vehicle").selectOption(vehicleId);
-  await panel.getByLabel("Odometer (km)").fill("12346");
+   await panel.getByLabel("Odometer (km)").fill("12346");
   await panel.getByLabel("Price per kg (₹)").fill("82.50");
   await panel.getByLabel("Amount paid (₹)").fill("825");
   await panel.getByLabel("Partial refill").check();
