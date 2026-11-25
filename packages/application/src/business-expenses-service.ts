@@ -219,6 +219,12 @@ export class BusinessExpensesService {
     })));
   }
 
+  /** Returns the append-only correction events for audit history presentation. */
+  async listCorrectionHistory(targetRecordId: string): Promise<readonly HistoricalCorrectionV1[]> {
+    if (!this.historicalCorrections) return Object.freeze([]);
+    return Object.freeze(await this.historicalCorrections.listForTarget(targetRecordId));
+  }
+
   /** Returns immutable correction-chain references separately from the original source revision. */
   async listCorrectionReferences(targetRecordId: string): Promise<readonly Readonly<{ sourceId: string; revision: number }>[]> {
     if (!this.historicalCorrections) return Object.freeze([]);
