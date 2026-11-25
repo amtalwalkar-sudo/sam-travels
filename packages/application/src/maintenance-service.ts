@@ -75,7 +75,7 @@ export class MaintenanceService {
     private readonly calculateVisitTotal: MaintenanceVisitTotalCalculator,
     private readonly businessDateFromInstant: MaintenanceBusinessDateResolver,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
   ) {
     this.repository = repository;
     this.records = new FeatureRecordService(repository, {
@@ -85,19 +85,19 @@ export class MaintenanceService {
     }, now);
   }
 
-  private async requireVehicle(vehicleId: string): Promise<RecordEnvelope<{ lifecycleState: string }>> {
-    const configuration = await this.operatingConfiguration?.get();
+  private async requireVehicle(vehicleId: string, expectedConfiguration?: Awaited<ReturnType<OperatingConfigurationServiceV1["get"]>>) {
+    const configuration = expectedConfiguration ?? await this.operatingConfiguration?.get();
     if (configuration && configuration.vehicleId !== vehicleId) throw new Error("maintenance_operating_vehicle_mismatch");
     const vehicle = await this.vehicles.getById(vehicleId);
     if (!vehicle) throw new Error("maintenance_vehicle_not_found");
-    return vehicle;
+    return { vehicle, configuration };
   }
 
   async createVisit(input: {
     uuid: string; data: MaintenanceVisitInput; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<MaintenanceVisitV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const { configuration: operating } = await this.requireVehicle(input.data.vehicleId);
     const data: MaintenanceVisitV1 = {
       ...input.data, schemaVersion: 1, kind: "visit",
       totalPaise: this.calculateVisitTotal(input.data.items),
@@ -105,6 +105,7 @@ export class MaintenanceService {
     if (data.nextServiceDate && data.nextServiceDate < data.maintenanceDate) {
       throw new Error("maintenance_next_service_date_before_visit");
     }
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId("visit", input.uuid), data, source: input.source,
       businessDate: data.maintenanceDate, operation: input.operation, now: input.now,
@@ -115,8 +116,9 @@ export class MaintenanceService {
     uuid: string; data: MaintenanceExpenseInput; source: FeatureRecordSource;
     operation?: FeatureRecordOperationIdentityV1; now?: string;
   }): Promise<RecordEnvelope<GeneralMaintenanceExpenseV1>> {
-    await this.requireVehicle(input.data.vehicleId);
+    const { configuration: operating } = await this.requireVehicle(input.data.vehicleId);
     const data: GeneralMaintenanceExpenseV1 = { ...input.data, schemaVersion: 1, kind: "expense" };
+    if (operating) await this.operatingConfiguration?.assertCurrent(operating);
     return this.records.create({
       id: recordId("expense", input.uuid), data, source: input.source,
       businessDate: data.expenseDate, operation: input.operation, now: input.now,
