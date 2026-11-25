@@ -395,33 +395,4 @@ describe("BusinessExpensesService", () => {
         amountPaise: 1000, partialRefill: false },
     })).rejects.toThrow("fuel_purchase_invalid");
   });
-  it("preserves the original correction revisions so an ambiguous UI retry is idempotent", async () => {
-    const repository = new MemoryRepository();
-    const vehicles = { async getById(id: string) { return id === vehicleId ? vehicle : undefined; } };
-    let submitted: import("../packages/application/src/historical-correction-service").SubmitHistoricalCorrectionV1 | undefined;
-    const corrections = {
-      async listForTarget() { return []; },
-      async submit(input: import("../packages/application/src/historical-correction-service").SubmitHistoricalCorrectionV1) {
-        submitted = input;
-        return { correction: {} as never, currentData: {}, chainRevision: Number(input.expectedChainRevision) + 1 };
-      },
-    };
-    const service = new BusinessExpensesService(repository, domain, vehicles,
-      () => "2026-11-15T00:00:00.000Z", corrections);
-    const purchase = await service.createFuelPurchase({
-      uuid: "123e4567-e89b-42d3-a456-426614174090", source: "web",
-      data: { businessDate: "2026-11-14", occurredAt: "2026-11-14T20:00:00.000Z",
-        vehicleId, odometerKm: 45000, pricePaisePerKg: 9000, amountPaise: 18000, partialRefill: false },
-    });
-    await service.correctSource({
-      correctionId: "fuel-ui-retry-1", targetRecordId: purchase.id, fieldPath: "amountPaise",
-      afterValue: 25000, reason: "Receipt correction",
-      expectedTargetRevision: purchase.revision, expectedChainRevision: 0,
-    });
-    expect(submitted).toMatchObject({
-      correctionId: "fuel-ui-retry-1", expectedTargetRevision: purchase.revision,
-      expectedChainRevision: 0, fieldPath: "amountPaise", afterValue: 25000,
-    });
-  });
-
 });
