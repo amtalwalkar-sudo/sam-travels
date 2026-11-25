@@ -15,8 +15,10 @@ const toInstant = (value: string) => {
   return new Date(value + ":00+05:30").toISOString();
 };
 const operationalDateFor = (value: string) => {
-  const instant = Date.parse(toInstant(value));
-  return new Date(instant + 90 * 60_000).toISOString().slice(0, 10);
+  try {
+    const instant = Date.parse(toInstant(value));
+    return new Date(instant + 90 * 60_000).toISOString().slice(0, 10);
+  } catch { return "Enter a valid start time"; }
 };
 const rupees = (paise: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(paise / 100);
 const displayTime = (value: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
