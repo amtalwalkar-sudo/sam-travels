@@ -5,6 +5,13 @@ import { assertHistoricalTripBackfillV1, type HistoricalTripBackfillV1 } from ".
 
 export const HISTORICAL_TRIP_BACKFILL_PREFIX = "historical-trip-backfill:";
 
+/** Asia/Kolkata operational date: the business day rolls at 04:00 local time. */
+export function historicalTripOperationalDateFromInstant(instant: string): string {
+  const epoch = Date.parse(instant);
+  if (!Number.isFinite(epoch)) throw new Error("historical_trip_backfill_interval_invalid");
+  return new Date(epoch + 90 * 60_000).toISOString().slice(0, 10);
+}
+
 export type HistoricalTripBackfillActorProviderV1 = Readonly<{
   currentActor(): Promise<Readonly<{ role: "driver" | "admin"; actorId: string }>>;
 }>;
@@ -48,6 +55,9 @@ export class HistoricalTripBackfillServiceV1 {
     const start = Date.parse(input.startedAt), end = Date.parse(input.endedAt);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
       throw new Error("historical_trip_backfill_interval_invalid");
+    }
+    if (historicalTripOperationalDateFromInstant(input.startedAt) !== input.operationalDate) {
+      throw new Error("historical_trip_backfill_operational_date_mismatch");
     }
     const actor = await this.actorProvider.currentActor();
     if (!actor || actor.role !== "admin" || !/^[A-Za-z0-9_-]{1,128}$/.test(actor.actorId)) {
