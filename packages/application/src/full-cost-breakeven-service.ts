@@ -4,6 +4,7 @@ import type { MaintenanceService } from "./maintenance-service";
 import type { BusinessExpensesService } from "./business-expenses-service";
 import type { BusinessStartDateCostAllocationService } from "./business-start-date-cost-allocation-service";
 import type { TripFinancialService } from "./trip-financial-service";
+import type { OperatingConfigurationServiceV1 } from "./operating-configuration-service";
 import { buildFullCostWorkDistanceProjectionV1 } from "./full-cost-breakeven-work-distance";
 import {
   calculateFullCostBreakevenV1,
@@ -48,6 +49,7 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
   ) {}
 
   async getSourceProjection(from: string, to: string): Promise<FullCostBreakevenSourceProjectionV1> {
@@ -68,7 +70,15 @@ export class FullCostBreakevenService {
       ] as const));
       correctionEntries.forEach(([sourceId, refs]) => correctionRefsBySourceId.set(sourceId, refs));
     }
-    if (vehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
+    const activeVehicles = vehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
+    if (activeVehicles.length !== 1) throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
+    const operating = await this.operatingConfiguration?.get();
+    if (operating && (operating.vehicleId !== activeVehicles[0].id ||
+        operating.vehicleRevision !== activeVehicles[0].revision)) {
+      throw new Error("operating_configuration_stale");
+    }
+    const configuredDriverId = operating?.driverId;
+    const operatingVehicles = [activeVehicles[0]];
 
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
@@ -77,7 +87,7 @@ export class FullCostBreakevenService {
       { source: "maintenance-accruals", status: "complete" },
     ];
 
-    const vehicleId = vehicles[0].id;
+    const vehicleId = operatingVehicles[0].id;
     const {
       activityByDate, distanceByDate, activeDaySourceIssues,
     } = buildFullCostWorkDistanceProjectionV1({
@@ -98,7 +108,7 @@ export class FullCostBreakevenService {
     }
 
     const accruedOperationalDates = new Set<string>();
-    const histories = await Promise.all(vehicles.map(async vehicle => ({
+    const histories = await Promise.all(operatingVehicles.map(async vehicle => ({
       vehicle,
       records: await this.maintenance.listVehicleRecords(vehicle.id),
       rates: fuelRates.filter(rate => rate.sourcePurchaseIds.some(id => {
@@ -276,7 +286,10 @@ export class FullCostBreakevenService {
         let amountPaise = daily[category.field];
         const refs = daily.sourceIds.flatMap((sourceId, index) => {
           const source = expenseById.get(sourceId);
-          return source?.data.sourceKind === category.sourceKind &&
+          const assignedToOperatingPair = source && (source.data.vehicleId === undefined ||
+            source.data.vehicleId === vehicleId) && (source.data.driverId === undefined ||
+            source.data.driverId === configuredDriverId);
+          return source?.data.sourceKind === category.sourceKind && assignedToOperatingPair &&
             !shadowedTripDuplicateExpenseIds.has(sourceId) &&
             !withheldTripLinkedExpenseIds.has(sourceId) &&
             !withheldLegacyTollParkingExpenseIds.has(sourceId)
@@ -286,13 +299,11 @@ export class FullCostBreakevenService {
               ]
             : [];
         });
-        if (category.sourceKind === "miscellaneous") {
-          amountPaise = refs.reduce((sum, ref) => {
-            const source = expenseById.get(ref.sourceId)!;
-            const sign = source.data.effect === "reversal" ? -1 : 1;
-            return sum + sign * source.data.amountPaise;
-          }, 0);
-        }
+        amountPaise = refs.reduce((sum, ref) => {
+          const source = expenseById.get(ref.sourceId)!;
+          const sign = source.data.effect === "reversal" ? -1 : 1;
+          return sum + sign * source.data.amountPaise;
+        }, 0);
         if (!Number.isSafeInteger(amountPaise)) throw new Error("breakeven_expense_amount_invalid");
         if (amountPaise !== 0 && !refs.length) {
           completeness.push({ source: "business-expenses", status: "incomplete",
@@ -311,6 +322,7 @@ export class FullCostBreakevenService {
     for (const record of tripFinancialRecords) {
       if (record.data.kind !== "completed_ride_financials") continue;
       const context = record.data.tripContext;
+      if (!context || context.vehicleId !== vehicleId) continue;
       const driverExpenses = (record.data.tollPayer === "driver" ? record.data.tollPaise ?? 0 : 0) +
         (record.data.parkingPayer === "driver" ? record.data.parkingPaise ?? 0 : 0);
       if (!context) {
