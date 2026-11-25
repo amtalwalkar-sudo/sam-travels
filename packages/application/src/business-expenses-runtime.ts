@@ -13,7 +13,7 @@ export function createApplicationBusinessExpensesService(
   vehicles: BusinessExpenseVehicleDirectory,
   now?: () => string,
   historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): BusinessExpensesService {
   return new BusinessExpensesService(repository, domain, vehicles, now, historicalCorrections, operatingConfiguration);
 }
@@ -26,7 +26,7 @@ export function initializeApplicationBusinessExpensesService(
   vehicles: BusinessExpenseVehicleDirectory,
   now?: () => string,
   historicalCorrections?: BusinessExpenseHistoricalCorrectionPortV1,
-  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get">,
+  operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "get" | "assertCurrent">,
 ): BusinessExpensesService {
   if (applicationBusinessExpensesService) throw new Error("Application Business Expenses service is already initialized");
   applicationBusinessExpensesService = createApplicationBusinessExpensesService(repository, domain, vehicles, now, historicalCorrections, operatingConfiguration);
