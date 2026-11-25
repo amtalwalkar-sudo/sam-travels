@@ -71,8 +71,8 @@ export function FuelEntryPanel() {
       }
       setLatestOdometerByVehicle(Object.fromEntries([...latest].map(([id, item]) => [id, item.odometerKm])));
       const activeVehicles = availableVehicles.filter(vehicle => vehicle.data.lifecycleState === "active");
-      const operatingVehicle = activeVehicles.find(vehicle => vehicle.id === configuration.id);
-      if (activeVehicles.length !== 1 || !operatingVehicle || operatingVehicle.revision !== configuration.revision) {
+      const operatingVehicle = activeVehicles.find(vehicle => vehicle.id === configuration.vehicleId);
+      if (activeVehicles.length !== 1 || !operatingVehicle || operatingVehicle.revision !== configuration.vehicleRevision) {
         setVehicles([]);
         throw new Error("operating_configuration_stale");
       }
