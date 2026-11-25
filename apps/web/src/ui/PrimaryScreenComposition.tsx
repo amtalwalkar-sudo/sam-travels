@@ -49,7 +49,7 @@ export function PrimaryScreenComposition({
     workspace,
     extensions: (
       <>
-        <TripHistory trips={workspace.tripHistory} />
+        <TripHistory trips={workspace.tripHistory ?? []} />
         <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive"
           contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
       </>
