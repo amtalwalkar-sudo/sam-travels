@@ -8,13 +8,17 @@ import { BusinessExpensesService } from "../packages/application/src/business-ex
 import { MaintenanceService } from "../packages/application/src/maintenance-service";
 import { FinanceLoanService } from "../packages/application/src/finance-loan-service";
 import { ComplianceService } from "../packages/application/src/compliance-service";
+import { FinanceLoanPaymentService } from "../packages/application/src/finance-loan-payment-service";
+import { FinanceLoanPrepaymentService } from "../packages/application/src/finance-loan-prepayment-service";
+import { FinanceLoanSettlementService } from "../packages/application/src/finance-loan-settlement-service";
 import {
   assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1,
   calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory,
 } from "../packages/features/business-expenses";
 import { assertMaintenanceRecordV1, calculateMaintenanceVisitTotal, maintenanceBusinessDateFromInstant } from "../packages/features/maintenance";
 import { assertComplianceRecordV1 } from "../packages/features/compliance";
-import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged } from "../packages/features/finance";
+import { assertFinanceLoanRecordV1, createLoanScheduleVersion, loanCalculationInputsChanged,
+  assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1 } from "../packages/features/finance";
 
 class MemoryRepository implements AtomicRecordBatchRepository {
   private rows = new Map<string, RecordEnvelope<unknown>>();
@@ -145,6 +149,66 @@ describe("operating-context command guards", () => {
         tenureMonths: 12, firstEmiDate: "2026-12-01" },
     })).rejects.toThrow("operating_configuration_stale");
     expect(await repository.list()).toEqual(before);
+  });
+
+
+  it("rejects stale-context Finance payment, prepayment and settlement commits without writes", async () => {
+    const { repository, finance } = await setup();
+    const loan = await finance.create({
+      uuid: "123e4567-e89b-42d3-a456-426614174050", source: "web",
+      details: { loanName: "Configured vehicle loan", lenderName: "Lender", vehicleId,
+        principalPaise: 1000000, annualInterestRateBasisPoints: 1200, loanStartDate: "2026-11-20",
+        tenureMonths: 12, firstEmiDate: "2026-12-01" },
+    });
+    const base = new OperatingConfigurationServiceV1(repository);
+    const stale = {
+      get: () => base.get(),
+      assertCurrent: async () => { throw new Error("operating_configuration_stale"); },
+    };
+    const admin = async () => ({ personId: "admin-1", role: "admin" as const });
+    const payments = new FinanceLoanPaymentService(repository, finance, () => at, undefined, admin, stale);
+    const beforePayment = await repository.list();
+    await expect(payments.record({
+      id: "payment-stale", commandId: "payment-stale-command", loanId: loan.id,
+      businessDate: "2026-12-01", amountPaise: 100, method: "cash",
+      scheduleVersion: 1, allocations: [], source: "web",
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(beforePayment);
+
+    const prepayments = new FinanceLoanPrepaymentService(repository, finance,
+      assertFinanceLoanPrepaymentStateV1, createLoanPrepaymentRevisionV1, () => at, admin, stale);
+    const preview = await prepayments.preview({
+      loanId: loan.id, commandId: "prepayment-stale-command", businessDate: "2026-11-20",
+      amountPaise: 100, mode: "reduce_tenure", source: "web",
+    });
+    const beforePrepayment = await repository.list();
+    await expect(prepayments.commit({ preview, source: "web" }))
+      .rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(beforePrepayment);
+
+    const rows = (loan.data.scheduleVersions[0].output as { rows: readonly {
+      installmentNumber: number; dueDate: string; installmentAmountPaise: number;
+    }[] }).rows;
+    const first = rows[0];
+    const basePayments = new FinanceLoanPaymentService(repository, finance, () => at, undefined, admin);
+    await basePayments.record({
+      id: "payment-settlement-seed", commandId: "payment-settlement-seed-command", loanId: loan.id,
+      businessDate: first.dueDate, amountPaise: first.installmentAmountPaise, method: "cash",
+      scheduleVersion: 1, allocations: [{ installmentNumber: first.installmentNumber, amountPaise: first.installmentAmountPaise }],
+      source: "web",
+    });
+    const schedules = {
+      getScheduleVersionForDate: async () => 1,
+      getScheduleRows: async () => rows,
+    };
+    const settlements = new FinanceLoanSettlementService(repository, finance, schedules, () => at, admin, stale);
+    const settlementPreview = await settlements.preview({ loanId: loan.id, businessDate: first.dueDate });
+    const beforeSettlement = await repository.list();
+    await expect(settlements.commit({
+      id: "settlement-stale", commandId: "settlement-stale-command", loanId: loan.id,
+      businessDate: first.dueDate, method: "cash", source: "web", preview: settlementPreview,
+    })).rejects.toThrow("operating_configuration_stale");
+    expect(await repository.list()).toEqual(beforeSettlement);
   });
 
 });
