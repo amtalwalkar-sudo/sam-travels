@@ -173,12 +173,6 @@ export function FuelEntryPanel() {
       {!vehicles.length && <p role="status">{message || "Configure exactly one active vehicle in Admin before recording fuel."}</p>}
       {vehicles.length === 1 && <p className="admin-vehicle-context"><strong>Configured operating vehicle</strong><span>{vehicles[0].data.registrationNumber} · {vehicles[0].data.make} {vehicles[0].data.model}</span></p>}
       <form onSubmit={submit}>
-        <label>Vehicle
-          <select required disabled={!copy || copy.status === "pending"} value={String(values.vehicleId ?? "")}
-            onChange={event => change("vehicleId", event.target.value)}>
-            {vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.data.registrationNumber}</option>)}
-          </select>
-        </label>
         <label>Odometer (km)
           <input required disabled={!copy || copy.status === "pending"} type="number" min="1" step="1" inputMode="numeric" value={String(values.odometerKm ?? "")}
             onChange={event => change("odometerKm", event.target.value === "" ? undefined : Number(event.target.value))} />
