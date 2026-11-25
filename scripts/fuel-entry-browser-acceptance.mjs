@@ -205,7 +205,7 @@ try {
   }, undefined, { timeout: 30000 });
   firstSubmitEvent = await page.evaluate(() => window.__fuelFirstSubmitObserved === true);
   assert.equal(firstSubmitEvent, true, "Fuel submit button must dispatch the form submit event");
-  const firstSubmitStatus = (await panel.getByRole("status").textContent())?.trim() ?? "";
+  const firstSubmitStatus = (await panel.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(firstSubmitStatus, "Fuel purchase saved.", "production Fuel submit failed: " + firstSubmitStatus);
   assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeFirstSubmit,
     "Fuel submission must not request geolocation");
@@ -354,7 +354,7 @@ try {
   const fuelGeoCallsBeforeClosingCheckpoint = await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0"));
   await resumed.getByRole("button", { name: "Submit fuel purchase", exact: true }).click();
   await page.waitForTimeout(1000);
-  const closingCheckpointStatus = (await resumed.getByRole("status").textContent())?.trim() ?? "";
+  const closingCheckpointStatus = (await resumed.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({ valid: form.checkValidity(), invalid: [...form.querySelectorAll(":invalid")].map(control => control.validationMessage) }));
   assert.equal(closingCheckpointStatus, "Fuel purchase saved.",
     "closing full-tank checkpoint failed: " + closingCheckpointStatus + " " + JSON.stringify(closingFormDiagnostic));
