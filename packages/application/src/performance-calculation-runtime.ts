@@ -4,6 +4,7 @@ import type { FullCostBreakevenService } from "./full-cost-breakeven-service";
 import type { PerformanceAdminSettingsServiceV1 } from "./performance-admin-settings-service";
 import type { TripFinancialService } from "./trip-financial-service";
 import type { RecordRepository } from "../../core/src/repositories";
+import type { HistoricalTripBackfillRevenueReaderV1 } from "./performance-trip-revenue-adapter";
 import { PerformanceCalculationSnapshotBoundaryV1 } from "./performance-calculation-snapshot-boundary";
 import { PerformanceCalculationServiceV1 } from "./performance-calculation-service";
 import { PerformanceBusinessSettingsAdapterV1 } from "./performance-admin-settings-service";
@@ -18,6 +19,7 @@ export type PerformanceCalculationRuntimeDependenciesV1 = Readonly<{
   fullCost: Pick<FullCostBreakevenService, "getSourceProjection">;
   allocation: Pick<BusinessStartDateCostAllocationService, "getReport">;
   tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">;
+  historicalTripBackfills?: HistoricalTripBackfillRevenueReaderV1;
   /** The same authoritative record repository used by all calculation sources. */
   recordRepository: Pick<RecordRepository, "list">;
 }>;
@@ -32,7 +34,7 @@ export function createPerformanceCalculationServiceV1(
 ): PerformanceCalculationServiceV1 {
   const fixedCosts = new PerformanceFixedCostAllocationAdapterV1(dependencies.allocation);
   const operatingCosts = new PerformanceOperatingCostAdapterV1(dependencies.fullCost);
-  const revenue = new PerformanceTripRevenueAdapterV1(dependencies.tripFinancials);
+  const revenue = new PerformanceTripRevenueAdapterV1(dependencies.tripFinancials, dependencies.historicalTripBackfills);
   const completeness = new PerformanceCompletenessCompositeV1([
     operatingCosts, fixedCosts, revenue,
   ]);
