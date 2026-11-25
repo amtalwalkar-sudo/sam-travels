@@ -7,6 +7,8 @@ import { PerformanceScreenControllerV1, PerformanceScreenServicesAdapterV1, type
 import type { AdminPresentationContextV1 } from "../../../../packages/features/admin";
 import { FeatureScreenHost } from "./FeatureScreenHost";
 import { AdminWorkspace } from "./AdminWorkspace";
+import { TripHistory } from "../../../../packages/features/logbook/presentation/TripHistory";
+import type { TripHistoryRecord } from "../../../../packages/domain/src/trip-history";
 import type { PrimaryScreen } from "./ApplicationShell";
 
 const WORK_SCREEN_CONTRACT = Object.freeze({
@@ -20,6 +22,7 @@ const ADMIN_SCREEN_CONTRACT = Object.freeze({
 
 export type PrimaryScreenWorkspace = Readonly<DriveScreenWorkspaceV1 & {
   loadTimeline: TimelineScreenContext["loadTimeline"];
+  tripHistory: readonly TripHistoryRecord[];
 }>;
 
 export type PrimaryScreenCompositionProps = Readonly<{
@@ -45,8 +48,11 @@ export function PrimaryScreenComposition({
   const workContext: DriveScreenContextV1 = {
     workspace,
     extensions: (
-      <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive"
-        contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
+      <>
+        <TripHistory trips={workspace.tripHistory} />
+        <FeatureScreenHost registry={runtimeRegistry} mountPoint="Drive"
+          contextContract={{ id: "drive.host", version: 1 }} context={{ activeScreen: "Drive" }} />
+      </>
     ),
   };
   const timelineContext: TimelineScreenContext = {
