@@ -9,12 +9,12 @@ type BusinessSetupServices = Pick<AdminPresentationServices, "formRuntime" | "bu
 type VehicleServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles">;
 type DriverServices = Pick<AdminPresentationServices, "formRuntime" | "driverRecords" | "driverAssignments" | "workDriverSelection" | "vehicles" | "recordSource">;
 type ComplianceServices = Pick<AdminPresentationServices, "formRuntime" | "compliance" | "complianceAnalysis" | "vehicles">;
-type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource">;
-type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses">;
-type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles">;
-type PerformanceServices = Pick<AdminPresentationServices, "formRuntime" | "performanceSettings" | "performanceCalculation">;
-type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments">;
-type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime">;
+type MaintenanceServices = Pick<AdminPresentationServices, "formRuntime" | "maintenance" | "vehicles" | "recordSource" | "operatingConfiguration">;
+type FuelEntryServices = Pick<AdminPresentationServices, "formRuntime" | "vehicles" | "businessExpenses" | "operatingConfiguration">;
+type FinanceServices = Pick<AdminPresentationServices, "formRuntime" | "financeLoans" | "financeLoanPayments" | "financeLoanPrepayments" | "financeLoanSettlements" | "recordSource" | "vehicles" | "operatingConfiguration">;
+type PerformanceServices = Pick<AdminPresentationServices, "formRuntime" | "performanceSettings" | "performanceCalculation" | "operatingConfiguration">;
+type WorkspaceServices = Pick<AdminPresentationServices, "vehicles" | "financeLoans" | "financeLoanPrepayments" | "operatingConfiguration">;
+type FormRuntimeServices = Pick<AdminPresentationServices, "formRuntime" | "operatingConfiguration" | "vehicles">;
 
 type AdminSectionAdapters = Readonly<{
   businessSetup: BusinessSetupServices;
@@ -50,16 +50,16 @@ export function AdminServicesProvider({ services, identityAdapter, maintenanceCo
       driverAssignments: services.driverAssignments, workDriverSelection: services.workDriverSelection, vehicles: services.vehicles, recordSource: services.recordSource },
     compliance: { formRuntime: services.formRuntime, compliance: services.compliance,
       complianceAnalysis: services.complianceAnalysis, vehicles: services.vehicles },
-    maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles, recordSource: services.recordSource },
+    maintenance: { formRuntime: services.formRuntime, maintenance: services.maintenance, vehicles: services.vehicles, recordSource: services.recordSource, operatingConfiguration: services.operatingConfiguration },
     finance: { formRuntime: services.formRuntime, financeLoans: services.financeLoans,
       financeLoanPayments: services.financeLoanPayments, financeLoanPrepayments: services.financeLoanPrepayments,
-      financeLoanSettlements: services.financeLoanSettlements, recordSource: services.recordSource, vehicles: services.vehicles },
+      financeLoanSettlements: services.financeLoanSettlements, recordSource: services.recordSource, vehicles: services.vehicles, operatingConfiguration: services.operatingConfiguration },
     workspace: { vehicles: services.vehicles, financeLoans: services.financeLoans,
-      financeLoanPrepayments: services.financeLoanPrepayments },
-    forms: { formRuntime: services.formRuntime },
-    fuelEntry: { formRuntime: services.formRuntime, vehicles: services.vehicles, businessExpenses: services.businessExpenses },
+      financeLoanPrepayments: services.financeLoanPrepayments, operatingConfiguration: services.operatingConfiguration },
+    forms: { formRuntime: services.formRuntime, operatingConfiguration: services.operatingConfiguration, vehicles: services.vehicles },
+    fuelEntry: { formRuntime: services.formRuntime, vehicles: services.vehicles, businessExpenses: services.businessExpenses, operatingConfiguration: services.operatingConfiguration },
     performance: { formRuntime: services.formRuntime, performanceSettings: services.performanceSettings,
-      performanceCalculation: services.performanceCalculation },
+      performanceCalculation: services.performanceCalculation, operatingConfiguration: services.operatingConfiguration },
   }), [services]);
 
   return <AdminServicesContext.Provider value={adapters}>
