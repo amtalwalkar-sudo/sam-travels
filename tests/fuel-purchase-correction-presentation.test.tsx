@@ -20,7 +20,7 @@ const purchase: RecordEnvelope<FuelPurchaseV1> = {
 describe("Fuel purchase correction presentation", () => {
   it("renders an append-only correction entry point for amount and price", () => {
     const service = {
-      async listCorrectionReferences() { return []; },
+      async listCorrectionHistory() { return []; },
       async correctSource() { throw new Error("not_expected"); },
     };
     const markup = renderToStaticMarkup(createElement(FuelPurchaseCorrection, {
