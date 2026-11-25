@@ -23,7 +23,7 @@ try {
   const sections = [
     { id: "business-setup", label: "Business setup", marker: "Business-wide settings are owned by Business Settings" },
     { id: "vehicle", label: "Vehicle", marker: "Vehicle owns canonical registration identity and lifecycle" },
-    { id: "driver", label: "Driver", marker: "Configure one active Driver with the single active Vehicle" },
+    { id: "driver", label: "Driver", marker: "Configure one active Driver with the single active Vehicle", extraMarker: "Correct submitted fare, toll and parking values" },
     { id: "compliance", label: "Compliance", marker: "Expiry warning is 15 calendar days" },
     { id: "finance", label: "Finance", marker: "Platform Fees" },
     { id: "maintenance", label: "Maintenance", marker: "Record actual service visits and itemised costs" },
@@ -35,6 +35,7 @@ try {
     const panel = page.locator("#admin-section-panel-" + section.id);
     await panel.waitFor({ state: "visible" });
     await panel.getByText(section.marker, { exact: false }).waitFor({ state: "visible", timeout: 10000 });
+    if (section.extraMarker) await panel.getByText(section.extraMarker, { exact: false }).waitFor({ state: "visible", timeout: 10000 });
     const expandedCount = await page.locator('[aria-expanded="true"]').count();
     if (expandedCount !== 1) throw new Error("admin_shell_single_expanded_section_contract_failed");
     console.log("Admin section rendered:", section.label);
