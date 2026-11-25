@@ -13,7 +13,7 @@ import {
   
   
   PerformanceAdminSettingsServiceV1, createPerformanceCalculationServiceV1, BusinessStartDateCostAllocationService, FullCostBreakevenService,
-  TripFinancialService, TripFinancialCorrectionServiceV1
+  TripFinancialService, TripFinancialCorrectionServiceV1, HistoricalTripBackfillServiceV1
 } from "../../../packages/application/src";
 import { assertBusinessSettingsRecordV1 } from "../../../packages/features/business-settings";
 import { assertBusinessExpenseRecordV1, assertFuelPurchaseV1, assertBusinessExpenseEntryV1, calculateDailyBusinessExpenses, calculateFuelIntervals, calculateFuelCostRateHistory } from "../../../packages/features/business-expenses";
@@ -116,6 +116,12 @@ async function bootstrap(): Promise<void> {
   const tripFinancials = new TripFinancialService(
     repository, getApplicationRecordSource(), undefined, currentAuthor, tripFinancialCorrections,
   );
+  const historicalTripBackfills = new HistoricalTripBackfillServiceV1(repository, {
+    currentActor: async () => {
+      const actor = await getPersonIdentityService().currentActor();
+      return { role: actor.role, actorId: actor.actorId };
+    },
+  }, getApplicationRecordSource());
   const fullCostBreakeven = new FullCostBreakevenService(
     getApplicationVehicleService(), getApplicationMaintenanceService(),
     getApplicationBusinessExpensesService(), costAllocation, tripFinancials, repository,
@@ -126,6 +132,7 @@ async function bootstrap(): Promise<void> {
     fullCost: fullCostBreakeven,
     allocation: costAllocation,
     tripFinancials,
+    historicalTripBackfills,
     recordRepository: repository,
   });
   const adminServices = Object.freeze({
@@ -150,7 +157,7 @@ async function bootstrap(): Promise<void> {
   });
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance}>
+      <AdminServicesProvider services={adminServices} identityAdapter={adminAdapters.identity} maintenanceCorrections={adminAdapters.maintenance} complianceCorrections={adminAdapters.compliance} historicalTripBackfills={historicalTripBackfills}>
         <App runtimeRegistry={runtimeRegistry} platformRepository={repository} fullCostBreakeven={fullCostBreakeven} performanceCalculation={performanceCalculation} />
       </AdminServicesProvider>
     </React.StrictMode>,
