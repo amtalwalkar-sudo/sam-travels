@@ -108,7 +108,8 @@ async function completeWorkSwipe(page, label) {
   await slider.press("End");
 }
 
-export async function exerciseWorkTripEntryPaths(page) {
+export async function exerciseWorkTripEntryPaths(page, { adminName, adminPin } = {}) {
+  await page.getByLabel("Shift-start odometer (km)").fill("1000");
   await page.getByRole("button", { name: "Start shift", exact: true }).click();
   await page.getByRole("heading", { name: "Shift Active", exact: true }).waitFor({ state: "visible" });
 
@@ -165,6 +166,45 @@ export async function exerciseWorkTripEntryPaths(page) {
   await page.getByLabel("Shift-end odometer (km)").fill("1060");
   await page.getByRole("button", { name: "End shift", exact: true }).click();
   await page.getByRole("button", { name: "Start shift", exact: true }).waitFor({ state: "visible" });
+
+  if (adminName && adminPin) {
+    const eventsBeforeCorrection = (await readBrowserRecords(page))
+      .filter(row => row.id.startsWith("logbook:"))
+      .map(row => ({ id: row.id, revision: row.revision, data: row.data }));
+    await page.getByRole("button", { name: "Admin", exact: true }).click();
+    await page.getByLabel("Select person").selectOption({ label: adminName });
+    await page.getByLabel("Active role").selectOption("admin");
+    await page.getByLabel("Admin PIN").fill(adminPin);
+    await page.getByRole("button", { name: "Activate role", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "Role activated." }).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Driver", exact: true }).click();
+    const correctionPanel = page.getByRole("region", { name: "Trip financial corrections" });
+    await correctionPanel.getByLabel("Submitted trip").selectOption(completedSaved.id);
+    await correctionPanel.getByLabel("Field to correct").selectOption("farePaise");
+    await correctionPanel.getByLabel("Correct value").fill("175");
+    await correctionPanel.getByLabel("Reason for correction").fill("Verified against the original trip receipt");
+    await correctionPanel.getByRole("button", { name: "Record correction", exact: true }).click();
+    await correctionPanel.getByRole("status").filter({
+      hasText: "Trip financial correction recorded.",
+    }).waitFor({ state: "visible" });
+    await correctionPanel.getByText(/Fare ₹175.00/).waitFor({ state: "visible" });
+
+    const afterCorrection = await readBrowserRecords(page);
+    const immutableOriginal = afterCorrection.find(row => row.id === completedSaved.id);
+    const correction = afterCorrection.find(row =>
+      row.id.startsWith("historical-correction:") && row.data?.targetRecordId === completedSaved.id
+    );
+    assert.equal(immutableOriginal?.revision, completedSaved.revision);
+    assert.equal(immutableOriginal?.data?.farePaise, 15000);
+    assert.equal(correction?.data?.fieldPath, "farePaise");
+    assert.equal(correction?.data?.beforeValue, 15000);
+    assert.equal(correction?.data?.afterValue, 17500);
+    assert.equal(correction?.data?.reason, "Verified against the original trip receipt");
+    assert.equal(correction?.data?.actor?.role, "admin");
+    assert.deepEqual(afterCorrection.filter(row => row.id.startsWith("logbook:"))
+      .map(row => ({ id: row.id, revision: row.revision, data: row.data })), eventsBeforeCorrection,
+    "trip financial correction must not mutate committed Work/GPS events");
+  }
 }
 
 export async function assertFinanceAdminActorProvenance(page) {
