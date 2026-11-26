@@ -62,7 +62,7 @@ try {
         watchPosition(success) {
           const calls = Number(localStorage.getItem("__workflow_geo_calls") || "0") + 1;
           localStorage.setItem("__workflow_geo_calls", String(calls));
-          success({ coords: { latitude: 19.076, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() });
+          success({ coords: { latitude: 19.076 + calls * 0.0001, longitude: 72.8777, accuracy: 8 }, timestamp: Date.now() + calls });
           return 1;
         },
         clearWatch() {},
