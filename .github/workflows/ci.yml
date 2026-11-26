@@ -33,6 +33,46 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Capture and classify dependency advisories
+        run: |
+          npm audit --json > npm-audit-full.json || true
+          npm audit --omit=dev --json > npm-audit-production.json || true
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const read = (path) => {
+            const raw = fs.readFileSync(path, "utf8");
+            try { return JSON.parse(raw); }
+            catch { throw new Error(`Dependency audit report is missing or invalid: ${path}`); }
+          };
+          const full = read("npm-audit-full.json");
+          const production = read("npm-audit-production.json");
+          const summary = (label, report) => {
+            const counts = report.metadata?.vulnerabilities ?? {};
+            console.log(`${label}: ${JSON.stringify(counts)}`);
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              console.log(JSON.stringify({
+                scope: label, name, severity: item.severity, isDirect: item.isDirect,
+                range: item.range, nodes: item.nodes, via: item.via, fixAvailable: item.fixAvailable,
+              }));
+            }
+          };
+          summary("all-dependencies", full);
+          summary("production-dependencies", production);
+          const criticalProduction = Object.entries(production.vulnerabilities ?? {})
+            .filter(([, item]) => item.severity === "critical");
+          if (criticalProduction.length) {
+            console.error("Critical production dependency advisories must be remediated before merge.");
+            process.exit(1);
+          }
+          NODE
+      - name: Upload dependency advisory reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-advisory-reports
+          path: npm-audit-*.json
+          if-no-files-found: warn
+          retention-days: 30
       - name: Validate local Markdown documentation links
         run: npm run check:docs
       - name: Gate Stage 3 cross-feature data coordination and calculation provenance
