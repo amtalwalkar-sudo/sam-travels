@@ -46,7 +46,6 @@ try {
   assert.equal(typeof registration, "string");
   assert.ok(registration.length > 0);
   await page.getByText(registration, { exact: true }).waitFor({ state: "visible" });
-  const driverName = "Fuel Entry Browser Driver";
   await page.getByRole("button", { name: "Driver", exact: true }).click();
   const driverRows = await readBrowserRecords(page);
   const drivers = driverRows.filter(row =>
