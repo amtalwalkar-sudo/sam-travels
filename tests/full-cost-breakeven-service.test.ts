@@ -305,7 +305,7 @@ describe("FullCostBreakevenService source integration", () => {
   it("rejects a stale operating pair before returning the independent Performance distance projection", async () => {
     const vehicleId = "feature:vehicle:MH01AB1234";
     const operating = {
-      driverId: "driver-1", vehicleId, assignmentId: "assignment-1",
+      schemaVersion: 1 as const, driverId: "driver-1", vehicleId, assignmentId: "assignment-1",
       selectionRevision: 1, driverRevision: 1, vehicleRevision: 1, assignmentRevision: 1,
     };
     const operatingVehicle = { schemaVersion: 1 as const, vehicleId, vehicleRevision: 1 };
