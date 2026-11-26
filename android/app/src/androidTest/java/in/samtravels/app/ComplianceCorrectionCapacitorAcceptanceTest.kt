@@ -189,7 +189,14 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           values: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('input') ?? [])].map(input => ({name:input.previousSibling?.textContent ?? input.type,value:input.value})),
           buttons: [...([...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')))?.querySelectorAll('button') ?? [])].map(button => ({text:button.textContent,disabled:button.disabled}))
         })
-      """), awaitMaintenanceJavascript(page,
+      """) + "; Room form drafts=" + database.records().list()
+        .filter { it.id.startsWith("__sam_travels_form_working_copy__:admin.compliance:") }
+        .joinToString { row -> row.id + "=" + JSONObject(row.json).getJSONObject("data").toString() }
+        + "; compliance rows=" + database.records().list().filter { it.id.startsWith("feature:compliance:") }
+        .joinToString { it.id + "=" + it.json }
+        + "; operation receipts=" + database.records().list().filter { it.id.startsWith("__sam_travels_feature_operation__:") }
+        .joinToString { it.id },
+        awaitMaintenanceJavascript(page,
         "document.querySelector('.admin-capability-panel [role=status]')?.textContent.includes('Compliance record saved')",
         45_000))
       val renewal = database.records().list().firstOrNull { row ->
