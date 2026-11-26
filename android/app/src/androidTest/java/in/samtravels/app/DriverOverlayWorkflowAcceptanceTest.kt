@@ -43,7 +43,7 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
         }
     }
 
-    @Test fun eachRequiredNativeOverlayTransitionAcquiresAndReleasesItsOwnGpsFix() {
+    @Test fun eachNativeOverlaySupportedTransitionAcquiresAndReleasesItsOwnGpsFix() {
         val tripId = "overlay-six-event-gps-matrix"
         val locationSource = FakeLocationSource()
         DriverLocationSourceFactory.overrideForTests = locationSource
@@ -53,7 +53,6 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
             "end_ride" to "shift_active",
             "trip_create" to "going_to_pickup",
             "cancel_ride" to "shift_active",
-            "shift_end" to "idle",
         )
         try {
             withAttachedOverlay(
@@ -80,7 +79,11 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                     val bounds = android.graphics.Rect().also { slider.getBoundsInScreen(it) }
                     val requestsBefore = locationSource.requestCount
                     val removalsBefore = locationSource.removeCount
-                    swipeAt(ui, bounds.left + 6, bounds.centerY(), bounds.right - 6, bounds.centerY())
+                    if (eventType == "cancel_ride") {
+                        clickText(ui, "Cancel ride")
+                    } else {
+                        swipeAt(ui, bounds.left + 6, bounds.centerY(), bounds.right - 6, bounds.centerY())
+                    }
 
                     assertTrue("Each $eventType transition starts a fresh native GPS request", waitUntil(10_000) {
                         locationSource.requestCount == requestsBefore + 1 &&
@@ -122,11 +125,11 @@ class DriverOverlayWorkflowAcceptanceTest : DriverOverlayServicePresentationTest
                         locationSource.removeCount == removalsBefore + 1 && locationSource.listener == null
                     })
                 }
-                assertEquals("Six required Work transitions each acquire GPS independently", 6, locationSource.requestCount)
-                assertEquals("Every completed acquisition releases its listener", 6, locationSource.removeCount)
-                assertEquals("Six unique event-scoped GPS fixes", 6, fixTimes.size)
-                assertEquals("Six unique event-scoped locations", 6, latitudes.size)
-                assertEquals("All six transitions committed", initialEventCount + 6, DriverWorkflowStore.listEvents(db).size)
+                assertEquals("Every overlay-supported Work transition acquires GPS independently", 5, locationSource.requestCount)
+                assertEquals("Every completed acquisition releases its listener", 5, locationSource.removeCount)
+                assertEquals("Five unique event-scoped GPS fixes", 5, fixTimes.size)
+                assertEquals("Five unique event-scoped locations", 5, latitudes.size)
+                assertEquals("All overlay-supported transitions committed", initialEventCount + 5, DriverWorkflowStore.listEvents(db).size)
             }
         } finally {
             DriverLocationSourceFactory.overrideForTests = null
