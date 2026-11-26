@@ -34,6 +34,7 @@ export function validateFormValues(definition: FormDefinition, values: Readonly<
     else if (field.type === "text" && field.maxLength !== undefined && (value as string).length > field.maxLength) issues.push({ fieldId: field.id, code: "max_length", message: field.label + " is too long." });
     else if (field.type === "number" && (typeof value !== "number" || !Number.isFinite(value))) issues.push({ fieldId: field.id, code: "type", message: field.label + " must be a valid number." });
     else if (field.type === "date" && !validDate(value)) issues.push({ fieldId: field.id, code: "date", message: field.label + " must be a valid date." });
+    else if (field.type === "time" && (typeof value !== "string" || !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value))) issues.push({ fieldId: field.id, code: "time", message: field.label + " must be a valid time." });
     else if (field.type === "select" && (typeof value !== "string" || !field.options?.includes(value))) issues.push({ fieldId: field.id, code: "option", message: "Choose a valid " + field.label.toLowerCase() + "." });
     else if (field.type === "checkbox" && typeof value !== "boolean") issues.push({ fieldId: field.id, code: "type", message: field.label + " must be selected or cleared." });
   }
@@ -181,9 +182,19 @@ export class SharedFormRuntime {
   }
 
   private assertDefinition(definition: FormDefinition) {
+    const supportedTypes = ["text", "number", "date", "time", "select", "checkbox"];
     if (!definition.id.trim() || !Number.isSafeInteger(definition.version) || definition.version < 1 ||
       !definition.owner.trim() || !definition.purpose.trim() || !["save", "submit"].includes(definition.primaryAction) ||
+      !definition.fields.length ||
       new Set(definition.fields.map(field => field.id)).size !== definition.fields.length ||
-      definition.fields.some(field => !field.id.trim() || !field.label.trim())) throw new Error("invalid_form_definition");
+      definition.fields.some(field =>
+        !field.id.trim() || !field.label.trim() || !supportedTypes.includes(field.type) ||
+        (field.required !== undefined && typeof field.required !== "boolean") ||
+        (field.type === "select" && (!Array.isArray(field.options) || !field.options.length ||
+          field.options.some(option => typeof option !== "string" || !option.trim()) ||
+          new Set(field.options).size !== field.options.length)) ||
+        (field.type !== "select" && field.options !== undefined) ||
+        (field.maxLength !== undefined && (!Number.isSafeInteger(field.maxLength) || field.maxLength < 1))
+      )) throw new Error("invalid_form_definition");
   }
 }
