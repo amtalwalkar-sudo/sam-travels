@@ -52,7 +52,8 @@ export class FullCostBreakevenService {
     private readonly tripFinancials: Pick<TripFinancialService, "submittedTripFinancialRecords">,
     /** Shared authoritative records repository used to verify Work daily shift projections. */
     private readonly recordRepository?: Pick<RecordRepository, "list">,
-    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly">,
+    private readonly operatingConfiguration?: Pick<OperatingConfigurationServiceV1, "getForReadOnly" | "getVehicleForReadOnly"> &
+      Partial<Pick<OperatingConfigurationServiceV1, "assertCurrentForReadOnly" | "assertVehicleCurrentForReadOnly">>,
     private readonly historicalTripBackfills?: HistoricalTripBackfillCostReaderV1,
     private readonly historicalTripBackfillCorrections?: HistoricalTripBackfillCostCorrectionReaderV1,
   ) {}
@@ -96,14 +97,12 @@ export class FullCostBreakevenService {
       throw new Error("breakeven_single_vehicle_scope_requires_exactly_one_vehicle");
     }
     const configuredDriverId = operating?.driverId;
-
     const completeness: BreakevenCompletenessV1[] = [
       { source: "finance-and-compliance-allocation", status: "complete" },
       { source: "business-expenses", status: "complete" },
       { source: "fuel-rate-history", status: "complete" },
       { source: "maintenance-accruals", status: "complete" },
     ];
-
     const vehicleId = operatingVehicles[0].id;
     const {
       activityByDate, distanceByDate, activeDaySourceIssues,
@@ -379,6 +378,9 @@ export class FullCostBreakevenService {
         });
       }
     }
+
+    if (operating) await this.operatingConfiguration?.assertCurrentForReadOnly?.(operating);
+    else if (operatingVehicle) await this.operatingConfiguration?.assertVehicleCurrentForReadOnly?.(operatingVehicle);
 
     return Object.freeze({
       businessStartDate: allocationReport.businessStartDate,
