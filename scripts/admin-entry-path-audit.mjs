@@ -55,6 +55,24 @@ async function readDriverPersonLink(page, driverId) {
   }, driverId);
 }
 
+async function readBrowserRecords(page) {
+  return page.evaluate(async () => {
+    const request = indexedDB.open("sam-travels-browser");
+    const db = await new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const rows = await new Promise((resolve, reject) => {
+      const tx = db.transaction("records", "readonly");
+      const get = tx.objectStore("records").getAll();
+      get.onsuccess = () => resolve(get.result);
+      get.onerror = () => reject(get.error);
+    });
+    db.close();
+    return rows;
+  });
+}
+
 async function readTripObligation(page, kind, status) {
   return page.evaluate(async ({ kind, status }) => {
     const request = indexedDB.open("sam-travels-browser");
