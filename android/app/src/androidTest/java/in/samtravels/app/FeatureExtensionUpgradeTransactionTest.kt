@@ -17,8 +17,9 @@ class FeatureExtensionUpgradeTransactionTest {
         records: JSONArray,
         deletes: JSONArray,
         expectedRevisions: JSONObject,
+        deleteNamespacePrefix: String? = "feature:upgrade-addon:",
     ): Boolean = runBlocking {
-        commitFeatureUpgradeBatch(database, records, deletes, expectedRevisions)
+        commitFeatureUpgradeBatch(database, records, deletes, expectedRevisions, deleteNamespacePrefix)
     }
 
     private fun envelope(id: String, revision: Int, value: String) = JSONObject()
@@ -29,6 +30,26 @@ class FeatureExtensionUpgradeTransactionTest {
         .put("source", "android")
         .put("revision", revision)
         .put("data", JSONObject().put("value", value))
+
+    @Test fun rejectsMigrationDeletionOutsideTheOwningFeatureNamespace() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, LocalDatabase::class.java)
+            .allowMainThreadQueries().build()
+        try {
+            val foreignId = "feature:finance:loan:protected"
+            database.records().put(StoredRecord(
+                foreignId, envelope(foreignId, 1, "immutable").toString(), 1, "2026-11-06T00:00:00.000Z",
+            ))
+            val failure = runCatching {
+                commit(database, JSONArray(), JSONArray().put(foreignId),
+                    JSONObject().put(foreignId, 1), "feature:upgrade-addon:")
+            }.exceptionOrNull()
+            assertEquals("feature_upgrade_delete_namespace_mismatch", failure?.message)
+            assertTrue(database.records().get(foreignId) != null)
+        } finally {
+            database.close()
+        }
+    }
 
     @Test fun commitsMigrationWritesAndDeletesAtomicallyWithRevisionGuards() {
         val context = ApplicationProvider.getApplicationContext<Context>()
