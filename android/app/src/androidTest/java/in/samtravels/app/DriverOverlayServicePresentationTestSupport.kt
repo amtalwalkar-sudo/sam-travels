@@ -242,43 +242,47 @@ abstract class DriverOverlayServicePresentationTestSupport {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext
         val ui = instrumentation.uiAutomation
-        DriverOverlayDatabaseFactory.databaseNameOverrideForTests = databaseName
+        val isolatedDatabaseName = if (databaseName == "sam-travels.db") "overlay-$tripId.db" else databaseName
+        DriverOverlayDatabaseFactory.databaseNameOverrideForTests = isolatedDatabaseName
         ui.setServiceInfo(ui.serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
         })
         shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_FINE_LOCATION")
         shell(ui, "pm grant ${app.packageName} android.permission.ACCESS_COARSE_LOCATION")
-        val activity = instrumentation.startActivitySync(
-            Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        ) as MainActivity
-        // Stop any START_STICKY instance before opening or replacing the fixture database.
-        instrumentation.runOnMainSync {
-            activity.stopService(Intent(activity, DriverOverlayService::class.java))
-        }
+        app.stopService(Intent(app, DriverOverlayService::class.java))
         assertTrue("Previous overlay service must stop before fixture setup", waitUntil(10_000) {
             !isOverlayServiceRunning(app)
         })
-        if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
-        val db = Room.databaseBuilder(app, LocalDatabase::class.java, databaseName)
+        app.deleteDatabase(isolatedDatabaseName)
+        val db = Room.databaseBuilder(app, LocalDatabase::class.java, isolatedDatabaseName)
             .addMigrations(LocalDatabase.MIGRATION_1_2, LocalDatabase.MIGRATION_2_3)
             .enableMultiInstanceInvalidation().allowMainThreadQueries().build()
         val previousState = db.records().get("driver-state")
         val now = java.time.Instant.now().toString()
+        var activity: MainActivity? = null
         try {
             assertTrue("Emulator must grant overlay permission", Settings.canDrawOverlays(app))
-            DriverWorkflowIdentityTestFixtures.seed(db, "overlay-driver", "overlay-person")
+            val vehicleId = "feature:vehicle:MH01OV1234"
+            DriverWorkflowIdentityTestFixtures.seedOperatingPair(
+                db, "overlay-driver", "overlay-person", "MH01OV1234", "overlay-assignment", now,
+            )
             val active = JSONObject().put("schemaVersion", 1).put("revision", 1)
                 .put("state", "shift_active").put("shiftStartedAt", now).put("lastEventId", "overlay-$tripId")
                 .put("shiftId", "overlay-shift-$tripId")
                 .put("shiftAuthor", JSONObject().put("personId", "overlay-person").put("role", "driver"))
                 .put("shiftContext", JSONObject().put("schemaVersion", 1).put("driverId", "overlay-driver")
-                    .put("assignmentId", "overlay-assignment").put("vehicleId", "feature:vehicle:overlay-vehicle"))
+                    .put("assignmentId", "overlay-assignment").put("vehicleId", vehicleId))
             db.records().put(StoredRecord("driver-state", JSONObject().put("value", active).toString(), 1, now))
             prepare(db, now)
+            NativeStartupRecovery.invalidate(db)
+            val startedActivity = instrumentation.startActivitySync(
+                Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as MainActivity
+            activity = startedActivity
             instrumentation.runOnMainSync {
-                val intent = Intent(activity, DriverOverlayService::class.java)
-                if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent) else activity.startService(intent)
+                val intent = Intent(startedActivity, DriverOverlayService::class.java)
+                if (Build.VERSION.SDK_INT >= 26) startedActivity.startForegroundService(intent) else startedActivity.startService(intent)
             }
             // CI emulators can take longer than the default polling window to
             // finish native startup recovery and expose the attached form window.
@@ -304,13 +308,15 @@ abstract class DriverOverlayServicePresentationTestSupport {
                     attached,
                 )
             }
-            exerciseWebView?.invoke(activity, db)
+            exerciseWebView?.invoke(startedActivity, db)
             exercise(ui, db)
         } finally {
-            instrumentation.runOnMainSync {
-                activity.stopService(Intent(activity, DriverOverlayService::class.java))
-                activity.finish()
-            }
+            activity?.let { current ->
+                instrumentation.runOnMainSync {
+                    current.stopService(Intent(current, DriverOverlayService::class.java))
+                    current.finish()
+                }
+            } ?: app.stopService(Intent(app, DriverOverlayService::class.java))
             assertTrue("Overlay service must stop after instrumentation case", waitUntil(10_000) {
                 !isOverlayServiceRunning(app)
             })
@@ -320,7 +326,7 @@ abstract class DriverOverlayServicePresentationTestSupport {
             db.close()
             shell(ui, "appops set ${app.packageName} SYSTEM_ALERT_WINDOW default")
             DriverOverlayDatabaseFactory.databaseNameOverrideForTests = null
-            if (databaseName != "sam-travels.db") app.deleteDatabase(databaseName)
+            app.deleteDatabase(isolatedDatabaseName)
         }
     }
 }
