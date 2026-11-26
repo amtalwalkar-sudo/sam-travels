@@ -145,6 +145,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
             setInput('Total cost (₹)', '810.00');
         })()
       """))
+      assertTrue("Renewal draft fields are durably saved before submission", awaitMaintenanceJavascript(page,
+        "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 6')",
+        30_000))
       assertTrue("Previous Compliance record is offered for renewal; form=" + evaluateMaintenanceWebView(page, "document.querySelector('.admin-capability-form')?.innerText || document.body.innerText"), awaitMaintenanceJavascript(page,
         "Array.from(document.querySelectorAll('.admin-capability-form label')).some(label => label.textContent.includes('Renewing previous record') && Array.from(label.querySelectorAll('option')).some(option => option.value === '$complianceId'))",
         10_000))
@@ -159,6 +162,9 @@ class ComplianceCorrectionCapacitorAcceptanceTest {
           return true;
         })()
       """))
+      assertTrue("Renewal relationship is durably saved before submission", awaitMaintenanceJavascript(page,
+        "document.querySelector('form.admin-capability-form small.admin-hint')?.textContent.includes('revision 7')",
+        30_000))
       assertTrue("Renewal form is ready to submit", awaitMaintenanceJavascript(page, """
         (() => {
           const form = [...document.querySelectorAll('form.admin-capability-form')].find(node => [...node.querySelectorAll('label')].some(label => label.textContent.includes('Compliance type / name')));
