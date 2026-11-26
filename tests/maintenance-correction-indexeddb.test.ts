@@ -20,7 +20,7 @@ describe("Maintenance correction on the browser IndexedDB repository", () => {
   afterEach(async () => {
     unregisterMaintenance?.(); unregisterMaintenance = undefined;
     unregisterVehicle?.(); unregisterVehicle = undefined;
-    for (const id of touched.splice(0)) await records.remove(id);
+    for (const id of touched.splice(0)) await browserDatabase.records.delete(id);
   });
 
   it("appends and replays a correction without changing the original IndexedDB record", async () => {
