@@ -288,8 +288,8 @@ try {
   await resumed.getByText("Fuel purchase saved.", { exact: true }).waitFor({ state: "visible", timeout: 30000 });
   const secondSubmitStatus = (await resumed.getByText("Fuel purchase saved.", { exact: true }).textContent())?.trim() ?? "";
   assert.equal(secondSubmitStatus, "Fuel purchase saved.", "second production Fuel submit failed: " + secondSubmitStatus);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit,
-    "offline Fuel submission must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeSecondSubmit + 1,
+    "offline Fuel submission must request a GPS snapshot without blocking the save");
   await context.setOffline(false);
   await resumed.getByText(/^Draft · /).waitFor({ state: "visible" });
   const operatingVehicleContext = resumed.locator(".admin-vehicle-context");
@@ -308,8 +308,8 @@ try {
   const closingFormDiagnostic = await resumed.locator("form").evaluate(form => ({ valid: form.checkValidity(), invalid: [...form.querySelectorAll(":invalid")].map(control => control.validationMessage) }));
   assert.equal(closingCheckpointStatus, "Fuel purchase saved.",
     "closing full-tank checkpoint failed: " + closingCheckpointStatus + " " + JSON.stringify(closingFormDiagnostic));
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint,
-    "closing full-tank checkpoint must not request geolocation");
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem("__fuel_geo_calls") || "0")), fuelGeoCallsBeforeClosingCheckpoint + 1,
+    "closing full-tank purchase must capture its own GPS snapshot");
   // A completed full-tank interval becomes effective on the following
   // operational date; advance the browser clock before confirming Work km.
   await page.clock.fastForward(100800000);
